@@ -196,7 +196,7 @@ test.describe("caring contacts activation wizard (seeded server)", () => {
 
     // The stage AND the value come back: a reload that restarted the sign-up would land on stage 1
     // with an empty form, which is the outcome Ruling [110] spent the client boundary to prevent.
-    await expect(page.getByTestId(WIZARD_TESTID)).toBeVisible();
+    await expect(page.locator(`[data-testid="${WIZARD_TESTID}"]:visible`)).toBeVisible();
     await expect(page.getByRole("region", { name: "Personalisation" })).toBeVisible();
     await expect(page.getByLabel("Patient’s name")).toHaveValue("Wren Example");
   });
@@ -276,10 +276,19 @@ test.describe("caring contacts activation wizard (seeded server)", () => {
     // create — which is `refused`, a different state with a different vocabulary, and the exact
     // collapse the five-state machine exists to prevent.
     let blockActivation = true;
+    let resumeActivation: (() => void) | null = null;
+    let delayInFlight = true;
     await page.route(
       (url) => activationPathPattern.test(url.pathname),
       async (route) => {
-        if (blockActivation) return route.abort("failed");
+        if (blockActivation) {
+          if (delayInFlight) {
+            await new Promise<void>((resolve) => {
+              resumeActivation = resolve;
+            });
+          }
+          return route.abort("failed");
+        }
         return route.continue();
       },
     );
@@ -291,7 +300,26 @@ test.describe("caring contacts activation wizard (seeded server)", () => {
     await page.getByLabel("Day the patient was discharged").fill(todayCalendarDay());
     await expect(page.getByTestId("caring-contacts-activation-schedule-summary")).toBeVisible();
 
-    await confirmActivation(page);
+    // Initial activation: verify control is enabled, then click to send create and delay activation in-flight
+    await page.locator('[data-testid="workspace-overlay-trigger"][data-overlay-trigger="final-activation"]').click();
+    const action = page.getByTestId("workspace-overlay-action");
+    await expect(action).toBeVisible();
+    await expect(action).not.toHaveAttribute("aria-disabled", "true");
+    await action.click();
+
+    // While the activation write is in-flight or delayed, the commit control is disabled
+    const inFlightTrigger = page.locator(
+      '[data-testid="workspace-overlay-trigger"][data-overlay-trigger="final-activation"]',
+    );
+    await inFlightTrigger.click();
+    const inFlightAction = page.getByTestId("workspace-overlay-action");
+    await expect(inFlightAction).toBeVisible();
+    await expect(inFlightAction).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Escape");
+
+    // Release delayed activation write to abort and settle into created-not-started
+    delayInFlight = false;
+    if (resumeActivation) (resumeActivation as () => void)();
 
     // THE MIDDLE STATE, as the screen actually renders it: the plan exists, it has not started, and
     // both the named statement and the live status say so.

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -333,6 +334,20 @@ describe("gradeRun", () => {
 });
 
 describe("compareToLighthouseBudget", () => {
+  it("rejects a missing configured metric in reports or baseline rows", () => {
+    const rows = completeRows();
+    const baseline = baselineFromRows(rows);
+    const config = budget({ baseline, tolerance: { performanceScore: { absolute: 0.02 } } });
+    const missingReport = rows.map((entry: Row) => ({ ...entry, performanceScore: undefined }));
+    const reportResult = compareToLighthouseBudget(missingReport, config);
+    expect(reportResult.status).toBe("fail");
+    expect(reportResult.incomplete).toContain("mobile-root: report has no valid performanceScore number");
+    const missingBaseline = Object.fromEntries(
+      Object.entries(baseline).map(([run, entry]) => [run, { ...(entry as object), performanceScore: undefined }]),
+    );
+    expect(compareToLighthouseBudget(rows, { ...config, baseline: missingBaseline }).status).toBe("fail");
+  });
+
   const baseline = baselineFromRows(completeRows());
 
   it("fails evidence when a configured tolerance metric is missing from the baseline", () => {
@@ -447,6 +462,55 @@ describe("baselineFromRows", () => {
       // Stored so a later comparison can tell a browser bump from a regression.
       chromeVersion: "HeadlessChrome/140",
     });
+  });
+});
+
+describe("check:lighthouse-budget --update", () => {
+  it("writes every configured tolerance metric into the refreshed baseline", () => {
+    // Removing the budget-aware serialization from the update path must make this
+    // fail: the refreshed baseline would omit performanceScore and reject itself.
+    const budgetPath = path.join(process.cwd(), "lighthouse-budget.json");
+    const originalBudget = readFileSync(budgetPath, "utf8");
+    const directory = mkdtempSync(path.join(tmpdir(), "lighthouse-update-"));
+    try {
+      writeFileSync(
+        budgetPath,
+        JSON.stringify({
+          enforce: true,
+          routes: ["/"],
+          strategies: ["mobile"],
+          tolerance: { performanceScore: { absolute: 0.02 } },
+          baseline: null,
+        }),
+      );
+      writeFileSync(
+        path.join(directory, "mobile-root.json"),
+        JSON.stringify({
+          requestedUrl: "http://localhost:4461/",
+          finalDisplayedUrl: "http://localhost:4461/",
+          environment: { hostUserAgent: "HeadlessChrome/140" },
+          categories: { performance: { score: 0.99 } },
+          audits: {
+            "largest-contentful-paint": { numericValue: 1000 },
+            "cumulative-layout-shift": { numericValue: 0 },
+            "total-blocking-time": { numericValue: 100 },
+            "first-contentful-paint": { numericValue: 500 },
+          },
+        }),
+      );
+
+      execFileSync(process.execPath, ["scripts/check-lighthouse-budget.mjs", "--update", "--dir", directory], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      });
+
+      const updated = JSON.parse(readFileSync(budgetPath, "utf8"));
+      expect(updated.baseline["mobile-root"].performanceScore).toBe(0.99);
+      expect(validateLighthouseBaseline(updated)).toMatchObject({ ok: true });
+    } finally {
+      writeFileSync(budgetPath, originalBudget);
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
   });
 });
 

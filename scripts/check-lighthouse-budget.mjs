@@ -307,7 +307,8 @@ export function majorityBreachDecision(samples) {
 }
 
 /** The baseline object to commit for a set of measured rows. */
-export function baselineFromRows(rows) {
+export function baselineFromRows(rows, budget) {
+  const metrics = requiredBudgetMetrics(budget);
   return Object.fromEntries(
     [...rows]
       .sort((a, b) => (a.run < b.run ? -1 : a.run > b.run ? 1 : 0))
@@ -316,10 +317,7 @@ export function baselineFromRows(rows) {
         // chromeVersion is stored so a later run can detect that the browser moved
         // underneath the baseline rather than the application regressing.
         {
-          lcpMs: row.lcpMs,
-          cls: row.cls,
-          tbtMs: row.tbtMs,
-          fcpMs: row.fcpMs,
+          ...Object.fromEntries([...metrics].map((metric) => [metric, row[metric]])),
           chromeVersion: row.chromeVersion ?? null,
         },
       ]),
@@ -584,7 +582,7 @@ function main() {
       console.error(`::error::refusing to update the baseline from incomplete evidence: ${measurementGaps.join("; ")}`);
       process.exit(1);
     }
-    const nextBaseline = baselineFromRows(rows);
+    const nextBaseline = baselineFromRows(rows, budget);
     const validation = validateLighthouseBaseline({ ...budget, baseline: nextBaseline });
     if (!validation.ok) {
       console.error(`::error::refusing to update the baseline: ${validation.errors.join("; ")}.`);
