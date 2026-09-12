@@ -196,7 +196,7 @@ describe("dev-only pending inbox loading (#707F09)", () => {
         },
       ]);
     } finally {
-      fs.rmSync(tempDir, { recursive: true, force: true });
+      fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 
