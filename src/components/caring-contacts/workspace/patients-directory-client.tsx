@@ -186,6 +186,8 @@ export type PatientsDirectoryClientProps = {
    * itself never crosses this boundary, and neither does its name or its length.
    */
   savedSearchNotApplied: boolean;
+  /** Optional initial search query safely resolved from an obfuscated session filter token (#HDCF2B). */
+  initialSearchQuery?: string;
 };
 
 export function PatientsDirectoryClient({
@@ -195,10 +197,11 @@ export function PatientsDirectoryClient({
   mayViewPlans,
   mayViewPatientNames,
   savedSearchNotApplied,
+  initialSearchQuery,
 }: PatientsDirectoryClientProps) {
   // The one place the typed name lives. It is read by `matchesQuery` and rendered back into the
   // input and the empty state, and it reaches nothing else -- no href, no form, no fetch.
-  const [rawQuery, setRawQuery] = useState("");
+  const [rawQuery, setRawQuery] = useState(initialSearchQuery ?? "");
   const query = rawQuery.trim();
   const visible = rows.filter((row) => matchesQuery(row, query));
   const filtering = filter.state !== "all" || query !== "";

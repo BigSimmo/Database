@@ -231,10 +231,13 @@ describe("scenario 2: a transient failure retries inside the original window and
     for (const attempt of forMonthOne) {
       expect(awstCalendarDay(attempt.at)).toBe("2026-04-02");
     }
+    // Attempt offsets from sendAt now follow the notification retry ladder in ./retry-queue
+    // (1m, 5m, 15m, 1h, 6h), accumulated: attempt 1 at +1m, attempt 2 at +1m+5m=+6m, attempt 3 at
+    // +6m+15m=+21m. See ContactRetryPolicy's module note in service-rules.ts.
     expect(forMonthOne.map((attempt) => attempt.at.toISOString())).toEqual([
-      "2026-04-02T02:00:00.000Z",
-      "2026-04-02T02:45:00.000Z",
-      "2026-04-02T03:30:00.000Z",
+      "2026-04-02T02:01:00.000Z",
+      "2026-04-02T02:06:00.000Z",
+      "2026-04-02T02:21:00.000Z",
     ]);
 
     expect(run.report.dispatched).toHaveLength(10);
@@ -249,13 +252,19 @@ describe("scenario 2: a transient failure retries inside the original window and
   });
 
   it("gives up after the cap and records the contact as missed, having sent nothing", async () => {
+    // The governed default now caps at 5 attempts (./retry-queue's MAX_RETRY_ATTEMPTS), so all
+    // five must fail transiently to exercise giving up -- `scriptedTransport` defaults any
+    // unscripted attempt to "delivered", so a shorter script here would let attempt 4 succeed by
+    // accident rather than by the scenario asking it to.
     const run = await driveTwelveMonthSimulation(
       simulationInput({
-        transport: scriptedTransport({ 3: ["transient", "transient", "transient"] }),
+        transport: scriptedTransport({
+          3: ["transient", "transient", "transient", "transient", "transient"],
+        }),
       }),
     );
 
-    expect(run.attempts.filter((attempt) => attempt.sequence === 3)).toHaveLength(3);
+    expect(run.attempts.filter((attempt) => attempt.sequence === 3)).toHaveLength(5);
     expect(sequencesOf(run.report.missed)).toEqual([3]);
     expect(sequencesOf(run.report.dispatched)).toEqual([1, 2, 4, 5, 6, 7, 8, 9, 10]);
     expect(stateOf(run, 3)).toBe("missed");
@@ -272,8 +281,13 @@ describe("scenario 2: a transient failure retries inside the original window and
 // ---------------------------------------------------------------------------
 
 describe("the retry policy has a governed home", () => {
-  it("is two retries, three attempts in total, and is the value the driver uses when none is given", async () => {
-    expect(DEFAULT_CONTACT_RETRY_POLICY).toEqual({ maxAttempts: 3, retryIntervalMinutes: 45 });
+  it("is the notification retry backoff ladder (#8K9W2B), and is the value the driver uses when none is given", async () => {
+    // The governed default is now ./retry-queue's own ladder and cap, not a caring-contacts-only
+    // number -- see ContactRetryPolicy's module note in service-rules.ts for why.
+    expect(DEFAULT_CONTACT_RETRY_POLICY).toEqual({
+      maxAttempts: 5,
+      backoffMs: [60_000, 300_000, 900_000, 3_600_000, 21_600_000],
+    });
 
     const run = await driveTwelveMonthSimulation(
       simulationInput({ transport: scriptedTransport({ 1: ["transient", "transient", "delivered"] }) }),
@@ -281,7 +295,10 @@ describe("the retry policy has a governed home", () => {
 
     const forFirst = run.attempts.filter((attempt) => attempt.sequence === 1);
     expect(forFirst).toHaveLength(3);
-    expect(forFirst[1].at.getTime() - forFirst[0].at.getTime()).toBe(45 * 60_000);
+    // Attempt 2's offset minus attempt 1's is the SECOND ladder step (5m) -- attempt 1 already
+    // carries the first step (1m) as its own offset from sendAt, matching how
+    // NotificationRetryQueue schedules its own first attempt one minute after enqueue.
+    expect(forFirst[1].at.getTime() - forFirst[0].at.getTime()).toBe(300_000);
     expect(stateOf(run, 1)).toBe("delivered");
   });
 
@@ -295,7 +312,7 @@ describe("the retry policy has a governed home", () => {
 
     expect(run.attempts.filter((attempt) => attempt.sequence === 1)).toHaveLength(1);
     expect(stateOf(run, 1)).toBe("missed");
-    expect(DEFAULT_CONTACT_RETRY_POLICY.maxAttempts).toBe(3);
+    expect(DEFAULT_CONTACT_RETRY_POLICY.maxAttempts).toBe(5);
   });
 });
 
@@ -305,21 +322,24 @@ describe("the retry policy has a governed home", () => {
 
 describe("scenario 3: retries that would leave the window are abandoned, never sent late", () => {
   it("stops at the window edge and marks the contact missed even though the next attempt would have succeeded", async () => {
-    // 17:00 AWST + 45 + 45 = 18:30, past the approved 18:00 boundary.
+    // 17:00 AWST + the ladder's first three offsets (1m, 6m, 21m cumulative) all land inside the
+    // window; the FOURTH attempt's offset (1h21m cumulative) does not: 17:00 + 1h21m = 18:21,
+    // past the approved 18:00 boundary.
     const run = await driveTwelveMonthSimulation(
       simulationInput({
         plan: planInput({ sendingPreference: "earlyEvening" }),
-        // No retryPolicy: the governed default is 3 attempts 45 minutes apart, and the third
-        // landing outside the window is the interaction this scenario exists to prove.
-        transport: scriptedTransport({ 3: ["transient", "transient", "delivered"] }),
+        // No retryPolicy: the governed default is ./retry-queue's own ladder, and the fourth
+        // attempt landing outside the window is the interaction this scenario exists to prove.
+        transport: scriptedTransport({ 3: ["transient", "transient", "transient", "delivered"] }),
       }),
     );
 
     const forMonthOne = run.attempts.filter((attempt) => attempt.sequence === 3);
-    expect(forMonthOne).toHaveLength(2);
+    expect(forMonthOne).toHaveLength(3);
     expect(forMonthOne.map((attempt) => attempt.at.toISOString())).toEqual([
-      "2026-04-02T09:00:00.000Z", // 17:00 AWST
-      "2026-04-02T09:45:00.000Z", // 17:45 AWST
+      "2026-04-02T09:01:00.000Z", // 17:01 AWST (+1m)
+      "2026-04-02T09:06:00.000Z", // 17:06 AWST (+1m+5m)
+      "2026-04-02T09:21:00.000Z", // 17:21 AWST (+1m+5m+15m)
     ]);
 
     expect(sequencesOf(run.report.missed)).toEqual([3]);
@@ -343,10 +363,12 @@ describe("scenario 3: retries that would leave the window are abandoned, never s
   it("never lets a retry roll into the next day's window", async () => {
     // A retry interval long enough to land inside 09:00-18:00 of the FOLLOWING day if the day were
     // not checked: 17:00 + 17h = 10:00 the next morning, which is inside the window by hour alone.
+    // The first offset is 0 (attempt 1 stays exactly at sendAt) so this override isolates the
+    // day-rollover interaction from the ladder's own first-attempt delay.
     const run = await driveTwelveMonthSimulation(
       simulationInput({
         plan: planInput({ sendingPreference: "earlyEvening" }),
-        retryPolicy: { maxAttempts: 2, retryIntervalMinutes: 17 * 60 },
+        retryPolicy: { maxAttempts: 2, backoffMs: [0, 17 * 60 * 60_000] },
         transport: scriptedTransport({ 3: ["transient", "delivered"] }),
       }),
     );
@@ -547,9 +569,11 @@ describe("scenario 7: nothing is dispatched at or after a recorded death", () =>
   });
 
   it("does not send when the death lands between two retry attempts", async () => {
+    // Attempt 1 is at sendAt+1m (the ladder's first offset) and attempt 2 at sendAt+6m -- the
+    // death at +3m must land strictly between the two for this scenario to prove what it claims.
     const run = await driveTwelveMonthSimulation(
       simulationInput({
-        events: [deathAt(minutesAfter(MONTH_3_AT, 20))],
+        events: [deathAt(minutesAfter(MONTH_3_AT, 3))],
         transport: scriptedTransport({ 5: ["transient", "delivered", "delivered"] }),
       }),
     );

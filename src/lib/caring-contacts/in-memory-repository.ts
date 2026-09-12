@@ -532,6 +532,11 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
   return {
     async createPlan(input: CreatePlanInput, context: WriteContext) {
+      const name =
+        input?.patientDetail?.patientName ?? (input as unknown as { patientName?: string })?.patientName ?? "";
+      if (typeof name !== "string" || name.trim().length === 0) {
+        throw new Error("Validation error: patient name must not be blank");
+      }
       return runWrite<PlanRecord>({
         method: "createPlan",
         input,

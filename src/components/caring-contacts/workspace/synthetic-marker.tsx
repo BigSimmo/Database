@@ -27,11 +27,17 @@ export const FICTIONAL_DATA_MARKER = "Synthetic prototype — fictional data onl
  * from the test id, so the print rule in `globals.css` that keeps this visible
  * does not depend on a test hook.
  */
-export function SyntheticMarker({ className }: { className?: string }) {
+export function SyntheticMarker({
+  className,
+  testId = "caring-contacts-synthetic-marker",
+}: {
+  className?: string;
+  testId?: string;
+}) {
   return (
     <span
       data-synthetic-marker
-      data-testid="caring-contacts-synthetic-marker"
+      data-testid={testId}
       className={cn(
         "inline-flex items-center rounded-[var(--radius-sm)] border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 py-1 text-2xs font-semibold text-[color:var(--clinical-accent)] sm:text-xs forced-colors:border-[CanvasText]",
         className,
