@@ -135,8 +135,8 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
     });
   });
 
-  describe("archived done without allowArchived reaches merge path", () => {
-    it("applyRequestBatch merges outcome for a one-request close of already-archived #005", () => {
+  describe("archived done with createRequest allowArchived reaches merge path", () => {
+    it("applyRequestBatch merges outcome when payload.allowArchived is set (createRequest path)", () => {
       const doneRequest = {
         version: 1,
         id: "eeee1111-1111-4111-8111-111111111111",
@@ -145,6 +145,9 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
         payload: {
           id: "#005",
           outcome: "Landed after prior reconciliation archived the row",
+          // Mirrors createRequest marking archive-aware closes so reconcile
+          // does not silently no-op via the idempotent archived fast-path.
+          allowArchived: true,
         },
       };
 
@@ -157,6 +160,20 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
       expect(row?.raw).toContain(
         "Original outcome text from PR #10 \\| Note: Landed after prior reconciliation archived the row",
       );
+    });
+
+    it("applyRequestBatch no-ops archived done without allowArchived (integrity)", () => {
+      const staleDone = {
+        version: 1,
+        id: "eeee3333-3333-4333-8333-333333333333",
+        createdOn: "2026-08-15",
+        action: "done",
+        payload: {
+          id: "#005",
+          outcome: "Should not merge without allowArchived",
+        },
+      };
+      expect(applyRequestBatch(BASE_LEDGER, [staleDone]).markdown).toBe(BASE_LEDGER);
     });
 
     it("applyRequest with idempotent merges archived done when payload.allowArchived is set", () => {
