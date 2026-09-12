@@ -26,10 +26,10 @@ on:
         default: ""
 
 concurrency:
-  # Hold the shared mutation lock for the whole operator run. A repair push
-  # wakes the batch controller before the mutate job starts; job-level locks
-  # let that wake-up replace the pending mutate job in GitHub's one-slot queue.
-  group: pr-batch-mutation
+  # Keep the complete operator run in its own serialized lane. Sharing the
+  # controller's pending slot lets event-driven wake-ups evict an authorized
+  # operator before it starts; job-level locks can also evict its mutate tail.
+  group: codex-run-pr-operator
   cancel-in-progress: false
 
 permissions:

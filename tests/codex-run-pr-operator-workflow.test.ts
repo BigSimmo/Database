@@ -9,9 +9,11 @@ it("authenticates batch state and uses only supported concurrency keys", () => {
   expect(workflow).not.toContain("queue: max");
 });
 
-it("holds the shared mutation lock for the complete operator workflow", () => {
-  expect(workflow).toMatch(/\nconcurrency:\n(?:  #.*\n){3}  group: pr-batch-mutation\n  cancel-in-progress: false\n/u);
-  expect(workflow.match(/group: pr-batch-mutation/gu)).toHaveLength(1);
+it("keeps the complete operator workflow in a dedicated serialized lane", () => {
+  expect(workflow).toMatch(
+    /\nconcurrency:\n(?:  #.*\n){3}  group: codex-run-pr-operator\n  cancel-in-progress: false\n/u,
+  );
+  expect(workflow).not.toContain("group: pr-batch-mutation");
   expect(workflow).not.toContain("group: codex-run-pr-${{ inputs.pr_number }}");
 });
 
