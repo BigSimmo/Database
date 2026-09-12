@@ -314,7 +314,8 @@ function fileToRoute(filePath: string, kind: RouteKind) {
 
 function collectFiles(root: string, targetFileName: string): string[] {
   const files: string[] = [];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
+  const entries = readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  for (const entry of entries) {
     const fullPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...collectFiles(fullPath, targetFileName));
@@ -322,7 +323,7 @@ function collectFiles(root: string, targetFileName: string): string[] {
     }
     if (entry.isFile() && entry.name === targetFileName) files.push(fullPath);
   }
-  return files;
+  return files.sort((a, b) => a.localeCompare(b));
 }
 
 function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
@@ -368,7 +369,12 @@ function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
         return target ? { ...route, target } : null;
       })
       .filter((value): value is RedirectRoute => Boolean(value))
-      .sort((left, right) => left.route.localeCompare(right.route))
+      .sort(
+        (left, right) =>
+          left.route.localeCompare(right.route) ||
+          left.file.localeCompare(right.file) ||
+          left.target.localeCompare(right.target),
+      )
   );
 }
 
