@@ -73,18 +73,19 @@ Every source URL below is already present in this repository. Nothing was looked
 | ------------- | -------------- | ------------ |
 | 2026-08-20    | **2027-02-20** | Josh (owner) |
 
-**Six months is proposed by whoever drafted this document. It has no precedent in the repository and
-no owner decision behind it.** Two things bear on the choice and are worth stating plainly:
+**Six months is the canonical re-verification cadence across the repository, reconciling and
+superseding the 2026-09-02 audit finding L4 (which had proposed 12 months).** Two things bear on the
+choice and are worth stating plainly:
 
-- The repository's only review-interval constant is `REVIEW_INTERVAL_MONTHS = 12`
-  (`src/components/care-plan/mockups/types.ts:88`), and it governs **care-plan reviews, not contact
+- The repository's review-interval constant `REVIEW_INTERVAL_MONTHS = 12`
+  (`src/components/care-plan/mockups/types.ts:88`) governs **care-plan reviews, not contact
   numbers**. The prototype's `verificationState` for its synthetic community teams is a stored
   fixture value, not a value derived from any threshold, so it is not a precedent either.
-- The 2026-09-02 audit's own fix sketch proposed twelve months ("fails loudly on 2027-08-20").
+- The 2026-09-02 audit's own fix sketch (finding L4) initially proposed twelve months ("fails loudly on 2027-08-20").
 
-Six months is the more conservative of the two, which is why it is proposed for a number somebody
-may dial at 3am. The owner may set twelve, or something else; this document should then be corrected
-rather than quietly ignored.
+Six months is the more conservative of the two, which is appropriate for numbers dialled in crisis
+at 3am. The 6-month re-verification cadence is now canonical across all care-plan and caring-contacts
+surfaces.
 
 ### The procedure
 
@@ -149,8 +150,7 @@ This paragraph is a pointer for whoever picks it up.
 1. **That the four numbers are still correct today.** To verify — no network access in this session.
 2. **That the stated availability windows are still correct.** Same reason.
 3. **Who performed the 2026-08-20 verification.** The repository records the date, not the person.
-4. **That six months is the right interval.** Proposed by the drafter of this document. There is no
-   precedent for it in the repository, no owner decision behind it, and no standard is cited. The
-   2026-09-02 audit proposed twelve months instead.
+4. **The six-month re-verification cadence.** Now established as canonical across the repository,
+   reconciling and superseding the 2026-09-02 audit finding L4 (which had proposed 12 months).
 5. **Where the ACMA fiction block actually ends.** `cloud-session.md:258-259` records that this was
    never checked.

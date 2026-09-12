@@ -31,6 +31,7 @@ import {
   writePlanDraft,
   type PlanDraft,
 } from "@/components/caring-contacts/workspace/plan-wizard/plan-draft";
+import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import { DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS } from "@/lib/caring-contacts/synthetic-contacts";
 
 const REFERRAL = "SYN-REFERRAL-001";
@@ -123,7 +124,9 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
   it("gives the draft back after a reload, which is the whole reason it is written down", () => {
     writePlanDraft(filledDraft());
 
-    expect(readPlanDraft(REFERRAL)).toEqual(filledDraft());
+    // #M6P1QQ: `writePlanDraft` always writes back the version actually held, bumped by one, so a
+    // single write against a fresh draft (nothing held yet -> version 0) lands as version 1.
+    expect(readPlanDraft(REFERRAL)).toEqual({ ...filledDraft(), version: 1 });
   });
 
   it("clears on abandoning the flow, so a clinician who walks away leaves nothing behind", () => {
@@ -201,8 +204,14 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
     expect(writePlanDraft(filledDraft()), "a refused write reported success").toBe(false);
     expect(setItem, "the refusal was never actually exercised").toHaveBeenCalled();
 
-    expect(planDraftSnapshot(), "the refused write is invisible to the screen").toEqual(filledDraft());
-    expect(readPlanDraft(REFERRAL)).toEqual(filledDraft());
+    // #M6P1QQ: still version 1 -- the in-memory fallback goes through the same version bump as a
+    // landed write, since a refused write must be usable for the rest of this page exactly as a
+    // written one would be.
+    expect(planDraftSnapshot(), "the refused write is invisible to the screen").toEqual({
+      ...filledDraft(),
+      version: 1,
+    });
+    expect(readPlanDraft(REFERRAL)).toEqual({ ...filledDraft(), version: 1 });
     // Nothing reached the tab-scoped store, so nothing outlives this page.
     expect(storedRaw()).toBeNull();
     // And the notice must say the draft is NOT being kept, rather than promising a memory the
@@ -220,7 +229,12 @@ describe("the caring-contacts plan draft — tab lifetime is enforced, not promi
     expect(writePlanDraft(later)).toBe(true);
 
     expect(planDraftIsHeld()).toBe(true);
-    expect(planDraftSnapshot(), "the stale in-memory draft shadowed the one that was stored").toEqual(later);
+    // #M6P1QQ: the failed write above already bumped the held (in-memory) version to 1, so this
+    // one -- the first that actually lands in storage -- is version 2, not 1.
+    expect(planDraftSnapshot(), "the stale in-memory draft shadowed the one that was stored").toEqual({
+      ...later,
+      version: 2,
+    });
     expect(storedRaw()).not.toBeNull();
   });
 
@@ -531,5 +545,92 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
       }),
     );
     expect(readPlanDraft(REFERRAL), "a draft carrying an empty plan identifier was accepted").toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #M6P1QQ: the version check is wired into THIS file's own writePlanDraft, the exact function the
+// live plan wizard imports and calls -- not only into DraftStore's isolated, never-imported class
+// (see tests/caring-contacts-draft-store.test.ts for that module in a vacuum). These tests exercise
+// the real production entry point directly, proving a stale/concurrent save on the actual clinical
+// draft path is caught rather than silently overwriting.
+// ---------------------------------------------------------------------------
+
+describe("the caring-contacts plan draft — optimistic concurrency on the real write path (#M6P1QQ)", () => {
+  it("writes version 1 on the first save of a fresh draft, and increments on every save after", () => {
+    expect(writePlanDraft(filledDraft())).toBe(true);
+    expect(planDraftSnapshot()?.version).toBe(1);
+
+    expect(writePlanDraft({ ...filledDraft(), stage: "personalisation" })).toBe(true);
+    expect(planDraftSnapshot()?.version).toBe(2);
+  });
+
+  it("throws DraftConcurrencyError, not a silent overwrite, when the expected version is stale", () => {
+    writePlanDraft(filledDraft()); // version 1
+
+    // A write computed from version 1 loses the race to a write already at version 1 -- exactly the
+    // shape of the same-tab race PlanDraft.version's module note describes: two writes built from
+    // the same pre-commit render, one landing after the other already advanced the version.
+    const staleChange = { ...filledDraft(), stage: "personalisation" as const };
+    expect(() => writePlanDraft(staleChange, { expectedVersion: 0 })).toThrow(DraftConcurrencyError);
+
+    // Nothing was clobbered: the draft actually held is still exactly what the first write left.
+    expect(planDraftSnapshot()).toEqual({ ...filledDraft(), version: 1 });
+  });
+
+  it("the thrown error carries what is actually held, not what the failed write attempted, so a caller can re-base onto it", () => {
+    writePlanDraft(filledDraft()); // version 1
+    writePlanDraft({ ...filledDraft(), stage: "personalisation" }); // version 2, "personalisation"
+
+    let caught: DraftConcurrencyError<PlanDraft> | undefined;
+    try {
+      writePlanDraft({ ...filledDraft(), stage: "review" }, { expectedVersion: 1 });
+    } catch (error) {
+      if (error instanceof DraftConcurrencyError) caught = error;
+    }
+
+    expect(caught).toBeDefined();
+    expect(caught?.expectedVersion).toBe(1);
+    expect(caught?.currentVersion).toBe(2);
+    // The LIVE draft, not the caller's stale copy -- reads "personalisation" (what actually landed),
+    // never "review" (what the failed write asked for) and never a version-1 snapshot.
+    expect(caught?.currentDraft?.stage).toBe("personalisation");
+    expect(caught?.currentDraft?.version).toBe(2);
+  });
+
+  it("succeeds when the expected version matches what is actually held", () => {
+    writePlanDraft(filledDraft()); // version 1
+    expect(() => writePlanDraft({ ...filledDraft(), stage: "personalisation" }, { expectedVersion: 1 })).not.toThrow();
+    expect(planDraftSnapshot()?.version).toBe(2);
+  });
+
+  it("re-basing onto the live draft after a conflict never loses either write -- the retry pattern plan-wizard.tsx's writeDraftWithRetry follows", () => {
+    // This is the exact shape of the fix: a caller whose write was refused re-reads the live draft
+    // and re-applies its OWN change on top of it, rather than discarding either edit.
+    const base = writePlanDraft(filledDraft()) && planDraftSnapshot()!; // version 1
+    expect(base).toBeTruthy();
+    if (!base) throw new Error("setup write did not land");
+
+    // Someone else's write lands first (simulating the other half of the same-render race).
+    writePlanDraft(
+      { ...base, decisions: { ...base.decisions, identityChecked: true } },
+      { expectedVersion: base.version },
+    ); // version 2
+
+    let live: PlanDraft;
+    try {
+      writePlanDraft({ ...base, stage: "personalisation" }, { expectedVersion: base.version });
+      throw new Error("expected a DraftConcurrencyError");
+    } catch (error) {
+      if (!(error instanceof DraftConcurrencyError)) throw error;
+      live = error.currentDraft as PlanDraft;
+    }
+    writePlanDraft({ ...live, stage: "personalisation" }, { expectedVersion: live.version });
+
+    const settled = planDraftSnapshot();
+    // BOTH edits survive: the identity check that landed first, and the stage change that retried.
+    expect(settled?.decisions.identityChecked).toBe(true);
+    expect(settled?.stage).toBe("personalisation");
+    expect(settled?.version).toBe(3);
   });
 });
