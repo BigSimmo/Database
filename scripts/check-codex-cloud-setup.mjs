@@ -161,7 +161,9 @@ function validateSupabaseMcpUrl(urlString, label, errors) {
 export function validateCodexProjectMcpConfiguration(text) {
   const errors = [];
   const rootConfiguration = text.split(/^\s*\[/m, 1)[0];
-  if (/^\s*(?:model|model_reasoning_effort)\s*=/m.test(rootConfiguration)) {
+  if (
+    /^\s*(?:(?:model|model_reasoning_effort)|(["'])(?:model|model_reasoning_effort)\1)\s*=/m.test(rootConfiguration)
+  ) {
     errors.push(
       ".codex/config.toml must not set repository-wide model or model_reasoning_effort; leave them to the task or desktop picker.",
     );

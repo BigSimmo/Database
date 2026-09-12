@@ -423,16 +423,19 @@ describe("Codex Cloud environment contract", () => {
   it("keeps project .codex/config.toml MCP registrations disabled and secret-free", () => {
     const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
     expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
-    expect(
-      validateCodexProjectMcpConfiguration(
-        tracked.replace(
-          "[mcp_servers.figma_cloud]",
-          'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "high"\n\n[mcp_servers.figma_cloud]',
+    for (const projectPreference of [
+      'model = "gpt-5.6-sol"',
+      '"model" = "gpt-5.6-sol"',
+      "'model_reasoning_effort' = 'high'",
+    ]) {
+      expect(
+        validateCodexProjectMcpConfiguration(
+          tracked.replace("[mcp_servers.figma_cloud]", `${projectPreference}\n\n[mcp_servers.figma_cloud]`),
         ),
-      ),
-    ).toContain(
-      ".codex/config.toml must not set repository-wide model or model_reasoning_effort; leave them to the task or desktop picker.",
-    );
+      ).toContain(
+        ".codex/config.toml must not set repository-wide model or model_reasoning_effort; leave them to the task or desktop picker.",
+      );
+    }
     expect(
       validateCodexProjectMcpConfiguration(tracked.replace("[mcp_servers.railway]", "[mcp_servers.railway_cloud]")),
     ).toContain(
