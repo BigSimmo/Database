@@ -147,7 +147,18 @@ export function applyRequest(markdown, request, options = {}) {
     }
   }
   const allowArchived = Boolean(options.allowArchived ?? request.payload?.allowArchived);
-  if (options.idempotent && ["done", "update"].includes(request.action) && !allowArchived) {
+  let autoAllowArchived = allowArchived;
+  // A done request against an already-archived row must reach the archive-outcome
+  // merge path even without a fingerprint / explicit allowArchived flag. Otherwise
+  // the idempotent fast-path below silently drops the landed immutable outcome.
+  if (request.action === "done" && !autoAllowArchived && typeof request.payload?.id === "string") {
+    const parsed = parseIssues(markdown);
+    const row = findRow(parsed, request.payload.id);
+    if (row?.table === "archive") {
+      autoAllowArchived = true;
+    }
+  }
+  if (options.idempotent && ["done", "update"].includes(request.action) && !autoAllowArchived) {
     const id = request.payload?.id;
     if (typeof id === "string") {
       const parsed = parseIssues(markdown);
@@ -157,7 +168,6 @@ export function applyRequest(markdown, request, options = {}) {
       }
     }
   }
-  let autoAllowArchived = allowArchived;
   if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = issueRowFingerprint(markdown, id);
@@ -774,6 +784,9 @@ function createRequest(action, argv) {
         if (!isArchived) {
           throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
         }
+        // Carry archive-aware intent so reconcile merges the outcome instead of
+        // no-oping via the idempotent archived fast-path.
+        payload.allowArchived = true;
       } else {
         throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
       }
@@ -1146,6 +1159,19 @@ function selfTest() {
   const idempResult = applyRequest(resolved, idempDone);
   if (!idempResult.includes("done \\| Note: idempotent note")) {
     throw new Error("self-test failed: idempotent close did not merge outcome note into archive row");
+  }
+  // One-request batch against an already-archived id (no fingerprint / allowArchived)
+  // must still merge the outcome — reproduces the createRequest→reconcile silent omit.
+  const archivedClose = {
+    version: 1,
+    id: "99999999-4444-4444-8444-444444444444",
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: "#000", outcome: "post-archive close note" },
+  };
+  const archivedBatch = applyRequestBatch(base, [archivedClose]);
+  if (!archivedBatch.markdown.includes("done \\| Note: post-archive close note")) {
+    throw new Error("self-test failed: one-request archived done batch did not merge outcome");
   }
   if (validateRequest({ ...add, payload: {} }).length === 0)
     throw new Error("self-test failed: invalid request accepted");

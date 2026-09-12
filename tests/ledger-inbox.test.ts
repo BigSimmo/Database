@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { applyRequest, applyRequestBatch, planRequestBatch } from "../scripts/ledger-inbox.mjs";
-import { mergeArchiveOutcome, resolveIssue } from "../scripts/outstanding-issues.mjs";
+import { mergeArchiveOutcome, pruneResolvedIdFromQueue, resolveIssue } from "../scripts/outstanding-issues.mjs";
 import { checkIssues, parseIssues, issueRowFingerprint } from "../scripts/check-outstanding-issues.mjs";
 
 const BASE_LEDGER = [
@@ -132,6 +132,66 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
       expect(mergeArchiveOutcome("PR #1 \\| Note: PR #2", "PR #2")).toBe("PR #1 \\| Note: PR #2");
       expect(mergeArchiveOutcome("PR #1 \\| Note: PR #2", "PR #3")).toBe("PR #1 \\| Note: PR #2 \\| Note: PR #3");
       expect(mergeArchiveOutcome("", "PR #1")).toBe("PR #1");
+    });
+  });
+
+  describe("archived done without allowArchived reaches merge path", () => {
+    it("applyRequestBatch merges outcome for a one-request close of already-archived #005", () => {
+      const doneRequest = {
+        version: 1,
+        id: "eeee1111-1111-4111-8111-111111111111",
+        createdOn: "2026-08-15",
+        action: "done",
+        payload: {
+          id: "#005",
+          outcome: "Landed after prior reconciliation archived the row",
+        },
+      };
+
+      const result = applyRequestBatch(BASE_LEDGER, [doneRequest]);
+      expect(checkIssues(result.markdown, { prettierIgnored: true })).toEqual([]);
+
+      const parsed = parseIssues(result.markdown);
+      const row = parsed.rows.find((r) => r.id === "#005");
+      expect(row?.table).toBe("archive");
+      expect(row?.raw).toContain(
+        "Original outcome text from PR #10 \\| Note: Landed after prior reconciliation archived the row",
+      );
+    });
+
+    it("applyRequest with idempotent merges archived done when payload.allowArchived is set", () => {
+      const doneRequest = {
+        version: 1,
+        id: "eeee2222-2222-4222-8222-222222222222",
+        createdOn: "2026-08-15",
+        action: "done",
+        payload: {
+          id: "#005",
+          outcome: "Archive-aware queued close",
+          allowArchived: true,
+        },
+      };
+      const result = applyRequest(BASE_LEDGER, doneRequest, { idempotent: true });
+      expect(result).toContain("Original outcome text from PR #10 \\| Note: Archive-aware queued close");
+    });
+  });
+
+  describe("lowercase Crockford locator queue pruning", () => {
+    it("resolveIssue with lowercase display id archives and prunes uppercase queue citation", () => {
+      const updated = resolveIssue(BASE_LEDGER, "#dredwa", "Closed via lowercase locator");
+      expect(checkIssues(updated, { prettierIgnored: true })).toEqual([]);
+      expect(updated).not.toContain("`#DREDWA`");
+      expect(updated).not.toContain("`#dredwa`");
+      const parsed = parseIssues(updated);
+      const row = parsed.rows.find((r) => r.id === "#DREDWA");
+      expect(row?.table).toBe("archive");
+      expect(row?.raw).toContain("Closed via lowercase locator");
+    });
+
+    it("pruneResolvedIdFromQueue normalizes lowercase target against uppercase citations", () => {
+      const pruned = pruneResolvedIdFromQueue(BASE_LEDGER, "#dredwa");
+      expect(pruned).not.toContain("`#DREDWA`");
+      expect(pruned).toContain("`#001`");
     });
   });
 

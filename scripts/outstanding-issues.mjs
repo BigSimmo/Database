@@ -143,7 +143,9 @@ function isQueueSeparatorRow(cells) {
  * - Renumbers Order 1..N to close gaps (skill contract).
  */
 export function pruneResolvedIdFromQueue(markdown, id) {
-  const target = String(id);
+  // Normalize so lowercase Crockford locators (accepted by validate/findRow)
+  // still prune uppercase queue citations.
+  const target = normalizeIssueDisplayId(id);
 
   const lines = markdown.split("\n");
   const queueStart = lines.findIndex((line) => line.startsWith("## Recommended execution queue"));
@@ -161,9 +163,9 @@ export function pruneResolvedIdFromQueue(markdown, id) {
 
     const idCell = cells[1] ?? "";
     const cited = issueIdCitations(idCell);
-    if (!cited.includes(target)) continue;
+    if (!cited.some((candidate) => normalizeIssueDisplayId(candidate) === target)) continue;
 
-    const remaining = cited.filter((candidate) => candidate !== target);
+    const remaining = cited.filter((candidate) => normalizeIssueDisplayId(candidate) !== target);
     if (remaining.length === 0) {
       lines.splice(index, 1);
       continue;
