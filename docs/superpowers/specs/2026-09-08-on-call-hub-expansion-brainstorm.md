@@ -71,7 +71,7 @@ entirely.
 - Parking at night, and how to request a security escort to the car
 - Which doors lock at what time, and how to get in after hours
 - Mobile phone dead zones, and the nearest landline
-- Staff Wi-Fi
+- Staff Wi-Fi — how to obtain access, never the password in this field
 - Travel between sites: how, and who pays
 - Accommodation for regional terms
 - Lockers and scrub access
