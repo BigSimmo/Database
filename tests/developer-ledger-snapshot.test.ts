@@ -29,4 +29,10 @@ describe("ledger snapshot", () => {
     expect(freshness.contentAt).toBeNull();
     expect(freshness.ageHours).toBeNull();
   });
+
+  it("reads live pending requests from inbox in non-production environments", () => {
+    const snapshot = loadLedgerSnapshot();
+    expect(Array.isArray(snapshot.pending)).toBe(true);
+    expect(snapshot.counts.pending).toBe(snapshot.pending.length);
+  });
 });
