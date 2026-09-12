@@ -1,5 +1,8 @@
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
+export type ClientRagAnswerPayload = RagAnswer;
+export type ClientSearchResult = SearchResult;
+
 // Route-boundary trim of the answer payload. The retrieval pipeline carries
 // full chunk text plus server-only context on every source (adjacent_context
 // for generation packing, memory cards, table facts, index-unit matches,
