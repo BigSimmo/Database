@@ -67,6 +67,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       .createSignedUrl(image.storage_path, signedUrlTtlSeconds);
 
     if (signed.error) throw new Error(signed.error.message);
+    if (!signed.data?.signedUrl) {
+      throw new PublicApiError("Failed to generate signed URL for image.", 500);
+    }
     return NextResponse.json({
       url: signed.data.signedUrl,
       mimeType: image.mime_type,

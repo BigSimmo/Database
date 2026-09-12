@@ -35,6 +35,7 @@ import {
   syntheticReviewTriggers,
   syntheticUsers,
 } from "@/components/care-plan/mockups/fixtures";
+import { syntheticPatientResources } from "@/components/care-plan/mockups/patient-plan-fixtures";
 import {
   FIRST_MINUTE_CONTENT_KEYS,
   MANAGEMENT_PLAN_REQUIRED_CONTENT_KEYS,
@@ -73,7 +74,7 @@ const snapshotSource: PatientSnapshotSource = {
   edPresentations: syntheticEdPresentations,
 };
 
-const serialisedFixtures = JSON.stringify(fixtureBundle);
+const serialisedFixtures = JSON.stringify({ ...fixtureBundle, syntheticPatientResources });
 
 function collectStrings(value: unknown, keyFilter: (key: string) => boolean, into: string[], key = ""): void {
   if (typeof value === "string") {

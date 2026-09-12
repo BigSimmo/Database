@@ -10,6 +10,7 @@ import {
   selectBestSourceRecommendation,
 } from "../src/lib/evidence";
 import { documentCitationHref } from "../src/lib/citations";
+import { annotateSearchResults, queryCoreTerms, requestedMonitoringCadence } from "../src/lib/evidence-relevance";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult>): SearchResult {
@@ -29,6 +30,240 @@ function result(overrides: Partial<SearchResult>): SearchResult {
     ...overrides,
   };
 }
+
+describe("P12C semantic query terms", () => {
+  it.each([
+    "Lithium levels are checked in adults every three months.",
+    "Lithium levels and renal function are checked in adults every three months.",
+    "Valproate levels fluctuate and lithium levels and renal function are checked in adults every three months.",
+  ])("P12C R4 binds adult context separately from the measured noun: %s", (content) => {
+    const question = "How often are lithium levels checked in adults?";
+    expect.soft(requestedMonitoringCadence(question, content)).toBe(true);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance,
+    ).toMatchObject({ contentMatchedTerms: expect.arrayContaining(["frequency"]), missingTerms: [] });
+  });
+  it.each([
+    "Lithium levels are checked every three months.",
+    "Lithium levels are checked in children every three months.",
+    "Lithium levels are not checked in adults every three months.",
+    "Valproate levels are checked in adults at baseline and lithium levels are checked every three months.",
+    "Valproate levels fluctuate in adults and lithium levels are checked every three months.",
+    "Lithium levels are checked every three months and check valproate levels in adults.",
+    "Lithium levels are checked every three months and valproate levels are checked in adults.",
+    "Lithium levels are checked every three months. Valproate levels are checked in adults at baseline.",
+  ])("P12C R4 refuses missing, conflicting or foreign adult context: %s", (content) => {
+    const question = "How often are lithium levels checked in adults?";
+    expect.soft(requestedMonitoringCadence(question, content)).toBe(false);
+    expect(
+      annotateSearchResults(question, [result({ title: "Adult monitoring", section_heading: null, content })])[0]
+        ?.relevance?.missingTerms,
+    ).toContain("frequency");
+  });
+  it("P12C R4 retains an omitted requested qualifier beyond adult population", () => {
+    const question = "How often are lithium levels checked in older adults?";
+    const content = "Lithium levels are checked in adults every three months.";
+    expect.soft(requestedMonitoringCadence(question, content)).toBe(false);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance
+        ?.missingTerms,
+    ).toEqual(expect.arrayContaining(["frequency", "older"]));
+  });
+  it.each([
+    "Lithium levels remain normal at baseline and valproate levels are checked every three months.",
+    "Lithium levels fluctuate and valproate levels are checked every three months.",
+    "Lithium levels and symptoms fluctuate and valproate levels are checked every three months.",
+    "Lithium levels and clinical status remains stable and valproate levels are checked every three months.",
+    "Lithium levels fluctuate and thyroid function are checked every three months.",
+  ])("P12C R3 refuses descriptive clauses as shared measurement nouns: %s", (content) => {
+    const question = "How often are lithium levels checked?";
+    expect.soft(requestedMonitoringCadence(question, content)).toBe(false);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance
+        ?.verdict,
+    ).not.toBe("direct");
+  });
+  it.each([
+    "Lithium levels and renal function are checked every three months.",
+    "Valproate levels fluctuate and lithium levels and renal function are checked every three months.",
+  ])("P12C R3 retains a demonstrated passive renal measurement list: %s", (content) => {
+    expect(requestedMonitoringCadence("How often are lithium levels checked?", content)).toBe(true);
+  });
+  it.each([
+    "Lithium levels and impaired renal function are checked every three months.",
+    "Lithium levels and renal function are checked every three months in children.",
+    "Lithium levels and renal function are not checked every three months.",
+  ])("P12C R3 preserves passive subject restrictions: %s", (content) => {
+    expect(requestedMonitoringCadence("How often are lithium levels checked?", content)).toBe(false);
+  });
+  it.each([
+    "Lithium levels and thyroid function are checked every three months.",
+    "Lithium levels and blood pressure are checked every three months.",
+    "Valproate levels are checked at baseline and lithium levels and thyroid function are checked every three months.",
+  ])("P12C R2 retains the whole shared passive subject: %s", (content) => {
+    const question = "How often are lithium levels checked?";
+    expect.soft(requestedMonitoringCadence(question, content)).toBe(true);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance
+        ?.verdict,
+    ).toBe("direct");
+  });
+  it.each([
+    "Lithium levels are normal at baseline and valproate levels are checked every three months.",
+    "Lithium levels are checked at baseline and valproate levels and blood pressure are checked every three months.",
+  ])("P12C R2 separates actual predicates before shared passive subjects: %s", (content) => {
+    const question = "How often are lithium levels checked?";
+    expect(requestedMonitoringCadence(question, content)).toBe(false);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance
+        ?.verdict,
+    ).not.toBe("direct");
+  });
+  it("P12C R1 retains only bound structured threshold comparison inputs as partial", () => {
+    const question = "Compare and reconcile the clinical implications of these ANC thresholds";
+    const row = result({
+      id: "anc-chunk",
+      document_id: "anc-doc",
+      title: "Synthetic threshold source",
+      section_heading: null,
+      content: "Synthetic source content.",
+      table_facts: [
+        {
+          id: "anc-fact",
+          document_id: "anc-doc",
+          source_chunk_id: "anc-chunk",
+          source_image_id: null,
+          page_number: 2,
+          table_title: "ANC thresholds",
+          row_label: "Red range",
+          clinical_parameter: "ANC",
+          threshold_value: "below 1.5 x 10^9/L",
+          action: "Withhold and repeat FBC",
+        },
+      ],
+    });
+    expect(annotateSearchResults(question, [row])[0]?.relevance).toMatchObject({
+      verdict: "partial",
+      coverageScore: 0.4,
+      contentMatchedTerms: ["anc", "threshold"],
+      missingTerms: ["reconcile", "implication", "compare"],
+    });
+    for (const fact of [
+      { ...row.table_facts![0]!, clinical_parameter: "WBC", table_title: "WBC thresholds" },
+      { ...row.table_facts![0]!, document_id: "other-document" },
+      { ...row.table_facts![0]!, source_chunk_id: "other-chunk" },
+      { ...row.table_facts![0]!, threshold_value: "" },
+      { ...row.table_facts![0]!, action: "" },
+    ])
+      expect(annotateSearchResults(question, [{ ...row, table_facts: [fact] }])[0]?.relevance?.verdict).toBe("nearby");
+    for (const constrained of [
+      "Compare and reconcile the clinical implications of lithium ANC thresholds",
+      "Compare and reconcile the clinical implications of these ANC thresholds in children",
+      "Compare and reconcile the clinical implications of these ANC thresholds before treatment",
+    ])
+      expect(annotateSearchResults(constrained, [row])[0]?.relevance?.verdict).toBe("nearby");
+  });
+  it.each([
+    "Check lithium levels at baseline and check renal function every six months.",
+    "Check lithium levels and check valproate levels every three months.",
+    "Lithium levels are checked at baseline and valproate levels are checked every three months.",
+    "Every three months, check valproate levels and check lithium levels at baseline.",
+  ])("P12C R1 refuses a neighbouring predicate's cadence: %s", (content) => {
+    const question = "How often are lithium levels checked?";
+    expect(requestedMonitoringCadence(question, content)).toBe(false);
+    expect(
+      annotateSearchResults(question, [result({ title: "Monitoring", section_heading: null, content })])[0]?.relevance
+        ?.verdict,
+    ).not.toBe("direct");
+  });
+  it.each([
+    "Check lithium levels every three months.",
+    "Lithium levels are checked every three months.",
+    "Check lithium levels and renal function every three months.",
+    "Every three months, check lithium levels and renal function.",
+  ])("P12C R1 retains the requested predicate and coordinated objects: %s", (content) => {
+    expect(requestedMonitoringCadence("How often are lithium levels checked?", content)).toBe(true);
+  });
+  it.each([
+    "Check lithium levels and renal function impairment every three months.",
+    "Check lithium levels every three months in renal impairment.",
+    "Check lithium levels and renal function every three months in children.",
+    "Do not check lithium levels and renal function every three months.",
+  ])("P12C R1 retains restrictions around coordinated measurements: %s", (content) => {
+    expect(requestedMonitoringCadence("How often are lithium levels checked?", content)).toBe(false);
+  });
+  const query = "What monitoring and risks apply to lithium?";
+  const monitoring = result({
+    title: "Lithium monitoring",
+    section_heading: null,
+    content: "Lithium monitoring includes renal function every six months. Check lithium levels every three months.",
+    similarity: 0.97,
+  });
+  it("retains an ordinary supported partial without treating grammar as missing evidence", () => {
+    expect(queryCoreTerms(query)).toEqual(["monitoring", "risk", "lithium"]);
+    expect(annotateSearchResults(query, [monitoring])[0]?.relevance).toMatchObject({
+      verdict: "partial",
+      missingTerms: ["risk"],
+      contentMatchedTerms: ["monitoring", "lithium"],
+    });
+  });
+  it("removes only the exact planner scaffold and retains its requested clinical facet", () => {
+    expect(queryCoreTerms(`${query} Focus on the requested monitoring.`)).toEqual(queryCoreTerms(query));
+    expect(queryCoreTerms("How should clinicians apply cream to a focal lesion and focus treatment?")).toEqual(
+      expect.arrayContaining(["apply", "cream", "focal", "lesion", "focu", "treatment"]),
+    );
+  });
+  it("does not promote wrong medicines, irrelevant high scores, or absent dose instructions", () => {
+    const wrongMedicine = result({
+      title: "Valproate monitoring risks",
+      content: "Valproate monitoring includes renal review and risks.",
+      similarity: 0.99,
+    });
+    const irrelevant = result({
+      title: "Parking",
+      section_heading: null,
+      content: "Parking permits are available at reception.",
+      similarity: 0.99,
+    });
+    for (const row of [wrongMedicine, irrelevant])
+      expect(annotateSearchResults(query, [row])[0]?.relevance?.verdict).toBe("nearby");
+    expect(
+      annotateSearchResults("What lithium dose and oral route are recommended?", [monitoring])[0]?.relevance?.verdict,
+    ).toBe("nearby");
+    expect(queryCoreTerms("Lithium monitoring without renal impairment in adults")).toEqual(
+      expect.arrayContaining(["without", "renal", "impairment", "adult"]),
+    );
+  });
+  it("requires a bound cadence for an ordinary monitoring-frequency question", () => {
+    const question = "How often are lithium levels checked?";
+    expect(queryCoreTerms(question)).toEqual(["lithium", "level", "frequency"]);
+    expect(annotateSearchResults(question, [monitoring])[0]?.relevance?.verdict).toBe("direct");
+    for (const content of [
+      "Check lithium levels.",
+      "Check lithium levels during daily treatment.",
+      "Check lithium levels. Check renal function every three months.",
+      "Check valproate levels every three months.",
+    ])
+      expect(
+        annotateSearchResults(question, [result({ title: "Monitoring guideline", section_heading: null, content })])[0]
+          ?.relevance?.verdict,
+      ).not.toBe("direct");
+    expect(
+      annotateSearchResults("How often are lithium levels checked in adults?", [monitoring])[0]?.relevance?.verdict,
+    ).not.toBe("direct");
+    expect(queryCoreTerms("Are lithium doses checked often for renal impairment?")).toEqual(
+      expect.arrayContaining(["are", "checked", "often", "renal", "impairment"]),
+    );
+  });
+  it("reads only semantic fields from a genuine two-turn elaboration envelope", async () => {
+    const { buildAnswerFollowUpQuery } = await import("../src/lib/answer-follow-up");
+    const first = buildAnswerFollowUpQuery(query, "And the risks?");
+    const second = buildAnswerFollowUpQuery(first, "Elaborate");
+    expect(queryCoreTerms(second)).toEqual(["monitoring", "risk", "lithium"]);
+    const constrained = buildAnswerFollowUpQuery(query, "What about adults without renal impairment?");
+    expect(queryCoreTerms(constrained)).toEqual(expect.arrayContaining(["adult", "without", "renal", "impairment"]));
+  });
+});
 
 describe("evidence helpers", () => {
   it("extracts short exact quote text from retrieved chunks", () => {
@@ -143,10 +378,7 @@ The haematologist can assist with altering WCC and ANC thresholds for specific c
       documentCitationHref({
         chunk_id: "chunk/with space",
         document_id: "doc/with space",
-        title: "Source",
-        file_name: "source.pdf",
         page_number: 3,
-        chunk_index: 0,
       }),
     ).toBe("/documents/doc%2Fwith%20space?page=3&chunk=chunk%2Fwith+space");
   });

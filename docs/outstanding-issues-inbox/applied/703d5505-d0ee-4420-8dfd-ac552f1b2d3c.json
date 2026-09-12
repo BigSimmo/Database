@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "703d5505-d0ee-4420-8dfd-ac552f1b2d3c",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#72282V",
+    "outcome": "Added Playwright test verifying CSRF Origin check under proxy headers",
+    "baseRowFingerprint": "c44a597b4918f710044b76b7aeada7194305026300cf16e01f977d17c168b929"
+  }
+}

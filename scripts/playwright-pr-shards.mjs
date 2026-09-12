@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
@@ -42,6 +42,8 @@ export const SEEDED_PR_UI_PROJECT = "chromium-caring-contacts-seeded";
  * required critical job proves those exact tests. Re-measure after suite growth.
  */
 export const prUiSpecProfiles = Object.freeze([
+  // Newly wired adaptive-answer journeys; zero means hosted timing is not yet measured.
+  { file: "tests/adaptive-answer-ui.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Hosted shard timings exclude @critical; add the separately measured
   // critical seconds back to fullSeconds so both execution modes stay modeled.
   { file: "tests/ui-smoke.spec.ts", shard: 1, fullSeconds: 134.4, criticalSeconds: 21.7 },
@@ -71,6 +73,12 @@ export const prUiSpecProfiles = Object.freeze([
   { file: "tests/ui-tools-show-all.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Critical-only acceptance coverage; the required critical job owns its runtime.
   { file: "tests/ui-clinical-ask.spec.ts", shard: 1, fullSeconds: 1, criticalSeconds: 1 },
+  // The reverse-proxy CSRF Origin journey (#72282V). It drives API routes rather than a page, so
+  // it carries no measured page timing; keep it on the lightest measured shard with zero seconds
+  // until hosted evidence exists, per the convention above. It must be listed here because
+  // `productionSpecPattern` names it: a production spec in no shard group is a spec that never
+  // runs, which is exactly the two-way parity this table exists to make impossible.
+  { file: "tests/api-csrf-proxy.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // Added after the timing sample. Measured locally at ~4.8s for 3 tests; replace
   // with hosted evidence at the next timing refresh. Moved here from shard 2 by
   // Task 19 to offset the re-measured Caring Contacts workspace spec.

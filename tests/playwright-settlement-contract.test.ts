@@ -27,6 +27,10 @@ const FORMS_SECTION_NAV = "tests/ui-forms-section-nav.spec.ts";
 
 const FORMULATION = "tests/ui-formulation.spec.ts";
 
+const TOOLS = "tests/ui-tools.spec.ts";
+
+const SOURCES = "tests/ui-sources.spec.ts";
+
 // Production UI shard 3 on PR #2651: the `/formulation/compare` lede resolved
 // to 2 elements — the live copy under `mobile-composer-reserve-pad` and a
 // hidden streaming twin beside it. These are the copy assertions on that spec's
@@ -72,6 +76,20 @@ describe("playwright settlement contract (#093)", () => {
 
     expect(source).toContain('visibleByTestId(page, "search-query-ribbon")');
     expect(source).not.toMatch(/getByTestId\(\s*["']search-query-ribbon["']\s*\)/);
+  });
+
+  it("ui-tools scopes service-actions-trigger through visibleByTestId (#JAEKM4)", () => {
+    const source = readFileSync(TOOLS, "utf8");
+    expect(source).toMatch(/import\s*\{[^}]*\bvisibleByTestId\b[^}]*\}\s*from\s*["']\.\/playwright-settlement["']/);
+    expect(source).toContain('visibleByTestId(page, "service-actions-trigger")');
+    expect(source).not.toMatch(/getByTestId\(\s*["']service-actions-trigger["']\s*\)/);
+  });
+
+  it("ui-sources scopes sources-topics-main through visibleByTestId (#JAEKM4)", () => {
+    const source = readFileSync(SOURCES, "utf8");
+    expect(source).toMatch(/import\s*\{[^}]*\bvisibleByTestId\b[^}]*\}\s*from\s*["']\.\/playwright-settlement["']/);
+    expect(source).toContain('visibleByTestId(page, "sources-topics-main")');
+    expect(source).not.toMatch(/getByTestId\(\s*["']sources-topics-main["']\s*\)/);
   });
 
   it("keeps absence assertions bare, because a visible filter would hide the duplicate", () => {

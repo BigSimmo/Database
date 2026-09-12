@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, posix as posixPath, relative, sep } from "node:path";
 
 const zeroSha = /^0{40}$/;
 
@@ -37,6 +38,7 @@ const outputs = [
   "build_changed",
   "lockfile_changed",
   "pr_policy_body_changed",
+  "site_content_changed",
 ];
 
 function normalizePath(filePath) {
@@ -65,6 +67,119 @@ function pathMatches(filePath, patterns) {
     return pattern.test(filePath);
   });
 }
+
+function isWithinPath(rootPath, candidatePath) {
+  const relativePath = relative(rootPath, candidatePath);
+  return (
+    relativePath === "" || (!isAbsolute(relativePath) && relativePath !== ".." && !relativePath.startsWith(`..${sep}`))
+  );
+}
+
+function validateSiteContentChangeOwners(value, label = "site-content-owner-manifest-malformed") {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    value.version !== "site-content-change-owners-v1"
+  ) {
+    throw new Error(label);
+  }
+  const repositoryRealPath = realpathSync(".");
+  const producers = value.producers;
+  if (!producers || typeof producers !== "object" || Array.isArray(producers) || Object.keys(producers).length === 0) {
+    throw new Error(label);
+  }
+  for (const [mode, owners] of Object.entries(producers)) {
+    if (!mode || !Array.isArray(owners) || owners.length === 0 || owners.some((owner) => typeof owner !== "string")) {
+      throw new Error(label);
+    }
+    if (owners.join("|") !== [...new Set(owners)].sort().join("|")) throw new Error(label);
+    for (const owner of owners) {
+      if (owner.length === 0) throw new Error("site-content-owner-manifest-empty-owner");
+      const normalizedOwner = normalizePath(owner);
+      const canonicalOwner = posixPath.normalize(normalizedOwner);
+      if (
+        owner !== normalizedOwner ||
+        canonicalOwner !== normalizedOwner ||
+        canonicalOwner === "" ||
+        canonicalOwner === "." ||
+        normalizedOwner.includes("//") ||
+        normalizedOwner.split("/").includes(".")
+      ) {
+        throw new Error("site-content-owner-manifest-noncanonical-owner");
+      }
+      if (owner.startsWith("/") || owner.includes("..") || owner.includes("\\")) {
+        throw new Error(label);
+      }
+      if (/[?\[\]{}]/.test(owner) || (/\*/.test(owner) && !owner.endsWith("/**"))) {
+        throw new Error("site-content-owner-manifest-malformed-glob");
+      }
+      const repositoryRoot = owner.split("/", 1)[0];
+      const allowedRepositoryRoots = new Set(["data", "public", "src"]);
+      if (allowedRepositoryRoots.has(repositoryRoot) && owner === `${repositoryRoot}/**`) {
+        throw new Error("site-content-owner-manifest-broad-path");
+      }
+      if (!allowedRepositoryRoots.has(repositoryRoot)) {
+        throw new Error("site-content-owner-manifest-unknown-root");
+      }
+      const ownerPath = owner.endsWith("/**") ? owner.slice(0, -3) : owner;
+      if (!existsSync(ownerPath)) throw new Error("site-content-owner-manifest-missing-owner");
+      const ownerStat = lstatSync(ownerPath);
+      if (ownerStat.isSymbolicLink() || (owner.endsWith("/**") ? !ownerStat.isDirectory() : !ownerStat.isFile())) {
+        throw new Error("site-content-owner-manifest-missing-owner");
+      }
+      const ownerPathParts = ownerPath.split("/");
+      for (let partCount = 1; partCount < ownerPathParts.length; partCount += 1) {
+        const ancestorPath = ownerPathParts.slice(0, partCount).join("/");
+        if (lstatSync(ancestorPath).isSymbolicLink()) {
+          throw new Error("site-content-owner-manifest-escaping-owner");
+        }
+      }
+      const allowedRootRealPath = realpathSync(repositoryRoot);
+      const ownerRealPath = realpathSync(ownerPath);
+      if (!isWithinPath(repositoryRealPath, ownerRealPath) || !isWithinPath(allowedRootRealPath, ownerRealPath)) {
+        throw new Error("site-content-owner-manifest-escaping-owner");
+      }
+    }
+  }
+  return producers;
+}
+
+const siteContentOwnerManifest = JSON.parse(
+  readFileSync("src/lib/site-content/site-content-change-owners.json", "utf8"),
+);
+const siteContentProducerOwners = validateSiteContentChangeOwners(siteContentOwnerManifest);
+const exactOwnerPattern = (owner) => {
+  const escaped = owner.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return owner.endsWith("/**") ? new RegExp(`^${escaped.slice(0, -5)}(?:/.*)?$`) : new RegExp(`^${escaped}$`);
+};
+const siteContentPatterns = [
+  ...Object.values(siteContentProducerOwners).flat().map(exactOwnerPattern),
+  ...[
+    ".github/workflows/ci.yml",
+    "scripts/ci-change-scope.mjs",
+    ".env.example",
+    "src/lib/env.ts",
+    "src/lib/health-response.ts",
+    "scripts/build-site-content-manifest.ts",
+    "scripts/sync-site-content-corpus.ts",
+    "scripts/check-site-content-freshness.ts",
+    "supabase/schema.sql",
+    "src/lib/embedding-dimensions.ts",
+    "src/lib/source-governance.ts",
+    "src/lib/ranking-config.ts",
+    "src/lib/rag/rag-retrieval-variants.ts",
+    "tests/ci-scope-contract.test.ts",
+    "tests/health-route.test.ts",
+    "tests/health-response-deep-probe.test.ts",
+  ].map(exactOwnerPattern),
+  /^src\/lib\/site-content\//,
+  /^supabase\/functions\/site-content-sync\//,
+  /^supabase\/migrations\/[^/]*site_content[^/]*\.sql$/,
+  /^tests\/fixtures\/site-content\//,
+  /^tests\/site-content-.*\.test\.ts$/,
+  /^src\/lib\/retrieval-.*\.ts$/,
+];
 
 /** App Router API handlers are not browser journeys — keep them out of ui_changed. */
 function isUiChangedPath(filePath) {
@@ -404,6 +519,17 @@ const perfExclusionPatterns = [
   // (`#EFETZT`, whose measured cost is "one full CI round trip" per
   // occurrence).
   "data/repo-awareness-snapshot.json",
+  // Developer hub panels: reachable only from `src/app/mockups/development/**`,
+  // which is already excluded and 404s in production.
+  "src/components/developer-area/hub",
+  // Same hub, its data layer — with ONE carve-out. `headers.ts` is imported by
+  // `src/proxy.ts` and `src/lib/api-csrf.ts`, whose matcher runs before every
+  // budgeted page request, so it is a production request-path module wearing a
+  // developer-area path. Excluding it would skip the Lighthouse budget for a
+  // change that moves TTFB/LCP directly — the same reasoning that already keeps
+  // `src/proxy.ts` itself out of this list. Every other module here is reached
+  // only from the mockups tree or the developer-area gate components.
+  /^src\/lib\/developer-area\/(?!headers\.ts$).+/,
 ];
 
 function isPerfChangedPath(filePath) {
@@ -556,6 +682,9 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const prPolicyBodyChanged = normalized.includes("PR_POLICY_BODY.md");
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
+  const siteContentChanged =
+    normalized.some((file) => pathMatches(file, siteContentPatterns)) ||
+    fullRunSentinelFiles.some((sentinel) => normalized.includes(sentinel));
   // Only two categories are allowed to take the lightweight path: recognised
   // documentation and recognised non-executable workflow/policy surfaces.
   // Unknown non-doc files fail closed to the heavy plan. Executable files that
@@ -597,6 +726,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
     build_changed: buildChanged,
     lockfile_changed: lockfileChanged,
     pr_policy_body_changed: prPolicyBodyChanged,
+    site_content_changed: siteContentChanged,
   };
 }
 
@@ -1113,6 +1243,18 @@ function selfTest() {
     db_changed: true,
     perf_changed: false,
   });
+  assertScope("perf-off-for-developer-hub-components", ["src/components/developer-area/hub/ingestion-panel.tsx"], {
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-lib", ["src/lib/developer-area/repo-awareness-snapshot.ts"], {
+    perf_changed: false,
+  });
+  // The carve-out above, pinned: headers.ts is on the production request path
+  // via src/proxy.ts and src/lib/api-csrf.ts, so it must stay perf-scoped even
+  // though it sits under the excluded developer-area directory.
+  assertScope("perf-on-for-proxy-owned-developer-headers", ["src/lib/developer-area/headers.ts"], {
+    perf_changed: true,
+  });
 
   assertScope("perf-on-for-route-page", ["src/app/(search-app)/dsm/page.tsx"], {
     ui_changed: true,
@@ -1501,6 +1643,58 @@ function selfTest() {
   assertScope("inherited-pr-policy-body-does-not-sync", ["docs/testing.md"], {
     pr_policy_body_changed: false,
   });
+  for (const owners of Object.values(siteContentProducerOwners)) {
+    for (const owner of owners) {
+      assertScope(`site-content-owner:${owner}`, [owner.replace(/\/\*\*$/, "/representative.json")], {
+        site_content_changed: true,
+      });
+    }
+  }
+  assertScope("site-content-shared-owner", ["src/lib/retrieval-selection.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-exact-owner", ["src/lib/dictionary-data.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-glob-owner", ["public/therapy-compass-data/representative.json"], {
+    site_content_changed: true,
+  });
+  assertScope("site-content-negative-ui", ["src/components/ordinary-card.tsx"], { site_content_changed: false });
+  try {
+    validateSiteContentChangeOwners({ version: "site-content-change-owners-v1", producers: {} });
+    throw new Error("site-content-owner-manifest-malformed:self-test-did-not-fail");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-malformed")) throw error;
+  }
+  for (const owner of ["data/**", "public/**", "src/**"]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error("site-content-owner-manifest-broad-path:self-test-did-not-fail");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-broad-path")) throw error;
+    }
+  }
+  for (const [expectedError, owner] of [
+    ["site-content-owner-manifest-empty-owner", ""],
+    ["site-content-owner-manifest-missing-owner", "src/lib/therpies.ts"],
+    ["site-content-owner-manifest-missing-owner", "src/lib/site-content/missing-owner-root/**"],
+    ["site-content-owner-manifest-unknown-root", "unknown/owner.ts"],
+    ["site-content-owner-manifest-unknown-root", "unknown/**"],
+    ["site-content-owner-manifest-malformed-glob", "src/lib/*.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib//dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib/./dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data//**"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data/./**"],
+  ]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error(`${expectedError}:self-test-did-not-fail`);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes(expectedError)) throw error;
+    }
+  }
   console.log("CI change scope self-test passed.");
 }
 

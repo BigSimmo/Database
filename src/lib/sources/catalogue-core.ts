@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
-import { classifySourceAuthority, normalizeSourceAuthorityText } from "@/lib/source-authority-registry";
+import {
+  classifySourceAuthority,
+  normalizeSourceAuthorityText,
+  sourceCatalogueDesignation,
+  sourceCatalogueGeographyScope,
+} from "@/lib/source-authority-registry";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { hasInvalidStructuredSourceDate, strictSourceDate } from "@/lib/sources/source-date-policy";
 import {
@@ -130,7 +135,7 @@ function geographyFor(input: ClinicalSourceReferenceInput) {
   const classification = authorityFor(input);
   if (classification.conflict) return { scope: "unknown" as const, label: "Unknown" };
   const authority = classification.authority;
-  const scope: SourceGeographyScope = authority?.scope ?? "unknown";
+  const scope: SourceGeographyScope = authority?.scope ?? sourceCatalogueGeographyScope(input) ?? "unknown";
   const fallbackLabel = {
     wa: "Western Australia",
     australian_national: "Australia",
@@ -214,13 +219,13 @@ function rateClinicalSourceWithWarnings(
   input: ClinicalSourceReferenceInput,
   warnings: readonly SourceCatalogueWarning[],
 ): ClinicalSourceRating {
-  const authority = authorityFor(input);
+  const designation = sourceCatalogueDesignation(input);
   const geography = geographyFor(input);
   const accuracyAssurance = ACCURACY[input.validationStatus];
   const reliability =
-    authority.designation === "official"
+    designation === "official"
       ? 20
-      : authority.designation === "trusted"
+      : designation === "trusted"
         ? 16
         : hasStableIdentity(input) && Boolean(input.publisher?.trim())
           ? 8

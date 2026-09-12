@@ -41,3 +41,40 @@ P17 receives its normal phase receipt, then a fresh Sol/xhigh whole-programme re
 The Cloud controller pushes the accepted offline programme tip and stops. Local L00–L10 use `connected-execution.md`, the connected receipt schema and a fresh local session. They are evidence/operation phases, not SDD implementation tasks, but still require a fresh controller/reviewer pair, authoritative routes and exact approvals.
 
 Repository authority overrides any finishing-branch skill: never infer permission to push, open/update a PR, merge, deploy, access hosted/provider data, reindex, activate, roll back, clean up or delete a branch/worktree.
+
+## 2026-09-07 local amendment and receipt reconciliation
+
+The [answer-quality amendment](execution-order.md#answer-quality-amendment--2026-09-07) binds new work to existing accepted task identities. The current local Astra High controller/allocation policy is explicit there; it does not claim compatibility with historical Cloud Sol route validators. Local R3 can resume only on separate user authority using its amended brief and formal P08B xhigh reviews. Formal Cloud/programme completion remains blocked on missing historical receipt and amended route/package compatibility.
+
+P17 evaluation Task 6 owns the prospective reconciliation deliverable, with L00 verifying it before takeover: inventory each extant acceptance SHA, review artifact and receipt identity; record unavailable host/runtime/command fields as unavailable; bind this amendment content hash and new obligations to those identities; specify a versioned, reviewed schema/validator migration that preserves old receipt hashes and distinguishes accepted-local from formally-receipted status. A later separately authorized implementation must prove existing immutable receipts still validate, changed obligations cannot inherit old proof, missing route metadata cannot masquerade as verified, and wrong base/head/agent/effort remain fail-closed. No schema/checker change, invented receipt or reconciledBase reset is authorized by this documentation amendment. Retrospective route facts that cannot be proven remain explicit gaps; prospectively collect direct sanitized host evidence. No whole-programme rerun solely for paperwork.
+
+## Local smart-agent preparation (2026-09-07)
+
+The versioned `localAgentPolicy` in canonical programme-manifest.json is the sole machine-readable local routing owner. Both local CLI paths use scripts/lib/rag-local-agent-policy.mjs. It prepares intended dispatch configuration only: no agent is launched, no provider is called, no execution authority/observed route/acceptance is asserted. Historical Cloud and formal receipt schemas remain unchanged.
+
+Prepare the next R3 writer without starting it:
+
+```bash
+node scripts/rag-phase-launch-check.mjs --mode local-smart --target P08B --task 6 --role writer --risk clinical
+node scripts/rag-task-brief.mjs --variant local --phase P08B --task 6 --role writer --risk clinical
+```
+
+The controller must supply a bounded task_name and exact owned message when separately authorized to call the real dispatch tool. Every planned child has explicit model, reasoning_effort, fork_turns:none and a supported agent_type; child spawning is forbidden. Local briefs label the exact generated working-tree source path/SHA-256 rather than claiming committed proof. P08B Task6 also requires the amended local R3 brief, accepted Task5 and preserved 30-file snapshot.
+
+Allocation: Terra Medium for small fully specified mechanical work/bounded lookup; Sol High for ordinary integration and routine independent review; Astra High for integration, clinical/privacy/security/concurrency or costly ambiguity. P08B Task6 writer stays Astra High despite understated input risk. Controller is always Astra High. Formal reviewers obey each phase's high/xhigh floor; P08B retrieval/governance are Astra xhigh and UI Sol xhigh; P17 final reviewer is Astra xhigh locally. Scout/readiness output never substitutes for formal review. Unknown roles, risks, phases/tasks, models, efforts, profiles, flags and invalid capacity fail closed.
+
+One active writer, review only after writer freeze, no writer/reviewer identity reuse. Default planning uses at most two children, preserving one of three available child slots; --use-spare-slot must be explicit for a third. P08B's third formal specialty review normally follows the first pair sequentially. Planning counts are declared inputs and do not reserve runtime capacity: the controller must recheck actual agents before dispatch. All repository commands still use the coordinator; an environment/lease failure is not evidence of model failure.
+
+Rounds1–3 require matching --writer-agent-id and --reuse-agent-id plus --previous-model and --previous-effort. Resume preserves that exact declared prior route only when both model and effort meet the current task floor; an inadequate route fails with a fresh controlled escalation requirement. These declarations are intended configuration, never observed runtime proof. Repair context before escalation. Rounds4–5 require --context-repaired, --failure-kind substantive and the previous explicit route: Terra→Sol→Astra, then fresh Astra xhigh if already Astra High. A stronger task floor cannot be downgraded by weaker prior-route metadata. At round6 the preparation returns BLOCKED_CORRECTION_BREAKER with no dispatch; unresolved Critical/Important never become accepted. Readiness/route planning cannot authorize an implementation, paid launch or commit.
+
+Example formal review preparation after writer freeze (repeat with governance-review/ui-review for the other specialties):
+
+```bash
+node scripts/rag-phase-launch-check.mjs --mode local-smart --target P08B --task 6 --role retrieval-review --risk clinical --writer-frozen
+```
+
+## Implemented migration identity is not formal acceptance
+
+The narrow continuation-artifact record pins P02 Australian Task4's exact migration filename, commit and Git blob. It permits the existing planned-name collision only when the task's actual Create contract owns it, the pinned commit follows reconciledBase on current ancestry, the file was absent at reconciledBase, and pinned commit, HEAD, index stage0 and raw working bytes all match. A rename/same-version duplicate, foreign/future commit, altered/deleted/untracked file, conflict-stage index or malformed record fails closed. This is local immutable artifact-identity proof, not an execution receipt or hosted migration proof. Never refresh a hash automatically, reset reconciledBase, rewrite the old plan or exempt all same-name files. Legitimate future changes need a separate reviewed new migration/identity decision.
+
+Formal F21 reconciliation still belongs to P17 evaluation Task6/L00: preserve old receipt hashes and unavailable historic route evidence; separately review a prospective schema/validator migration binding amended package/obligations and direct future host evidence. Neither successful package generation nor a smart dispatch plan closes that historical chain. Local R3 continuation can be prepared while formal Cloud/programme acceptance remains blocked; RAG product implementation is still paused until separately resumed.

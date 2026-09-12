@@ -749,6 +749,7 @@ export function demoAnswer(query: string, documentId?: string, documentIds?: str
     visualEvidence,
     bestSource,
     documentBreakdown,
+    relevance: smartPanel.relevance,
     smartPanel: { ...smartPanel, bestSource },
   };
 }

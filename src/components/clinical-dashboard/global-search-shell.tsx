@@ -58,7 +58,7 @@ import {
 } from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { LazyGuideDialog, loadGuideDialog } from "@/components/clinical-dashboard/lazy-guide-dialog";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
-import { cn } from "@/components/ui-primitives";
+import { cn, LoadingPanel } from "@/components/ui-primitives";
 import {
   appModeDefinition,
   appModeHomeHref,
@@ -71,7 +71,6 @@ import {
 import { useLastAppMode } from "@/components/clinical-dashboard/use-last-app-mode";
 import { focusComposerInput } from "@/components/clinical-dashboard/focus-composer-input";
 import { ClinicalAskWorkspace } from "@/components/clinical-dashboard/clinical-dashboard-lazy";
-import { ClinicalAskAnswerSurface } from "@/components/clinical-dashboard/clinical-ask-answer-surface";
 import { isClinicalAskModeId, type ClinicalAskModeId } from "@/lib/clinical-ask/contracts";
 import { clinicalAskWorkspaceVisible } from "@/components/clinical-dashboard/use-clinical-ask-shell-state";
 import type { ClinicalAskShellBindings } from "@/components/clinical-dashboard/clinical-ask-shell-bindings";
@@ -87,6 +86,11 @@ const ClinicalAskShellBindingsLayer = dynamic(
   () =>
     import("@/components/clinical-dashboard/clinical-ask-shell-bindings").then((m) => m.ClinicalAskShellBindingsLayer),
   { ssr: false },
+);
+
+const ClinicalAskAnswerSurface = dynamic(
+  () => import("@/components/clinical-dashboard/clinical-ask-answer-surface").then((m) => m.ClinicalAskAnswerSurface),
+  { ssr: false, loading: () => <LoadingPanel label="Loading Clinical Ask response" /> },
 );
 
 const inactiveClinicalAskShellBindings = {
@@ -119,6 +123,7 @@ import {
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
+  standaloneModeHomeHref,
 } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -734,15 +739,19 @@ function GlobalStandaloneSearchShellBody({
     }
     setLastAppMode(mode);
 
-    // The mode pill always returns to the shared home. Preserve any current query
-    // as an unsubmitted draft, but omit `run=1`; only an explicit submit may open
-    // the selected mode's dedicated search/results surface.
+    // Dedicated modes return to their dedicated standalone home. Remaining modes
+    // return to the shared home. Preserve any current query as an unsubmitted draft,
+    // but omit `run=1`; only an explicit submit may open the selected mode's
+    // dedicated search/results surface.
     const carriedQuery = query.trim() || requestedQuery.trim();
-    const href = appModeSelectionHref(mode, {
-      query: carriedQuery || undefined,
-      queryMode,
-      scopeFilters,
-    });
+    const standaloneHome = standaloneModeHomeHref(mode);
+    const href =
+      standaloneHome ??
+      appModeSelectionHref(mode, {
+        query: carriedQuery || undefined,
+        queryMode,
+        scopeFilters,
+      });
     const destination = new URL(href, window.location.origin);
     const destinationSearch = destination.search.startsWith("?") ? destination.search.slice(1) : destination.search;
     const alreadyOnDestination = pathname === destination.pathname && searchParamString === destinationSearch;

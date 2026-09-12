@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "372fd777-a0ec-43f1-b501-c5dc6fe65a20",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#XGKJ8D",
+    "outcome": "Declared pg_cron extension in supabase/schema.sql",
+    "baseRowFingerprint": "bda82f3e227b0a74ea182ab77f4c1d4cc7ae3152645edf0e6eca86a5cd805ac8"
+  }
+}

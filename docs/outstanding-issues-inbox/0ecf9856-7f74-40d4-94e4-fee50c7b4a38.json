@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0ecf9856-7f74-40d4-94e4-fee50c7b4a38",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Fifteen specifier one-of group labels are authored, not clinician-reviewed",
+    "detail": "singleSelectGroupLabels in src/lib/specifier-builder-diagnoses.ts decides which specifier groups the builder offers as radios. The dataset carries no exclusivity field, so the mapping is authored in this repo against the item lists. PR #2726 corrected four labels that were blocking valid combinations (Classes, Clusters, Aetiology, Attraction) and added a per-disorder exception for Specific Phobia under Type, but the remaining fifteen labels (Course, Course and Status, Current Episode, Insight, Pattern, Presentation, Prognosis, Remission, Severity, Severity (Major NCD), Severity/Course, Subtype, Subtypes, Type, Types and Severity) have only had that same authored read, not a qualified one. Consequence is now bounded rather than silent: every single-select group carries a control that reopens it as a checkbox list, so a wrong entry costs a default the clinician can override, not an unrecordable combination. Wanted: a psychiatrist confirms each of the fifteen against DSM-5-TR, and any that fail move out of the set or gain a disorder-level exception. Pinned by tests/specifier-builder-diagnoses.test.ts.",
+    "source": "PR #2726 (BigSimmo/Database), specifier builder one-of mapping correction",
+    "issueUlid": "01M1XS1ZNVFYSQGK03ER892KEZ"
+  }
+}
