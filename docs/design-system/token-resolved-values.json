@@ -115,9 +115,9 @@
   "resolved": {
     "light": {
       "--background": "#fff",
-      "--border": "#e6ebf2",
+      "--border": "#e3e8ef",
       "--border-lux": "#dde4ee",
-      "--border-strong": "#d3dbe5",
+      "--border-strong": "#c8d2de",
       "--bp-desktop": "1024px",
       "--bp-phone": "640px",
       "--bp-tablet": "768px",
@@ -136,7 +136,7 @@
       "--danger-solid-contrast": "#fff",
       "--danger-solid-hover": "#85140d",
       "--decoration-soft": "#8894a6",
-      "--disabled": "#9aa5b5",
+      "--disabled": "#8794a8",
       "--duration-base": ".18s",
       "--duration-deliberate": ".3s",
       "--duration-fast": ".12s",
