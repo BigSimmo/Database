@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "manifest": {
+    "version": 1,
+    "id": "batch-34666462342",
+    "actor": "BigSimmo",
+    "authorization": "codex://threads/01a09134-4445-7c33-859a-ad0ad334e2d7",
+    "controllerHash": "95b9c3ff2eca0819b121cd883e4a52b59d782efc093905dfad749362ab0fd5b0",
+    "mergeMethod": "merge",
+    "launchedAt": "2026-09-12T02:00:56.978Z",
+    "perPr": 3,
+    "total": 30,
+    "canaryEvidence": {},
+    "prs": [
+      {
+        "number": 2715,
+        "head": "811a6e40622b78136a975f763aaea07eabe80975",
+        "headRef": "claude/youthful-keller-3dp7ie",
+        "dependencies": [],
+        "exclusion": null
+      }
+    ]
+  },
+  "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
+  "status": "running",
+  "resumedAt": "2026-09-12T02:00:56.978Z",
+  "revision": 1,
+  "repairs": 0,
+  "pass": 0,
+  "active": null,
+  "pending": null,
+  "reason": null,
+  "entries": [
+    {
+      "number": 2715,
+      "head": "811a6e40622b78136a975f763aaea07eabe80975",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T02:00:56.978Z",
+      "progressAt": "2026-09-12T02:00:56.978Z",
+      "retried": false
+    }
+  ],
+  "events": [
+    {
+      "revision": 1,
+      "at": "2026-09-12T02:00:56.978Z",
+      "kind": "launched"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "algorithm": "hmac-sha256",
+  "stateDigest": "907c7e59c20ac6b7031f06ea3b0214c723d825a90415ad82266775d31ab89243",
+  "signature": "c67c262ce7a8a533fa322045853411c83d971a987e5ac3db900e2c7ec6b7162b"
+}
