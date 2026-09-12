@@ -4,8 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   assertAuditEventFreeOfPatientData,
   buildAuditEvent,
+  deserializeAuditEntry,
+  deserializeAuditTrail,
+  serializeAuditEntry,
+  serializeAuditTrail,
   type AuditableChange,
   type AuditEvent,
+  type CaringContactsAuditEntry,
 } from "@/lib/caring-contacts/audit";
 import { fixedClock } from "@/lib/caring-contacts/clock";
 import { actorId, idempotencyKey, teamId } from "@/lib/caring-contacts/ids";
@@ -162,5 +167,117 @@ describe("rule 4: pure given a clock", () => {
     const inputCopy = { ...input, actorRoles: [...input.actorRoles] };
     buildAuditEvent(input, CLOCK);
     expect(input).toEqual(inputCopy);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 3 #Q8NMM3 — actorRole signature and audit export serialization
+// ---------------------------------------------------------------------------
+
+describe("Task 3 #Q8NMM3: actorRole signature and audit export serialization", () => {
+  it("captures actorRole from input if specified", () => {
+    const event = buildAuditEvent(baseChange({ actorRole: "supervisor" }), CLOCK);
+    expect(event.actorRole).toBe("supervisor");
+    expect(event.actorRoles).toEqual(["coordinator"]);
+  });
+
+  it("defaults actorRole to the first role in actorRoles if not explicitly provided", () => {
+    const event = buildAuditEvent(baseChange({ actorRoles: ["clinician", "coordinator"] }), CLOCK);
+    expect(event.actorRole).toBe("clinician");
+  });
+
+  it("serializes an audit entry to JSON with actorRole signature included", () => {
+    const event: CaringContactsAuditEntry = buildAuditEvent(baseChange({ actorRole: "clinician" }), CLOCK);
+    const serialized = serializeAuditEntry(event);
+    const parsed = JSON.parse(serialized);
+
+    expect(parsed.actorRole).toBe("clinician");
+    expect(parsed.actorId).toBe("ACTOR-1");
+    expect(parsed.teamId).toBe("TEAM-1");
+    expect(parsed.action).toBe("activatePlan");
+    expect(parsed.outcome).toBe("allowed");
+    expect(parsed.timestamp).toBe("2026-08-19T10:00:00.000+08:00");
+  });
+
+  it("serializes and deserializes round-trip cleanly", () => {
+    const original: CaringContactsAuditEntry = buildAuditEvent(
+      baseChange({ actorRole: "coordinator", actorRoles: ["coordinator", "supervisor"] }),
+      CLOCK,
+    );
+    const serialized = serializeAuditEntry(original);
+    const deserialized = deserializeAuditEntry(serialized);
+
+    expect(deserialized.actorRole).toBe("coordinator");
+    expect(deserialized.actorRoles).toEqual(["coordinator", "supervisor"]);
+    expect(deserialized.actorId).toBe(original.actorId);
+    expect(deserialized.timestamp).toBe(original.timestamp);
+    expect(deserialized.outcome).toBe(original.outcome);
+  });
+
+  it("serializes an array of audit entries into newline-delimited JSON", () => {
+    const entry1: CaringContactsAuditEntry = buildAuditEvent(baseChange({ actorRole: "clinician" }), CLOCK);
+    const entry2: CaringContactsAuditEntry = buildAuditEvent(
+      baseChange({ actorRole: "coordinator", action: "viewPlan" }),
+      CLOCK,
+    );
+
+    const trail = serializeAuditTrail([entry1, entry2]);
+    const lines = trail.split("\n");
+    expect(lines).toHaveLength(2);
+
+    const parsed1 = JSON.parse(lines[0]);
+    const parsed2 = JSON.parse(lines[1]);
+    expect(parsed1.actorRole).toBe("clinician");
+    expect(parsed2.actorRole).toBe("coordinator");
+    expect(parsed2.action).toBe("viewPlan");
+  });
+
+  it("rejects deserializing entries containing mobile numbers", () => {
+    const tampered = JSON.stringify({
+      timestamp: "2026-08-19T10:00:00.000+08:00",
+      actorId: "ACTOR-1",
+      actorRole: "0491 570 156",
+      actorRoles: ["coordinator"],
+      teamId: "TEAM-1",
+      action: "activatePlan",
+      objectType: "plan",
+      objectId: "PLAN-1",
+      outcome: "allowed",
+      idempotencyKey: "IDEMP-1",
+    });
+
+    expect(() => deserializeAuditEntry(tampered)).toThrow("audit-event-contains-patient-data");
+  });
+
+  it("handles whitespace-only actorRole by falling back to actorRoles or unknown", () => {
+    const event = buildAuditEvent(baseChange({ actorRole: "   ", actorRoles: ["coordinator"] }), CLOCK);
+    expect(event.actorRole).toBe("coordinator");
+
+    const eventUnknown = buildAuditEvent(baseChange({ actorRole: "   ", actorRoles: [] }), CLOCK);
+    expect(eventUnknown.actorRole).toBe("unknown");
+  });
+
+  it("rejects deserializing entries with missing required properties", () => {
+    const invalidEntry = JSON.stringify({
+      actorId: "ACTOR-1",
+      // missing timestamp, action, teamId, etc.
+    });
+
+    expect(() => deserializeAuditEntry(invalidEntry)).toThrow("Invalid audit entry");
+  });
+
+  it("deserializes multi-line audit trail into CaringContactsAuditEntry array", () => {
+    const entry1: CaringContactsAuditEntry = buildAuditEvent(baseChange({ actorRole: "clinician" }), CLOCK);
+    const entry2: CaringContactsAuditEntry = buildAuditEvent(
+      baseChange({ actorRole: "coordinator", action: "viewPlan" }),
+      CLOCK,
+    );
+    const trail = serializeAuditTrail([entry1, entry2]);
+
+    const deserialized = deserializeAuditTrail(trail);
+    expect(deserialized).toHaveLength(2);
+    expect(deserialized[0].actorRole).toBe("clinician");
+    expect(deserialized[1].actorRole).toBe("coordinator");
+    expect(deserialized[1].action).toBe("viewPlan");
   });
 });
