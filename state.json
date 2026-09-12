@@ -129,7 +129,7 @@
   "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
   "status": "running",
   "resumedAt": "2026-09-12T03:43:30.285Z",
-  "revision": 34,
+  "revision": 35,
   "repairs": 2,
   "pass": 0,
   "active": 2729,
@@ -140,7 +140,8 @@
     "head": "571b7e07c07408d8b281404e655942493349fce7",
     "base": "6d6ce2a640f72fb7770b8165d30d3a866dc936ff",
     "at": "2026-09-12T04:35:25.954Z",
-    "fingerprint": "8370baeeb90b504e4f2d89163fe9c1492b6b463776818e9ab4cd293e41dcf88a"
+    "fingerprint": "8370baeeb90b504e4f2d89163fe9c1492b6b463776818e9ab4cd293e41dcf88a",
+    "runId": 34673417838
   },
   "reason": null,
   "entries": [
@@ -603,6 +604,13 @@
       "at": "2026-09-12T04:35:25.954Z",
       "kind": "request-sent",
       "operationId": "batch-34671129666-33"
+    },
+    {
+      "revision": 35,
+      "at": "2026-09-12T04:35:56.203Z",
+      "kind": "worker-claimed",
+      "operationId": "batch-34671129666-33",
+      "runId": 34673417838
     }
   ]
 }
