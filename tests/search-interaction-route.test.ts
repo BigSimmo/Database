@@ -57,6 +57,29 @@ afterEach(() => {
 });
 
 describe("/api/search/interaction", () => {
+  it("T8-R6 redacts resolved context tokens in actual interaction persistence with raw retention enabled", async () => {
+    const { client, insert } = createClient({ ownsDocument: true, ownsChunk: true });
+    vi.doMock("@/lib/env", () => ({ env: { RAG_PERSIST_RAW_QUERY_TEXT: true }, isDemoMode: () => false }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({}, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/search/interaction/route");
+    const response = await POST(
+      request({ query: 'Follow-up to "CONTEXTCANARY lithium": what about monitoring?', documentId, chunkId }),
+    );
+    expect(response.status).toBe(200);
+    expect(insert.mock.calls[0]?.[0]).toMatchObject({ candidate_aliases: [] });
+    expect(JSON.stringify(insert.mock.calls).toLowerCase()).not.toContain("contextcanary");
+    const ordinary = await POST(request({ query: "ordinary lithium monitoring", documentId, chunkId }));
+    expect(ordinary.status).toBe(200);
+    expect(insert.mock.calls[1]?.[0]).toMatchObject({
+      query: "ordinary lithium monitoring",
+      candidate_aliases: expect.arrayContaining(["lithium"]),
+    });
+  });
   it("returns a client error for invalid interaction payloads", async () => {
     const { POST } = await import("../src/app/api/search/interaction/route");
 

@@ -105,7 +105,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -126,7 +129,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([]),
+      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -186,6 +189,55 @@ afterEach(() => {
 });
 
 describe("medications API", () => {
+  it.each([
+    { sourceText: undefined, sourceCheckedAt: null, sourcesRecorded: false },
+    { sourceText: "Recorded source without a checked date", sourceCheckedAt: null, sourcesRecorded: true },
+    { sourceText: "TGA PI checked 2026-05-14", sourceCheckedAt: "2026-05-14", sourcesRecorded: true },
+  ])(
+    "serves initialized medication render bytes and source metadata: $sourceText",
+    async ({ sourceText, sourceCheckedAt, sourcesRecorded }) => {
+      const renderPayload = {
+        slug: "released-medication",
+        name: "Released medication",
+        class: "Canonical class",
+        subclass: "Canonical subclass",
+        category: "Canonical category",
+        accent: "#123456",
+        tag: "Released",
+        schedule: "S4",
+        stats: [{ label: "Dose", value: "Exact" }],
+        sections: [
+          { title: "Use", type: "table", rows: [{ key: "Indication", val: "Exact bytes" }] },
+          ...(sourceText ? [{ title: "Sources", type: "src", rows: [{ key: "Source Review", val: sourceText }] }] : []),
+        ],
+        quick: [{ label: "Check", value: "Canonical" }],
+      };
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "current", validationStatus: "locally_reviewed" },
+            render_payload: renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/route");
+      const response = await GET(request("/api/medications"));
+      const payload = (await response.json()) as { records: unknown[]; governance: Record<string, unknown> };
+      expect(payload.records).toEqual([renderPayload]);
+      expect(payload.governance[renderPayload.slug]).toEqual({
+        sourceStatus: "current",
+        validationStatus: "locally_reviewed",
+        sourceCheckedAt,
+        sourcesRecorded,
+        lastReviewedAt: null,
+        reviewDueAt: null,
+      });
+    },
+  );
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -440,7 +492,7 @@ describe("medications API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("scopes medication queries to the authenticated owner", async () => {
+  it("serves the canonical uninitialized population without reading authenticated owner drafts", async () => {
     const client = createSupabaseMock((call) => (call.table === "medication_records" ? ok([medicationRow()]) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/medications/route");
@@ -455,8 +507,7 @@ describe("medications API", () => {
     expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("acamprosate");
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
-    expect(client.calls.some((call) => call.table === "medication_records")).toBe(true);
-    expect(client.calls.some((call) => call.filters.some((filter) => filter.column === "owner_id"))).toBe(true);
+    expect(client.calls).toEqual([]);
   });
 
   it("serves curated public detail for unauthenticated slug requests", async () => {
@@ -496,7 +547,7 @@ describe("medications API", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("serves a seeded medication detail when registry corpus embedding fails after the row upsert", async () => {
+  it("serves an uninitialized public medication detail without owner writes during a corpus embedding outage", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let stored: Array<Record<string, unknown>> = [];
     const client = createSupabaseMock((call) => {
@@ -522,10 +573,8 @@ describe("medications API", () => {
     expect(response.status).toBe(200);
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown medication slug during a corpus embedding outage", async () => {
@@ -549,9 +598,7 @@ describe("medications API", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 });

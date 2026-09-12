@@ -1,13 +1,17 @@
 # Local operational package — start here
 
-This is the new-session Windows/local handover for L00–L10 after accepted Cloud P00–P17 work. It is not an alternative implementation launcher.
+This retains the new-session Windows/local L00–L10 handover after accepted formal programme work. The separately authorized existing local programme may prepare P00–P17 continuation with the explicit local-smart profile below; it does not impersonate the historical Cloud receipt route.
+
+## Existing local programme preparation
+
+Use the [local smart-agent preparation contract](sdd-execution.md#local-smart-agent-preparation-2026-09-07). `node scripts/rag-phase-launch-check.mjs --mode local-smart --target P08B --task 6 --role writer --risk clinical` returns a non-executing intended dispatch plan; `node scripts/rag-task-brief.mjs --variant local --phase P08B --task 6 --role writer --risk clinical` prepares the source-hashed brief. Missing local role/risk fails closed. Controller remains Astra High; R3 remains paused until separate user resumption. Cloud default behavior below and formal connected receipts retain their existing schemas.
 
 ## L00 start contract
 
 1. Run the root repository task-start preflight once for this new local task.
 2. Fetch `origin/main` and the exact remote Cloud programme branch named by the handover. Verify the remote tip and the commit that atomically introduced accepted `PROGRAMME.json`.
 3. Create a brand-new isolated local operations branch/worktree from that programme metadata commit. Do not use, mutate, rebase, merge or cherry-pick the registered `codex/rag-local-build-20260822` worktree.
-4. Run setup, runtime, installed-lock parity, package parity, tracked programme-receipt validation, and `npm run plans:rag:receipts:check -- --before-local L00`. That flag belongs to `scripts/check-rag-phase-receipts.mjs`; `scripts/rag-phase-launch-check.mjs` is Cloud P00–P17 only.
+4. Run setup, runtime, installed-lock parity, package parity, tracked programme-receipt validation, and `npm run plans:rag:receipts:check -- --before-local L00`. That flag belongs to `scripts/check-rag-phase-receipts.mjs`; `scripts/rag-phase-launch-check.mjs` checks Cloud launch profiles by default; its explicit local-smart mode prepares intended P00–P17 local dispatch only and does not validate L00 receipts.
 5. Bind the exact Cloud tip, package hash and programme receipt commit/hash. Compare current `origin/main` and the quarantined local WIP. Classify overlap; never absorb it silently.
 6. Select Sol/high for both the L00 controller and the L00 reviewer in the local session control and prove both routes from authoritative metadata. L00 is the only local phase whose reviewer is high.
 7. Produce and independently review the L00 receipt. No hosted or provider action occurs.

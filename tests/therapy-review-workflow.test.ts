@@ -606,7 +606,7 @@ describe("Therapy clinician-input workflow", () => {
     );
     const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
     expect(packageJson.scripts["therapy:review"]).toBe("node scripts/review-therapy.mjs");
-    const types = readFileSync(join(ROOT, "src", "components", "therapy-compass", "data", "types.ts"), "utf8");
+    const types = readFileSync(join(ROOT, "src", "lib", "therapy-compass-types.ts"), "utf8");
     expect(types).toContain('export type ReviewStatus = "reviewed" | "needs_review";');
   });
 

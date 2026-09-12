@@ -4,6 +4,7 @@ import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
@@ -27,12 +28,16 @@ const readySetupChecks = [
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
 
-async function fulfillAnswerResponse(route: Route, payload: unknown) {
+async function fulfillAnswerResponse(route: Route, payload: ReturnType<typeof demoAnswer> & { demoMode?: boolean }) {
+  const clientPayload = {
+    ...toClientAnswerPayload(payload),
+    ...(payload.demoMode === undefined ? {} : { demoMode: payload.demoMode }),
+  };
   const pathname = new URL(route.request().url()).pathname;
   if (pathname.endsWith("/stream")) {
     const body = [
       `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
-      `event: final\ndata: ${JSON.stringify(payload)}`,
+      `event: final\ndata: ${JSON.stringify(clientPayload)}`,
       "",
     ].join("\n\n");
     await route.fulfill({
@@ -43,7 +48,7 @@ async function fulfillAnswerResponse(route: Route, payload: unknown) {
     return;
   }
 
-  await route.fulfill({ json: payload });
+  await route.fulfill({ json: clientPayload });
 }
 
 async function blockExternalRequests(page: Page) {

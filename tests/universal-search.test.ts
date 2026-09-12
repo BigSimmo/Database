@@ -12,6 +12,9 @@ const mockedModuleSpecifiers = [
   "@/lib/therapies",
   "@/lib/tools-catalog",
   "@/lib/universal-search",
+  "@/lib/site-content/site-content-publication",
+  "@/lib/medication-seed",
+  "@/lib/registry-seed",
 ] as const;
 
 function isolateNextModuleImport() {
@@ -692,8 +695,8 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
   });
 });
 
-describe("runUniversalSearch (owner catalogue cache)", () => {
-  it("reads each owner catalogue once and reuses it across warmer prefixes", async () => {
+describe("runUniversalSearch (canonical catalogue authority)", () => {
+  it("re-reads canonical publications across prefixes without consulting owner drafts", async () => {
     isolateNextModuleImport();
     const fetchOwnerMedicationRowsWithSeed = vi.fn<
       (supabase: unknown, ownerId: string, limit: number, options: { select?: string }) => Promise<unknown[]>
@@ -754,6 +757,12 @@ describe("runUniversalSearch (owner catalogue cache)", () => {
       fetchOwnerRegistryRows,
     }));
 
+    const readCanonicalSiteContentRecords = vi.fn(async () => ({
+      records: [],
+      source: "canonical_public",
+      snapshot: null,
+    }));
+    vi.doMock("@/lib/site-content/site-content-publication", () => ({ readCanonicalSiteContentRecords }));
     const { runUniversalSearch } = await loadUniversalSearch();
     const args = {
       limitPerDomain: 3,
@@ -765,23 +774,25 @@ describe("runUniversalSearch (owner catalogue cache)", () => {
     await runUniversalSearch({ ...args, query: "clo" });
     await runUniversalSearch({ ...args, query: "cloz" });
 
-    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledTimes(1);
-    expect(fetchOwnerRegistryRows).toHaveBeenCalledTimes(1);
-    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledWith(
-      args.supabase,
-      "owner-a",
-      500,
-      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    expect(fetchOwnerMedicationRowsWithSeed).not.toHaveBeenCalled();
+    expect(fetchOwnerRegistryRows).not.toHaveBeenCalled();
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledTimes(4);
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: args.supabase,
+        kind: "medication",
+        slug: null,
+        signal: expect.any(AbortSignal),
+      }),
     );
-    expect(fetchOwnerRegistryRows).toHaveBeenCalledWith(
-      args.supabase,
-      "owner-a",
-      "service",
-      500,
-      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: args.supabase,
+        kind: "service",
+        slug: null,
+        signal: expect.any(AbortSignal),
+      }),
     );
-    expect(fetchOwnerMedicationRowsWithSeed.mock.calls[0]?.[3]?.select).not.toBe("*");
-    expect(fetchOwnerRegistryRows.mock.calls[0]?.[4]?.select).not.toBe("*");
   });
 });
 

@@ -1,5 +1,7 @@
 # Verified incremental RAG delivery — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. One implementer works at a time; a task reviewer must approve specification compliance and code quality before the next task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the chat begin showing useful answer text sooner, while preserving the rule that no raw token, provisional dose, incomplete JSON, or revisable clinical claim reaches the browser.
@@ -464,6 +466,8 @@ git commit -m "feat(rag): verify and reconcile incremental answer units"
 
 ### Task 4: Add an opt-in provider stream without changing buffered fallback
 
+**Amended acceptance (2026-09-07):** F20: retain immutable post-emission behavior: no internal model switch, repair or generated replacement after any generated unit escapes; late failure clears previews and explicit retry starts a new request. After M2 complete-answer proof, compare buffered recovery versus streamed completion under late errors and aborts. Record lost recovery opportunities and retained useful completed output without changing this consistency rule.
+
 **Files:**
 
 - Modify: `src/lib/openai.ts`
@@ -627,6 +631,8 @@ git commit -m "feat(chat): render verified answer units progressively"
 ---
 
 ### Task 6: Telemetry, documentation reconciliation, and staged rollout
+
+**Amended acceptance (2026-09-07):** F19–F20: acceptance measures post-emission errors, retries, successful completed answers and time to usable completion, cost and retained required parts alongside time to first verified unit. Do not activate for first-content speed alone; reject worse completion quality. Preserve citation-complete emission, exact final reconciliation, abort cleanup, rollback and separate P17/L06 provider authority.
 
 **Files:**
 

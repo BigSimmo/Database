@@ -1,5 +1,7 @@
 # Repository-wide first-party content retrieval and freshness — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Use one implementer at a time and obtain a task-reviewer verdict on specification compliance and code quality before continuing. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let Answer mode retrieve the relevant approved Clinical KB content for questions about specifiers, differentials, medications, services, forms, DSM, formulation, therapies, dictionary entries, factsheets, and other explicitly registered knowledge domains, while ensuring every user sees the same latest fully activated public site content and current uploaded guidelines remain primary for clinical guidance. Only administrators may add, edit, publish, or retire site content.
@@ -496,6 +498,8 @@ Expected: PASS with one immutable snapshot per request and no stale cross-releas
 ---
 
 ### Task 6: Add repository-wide must-pass cases, rollout controls, and operating evidence
+
+**Amended acceptance (2026-09-07):** F18–F19: P10 now follows P12C M2, while accepted Tasks 1–5 snapshot/access/cache contracts remain adaptive prerequisites. Extend repository-wide handoff with actual eligible passage/required-part coverage and content-free per-stage loss accounting; reuse M2 deterministic mixed-source/partial/elaboration proof where exact content matches. Do not claim every live source/domain is ready from fixture or catalogue evidence.
 
 **Files:**
 
