@@ -30,10 +30,10 @@ function entry(
   };
 }
 
-// One clozapine query, matching across three different sections through three
-// different fields — a contacts phone chip, a referrals title, and a
-// playbook escalation step — which is the whole point of this task: one
-// query filters every section at once.
+// One entry per section, so every arm of the chip switch is exercised. The
+// switch has no `default` — a seventh section is a compile error there rather
+// than a row that silently shows nothing — and these are what stop an arm
+// regressing to an empty list.
 const HAEMATOLOGY_CONTACT = entry({
   id: "11111111-1111-1111-1111-111111111111",
   slug: "haematology",
@@ -95,6 +95,21 @@ describe("onCallEntryDetailChips", () => {
 
   it("surfaces a presenter for a teaching entry", () => {
     expect(onCallEntryDetailChips(PRESENTER_TEACHING)).toContainEqual({ label: "Presenter", value: "Dr Amara Okafor" });
+  });
+
+  it("names the trigger and the first call for a playbook scenario", () => {
+    // Both come from the owner's own escalation record. Nothing here is app
+    // -authored clinical text, which is the constraint the whole mode is built
+    // around.
+    const chips = onCallEntryDetailChips(PLAYBOOK_ENTRY);
+    expect(chips).toContainEqual({ label: "Trigger", value: "Owner-written trigger text mentioning clozapine" });
+    expect(chips).toContainEqual({ label: "First call", value: "On-call registrar" });
+  });
+
+  it("names the category and place for a logistics entry", () => {
+    const chips = onCallEntryDetailChips(UNRELATED_LOGISTICS);
+    expect(chips).toContainEqual({ label: "Category", value: "Parking" });
+    expect(chips).toContainEqual({ label: "Location", value: "Level B1" });
   });
 
   it("returns no chips for an orientation entry, which carries no comparable detail field", () => {
