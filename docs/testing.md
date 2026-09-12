@@ -379,8 +379,11 @@ following the same shape as `check:bundle-budget`.
 ### Baseline browser pinning, and how to refresh
 
 The baseline is a **browser-specific** artefact. `check-lighthouse-budget.mjs` fails closed when a
-baseline row's `chromeVersion` differs from the measuring run's, because a browser bump is otherwise
-indistinguishable from an application regression. Both Lighthouse jobs therefore pin Playwright's
+baseline row's `chromeVersion` differs from the measuring run's, or when either the reports or the
+baseline mix browser versions, because a browser bump is otherwise indistinguishable from an
+application regression. It also validates the exact route/strategy row set and requires finite,
+non-negative numeric LCP, TBT, CLS and FCP values before comparing anything; a malformed or
+hand-transcribed field cannot silently drop a metric from the gate. Both Lighthouse jobs pin Playwright's
 managed Chromium through the shared `./.github/actions/setup-lighthouse-chromium` composite action —
 never the ambient runner-image Chrome, which is not pinned per commit (the fleet was observed serving
 HeadlessChrome/150 and /151 to jobs minutes apart on 2026-08-07). Drift is reported as one collapsed
@@ -391,11 +394,24 @@ unchanged: incomplete evidence still fails, independently of `enforce`.
 Because the numbers must come from that pinned browser, refresh the baseline **from a CI runner**,
 never a developer machine:
 
-1. Actions → CI → **Run workflow** → pick the branch → tick **refresh_lighthouse_baseline** → Run.
-2. Check the run's diff step prints exactly **one** distinct `chromeVersion`, and that it is the
-   pinned `HeadlessChrome/<major>`. More than one line means the refresh is not usable.
-3. Download the `lighthouse-baseline-refresh-<run_id>` artifact, review the per-route deltas, and
-   commit **only** `lighthouse-budget.json`.
+1. First establish a known-good source SHA: the complete required CI and release browser matrix for
+   that exact `main` commit must be green. A Lighthouse-only green run is not enough to bless an
+   otherwise red or unattributed source revision.
+2. Actions → CI → **Run workflow** at that exact SHA → tick **refresh_lighthouse_baseline** → Run.
+   Record the source SHA, workflow run URL/ID and artifact name.
+3. Require a successful measurement step and the complete raw report matrix: one JSON report for
+   every configured route × strategy, each for the requested page, each with usable LCP/TBT/CLS/FCP,
+   and every report naming the same pinned `HeadlessChrome/<version>` and configured Lighthouse
+   version. Any missing report, retry that never recovered, mixed browser identity, or runtime error
+   makes the refresh unusable.
+4. Require the shared `--validate-baseline` step to pass. It proves the generated file has the exact
+   expected row set, valid numeric fields and one browser identity; it does not prove the source SHA
+   is a good performance reference.
+5. Download `lighthouse-baseline-refresh-<run_id>`, inspect the authoritative raw reports and
+   per-route deltas for an understood application change, then copy the generated
+   `lighthouse-budget.json` byte-for-byte. Do not transcribe, round, selectively combine reports from
+   different runs, or hand-edit measurements. Commit only that file and cite the source SHA, run URL
+   and artifact in the change record.
 
 The refresh job is dispatch-only, is not `continue-on-error` (a refresh that measured nothing must go
 red), and deliberately cannot push — a workflow that can rewrite a gate's own baseline is a gate that

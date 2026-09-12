@@ -2,6 +2,13 @@
   "schemaVersion": 1,
   "programmeId": "rag-answer-quality-and-repository-coverage-v1",
   "purpose": "Literal RED/GREEN supplements for tasks whose prose previously named only a passing gate or used shorthand. Other tasks retain the literal RED/GREEN commands in their task bodies.",
+  "amendmentPolicy": "2026-09-07: execution-order.md#answer-quality-amendment--2026-09-07 is the sole F/M map. Commands below are prospective baseline selectors, not acceptance receipts. Append focused changed-contract regressions and reconcile final scope; reuse only identical evidence, isolate known mock-incompatible routes, preserve historical missing command and paused implementation. M1 verifier slices under adaptive Tasks 2-3 precede richer output without early phase acceptance; M2 integrated journeys and final provider proof are distinct.",
+  "localProcessVerification": {
+    "scope": "Local smart dispatch preparation and exact implemented migration continuation identity only; no RAG product selectors",
+    "command": "node scripts/run-vitest.mjs run tests/rag-local-agent-policy.test.ts tests/rag-package-continuation.test.ts",
+    "protectedPathEnvironment": "GATE_RECEIPTS=off and GATE_ARBITER=off only for these fresh focused checks; coordinator remains active",
+    "packageCheck": "Controller runs generator in a tracked-only temporary workspace, never original dirty worktree; actual historical receipt chain remains separately unproven"
+  },
   "tasks": {
     "adaptive/task-0": {
       "strategy": "tdd",
@@ -10,6 +17,7 @@
       "greenCommand": "node scripts/run-vitest.mjs run tests/answer-content.test.ts tests/answer-copy-payload.test.ts"
     },
     "adaptive/task-6": {
+      "amendmentAcceptance": "M2 requires complete deterministic broad mixed-source, supported partial after support removal, two-follow-up/elaboration, display/copy/restore parity and predeclared positive benefit. Provider/blinded and formal receipt proof remain open.",
       "strategy": "verification-only",
       "preCommand": "npm run verify:pr-local -- --dry-run --files src/lib/rag/adaptive-answer-plan.ts,src/lib/rag/answer-composition.ts,src/lib/rag/rag-answer-instructions.ts,src/lib/rag/rag.ts,src/lib/answer-verification.ts,src/components/clinical-dashboard/answer-content.tsx",
       "preExpected": "The selector reports the exact handoff plan without executing provider or hosted work.",
@@ -54,12 +62,14 @@
       "greenCommand": "node scripts/run-vitest.mjs run tests/feedback-eval-triage.test.ts tests/answer-feedback-route.test.ts tests/eval-cases-route.test.ts tests/rag-eval-cases.test.ts"
     },
     "evaluation/task-5": {
+      "amendmentAcceptance": "F19/F20: predeclare positive target-slice benefit; measure required-part/explanation/completed-output success, cost/latency and lost post-emission recovery. Existing Gate E format/30-case provider set remains approval-gated.",
       "strategy": "tdd",
       "redCommand": "node scripts/run-vitest.mjs run tests/rag-programme-eval.test.ts tests/eval-rag-programme-offline.test.ts tests/compare-rag-programme-eval.test.ts tests/rag-eval-cases.test.ts tests/rag-eval-source-governance.test.ts tests/eval-canary-workflow.test.ts",
       "redExpected": "After adding comparator and default-branch canary assertions and before implementation, fail because paired fingerprint enforcement or the mandatory evaluated SHA is absent.",
       "greenCommand": "node scripts/run-vitest.mjs run tests/rag-programme-eval.test.ts tests/eval-rag-programme-offline.test.ts tests/compare-rag-programme-eval.test.ts tests/rag-eval-cases.test.ts tests/rag-eval-source-governance.test.ts tests/eval-canary-workflow.test.ts"
     },
     "evaluation/task-6": {
+      "amendmentAcceptance": "F21/M03/M06: accepted-local versus formal JSON/route completion remains explicit. Prospective reviewed receipt-policy reconciliation under this task and L00 must retain historical hashes and unavailable fields; no fabricated records or blanket rerun.",
       "strategy": "tdd",
       "redCommand": "node scripts/run-vitest.mjs run tests/rag-rollout.test.ts tests/eval-canary-workflow.test.ts tests/rag-programme-eval.test.ts",
       "redExpected": "After adding final ownership, stop-rule, and evidence-status assertions and before implementation, fail because the finalized SLO/runbook contract is incomplete.",
@@ -121,18 +131,21 @@
       "greenCommand": "node scripts/run-vitest.mjs run tests/rag-governed-corpus-retrieval.test.ts tests/rag-site-content-retrieval.test.ts tests/owner-scope.test.ts tests/owner-scope-guard.test.ts tests/retrieval-access-scope.test.ts tests/retrieval-owner-filter-guard.test.ts tests/retrieval-hydration-scope.test.ts tests/function-grants.test.ts tests/supabase-schema.test.ts"
     },
     "retrieval/task-6": {
+      "amendmentAcceptance": "F01-F07: use amended R3 primary/protected/tail and final affected selectors, semantic public DTO validation, bestSource null, safety typecheck and real recovery/current-surface/storage cases. Recorded R3 RED 3 failed/45 passed is historical; R2 22-file/282 command is unavailable. Preserve Task5.",
       "strategy": "tdd",
       "redCommand": "node scripts/run-vitest.mjs run tests/rag-provider.test.ts tests/rag-answer-support.test.ts tests/answer-response.test.ts tests/answer-state-contract.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts",
       "redExpected": "After adding typed public fallback-reason assertions and before implementation, the typed-field assertions fail while the existing deadline/abort invariants remain green.",
       "greenCommand": "node scripts/run-vitest.mjs run tests/rag-provider.test.ts tests/rag-answer-support.test.ts tests/answer-response.test.ts tests/answer-state-contract.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts"
     },
     "retrieval/task-7": {
+      "amendmentAcceptance": "M02 retry admission already landed in R1; new RED must cover remaining diagnosis distinction, never recreate fixed unreachable-guard work. Provider comparison may remain deferred for offline acceptance.",
       "strategy": "tdd",
       "redCommand": "node scripts/run-vitest.mjs run tests/rag-generation-degradation.test.ts tests/rag-provider.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts tests/rag-eval-cases.test.ts",
       "redExpected": "After adding separate response-bearing quality-retry exhaustion, zero-response initial-timeout, per-attempt telemetry, and protected deadline/abort assertions and before implementation, fail because the measured mechanism distinction or remediation seam is absent.",
       "greenCommand": "node scripts/run-vitest.mjs run tests/rag-generation-degradation.test.ts tests/rag-provider.test.ts tests/rag-route-budget.test.ts tests/rag-answer-fallback.test.ts tests/rag-eval-cases.test.ts"
     },
     "retrieval/task-8": {
+      "amendmentAcceptance": "F08-F14/F17: add full canonical cache request suffix/negation/population/scope/depth/context cold/warm/shared/coalesced cases, bounded follow-up/reset and source restriction/supplement/cross-domain cases plus reviewed conflict loading. F09/F10 adaptive corrective tests precede expanded output.",
       "strategy": "tdd",
       "redCommand": "node scripts/run-vitest.mjs run tests/rag-cache-invalidation.test.ts tests/answer-telemetry.test.ts tests/rag-telemetry-canary-absence.test.ts tests/rag-eval-cases.test.ts",
       "redExpected": "After adding release/scope isolation and privacy-safe diagnostic assertions and before implementation, fail because a cache key or telemetry classification omits required snapshot/coverage identity.",

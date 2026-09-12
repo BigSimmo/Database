@@ -1,3 +1,8 @@
+import {
+  australianSourceByKey,
+  australianSourcePolicyVersion,
+  type AustralianSourceDefinition,
+} from "@/lib/australian-source-catalogue";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 export type AustralianSourceTier = "wa_validated" | "australian_national" | "australian_state" | "supplementary";
@@ -5,6 +10,7 @@ export type SourceDesignation = "official" | "trusted" | "unclassified";
 export type SourceOfficialBasis = "wa_hospital" | "wa_health_service_network" | null;
 
 export type SourceAuthorityScope = "wa" | "australian_national" | "australian_state" | "international";
+export type SourceAuthorityLifecycle = "active" | "historical";
 
 export type SourceAuthorityDefinition = {
   key: string;
@@ -16,7 +22,11 @@ export type SourceAuthorityDefinition = {
   tier: Exclude<AustralianSourceTier, "supplementary"> | "supplementary";
   designation: SourceDesignation;
   officialBasis: SourceOfficialBasis;
+  catalogueIdentityOnly: boolean;
+  lifecycle: SourceAuthorityLifecycle;
 };
+
+export type SourceAuthorityIdentity = SourceAuthorityDefinition;
 
 export type SourceAuthorityConflict = "publisher_mismatch" | "jurisdiction_mismatch";
 export type SourceDesignationReasonCode =
@@ -36,11 +46,14 @@ export type SourceAuthorityClassification = {
   reasonCodes: SourceDesignationReasonCode[];
   authorityTier: SourceAuthorityDefinition["tier"] | null;
   authority: SourceAuthorityDefinition | null;
-  matchedBy: "publisher_code" | "publisher_alias" | "none";
+  matchedBy: "source_catalogue_key" | "publisher_code" | "publisher_alias" | "none";
   codeKnown: boolean;
   conflict: boolean;
   conflicts: SourceAuthorityConflict[];
   eligibilityReasons: string[];
+  cataloguePolicyResolved: boolean;
+  catalogueEntry: AustralianSourceDefinition | null;
+  australianAugmentationEligible: boolean;
 };
 
 function sourceMetadataRecord(input: unknown): Partial<ClinicalSourceMetadata> {
@@ -65,15 +78,22 @@ const nationalJurisdictions = [
 ] as const;
 
 function authority(
-  definition: Omit<SourceAuthorityDefinition, "publisherAliases" | "designation" | "officialBasis"> & {
+  definition: Omit<
+    SourceAuthorityDefinition,
+    "publisherAliases" | "designation" | "officialBasis" | "catalogueIdentityOnly" | "lifecycle"
+  > & {
     publisherAliases?: readonly string[];
     designation?: SourceDesignation;
     officialBasis?: SourceOfficialBasis;
+    catalogueIdentityOnly?: boolean;
+    lifecycle?: SourceAuthorityLifecycle;
   },
 ): SourceAuthorityDefinition {
   return {
     designation: "trusted",
     officialBasis: null,
+    catalogueIdentityOnly: false,
+    lifecycle: "active",
     ...definition,
     publisherAliases: [definition.publisher, ...(definition.publisherAliases ?? [])],
   };
@@ -101,13 +121,28 @@ export const sourceAuthorityRegistry = [
     tier: "wa_validated",
   }),
   authority({
-    key: "office-of-the-chief-psychiatrist-wa",
-    codes: ["OCP WA", "OCPWA"],
+    key: "wa-chief-psychiatrist",
+    codes: ["OCPWA", "OCP WA"],
     publisher: "Office of the Chief Psychiatrist WA",
-    publisherAliases: ["Office of the Chief Psychiatrist", "Office of Chief Psychiatrist WA"],
+    publisherAliases: [
+      "Office of the Chief Psychiatrist",
+      "Chief Psychiatrist of Western Australia",
+      "Office of Chief Psychiatrist WA",
+    ],
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "wa-legislation",
+    codes: ["WALEG"],
+    publisher: "Western Australian Legislation",
+    publisherAliases: ["WA Legislation", "Government of Western Australia Legislation"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
   }),
   authority({
     key: "armadale-kalamunda-group",
@@ -241,6 +276,15 @@ export const sourceAuthorityRegistry = [
     tier: "australian_national",
   }),
   authority({
+    key: "australian-prescriber",
+    codes: ["AUSPRES"],
+    publisher: "Australian Prescriber",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
     key: "australian-department-of-health",
     codes: ["AUSDOH", "DOHA"],
     publisher: "Australian Government Department of Health and Aged Care",
@@ -265,6 +309,7 @@ export const sourceAuthorityRegistry = [
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
+    lifecycle: "historical",
   }),
   authority({
     key: "pbs",
@@ -372,12 +417,65 @@ const genericWaPublishers = new Set(
     .publisherAliases.map((publisher) => normalizeSourceAuthorityText(publisher)),
 );
 
-export function sourceAuthorityForPublisherCode(code: string | null | undefined) {
+export function sourceAuthorityIsRuntimeClassifiable(authorityEntry: SourceAuthorityDefinition) {
+  return !authorityEntry.catalogueIdentityOnly;
+}
+
+export function sourceAuthorityIdentityForPublisherCode(code: string | null | undefined) {
   return authorityByCode.get(normalizePublisherCode(code)) ?? null;
 }
 
+/** Resolve the catalogue's publisher identity without making it runtime-trusted by code alone. */
+export function authorityIdentityForCatalogueEntry(entry: AustralianSourceDefinition): SourceAuthorityIdentity | null {
+  const identity = sourceAuthorityIdentityForPublisherCode(entry.publisherCode);
+  if (!identity) return null;
+  if (normalizeSourceAuthorityText(identity.publisher) !== normalizeSourceAuthorityText(entry.publisher)) return null;
+  if (!jurisdictionCompatible(identity, entry.jurisdiction)) return null;
+  return identity;
+}
+
+export function sourceAuthorityForPublisherCode(code: string | null | undefined) {
+  const authorityEntry = sourceAuthorityIdentityForPublisherCode(code);
+  return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
+}
+
 export function sourceAuthorityForPublisher(publisher: string | null | undefined) {
-  return authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+  const authorityEntry = authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+  return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
+}
+
+type SourceCatalogueIdentityInput = {
+  publisherCode: string | null;
+  publisher: string | null;
+  jurisdiction: string | null;
+};
+
+function compatibleSourceCatalogueIdentity(input: SourceCatalogueIdentityInput) {
+  const code = normalizePublisherCode(input.publisherCode);
+  const byCode = sourceAuthorityIdentityForPublisherCode(code);
+  if (code && !byCode) return null;
+  const byPublisher = authorityByPublisher.get(normalizeSourceAuthorityText(input.publisher)) ?? null;
+  const identity = byCode ?? byPublisher;
+  if (!identity) return null;
+  if (input.publisher && !publisherCompatible(identity, input.publisher)) return null;
+  if (input.jurisdiction && !jurisdictionCompatible(identity, input.jurisdiction)) return null;
+  return identity;
+}
+
+/** Descriptive catalogue geography only; this never grants retrieval eligibility or trust. */
+export function sourceCatalogueGeographyScope(input: SourceCatalogueIdentityInput) {
+  return compatibleSourceCatalogueIdentity(input)?.scope ?? null;
+}
+
+/** Registered catalogue designation for source ratings, never runtime admission or ranking. */
+export function sourceCatalogueDesignation(input: SourceCatalogueIdentityInput): SourceDesignation {
+  const identity = compatibleSourceCatalogueIdentity(input);
+  // As at the runtime designation boundary, a publisher alias without a code
+  // needs a jurisdiction before it can identify an authority for a rating.
+  if (!identity || (!normalizePublisherCode(input.publisherCode) && !input.jurisdiction?.trim())) {
+    return "unclassified";
+  }
+  return identity.designation;
 }
 
 function publisherCompatible(authorityEntry: SourceAuthorityDefinition, publisher: string) {
@@ -395,6 +493,31 @@ function jurisdictionCompatible(authorityEntry: SourceAuthorityDefinition, juris
   return authorityEntry.jurisdictions.some(
     (candidate) => normalizeSourceAuthorityText(candidate) === normalizedJurisdiction,
   );
+}
+
+type ResolvedAustralianCataloguePolicy = {
+  entry: AustralianSourceDefinition;
+  identity: SourceAuthorityIdentity;
+};
+
+function resolveAustralianCataloguePolicy(metadata: {
+  source_kind: string | null;
+  source_catalogue_key: string | null;
+  publisher_code: string | null;
+  publisher: string | null;
+  jurisdiction: string | null;
+}): ResolvedAustralianCataloguePolicy | null {
+  if (metadata.source_kind !== "document") return null;
+  if (!metadata.source_catalogue_key || !metadata.publisher_code || !metadata.jurisdiction) return null;
+  const entry = australianSourceByKey(metadata.source_catalogue_key);
+  if (!entry) return null;
+  const identity = authorityIdentityForCatalogueEntry(entry);
+  if (!identity) return null;
+  const claimedIdentity = sourceAuthorityIdentityForPublisherCode(metadata.publisher_code);
+  if (!claimedIdentity || claimedIdentity.key !== identity.key) return null;
+  if (!jurisdictionCompatible(identity, metadata.jurisdiction)) return null;
+  if (metadata.publisher && !publisherCompatible(identity, metadata.publisher)) return null;
+  return { entry, identity };
 }
 
 function isCurrentUsableDocument(
@@ -420,15 +543,28 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     publisher: sourceMetadataString(rawMetadata.publisher),
     publisher_code: sourceMetadataString(rawMetadata.publisher_code),
     jurisdiction: sourceMetadataString(rawMetadata.jurisdiction),
+    corpus_scope: sourceMetadataString(rawMetadata.corpus_scope),
+    source_role: sourceMetadataString(rawMetadata.source_role),
+    content_mode: sourceMetadataString(rawMetadata.content_mode),
+    source_catalogue_key: sourceMetadataString(rawMetadata.source_catalogue_key),
+    source_policy_version: sourceMetadataString(rawMetadata.source_policy_version),
+    licence_policy: sourceMetadataString(rawMetadata.licence_policy),
     document_status: sourceMetadataStatus(rawMetadata.document_status, "unknown"),
     clinical_validation_status: sourceMetadataStatus(rawMetadata.clinical_validation_status, "unverified"),
     extraction_quality: sourceMetadataStatus(rawMetadata.extraction_quality, "unknown"),
-  } satisfies Partial<ClinicalSourceMetadata>;
+  };
   const code = normalizePublisherCode(metadata.publisher_code);
   const codeAuthority = sourceAuthorityForPublisherCode(code);
   const publisherAuthority = sourceAuthorityForPublisher(metadata.publisher);
-  const authorityEntry = codeAuthority ?? publisherAuthority;
-  const matchedBy = codeAuthority ? "publisher_code" : publisherAuthority ? "publisher_alias" : "none";
+  const cataloguePolicy = resolveAustralianCataloguePolicy(metadata);
+  const authorityEntry = cataloguePolicy?.identity ?? codeAuthority ?? publisherAuthority;
+  const matchedBy = cataloguePolicy
+    ? "source_catalogue_key"
+    : codeAuthority
+      ? "publisher_code"
+      : publisherAuthority
+        ? "publisher_alias"
+        : "none";
   const conflicts: SourceAuthorityConflict[] = [];
   const eligibilityReasons: string[] = [];
 
@@ -455,22 +591,65 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     reasonCodes.push("authority_metadata_conflict");
   }
   if (!isCurrentUsableDocument(metadata)) eligibilityReasons.push("source_not_current_usable_document");
+  if (authorityEntry && authorityEntry.lifecycle !== "active") eligibilityReasons.push("catalogue_inactive");
   if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata)) {
     eligibilityReasons.push("wa_source_not_locally_validated");
   }
 
+  if (cataloguePolicy) {
+    if (cataloguePolicy.entry.lifecycle !== "active") eligibilityReasons.push("catalogue_inactive");
+    if (metadata.corpus_scope !== cataloguePolicy.entry.corpusScope) {
+      eligibilityReasons.push("catalogue_corpus_scope_mismatch");
+    }
+    if (!metadata.source_role || !cataloguePolicy.entry.roles.some((role) => role === metadata.source_role)) {
+      eligibilityReasons.push("catalogue_source_role_mismatch");
+    }
+    if (metadata.content_mode !== cataloguePolicy.entry.contentMode) {
+      eligibilityReasons.push("catalogue_content_mode_mismatch");
+    }
+    if (metadata.source_policy_version !== australianSourcePolicyVersion) {
+      eligibilityReasons.push("catalogue_policy_version_mismatch");
+    }
+    if (
+      cataloguePolicy.entry.contentMode !== "indexed_content" ||
+      cataloguePolicy.entry.licencePolicy === "index_forbidden" ||
+      metadata.licence_policy !== "public_index_permitted"
+    ) {
+      eligibilityReasons.push("catalogue_licence_ineligible");
+    }
+  }
+
+  const cataloguePolicyEligible =
+    Boolean(cataloguePolicy) &&
+    cataloguePolicy?.entry.lifecycle === "active" &&
+    cataloguePolicy?.entry.contentMode === "indexed_content" &&
+    cataloguePolicy?.entry.licencePolicy !== "index_forbidden" &&
+    metadata.corpus_scope === cataloguePolicy?.entry.corpusScope &&
+    Boolean(metadata.source_role && cataloguePolicy?.entry.roles.some((role) => role === metadata.source_role)) &&
+    metadata.content_mode === cataloguePolicy?.entry.contentMode &&
+    metadata.source_policy_version === australianSourcePolicyVersion &&
+    metadata.licence_policy === "public_index_permitted";
+
   const eligible =
     Boolean(authorityEntry) &&
+    authorityEntry?.lifecycle === "active" &&
     conflicts.length === 0 &&
-    (Boolean(codeAuthority) || Boolean(metadata.jurisdiction)) &&
+    (Boolean(cataloguePolicy) || Boolean(codeAuthority) || Boolean(metadata.jurisdiction)) &&
     isCurrentUsableDocument(metadata) &&
-    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata));
+    (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata)) &&
+    (!cataloguePolicy || cataloguePolicyEligible);
+
+  const australianAugmentationEligible =
+    eligible &&
+    cataloguePolicyEligible &&
+    cataloguePolicy?.identity.scope !== "international" &&
+    metadata.source_kind === "document";
 
   const designationRecognized =
     Boolean(authorityEntry) &&
     metadata.source_kind !== "registry_record" &&
     conflicts.length === 0 &&
-    (Boolean(codeAuthority) || Boolean(metadata.jurisdiction));
+    (Boolean(cataloguePolicy) || Boolean(codeAuthority) || Boolean(metadata.jurisdiction));
   const designation = designationRecognized ? (authorityEntry?.designation ?? "trusted") : "unclassified";
   if (designation === "official" && authorityEntry?.officialBasis === "wa_hospital") {
     reasonCodes.push("recognized_official_wa_hospital");
@@ -489,9 +668,12 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     authorityTier: authorityEntry?.tier ?? null,
     authority: authorityEntry ?? null,
     matchedBy,
-    codeKnown: Boolean(codeAuthority),
+    codeKnown: Boolean(cataloguePolicy || codeAuthority),
     conflict: conflicts.length > 0,
     conflicts,
-    eligibilityReasons,
+    eligibilityReasons: [...new Set(eligibilityReasons)],
+    cataloguePolicyResolved: Boolean(cataloguePolicy),
+    catalogueEntry: cataloguePolicy?.entry ?? null,
+    australianAugmentationEligible,
   };
 }
