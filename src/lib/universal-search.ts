@@ -12,14 +12,12 @@ import {
 import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { dictionaryKindLabel, searchDictionary } from "@/lib/dictionary";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
-import { rowToMedicationRecord } from "@/lib/medication-records";
-import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
+import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
-import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
+import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
-import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
@@ -136,37 +134,6 @@ const registryDomainTimeoutMs = 2500;
 // prior full budget without delaying any sibling domains.
 const documentsFederatedDomainTimeoutMs = 750;
 const documentsFocusedDomainTimeoutMs = 6000;
-const ownerCatalogueLimit = 500;
-
-// Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
-// audit columns, or other route-only payload. These projections keep the short-lived cache and
-// Supabase response limited to fields consumed by row conversion, ranking, and result cards.
-const medicationRankingProjection = "slug,name,class,subclass,category,tag,schedule,stats,sections,quick";
-const registryRankingProjection = [
-  "slug",
-  "title",
-  "subtitle",
-  "status_chips",
-  "primary_contact",
-  "contacts",
-  "route",
-  "eligibility",
-  "cost",
-  "referral",
-  "location",
-  "summary_cards",
-  "referral_info",
-  "best_use",
-  "criteria",
-  "verification",
-  "tags",
-  "catchments",
-  "catalogue_label",
-  "navigator_query",
-  "source",
-  "catalog_payload",
-].join(",");
-
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
 }
@@ -246,20 +213,16 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
 
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
-    !args.demo && args.supabase && args.ownerId
+    !args.demo && args.supabase
       ? (
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
             kind: "medication",
-            limit: ownerCatalogueLimit,
+            slug: null,
+            seeds: defaultMedicationRecords(),
             signal: args.signal,
-            load: (signal) =>
-              fetchOwnerMedicationRowsWithSeed(args.supabase!, args.ownerId!, ownerCatalogueLimit, {
-                signal,
-                select: medicationRankingProjection,
-              }),
           })
-        ).map(rowToMedicationRecord)
+        ).records
       : defaultMedicationRecords();
   // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
   // Prefer catalog corrections when they change the query; otherwise keep the
@@ -280,21 +243,16 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
-    !args.demo && args.supabase && args.ownerId
-      ? mergeRegistryRecordsWithDefaults(
-          "service",
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
+    !args.demo && args.supabase
+      ? (
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
             kind: "service",
-            limit: ownerCatalogueLimit,
+            slug: null,
+            seeds: serviceRecords,
             signal: args.signal,
-            load: (signal) =>
-              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "service", ownerCatalogueLimit, {
-                signal,
-                select: registryRankingProjection,
-              }),
-          }),
-        )
+          })
+        ).records
       : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
@@ -303,21 +261,16 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
 
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
-    !args.demo && args.supabase && args.ownerId
-      ? mergeRegistryRecordsWithDefaults(
-          "form",
-          await loadOwnerCatalogue({
-            ownerId: args.ownerId,
+    !args.demo && args.supabase
+      ? (
+          await readCanonicalSiteContentRecords({
+            supabase: args.supabase,
             kind: "form",
-            limit: ownerCatalogueLimit,
+            slug: null,
+            seeds: formRecords,
             signal: args.signal,
-            load: (signal) =>
-              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "form", ownerCatalogueLimit, {
-                signal,
-                select: registryRankingProjection,
-              }),
-          }),
-        )
+          })
+        ).records
       : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),

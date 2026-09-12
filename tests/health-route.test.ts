@@ -18,9 +18,61 @@ function mockEnv(options: {
       OPENAI_API_KEY: openAIConfigured ? "openai-key" : undefined,
       RAG_PROVIDER_MODE: options.providerMode ?? "auto",
       HEALTH_DEEP_PROBE_SECRET: options.deepSecret ? DEEP_TOKEN : undefined,
+      SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: options.configured ? "a".repeat(64) : undefined,
     },
     isDemoMode: () => Boolean(options.demoMode),
   }));
+}
+
+function mockHealthySiteContent(options: { fails?: boolean } = {}) {
+  const current = new Date().toISOString();
+  const probeSupabaseHealth = vi.fn(async () => ({ ok: true, checkedAt: current }));
+  vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
+  vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({
+    readSiteContentHealthEvidence: vi.fn(async () => {
+      if (options.fails) throw new Error("private database failure");
+      return {
+        initialized: true,
+        bootstrapIntegrityState: "not_applicable",
+        activePublicSiteRelease: {
+          version: "clinical-kb-site-release-v1",
+          releaseId: "11111111-1111-5111-8111-111111111111",
+          registryVersion: "site-content-registry-v1",
+          staticManifestDigest: "a".repeat(64),
+          dynamicStateDigest: "b".repeat(64),
+          releaseDigest: "c".repeat(64),
+          state: "active",
+          activatedAt: current,
+        },
+        publicSiteChangeEpoch: "7",
+        outstandingHeadCount: 0,
+        populationComplete: true,
+        releaseDigestValid: true,
+        dynamicDigestValid: true,
+        administratorAttestationValid: true,
+        governanceValid: true,
+        pendingSetExact: true,
+        outstandingHeadCountAgrees: true,
+        pendingCount: 0,
+        retryPendingCount: 0,
+        processingCount: 0,
+        readyCount: 0,
+        quarantinedCount: 0,
+        oldestOutstandingOriginAgeMs: null,
+        countOverflow: false,
+        timeIntegrityValid: true,
+        expiredProcessingLeaseCount: 0,
+        synchronizerSeen: true,
+        lastInvocationAt: current,
+        lastSuccessfulInvocationAt: current,
+        latestInvocationSucceeded: true,
+        lastActivation: current,
+        rollbackAvailable: false,
+      };
+    }),
+  }));
+  return { probeSupabaseHealth };
 }
 
 function healthRequest(query = "", headers?: HeadersInit) {
@@ -38,6 +90,33 @@ afterEach(() => {
 });
 
 describe("GET /api/health", () => {
+  it("P09 exposes only bounded programme defaults to authenticated detailed health", async () => {
+    mockEnv({ configured: false, demoMode: true, deepSecret: true });
+    const { healthResponse } = await import("../src/lib/health-response");
+    const authenticated = await payload(
+      await healthResponse(healthRequest("?deep=1", { "x-health-deep-token": DEEP_TOKEN })),
+    );
+    expect(authenticated.ragProgramme).toMatchObject({
+      configuredMode: "legacy",
+      candidatePercentage: 0,
+      components: { siteContent: false, australianAugmentation: false, adaptiveAnswer: false, adaptiveRender: false },
+    });
+    const publicHealth = await payload(await healthResponse(healthRequest()));
+    const publicReady = await payload(
+      await healthResponse(healthRequest(), { forceDeep: true, allowUnauthenticatedDeep: true }),
+    );
+    expect(publicHealth).not.toHaveProperty("ragProgramme");
+    expect(publicReady).not.toHaveProperty("ragProgramme");
+    expect(JSON.stringify(authenticated.ragProgramme)).not.toMatch(/salt|ownerId|cohortBucket/i);
+  });
+  it("treats the documented blank site-content digest as an unset optional binding", async () => {
+    vi.resetModules();
+    vi.stubEnv("SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST", "");
+    const { env } = await import("../src/lib/env");
+
+    expect(env.SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST).toBeUndefined();
+  });
+
   it("reports ok when fully configured", async () => {
     vi.stubEnv("RAILWAY_GIT_COMMIT_SHA", "2ae5a0aa5d339a7dc9089db134c2d9d0220444ae");
     mockEnv({ configured: true });
@@ -166,6 +245,33 @@ describe("GET /api/health", () => {
 });
 
 describe("GET /api/health/ready", () => {
+  it("returns only bounded site-content health after the ordinary Supabase probe succeeds", async () => {
+    mockEnv({ configured: true });
+    mockHealthySiteContent();
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "ok" });
+    expect(body.siteContent).toMatchObject({ state: "current", releaseDigestPrefix: "cccccccccccc" });
+    expect(JSON.stringify(body.siteContent)).not.toMatch(/changeEpoch|dynamicStateDigest|workerId|publishedBy/);
+  });
+
+  it("fails closed without leaking the site-content RPC error", async () => {
+    mockEnv({ configured: true });
+    mockHealthySiteContent({ fails: true });
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const response = await GET(new Request("http://localhost/api/health/ready"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "error" });
+    expect(JSON.stringify(body)).not.toContain("private database failure");
+  });
+
   it("runs the Supabase readiness branch without requiring the diagnostic probe token", async () => {
     mockEnv({ configured: true, demoMode: true });
     const { GET } = await import("../src/app/api/health/ready/route");
@@ -223,13 +329,8 @@ describe("GET /api/health/ready", () => {
     vi.useFakeTimers();
     try {
       mockEnv({ configured: true });
-      const probeSupabaseHealth = vi.fn(async () => ({
-        ok: true,
-        checkedAt: "2026-07-22T00:00:00.000Z",
-        message: "ok",
-      }));
-      vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
-      vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+      // Reuse the helper's spy: duplicate doMock factories can resolve out of order.
+      const { probeSupabaseHealth } = mockHealthySiteContent();
       const { GET } = await import("../src/app/api/health/ready/route");
 
       const first = await GET(new Request("http://localhost/api/health/ready"));

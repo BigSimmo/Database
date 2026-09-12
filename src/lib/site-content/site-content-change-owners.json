@@ -1,0 +1,92 @@
+{
+  "version": "site-content-change-owners-v1",
+  "producers": {
+    "calculators": [
+      "src/components/calculators/calculator-fixtures.ts",
+      "src/components/calculators/calculator-routes.ts",
+      "src/lib/calculators/calculator-evidence.ts",
+      "src/lib/calculators/calculator-fixtures.ts",
+      "src/lib/calculators/calculator-routes.ts"
+    ],
+    "dictionary": ["src/lib/dictionary-data.ts"],
+    "differentials": [
+      "data/differentials-snapshot.json",
+      "src/data/cross-mode-differentials-index.json",
+      "src/data/differential-presentation-display-metadata.json",
+      "src/lib/catalog-search.ts",
+      "src/lib/differential-fixtures.ts",
+      "src/lib/differential-presentation-display.ts",
+      "src/lib/differential-records.ts",
+      "src/lib/differential-seed.ts",
+      "src/lib/differentials.ts",
+      "src/lib/registry-corpus-links.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts",
+      "src/lib/site-content/differential-page-records.ts"
+    ],
+    "dsm": ["src/data/dsm-clinical-content.json", "src/lib/dsm.ts"],
+    "factsheets": ["src/components/factsheets/factsheets-data.ts", "src/lib/factsheets-data.ts"],
+    "forms": [
+      "data/forms-act-section-cues.json",
+      "data/forms-catalog.json",
+      "data/forms-page-snapshot.json",
+      "data/forms-pdf-manifest.json",
+      "data/mha-2014-sections.json",
+      "src/lib/catalog-search.ts",
+      "src/lib/form-catalog.ts",
+      "src/lib/form-ranker.ts",
+      "src/lib/forms.ts",
+      "src/lib/mha-act-sections.ts",
+      "src/lib/registry-corpus-links.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-fixtures.ts",
+      "src/lib/registry-records.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "formulation": ["src/data/formulation-content.json", "src/lib/formulation.ts"],
+    "prescribing": [
+      "data/medications-snapshot.json",
+      "src/lib/medication-fixtures.ts",
+      "src/lib/medication-records.ts",
+      "src/lib/medication-snapshot.ts",
+      "src/lib/medications.ts",
+      "src/lib/registry-corpus-links.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "services": [
+      "data/services-snapshot.json",
+      "src/lib/catalog-search.ts",
+      "src/lib/compact-best-use-title.ts",
+      "src/lib/registry-corpus-links.ts",
+      "src/lib/registry-corpus.ts",
+      "src/lib/registry-fixtures.ts",
+      "src/lib/registry-records.ts",
+      "src/lib/registry-seed.ts",
+      "src/lib/service-catalog-mapper.ts",
+      "src/lib/service-catalog.ts",
+      "src/lib/service-ranker.ts",
+      "src/lib/services.ts",
+      "src/lib/site-content/adapters/registry.ts"
+    ],
+    "specifiers": [
+      "data/specifiers-content.json",
+      "data/specifiers-search-index.json",
+      "src/lib/specifiers-content.ts",
+      "src/lib/specifiers.ts"
+    ],
+    "therapy-compass": [
+      "public/therapy-compass-data/**",
+      "public/therapy-compass-data/therapies-index.efb2b0703a124d70.json",
+      "public/therapy-compass-data/therapies.16552a934ddd9846.json",
+      "src/components/therapy-compass/data/generated-assets.ts",
+      "src/data/therapy-catalogue-assets.ts",
+      "src/lib/therapies.ts",
+      "src/lib/therapy-compass-types.ts"
+    ],
+    "tools": ["src/lib/tools-catalog.ts"]
+  }
+}

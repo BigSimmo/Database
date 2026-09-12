@@ -95,8 +95,11 @@ describe("CI cache safety", () => {
   });
 
   it("rejects a refreshed Lighthouse baseline that has zero or mixed browser identities", () => {
-    expect(workflow).toContain("versions.length!==1");
-    expect(workflow).toContain("Expected exactly one baseline Chrome version");
+    // Shared validator owns the single-Chrome-identity gate; keep the weaker
+    // ad-hoc inline node -e check out of ci.yml so refresh and grade use one path.
+    expect(workflow).toContain("node scripts/check-lighthouse-budget.mjs --validate-baseline");
+    expect(workflow).not.toContain("versions.length!==1");
+    expect(workflow).not.toContain("Expected exactly one baseline Chrome version");
   });
 
   it("exports the pinned browser through both Lighthouse environment contracts", () => {

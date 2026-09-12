@@ -34,6 +34,7 @@ import { PLAN_ASSURANCE_VALUES } from "./assurances";
 import { idempotencyKey } from "./ids";
 import type { PathwayVersionId, PatientId, PlanId, ReferralId } from "./ids";
 import type { ProviderStatus, SendingPreference, TransitionResult } from "./model";
+import { calculateRetryDelayMs } from "./retry-queue";
 import { DEFAULT_CONTACT_RETRY_POLICY, type ContactRetryPolicy } from "./service-rules";
 import { createInMemoryRepository } from "./in-memory-repository";
 import type { Actor, SystemActor } from "./permissions";
@@ -152,6 +153,30 @@ function reasonOf(result: TransitionResult<unknown>): string {
 }
 
 /**
+ * The offset from `sendAt`, in milliseconds, at which attempt `k` (1-indexed) is made, for
+ * `k` = 1..`policy.maxAttempts` -- `offsets[k - 1]` is attempt `k`'s offset. Computed once per run
+ * rather than per contact, since the policy does not vary contact to contact.
+ *
+ * This is `calculateRetryDelayMs` from `./retry-queue` (see `ContactRetryPolicy`'s module note for
+ * why attempt 1 is not offset 0) accumulated: attempt `k`'s offset is the sum of the first `k`
+ * ladder steps. A policy shorter than its own `maxAttempts` claims -- `backoffMs` exhausted before
+ * `maxAttempts` attempts are scheduled -- stops offering offsets rather than inventing one, exactly
+ * as `calculateRetryDelayMs` returning `null` stops `NotificationRetryQueue` from rescheduling a
+ * dead-lettered item.
+ */
+function attemptOffsetsMs(policy: ContactRetryPolicy): number[] {
+  const offsets: number[] = [];
+  let cumulativeMs = 0;
+  for (let attemptIndex = 0; attemptIndex < policy.maxAttempts; attemptIndex += 1) {
+    const delay = calculateRetryDelayMs(attemptIndex, policy.backoffMs);
+    if (delay === null) break;
+    cumulativeMs += delay;
+    offsets.push(cumulativeMs);
+  }
+  return offsets;
+}
+
+/**
  * Drives one twelve-month episode and returns the report together with the store it ran against.
  * Throws only when the run could not be set up at all (the plan could not be created or activated);
  * every domain refusal after that is data in `refusals`, not an exception.
@@ -262,6 +287,9 @@ export async function driveTwelveMonthSimulation(input: SimulationInput): Promis
   }
 
   const schedule = (await store.listContacts(planId, { actor: input.coordinator })).sort(bySendAt);
+  // One ladder walk for the whole run -- see the function's own note on why offsets don't vary
+  // contact to contact.
+  const retryOffsetsMs = attemptOffsetsMs(retryPolicy);
 
   const dispatched: PlannedContact[] = [];
   const missed: PlannedContact[] = [];
@@ -274,10 +302,8 @@ export async function driveTwelveMonthSimulation(input: SimulationInput): Promis
 
     let wentOut = false;
 
-    for (let attempt = 1; attempt <= retryPolicy.maxAttempts; attempt += 1) {
-      const at = new Date(
-        planned.sendAt.getTime() + (attempt - 1) * retryPolicy.retryIntervalMinutes * MILLISECONDS_PER_MINUTE,
-      );
+    for (let attempt = 1; attempt <= retryOffsetsMs.length; attempt += 1) {
+      const at = new Date(planned.sendAt.getTime() + retryOffsetsMs[attempt - 1]);
       advanceTo(at);
 
       // Events land between retry attempts too, not only between contacts. A death recorded while

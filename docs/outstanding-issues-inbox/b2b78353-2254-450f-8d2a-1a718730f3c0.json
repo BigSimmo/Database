@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "b2b78353-2254-450f-8d2a-1a718730f3c0",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#Q33JV6",
+    "outcome": "Reconciled crisis-line re-verification contradiction between audit (12 months) and spec (6 months) in docs/care-plan/crisis-lines-verification.md and created docs/caring-contacts-crisis-lines.md confirming canonical 6-month verification",
+    "baseRowFingerprint": "8759ee7fe1f34179373b6dfbdf57ee70d82024baa1e458ee368e5a0e704da63d"
+  }
+}

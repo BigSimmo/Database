@@ -155,6 +155,8 @@ export type PatientsDirectoryProps = {
    * prop explains a removal that has happened rather than announcing one that is about to.
    */
   savedSearchNotApplied?: boolean;
+  /** Optional initial search query safely resolved from an obfuscated session filter token (#HDCF2B). */
+  initialSearchQuery?: string;
 };
 
 /**
@@ -171,6 +173,7 @@ export function PatientsDirectory({
   mayViewPlans,
   mayViewPatientNames,
   savedSearchNotApplied = false,
+  initialSearchQuery,
 }: PatientsDirectoryProps) {
   // A cleared plan's name is the empty string both stores write for a removed one, so it is dropped
   // here rather than at each row: an empty name is "no name held", never a name, and every reader
@@ -211,6 +214,7 @@ export function PatientsDirectory({
       mayViewPlans={mayViewPlans}
       mayViewPatientNames={mayViewPatientNames}
       savedSearchNotApplied={savedSearchNotApplied}
+      initialSearchQuery={initialSearchQuery}
     />
   );
 }

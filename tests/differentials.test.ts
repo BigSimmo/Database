@@ -9,6 +9,7 @@ import {
 import { staleSeededPresentations } from "@/lib/differential-seed";
 import { normalizePresentationWorkflow } from "@/lib/differential-presentation-display";
 import { isDifferentialMetadataArtifactTitle } from "@/lib/differential-snapshot";
+import { rowGovernance, type DifferentialRecordRow } from "@/lib/differential-records";
 import {
   buildAdHocPresentationWorkflow,
   composeDifferentialSearchResults,
@@ -507,5 +508,65 @@ describe("ranked differential search", () => {
   it("keeps the full catalogue for an empty query and still honours aliases", () => {
     expect(searchDifferentialRecords("")).toEqual(differentialRecords);
     expect(searchDifferentialRecords("   ")).toEqual(differentialRecords);
+  });
+});
+
+describe("differential rowGovernance", () => {
+  function makeDifferentialRow(overrides: Partial<DifferentialRecordRow> = {}): DifferentialRecordRow {
+    return {
+      id: "11111111-1111-4111-8111-111111111111",
+      owner_id: "22222222-2222-4222-8222-222222222222",
+      slug: "test-differential",
+      kind: "presentation",
+      title: "Test Differential",
+      subtitle: null,
+      status: "routine",
+      clinical_hinge: null,
+      tags: [],
+      payload: {},
+      source: {},
+      source_status: "current",
+      validation_status: "unverified",
+      last_reviewed_at: null,
+      review_due_at: null,
+      created_at: "2026-05-14T00:00:00.000Z",
+      updated_at: "2026-05-14T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  it("preserves stored outdated status when no newer review has occurred", () => {
+    const row = makeDifferentialRow({ source_status: "outdated", last_reviewed_at: null });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+    expect(governance.sourceStatus).toBe("outdated");
+  });
+
+  it("re-evaluates outdated status when last_reviewed_at is newer than reference", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-05T00:00:00.000Z",
+    });
+    const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
+    expect(governance.sourceStatus).toBe("current");
+    expect(governance.lastReviewedAt).toBe("2026-09-05T00:00:00.000Z");
+  });
+
+  it("re-evaluates outdated status to review_due when review_due_at has passed", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-01T00:00:00.000Z",
+      review_due_at: "2026-09-05T00:00:00.000Z",
+    });
+    const governance = rowGovernance(row, new Date("2026-09-10T00:00:00.000Z"));
+    expect(governance.sourceStatus).toBe("review_due");
+  });
+
+  it("re-evaluates outdated status when an explicit re-verification timestamp is present", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      source: { label: "Updated Source", lastUpdated: "2026-09-05" },
+    });
+    const governance = rowGovernance(row, new Date("2026-09-10T00:00:00.000Z"));
+    expect(governance.sourceStatus).toBe("current");
   });
 });
