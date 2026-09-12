@@ -2,269 +2,322 @@
   "version": 1,
   "manifest": {
     "version": 1,
-    "id": "batch-34666462342",
+    "id": "batch-34671129666",
     "actor": "BigSimmo",
     "authorization": "codex://threads/01a09134-4445-7c33-859a-ad0ad334e2d7",
-    "controllerHash": "95b9c3ff2eca0819b121cd883e4a52b59d782efc093905dfad749362ab0fd5b0",
+    "controllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24",
     "mergeMethod": "merge",
-    "launchedAt": "2026-09-12T02:00:56.978Z",
+    "launchedAt": "2026-09-12T03:43:30.285Z",
     "perPr": 3,
     "total": 30,
     "canaryEvidence": {},
     "prs": [
       {
-        "number": 2715,
-        "head": "811a6e40622b78136a975f763aaea07eabe80975",
-        "headRef": "claude/youthful-keller-3dp7ie",
+        "number": 2710,
+        "head": "1f28dc48efe97cf8a2d37095e30d712c09b9fa3a",
+        "headRef": "claude/vibrant-heisenberg-u9sadb",
+        "dependencies": [],
+        "exclusion": "protected-surface"
+      },
+      {
+        "number": 2711,
+        "head": "4f98a1e824c0bed0fb484cf7e5c3f82bbd482c98",
+        "headRef": "claude/register-australian-publishers",
+        "dependencies": [],
+        "exclusion": "protected-surface"
+      },
+      {
+        "number": 2717,
+        "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
+        "headRef": "claude/eager-maxwell-z0h0z0",
         "dependencies": [],
         "exclusion": null
+      },
+      {
+        "number": 2721,
+        "head": "103731b45a95a589c317d7674aad53f4fd5357f3",
+        "headRef": "claude/rag-review-fallback-grounded-flip",
+        "dependencies": [],
+        "exclusion": "rag-evidence-required"
+      },
+      {
+        "number": 2726,
+        "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
+        "headRef": "claude/awesome-meitner-qrhlid",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2728,
+        "head": "2e3cbad31b05af632654f44c331d8c9c2980f710",
+        "headRef": "claude/awesome-lovelace-bzcest",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2729,
+        "head": "571b7e07c07408d8b281404e655942493349fce7",
+        "headRef": "claude/blissful-lamport-hy7804",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2731,
+        "head": "f45111d7564d7c0c7c7f2b2135fd68ea04fa63ae",
+        "headRef": "claude/magical-noether-z4gmil",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2733,
+        "head": "7822e6190f38e5efd48716ae337b36cb802b8110",
+        "headRef": "claude/quirky-turing-ta3qh4",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2735,
+        "head": "20fac1f1cb0bb783ca4009707e8c0dd75d3bbc63",
+        "headRef": "claude/busy-mayer-d5ljkv",
+        "dependencies": [],
+        "exclusion": null
+      },
+      {
+        "number": 2736,
+        "head": "61bd00fb42d1f331e69a49077b00ee7a2a0911d0",
+        "headRef": "claude/answer-mode-coverage-gap-ilcwui",
+        "dependencies": [],
+        "exclusion": "protected-surface"
+      },
+      {
+        "number": 2740,
+        "head": "3f250e0aeff2ba6d324edfee55d0d78271a87b8c",
+        "headRef": "claude/on-call-section-brainstorm-mtwulr",
+        "dependencies": [],
+        "exclusion": "draft"
+      },
+      {
+        "number": 2742,
+        "head": "392513bf3b9fdd0a8f1ba4c27548da58f7c4380a",
+        "headRef": "claude/dev-section-passwordless-link",
+        "dependencies": [],
+        "exclusion": "draft"
+      },
+      {
+        "number": 2744,
+        "head": "455e0a86c73cc5473b5ea18534800fd3ad82dbbd",
+        "headRef": "codex/chat-lighthouse-baseline-reliability-7925",
+        "dependencies": [],
+        "exclusion": "protected-surface"
+      },
+      {
+        "number": 2745,
+        "head": "3e9af262c2f86cfa13f8ee0953ea5808e672e629",
+        "headRef": "claude/developer-hub-hazard-register",
+        "dependencies": [],
+        "exclusion": "draft"
+      },
+      {
+        "number": 2764,
+        "head": "4aed81e48253afb4e5d88b8b6e2080f963e718c7",
+        "headRef": "codex/lighthouse-baseline-reliability",
+        "dependencies": [],
+        "exclusion": "protected-surface"
       }
     ]
   },
-  "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
-  "status": "all_merged",
-  "resumedAt": "2026-09-12T03:36:24.943Z",
-  "revision": 29,
-  "repairs": 3,
-  "pass": 1,
+  "manifestDigest": "01d49845949e2e8c40f64f831876d49193ddb3a7407bca3d9c084a5aa631e776",
+  "status": "running",
+  "resumedAt": "2026-09-12T03:43:30.285Z",
+  "revision": 1,
+  "repairs": 0,
+  "pass": 0,
   "active": null,
   "pending": null,
   "reason": null,
   "entries": [
     {
-      "number": 2715,
-      "head": "0ba37fbf520b726605d5aefef1658fa92ff38b99",
-      "state": "merged",
+      "number": 2710,
+      "head": "1f28dc48efe97cf8a2d37095e30d712c09b9fa3a",
+      "state": "excluded",
+      "reason": "protected-surface",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2711,
+      "head": "4f98a1e824c0bed0fb484cf7e5c3f82bbd482c98",
+      "state": "excluded",
+      "reason": "protected-surface",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2717,
+      "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
+      "state": "queued",
       "reason": null,
-      "attempts": 3,
-      "fingerprints": [
-        "473300616000efeee82b561040df199e184c1fb497322123249ca9eb6ae6e9b1",
-        "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755",
-        "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291"
-      ],
-      "updatedAt": "2026-09-12T02:00:56.978Z",
-      "progressAt": "2026-09-12T03:36:24.943Z",
-      "retried": false,
-      "mergeCommit": "d93c230a0e367f944e4ddc80c4ff3def622743cf",
-      "mergedAt": "2026-09-12T03:36:43Z"
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2721,
+      "head": "103731b45a95a589c317d7674aad53f4fd5357f3",
+      "state": "excluded",
+      "reason": "rag-evidence-required",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2726,
+      "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2728,
+      "head": "2e3cbad31b05af632654f44c331d8c9c2980f710",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2729,
+      "head": "571b7e07c07408d8b281404e655942493349fce7",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2731,
+      "head": "f45111d7564d7c0c7c7f2b2135fd68ea04fa63ae",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2733,
+      "head": "7822e6190f38e5efd48716ae337b36cb802b8110",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2735,
+      "head": "20fac1f1cb0bb783ca4009707e8c0dd75d3bbc63",
+      "state": "queued",
+      "reason": null,
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2736,
+      "head": "61bd00fb42d1f331e69a49077b00ee7a2a0911d0",
+      "state": "excluded",
+      "reason": "protected-surface",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2740,
+      "head": "3f250e0aeff2ba6d324edfee55d0d78271a87b8c",
+      "state": "excluded",
+      "reason": "draft",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2742,
+      "head": "392513bf3b9fdd0a8f1ba4c27548da58f7c4380a",
+      "state": "excluded",
+      "reason": "draft",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2744,
+      "head": "455e0a86c73cc5473b5ea18534800fd3ad82dbbd",
+      "state": "excluded",
+      "reason": "protected-surface",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2745,
+      "head": "3e9af262c2f86cfa13f8ee0953ea5808e672e629",
+      "state": "excluded",
+      "reason": "draft",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
+    },
+    {
+      "number": 2764,
+      "head": "4aed81e48253afb4e5d88b8b6e2080f963e718c7",
+      "state": "excluded",
+      "reason": "protected-surface",
+      "attempts": 0,
+      "fingerprints": [],
+      "updatedAt": "2026-09-12T03:43:30.285Z",
+      "progressAt": "2026-09-12T03:43:30.285Z",
+      "retried": false
     }
   ],
   "events": [
     {
       "revision": 1,
-      "at": "2026-09-12T02:00:56.978Z",
+      "at": "2026-09-12T03:43:30.285Z",
       "kind": "launched"
-    },
-    {
-      "revision": 2,
-      "at": "2026-09-12T02:00:56.978Z",
-      "kind": "selected",
-      "number": 2715
-    },
-    {
-      "revision": 3,
-      "at": "2026-09-12T02:00:56.978Z",
-      "kind": "intent",
-      "operation": {
-        "id": "batch-34666462342-3",
-        "number": 2715,
-        "kind": "repair",
-        "head": "811a6e40622b78136a975f763aaea07eabe80975",
-        "base": "e23fbf6199511d3b4d2cf02e212c224e135cf3ee",
-        "at": "2026-09-12T02:00:56.978Z",
-        "fingerprint": "473300616000efeee82b561040df199e184c1fb497322123249ca9eb6ae6e9b1"
-      }
-    },
-    {
-      "revision": 4,
-      "at": "2026-09-12T02:00:56.978Z",
-      "kind": "paused",
-      "reason": "controller-error:422; inspect Actions evidence before resume"
-    },
-    {
-      "revision": 5,
-      "at": "2026-09-12T02:21:45.695Z",
-      "kind": "policy-reauthorized",
-      "controllerHash": "71185e35097d180f74460e8ed3095e0127232bc2215a52999e7a9239f9f27142",
-      "actor": "BigSimmo"
-    },
-    {
-      "revision": 6,
-      "at": "2026-09-12T02:21:45.695Z",
-      "kind": "resumed"
-    },
-    {
-      "revision": 7,
-      "at": "2026-09-12T02:21:45.695Z",
-      "kind": "worker-stale-base",
-      "number": 2715,
-      "runId": 34667423854,
-      "retainedArtifact": true
-    },
-    {
-      "revision": 8,
-      "at": "2026-09-12T02:21:45.695Z",
-      "kind": "intent",
-      "operation": {
-        "id": "batch-34666462342-8",
-        "number": 2715,
-        "kind": "repair",
-        "head": "811a6e40622b78136a975f763aaea07eabe80975",
-        "base": "90ede03716958037c78adc0b3966fa80b4ca3fff",
-        "at": "2026-09-12T02:21:45.695Z",
-        "fingerprint": "139c52e42e77bc21f451d1cb3671c7bb99c4cd42f102d2fee56bc60f96420755"
-      }
-    },
-    {
-      "revision": 9,
-      "at": "2026-09-12T02:21:45.695Z",
-      "kind": "request-sent",
-      "operationId": "batch-34666462342-8"
-    },
-    {
-      "revision": 10,
-      "at": "2026-09-12T02:22:21.502Z",
-      "kind": "worker-claimed",
-      "operationId": "batch-34666462342-8",
-      "runId": 34667462349
-    },
-    {
-      "revision": 11,
-      "at": "2026-09-12T02:27:48.289Z",
-      "kind": "candidate-sealed",
-      "operationId": "batch-34666462342-8",
-      "resultHead": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991"
-    },
-    {
-      "revision": 12,
-      "at": "2026-09-12T02:28:13.523Z",
-      "kind": "repair-settled",
-      "number": 2715,
-      "runId": 34667462349,
-      "conclusion": "cancelled"
-    },
-    {
-      "revision": 13,
-      "at": "2026-09-12T02:28:13.523Z",
-      "kind": "waiting",
-      "number": 2715,
-      "reason": "ci-in-flight"
-    },
-    {
-      "revision": 14,
-      "at": "2026-09-12T02:32:28.523Z",
-      "kind": "paused",
-      "reason": "external-merge-ownership"
-    },
-    {
-      "revision": 15,
-      "at": "2026-09-12T03:09:04.384Z",
-      "kind": "policy-reauthorized",
-      "controllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24",
-      "actor": "BigSimmo"
-    },
-    {
-      "revision": 16,
-      "at": "2026-09-12T03:09:04.384Z",
-      "kind": "resumed"
-    },
-    {
-      "revision": 17,
-      "at": "2026-09-12T03:09:04.384Z",
-      "kind": "intent",
-      "operation": {
-        "id": "batch-34666462342-17",
-        "number": 2715,
-        "kind": "repair",
-        "head": "0a33572d6d5c1667a1ca4e981c9ce750d6f34991",
-        "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
-        "at": "2026-09-12T03:09:04.384Z",
-        "fingerprint": "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291"
-      }
-    },
-    {
-      "revision": 18,
-      "at": "2026-09-12T03:09:04.384Z",
-      "kind": "request-sent",
-      "operationId": "batch-34666462342-17"
-    },
-    {
-      "revision": 19,
-      "at": "2026-09-12T03:09:39.962Z",
-      "kind": "worker-claimed",
-      "operationId": "batch-34666462342-17",
-      "runId": 34669599689
-    },
-    {
-      "revision": 20,
-      "at": "2026-09-12T03:16:10.121Z",
-      "kind": "candidate-sealed",
-      "operationId": "batch-34666462342-17",
-      "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99"
-    },
-    {
-      "revision": 21,
-      "at": "2026-09-12T03:16:26.936Z",
-      "kind": "worker-completed",
-      "operationId": "batch-34666462342-17",
-      "outcome": "progress"
-    },
-    {
-      "revision": 22,
-      "at": "2026-09-12T03:16:43.828Z",
-      "kind": "repair-settled",
-      "number": 2715,
-      "runId": 34669599689,
-      "conclusion": "success"
-    },
-    {
-      "revision": 23,
-      "at": "2026-09-12T03:36:24.943Z",
-      "kind": "resumed"
-    },
-    {
-      "revision": 24,
-      "at": "2026-09-12T03:36:24.943Z",
-      "kind": "intent",
-      "operation": {
-        "id": "batch-34666462342-24",
-        "number": 2715,
-        "kind": "merge",
-        "head": "0ba37fbf520b726605d5aefef1658fa92ff38b99",
-        "base": "bfce2e3b71b1d40d6f1644d995e40987c3463523",
-        "at": "2026-09-12T03:36:24.943Z",
-        "fingerprint": null
-      }
-    },
-    {
-      "revision": 25,
-      "at": "2026-09-12T03:36:24.943Z",
-      "kind": "request-sent",
-      "operationId": "batch-34666462342-24"
-    },
-    {
-      "revision": 26,
-      "at": "2026-09-12T03:36:57.345Z",
-      "kind": "merge-request-observed",
-      "number": 2715
-    },
-    {
-      "revision": 27,
-      "at": "2026-09-12T03:36:57.345Z",
-      "kind": "merged",
-      "number": 2715,
-      "commit": "d93c230a0e367f944e4ddc80c4ff3def622743cf"
-    },
-    {
-      "revision": 28,
-      "at": "2026-09-12T03:36:57.345Z",
-      "kind": "retry-pass"
-    },
-    {
-      "revision": 29,
-      "at": "2026-09-12T03:36:57.345Z",
-      "kind": "completed"
     }
-  ],
-  "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
+  ]
 }

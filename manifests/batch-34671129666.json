@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "id": "batch-34671129666",
+  "actor": "BigSimmo",
+  "authorization": "codex://threads/01a09134-4445-7c33-859a-ad0ad334e2d7",
+  "controllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24",
+  "mergeMethod": "merge",
+  "launchedAt": "2026-09-12T03:43:30.285Z",
+  "perPr": 3,
+  "total": 30,
+  "canaryEvidence": {},
+  "prs": [
+    {
+      "number": 2710,
+      "head": "1f28dc48efe97cf8a2d37095e30d712c09b9fa3a",
+      "headRef": "claude/vibrant-heisenberg-u9sadb",
+      "dependencies": [],
+      "exclusion": "protected-surface"
+    },
+    {
+      "number": 2711,
+      "head": "4f98a1e824c0bed0fb484cf7e5c3f82bbd482c98",
+      "headRef": "claude/register-australian-publishers",
+      "dependencies": [],
+      "exclusion": "protected-surface"
+    },
+    {
+      "number": 2717,
+      "head": "fdcb4591eecbe80929da16778d2247bb0525a6cf",
+      "headRef": "claude/eager-maxwell-z0h0z0",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2721,
+      "head": "103731b45a95a589c317d7674aad53f4fd5357f3",
+      "headRef": "claude/rag-review-fallback-grounded-flip",
+      "dependencies": [],
+      "exclusion": "rag-evidence-required"
+    },
+    {
+      "number": 2726,
+      "head": "4a0c30b4b4503b57ecab11e4e7039452ecbcae9a",
+      "headRef": "claude/awesome-meitner-qrhlid",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2728,
+      "head": "2e3cbad31b05af632654f44c331d8c9c2980f710",
+      "headRef": "claude/awesome-lovelace-bzcest",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2729,
+      "head": "571b7e07c07408d8b281404e655942493349fce7",
+      "headRef": "claude/blissful-lamport-hy7804",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2731,
+      "head": "f45111d7564d7c0c7c7f2b2135fd68ea04fa63ae",
+      "headRef": "claude/magical-noether-z4gmil",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2733,
+      "head": "7822e6190f38e5efd48716ae337b36cb802b8110",
+      "headRef": "claude/quirky-turing-ta3qh4",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2735,
+      "head": "20fac1f1cb0bb783ca4009707e8c0dd75d3bbc63",
+      "headRef": "claude/busy-mayer-d5ljkv",
+      "dependencies": [],
+      "exclusion": null
+    },
+    {
+      "number": 2736,
+      "head": "61bd00fb42d1f331e69a49077b00ee7a2a0911d0",
+      "headRef": "claude/answer-mode-coverage-gap-ilcwui",
+      "dependencies": [],
+      "exclusion": "protected-surface"
+    },
+    {
+      "number": 2740,
+      "head": "3f250e0aeff2ba6d324edfee55d0d78271a87b8c",
+      "headRef": "claude/on-call-section-brainstorm-mtwulr",
+      "dependencies": [],
+      "exclusion": "draft"
+    },
+    {
+      "number": 2742,
+      "head": "392513bf3b9fdd0a8f1ba4c27548da58f7c4380a",
+      "headRef": "claude/dev-section-passwordless-link",
+      "dependencies": [],
+      "exclusion": "draft"
+    },
+    {
+      "number": 2744,
+      "head": "455e0a86c73cc5473b5ea18534800fd3ad82dbbd",
+      "headRef": "codex/chat-lighthouse-baseline-reliability-7925",
+      "dependencies": [],
+      "exclusion": "protected-surface"
+    },
+    {
+      "number": 2745,
+      "head": "3e9af262c2f86cfa13f8ee0953ea5808e672e629",
+      "headRef": "claude/developer-hub-hazard-register",
+      "dependencies": [],
+      "exclusion": "draft"
+    },
+    {
+      "number": 2764,
+      "head": "4aed81e48253afb4e5d88b8b6e2080f963e718c7",
+      "headRef": "codex/lighthouse-baseline-reliability",
+      "dependencies": [],
+      "exclusion": "protected-surface"
+    }
+  ]
+}
