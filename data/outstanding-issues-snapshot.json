@@ -1,17 +1,17 @@
 {
   "version": "outstanding-issues-snapshot-v1",
   "ledger_revision": {
-    "sha": "ff94ed49230a5f1db01d3a17fa4d0d3f16c9277a",
-    "committed_at": "2026-09-10T17:13:28+08:00"
+    "sha": "2497613126e771f74bd796ed2932f2366b4fa620",
+    "committed_at": "2026-09-12T15:43:48+08:00"
   },
   "counts": {
-    "open": 91,
+    "open": 81,
     "p1": 7,
-    "p2": 63,
-    "p3": 21,
+    "p2": 57,
+    "p3": 17,
     "queued": 7,
     "pending": 0,
-    "resolved": 538
+    "resolved": 548
   },
   "queue": [
     {
@@ -364,24 +364,6 @@
       "added": "2026-08-26"
     },
     {
-      "id": "#JZA0XK",
-      "priority": "P2",
-      "type": "task",
-      "summary": "Caring Contacts: no browser evidence exists for any activation-wizard stage, including a two-write middle state where a clinician presses a writing control a second time",
-      "detail": "Root cause, unchanged since Task 7: the isolated Playwright server seeds no referral, and the wizard route requires one, so every browser case lands on the no-referral state and one explicitly asserts the wizard has count 0. Three implementers independently declined to fabricate a referral id, correctly — it would render the identical screen while claiming to prove a stage. What that leaves unproven has grown with each task and is now the largest coverage gap in the workspace. (1) HYDRATION: the wizard is the first deliberate Client Component here — every other screen is a Server Component that works with JavaScript disabled — and its draft uses useSyncExternalStore with a getServerSnapshot. jsdom has no RSC payload and performs no hydration, so that argument is untested. (2) THE SENSITIVE INPUTS: the patient's name and mobile number, and the fictional-number caution beside them, have no evidence at 320px, in dark, under forced colours, or in print. Tap-target assertions read the class rather than the rendered box. (3) THE TWO-WRITE MIDDLE STATE, and this is the one that raises the priority: stage 4 creates the plan and then starts it, and created-but-not-started is a reachable, recoverable state whose screen tells a clinician the plan exists and that pressing again finishes THE SAME plan. It is the only screen in this workspace that asks someone to press a writing control a second time, and it has never been seen in a browser. (4) Two type=date inputs and a live schedule preview whose content changes with the chosen date. Close it when something in the workspace lists referrals and a browser case can reach the wizard with a real one; at that point assert the wizard mounts, a draft value survives a reload, the caution renders, and the created-but-not-started screen appears and its second press is safe.",
-      "source": "session 2026-08-25",
-      "added": "2026-08-25"
-    },
-    {
-      "id": "#1BHXEF",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Ward Flow demo clock mockup test flakes in Advisory UI: passed and failed on consecutive heads of the same unrelated PR",
-      "detail": "tests/ui-ward-roles.spec.ts :: '@mockup Ward screen > the demo clock control advances a held bed toward expiry, and reads as demo scaffolding' failed the Advisory UI job on PR #2437 head 9855e706 (run 33096941258, classifier said 'needs investigation'), having PASSED on the immediately preceding head 8bab0c9d of the same branch. The intervening commits touched only tests/ui-smoke.spec.ts and an unrelated medication merge; PR #2437 changed no ward file. It also passed locally on that branch head (chromium-mockups, 1 passed, 5.5s). It is a timing-sensitive demo countdown (see PR #2392 'pin demo countdown clock'), so the pinned clock likely still has a real-time-dependent path. Not in tests/flake-ledger.json. Advisory UI is not among the twelve jobs the pr-required aggregate depends on (.github/workflows/ci.yml, pr-required needs: changes, static-pr, safety, coverage, ingestion-sast, build, container-images, ui-critical-fast, ui-critical, lighthouse-budget, db-reset-verify, caring-contacts-db) and never runs on main pushes -- it is gated on advisory_ui_changed -- so this only ever surfaces on PRs that touch a mockup surface, which is why it can rot unnoticed. Next action: reproduce by running the spec repeatedly on one SHA; if it reproduces three times per docs/testing.md flake policy, quarantine via tests/flake-ledger.json, otherwise harden the clock pin. Do not weaken the assertion to silence it.",
-      "source": "Session unblocking PR #2437, 2026-08-27: observed in CI run 33096941258 and reproduced-clean locally.",
-      "added": "2026-08-27"
-    },
-    {
       "id": "#6KR6BR",
       "priority": "P3",
       "type": "issue",
@@ -416,24 +398,6 @@
       "detail": "The PsychSift owner approved the production HMAC control and verified retention schedules on 2026-09-01. Release remains blocked on six items: OpenAI ZDR and countersigned DPA evidence, Railway sensitive-health terms, APP 8 and APP 1/5 privacy-adviser approval, and clinical PHI-minimisation acceptance. Evidence authority: docs/governance/privacy-readiness.v1.json and docs/governance/privacy-closeout-2026-09-01.md.",
       "source": "session 2026-09-01 owner attestation closeout",
       "added": "2026-09-01"
-    },
-    {
-      "id": "#QX7TP2",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Caring Contacts: most wizard test cases are proved alive rather than proved complete, and the denominator is now counted",
-      "detail": "Recorded 2026-08-25 at the end of Phase 2B Task 8, by the implementer counting its own coverage from the code rather than estimating it. Roughly four of about thirty cases the activation-wizard suites own are proved assertion by assertion; the rest have at least one assertion with no mutation isolating it. Largest named gaps: the no-present-tense-claim case is 4 of 8, the draft round-trip 1 of 6, the live-region case 1 of 5. This is a known and accepted state rather than a defect — proving every assertion individually across a suite this size is a large piece of work and was deliberately not attempted. The reason to keep the row is the rule that produced it: a mutation proves the assertion it makes fail, not the case it makes red, so a case with N assertions needs N mutations or needs splitting. Two refinements worth carrying if anyone takes this on: order-masking (an assertion behind a sibling that fails first, so the mutation never reaches it) is a property of a (case, mutation) pair rather than of a case; and the inverse error is live too — a check believed redundant is a hypothesis, and acting on it deletes coverage. In this same task a not-contains loop was nearly filed as redundant and a mutation showed the equality assertion above it passes while both sides read the same record. Anyone closing this should prefer splitting multi-assertion cases over adding mutations one at a time.",
-      "source": "session 2026-08-25",
-      "added": "2026-08-25"
-    },
-    {
-      "id": "#HDCF2B",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Caring Contacts: patient names now travel in the URL because caseload search is a server-side GET",
-      "detail": "Task 5b made the Patients directory search match patient names, and the filter is a GET form (server-side filtering was mandated by the brief; Ruling 13 forbids client state; the approved design requires name search). So a search reaches the address bar, browser history, any Referer header and any server access log as ?q=<name>. Before Task 5b only synthetic identifiers went there. Judged NOT a defect by both the implementer's reviewer and the controller -- there was no compliant alternative under the standing constraints -- and recorded deliberately rather than fixed quietly, because it is exactly the kind of residual that gets carried into a real build unnoticed. Decide before any deployment carrying real patient names: POST-and-redirect, a client boundary accepted as an exception to Ruling 13, or an accepted risk with logging scrubbed.",
-      "source": "Task 5b review finding I-4, 2026-08-25",
-      "added": "2026-08-24"
     },
     {
       "id": "#V6CDEV",
@@ -535,15 +499,6 @@
       "added": "2026-09-04"
     },
     {
-      "id": "#Q33JV6",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Crisis-line re-verification cadence is stated as six months in the new record and twelve months in the audit",
-      "detail": "docs/care-plan/crisis-lines-verification.md proposes a six-monthly cadence with no repository precedent; the 2026-09-02 audit finding L4 proposed twelve. The fixtures.ts header comment no longer states an interval at all, so the document is the single source - but the interval itself is unsettled and is a clinical judgement for the owner. Also unresolved: the Lifeline 13 11 14 and 13YARN 13 92 76 numbers in src/lib/caring-contacts/message-rules.ts:117 carry no source and no verification date anywhere in the repository, and nothing ages them. Raised during audit remediation P10/P21 (2026-09-04).",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
       "id": "#WCJGYB",
       "priority": "P2",
       "type": "issue",
@@ -562,39 +517,12 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#NHGFXR",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Fourth occurrence of the shared-shell testid duplication race, now with a mechanism: CaringContactsShell's streamed/placed duplicate is only partly guarded",
-      "detail": "PR #2600 (claude/clinical-guide-redesign-ir5zcj), CI run 33868074584 job 101007656433 (Production UI shard 2): tests/ui-caring-contacts-workspace.spec.ts:1992 failed with 'strict mode violation: getByTestId(caring-contacts-phone-dock) resolved to 2 elements', identical markup, one via .first() one via the role/name locator. NOT PR #2600's fault: its diff (public/llms.txt, src/lib/brand.ts, ClinicalSidebar.tsx, master-search-header.tsx, ClinicalDashboard.tsx, calculators/mockups, globals.css, and matching tests) touches nothing under src/app/caring-contacts/** or src/components/caring-contacts/**. Source check: data-testid=caring-contacts-phone-dock has exactly one render site, shell.tsx:492 (nav aria-label Phone workspace) -- no second render path exists. STRONGER EVIDENCE THAN THE PRIOR TWO OCCURRENCES (service-actions-trigger on PR #2536/ui-tools.spec.ts, sources-topics-main on PR #2591/ui-sources.spec.ts:88, neither root-caused): this test file already documents and partially guards the exact mechanism. openWorkspace() (ui-caring-contacts-workspace.spec.ts:315-334) navigates with waitUntil:'load' then has a settle-wait comment: 'React streams the segment under loading.tsx's Suspense boundary into a hidden holder before moving it into place, so a production page sampled too early carries a second, inert copy of the whole shell. Settle on exactly one before measuring anything' -- followed by awaiting getByTestId('caring-contacts-rail') to reach count 1. Every /caring-contacts/* route dynamic-imports CaringContactsShell via next/dynamic (confirmed in page.tsx, patients/page.tsx, team/page.tsx, templates/page.tsx, schedule/page.tsx, reports/page.tsx, guidance/page.tsx, patients/[patientId]/page.tsx, templates/[pathwayId]/page.tsx), which is exactly the next/dynamic-under-Suspense shape session 2026-09-02's inbox note (id 5ad9c07e, re caring-contacts-guidance on PR #2536) hypothesized but did not verify. HYPOTHESIS, STILL NOT LIVE-VERIFIED: the settle-wait only polls caring-contacts-rail to count 1; it does not also wait for caring-contacts-phone-dock (or other shell-internal testids) to settle. Rail and dock are siblings inside the same streamed shell subtree, so Playwright's retrying assertion can resolve rail to 1 at a moment when dock, reconciled on a different tick, is still doubled -- which would explain a failure at line 1992 despite the openWorkspace() guard having already passed for that same navigation. Could not reproduce live in this session: this sandbox's egress policy returns 403 for cdn.playwright.dev (confirmed via the proxy README and status endpoint), so the Playwright chromium install command could not fetch the pinned v1234 build and no Playwright browser run was possible here -- this is a policy denial, not something to route around, so it was reported rather than retried. NEXT STEP for whoever picks this up: with a working browser, extend openWorkspace()'s settle-wait to also poll getByTestId('caring-contacts-phone-dock') for count 1 (mirroring the existing rail wait) before any per-width assertion, or generalize the wait to every shell-internal landmark the test suite queries; then re-run tests/ui-caring-contacts-workspace.spec.ts several times under load to confirm the race clears. If confirmed, the same generalized settle-wait likely explains the caring-contacts-guidance occurrence (PR #2536) and is worth checking against sources-topics-main and service-actions-trigger too, since both of those pages may have their own dynamic-import/Suspense-streamed shells with no equivalent settle-wait at all.",
-      "source": "session investigating PR #2600 CI failure, 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
-      "id": "#57QDCS",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Caring Contacts activation wizard intermittently renders two page roots after a reload, tripping strict mode",
-      "detail": "Reproduce and fix the duplicate page root, or add a narrower guard; do not quarantine on one reproduction (flake policy needs three on the same SHA). Why: tests/ui-caring-contacts-activation.spec.ts:186 ('keeps a typed draft across a page reload') failed once in a full verify:ui run with 'strict mode violation: getByTestId(caring-contacts-plan-wizard) resolved to 2 elements', the second carrying different consent copy - the persistent hidden streamed S: clone signature that docs/search-chrome-behaviour.md invariant 17 describes for duplicate page-root data-testids. Context: seen 2026-09-02 in the chromium-caring-contacts-seeded project during verify:ui on an unrelated Sources branch (649 passed, this 1 failed); the same spec then passed 4/4 on an isolated re-run, and the branch under test touches nothing reachable from /caring-contacts, which lives outside the (search-app) shell. So it is intermittent and pre-existing, not diff-induced. Confidence: high that it is unrelated to that branch, low on root cause - one reproduction, trace captured at test-results/ui-caring-contacts-activat-cc88a--draft-across-a-page-reload-chromium-caring-contacts-seeded/trace.zip but not analysed. Owner: Caring Contacts. Depends on: nothing.",
-      "source": "session 2026-09-02, observed during verify:ui on claude/sources-mode-dropdown-home-mzw4f5",
-      "added": "2026-09-02"
-    },
-    {
       "id": "#FE8BFA",
       "priority": "P2",
       "type": "issue",
       "summary": "Ward Flow test fixture asserts a shape nobody checks: as unknown as BedRelease hides 9 discrepancies",
       "detail": "tests/ward-release-band-day-boundary.test.ts:34 builds a BedRelease with 'as unknown as', which suppresses every check. BedRelease requires 11 fields; the fixture supplies 8. Six required are absent (waitingOn, blocker, blockedBy, preparing, preparationNote, confirmedBy) and three are phantom (blocked, blockReason, basis). blocker is absent while blockReason is phantom, so a plausible-looking name stands where the real field should be, and blocker is what the blocked-discharges breakdown counts. Verified independently by three chats at master 268fcd6a8.",
       "source": "Ward Builder Three closing sweep, measured at adcd8bcb5",
-      "added": "2026-09-02"
-    },
-    {
-      "id": "#2NRB8V",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Three unscoped getByTestId('caring-contacts-guidance') assertions can hit a strict-mode violation while the lazily-imported shell is still being placed, reddening unrelated PRs",
-      "detail": "OBSERVED ONCE, then cleared by a single re-run. CI run 33690849576 attempt 1, job 'Production UI (2)', head 22fd4da9e of PR #2536: tests/ui-caring-contacts-workspace.spec.ts:2670 failed with 'strict mode violation: getByTestId(\"caring-contacts-guidance\") resolved to 2 elements', the two being an unscoped match and getByRole('main').getByTestId(...), with identical class attributes. 212 other tests in the shard passed. Attempt 2 of the same job on the same commit passed, so the condition is intermittent rather than a standing break. classify-playwright-failures.mjs reported 'needs investigation' and the flake ledger is empty, so nothing had recorded it. NOT PR #2536's: that diff is twelve medication and documentation files and touches no Caring Contacts code; the same job passed on its previous head 957a0387. WHAT THE SOURCE SHOWS: data-testid='caring-contacts-guidance' is rendered in exactly one place, ProgrammeGuidance at src/components/caring-contacts/workspace/programme-guidance.tsx:63; src/app/caring-contacts/guidance/page.tsx renders it once, and CaringContactsShell interpolates {children} once (shell.tsx:392). So the second node is not a second render site in the source. HYPOTHESIS, NOT VERIFIED — I did not reproduce it: that page loads its shell through next/dynamic, and the test navigates with waitUntil:'load', which resolves before React finishes relocating out-of-order streamed content. During that window the streamed copy and the placed copy can both be in the DOM, which matches the two locators exactly. Anything that makes the runner slower widens the window, which is consistent with a first-attempt failure clearing on re-run. NEXT STEP: scope the locator to the landmark rather than the document — page.getByRole('main').getByTestId('caring-contacts-guidance') — at all three unscoped sites (lines 2294, 2669 and 2803 as of origin/main 705c2f64a), or await the heading before resolving the locator. Confirm the hypothesis first by reading the retained trace (artifact production-ui-diagnostics-33690849576-shard2) rather than changing the test on this reasoning alone. Do NOT quarantine it: one reproduction is below the repository's three-on-the-same-SHA bar, and the fix is a locator change rather than a suppression.",
-      "source": "CI run 33690849576 attempts 1 and 2 on PR #2536, 2026-09-02",
       "added": "2026-09-02"
     },
     {
@@ -661,15 +589,6 @@
       "added": "2026-09-02"
     },
     {
-      "id": "#XXH42K",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Third confirmed occurrence of the shared-shell duplicate-testid Playwright strict-mode bug, now in Caring Contacts workspace (caring-contacts-phone-dock, PR #2600)",
-      "detail": "Same error shape as the two occurrences already logged (see the outstanding-issue queued alongside PR #2613): getByTestId resolves to 2 elements for the same testid. This time: tests/ui-caring-contacts-workspace.spec.ts:1992, 'Template detail at 390px: the phone dock does not own navigation', getByTestId('caring-contacts-phone-dock') resolved to 2 identical <nav aria-label=\"Phone workspace\"> elements (PR #2600 run 33868074584, job 101007656433, shard 2). Confirmed unrelated to PR #2600's own diff (a documents/medications routing consolidation, not Caring Contacts). Correction: an earlier version of this note claimed one copy was nested inside GlobalSearchShell's mobile-composer-reserve-pad wrapper by analogy with the first two occurrences (service-actions-trigger, sources-topics-main) — that specific nesting detail was NOT verified for this third instance; the job log only shows two sibling matches (.first() and getByRole equivalent), not where in the DOM tree the second copy actually lives. Root cause (single vs. multiple mechanisms) is still open. Three occurrences across three unrelated PRs and three different testids still strongly suggests a systemic layout-duplication bug rather than three independent flakes.",
-      "source": "session 2026-09-04",
-      "added": "2026-09-04"
-    },
-    {
       "id": "#C0CARS",
       "priority": "P2",
       "type": "issue",
@@ -677,15 +596,6 @@
       "detail": "RECONSTRUCTED 2026-09-06, partially verified. tests/ward-referral-matching.test.ts is the suite's gate-by-gate proof of referralCandidates and referralEligibility: it exercises each eligibility gate (age, cohort, security, sex designation and mix, forensic, legal status, authorisation) on constructed unit/referral pairs, and asserts that each gate's detail string differs between pass and fail. referralCandidates has three other test consumers (ward-referral-screens.dom.test.tsx, ward-travel-grouping.test.ts, ward-referral-model.test.ts), but those exercise it incidentally for screen rendering, travel grouping and model shape rather than asserting per-gate matching behaviour, which is the basis for the row's claim that deleting this one file would leave the property unprotected. NOT VERIFIED: whether every individual gate is genuinely uncovered elsewhere, which needs a gate-by-gate cross-check against those three files. NEXT ACTION: do that cross-check and record the result, then either accept the single point of coverage deliberately with a note in the file, or add the narrowest backstop for whichever gates prove to be single-covered. Related but distinct: #Q6WD1M needs a reducer-level cohort-only proof, which is about the state transition rather than about candidate matching.",
       "source": "session 2026-09-02",
       "added": "2026-09-02"
-    },
-    {
-      "id": "#NKHVRY",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The caring-contacts dark specimen tile paints the dead compat palette, and is the only place in the app that does",
-      "detail": "src/components/caring-contacts/mockups/component-state-specimens.tsx:128 puts a literal 'dark' class on an <article> without 'ckb-v2'. It is the only off-root .dark mount in src/. globals.css .dark (0,1,0) is declared ON that element, while the v2 dark selectors (.dark .ckb-v2.ckb-v2 and .ckb-v2.dark.ckb-v2) need a .ckb-v2 at or below it, so the compat values win there by declaration-beats-inheritance. Measured in Chromium at /mockups/caring-contacts/system-states: --border #2b3136, --surface-raised #171b1e, --surface #101315, --text-muted #a4adb7 - all globals dark, where the app's real dark mode paints #333a41, #1c2126, #12161a, #a8b2bd. So a tile whose whole purpose is to demonstrate the dark luminance ladder demonstrates a ladder the product never uses. Fix is to add 'ckb-v2' beside 'dark' on that element, which is also a prerequisite for the token-layer collapse: deleting the dead globals .dark declarations would otherwise drop this subtree onto the v2 LIGHT palette. That fix is not a no-op - it moves the tile from the compat dark palette to the real one - so it needs owner sign-off rather than riding along silently. /mockups is blocked in production by src/proxy.ts, so this is a dev/preview surface only.",
-      "source": "Token-layer collapse, branch claude/token-layer-collapse-itskb0, browser-measured 2026-09-04",
-      "added": "2026-09-04"
     },
     {
       "id": "#S2741S",
