@@ -33,7 +33,7 @@ alone must never open it, which was incident `#L30`.
 Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `Database` service:
 
 ```bash
-openssl rand -base64 32
+openssl rand -hex 32
 ```
 
 Minimum 32 characters, enforced in `src/lib/env.ts` and again in

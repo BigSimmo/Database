@@ -272,6 +272,30 @@ describe("static compatibility redirects", () => {
     const location = new URL(response.headers.get("location")!);
     expect(location.pathname).toBe("/mockups/ward-flow/network");
   });
+
+  it("exchanges a developer key before redirecting a retired gated path", async () => {
+    const key = "developer-area-test-key".padEnd(32, "-");
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    process.env.DEVELOPER_AREA_ACCESS_KEY = key;
+    try {
+      const response = await proxy(
+        requestFor(`/mockups/ward-flow/constellation?${DEVELOPER_ACCESS_QUERY_PARAM}=${key}&view=network`),
+      );
+
+      const location = response.headers.get("location");
+      expect(location).toBeTruthy();
+      expect(location).toContain("/mockups/ward-flow/network");
+      expect(location).toContain("view=network");
+      expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
+      expect(location).not.toContain(key);
+      expect(response.headers.getSetCookie().some((cookie) => cookie.startsWith(`${DEVELOPER_ACCESS_COOKIE}=`))).toBe(
+        true,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+      else process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    }
+  });
 });
 
 describe("document-source fallback redirects", () => {

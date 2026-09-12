@@ -53,8 +53,9 @@ export const DEVELOPER_ACCESS_COOKIE_PATH = "/mockups";
 export const DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /**
- * Minimum accepted key length. 32 characters of the `openssl rand -base64 32`
- * output the setup docs hand out; anything shorter is treated as unconfigured.
+ * Minimum accepted key length. The setup docs generate a 64-character
+ * URL-safe hexadecimal value with `openssl rand -hex 32`; anything shorter is
+ * treated as unconfigured.
  */
 export const MIN_DEVELOPER_ACCESS_KEY_LENGTH = 32;
 

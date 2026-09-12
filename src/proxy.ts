@@ -232,6 +232,23 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
+  // `?devkey=…` exchanges the secret for the long-lived signed cookie and
+  // redirects with it removed, so the key never lingers in the address bar, in
+  // shared history, or in an onward Referer header. This must run before
+  // compatibility redirects, which otherwise preserve the query string and
+  // could forward the secret to their target.
+  if (isDeveloperGatedPath(pathname) && request.nextUrl.searchParams.has(DEVELOPER_ACCESS_QUERY_PARAM)) {
+    const presented = request.nextUrl.searchParams.get(DEVELOPER_ACCESS_QUERY_PARAM);
+    const url = request.nextUrl.clone();
+    url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
+    const redirectTarget = staticRouteRedirects[pathname];
+    if (redirectTarget) url.pathname = redirectTarget;
+    const response = withCsp(NextResponse.redirect(url));
+    const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
+    if (token) setDeveloperAccessCookie(response, token, request);
+    return response;
+  }
+
   const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
   if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
 
@@ -304,29 +321,6 @@ export async function proxy(request: NextRequest) {
 
   if (shouldBlockProductionMockups(pathname)) {
     return withCsp(new NextResponse(null, { status: 404 }));
-  }
-
-  // Passwordless developer-area access, step one: a gated path carrying
-  // `?devkey=…` exchanges the secret for the long-lived signed cookie and is
-  // redirected to the same URL without it, so the key never lingers in the
-  // address bar, in the history entry that gets shared, or in a Referer header
-  // sent onward. The redirect happens whether or not the secret verifies — a
-  // wrong key must not survive into `DEVELOPER_AREA_PATH_HEADER` and reappear as
-  // the `next` value on the sign-in screen.
-  //
-  // This is a third credential beside the administrator claim, never a
-  // replacement: `DeveloperAreaGate` still admits a signed-in administrator, and
-  // still refuses a visitor holding neither. `NEXT_PUBLIC_MOCKUPS_ENABLED` is
-  // untouched by any of it (#L30). See `src/lib/developer-area/link-access.ts`
-  // for why the cookie carries a signature rather than the key itself.
-  if (isDeveloperGatedPath(pathname) && request.nextUrl.searchParams.has(DEVELOPER_ACCESS_QUERY_PARAM)) {
-    const presented = request.nextUrl.searchParams.get(DEVELOPER_ACCESS_QUERY_PARAM);
-    const url = request.nextUrl.clone();
-    url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
-    const response = withCsp(NextResponse.redirect(url));
-    const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
-    if (token) setDeveloperAccessCookie(response, token, request);
-    return response;
   }
 
   const url = env.NEXT_PUBLIC_SUPABASE_URL;

@@ -301,6 +301,11 @@ describe("production readiness provider policy", () => {
     expect(developerAccessKeyProductionRisk({ NODE_ENV: "production" })).toBe("none");
     // Whitespace is not a configured key.
     expect(developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "   " })).toBe("none");
+    // The runtime resolver rejects under-strength values, so readiness must not
+    // advertise the passwordless link as active for one.
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "short" })).toBe(
+      "none",
+    );
   });
 
   it("reports no risk outside production or with the flag unset", () => {

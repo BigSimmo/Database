@@ -6,6 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 
+import { resolveDeveloperAccessKey } from "../src/lib/developer-area/link-access";
 import { checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { checkNodeRuntime as checkStrictNodeRuntime } from "./check-runtime";
 
@@ -396,7 +397,7 @@ export function developerAccessKeyProductionRisk(
 ): "none" | "enabled" | "public-name" {
   if (environment.NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY?.trim()) return "public-name";
   const productionLike = environment.NODE_ENV === "production" || environment.VERCEL_ENV === "production";
-  if (!productionLike || !environment.DEVELOPER_AREA_ACCESS_KEY?.trim()) return "none";
+  if (!productionLike || !resolveDeveloperAccessKey(environment)) return "none";
   return "enabled";
 }
 
