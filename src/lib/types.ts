@@ -1339,6 +1339,10 @@ export type RagAnswer = {
   // well-formed by construction, so the clinical-prose sanitizer/quality gate — which would
   // strip their document names (facility codes read as non-prose) — must be skipped.
   preformatted?: boolean;
+  // True when this answer is the source-backed review fallback pointer (ledger #ZK460W): a
+  // deterministic ungrounded/unsupported review-only citation stub, not model prose. Prefer
+  // this explicit flag over routingReason string matching + empty-sections side-conditions.
+  sourceBackedReviewFallback?: boolean;
   latencyTimings?: {
     search_cache_hit?: boolean;
     shared_cache_hit?: boolean;
