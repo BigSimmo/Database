@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "playwright/test";
-import { expectSingleSettledOwner } from "./playwright-settlement";
+import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
 async function blockExternalRequests(page: Page) {
   await page.route("**/*", async (route) => {
@@ -99,7 +99,7 @@ test("@critical Sources browse tabs carry the results band and reach the filtere
   await page.setViewportSize({ width: 390, height: 820 });
   await page.goto("/sources/topics", { waitUntil: "domcontentloaded" });
 
-  const topics = await expectSingleSettledOwner(page.getByTestId("sources-topics-main"));
+  const topics = await expectSingleSettledOwner(visibleByTestId(page, "sources-topics-main"));
   // The same band the Catalogue shows, counting topics rather than sources.
   await expect(page.getByTestId("search-query-ribbon")).toBeVisible();
   await expect(page.getByRole("status")).toContainText("topic");
@@ -142,32 +142,42 @@ test("a browse query narrows the browse list instead of being ignored", async ({
   await expect(page.getByTestId("search-results-empty-clear-search")).toBeVisible();
 });
 
-test("Sources remains operable at phone width and under accessibility media", async ({
-  page,
-  browserName,
-}, testInfo) => {
-  test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
-  await page.setViewportSize({ width: 320, height: 760 });
-  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
-  const surfaces = [
-    ["/sources/search", "sources-catalogue-main"],
-    ["/sources/topics", "sources-topics-main"],
-    ["/sources/publishers", "sources-publishers-main"],
-  ] as const;
+for (const colorScheme of ["light", "dark"] as const) {
+  test(`Sources remains operable at phone width and under accessibility media (${colorScheme})`, async ({
+    page,
+    browserName,
+  }, testInfo) => {
+    test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
+    await page.setViewportSize({ width: 320, height: 760 });
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active", colorScheme });
+    const surfaces = [
+      ["/sources/search", "sources-catalogue-main"],
+      ["/sources/topics", "sources-topics-main"],
+      ["/sources/publishers", "sources-publishers-main"],
+    ] as const;
 
-  for (const [route, testId] of surfaces) {
-    await page.goto(route);
-    await expectSingleSettledOwner(page.getByTestId(testId));
-    await page.keyboard.press("Tab");
-    await expect(page.locator(":focus-visible")).toHaveCount(1);
-    await expectNoHorizontalOverflow(page);
-    const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
-    await testInfo.attach(`sources-axe-${testId}`, {
-      body: JSON.stringify(axe.violations, null, 2),
-      contentType: "application/json",
-    });
-    expect(
-      axe.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious"),
-    ).toEqual([]);
-  }
-});
+    for (const [route, testId] of surfaces) {
+      await page.goto(route);
+      await expectSingleSettledOwner(page.getByTestId(testId));
+      if (route === "/sources/search") {
+        await expect(
+          page
+            .getByTestId("chip")
+            .filter({ hasText: /^Excluded$/ })
+            .first(),
+        ).toBeVisible();
+      }
+      await page.keyboard.press("Tab");
+      await expect(page.locator(":focus-visible")).toHaveCount(1);
+      await expectNoHorizontalOverflow(page);
+      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      await testInfo.attach(`sources-axe-${testId}`, {
+        body: JSON.stringify(axe.violations, null, 2),
+        contentType: "application/json",
+      });
+      expect(
+        axe.violations.filter((violation) => violation.impact === "critical" || violation.impact === "serious"),
+      ).toEqual([]);
+    }
+  });
+}

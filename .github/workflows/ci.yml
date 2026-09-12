@@ -88,6 +88,7 @@ jobs:
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
       pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
+      site_content_changed: ${{ steps.scope.outputs.site_content_changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -250,6 +251,12 @@ jobs:
 
       - name: CI scope self-test
         run: npm run check:ci-scope
+
+      - name: Site-content static and freshness contracts
+        if: needs.changes.outputs.site_content_changed == 'true'
+        run: |
+          node scripts/run-tsx.mjs scripts/build-site-content-manifest.ts --check
+          node scripts/run-tsx.mjs scripts/check-site-content-freshness.ts --evidence tests/fixtures/site-content/release-evidence-current.json
 
       - name: Verification-plan self-test
         run: npm run check:verification-plan
@@ -444,6 +451,13 @@ jobs:
       - name: Owner-scope guard
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:owner-scope
+
+      # Fails if a calculator's evidence source is missing access/review dates, an
+      # active calculator lacks a verified rights record, or the golden-vector
+      # registry is missing or out of sync with the pinned response-anchor IDs.
+      - name: Calculator content guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:calculator-content
 
       # The clinician-facing hazard register (docs/clinical-hazard-controls.json)
       # names control symbols, control paths and proving tests per hazard. Until
@@ -1103,11 +1117,13 @@ jobs:
         run: npm run check:lighthouse-budget -- --dir lighthouse
 
       # The acceptance check for this job: exactly one distinct browser, and it is the
-      # pinned one. More than one line here means the refresh is not usable.
-      - name: Show the baseline diff and the browser it was measured on
+      # pinned one. The shared validator also rejects missing/extra rows and any
+      # non-numeric, non-finite or negative metric, so a malformed or transcribed
+      # artifact cannot become the comparator merely because its JSON parses.
+      - name: Validate the refreshed baseline and show its diff
         run: |
+          node scripts/check-lighthouse-budget.mjs --validate-baseline
           git --no-pager diff --stat -- lighthouse-budget.json
-          node -e "const b=require('./lighthouse-budget.json');const versions=[...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion).filter(v=>typeof v==='string'&&v.length>0))];console.log(versions.join('\n'));if(versions.length!==1){console.error('Expected exactly one baseline Chrome version; found '+versions.length+'.');process.exit(1)}"
 
       - name: Upload the refreshed baseline
         if: always()
@@ -1551,7 +1567,32 @@ jobs:
       (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
     needs: [changes, static-pr, build, ui-critical]
     runs-on: ubuntu-24.04
-    timeout-minutes: 70
+    # Per ENGINE, not for the whole matrix. Before 2026-09-07 one job ran
+    # chromium-mockups + firefox + webkit sequentially under `workers: 1` /
+    # `fullyParallel: false`, and it stopped finishing: measured 70m23s
+    # (run 34100540973) and 70m20s (run 34104496596), both landing exactly on the
+    # old 70-minute cap. GitHub reports a timed-out job as `cancelled`, so every
+    # main run concluded cancelled while every other job passed — and the matrix
+    # produced NO verdict, which is worse than a red one. `main` had zero
+    # Firefox/WebKit coverage rather than failing coverage.
+    #
+    # A single-worker suite is not made faster by a longer cap, so the cap was
+    # NOT raised. The engines run as sibling jobs instead, the same answer
+    # `Production UI` already uses for Chromium (see its shard strategy above),
+    # which keeps `fullyParallel: false` / `retries: 0` determinism inside each
+    # job while cutting wall-clock to the slowest engine rather than their sum.
+    timeout-minutes: 45
+    strategy:
+      # One engine's failure must not cancel its siblings: a cancelled sibling
+      # reports no verdict, which is the exact failure mode this change exists to
+      # remove.
+      fail-fast: false
+      matrix:
+        # Groups, not bare project names, because the fail-safe path below runs
+        # the COMPLETE project set and every project must land in exactly one
+        # group. `tests/ci-browser-matrix-coverage.test.ts` proves that union
+        # against playwright.config.ts and fails closed when a project is added.
+        engine: [chromium, firefox, webkit]
 
     steps:
       - name: Checkout
@@ -1603,21 +1644,47 @@ jobs:
 
       - name: Full browser UI matrix
         id: e2e-matrix
+        env:
+          ENGINE: ${{ matrix.engine }}
         run: |
+          # Both paths below are exhaustive across playwright.config.ts projects
+          # for their own path, and disjoint between engines. The fail-safe union
+          # must equal the COMPLETE project set — a project omitted here would
+          # vanish from CI silently, so
+          # `tests/ci-browser-matrix-coverage.test.ts` re-derives both unions from
+          # this file plus playwright.config.ts and fails closed on any drift.
           if [ "${{ needs.changes.outputs.ui_changed }}" = "true" ] && [ "${{ needs.ui-critical.result }}" = "success" ]; then
             # Production Chromium already passed in this run. Keep mockup
             # Chromium plus the cross-browser backstop without repeating it.
-            npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit
+            case "$ENGINE" in
+              chromium) PROJECTS="--project=chromium-mockups" ;;
+              firefox)  PROJECTS="--project=firefox" ;;
+              webkit)   PROJECTS="--project=webkit" ;;
+              *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
+            esac
           else
-            # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof.
-            npm run test:e2e
+            # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof:
+            # this is where the complete project set has to be accounted for.
+            case "$ENGINE" in
+              chromium) PROJECTS="--project=chromium --project=chromium-mockups --project=chromium-caring-contacts-seeded" ;;
+              firefox)  PROJECTS="--project=firefox" ;;
+              webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone" ;;
+              *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
+            esac
           fi
+          echo "Running $ENGINE projects: $PROJECTS"
+          # Word-splitting is intended: $PROJECTS is a list of --project= flags
+          # built above, never user input.
+          # shellcheck disable=SC2086
+          npm run test:e2e -- $PROJECTS
 
       - name: Upload UI diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: release-ui-diagnostics-${{ github.run_id }}
+          # Per engine: a shared name makes the second failing engine fail on
+          # upload, the same trap already documented on the Production UI shards.
+          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}
           path: |
             test-results/
             playwright-report/

@@ -1,3 +1,4 @@
+import { ragAdaptiveAnswerProducerAvailable, ragAdaptiveAnswerRenderAvailable } from "@/lib/rag/rag-versioning";
 import { access, readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
@@ -61,6 +62,78 @@ function placeholderLooksLikeExample(value: string) {
 export function openAIReadinessPolicy(providerMode: "auto" | "openai" | "offline", apiKey?: string) {
   if (providerMode === "offline") return { required: false, ready: true } as const;
   return { required: true, ready: Boolean(apiKey) } as const;
+}
+
+/** Trusted current health/ownership projections supplied by an authorized operational caller.
+ * The static CLI deliberately supplies none; configuration is never connected evidence. */
+export type RagProgrammeReadinessEvidence = {
+  rollbackOwnerBound?: boolean;
+  siteContent?: {
+    state: import("@/lib/types").SiteContentPartitionState;
+    staticManifestDigest: string | null;
+    releaseValid: boolean;
+    administratorAttestationValid: boolean;
+  };
+  australian?: { sourcePolicyVersion: string | null; healthy: boolean };
+};
+
+export function ragProgrammeReadinessPolicy(
+  environment: Record<string, string | undefined>,
+  evidence: RagProgrammeReadinessEvidence = {},
+): string[] {
+  const failures: string[] = [];
+  const mode = environment.RAG_PROGRAMME_MODE ?? "legacy";
+  if (!["legacy", "shadow", "canary"].includes(mode)) failures.push("programme_mode_invalid");
+  const percentage = Number(environment.RAG_PROGRAMME_CANARY_BASIS_POINTS ?? "0");
+  if (
+    !Number.isInteger(percentage) ||
+    percentage < 0 ||
+    percentage > 10000 ||
+    environment.RAG_PROGRAMME_CANARY_BASIS_POINTS?.trim() === ""
+  )
+    failures.push("canary_percentage_invalid");
+  const flags = [
+    "RAG_SITE_CONTENT_ENABLED",
+    "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_ENABLED",
+    "RAG_ADAPTIVE_ANSWER_RENDER_ENABLED",
+  ];
+  if (flags.some((flag) => ![undefined, "true", "false"].includes(environment[flag])))
+    failures.push("component_flag_invalid");
+  if (mode === "canary") {
+    if ((environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim().length ?? 0) < 32)
+      failures.push("rollout_salt_missing_or_invalid");
+    if (!evidence.rollbackOwnerBound) failures.push("rollback_ownership_unavailable");
+  }
+  if (mode !== "legacy" && environment.RAG_TELEMETRY_EXTENDED !== "true") failures.push("programme_telemetry_disabled");
+  if (environment.RAG_ADAPTIVE_ANSWER_RENDER_ENABLED === "true" && environment.RAG_ADAPTIVE_ANSWER_ENABLED !== "true")
+    failures.push("adaptive_render_requires_answer");
+  // Static implementation prerequisites are distinct from activation and connected health.
+  if (environment.RAG_ADAPTIVE_ANSWER_ENABLED === "true" && !ragAdaptiveAnswerProducerAvailable)
+    failures.push("adaptive_producer_contract_unavailable");
+  if (environment.RAG_ADAPTIVE_ANSWER_RENDER_ENABLED === "true" && !ragAdaptiveAnswerRenderAvailable)
+    failures.push("adaptive_render_contract_unavailable");
+  if (mode !== "legacy" && environment.RAG_SITE_CONTENT_ENABLED === "true") {
+    const expected = environment.SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST;
+    const site = evidence.siteContent;
+    if (
+      !expected ||
+      !/^[0-9a-f]{64}$/.test(expected) ||
+      !site ||
+      site.state !== "current" ||
+      site.staticManifestDigest !== expected ||
+      !site.releaseValid ||
+      !site.administratorAttestationValid
+    )
+      failures.push("site_release_or_administrator_proof_unavailable");
+  }
+  if (
+    mode !== "legacy" &&
+    environment.RAG_AUSTRALIAN_AUGMENTATION_ENABLED === "true" &&
+    (!evidence.australian?.healthy || !evidence.australian.sourcePolicyVersion?.trim())
+  )
+    failures.push("australian_policy_or_health_unavailable");
+  return failures;
 }
 
 export type ClinicalAskReadinessStatus = "config_present" | "evidence_supplied" | "blocked" | "not_verified";
@@ -354,6 +427,12 @@ async function checkQueryHashGuardWiring() {
 
 async function main() {
   checkNodeRuntime();
+  const programmeFailures = ragProgrammeReadinessPolicy(process.env);
+  for (const reason of programmeFailures) result.failures.push(`RAG programme readiness: ${reason}`);
+  if (!programmeFailures.length)
+    result.passes.push(
+      "RAG programme static configuration is valid; connected operational readiness is not established.",
+    );
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
   recordMockupsGateProductionCheck();

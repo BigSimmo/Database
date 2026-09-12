@@ -33,6 +33,39 @@ describe("RAG abort signal propagation", () => {
     expect(createAdminClient).not.toHaveBeenCalled();
   }, 60_000);
 
+  it("aborts answerQuestionWithScope before cache or coalescing identity work starts", async () => {
+    const scopedAnswerCacheKey = vi.fn(() => "must-not-be-created");
+    const withRagRequestContext = vi.fn();
+    vi.doMock("@/lib/rag/rag-cache", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-cache")>("@/lib/rag/rag-cache");
+      return { ...actual, scopedAnswerCacheKey };
+    });
+    vi.doMock("@/lib/rag/rag-context-snapshot", async () => {
+      const actual = await vi.importActual<typeof import("../src/lib/rag/rag-context-snapshot")>(
+        "../src/lib/rag/rag-context-snapshot",
+      );
+      withRagRequestContext.mockImplementation(actual.withRagRequestContext);
+      return { ...actual, withRagRequestContext };
+    });
+
+    const controller = new AbortController();
+    controller.abort(new DOMException("The operation was aborted.", "AbortError"));
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+
+    await expect(
+      answerQuestionWithScope({
+        query: "clozapine monitoring",
+        ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        allowGlobalSearch: true,
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(scopedAnswerCacheKey).not.toHaveBeenCalled();
+    expect(withRagRequestContext).not.toHaveBeenCalled();
+    vi.doUnmock("@/lib/rag/rag-cache");
+    vi.doUnmock("@/lib/rag/rag-context-snapshot");
+  }, 60_000);
+
   it("attaches the caller signal to versioned retrieval RPC builders", async () => {
     const controller = new AbortController();
     const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
@@ -62,6 +95,41 @@ describe("RAG abort signal propagation", () => {
     expect(abortSignal).toHaveBeenCalledOnce();
     expect(abortSignal).toHaveBeenCalledWith(controller.signal);
     expect(controller.signal.aborted).toBe(false);
+  });
+
+  it("attaches the shared caller signal to governed candidate retrieval", async () => {
+    const controller = new AbortController();
+    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
+    const supabase = { rpc: vi.fn(() => ({ abortSignal })) };
+    const { searchGovernedCorpora } = await import("../src/lib/rag/rag-candidate-sources");
+
+    await searchGovernedCorpora({
+      supabase: supabase as never,
+      queryVariants: ["clozapine"],
+      matchCount: 8,
+      snapshot: {
+        version: "rag-context-snapshot-v1",
+        resolvedAt: "2026-08-30T00:00:00.000Z",
+        documentIndexGeneration: "generation-1",
+        sourcePolicyVersion: "source-policy-v1",
+        rolloutVersion: "rollout-v1",
+        siteContentRegistryVersion: null,
+        publicSiteContent: {
+          releaseId: null,
+          staticManifestDigest: null,
+          dynamicStateDigest: null,
+          releaseDigest: null,
+          changeEpoch: null,
+          state: "unavailable",
+        },
+      },
+      components: { siteContent: false, australianAugmentation: true, australianCurrent: true },
+      targetSiteDomains: [],
+      internationalCoverageGap: false,
+      signal: controller.signal,
+    });
+
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
   });
 
   it("refuses adversarial manipulation before Supabase work starts", async () => {

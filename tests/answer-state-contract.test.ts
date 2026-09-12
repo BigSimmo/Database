@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { answerStateFromRetrieval, type AnswerStateInput, type AnswerStateSource } from "@/components/ui/answer-state";
+import {
+  answerStateFromRetrieval,
+  answerUsesDegradedMode,
+  answerUsesSourceOnlyProvenance,
+  type AnswerStateInput,
+  type AnswerStateSource,
+} from "@/components/ui/answer-state";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { RagAnswer } from "@/lib/types";
 
@@ -30,6 +36,7 @@ const ragAnswerSatisfiesProjectionInput: AssignableTo<
     | "sources"
     | "citations"
     | "answerQualityTier"
+    | "fallbackReasonCode"
     | "fallbackReason"
     | "routingReason"
     // #207: the grounding signals the ungrounded channel reads. Pinned here so a
@@ -171,7 +178,8 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
     const generationFailed = answerStateFromRetrieval({
       sources: [],
       answerQualityTier: "source_only",
-      routingReason: "fast; generation_fallback: provider timeout",
+      fallbackReasonCode: "provider_timeout",
+      routingReason: "quality_gate_only",
     });
     expect(generationFailed).toEqual({ kind: "source_only", reason: "generation_failed" });
 
@@ -181,6 +189,51 @@ describe("PR-E step 0 · AnswerState reaches the app layer", () => {
       fallbackReason: "low_signal_retrieval_gate",
     });
     expect(qualityGate).toEqual({ kind: "source_only", reason: "quality_gate" });
+  });
+
+  it.each(["provider_offline", "provider_missing_key"] as const)(
+    "treats %s as unavailable generation rather than a quality gate",
+    (fallbackReasonCode) => {
+      expect(
+        answerStateFromRetrieval({
+          sources: [],
+          answerQualityTier: "source_only",
+          fallbackReasonCode,
+        }),
+      ).toEqual({ kind: "source_only", reason: "generation_failed" });
+    },
+  );
+
+  it.each(["coverage_gap", "provider_offline", "provider_missing_key"] as const)(
+    "surfaces typed-only %s degradation without inferring source-only provenance",
+    (fallbackReasonCode) => {
+      const input = {
+        sources: [],
+        fallbackReasonCode,
+        degradedMode: { active: true, reason: "A fixed public explanation." },
+      };
+      expect(answerStateFromRetrieval(input)).toEqual({ kind: "ready", sourceCount: 0 });
+      expect(answerUsesDegradedMode(input)).toBe(true);
+      expect(answerUsesSourceOnlyProvenance(input)).toBe(false);
+    },
+  );
+
+  it("gives the typed code precedence and parses legacy markers only when it is absent", () => {
+    expect(
+      answerStateFromRetrieval({
+        sources: [],
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "coverage_gap",
+        routingReason: "generation_fallback:provider_timeout",
+      }),
+    ).toEqual({ kind: "source_only", reason: "quality_gate" });
+    expect(
+      answerStateFromRetrieval({
+        sources: [],
+        answerQualityTier: "source_only",
+        routingReason: "generation_fallback:provider_timeout",
+      }),
+    ).toEqual({ kind: "source_only", reason: "generation_failed" });
   });
 
   it("treats a source-only answer over overdue sources as stale evidence first", () => {

@@ -419,6 +419,7 @@ function mockRuntime(
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
   vi.doUnmock("@/lib/demo-data");
+  vi.doUnmock("@/lib/answer-telemetry");
   vi.doMock("@/lib/env", () => ({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
@@ -1219,6 +1220,39 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).toHaveBeenCalledWith(`${userId}/images/${imageId}.png`, 600);
   });
 
+  it("fails with 500 when storage createSignedUrl returns a missing signedUrl", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "document_images") {
+        return ok({
+          document_id: documentId,
+          storage_path: `${userId}/images/${imageId}.png`,
+          mime_type: "image/png",
+          caption: "Legacy indexed image",
+          metadata: {},
+        });
+      }
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({ id: documentId, metadata: {} });
+      }
+      return ok(null);
+    });
+    client.storageMocks.createSignedUrl.mockResolvedValueOnce({
+      data: { signedUrl: "" },
+      error: null,
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/images/[id]/signed-url/route");
+
+    const response = await GET(authenticatedRequest(`/api/images/${imageId}/signed-url`), {
+      params: Promise.resolve({ id: imageId }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(await payload(response)).toMatchObject({
+      error: "Failed to generate signed URL for image.",
+    });
+  });
+
   /*
    * Audit L11. This case previously asserted 200 and named itself "legacy", but its
    * fixture is not a legacy image: the image CARRIES a generation while its parent
@@ -1381,6 +1415,22 @@ describe("private document API access", () => {
       [imageId]: { url: `https://signed.local/${userId}/images/${imageId}.png`, mimeType: "image/png" },
     });
     expect(client.storageMocks.createSignedUrls).toHaveBeenCalledWith([`${userId}/images/${imageId}.png`], 600);
+  });
+
+  it("fails with 500 when storage createSignedUrls returns a per-item error", async () => {
+    const client = createBatchImageMock();
+    client.storageMocks.createSignedUrls.mockResolvedValueOnce({
+      data: [{ path: `${userId}/images/${imageId}.png`, signedUrl: "", error: "Object not found" as never }],
+      error: null,
+    } as never);
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/images/signed-urls/route");
+
+    const response = await POST(signedUrlsRequest([imageId]));
+    const body = await payload(response);
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe("Failed to generate signed URL for image: Object not found");
   });
 
   it("omits images whose parent document belongs to another user", async () => {
@@ -4300,7 +4350,8 @@ describe("private document API access", () => {
 
     expect(searchResponse.status).toBe(200);
     expect(answerResponse.status).toBe(200);
-    expect(await payload(answerResponse)).toMatchObject({
+    const answerPayload = await payload(answerResponse);
+    expect(answerPayload).toMatchObject({
       interactionId: expect.any(String),
       feedbackToken: expect.any(String),
     });
@@ -4308,13 +4359,58 @@ describe("private document API access", () => {
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
     );
     expect(answerQuestionWithScope).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
+      expect.objectContaining({
+        ownerId: undefined,
+        allowGlobalSearch: true,
+        observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
+      }),
     );
+    const [answerCall] = answerQuestionWithScope.mock.calls as unknown as [
+      [{ observationContext?: { interactionId: string } }],
+    ];
+    expect(answerCall?.[0].observationContext?.interactionId).toBe(answerPayload.interactionId);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.rpc).not.toHaveBeenCalledWith(
       "consume_api_rate_limit",
       expect.objectContaining({ p_bucket: "search" }),
     );
+  });
+
+  it("does not complete the HTTP answer before configured joined persistence settles", async () => {
+    let release!: () => void;
+    const persistence = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const persistAnswerDiagnostics = vi.fn(() => persistence);
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "No owned evidence.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    vi.doMock("@/lib/answer-telemetry", () => ({ persistAnswerDiagnostics }));
+    const answerRoute = await import("../src/app/api/answer/route");
+
+    let responseSettled = false;
+    const response = answerRoute
+      .POST(
+        request("/api/answer", {
+          method: "POST",
+          body: JSON.stringify({ query: "monitoring" }),
+        }),
+      )
+      .then((value) => {
+        responseSettled = true;
+        return value;
+      });
+    await vi.waitFor(() => expect(persistAnswerDiagnostics).toHaveBeenCalledOnce());
+
+    expect(responseSettled).toBe(false);
+    release();
+    expect((await response).status).toBe(200);
   });
 
   it("rejects invalid bearer tokens instead of using anonymous search scope", async () => {
@@ -4705,9 +4801,10 @@ describe("private document API access", () => {
     expect(body).toMatchObject({
       demoMode: true,
       fallbackMode: "non_production_demo",
-      fallbackReason: "supabase_api_key_configuration_unavailable",
-      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+      fallbackReasonCode: "unknown",
+      degradedMode: { active: true, reason: "The answer could not be completed from the currently verified sources." },
     });
+    expect(body).not.toHaveProperty("fallbackReason");
     expect(String(body.answer)).toContain("Synthetic");
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
@@ -4740,9 +4837,10 @@ describe("private document API access", () => {
     expect(finalPayload).toMatchObject({
       demoMode: true,
       fallbackMode: "non_production_demo",
-      fallbackReason: "supabase_api_key_configuration_unavailable",
-      degradedMode: { active: true, reason: "supabase_api_key_configuration_unavailable" },
+      fallbackReasonCode: "unknown",
+      degradedMode: { active: true, reason: "The answer could not be completed from the currently verified sources." },
     });
+    expect(finalPayload).not.toHaveProperty("fallbackReason");
     expect(String(finalPayload.answer)).toContain("Synthetic");
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
@@ -5199,6 +5297,7 @@ describe("private document API access", () => {
     });
     expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
       signal: expect.any(AbortSignal),
+      observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
     });
     expect(client.rpc).toHaveBeenCalledTimes(1);
     expect(client.rpc).toHaveBeenCalledWith(
@@ -5544,6 +5643,106 @@ describe("private document API access", () => {
     expect(body).not.toContain("42P01");
   });
 
+  it.each([
+    ["JSON", false],
+    ["SSE", true],
+  ] as const)("recursively projects nested answer metadata at the %s route boundary", async (_label, streaming) => {
+    const unsafeMetadata = {
+      source_title: "Current guideline",
+      publisher: "WA Health",
+      jurisdiction: "Australia/WA",
+      version: null,
+      publication_date: null,
+      review_date: "2026-08-01",
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: "private-uploader-id",
+      content_hash: "a".repeat(64),
+      document_status: "current",
+      clinical_validation_status: "approved",
+      clinical_validation_evidence: { reviewer_id: "private-reviewer-id" },
+      extraction_quality: "good",
+    };
+    const answerQuestionWithScope = vi.fn(async () => ({
+      answer: "Monitor renal function.",
+      grounded: true,
+      confidence: "high",
+      citations: [
+        {
+          chunk_id: "chunk-safe-boundary",
+          document_id: documentId,
+          title: "Current guideline",
+          file_name: "current.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          source_metadata: unsafeMetadata,
+        },
+      ],
+      sources: [
+        {
+          id: "chunk-safe-boundary",
+          document_id: documentId,
+          title: "Current guideline",
+          file_name: "current.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
+          content: "Monitor renal function.",
+          image_ids: [],
+          similarity: 0.9,
+          source_metadata: unsafeMetadata,
+          document_labels: [
+            {
+              id: "private-label-id",
+              document_id: documentId,
+              owner_id: "private-owner-id",
+              label: "renal monitoring",
+              label_type: "topic",
+              source: "manual",
+              confidence: 1,
+              metadata: { reviewer_id: "private-label-reviewer-id" },
+            },
+          ],
+          score_explanation: { finalScore: 0.9, evidence: { owner_id: "private-score-owner" } },
+          images: [],
+        },
+      ],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = streaming
+      ? await import("../src/app/api/answer/stream/route")
+      : await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest(streaming ? "/api/answer/stream" : "/api/answer", {
+        method: "POST",
+        body: JSON.stringify({ query: "renal monitoring", documentId }),
+      }),
+    );
+    const rawBody = await response.text();
+    const answerPayload = streaming ? ssePayload(rawBody, "final") : (JSON.parse(rawBody) as Record<string, unknown>);
+    const sources = answerPayload.sources as Array<Record<string, unknown>>;
+    const citations = answerPayload.citations as Array<Record<string, unknown>>;
+
+    expect(response.status).toBe(200);
+    expect(sources[0]?.source_metadata).toMatchObject({
+      publisher: "WA Health",
+      jurisdiction: "Australia/WA",
+      document_status: "current",
+      clinical_validation_status: "approved",
+      extraction_quality: "good",
+    });
+    expect(sources[0]?.document_labels).toEqual([
+      { label: "renal monitoring", label_type: "topic", source: "manual", confidence: 1 },
+    ]);
+    expect(citations[0]?.source_metadata).toEqual(sources[0]?.source_metadata);
+    expect(sources[0]).not.toHaveProperty("score_explanation");
+    expect(rawBody).not.toMatch(
+      /private-uploader-id|content_hash|private-reviewer-id|private-label-id|private-owner-id|private-score-owner/,
+    );
+  });
+
   it("refuses streamed answer final events backed by danger-class source governance warnings", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Use the old protocol.",
@@ -5604,7 +5803,11 @@ describe("private document API access", () => {
     expect(finalPayload.sources).toEqual([]);
     expect(finalPayload.smartPanel).toBeUndefined();
     expect(finalPayload.smartApiPlan).toBeUndefined();
-    expect(finalPayload.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
+    expect(finalPayload.fallbackReasonCode).toBe("source_governance_block");
+    expect(finalPayload.degradedMode).toEqual({
+      active: true,
+      reason: "Available material did not meet the source-governance requirements.",
+    });
     expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
     expect(finalPayload.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
@@ -5669,7 +5872,11 @@ describe("private document API access", () => {
     expect(body.sources).toEqual([]);
     expect(body.smartPanel).toBeUndefined();
     expect(body.smartApiPlan).toBeUndefined();
-    expect(body.degradedMode).toEqual({ active: true, reason: "provider_fallback" });
+    expect(body.fallbackReasonCode).toBe("source_governance_block");
+    expect(body.degradedMode).toEqual({
+      active: true,
+      reason: "Available material did not meet the source-governance requirements.",
+    });
     expect(String(body.answer)).toContain("cannot provide a clinical answer");
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
@@ -5787,6 +5994,7 @@ describe("private document API access", () => {
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId, {
       signal: expect.any(AbortSignal),
+      observationContext: { interactionId: expect.any(String), rolloutMode: "legacy" },
     });
   });
 

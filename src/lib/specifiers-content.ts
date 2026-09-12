@@ -11,7 +11,7 @@
 
 import specifiersContent from "../../data/specifiers-content.json";
 
-import { specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
+import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
@@ -159,6 +159,32 @@ export function specifierCatalogItems(): SpecifierCatalogItem[] {
 export function getSpecifierCatalogItem(slug: string): SpecifierCatalogItem | undefined {
   buildCatalog();
   return cachedBySlug!.get(slug);
+}
+
+export type PublicSpecifierRecord =
+  | { source: "curated"; slug: string; record: SpecifierRecord }
+  | { source: "catalogue"; slug: string; item: SpecifierCatalogItem };
+
+/**
+ * Canonical public route projection. Curated records win the same-slug
+ * precedence used by `/specifiers/[slug]`; the full catalogue contributes only
+ * slugs not already owned by that richer curated surface.
+ */
+export function publicSpecifierRecords(): PublicSpecifierRecord[] {
+  const curatedSlugs = new Set(specifierRecords.map((record) => record.slug));
+  return [
+    ...specifierRecords.map((record) => ({ source: "curated" as const, slug: record.slug, record })),
+    ...specifierCatalogItems()
+      .filter((item) => !curatedSlugs.has(item.slug))
+      .map((item) => ({ source: "catalogue" as const, slug: item.slug, item })),
+  ];
+}
+
+export function publicSpecifierRecordBySlug(slug: string): PublicSpecifierRecord | null {
+  const curated = findSpecifier(slug);
+  if (curated) return { source: "curated", slug: curated.slug, record: curated };
+  const item = getSpecifierCatalogItem(slug);
+  return item ? { source: "catalogue", slug: item.slug, item } : null;
 }
 
 /** Sibling specifiers in the same disorder (other groups included), for "related" rails. */

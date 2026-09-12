@@ -23,7 +23,8 @@ const dataset = readJson(datasetPath);
 const baseline = readJson(baselinePath);
 const schema = readJson(schemaPath);
 const promptVersion =
-  readFileSync("src/lib/rag/rag-versioning.ts", "utf8").match(/ragAnswerPromptVersion\s*=\s*"([^"]+)"/)?.[1] ?? "";
+  readFileSync("src/lib/rag/rag-versioning.ts", "utf8").match(/ragAdaptiveAnswerPromptVersion\s*=\s*"([^"]+)"/)?.[1] ??
+  "";
 
 describe("RAG adversarial fixture contract", () => {
   it("accepts the committed dataset and baseline", () => {
@@ -197,4 +198,10 @@ describe("RAG adversarial baseline record", () => {
       "baseline: semanticRerankEnabled must be false — issue #001 keeps the semantic reranker off",
     );
   });
+});
+
+it("pins the baseline to the implemented evaluation contract", async () => {
+  const { ragAnswerQualityEvaluationVersion } = await import("../src/lib/rag/rag-eval-cases");
+  const current = JSON.parse(readFileSync("scripts/fixtures/rag-adversarial-baseline.v1.json", "utf8"));
+  expect(current.reportKey.eval_config_version).toBe(ragAnswerQualityEvaluationVersion);
 });

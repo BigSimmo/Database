@@ -22,6 +22,8 @@ export type AuditOutcome = "allowed" | "denied" | "failed";
 export type AuditableChange = {
   actorId: ActorId;
   actorRoles: readonly string[];
+  /** Primary actor role signature (e.g. clinician, coordinator, supervisor). */
+  actorRole?: string;
   teamId: TeamId;
   action: string;
   objectType: string;
@@ -33,7 +35,14 @@ export type AuditableChange = {
 export type AuditEvent = AuditableChange & {
   /** ISO-8601 instant with an explicit numeric offset (AWST, +08:00 year-round -- see clock.ts). */
   timestamp: string;
+  /** Primary actor role signature (e.g. clinician, coordinator, supervisor). */
+  actorRole: string;
 };
+
+/**
+ * Standard audit trail entry format for export and serialization (#Q8NMM3).
+ */
+export type CaringContactsAuditEntry = AuditEvent;
 
 /**
  * Australian mobile numbers, in every form this codebase has produced them: spaced
@@ -105,9 +114,14 @@ export function assertAuditEventFreeOfPatientData(
 export function buildAuditEvent(input: AuditableChange, clock: Clock): AuditEvent {
   assertAuditEventFreeOfPatientData(input as unknown as Record<string, unknown>);
 
+  const rawRole = typeof input.actorRole === "string" ? input.actorRole.trim() : "";
+  const fallbackRole = input.actorRoles.find((r) => typeof r === "string" && r.trim() !== "")?.trim() ?? "unknown";
+  const actorRole = rawRole !== "" ? rawRole : fallbackRole;
+
   const event: AuditEvent = {
     actorId: input.actorId,
     actorRoles: Object.freeze([...input.actorRoles]),
+    actorRole,
     teamId: input.teamId,
     action: input.action,
     objectType: input.objectType,
@@ -117,4 +131,95 @@ export function buildAuditEvent(input: AuditableChange, clock: Clock): AuditEven
     timestamp: awstIsoTimestamp(clock.now()),
   };
   return Object.freeze(event);
+}
+
+/**
+ * Serializes an audit trail entry for export, capturing the actorRole signature (#Q8NMM3).
+ */
+export function serializeAuditEntry(entry: CaringContactsAuditEntry): string {
+  return JSON.stringify({
+    timestamp: entry.timestamp,
+    actorId: entry.actorId,
+    actorRole: entry.actorRole,
+    actorRoles: entry.actorRoles,
+    teamId: entry.teamId,
+    action: entry.action,
+    objectType: entry.objectType,
+    objectId: entry.objectId,
+    outcome: entry.outcome,
+    idempotencyKey: entry.idempotencyKey,
+  });
+}
+
+/**
+ * Serializes an array of audit trail entries into newline-delimited JSON for export.
+ */
+export function serializeAuditTrail(entries: readonly CaringContactsAuditEntry[]): string {
+  return entries.map((entry) => serializeAuditEntry(entry)).join("\n");
+}
+
+/**
+ * Deserializes an exported audit trail entry, verifying that no patient data is present
+ * and validating all required schema properties.
+ */
+export function deserializeAuditEntry(serialized: string): CaringContactsAuditEntry {
+  const parsed = JSON.parse(serialized) as Record<string, unknown>;
+  assertAuditEventFreeOfPatientData(parsed);
+
+  if (typeof parsed.timestamp !== "string" || !parsed.timestamp) {
+    throw new Error("Invalid audit entry: missing or invalid timestamp");
+  }
+  if (typeof parsed.actorId !== "string" || !parsed.actorId) {
+    throw new Error("Invalid audit entry: missing or invalid actorId");
+  }
+  if (typeof parsed.teamId !== "string" || !parsed.teamId) {
+    throw new Error("Invalid audit entry: missing or invalid teamId");
+  }
+  if (typeof parsed.action !== "string" || !parsed.action) {
+    throw new Error("Invalid audit entry: missing or invalid action");
+  }
+  if (typeof parsed.objectType !== "string" || !parsed.objectType) {
+    throw new Error("Invalid audit entry: missing or invalid objectType");
+  }
+  if (typeof parsed.objectId !== "string" || !parsed.objectId) {
+    throw new Error("Invalid audit entry: missing or invalid objectId");
+  }
+  if (typeof parsed.outcome !== "string" || !["allowed", "denied", "failed"].includes(parsed.outcome)) {
+    throw new Error("Invalid audit entry: missing or invalid outcome");
+  }
+  if (typeof parsed.idempotencyKey !== "string" || !parsed.idempotencyKey) {
+    throw new Error("Invalid audit entry: missing or invalid idempotencyKey");
+  }
+
+  const rawRoles = Array.isArray(parsed.actorRoles)
+    ? parsed.actorRoles.filter((r): r is string => typeof r === "string" && r.trim() !== "")
+    : [];
+  const rawRole =
+    typeof parsed.actorRole === "string" && parsed.actorRole.trim() !== "" ? parsed.actorRole.trim() : undefined;
+  const actorRole = rawRole ?? rawRoles[0] ?? "unknown";
+  const actorRoles = rawRoles.length > 0 ? rawRoles : [actorRole];
+
+  return Object.freeze({
+    timestamp: parsed.timestamp,
+    actorId: parsed.actorId as ActorId,
+    actorRole,
+    actorRoles: Object.freeze(actorRoles),
+    teamId: parsed.teamId as TeamId,
+    action: parsed.action,
+    objectType: parsed.objectType,
+    objectId: parsed.objectId,
+    outcome: parsed.outcome as AuditOutcome,
+    idempotencyKey: parsed.idempotencyKey as IdempotencyKey,
+  });
+}
+
+/**
+ * Deserializes an exported newline-delimited JSON audit trail into an array of CaringContactsAuditEntry.
+ */
+export function deserializeAuditTrail(serialized: string): CaringContactsAuditEntry[] {
+  const lines = serialized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return lines.map((line) => deserializeAuditEntry(line));
 }

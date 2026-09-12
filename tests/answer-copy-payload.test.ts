@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  answerTextForClipboard,
   answerStateForAnswer,
   buildAnswerClipboardText,
   resolveAnswerSources,
@@ -97,6 +98,62 @@ describe("answerStateForAnswer · empty sources fallback", () => {
 
     expect(state).toEqual({ kind: "ready", sourceCount: 0 });
   });
+
+  it("carries typed fallback precedence into every clipboard state projection", () => {
+    const state = answerStateForAnswer({
+      answer: {
+        ...answerWith([]),
+        answerQualityTier: "source_only",
+        fallbackReasonCode: "coverage_gap",
+        degradedMode: {
+          active: true,
+          reason: "Answer generation timed out; the verified source-backed portion is shown.",
+        },
+      },
+    });
+
+    expect(state).toEqual({ kind: "source_only", reason: "quality_gate" });
+  });
+
+  it("describes offline generation as unavailable rather than a quality-gate failure", () => {
+    const offlineAnswer: RagAnswer = {
+      ...answerWith([]),
+      answerQualityTier: "source_only",
+      fallbackReasonCode: "provider_offline",
+    };
+
+    expect(answerStateForAnswer({ answer: offlineAnswer })).toEqual({
+      kind: "source_only",
+      reason: "generation_failed",
+    });
+    expect(
+      buildAnswerClipboardText({
+        answer: offlineAnswer,
+        renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
+      }),
+    ).toMatch(/answer generation was unavailable/i);
+  });
+
+  it.each([
+    ["coverage_gap", /active sources support only part/i],
+    ["provider_offline", /Answer generation is temporarily unavailable; the verified source-backed portion is shown\./],
+    ["provider_missing_key", /Answer generation is not configured; the verified source-backed portion is shown\./],
+  ] as const)("copies tierless %s degradation with the governed caveat", (fallbackReasonCode, caveat) => {
+    const degradedAnswer: RagAnswer = {
+      ...answerWith([]),
+      fallbackReasonCode,
+      degradedMode: { active: true, reason: "A fixed public explanation." },
+    };
+
+    expect(answerStateForAnswer({ answer: degradedAnswer })).toMatchObject({ kind: "ready" });
+    const copied = buildAnswerClipboardText({
+      answer: degradedAnswer,
+      renderCopyText: "Clinical answer draft\n\nAnswer\nStart at 12.5 mg at night.",
+    });
+    expect(copied).toMatch(caveat);
+    expect(copied).toMatch(/^AI-generated from the cited sources\./);
+    expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
+  });
 });
 
 describe("buildAnswerClipboardText · single-document provenance", () => {
@@ -155,4 +212,132 @@ describe("buildAnswerClipboardText · single-document provenance", () => {
     expect(copied).not.toContain("Designation:");
     expect(singleDocumentClipboardMetadata([currentSource, secondDoc])).toBeUndefined();
   });
+});
+
+describe("answerTextForClipboard", () => {
+  it("uses the complete sanitized finalized lead in the composed clipboard payload", () => {
+    const answer: RagAnswer = {
+      ...answerWith([]),
+      answer:
+        "Source excerpt: Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.",
+    };
+    const composed = buildAnswerClipboardText({
+      answer,
+      renderCopyText: `Clinical answer draft\n\nAnswer\n${answer.answer}\n\nSource status\nRender trust: high`,
+    });
+    const expectedLead =
+      "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.";
+
+    expect(answerTextForClipboard(answer)).toBe(expectedLead);
+    expect(composed).toContain(`Answer\n${expectedLead}\n\nSource status`);
+    expect(composed).not.toContain("Source excerpt:");
+  });
+
+  it.each([true, false])("copies every ordered v20 section when render permission is %s", (renderAdaptiveAnswer) => {
+    const answer: RagAnswer = {
+      ...answerWith([currentSource]),
+      answer: "Review the current plan.",
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer,
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Review observations every three months.",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          citation_chunk_ids: [currentSource.id],
+        },
+        {
+          heading: "Source gap",
+          body: "Route: not covered by the active sources.",
+          kind: "source_gap",
+          supportLevel: "unsupported",
+          citation_chunk_ids: [],
+        },
+      ],
+    };
+
+    expect(answerTextForClipboard(answer)).toBe(
+      "Review the current plan.\n\nMonitoring\n\nReview observations every three months.\n\nSource gap\n\nRoute: not covered by the active sources.",
+    );
+  });
+
+  it("keeps complete v20 content when the render-policy copy has no Answer marker", () => {
+    const answer: RagAnswer = {
+      ...answerWith([]),
+      answer: "Review the current plan.",
+      answerContractVersion: "clinical-rag-answer-v20",
+      renderAdaptiveAnswer: false,
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Review observations every three months.",
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+          citation_chunk_ids: [],
+        },
+      ],
+    };
+    const copied = buildAnswerClipboardText({ answer, renderCopyText: "Clinical answer draft\n\nSource status\nHigh" });
+
+    expect(copied).toContain("Review the current plan.\n\nMonitoring\n\nReview observations every three months.");
+    expect(copied).toContain("Clinical answer draft");
+  });
+
+  it.each([true, false])(
+    "does not duplicate an already-complete markerless v20 canonical block when render permission is %s",
+    (renderAdaptiveAnswer) => {
+      const answer: RagAnswer = {
+        ...answerWith([currentSource]),
+        answer: "Review the current plan.",
+        answerContractVersion: "clinical-rag-answer-v20",
+        renderAdaptiveAnswer,
+        answerSections: [
+          {
+            heading: "Monitoring schedule",
+            body: "Review observations every three months.",
+            kind: "monitoring_timing",
+            supportLevel: "direct",
+            citation_chunk_ids: [currentSource.id],
+          },
+          {
+            heading: "Route uncertainty",
+            body: "The active sources support only part of the route question.",
+            kind: "source_gap",
+            supportLevel: "unsupported",
+            citation_chunk_ids: [],
+          },
+        ],
+      };
+      const canonical = answerTextForClipboard(answer);
+      const copied = buildAnswerClipboardText({
+        answer,
+        renderCopyText: `Clinical answer draft\n\n${canonical}\n\nSource status\nHigh`,
+      });
+
+      for (const part of [
+        "Review the current plan.",
+        "Monitoring schedule",
+        "Review observations every three months.",
+        "Route uncertainty",
+        "The active sources support only part of the route question.",
+      ]) {
+        expect(copied.split(part)).toHaveLength(2);
+      }
+      expect(copied).toContain("Clinical answer draft");
+      expect(copied).toContain("Source status\nHigh");
+    },
+  );
+});
+
+it("R3 preserves the precise source-only reason in clipboard text", () => {
+  const answer: RagAnswer = {
+    ...answerWith([currentSource]),
+    answerQualityTier: "source_only",
+    fallbackReasonCode: "provider_timeout",
+    routingMode: "extractive",
+  };
+  const copied = buildAnswerClipboardText({ answer, weakEvidence: false, renderCopyText: "Clinical answer draft" });
+  expect(copied).toContain("Answer generation timed out; the verified source-backed portion is shown.");
+  expect(copied).toContain("without model synthesis");
 });

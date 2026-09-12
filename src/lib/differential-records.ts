@@ -33,6 +33,12 @@ export function deriveGovernanceFromSnapshot(snapshot: DifferentialSnapshot): {
   validation_status: DifferentialValidationStatus;
 } {
   const reviewStatus = snapshot.governance.reviewStatus.toLowerCase();
+  if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(reviewStatus)) {
+    return {
+      source_status: "unknown",
+      validation_status: "unverified",
+    };
+  }
   const sourceStatus: DifferentialSourceStatus =
     reviewStatus.includes("checked") || reviewStatus.includes("current")
       ? "current"
@@ -41,7 +47,7 @@ export function deriveGovernanceFromSnapshot(snapshot: DifferentialSnapshot): {
         : "unknown";
   return {
     source_status: sourceStatus,
-    validation_status: "locally_reviewed",
+    validation_status: "unverified",
   };
 }
 
@@ -102,14 +108,49 @@ export function rowToDifferentialRecord(row: DifferentialRecordRow): Differentia
   return row.payload as DifferentialRecord;
 }
 
-export function rowGovernance(row: DifferentialRecordRow): {
+export function rowGovernance(
+  row: DifferentialRecordRow,
+  referenceDate: Date = new Date(),
+): {
   sourceStatus: DifferentialSourceStatus;
   validationStatus: DifferentialValidationStatus;
   lastReviewedAt: string | null;
   reviewDueAt: string | null;
 } {
+  const storedStatus = differentialSourceStatus(row.source_status);
+  let sourceStatus = storedStatus;
+
+  if (storedStatus === "outdated") {
+    // `outdated` asserts that guidance was superseded. That is a recorded
+    // clinical judgement, so a stored `outdated` is preserved against normal age
+    // degradation. However, if the record was subsequently updated or re-verified
+    // (e.g. `row.last_reviewed_at` is newer than reference or an explicit
+    // re-verification timestamp is present), `sourceStatus` is re-evaluated rather
+    // than being permanently stuck in "outdated" forever.
+    const reviewedAt = row.last_reviewed_at ? new Date(row.last_reviewed_at) : null;
+    const hasValidReviewDate = reviewedAt !== null && !Number.isNaN(reviewedAt.getTime());
+    const isNewerThanReference = hasValidReviewDate && reviewedAt.getTime() >= referenceDate.getTime();
+    const sourceObj = row.source && typeof row.source === "object" ? (row.source as Record<string, unknown>) : null;
+    const hasExplicitReverification = hasValidReviewDate || Boolean(sourceObj?.lastUpdated);
+
+    if (hasExplicitReverification || isNewerThanReference) {
+      const sourceText = typeof row.source === "object" && row.source !== null ? JSON.stringify(row.source) : "";
+      if (/\b(?:not\s+checked|unchecked|unverified)\b/i.test(sourceText)) {
+        sourceStatus = "unknown";
+      } else if (
+        row.review_due_at &&
+        !Number.isNaN(new Date(row.review_due_at).getTime()) &&
+        new Date(row.review_due_at).getTime() < referenceDate.getTime()
+      ) {
+        sourceStatus = "review_due";
+      } else {
+        sourceStatus = "current";
+      }
+    }
+  }
+
   return {
-    sourceStatus: differentialSourceStatus(row.source_status),
+    sourceStatus,
     validationStatus: differentialValidationStatus(row.validation_status),
     lastReviewedAt: row.last_reviewed_at,
     reviewDueAt: row.review_due_at,
