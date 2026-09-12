@@ -24,7 +24,7 @@
   "manifestDigest": "f5e34fa592fc2164392ad59babd0f507197dcebdbf6880e5c68d003257a3c2b1",
   "status": "running",
   "resumedAt": "2026-09-12T03:09:04.384Z",
-  "revision": 20,
+  "revision": 21,
   "repairs": 3,
   "pass": 0,
   "active": 2715,
@@ -37,7 +37,16 @@
     "at": "2026-09-12T03:09:04.384Z",
     "fingerprint": "9cef08225662dade4330e433f96a798b7a960b7cd740c8c5e1053e927f1b9291",
     "runId": 34669599689,
-    "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99"
+    "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99",
+    "completed": true,
+    "outcome": "progress",
+    "verification": [
+      "`git merge-base --is-ancestor 0a33572d6d5c1667a1ca4e981c9ce750d6f34991 HEAD` — passed",
+      "CI evidence — `desktop-root lcpMs +167 (+21.3%) vs baseline`; all other required jobs passed",
+      "`npm run plan:browser` — blocked by sandbox `spawnSync ... EPERM`",
+      "`npm run format` — passed; files unchanged",
+      "`git diff --check` — passed; no publishable working-tree changes"
+    ]
   },
   "reason": null,
   "entries": [
@@ -209,6 +218,13 @@
       "kind": "candidate-sealed",
       "operationId": "batch-34666462342-17",
       "resultHead": "0ba37fbf520b726605d5aefef1658fa92ff38b99"
+    },
+    {
+      "revision": 21,
+      "at": "2026-09-12T03:16:26.936Z",
+      "kind": "worker-completed",
+      "operationId": "batch-34666462342-17",
+      "outcome": "progress"
     }
   ],
   "approvedControllerHash": "31b3614590d02004ee972aaeab0c96db5df835fae27b7a6dc73fd4fbc291ad24"
