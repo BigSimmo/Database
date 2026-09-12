@@ -65,8 +65,10 @@ function declarations(block: string) {
 
 const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
 const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
-const effectiveLight = new Map([...light, ...v2Light]);
-const effectiveDark = new Map([...dark, ...v2Dark]);
+const light = new Map([...declarations(lightBlock), ...v2Light]);
+const dark = new Map([...declarations(darkBlock), ...v2Dark]);
+const effectiveLight = light;
+const effectiveDark = dark;
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
