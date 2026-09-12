@@ -40,6 +40,26 @@ afterEach(() => {
 });
 
 describe("B1 telemetry canary absence", () => {
+  it("P08C evaluation diagnostics discard raw context, source identity, numeric content and progress errors", async () => {
+    const { buildRagEvaluationDiagnostics } = await import("../src/lib/rag/rag-eval-diagnostics");
+    const canary = "PRIVATE_CONTEXT_AND_ADMIN_CANARY";
+    const emitted = buildRagEvaluationDiagnostics(
+      {
+        answer: canary,
+        grounded: false,
+        confidence: "unsupported",
+        citations: [{ chunk_id: canary, document_id: canary }],
+        sources: [],
+        unverifiedNumericTokens: [canary],
+        fallbackReason: canary,
+        degradedMode: { active: true, reason: canary },
+        latencyTimings: { answer_retry_reasons: ["generation_quality_gate:" + canary] },
+      } as never,
+      [{ stage: canary }],
+    );
+    expect(JSON.stringify(emitted)).not.toContain(canary);
+  });
+
   it("loads a non-empty canary registry from the adversarial dataset", () => {
     expect(canaryTokens.length).toBeGreaterThanOrEqual(4);
   });

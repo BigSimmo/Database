@@ -464,7 +464,8 @@
     --primary-soft: Canvas;
     --success: CanvasText;
     --warning: CanvasText;
-    --danger: Mark;
+    /* Status text sits on Canvas; Mark is a fill, not its paired foreground. */
+    --danger: CanvasText;
     --danger-solid: Mark;
     --danger-solid-hover: Mark;
     --danger-solid-active: Mark;

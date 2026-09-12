@@ -2,6 +2,14 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Cloud environment verification boundaries (2026-09-07)
+
+The [Cloud reliability audit](audit/codex-cloud-reliability-20260907.md) records passing hosted
+GitHub/runtime checks and the remaining external boundaries: the known raw `OPENAI_BASE_URL`
+launcher injection and incomplete production privacy/governance evidence. Keep the raw guard
+and release validator fail-closed. GitHub connectivity is not clinical production acceptance;
+new lifecycle code still needs hosted branch evidence before its PR can claim that proof.
+
 ## Testing speed playbook (pointer)
 
 Day-to-day selection, local Playwright keep-root, and refuted speed levers live in

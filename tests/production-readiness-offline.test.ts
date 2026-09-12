@@ -10,8 +10,91 @@ import {
   mockupsGateProductionRisk,
   openAIReadinessPolicy,
   validClinicalAskEvidenceArtifact,
+  ragProgrammeReadinessPolicy,
 } from "../scripts/production-readiness";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
+
+describe("programme static readiness", () => {
+  it("recognizes the implemented producer and renderer while keeping both flags default-off", () => {
+    expect(ragProgrammeReadinessPolicy({ RAG_ADAPTIVE_ANSWER_ENABLED: "true" })).toEqual([]);
+    expect(
+      ragProgrammeReadinessPolicy({ RAG_ADAPTIVE_ANSWER_ENABLED: "true", RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "true" }),
+    ).toEqual([]);
+  });
+  const canary = {
+    RAG_PROGRAMME_MODE: "canary",
+    RAG_PROGRAMME_CANARY_BASIS_POINTS: "100",
+    RAG_PROGRAMME_ROLLOUT_SALT: "s".repeat(32),
+    RAG_TELEMETRY_EXTENDED: "true",
+  };
+  it("accepts legacy default-off without claiming connected proof", () =>
+    expect(ragProgrammeReadinessPolicy({})).toEqual([]));
+  it("requires salt telemetry and trusted rollback ownership for canary", () => {
+    expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "canary" })).toEqual(
+      expect.arrayContaining([
+        "rollout_salt_missing_or_invalid",
+        "programme_telemetry_disabled",
+        "rollback_ownership_unavailable",
+      ]),
+    );
+    expect(ragProgrammeReadinessPolicy(canary)).toEqual(["rollback_ownership_unavailable"]);
+    expect(ragProgrammeReadinessPolicy(canary, { rollbackOwnerBound: true })).toEqual([]);
+  });
+  it.each(["-1", "10001", "1.2", "garbage"])("rejects malformed percentage %s", (value) =>
+    expect(ragProgrammeReadinessPolicy({ ...canary, RAG_PROGRAMME_CANARY_BASIS_POINTS: value })).toContain(
+      "canary_percentage_invalid",
+    ),
+  );
+  it("rejects malformed mode and flag controls", () => {
+    expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "candidate" })).toContain("programme_mode_invalid");
+    expect(ragProgrammeReadinessPolicy({ RAG_SITE_CONTENT_ENABLED: "yes" })).toContain("component_flag_invalid");
+  });
+  it("requires the real adaptive producer and contract before enabled readiness", () => {
+    expect(ragProgrammeReadinessPolicy({ ...canary, RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "true" })).toContain(
+      "adaptive_render_requires_answer",
+    );
+    expect(ragProgrammeReadinessPolicy({ ...canary, RAG_ADAPTIVE_ANSWER_ENABLED: "true" })).not.toContain(
+      "adaptive_producer_contract_unavailable",
+    );
+  });
+  it("never substitutes configured versions for active site/admin and Australian health", () => {
+    const config = {
+      ...canary,
+      RAG_SITE_CONTENT_ENABLED: "true",
+      RAG_AUSTRALIAN_AUGMENTATION_ENABLED: "true",
+      SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: "a".repeat(64),
+    };
+    expect(ragProgrammeReadinessPolicy(config, { rollbackOwnerBound: true })).toEqual(
+      expect.arrayContaining([
+        "site_release_or_administrator_proof_unavailable",
+        "australian_policy_or_health_unavailable",
+      ]),
+    );
+    expect(
+      ragProgrammeReadinessPolicy(config, {
+        rollbackOwnerBound: true,
+        siteContent: {
+          state: "current",
+          staticManifestDigest: "a".repeat(64),
+          releaseValid: true,
+          administratorAttestationValid: true,
+        },
+        australian: { sourcePolicyVersion: "policy-v1", healthy: true },
+      }),
+    ).toEqual([]);
+    expect(
+      ragProgrammeReadinessPolicy(config, {
+        rollbackOwnerBound: true,
+        siteContent: {
+          state: "current",
+          staticManifestDigest: "b".repeat(64),
+          releaseValid: true,
+          administratorAttestationValid: true,
+        },
+      }),
+    ).toContain("site_release_or_administrator_proof_unavailable");
+  });
+});
 
 describe("production readiness provider policy", () => {
   it("separates Clinical Ask code configuration from approval-gated live evidence", () => {

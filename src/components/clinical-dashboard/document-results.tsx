@@ -12,7 +12,7 @@ import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { DocumentBadge, DocumentFileTile, documentFileKind } from "@/components/clinical-dashboard/document-ui";
 import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
 import { type SmartDocumentTag } from "@/lib/document-tags";
-import type { RelatedDocument } from "@/lib/types";
+import type { ClientRelatedDocument } from "@/lib/answer-client-payload";
 
 export { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 
@@ -25,7 +25,7 @@ function relatedPageLabel(pages: number[]) {
   return `p.${valid[0]} +${valid.length - 1}`;
 }
 
-function relatedDocumentHref(document: RelatedDocument) {
+function relatedDocumentHref(document: ClientRelatedDocument) {
   const params = new URLSearchParams();
   params.set("page", String(document.best_pages[0] ?? 1));
   const chunkId = document.best_chunk_ids[0];
@@ -38,7 +38,7 @@ function RelatedDocumentCard({
   onScopeDocument,
   onTagSearch,
 }: {
-  document: RelatedDocument;
+  document: ClientRelatedDocument;
   onScopeDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag) => void;
 }) {
@@ -121,7 +121,7 @@ function RelatedDocumentsPanelImpl({
   onScopeDocument,
   onTagSearch,
 }: {
-  documents: RelatedDocument[];
+  documents: ClientRelatedDocument[];
   onScopeDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag) => void;
 }) {

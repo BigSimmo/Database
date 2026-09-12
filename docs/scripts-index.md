@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (307 files) and the `package.json` script surface (300 entries),
+Curated map of `scripts/` (331 files) and the `package.json` script surface (306 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.
@@ -111,7 +111,8 @@ use `verify:phone-chrome` before the broad UI gate. It checks installed-lock par
 
 `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`,
 `recover-ingestion-queue.ts`, `cleanup-abandoned-reindex-generations.ts`,
-`ingestion-autopilot.ts`, `backfill-smart-index.ts`.
+`ingestion-autopilot.ts`, `backfill-smart-index.ts`,
+`verify-recovery-readiness-evidence.ts` (strict bounded offline recovery-evidence and operation-manifest validation).
 
 ## Document intelligence & governance [live]
 
@@ -137,6 +138,8 @@ docling-vs-legacy B4 shadow-extraction measurements; see `docs/worker-deploy-run
 `compare-retrieval-eval.ts`, `retrieval-health.ts`, `profile-retrieval-rpcs.ts`,
 `warm-retrieval-cache.ts`, `tune-search-weights.ts`, `check-rag-fixtures.mjs`, `eval-trend.mjs`
 (trend across runs), `eval-utils.ts` (shared harness helpers),
+`check-site-content-freshness.ts` (strict offline site-content release/queue/worker evidence classifier;
+live mode remains authorization-gated and is not used by CI),
 `probe-generation-quality.ts` (one approved cache-bypassed live answer; reports the structured
 `generation_quality_gate_reasons` added for `/issues` `#231` — provider-backed, refuses demo mode),
 `check-rag-adversarial-fixtures.mjs` + `rag-adversarial-contract.mjs` (offline, network-free
@@ -206,6 +209,7 @@ worker still prints an internally consistent pass count.
 - `merge-branch-review-ledger.mjs` — historical: the `merge=ledger` union driver it implemented was
   removed from `.gitattributes` (ledger #133); the script is retained for reference only.
 - `sync-open-pr-branches.mjs` (`sync:pr-branches`), `sync-pr-branches.mjs` (compatibility entry point) — anti-churn sync for stale open PR heads;
+- `pr-batch-core.mjs`, `pr-batch-github.mjs`, `pr-batch-runner.mjs`, `pr-batch-worker.mjs`, `pr-batch-policy.mjs` — disabled-by-default sequential PR controller, durable GitHub state, credential-isolated repair integration, and workflow policy checks. Activation and recovery: [PR batch runner](pr-batch-runner.md).
   refuses a missing or bot `gh` identity. `sweep-merged-branches.mjs` — merged-branch sweep.
 - `reconciliation-preflight.mjs`, `reconciliation-evidence-pack.mjs` — broad chat/worktree
   reconciliation entry point and its evidence bundle; see `docs/reconciliation-playbook.md`.

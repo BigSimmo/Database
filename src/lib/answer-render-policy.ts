@@ -1,16 +1,16 @@
-import { citationFromResult, citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
+import { sourceCurrencyWarningForAnswer } from "@/lib/answer-client-payload";
+import type { RagAnswer } from "@/lib/types";
+import { citationIdentity, documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { normalizeAccessibleTable } from "@/lib/accessible-table-normalization";
 import type {
-  BestSourceRecommendation,
-  Citation,
-  EvidenceRelevance,
-  QuoteCard,
-  RagAnswer,
-  RelatedDocument,
-  SearchResult,
-  SourceStrength,
-  VisualEvidenceCard,
-} from "@/lib/types";
+  ClientBestSourceRecommendation,
+  ClientCitation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+  ClientRelatedDocument,
+} from "@/lib/answer-client-payload";
+import type { EvidenceRelevance, SourceStrength, VisualEvidenceCard } from "@/lib/types";
 import { formatDisplayedVisualEvidenceForClipboard } from "@/lib/ward-output";
 
 export type AnswerRenderTrust = "unsupported" | "low" | "medium" | "high";
@@ -36,10 +36,10 @@ export type SourceLink = {
   label: string;
   sourceStrength: SourceStrength | "none";
   reason: string;
-  sourceMetadata?: Citation["source_metadata"] | null;
+  sourceMetadata?: ClientCitation["source_metadata"] | null;
   snippet?: string;
   score?: number;
-  provenance?: Citation["provenance"];
+  provenance?: ClientCitation["provenance"];
 };
 
 export type EvidenceRow = {
@@ -77,12 +77,12 @@ export type AnswerRenderModel = {
   trust: AnswerRenderTrust;
   allowedBlocks: AnswerRenderBlock[];
   primarySources: SourceLink[];
-  reviewSources: SearchResult[];
+  reviewSources: ClientSearchResult[];
   evidenceRows: EvidenceRow[];
-  quoteCards: QuoteCard[];
+  quoteCards: ClientQuoteCard[];
   visualEvidence: VisualEvidenceCard[];
-  relatedDocuments: RelatedDocument[];
-  bestSource: BestSourceRecommendation | null;
+  relatedDocuments: ClientRelatedDocument[];
+  bestSource: ClientBestSourceRecommendation | null;
   warnings: string[];
   tables: CanonicalAnswerTableRecord[];
   copyText: string;
@@ -90,20 +90,18 @@ export type AnswerRenderModel = {
 };
 
 type SourceCandidate = {
-  citation: Citation;
+  citation: ClientCitation;
   reason: string;
   triggerField: string;
   href?: string;
-  sourceMetadata?: Citation["source_metadata"] | null;
+  sourceMetadata?: ClientCitation["source_metadata"] | null;
   snippet?: string;
   score?: number;
   sourceStrength?: SourceStrength | "none";
 };
 
-type CoreSourceLink = NonNullable<NonNullable<RagAnswer["smartApiPlan"]>["coreSourceLinks"]>[number];
-
 type BuildAnswerRenderModelOptions = {
-  sources?: SearchResult[];
+  sources?: ClientSearchResult[];
   includeDebugReasons?: boolean;
 };
 
@@ -135,16 +133,16 @@ function trustRank(trust: AnswerRenderTrust) {
   return 0;
 }
 
-function answerRelevance(answer: RagAnswer): EvidenceRelevance | undefined {
-  return answer.relevance ?? answer.smartPanel?.relevance;
+function answerRelevance(answer: ClientRagAnswerPayload): EvidenceRelevance | undefined {
+  return answer.relevance;
 }
 
-export function isAnswerSourceBacked(answer: RagAnswer): boolean {
+export function isAnswerSourceBacked(answer: ClientRagAnswerPayload): boolean {
   return answerRelevance(answer)?.isSourceBacked === true;
 }
 
-function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
-  const retrievalBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
+function deriveTrust(answer: ClientRagAnswerPayload): AnswerRenderTrust {
+  const retrievalBlocked = answer.retrievalGateBlocked === true;
   const sourceBacked = isAnswerSourceBacked(answer);
   const hasFaithfulnessWarning = Boolean(answer.faithfulnessWarning || answer.unverifiedNumericTokens?.length);
   const evidenceGap = answer.responseMode === "evidence_gap";
@@ -159,25 +157,7 @@ function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
   }
 
   if (retrievalBlocked || !sourceBacked || hasFaithfulnessWarning || answer.confidence === "low") return "low";
-  // D5 (audit item, ships OFF): when enabled, unverified-authority evidence caps
-  // trust for ALL supported claims, not just high-risk ones. Clinical product
-  // decision — flip only behind a green golden answer-quality eval. This module
-  // renders client-side, so the flag is a NEXT_PUBLIC build-time inline (unset
-  // = false = existing high-risk-only behavior).
-  const capAllClaims = process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "true";
-  const authorityGatedClaims = capAllClaims
-    ? (answer.supportedClaims ?? [])
-    : (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
-  const authorityAccepted = authorityGatedClaims.every(
-    (claim) =>
-      claim.supportStatus === "direct" &&
-      claim.supportingChunkIds.length > 0 &&
-      claim.supportingChunkIds.every((chunkId) => {
-        const authority = answer.evidenceAssessments?.[chunkId]?.authority;
-        return authority === "approved" || authority === "locally_reviewed";
-      }),
-  );
-  if (authorityGatedClaims.length > 0 && !authorityAccepted) return "medium";
+  if (answer.authorityTrustCapRequired === true) return "medium";
   if (answer.confidence === "high") return "high";
   return "medium";
 }
@@ -207,7 +187,7 @@ function sourceLinkFromCandidate(candidate: SourceCandidate): SourceLink {
   };
 }
 
-function candidateFromBestSource(source: BestSourceRecommendation, triggerField: string): SourceCandidate {
+function candidateFromBestSource(source: ClientBestSourceRecommendation, triggerField: string): SourceCandidate {
   return {
     citation: source,
     reason: "Pinned by backend as the best source.",
@@ -219,9 +199,26 @@ function candidateFromBestSource(source: BestSourceRecommendation, triggerField:
   };
 }
 
-function candidateFromSearchResult(source: SearchResult, triggerField: string): SourceCandidate {
+function citationFromClientResult(
+  source: ClientSearchResult,
+  provenance: NonNullable<ClientCitation["provenance"]> = "retrieval_only",
+): ClientCitation {
   return {
-    citation: citationFromResult(source),
+    chunk_id: source.id,
+    document_id: source.document_id,
+    title: source.title,
+    file_name: source.file_name,
+    page_number: source.page_number,
+    chunk_index: source.chunk_index,
+    similarity: source.similarity,
+    source_metadata: source.source_metadata,
+    provenance,
+  };
+}
+
+function candidateFromSearchResult(source: ClientSearchResult, triggerField: string): SourceCandidate {
+  return {
+    citation: citationFromClientResult(source),
     reason: "Retrieved source passage.",
     triggerField,
     snippet: source.retrieval_synopsis ?? source.content,
@@ -231,7 +228,7 @@ function candidateFromSearchResult(source: SearchResult, triggerField: string): 
   };
 }
 
-function candidateFromCitation(citation: Citation, triggerField: string): SourceCandidate {
+function candidateFromCitation(citation: ClientCitation, triggerField: string): SourceCandidate {
   const reason =
     citation.provenance === "review_only"
       ? "Added for source review; not accepted as claim support."
@@ -253,51 +250,19 @@ function candidateFromCitation(citation: Citation, triggerField: string): Source
   };
 }
 
-function candidateFromCoreSourceLink(link: CoreSourceLink, triggerField: string): SourceCandidate | null {
-  const linkRecord = link as CoreSourceLink & {
-    source_strength?: SourceStrength | "none";
-    sourceStrength?: SourceStrength | "none";
-  };
-  const chunkId = link.chunk_id || link.id;
-  if (!chunkId || !link.document_id) return null;
-
-  const title = link.title || link.file_name || link.label || "Source";
-  const citation = {
-    chunk_id: chunkId,
-    document_id: link.document_id,
-    title,
-    file_name: link.file_name || title,
-    page_number: link.page_number ?? null,
-  } as Citation;
-
-  return {
-    citation,
-    reason: link.reason || "Selected by the canonical answer source plan.",
-    triggerField,
-    href: link.href,
-    snippet: link.snippet,
-    sourceStrength: linkRecord.source_strength ?? linkRecord.sourceStrength ?? "none",
-  };
-}
-
-function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
+function collectSourceCandidates(answer: ClientRagAnswerPayload, sources: ClientSearchResult[]) {
   const candidates: SourceCandidate[] = [];
   const supportingChunkIds = new Set([
     ...(answer.citations ?? []).map((citation) => citation.chunk_id),
-    ...(answer.quoteCards ?? answer.smartPanel?.quotes ?? []).map((quote) => quote.chunk_id),
+    ...(answer.quoteCards ?? []).map((quote) => quote.chunk_id),
     ...(answer.answerSections ?? []).flatMap((section) => section.citation_chunk_ids ?? []),
-    ...(answer.smartApiPlan?.coreSourceLinks ?? []).map((link) => link.chunk_id).filter(Boolean),
   ]);
-  for (const link of answer.smartApiPlan?.coreSourceLinks ?? []) {
-    const candidate = candidateFromCoreSourceLink(link, "smartApiPlan.coreSourceLinks");
-    if (candidate) candidates.push(candidate);
-  }
-  const bestSource = answer.bestSource ?? answer.smartPanel?.bestSource ?? null;
+  const bestSource = answer.bestSource ?? null;
   if (bestSource && supportingChunkIds.has(bestSource.chunk_id)) {
     candidates.push(candidateFromBestSource(bestSource, "bestSource"));
   }
   for (const citation of answer.citations ?? []) candidates.push(candidateFromCitation(citation, "citations"));
-  for (const quote of answer.quoteCards ?? answer.smartPanel?.quotes ?? []) {
+  for (const quote of answer.quoteCards ?? []) {
     candidates.push({
       ...candidateFromCitation(quote, "quoteCards"),
       reason: "Exact quote card source.",
@@ -316,7 +281,7 @@ function collectSourceCandidates(answer: RagAnswer, sources: SearchResult[]) {
       if (source) {
         candidates.push({
           ...candidateFromSearchResult(source, "answerSections"),
-          citation: citationFromResult(source, "section_selected"),
+          citation: citationFromClientResult(source, "section_selected"),
           reason: `Supports answer section: ${section.heading}`,
         });
       }
@@ -339,11 +304,11 @@ function dedupeSourceLinks(candidates: SourceCandidate[], limit: number) {
   return links;
 }
 
-function sourceKeyForSearchResult(source: SearchResult) {
+function sourceKeyForSearchResult(source: ClientSearchResult) {
   return [source.document_id, source.page_number ?? "n/a", source.id].join(":");
 }
 
-function prioritizedReviewSources(sources: SearchResult[], primarySources: SourceLink[], limit: number) {
+function prioritizedReviewSources(sources: ClientSearchResult[], primarySources: SourceLink[], limit: number) {
   const primaryKeys = new Map(
     primarySources.map((source, index) => [
       `${source.document_id}:${source.page_number ?? "n/a"}:${source.chunk_id}`,
@@ -368,23 +333,19 @@ function prioritizedReviewSources(sources: SearchResult[], primarySources: Sourc
     .slice(0, limit);
 }
 
-function hasDirectVisualNeed(answer: RagAnswer) {
+function hasDirectVisualNeed(answer: ClientRagAnswerPayload) {
   return (
     answer.queryClass === "table_threshold" ||
     answer.responseMode === "threshold_table" ||
-    Boolean(
-      (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).some(
-        (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-      ),
-    )
+    Boolean((answer.visualEvidence ?? []).some((item) => item.accessibleTableMarkdown || item.tableRows?.length))
   );
 }
 
-function dedupeQuotes(quotes: QuoteCard[], primarySources: SourceLink[], limit: number) {
+function dedupeQuotes(quotes: ClientQuoteCard[], primarySources: SourceLink[], limit: number) {
   if (limit <= 0) return [];
   const primaryIds = new Set(primarySources.map((source) => source.chunk_id));
   const seen = new Set<string>();
-  const output: QuoteCard[] = [];
+  const output: ClientQuoteCard[] = [];
   for (const quote of quotes) {
     const quoteText = quote.quote.replace(/\s+/g, " ").trim();
     if (!quoteText || /^(?:n\/a|none|null|not available)$/i.test(quoteText)) continue;
@@ -414,11 +375,11 @@ function dedupeVisualEvidence(evidence: VisualEvidenceCard[], primarySources: So
   return output;
 }
 
-function dedupeRelatedDocuments(documents: RelatedDocument[], primarySources: SourceLink[], limit: number) {
+function dedupeRelatedDocuments(documents: ClientRelatedDocument[], primarySources: SourceLink[], limit: number) {
   if (limit <= 0) return [];
   const primaryDocumentIds = new Set(primarySources.map((source) => source.document_id));
   const seen = new Set<string>();
-  const output: RelatedDocument[] = [];
+  const output: ClientRelatedDocument[] = [];
   for (const document of documents) {
     if (primaryDocumentIds.has(document.document_id)) continue;
     if (seen.has(document.document_id)) continue;
@@ -446,12 +407,12 @@ export function isCurrencyReviewWarning(warning: string): boolean {
   return Object.values(currencyReviewWarnings).some((message) => message === warning);
 }
 
-function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
+function buildWarnings(answer: ClientRagAnswerPayload | RagAnswer, trust: AnswerRenderTrust) {
   const warnings: string[] = [];
   if (trust === "unsupported")
     warnings.push("This is a source-gap answer; recommendation-style evidence extras are hidden.");
   if (trust === "low") warnings.push("Evidence support is low; verify linked sources before relying on the answer.");
-  if (answer.retrievalDiagnostics?.gateStatus === "blocked") {
+  if (answer.retrievalGateBlocked === true) {
     warnings.push("Retrieval confidence gate was blocked for low signal.");
   }
   if (answer.faithfulnessWarning) warnings.push(answer.faithfulnessWarning);
@@ -461,22 +422,18 @@ function buildWarnings(answer: RagAnswer, trust: AnswerRenderTrust) {
   for (const warning of answer.sourceGovernanceWarnings ?? []) {
     if (warning.message) warnings.push(warning.message);
   }
-  const materialChunkIds = new Set(
-    (answer.supportedClaims ?? [])
-      .filter((claim) => claim.supportStatus === "direct")
-      .flatMap((claim) => claim.supportingChunkIds),
-  );
-  const assessments = Object.entries(answer.evidenceAssessments ?? {});
-  const materialAssessments = assessments.filter(([chunkId]) => materialChunkIds.has(chunkId));
-  if (materialAssessments.some(([, assessment]) => assessment.currency === "review_due")) {
+  const currencyWarning =
+    "sourceCurrencyWarning" in answer
+      ? answer.sourceCurrencyWarning
+      : "evidenceAssessments" in answer
+        ? sourceCurrencyWarningForAnswer(answer)
+        : undefined;
+  if (currencyWarning === "supporting") {
     warnings.push(currencyReviewWarnings.supporting);
-  } else if (
-    materialChunkIds.size === 0 &&
-    assessments.some(([, assessment]) => assessment.currency === "review_due" && assessment.relevance !== "none")
-  ) {
+  } else if (currencyWarning === "retrieved") {
     warnings.push(currencyReviewWarnings.retrieved);
   }
-  for (const gap of answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []) {
+  for (const gap of answer.conflictsOrGaps ?? []) {
     if (gap.message) warnings.push(gap.message);
     if (warnings.length >= 5) break;
   }
@@ -550,9 +507,9 @@ function buildCanonicalTables(visualEvidence: VisualEvidenceCard[]) {
 }
 
 function buildEvidenceRows(
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   primarySources: SourceLink[],
-  quoteCards: QuoteCard[],
+  quoteCards: ClientQuoteCard[],
   visualEvidence: VisualEvidenceCard[],
   limit: number,
 ) {
@@ -733,7 +690,7 @@ export function formatAnswerRenderCopyText(args: {
  * @returns The structured answer render model
  */
 export function buildAnswerRenderModel(
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   options: BuildAnswerRenderModelOptions = {},
 ): AnswerRenderModel {
   const trust = deriveTrust(answer);
@@ -742,26 +699,10 @@ export function buildAnswerRenderModel(
   const candidates = collectSourceCandidates(answer, rawSources);
   const primarySources = dedupeSourceLinks(candidates, caps.sources);
   const reviewSources = prioritizedReviewSources(rawSources, primarySources, caps.sources);
-  const directlySupportingId = (answer.supportedClaims ?? [])
-    .filter((claim) => claim.supportStatus === "direct")
-    .flatMap((claim) => claim.supportingChunkIds)[0];
-  const directlySupportingSource = rawSources.find((source) => source.id === directlySupportingId);
-  const directBestSource = directlySupportingSource
-    ? {
-        ...citationFromResult(directlySupportingSource, "deterministic_support"),
-        source_strength: directlySupportingSource.source_strength ?? "limited",
-        score: directlySupportingSource.hybrid_score ?? directlySupportingSource.similarity,
-        snippet: directlySupportingSource.retrieval_synopsis ?? directlySupportingSource.content,
-        section_heading: directlySupportingSource.section_heading,
-        image_count: directlySupportingSource.image_ids.length,
-        viewer_href: documentCitationHref(citationFromResult(directlySupportingSource)),
-      }
-    : null;
-  const bestSource =
-    trust === "unsupported" ? null : (directBestSource ?? answer.bestSource ?? answer.smartPanel?.bestSource ?? null);
-  const rawQuotes = answer.quoteCards ?? answer.smartPanel?.quotes ?? [];
-  const rawVisualEvidence = answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? [];
-  const rawRelatedDocuments = answer.relatedDocuments ?? answer.smartPanel?.relatedDocuments ?? [];
+  const bestSource = trust === "unsupported" ? null : (answer.bestSource ?? null);
+  const rawQuotes = answer.quoteCards ?? [];
+  const rawVisualEvidence = answer.visualEvidence ?? [];
+  const rawRelatedDocuments = answer.relatedDocuments ?? [];
   const visualLimit =
     isAnswerSourceBacked(answer) && (hasDirectVisualNeed(answer) || trust === "high") ? caps.visual : 0;
   const quoteCards = dedupeQuotes(rawQuotes, primarySources, caps.quotes);

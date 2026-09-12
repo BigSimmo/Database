@@ -91,3 +91,6 @@ docs/ward-flow/control/assignments/*.assignment.json
 docs/ward-flow/control/assignments/*.handover.json
 docs/ward-flow/control/assignments/*.certificate.json
 docs/ward-flow/control/evidence/receipts/*.json
+
+# Sealed PR operator input/output: reformatting invalidates the recorded digest.
+.codex-run-pr/

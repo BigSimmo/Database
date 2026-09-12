@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   primaryAnswerDisplayFragments,
   primaryAnswerDisplayText,
@@ -7,6 +9,40 @@ import {
 import { sourceQuoteDisplayText } from "../src/components/clinical-dashboard/display-text";
 
 describe("primaryAnswerDisplayText", () => {
+  it("keeps the complete finalized five-sentence v19 lead without a generated ellipsis", () => {
+    const answer =
+      "Review the current observations and documented risk factors. Confirm the planned intervention against the local protocol. Record the rationale and any variance in the clinical note. Arrange the scheduled follow-up and monitoring. Escalate through the established pathway if the condition worsens.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe(answer);
+  });
+
+  it("still removes source-navigation noise from the finalized lead", () => {
+    const answer = "Source excerpt: Review renal function before treatment.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe("Review renal function before treatment.");
+  });
+
+  it("still strips the synthetic-demo notice from the finalized lead", () => {
+    const answer =
+      "Review the documented plan before treatment.\nSynthetic demo only: do not use for clinical decisions.";
+
+    expect(primaryAnswerDisplayText(answer)).toBe("Review the documented plan before treatment.");
+  });
+
+  it("keeps preformatted output intact", () => {
+    const answer = "Local pathway (ABC)\nCODE-7";
+
+    expect(primaryAnswerDisplayText(answer, { preformatted: true })).toBe(answer);
+  });
+
+  it("renders unsafe markup as escaped text", () => {
+    const answer = '<img src=x onerror="alert(1)"> Review the documented plan before treatment.';
+    const displayed = primaryAnswerDisplayText(answer);
+
+    expect(displayed).toBe(answer);
+    expect(renderToStaticMarkup(createElement("span", null, displayed))).toContain("&lt;img");
+  });
+
   it("keeps a safety cue in a long leading fragment beyond the compact word budget", () => {
     const lead = `${Array.from({ length: 90 }, (_, index) => `detail${index + 1}`).join(" ")} Do not administer the medicine.`;
 
@@ -156,18 +192,12 @@ describe("primaryAnswerDisplayFragments", () => {
     ]);
   });
 
-  /**
-   * Pinned because it surprises: the selector drops a short sentence that
-   * `clinicalProseUsefulness` does not judge useful and that falls under the
-   * eight-word floor. That is long-standing behaviour — `main` drops the same
-   * sentence — and the fragment split inherited it unchanged rather than
-   * introducing it. It is recorded here so the next reader of a "missing"
-   * sentence finds the rule instead of suspecting the marks.
-   */
-  it("keeps dropping the short non-clinical opener it dropped before the split", () => {
+  // Finalized clinical prose remains complete when source marks split sentences.
+  it("keeps every finalized instruction when splitting source-mark fragments", () => {
     const answer =
       "Give paracetamol for ongoing pain. Review the observations hourly overnight. Document the plan in the notes.";
     expect(primaryAnswerDisplayFragments(answer).map((fragment) => fragment.display)).toEqual([
+      "Give paracetamol for ongoing pain.",
       "Review the observations hourly overnight.",
       "Document the plan in the notes.",
     ]);
@@ -188,9 +218,15 @@ describe("primaryAnswerDisplayFragments", () => {
     expect(fragment.truncated).toBe(false);
   });
 
-  it("flags a sentence the word budget cut short", () => {
-    const long = `${Array.from({ length: 120 }, (_, index) => `detail${index + 1}`).join(" ")}.`;
-    expect(primaryAnswerDisplayFragments(long).some((fragment) => fragment.truncated)).toBe(true);
+  it("keeps a long finalized sentence complete without a display word budget", () => {
+    // Avoid word-attached digits: the prose sanitizer treats those as citation markers.
+    const long = `${Array.from({ length: 120 }, () => "detail").join(" ")}.`;
+    expect(primaryAnswerDisplayFragments(long)).toEqual([{ display: long, raw: long, truncated: false }]);
+  });
+
+  it("preserves dose and monitoring numbers when attaching source marks", () => {
+    const answer = "Review the prescribed 25 mg dose after 12 hours and record the 2 monitoring results.";
+    expect(primaryAnswerDisplayFragments(answer)).toEqual([{ display: answer, raw: answer, truncated: false }]);
   });
 });
 

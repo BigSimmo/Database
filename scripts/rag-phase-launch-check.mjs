@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseLocalAgentOptions, planLocalAgent } from "./lib/rag-local-agent-policy.mjs";
 
 const root = resolve(import.meta.dirname, "..");
 const manifest = JSON.parse(
@@ -15,6 +16,18 @@ function fail(message, code) {
   console.error(`[rag-phase-launch] ${code}: ${message}`);
   process.exit(1);
 }
+
+const mode = value("--mode");
+if (mode === "local-smart") {
+  try {
+    const input = parseLocalAgentOptions(process.argv.slice(2), ["--mode"]);
+    console.log(JSON.stringify(planLocalAgent(manifest, input), null, 2));
+    process.exit(0);
+  } catch (error) {
+    fail(error.message, "BLOCKED_LOCAL_AGENT_POLICY");
+  }
+}
+if (mode !== null && mode !== "cloud") fail("unknown launch mode", "BLOCKED_WRONG_LAUNCH_PROFILE");
 
 const target = value("--target");
 const selectedEffort = value("--effort");
