@@ -39,10 +39,16 @@ const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-// v22 (ledger #ZK460W): invalidated pre-fix source-backed review fallback rows that were
-// cached as grounded with deterministic_support citations. Later main bumps (through v24)
-// already supersede that key; keep exporting the current main version.
-export const ragCacheDependencyVersion = "rag-cache-v24";
+// v22 (ledger #ZK460W): the source-backed review fallback used to relabel a rejected answer
+// `grounded: true` with `deterministic_support` citations. The extractive arm of that route
+// carries no `generation_fallback:` marker, so `getSharedCachedAnswer` does not evict those
+// rows — a repeat query would keep serving the unsafe shape for the whole answer-cache TTL
+// after rollout.
+// v23/v24 landed on main for unrelated reasons while that defect was still live, so production
+// still writes unsafe review-fallback answers under v24. v25 re-issues the intentional
+// #ZK460W invalidation: rows written under v24 (and earlier) become unreachable. The bump
+// costs one cold cache and is the mechanism this constant exists for.
+export const ragCacheDependencyVersion = "rag-cache-v25";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
