@@ -88,7 +88,7 @@ const sidebarToolItems = [
   // points straight at the shared home too, matching Documents/Services above.
   { id: "prescribing", label: appModeDefinition("prescribing").label, icon: Pill, href: "/?mode=prescribing" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/?mode=factsheets" },
-  // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
+  // PT-11: standalone /tools is the canonical entry; /?mode=tools redirects to it.
   { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
 ] as const;
 

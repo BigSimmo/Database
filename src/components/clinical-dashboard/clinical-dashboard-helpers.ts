@@ -1,3 +1,4 @@
+import type { SearchResultModePayload } from "@/components/clinical-dashboard/clinical-dashboard-payloads";
 // Pure domain helpers extracted from ClinicalDashboard.tsx (#51 — centralise
 // domain logic into a reusable, unit-tested module). These are verbatim moves:
 // behaviour is unchanged, and the module is framework-free (no React) so each
@@ -6,7 +7,7 @@
 
 import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
-import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
+import { answerPayloadIsUsable, makeSearchError } from "@/components/clinical-dashboard/search-utils";
 import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
 import type { ClinicalDocument, ImportBatch, IngestionJob } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -16,7 +17,7 @@ import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 // `normalizedPollDelay`. Shared with the dashboard's polling loop.
 export const setupRecheckPollMs = 60_000;
 
-/** Keep the retained `/?mode=tools` launcher separate from every other idle mode home. */
+/** Keep the tools result kind separate from every other idle mode home. */
 export function shouldShowSharedHome({
   pathname,
   mode,
@@ -238,4 +239,11 @@ export function mergeDocumentRefresh(current: ClinicalDocument[], updates: Clini
       summary: document.summary ?? existing.summary,
     };
   });
+}
+
+export function resultUsable(payload: SearchResultModePayload) {
+  if (payload.kind === "documents") {
+    return payload.sources.length > 0 || payload.documentMatches.length > 0;
+  }
+  return answerPayloadIsUsable(payload.payload);
 }
