@@ -1,19 +1,27 @@
 "use client";
 
 import {
+  BookOpen,
   BookOpenText,
   BookMarked,
   ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
+  GraduationCap,
   Landmark,
   LibraryBig,
   ListChecks,
+  MapPinned,
+  MoonStar,
   Network,
+  Phone,
+  Printer,
+  Repeat,
   Search,
   Sparkles,
   Stethoscope,
   Scale,
+  Users,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -47,6 +55,12 @@ export const registryModeNavDensityProfiles = {
   // and Search/Browse were two names for one place.
   dictionary: "balanced-four",
   sources: "balanced-four",
+  // Nine destinations, three of which must still be readable at 390px. Only
+  // `extended` drops the glyphs below its top band, and that is exactly the
+  // trade this rail needs: "Tonight", "Contacts" and "Playbook" wearing icons
+  // do not fit a phone, and the icon is the part that carries no information
+  // the label does not already carry. It is also the shape the mockup draws.
+  "on-call": "extended",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -75,6 +89,19 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   catalogue: LibraryBig,
   publishers: Landmark,
   method: Scale,
+  // On Call. These are the glyphs `ON_CALL_SECTION_ICONS` already gives each
+  // section, so a section wears one mark in the rail, its own header and the
+  // home's tile grid. `extended` hides them below its top band; they still have
+  // to be right, because the sheet and the wide bar both show them.
+  tonight: MoonStar,
+  contacts: Phone,
+  playbook: ListChecks,
+  referrals: Repeat,
+  orientation: BookOpen,
+  teaching: GraduationCap,
+  logistics: MapPinned,
+  whoswho: Users,
+  card: Printer,
 };
 
 /**

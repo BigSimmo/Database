@@ -106,16 +106,42 @@ export const modeSecondaryNavigationRegistry = {
     { id: "publishers", label: "Publishers", href: "/sources/publishers" },
     { id: "method", label: "Method", href: SOURCE_METHOD_ROUTE },
   ],
-  // On Call registers no destinations, and that is deliberate. Its six section
-  // routes are information pages (`isInformationPage`), so
-  // `PageSecondaryNavigation` returns null for every one of them and the shared
-  // bar could never render — the entries this once carried were declared for
-  // exactly the routes that cannot show them. On Call navigates with
-  // `OnCallNavHeader`, the `InPageNavHeader` template AGENTS.md names as the
-  // default for in-page navigation, portalling through the one phone header
-  // collapse owner. `tests/ui-mode-nav-density.spec.ts` proved the mismatch:
-  // the bar never appeared at any width because nothing rendered it.
-  "on-call": [],
+  // On Call's destinations, restored. They were removed once, and the reason is
+  // worth keeping: every section route is an information page, so
+  // `PageSecondaryNavigation` returns null for all of them and the SHELL can
+  // never draw this mode's bar. That was read as "the bar cannot work here" and
+  // the entries were deleted; the actual fix is that the PAGE mounts
+  // `RegistryModeNav` itself, exactly as `differential-presentation-workflow-page`
+  // does. `docs/superpowers/specs/2026-09-04-on-call-mode-design.md` §8.3 always
+  // intended this ("On Call joins the adopted-nav set with a density profile").
+  //
+  // Tonight is the mode home, and it leads because it is the page a shift opens.
+  // Contacts and Playbook follow because they are the two the rail must still
+  // show at 390px; everything after them folds into More, which is the shape the
+  // mockup draws (docs/on-call/design/prototypes/on-call-screens.html, board 02).
+  //
+  // No `count` on any entry, deliberately. `ModeNavItem.count` is documented as
+  // "state, not size" — a fill like 3/4, never a catalogue total — so the
+  // mockup's `Contacts 42` does not belong here. The counts live where they read
+  // as size: the More sheet and the home's section tiles.
+  //
+  // The pocket card is a destination rather than an action because it is a real
+  // route with a real URL, and a `ModeNavItem` takes an href by design so deep
+  // links, back and prefetch keep working.
+  "on-call": [
+    { id: "tonight", label: "Tonight", href: "/on-call" },
+    { id: "contacts", label: "Contacts", href: "/on-call/contacts" },
+    { id: "playbook", label: "Playbook", href: "/on-call/playbook" },
+    { id: "referrals", label: "Referrals", href: "/on-call/referrals" },
+    { id: "orientation", label: "Orientation", href: "/on-call/orientation" },
+    // Label only. The stored section id, the route segment and the database
+    // check constraint all stay `education`; renaming them is a migration for no
+    // functional gain (`ON_CALL_SECTION_TITLES` carries the same decision).
+    { id: "teaching", label: "Teaching", href: "/on-call/education" },
+    { id: "logistics", label: "Logistics", href: "/on-call/logistics" },
+    { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
+    { id: "card", label: "Pocket card", href: "/on-call/card" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -150,7 +176,7 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
-  // On Call is deliberately not adopted: see its (empty) registry entry above.
+  "on-call",
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];
@@ -249,6 +275,12 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/orientation") return "orientation";
     if (pathname === "/on-call/education") return "teaching";
     if (pathname === "/on-call/logistics") return "logistics";
+    if (pathname === "/on-call/who-is-who") return "whoswho";
+    if (pathname === "/on-call/card") return "card";
+    // Exact match only. `/on-call` is the mode home now rather than a redirect
+    // stub, and a prefix test here would mark Tonight current on every section
+    // route as well as its own.
+    if (pathname === "/on-call") return "tonight";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so

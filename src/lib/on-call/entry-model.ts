@@ -50,6 +50,13 @@ const contactsDetails = z
     pager: trimmed.optional(),
     contactName: trimmed.optional(),
     availability: trimmed.optional(),
+    // Who's who lives in this section rather than a seventh one, because
+    // `section` is a database CHECK constraint and a role explainer is a contact
+    // whose point is the role rather than the number. An enum, not a free
+    // string: an unrecognised value must fail validation rather than fall back
+    // to "ordinary contact", which would put an explainer in the dialling list.
+    // See src/lib/on-call/who-is-who.ts.
+    kind: z.literal("role-explainer").optional(),
   })
   .strict();
 
