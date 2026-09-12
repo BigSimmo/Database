@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, MapPin, TriangleAlert, Users, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { cn, textMuted } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
@@ -54,11 +54,20 @@ function FactCard({ card, onOpen }: { card: TherapyKeyFactCard; onOpen?: () => v
     </h3>
   );
 
+  // The four cards sit in one stretched grid row, so the card with the most to say
+  // sets the height for all of them. Both variants therefore lay out in the same
+  // three zones — header pinned top, face centred in the shared height, footnote
+  // pinned bottom and always occupying a line — or a card with nothing to say in a
+  // zone comes up short there and the row stops lining up. Same contract as the
+  // form priority-fact cards.
+  const body = <div className="flex min-w-0 flex-1 flex-col justify-center">{face}</div>;
+
   if (!isInteractive) {
     return (
       <article className={cardSurface}>
         {header}
-        {face}
+        {body}
+        <CardFootnote />
       </article>
     );
   }
@@ -69,14 +78,27 @@ function FactCard({ card, onOpen }: { card: TherapyKeyFactCard; onOpen?: () => v
         type="button"
         onClick={onOpen}
         aria-haspopup="dialog"
-        className={cn(interactiveRowBase, "flex min-h-12 min-w-0 flex-1 flex-col items-start rounded-md text-left")}
+        className={cn(interactiveRowBase, "flex min-h-12 min-w-0 flex-1 flex-col items-stretch rounded-md text-left")}
         aria-label={`${card.label}: ${card.face}. Open detail.`}
       >
         {header}
-        {face}
-        <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>Tap for detail</p>
+        {body}
+        <CardFootnote>Tap for detail</CardFootnote>
       </button>
     </article>
+  );
+}
+
+/**
+ * The bottom line of a card. It renders even with nothing to say, because a card
+ * that drops the line is 1rem shorter in its body zone than its neighbours and the
+ * row stops lining up. The blank stays out of the accessibility tree.
+ */
+function CardFootnote({ children }: { children?: ReactNode }) {
+  return (
+    <p className={cn("mt-auto pt-1 text-2xs font-medium leading-4 sm:pt-1.5", textMuted)}>
+      {children ?? <span aria-hidden>&nbsp;</span>}
+    </p>
   );
 }
 

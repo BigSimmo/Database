@@ -154,7 +154,7 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 
 Every remaining tracked document in this category, one line each; the description is the document's own title, with its opening sentence where that adds something.
 
-- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-08-22 — see the sign-off at the bottom.
+- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-09-06 — see the sign-off at the bottom.
 - [medication-lexicon-review-worklist.md](medication-lexicon-review-worklist.md) — Medication lexicon — clinician reading worklist (#318) — This is a reading aid, not a review.
 - [services-mode-governance.md](services-mode-governance.md) — Services Mode Governance — A Services record is not “current” merely because its prose is plausible or its confidence is high.
 
