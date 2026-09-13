@@ -29,6 +29,13 @@ describe("programme static readiness", () => {
   };
   it("accepts legacy default-off without claiming connected proof", () =>
     expect(ragProgrammeReadinessPolicy({})).toEqual([]));
+  it("does not require cohort identity for a full release but rejects a malformed supplied salt", () => {
+    const full = { ...canary, RAG_PROGRAMME_CANARY_BASIS_POINTS: "10000", RAG_PROGRAMME_ROLLOUT_SALT: undefined };
+    expect(ragProgrammeReadinessPolicy(full, { rollbackOwnerBound: true })).toEqual([]);
+    expect(
+      ragProgrammeReadinessPolicy({ ...full, RAG_PROGRAMME_ROLLOUT_SALT: "short" }, { rollbackOwnerBound: true }),
+    ).toContain("rollout_salt_missing_or_invalid");
+  });
   it("requires salt telemetry and trusted rollback ownership for canary", () => {
     expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "canary" })).toEqual(
       expect.arrayContaining([
@@ -48,6 +55,7 @@ describe("programme static readiness", () => {
   it("rejects malformed mode and flag controls", () => {
     expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "candidate" })).toContain("programme_mode_invalid");
     expect(ragProgrammeReadinessPolicy({ RAG_SITE_CONTENT_ENABLED: "yes" })).toContain("component_flag_invalid");
+    expect(ragProgrammeReadinessPolicy({ RAG_GOVERNED_RETRIEVAL_ENABLED: "yes" })).toContain("component_flag_invalid");
   });
   it("requires the real adaptive producer and contract before enabled readiness", () => {
     expect(ragProgrammeReadinessPolicy({ ...canary, RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "true" })).toContain(

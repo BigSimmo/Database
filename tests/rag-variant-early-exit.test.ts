@@ -127,6 +127,7 @@ async function runLexicalSearch(
   const results = [];
   for (const rolloutMode of rolloutModes) {
     env.RAG_PROGRAMME_MODE = rolloutMode;
+    env.RAG_GOVERNED_RETRIEVAL_ENABLED = true;
     results.push(
       await searchChunksWithTelemetry({
         query,

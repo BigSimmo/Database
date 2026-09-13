@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import lithiumLiveExcerpts from "./fixtures/lithium-monitoring-live-excerpts.json";
 import { citationFromResult } from "../src/lib/citations";
 import {
   answerRouteBudgetMs,
@@ -143,7 +144,10 @@ async function answerFromTextSources(
       input: Parameters<typeof import("../src/lib/rag/rag-context-pack").packModelContextEvidence>[0],
       output: Awaited<ReturnType<typeof import("../src/lib/rag/rag-context-pack").packModelContextEvidence>>,
     ) => void;
+    beforeContextPairPack?: () => Promise<void>;
+    beforeRetrieval?: () => Promise<void>;
     adaptiveGeneration?: boolean;
+    candidateWithLegacyRetrieval?: boolean;
     finalCoverageConsumerFixture?: import("../src/lib/types").AnswerCoveragePlan;
     adaptiveRendering?: boolean;
     repeatRequest?: boolean;
@@ -232,7 +236,7 @@ async function answerFromTextSources(
       };
     });
   }
-  if (options.capturePackedBoundary) {
+  if (options.capturePackedBoundary || options.beforeContextPairPack) {
     vi.doMock("@/lib/rag/rag-context-pack", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/rag/rag-context-pack")>();
       return {
@@ -243,6 +247,7 @@ async function answerFromTextSources(
           return output;
         },
         packModelContextEvidencePair: async (...args: Parameters<typeof actual.packModelContextEvidencePair>) => {
+          await options.beforeContextPairPack?.();
           const output = await actual.packModelContextEvidencePair(...args);
           options.capturePackedBoundary?.(args[0].served, output.served);
           options.capturePackedBoundary?.(args[0].strongRetry, output.strongRetry);
@@ -269,9 +274,11 @@ async function answerFromTextSources(
   vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", options.repeatRequest ? "60000" : "0");
   // Configure the same server decision as production; request observation hints are not activation controls.
   const governedProgramme = Boolean(options.governed || options.reviewedPolicyFixture);
-  vi.stubEnv("RAG_PROGRAMME_MODE", governedProgramme ? "canary" : "legacy");
-  vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", governedProgramme ? "10000" : "0");
-  vi.stubEnv("RAG_PROGRAMME_ROLLOUT_SALT", governedProgramme ? "synthetic-rollout-salt-01234567890123456789" : "");
+  const candidateProgramme = governedProgramme || Boolean(options.candidateWithLegacyRetrieval);
+  vi.stubEnv("RAG_GOVERNED_RETRIEVAL_ENABLED", governedProgramme ? "true" : "false");
+  vi.stubEnv("RAG_PROGRAMME_MODE", candidateProgramme ? "canary" : "legacy");
+  vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", candidateProgramme ? "10000" : "0");
+  vi.stubEnv("RAG_PROGRAMME_ROLLOUT_SALT", candidateProgramme ? "synthetic-rollout-salt-01234567890123456789" : "");
   vi.stubEnv("RAG_SITE_CONTENT_ENABLED", "false");
   vi.stubEnv("RAG_AUSTRALIAN_AUGMENTATION_ENABLED", governedProgramme ? "true" : "false");
   vi.stubEnv("RAG_ADAPTIVE_ANSWER_ENABLED", options.adaptiveGeneration ? "true" : "false");
@@ -303,6 +310,7 @@ async function answerFromTextSources(
     },
   }));
   const rpc = vi.fn(async (name: string) => {
+    if (/^match_document_chunks/.test(name)) await options.beforeRetrieval?.();
     options.captureRpcName?.(name);
     if (options.reviewedPolicyFixture && /^match_document_chunks(?:_text|_hybrid)?_v3$/.test(name))
       return { data: sources, error: null };
@@ -4284,7 +4292,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.smartApiPlan?.answerPlan.intent).toBe("clinical_synthesis");
   });
 
-  it("records fast-template and strong-quality retry telemetry", async () => {
+  it("records fast-template and exhausted strong-quality retry telemetry", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
@@ -4437,11 +4445,16 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
-    expect(answer.routingMode).toBe("strong");
+    expect(answer.routingMode).toBe("unsupported");
+    expect(answer.grounded).toBe(false);
+    expect(answer.fallbackReasonCode).toBe("citation_or_claim_gate");
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
-    expect(answer.latencyTimings?.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
-    expect(answer.routingReason).toContain("fast_template_retry_strong");
-    expect(answer.routingReason).toContain("strong_quality_retry");
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_template_retry_strong",
+      "strong_quality_retry",
+      expect.stringMatching(/^generation_quality_gate:/),
+    ]);
+    expect(answer.routingReason).toContain("generation_fallback:generation_quality_failed");
     expect(answer.openAIRequestIds).toEqual(["req_fast_template", "req_strong_template", "req_strong_quality"]);
     const structuredCalls = generateStructuredTextResult.mock.calls as unknown as Array<[string]>;
     expect(structuredCalls[2]?.[0]).toContain("Within one named scale and source");
@@ -4453,8 +4466,9 @@ describe("RAG structured-output fallback", () => {
     const loggedRow = insertCalls[0]?.[0] ?? {};
     const loggedMetadata = loggedRow.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
-    expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
-    expect(loggedMetadata.degraded).toBe(false);
+    expect(loggedMetadata.answer_retry_reasons).toEqual(answer.latencyTimings?.answer_retry_reasons);
+    expect(loggedMetadata.degraded).toBe(true);
+    // Verification rejected the draft; this is distinct from a provider transport failure.
     expect(loggedMetadata.provider_generation_degraded).toBe(false);
     // PIA-3: the generated answer text must not be persisted to rag_queries.answer
     // unless RAG_PERSIST_ANSWER_TEXT is enabled (default off), and the row records
@@ -4567,7 +4581,7 @@ describe("RAG structured-output fallback", () => {
     expect(plainAnswer).not.toContain("table_crop");
   });
 
-  it("retries malformed fast output and fails closed after strong generation also fails", async () => {
+  it("recovers verified source facts after fast and strong generation return malformed output", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("OPENAI_MAX_OUTPUT_TOKENS", "650");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -4621,13 +4635,14 @@ describe("RAG structured-output fallback", () => {
     });
 
     expect(answer.answer).not.toBe(machineReadableFallbackAnswer);
-    expect(answer.routingMode).toBe("strong");
-    expect(answer.grounded).toBe(false);
-    expect(answer.confidence).toBe("unsupported");
-    expect(answer.responseMode).toBe("evidence_gap");
-    expect(answer.citations).toEqual([]);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.answerQualityTier).toBe("source_only");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.citations.every((citation) => sources.some((entry) => entry.id === citation.chunk_id))).toBe(true);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("monitoring after medication administration");
     expect(answer.quoteCards?.length).toBeGreaterThan(0);
-    expect(answer.routingReason).toContain("final_quality_gate");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(3);
     expect(answer.openAIRequestIds).toEqual(["req_truncated", "req_truncated", "req_truncated"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1950 });
@@ -4635,6 +4650,7 @@ describe("RAG structured-output fallback", () => {
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "fast_unsupported_retry_strong",
       "strong_quality_retry",
+      "generation_quality_gate:unusable_generated_answer",
     ]);
   });
 
@@ -5169,10 +5185,11 @@ describe("RAG structured-output fallback", () => {
       },
     );
 
-    expect(answer.answer).toBe("No current source with dose guidance for this query was found.");
+    expect(answer.answer).toMatch(/written answer could not be produced/i);
     expect(answer.responseMode).toBe("evidence_gap");
     expect(answer.grounded).toBe(false);
-    expect(answer.routingReason).toContain("final_quality_gate:incomplete_opening_sentence");
+    expect(answer.fallbackReasonCode).toBe("citation_or_claim_gate");
+    expect(answer.sourceBackedReviewFallback).toBe(true);
     expect(answer.answer).not.toMatch(/^Dosage and monitoring/i);
   });
 
@@ -6806,10 +6823,253 @@ describe("RAG structured-output fallback", () => {
   });
 });
 
+describe("candidate answers with legacy retrieved evidence", () => {
+  it.each(["generated", "extractive", "timeout"] as const)("retains supported monitoring through %s", async (path) => {
+    const row = source({
+      id: "legacy-public-monitoring",
+      title: "Lithium monitoring guideline",
+      section_heading: "Monitoring",
+      content: "Lithium monitoring includes renal function every six months. Check lithium levels every three months.",
+    });
+    const inputs: string[] = [];
+    const answer = await answerFromTextSources(
+      "What monitoring is required for lithium?",
+      [row],
+      path === "timeout"
+        ? new Error("OpenAI timed out")
+        : {
+            answer: row.content,
+            grounded: true,
+            confidence: "high",
+            citations: [{ chunk_id: row.id }],
+            answerSections: [],
+            quoteCards: [],
+            conflictsOrGaps: [],
+          },
+      {
+        candidateWithLegacyRetrieval: true,
+        adaptiveGeneration: true,
+        adaptiveRendering: true,
+        forceGenerationRoute: path !== "extractive",
+        captureInput: (input) => inputs.push(input),
+      },
+    );
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toMatch(/renal function|lithium levels/i);
+    expect(
+      answer.citations.some((citation) => citation.chunk_id === row.id && citation.provenance !== "review_only"),
+    ).toBe(true);
+    expect(
+      answer.sources.every((result) => result.corpus_scope == null && result.source_metadata?.source_role == null),
+    ).toBe(true);
+    expect(answer.answerContractVersion).toBeUndefined();
+    expect(answer.renderAdaptiveAnswer).not.toBe(true);
+    expect(answer.routingReason).toContain("adaptive_contract_fallback:legacy_coverage_unavailable");
+    expect(inputs).toHaveLength(path === "extractive" ? 0 : 1);
+    if (path === "timeout") {
+      expect(answer.fallbackReasonCode).toBe("provider_timeout");
+      expect(answer.generationDegradation?.attempts[0].outcome).toBe("timeout");
+      expect(answer.generationDegradation?.promptVersion).toBe("clinical-rag-answer-v19");
+    }
+  });
+});
+
+describe("broad monitoring evidence", () => {
+  it.each(["what is the monitoring used for lithium", "What monitoring is required for lithium?"])(
+    "retains supported monitoring tests without inventing an interval: %s",
+    async (query) => {
+      const row = source({
+        id: "lithium-monitoring-tests",
+        title: "Lithium monitoring guideline",
+        section_heading: "Monitoring",
+        content:
+          "Lithium monitoring requires review of renal function, thyroid function and serum lithium concentrations. Check the medicines history before reviewing the lithium treatment plan.",
+      });
+      const answer = await answerFromTextSources(query, [row], undefined, { sourceOnly: true });
+      expect(answer.grounded).toBe(true);
+      expect(answer.answer).toMatch(/renal function/i);
+      expect(answer.answer).toMatch(/thyroid function/i);
+      expect(answer.answer).not.toMatch(/\bfor used\b/i);
+      expect(
+        answer.citations.some((citation) => citation.chunk_id === row.id && citation.provenance !== "review_only"),
+      ).toBe(true);
+      expect(answer.answer).not.toMatch(/\b\d+\s*(?:hours?|days?|weeks?|months?)\b/i);
+    },
+  );
+});
+
 describe("budget-aware generation deadlines", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
+
+  it("returns an honest timeout when retrieval expires before evidence is admitted", async () => {
+    vi.useFakeTimers();
+    const calls: unknown[] = [];
+    const answer = await answerFromTextSources("What monitoring is required for lithium?", [source()], undefined, {
+      beforeRetrieval: async () => void (await vi.advanceTimersByTimeAsync(35_000)),
+      captureGenerationOptions: (options) => calls.push(options),
+    });
+    expect(calls).toHaveLength(0);
+    expect(answer.grounded).toBe(false);
+    expect(answer.citations).toEqual([]);
+    expect(answer.sources).toEqual([]);
+    expect(answer.fallbackReasonCode).toBe("provider_timeout");
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(true);
+  });
+
+  it("recovers admitted source evidence when context packing reaches the deadline", async () => {
+    vi.useFakeTimers();
+    const calls: unknown[] = [];
+    const answer = await answerFromTextSources(
+      "What monitoring is required for lithium?",
+      [
+        source({
+          id: "deadline-lithium-monitoring",
+          title: "Lithium monitoring guideline",
+          content:
+            "Lithium monitoring includes renal function every six months. Check lithium levels every three months.",
+        }),
+      ],
+      undefined,
+      {
+        forceGenerationRoute: true,
+        beforeContextPairPack: async () => void (await vi.advanceTimersByTimeAsync(35_000)),
+        captureGenerationOptions: (options) => calls.push(options),
+      },
+    );
+    expect(calls).toHaveLength(0);
+    expect(answer.sources.some((result) => result.id === "deadline-lithium-monitoring")).toBe(true);
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toMatch(/renal function|lithium levels/i);
+    expect(answer.routingReason).toContain("generation_fallback:provider_timeout");
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(true);
+    expect(answerRouteResultCanBeCached({ deadlineExceeded: true }, answer)).toBe(false);
+  });
+
+  it.each(["retrieval", "packing"])("preserves caller cancellation during %s", async (boundary) => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const cancel = async () => {
+      controller.abort(reason);
+    };
+    const calls: unknown[] = [];
+    await expect(
+      answerFromTextSources(
+        "What monitoring is required for lithium?",
+        [
+          source({
+            title: "Lithium monitoring guideline",
+            content:
+              "Lithium monitoring includes renal function every six months. Check lithium levels every three months.",
+          }),
+        ],
+        undefined,
+        {
+          forceGenerationRoute: true,
+          signal: controller.signal,
+          beforeRetrieval: boundary === "retrieval" ? cancel : undefined,
+          beforeContextPairPack: boundary === "packing" ? cancel : undefined,
+          captureGenerationOptions: (options) => calls.push(options),
+        },
+      ),
+    ).rejects.toBe(reason);
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each([
+    "Lithium blood samples should be taken 12 hours after the last dose. Check lithium levels 5 to 7 days after starting treatment or changing the dose.",
+    "Blood taken for serum lithium levels should be taken 12 hours after the last dose. Doses that would be given prior to blood being drawn should be withheld until after blood has been taken.\n\nSteady state concentration is achieved after 5-7 days. This may be longer (between 7-10 days) in the elderly or those with renal impairment.\n\nLevels should be assessed:",
+  ])("recovers admitted evidence when the final strong quality retry still fails: %s", async (content) => {
+    const chunk = source({
+      id: "strong-retry-lithium-timing",
+      title: "Lithium monitoring guideline",
+      file_name: "Lithium monitoring guideline.pdf",
+      document_id: "lithium-monitoring-guideline",
+      section_heading: null,
+      content,
+    });
+    const rejected: GeneratedAnswerPayload = {
+      answer: "The retrieved source supports lithium monitoring guidance.",
+      grounded: true,
+      confidence: "high",
+      answerSections: [],
+      citations: [{ chunk_id: chunk.id }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    };
+    const calls: unknown[] = [];
+    const answer = await answerFromTextSources(
+      "When should a lithium blood level be taken after the last dose and after starting or changing the dose?",
+      [chunk],
+      [rejected, rejected],
+      { forceGenerationRoute: true, captureGenerationOptions: (options) => calls.push(options) },
+    );
+    expect(calls).toHaveLength(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toContain("strong_quality_retry");
+    expect(answer.fallbackReasonCode).toBe("citation_or_claim_gate");
+    expect(answer.answer).not.toMatch(/No current source|retrieved source supports/i);
+    expect(answer.sources?.map((entry) => entry.id)).toContain(chunk.id);
+    expect(answer.citations.map((citation) => citation.chunk_id)).toContain(chunk.id);
+    expect(answer.answerQualityTier).toBe("source_only");
+    expect(answer.grounded).toBe(true);
+    const visible = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].join(" ");
+    expect(visible.replace(/\*\*/g, "")).toMatch(/12 hours after the last dose/i);
+    if (content.includes("Check lithium")) {
+      expect(visible.replace(/\*\*/g, "")).toMatch(/5 to 7 days after starting treatment or changing the dose/i);
+    } else {
+      expect(visible.replace(/\*\*/g, "")).toMatch(/steady state concentration is achieved after 5-7 days/i);
+      expect(visible).toContain("7-10 days");
+      expect(visible).toMatch(/elderly|renal impairment/i);
+      expect(visible).not.toMatch(/check.*after (?:starting|changing)/i);
+    }
+  });
+
+  it.each(lithiumLiveExcerpts.cases.filter((entry) => entry.id !== "literal"))(
+    "recovers complete clinical statements from captured PDF wrapping: $id",
+    async (captured) => {
+      const chunks = captured.sources.map((entry) =>
+        source({
+          ...entry,
+          file_name: `${entry.title}.pdf`,
+          section_heading: null,
+          source_metadata: entry.source_metadata as SearchResult["source_metadata"],
+        }),
+      );
+      const rejected: GeneratedAnswerPayload = {
+        answer: "The retrieved source supports lithium monitoring guidance.",
+        grounded: true,
+        confidence: "high",
+        answerSections: [],
+        citations: [{ chunk_id: chunks[0].id }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      };
+      const answer = await answerFromTextSources(captured.query, chunks, [rejected, rejected], {
+        forceGenerationRoute: true,
+      });
+      const visible = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+        .join(" ")
+        .replace(/\*\*/g, "");
+      expect(answer.grounded).toBe(true);
+      expect(visible).not.toMatch(/No current source|A written answer could not|after the last\./i);
+      if (captured.id === "timing") {
+        expect(visible).toMatch(/12 hours after the last dose/i);
+        expect(visible).toMatch(
+          /5-7 days\. This may be longer \(between 7-10 days\) in the elderly or those with renal impairment/i,
+        );
+      } else {
+        expect(visible).toMatch(/12 hours after the last dose/i);
+        expect(visible).toMatch(/withhold lithium/i);
+        expect(visible).toMatch(/check the serum lithium level.*renal function/i);
+        const gap = answer.answerSections?.find((section) => section.kind === "source_gap");
+        expect(gap?.body).toMatch(
+          /does not establish.*baseline tests.*monitoring after dose changes.*stable-treatment monitoring/i,
+        );
+        expect(gap?.citation_chunk_ids).toEqual([]);
+      }
+    },
+  );
 
   const qualityRetrySources = [
     source({

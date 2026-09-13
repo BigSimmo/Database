@@ -327,6 +327,7 @@ async function loadHarness(
   // Existing synthetic journey inputs configure the trusted server fixture, never HTTP controls.
   const configure = <T extends import("../src/lib/rag/rag-contracts").SearchChunksArgs>(args: T): T => {
     env.RAG_PROGRAMME_MODE = args.ragQueryPlanMode ?? "legacy";
+    env.RAG_GOVERNED_RETRIEVAL_ENABLED = true;
     env.RAG_PROGRAMME_CANARY_BASIS_POINTS = 10000;
     env.RAG_PROGRAMME_ROLLOUT_SALT = "synthetic-rollout-salt-01234567890123456789";
     env.RAG_SITE_CONTENT_ENABLED = args.governedCorpusComponents?.siteContent ?? false;
@@ -845,13 +846,17 @@ describe("governed retrieval production entrypoint", () => {
     expect(result.results).toEqual([]);
     expect(calls.some((call) => call.name.endsWith("_v3"))).toBe(false);
   });
-  it("P09 anonymous canary fails closed at the real exported boundary", async () => {
+  it("full guest answer rollout keeps existing retrieval until governed retrieval is explicitly enabled", async () => {
     const { rawSearch, env, calls } = await loadHarness();
     env.RAG_PROGRAMME_MODE = "canary";
     env.RAG_PROGRAMME_CANARY_BASIS_POINTS = 10000;
     env.RAG_PROGRAMME_ROLLOUT_SALT = "synthetic-rollout-salt-01234567890123456789";
+    env.RAG_GOVERNED_RETRIEVAL_ENABLED = false;
     await rawSearch({ query: "What is clozapine?", allowGlobalSearch: true, lexicalOnly: true, skipCache: true });
     expect(calls.some((call) => call.name.endsWith("_v3"))).toBe(false);
+    env.RAG_GOVERNED_RETRIEVAL_ENABLED = true;
+    await rawSearch({ query: "What is clozapine?", allowGlobalSearch: true, lexicalOnly: true, skipCache: true });
+    expect(calls.some((call) => call.name.endsWith("_v3"))).toBe(true);
   });
   it.each([false, true])(
     "P09 completes legacy unchanged and consumes deferred shadow failure=%s with child cleanup",
