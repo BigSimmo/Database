@@ -419,7 +419,6 @@ describe("mode secondary navigation registry", () => {
       "dsm",
       "factsheets",
       "formulation",
-      "on-call",
       "sources",
       "specifiers",
       "therapy-compass",
@@ -437,6 +436,22 @@ describe("mode secondary navigation registry", () => {
         expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
       }
     }
+  });
+
+  it("keeps On Call registered but unadopted, because its second row is about the page", () => {
+    // The one mode that qualifies for the rail on the criterion above and
+    // deliberately does not take it. Its nine pages are still registered —
+    // that registry is what the mode pill's section sheet reads — but the pill
+    // is the only thing that opens them. A rail underneath repeating the same
+    // nine was two controls doing one job, while nothing helped a reader move
+    // around the long page in front of them; the second row now navigates
+    // WITHIN the current page (`OnCallSectionNavHeader`).
+    //
+    // Written as its own case rather than left to the loop above, which only
+    // inspects modes with fewer than two destinations and would therefore
+    // never notice On Call quietly rejoining the rail.
+    expect(routedModeSecondaryNavigationCount("on-call")).toBeGreaterThanOrEqual(2);
+    expect(MODE_NAV_ADOPTED_MODES).not.toContain("on-call");
   });
 
   it("does not mark Find/Search current on record routes that match no destination", () => {
