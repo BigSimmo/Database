@@ -29,6 +29,13 @@ const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const materializedSiteContentHealthMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260913072413_materialize_site_content_health_operational_base.sql",
+    import.meta.url,
+  ),
+  "utf8",
+).replace(/\s+/g, " ");
 const siteContentHealthSqlFixture = readFileSync(
   new URL("./fixtures/site-content/site-content-health-state-machine.sql", import.meta.url),
   "utf8",
@@ -345,6 +352,29 @@ describe("site-content Task 4 health schema", () => {
     expect(health).not.toMatch(/for update|pg_advisory|delete from|insert into|update public/i);
     const publicObject = health.slice(health.lastIndexOf("select jsonb_build_object("));
     expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
+  });
+
+  it("mirrors the health wrapper and evaluates its operational evidence once", () => {
+    const healthFunction = /create (?:or replace )?function public\.read_site_content_health\(\).*? \$\$;/g;
+    const schemaHealth = [...schema.matchAll(healthFunction)].at(-1)?.[0];
+    const migrationHealth = materializedSiteContentHealthMigration.match(healthFunction);
+
+    expect(schemaHealth).toBeDefined();
+    expect(migrationHealth).toHaveLength(1);
+    expect(migrationHealth?.[0]).toBe(schemaHealth?.replace("create function", "create or replace function"));
+    expect(migrationHealth?.[0]).toContain(
+      "base as materialized ( select public.site_content_health_operational_base() payload )",
+    );
+    expect(migrationHealth?.[0]).toContain("language sql stable security definer set search_path = ''");
+    expect(materializedSiteContentHealthMigration).toContain(
+      "revoke all on function public.read_site_content_health() from public, anon, authenticated, service_role;",
+    );
+    expect(materializedSiteContentHealthMigration).toContain(
+      "grant execute on function public.read_site_content_health() to service_role;",
+    );
+    expect(materializedSiteContentHealthMigration).toContain(
+      "alter function public.read_site_content_health() owner to postgres;",
+    );
   });
 
   it("ships executable health-integrity and serialized invocation state fixtures", () => {

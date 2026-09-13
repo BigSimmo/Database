@@ -17217,7 +17217,7 @@ as $$
   ), outstanding_heads as (
     select h.* from public.site_content_public_records h cross join transition s
     where h.head_change_epoch > s.served_change_epoch
-  ), base as (
+  ), base as materialized (
     select public.site_content_health_operational_base() payload
   ), integrity as (
     select

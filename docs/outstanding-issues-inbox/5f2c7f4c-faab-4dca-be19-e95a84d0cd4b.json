@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5f2c7f4c-faab-4dca-be19-e95a84d0cd4b",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#NCAWAF",
+    "outcome": "Established sovereign Australian hosting architecture specification and container deployment profile in ap-southeast-2",
+    "baseRowFingerprint": "155d56796af615f77401df885e1b72b7deca40f0be765512fd2cc9bbe14060b0"
+  }
+}
