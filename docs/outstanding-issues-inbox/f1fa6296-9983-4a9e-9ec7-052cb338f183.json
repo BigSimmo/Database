@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f1fa6296-9983-4a9e-9ec7-052cb338f183",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "38a12feb-af35-4e8d-a0fa-0a43dd29c871",
+    "reason": "Codex P2: intentional fail-closed for production guest without demo/live Caring Contacts. page.tsx calls notFound(); tools-catalog hides the card when the workspace is locked; tests/tools-catalog.test.ts pins no production session is offered the dead link. Do not weaken the access boundary or invent a marketed entry point the production catalogue does not expose."
+  }
+}
