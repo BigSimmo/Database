@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "87b461ba-7794-4be3-a9d2-bc3b9b70d951",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#E6BB64",
+    "outcome": "Recorded errata of record for archived #Z61JRT public-bucket RLS behavior in docs/outstanding-issues.md",
+    "baseRowFingerprint": "51a55b8ddfa5fc6a26f54aa8b307caaba6cd8ae672677a4512701ab2e3e3b7e5"
+  }
+}

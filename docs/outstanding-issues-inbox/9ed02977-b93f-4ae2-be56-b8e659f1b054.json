@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9ed02977-b93f-4ae2-be56-b8e659f1b054",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "8023402f-ac41-4ba6-bf55-dd0771591f87",
+    "reason": "Retract premature #8KXPKK done conflicting with pending update 0b4baa9d. Chunk consolidation is tracked by #RBK2J7; #8KXPKK still needs controlled pinned-runner LCP rebaseline per update/detail, not a close."
+  }
+}
