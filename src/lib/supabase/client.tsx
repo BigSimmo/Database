@@ -7,6 +7,7 @@ import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-s
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
+import { clearOnCallChecklists } from "@/lib/on-call/checklist-storage-keys";
 import { clearOnCallRecent } from "@/lib/on-call/recent-storage-keys";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
@@ -69,6 +70,10 @@ function clearAccountScopedBrowserState() {
   // entries — including personal ones — so it goes with the cache rather than
   // outliving it on a shared ward phone.
   clearOnCallRecent();
+  // And the orientation ticks, for the same shared-computer reason from a
+  // third direction: a tick says "I have collected the on-call phone", which
+  // is true of a person and not of the next one to sit down.
+  clearOnCallChecklists();
   // Component-owned stores this lib module may not import (tests/lib-layering):
   // the unscoped favourites pins / last-opened keys (audit L2) and the Caring
   // Contacts plan draft, a patient's name and mobile from stage 3 on (audit L6).

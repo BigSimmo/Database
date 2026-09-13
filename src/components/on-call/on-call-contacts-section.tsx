@@ -6,6 +6,7 @@ import { useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { Button } from "@/components/ui/button";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
@@ -103,19 +104,26 @@ function ContactRow({
 }) {
   const details = parseContactDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
-  const primary = details ? primaryNumber(details) : null;
+  // A personal line shows as "Private · only you" and NOTHING else — board
+  // 06's own note: "the rule is visible without the number being". This is the
+  // owner's own screen, so the digits are not withheld from them for secrecy;
+  // they are withheld from the room. A private mobile printed in a list is
+  // readable by whoever is standing behind you at the nurses' station, and the
+  // owner can still open the entry to see it.
+  const primary = details && !entry.isPersonal ? primaryNumber(details) : null;
   const href = telHref(primary?.value);
 
-  const otherNumbers = details
-    ? [
-        details.phone && details.phone !== primary?.value ? `Direct ${details.phone}` : null,
-        details.afterHoursPhone && details.afterHoursPhone !== primary?.value
-          ? `After hours ${details.afterHoursPhone}`
-          : null,
-        details.pager && details.pager !== primary?.value ? `Pager ${details.pager}` : null,
-        details.extension ? `Ext ${details.extension}` : null,
-      ].filter((value): value is string => Boolean(value))
-    : [];
+  const otherNumbers =
+    details && !entry.isPersonal
+      ? [
+          details.phone && details.phone !== primary?.value ? `Direct ${details.phone}` : null,
+          details.afterHoursPhone && details.afterHoursPhone !== primary?.value
+            ? `After hours ${details.afterHoursPhone}`
+            : null,
+          details.pager && details.pager !== primary?.value ? `Pager ${details.pager}` : null,
+          details.extension ? `Ext ${details.extension}` : null,
+        ].filter((value): value is string => Boolean(value))
+      : [];
 
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
@@ -130,7 +138,7 @@ function ContactRow({
           trailing={href ? <OnCallCallDisc /> : undefined}
           testId={`on-call-contact-row-${entry.slug}`}
         >
-          {primary ? (
+          {entry.isPersonal ? null : primary ? (
             <span className={cn(metadataPillDensity.standard, "gap-1.5 rounded-full")}>
               <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
               {`${primary.label}: ${primary.value}`}
@@ -143,9 +151,12 @@ function ContactRow({
               {label}
             </span>
           ))}
-          {details?.availability ? (
+          {details?.availability && !entry.isPersonal ? (
             <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.availability}</span>
           ) : null}
+          {/* The rule made visible without the number being: board 06 shows a
+              personal line as "Private · only you" and nothing else. */}
+          {entry.isPersonal ? <OnCallPrivateFlag /> : null}
           <OnCallFreshnessBadge freshness={freshness} />
         </OnCallEntryRow>
       </div>

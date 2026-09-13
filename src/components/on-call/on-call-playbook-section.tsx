@@ -226,18 +226,58 @@ export function OnCallPlaybookSection({
 
   const sorted = [...playbookEntries].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
+  // The drawing collects the scenarios with nothing linked into their own
+  // group at the foot. Not cosmetic: a scenario whose local guideline is
+  // missing is the one an owner needs to see and fix, and left in place among
+  // the complete ones it is invisible until someone happens to scroll past it.
+  const linked = sorted.filter((entry) => hasResolvedGuidance(entry, documents));
+  const unlinked = sorted.filter((entry) => !hasResolvedGuidance(entry, documents));
+
+  const card = (entry: OnCallEntry) => (
+    <PlaybookCard
+      key={entry.id}
+      entry={entry}
+      documents={documents}
+      now={now}
+      onEditEntry={onEditEntry}
+      onVerified={onVerified}
+    />
+  );
+
   return (
-    <div data-testid={testId} className="grid gap-3">
-      {sorted.map((entry) => (
-        <PlaybookCard
-          key={entry.id}
-          entry={entry}
-          documents={documents}
-          now={now}
-          onEditEntry={onEditEntry}
-          onVerified={onVerified}
-        />
-      ))}
+    <div data-testid={testId} className="grid gap-5">
+      {linked.length > 0 ? <div className="grid gap-3">{linked.map(card)}</div> : null}
+
+      {unlinked.length > 0 ? (
+        <section aria-labelledby="on-call-playbook-no-guideline-heading" className="grid gap-2">
+          <div className="flex items-center gap-1.5">
+            <h3 id="on-call-playbook-no-guideline-heading" className={eyebrowText}>
+              No guideline linked yet
+            </h3>
+            {/* Outside the heading and hidden: the count is a glance, not part
+                of the group's name. */}
+            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+              {unlinked.length}
+            </span>
+          </div>
+          <div className="grid gap-3" data-testid="on-call-playbook-group-no-guideline">
+            {unlinked.map(card)}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
+}
+
+/**
+ * Whether a scenario has at least one guideline document this reader can
+ * actually open.
+ *
+ * Resolution, not the raw id list: a scenario can name a document that was
+ * deleted, or that this reader cannot see. `LinkedGuidance` already drops
+ * those, so grouping on the ids alone would file a scenario as complete while
+ * its card shows the "no local guideline linked" empty state.
+ */
+function hasResolvedGuidance(entry: OnCallEntry, documents: Readonly<Record<string, OnCallLinkedDocument>>): boolean {
+  return entry.linkedDocumentIds.some((id) => Boolean(documents[id]));
 }

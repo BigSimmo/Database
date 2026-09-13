@@ -113,3 +113,28 @@ describe("Contacts filtered by its chip row", () => {
     expect(row.querySelector('[aria-hidden="true"].rounded-full')).not.toBeNull();
   });
 });
+
+describe("A private contact row", () => {
+  const PRIVATE = { ...contact("okafor", "Dr M. Okafor — direct", ["Emergency"], "0412 000 111"), isPersonal: true };
+
+  it("shows the rule and withholds the digits", () => {
+    // Board 06: "the private mobile shows as Private · only you with no digits
+    // at all, so the rule is visible without the number being." This is the
+    // owner's own screen — the number is withheld from the room, not from
+    // them, and they can still open the entry to read it.
+    render(<OnCallContactsSection entries={[PRIVATE]} now={NOW} />);
+    expect(screen.getByTestId("on-call-private-flag")).toHaveTextContent("Private · only you");
+    expect(screen.queryByText(/0412 000 111/)).not.toBeInTheDocument();
+  });
+
+  it("is not a one-tap dial", () => {
+    render(<OnCallContactsSection entries={[PRIVATE]} now={NOW} />);
+    expect(screen.getByTestId("on-call-contact-row-okafor").tagName).not.toBe("A");
+  });
+
+  it("leaves a shared row's number exactly where it was", () => {
+    render(<OnCallContactsSection entries={[ED]} now={NOW} />);
+    expect(screen.queryByTestId("on-call-private-flag")).not.toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contact-row-ed-registrar").tagName).toBe("A");
+  });
+});

@@ -91,7 +91,34 @@ const referralsDetails = z
   })
   .strict();
 
-const orientationDetails = z.object({ pinnedSummaryIsOwnerNote: z.literal(true) }).strict();
+const orientationDetails = z
+  .object({
+    pinnedSummaryIsOwnerNote: z.literal(true),
+    /**
+     * A checklist for this manual — the drawing's "your first fifteen minutes"
+     * and "before you leave".
+     *
+     * `details` is JSONB, so this needs no migration, the same route
+     * `nextOccurrenceDate` took. Optional throughout: an orientation entry is
+     * still a document shelf with an owner's note, and most will carry no
+     * checklist at all.
+     *
+     * Administrative steps only — collect the phone, hand back the keycard.
+     * Nothing here is clinical, and the section's own boundary already forbids
+     * it.
+     */
+    checklist: z
+      .array(
+        z
+          .object({
+            text: trimmed,
+            note: trimmed.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
 
 const educationDetails = z
   .object({

@@ -8,6 +8,7 @@ import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import type { OnCallLinkedDocument } from "@/components/on-call/on-call-playbook-section";
+import { OnCallChecklist, type OnCallChecklistItem } from "@/components/on-call/on-call-checklist";
 import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
@@ -17,7 +18,7 @@ import {
   onCallFilterOptions,
   onCallTagFacet,
 } from "@/lib/on-call/entry-filters";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallOrientationSectionProps {
@@ -53,6 +54,10 @@ function OrientationCard({
     .map((id) => documents[id])
     .filter((doc): doc is OnCallLinkedDocument => Boolean(doc));
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
+  const parsedDetails = onCallDetailsSchemaFor("orientation").safeParse(entry.details);
+  const checklist: OnCallChecklistItem[] = parsedDetails.success
+    ? ((parsedDetails.data as { checklist?: OnCallChecklistItem[] }).checklist ?? [])
+    : [];
 
   return (
     <article
@@ -103,6 +108,10 @@ function OrientationCard({
           </p>
           <p className="text-sm text-[color:var(--text)]">{entry.body}</p>
         </div>
+      ) : null}
+
+      {checklist.length > 0 ? (
+        <OnCallChecklist entryId={entry.id} slug={entry.slug} items={checklist} label={`${entry.title} checklist`} />
       ) : null}
 
       {linkedDocs.length > 0 ? (
