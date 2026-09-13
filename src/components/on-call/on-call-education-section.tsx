@@ -3,7 +3,7 @@
 import { GraduationCap, Pencil } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
@@ -79,7 +79,7 @@ function EducationCard({
             link below is its own `<a>`, and a `<button>` inside an `<a>` is
             invalid, duplicate-interactive markup. */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <OnCallFreshnessBadge freshness={freshness} />
+          <OnCallStaleFlag freshness={freshness} />
           {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
           {onEditEntry ? (
             <button

@@ -35,6 +35,21 @@ type InPageNavHeaderSharedProps = {
    */
   titleAs?: "span" | "h1";
   /**
+   * Where the current section's name goes on the title row.
+   *
+   * `"under-title"` (the default, and every existing caller) stacks it as a
+   * second line under the title, which reads as a subtitle and makes the row
+   * two lines tall.
+   *
+   * `"inline"` puts it beside the title as a pill. It costs one line instead
+   * of two, and — the reason On Call asked for it — the section then reads as
+   * something you can CHANGE rather than as a label describing the page. That
+   * matters where the pill above the header already switches pages: two
+   * stacked lines of grey-on-white text invited the reader to treat the second
+   * one as more description.
+   */
+  sectionLabelPlacement?: "under-title" | "inline";
+  /**
    * The one page action worth reaching at any scroll position. It is
    * deliberately singular: a second promoted control is what turns a header row
    * back into the wrapping toolbar this template replaced. Everything else
@@ -192,6 +207,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
     showBackLabel = true,
     title,
     titleAs = "span",
+    sectionLabelPlacement = "under-title",
     primaryAction,
     primaryActionIconOnly = false,
     mode,
@@ -331,7 +347,43 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 {title}
               </TitleTag>
             ) : null}
-            {documentSections.length > 0 ? (
+            {documentSections.length > 0 && sectionLabelPlacement === "inline" ? (
+              // The title is a title, and the section is a pill beside it that
+              // opens the same list. One line instead of two, and the section
+              // is plainly a control.
+              //
+              // The pill keeps the full `min-h-tap` box even though it paints
+              // shorter than the row: 48px is this repository's production tap
+              // floor, and shrinking the hit area to match the ink is exactly
+              // the "fix" that reintroduced a known smoke flake elsewhere.
+              <>
+                <TitleTag className="min-w-0 shrink truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
+                  {title}
+                </TitleTag>
+                {activeSection ? (
+                  <button
+                    type="button"
+                    ref={sectionTitleTriggerRef}
+                    onClick={(event) => openSectionSheet(event.currentTarget)}
+                    aria-expanded={sectionSheetOpen}
+                    aria-haspopup="dialog"
+                    data-testid={`${testIdPrefix}-section-trigger`}
+                    className="focus-ring-tab inline-flex min-h-tap min-w-0 shrink items-center gap-1.5 rounded-full px-2.5 text-left text-2xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]"
+                  >
+                    {ActiveIcon ? <ActiveIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                    <span className="min-w-0 truncate">{activeSection.label}</span>
+                    <ChevronDown
+                      aria-hidden
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 transition motion-reduce:transition-none",
+                        sectionSheetOpen && "rotate-180",
+                      )}
+                    />
+                  </button>
+                ) : null}
+                <span aria-hidden className="min-w-0 flex-1" />
+              </>
+            ) : documentSections.length > 0 ? (
               // The title is the section-list disclosure. Line two names where
               // you are, which the track can place but never label.
               <button

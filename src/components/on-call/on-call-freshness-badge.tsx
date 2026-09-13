@@ -61,3 +61,22 @@ export function OnCallFreshnessBadge({ freshness, className }: { freshness: OnCa
     </span>
   );
 }
+
+/**
+ * The same badge, shown only when it warns.
+ *
+ * A list row is scanned, not read. "Checked 14/08/2026" on a row where nothing
+ * is wrong is a pill wider than most entries' own names — it truncated the
+ * service on Referrals and the manual on Orientation to make room for the news
+ * that everything is fine — and it doubles the height of a list whose whole
+ * promise is that the number you want is near the top.
+ *
+ * So the rule across the mode is: on a list row, freshness speaks only when it
+ * is overdue. The date a current entry was last confirmed is still available
+ * wherever the entry is opened or edited, which is where somebody who wants it
+ * goes looking.
+ */
+export function OnCallStaleFlag({ freshness, className }: { freshness: OnCallFreshness; className?: string }) {
+  if (freshness.state !== "stale") return null;
+  return <OnCallFreshnessBadge freshness={freshness} className={className} />;
+}

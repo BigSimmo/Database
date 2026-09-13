@@ -4,7 +4,7 @@ import { Lock, MapPinned, Pencil, Phone } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
@@ -92,7 +92,7 @@ function LogisticsRow({
               <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
             ) : null}
             {entry.isPersonal ? <OnCallPrivateFlag compact /> : null}
-            <OnCallFreshnessBadge freshness={freshness} />
+            <OnCallStaleFlag freshness={freshness} />
           </OnCallEntryRow>
         </div>
         {/* Sibling to the row, never nested inside it: the row above can

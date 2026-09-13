@@ -237,8 +237,12 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-home-sections",
       "on-call-page-menu-trigger",
       "on-call-page-menu-order",
-      "on-call-contacts-filters",
       "on-call-contacts-group-needs-checking",
+      // The groups the removed chip rows became. Both pages were flat lists
+      // whose only navigation was a chip row; if these stopped rendering, the
+      // header's jump list would quietly have nothing to offer on them.
+      "on-call-referrals-group-",
+      "on-call-orientation-group-",
       "on-call-private-flag",
       "on-call-playbook-group-no-guideline",
       "on-call-logistics-private-note",

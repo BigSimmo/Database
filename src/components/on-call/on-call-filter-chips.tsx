@@ -5,6 +5,25 @@ import { cn } from "@/components/ui-primitives";
 import { ON_CALL_FILTER_ALL } from "@/lib/on-call/entry-filters";
 
 /**
+ * NO PAGE MOUNTS THIS ANY MORE, and that is deliberate rather than an
+ * oversight — read this before wiring it back in.
+ *
+ * Every section board draws a chip row above its list, and all three pages
+ * that had one (Contacts, Referrals, Orientation) filed by the same facet the
+ * page groups by. So the chips named the same words as the group headings
+ * below them AND the same words as the in-page header's jump list: three ways
+ * to reach "Wards" on one 390px screen. Worse, a chip HID the other groups,
+ * so a mistap cost the reader the list rather than their place — while what
+ * they wanted was to GET to a group, which is what the jump list does.
+ *
+ * The row was removed on the owner's instruction. This file is kept rather
+ * than deleted because `check:dead-code-candidate` refuses a symbol pinned by
+ * a committed test or younger than 30 days, and this is both; deleting it
+ * would be exactly the reachability-scan mistake that policy exists to stop.
+ * If a future section really does need a filter — one that cuts ACROSS groups
+ * rather than naming them — this is the component, and the reasoning above is
+ * the bar it has to clear.
+ *
  * The chip row every On Call section board draws above its list.
  *
  * One component for all of them. The options are derived from the entries on

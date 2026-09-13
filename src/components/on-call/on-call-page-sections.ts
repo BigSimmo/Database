@@ -1,8 +1,10 @@
-import { AlertTriangle, FileText, MapPin, Phone, Shield, Users, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BookOpen, FileText, MapPin, Phone, Repeat, Shield, Users, type LucideIcon } from "lucide-react";
 
+import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
 import { onCallGroupAnchorId, onCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
 import type { OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
+import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
@@ -16,8 +18,8 @@ import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/wh
  *
  * These are declarations, not the rendered truth: `useResolvedPageSections`
  * drops any whose anchor is not on the page, so a page with one group (or none)
- * simply shows a title and no disclosure. That is why the flat sections —
- * Referrals, Orientation, Teaching — need no entry here and lose nothing.
+ * simply shows a title and no disclosure. Teaching is that page: it has no
+ * facet to file by, so it stays one flat list and the header stays a title.
  */
 
 /** A group heading a list component renders, and what it holds. */
@@ -114,6 +116,30 @@ function whoIsWhoGroups(entries: readonly OnCallEntry[]): Group[] {
     .map(([label, count]) => ({ slug: onCallGroupSlug(label), label, count, icon: Users }));
 }
 
+/**
+ * Referrals and Orientation: one group per tag, the same call the list makes.
+ *
+ * Both pages carried a chip row filing by exactly this facet. The chips are
+ * gone — they named the same values the header's jump list names — so the tags
+ * became headings, and this declares them. `onCallEntryGroups` returns nothing
+ * when fewer than two tags are in play, which is what keeps a genuinely flat
+ * page free of a one-row jump list.
+ */
+function tagGroups(
+  entries: readonly OnCallEntry[],
+  section: "referrals" | "orientation",
+  fallbackLabel: string,
+  icon: LucideIcon,
+): Group[] {
+  const sectionEntries = entries.filter((entry) => entry.section === section);
+  return onCallEntryGroups(sectionEntries, onCallTagFacet, fallbackLabel).map((group) => ({
+    slug: group.slug,
+    label: group.label,
+    count: group.entries.length,
+    icon,
+  }));
+}
+
 export function onCallPageSections({
   view,
   entries,
@@ -134,10 +160,13 @@ export function onCallPageSections({
       return playbookGroups(entries, linkedDocumentIds).map(toSection);
     case "who-is-who":
       return whoIsWhoGroups(entries).map(toSection);
-    // Flat lists. A jump list of one row is furniture, and the header drops
-    // straight back to being a title.
     case "referrals":
+      return tagGroups(entries, "referrals", "Other services", Repeat).map(toSection);
     case "orientation":
+      return tagGroups(entries, "orientation", "Other material", BookOpen).map(toSection);
+    // The one genuinely flat page: teaching sessions are dated, not filed, so
+    // there is nothing to group by. A jump list of one row is furniture, and
+    // the header drops straight back to being a title.
     case "education":
       return [];
   }

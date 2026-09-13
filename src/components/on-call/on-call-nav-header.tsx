@@ -115,6 +115,10 @@ export function OnCallSectionNavHeader({
       sections={resolved}
       activeId={activeId}
       onSelectSection={selectSection}
+      // One line, not two. The mode pill directly above already switches this
+      // mode's pages; a second stacked line of small text under the page name
+      // read as more description rather than as the control it is.
+      sectionLabelPlacement="inline"
       testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
       actionsTitle={`${title} actions`}
       actionsDescription={actionsDescription}

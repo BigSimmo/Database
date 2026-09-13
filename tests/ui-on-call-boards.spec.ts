@@ -73,7 +73,12 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
     await expect(page.getByTestId("on-call-home-sections")).toBeVisible({ timeout: 20_000 });
     return;
   }
-  await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible({ timeout: 20_000 });
+  // `.first()`, and a settle on the count, because a client-side route change
+  // keeps the outgoing page's tree mounted until the incoming one is ready —
+  // so for a moment two headers exist and a strict locator fails on the pair
+  // rather than on anything being wrong.
+  await expect(page.getByTestId("on-call-section-detail-header").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(1, { timeout: 20_000 });
   // The header renders before the fetch resolves, so waiting on it alone would
   // measure the loading state. The list component mounts only once entries have
   // arrived, which is the signal that the page is actually the page.
@@ -318,21 +323,51 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // is filed. The first thing under the header is the page's own content.
     await expect(page.getByText("ON CALL", { exact: true })).toHaveCount(0);
     await expect(page.getByText(/Filed by role first/)).toHaveCount(0);
-    const chips = page.getByTestId("on-call-contacts-filters");
+    // Nor a chip row, which named the same groups the header's jump list
+    // names. The first thing under the header is the first group.
+    await expect(page.getByTestId("on-call-contacts-filters")).toHaveCount(0);
+    const firstGroup = page.getByTestId("on-call-contacts-group-needs-checking");
     const header = page.getByTestId("on-call-section-detail-header");
-    const [chipsBox, headerBox] = [await chips.boundingBox(), await header.boundingBox()];
+    const [groupBox, headerBox] = [await firstGroup.boundingBox(), await header.boundingBox()];
+    // The threshold is the height of a control band, not a design opinion: a
+    // chip row or a toolbar is a 48px control plus its gaps, so anything that
+    // reappears between the header and the list pushes this well past 72. The
+    // shell's own top padding accounts for the ~48 that is there.
     expect(
-      chipsBox!.y - (headerBox!.y + headerBox!.height),
-      "more than a gap's worth of chrome between the header and the list",
-    ).toBeLessThan(48);
+      groupBox!.y - (headerBox!.y + headerBox!.height),
+      "a band of controls has reappeared between the header and the list",
+    ).toBeLessThan(72);
     await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
   });
 
   test("drops back to a plain title on a page with nothing to jump between", async ({ page }) => {
-    // Referrals is a flat list. A jump list of one row is furniture.
-    await openBoard(page, ROUTES.referrals);
+    // Teaching is the one page with no facet to file by — its sessions are
+    // dated, not tagged — so it stays one flat list. A jump list of one row is
+    // furniture, and the header is simply a title.
+    //
+    // Referrals used to be this test's subject. It gained groups when its chip
+    // row went, which is the point: removing the chips would otherwise have
+    // left that page with no way to move around it at all.
+    await openBoard(page, ROUTES.teaching);
     await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible();
     await expect(page.getByTestId("on-call-section-section-trigger")).toHaveCount(0);
+  });
+
+  test("gives a page that lost its chips real groups instead", async ({ page }) => {
+    await openBoard(page, ROUTES.referrals);
+    await expect(page.getByTestId("on-call-referrals-filters")).toHaveCount(0);
+    const groups = page.locator('[data-testid^="on-call-referrals-group-"]');
+    expect(await groups.count()).toBeGreaterThan(1);
+
+    // And the header can now move between them, which the flat list could not.
+    await page.getByTestId("on-call-section-section-trigger").click();
+    await expect(page.getByRole("dialog").getByRole("button", { name: /Community/ })).toBeVisible();
+  });
+
+  test("gives the orientation shelf its groups too", async ({ page }) => {
+    await openBoard(page, ROUTES.orientation);
+    await expect(page.getByTestId("on-call-orientation-filters")).toHaveCount(0);
+    expect(await page.locator('[data-testid^="on-call-orientation-group-"]').count()).toBeGreaterThan(1);
   });
 
   test("declares no anchor the page does not render", async ({ page }) => {
@@ -388,9 +423,9 @@ test.describe("05 Page menu", () => {
 });
 
 test.describe("06 Contacts", () => {
-  test("draws the chip row, the overdue group at the top, and the area groups", async ({ page }) => {
+  test("puts the overdue group at the top, above the area groups, and no chip row", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    await expect(page.getByTestId("on-call-contacts-filters")).toBeVisible();
+    await expect(page.getByTestId("on-call-contacts-filters")).toHaveCount(0);
     const needsChecking = page.getByTestId("on-call-contacts-group-needs-checking");
     await expect(needsChecking).toBeVisible();
 
@@ -401,15 +436,20 @@ test.describe("06 Contacts", () => {
     expect(overdueTop).toBeLessThan(firstAreaTop);
   });
 
-  test("narrows the list from a chip, and every chip is a real target", async ({ page }) => {
+  test("reaches a group without hiding the others", async ({ page }) => {
+    // What the chip row used to do, and the reason it went: tapping "Wards"
+    // REMOVED Tonight and Services from the page, so a mistap cost the reader
+    // the list rather than their place. The jump list moves them instead.
     await openBoard(page, ROUTES.contacts);
-    const chips = page.getByTestId("on-call-contacts-filters").getByRole("button");
-    expect(await chips.count()).toBeGreaterThan(1);
-    await expectTapFloor(chips.first(), "filter chip");
+    const trigger = page.getByTestId("on-call-section-section-trigger");
+    await expectTapFloor(trigger, "section pill");
+    await trigger.click();
+    await page.getByRole("dialog").getByRole("button", { name: /Wards/ }).click();
 
-    await page.getByTestId("on-call-contacts-filters-wards").click();
+    await expect(page.locator("#on-call-group-wards")).toBeInViewport({ timeout: 5_000 });
     await expect(page.getByTestId("on-call-contact-row-demo-ward-one")).toBeVisible();
-    await expect(page.getByTestId("on-call-contact-row-demo-interpreter-line")).toHaveCount(0);
+    // Still on the page, which is the whole difference from a filter.
+    await expect(page.getByTestId("on-call-contact-row-demo-interpreter-line")).toHaveCount(1);
   });
 
   test("rings the number from anywhere on the row, and shows the call disc", async ({ page }) => {
@@ -433,7 +473,7 @@ test.describe("06 Contacts", () => {
 
   test("stays inside the viewport at the site's narrow width", async ({ page }) => {
     await openBoard(page, ROUTES.contacts, NARROW);
-    await expect(page.getByTestId("on-call-contacts-filters")).toBeVisible();
+    await expect(page.getByTestId("on-call-contacts-group-needs-checking")).toBeVisible();
     await expectNoHorizontalOverflow(page, "contacts at 320px");
   });
 });

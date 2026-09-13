@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Pencil, Phone, Plus, Printer } from "lucide-react";
-import { useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
@@ -12,17 +11,10 @@ import { Button } from "@/components/ui/button";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
 import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
-import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
-import {
-  ON_CALL_FILTER_ALL,
-  onCallEntryMatchesFilter,
-  onCallFilterOptions,
-  type OnCallFacetReader,
-} from "@/lib/on-call/entry-filters";
 import { ON_CALL_HOME_TAGS, onCallPrimaryNumber } from "@/lib/on-call/home-modules";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
@@ -109,7 +101,6 @@ function roleNameFor(entry: OnCallEntry): string {
 }
 
 /** The chip row filters on the same area the groups are headed by. */
-const contactAreaFacet: OnCallFacetReader = (entry) => [contactAreaFor(entry)];
 
 function parseContactDetails(details: unknown): OnCallContactDetails | null {
   const result = onCallDetailsSchemaFor("contacts").safeParse(details);
@@ -259,12 +250,7 @@ export function OnCallContactsSection({
   // (`src/lib/on-call/who-is-who.ts`), so neither can drift into showing the
   // other's entries.
   const { contacts: allContacts } = partitionContactsEntries(entries);
-  // The drawing's chip row. Areas are what Contacts already groups by, so the
-  // chips and the group headings name the same thing rather than offering two
-  // competing ways to cut the list.
-  const filterOptions = onCallFilterOptions(allContacts, contactAreaFacet);
-  const [activeFilter, setActiveFilter] = useState(ON_CALL_FILTER_ALL);
-  const contactEntries = allContacts.filter((entry) => onCallEntryMatchesFilter(entry, contactAreaFacet, activeFilter));
+  const contactEntries = allContacts;
 
   const addButton = onAddEntry ? (
     <Button variant="secondary" size="sm" icon={Plus} onClick={onAddEntry} testId="on-call-contacts-add">
@@ -340,19 +326,22 @@ export function OnCallContactsSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
-      {/* No toolbar row above the chips. "Printable card" and "Add contact"
-          are both already rows in this page's actions sheet (board 05), so a
-          second copy of each, painted across the top of the list, cost a band
-          of the first screen to offer nothing new. The empty state below keeps
-          them, because there it is the only thing on the page. */}
-      <OnCallFilterChips
-        options={filterOptions}
-        active={activeFilter}
-        onChange={setActiveFilter}
-        label="Filter contacts by area"
-        testId="on-call-contacts-filters"
-      />
+      {/* Nothing above the first group.
+          ---------------------------------------------------------------
+          Two rows used to sit here. A toolbar carrying "Printable card" and
+          "Add contact", both of which are already rows in this page's actions
+          sheet. And a chip row reading All / Tonight / Wards / Services /
+          Admin — the same words as the group headings below it and the same
+          words as the header's jump list, three ways to reach Wards on one
+          screen.
 
+          The chips also did something subtly worse than jumping: they HID the
+          other groups, so a mistap cost the reader the list rather than their
+          place. The header's jump list takes you to a group and leaves the
+          page whole, which is what a reader wanted from the chips anyway.
+
+          The empty state below keeps both buttons, because there they are the
+          only thing on the page. */}
       {order !== "overdue" && needsChecking.length > 0 ? (
         <section
           id={onCallGroupAnchorId("needs-checking")}

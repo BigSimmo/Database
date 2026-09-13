@@ -1,22 +1,17 @@
 "use client";
 
 import { Pencil, Phone, Repeat } from "lucide-react";
-import { useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
+import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallGroupSection } from "@/components/on-call/on-call-group-section";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
-import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
-import {
-  ON_CALL_FILTER_ALL,
-  onCallEntryMatchesFilter,
-  onCallFilterOptions,
-  onCallTagFacet,
-} from "@/lib/on-call/entry-filters";
+import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export interface OnCallReferralsSectionProps {
@@ -124,11 +119,6 @@ export function OnCallReferralsSection({
   onVerified,
 }: OnCallReferralsSectionProps) {
   const allReferrals = entries.filter((entry) => entry.section === "referrals");
-  // The drawing's chip row: "Takes tonight", "Community", "Youth" are tags the
-  // owner puts on a service, so the chips are whatever they actually used.
-  const filterOptions = onCallFilterOptions(allReferrals, onCallTagFacet);
-  const [activeFilter, setActiveFilter] = useState(ON_CALL_FILTER_ALL);
-  const referralEntries = allReferrals.filter((entry) => onCallEntryMatchesFilter(entry, onCallTagFacet, activeFilter));
 
   if (allReferrals.length === 0) {
     return (
@@ -141,75 +131,101 @@ export function OnCallReferralsSection({
     );
   }
 
-  const sorted = [...referralEntries].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  const sorted = [...allReferrals].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  // The drawing's chip row filed these by tag — "Takes tonight", "Community",
+  // "Youth" — and the header's jump list now names the same tags. Two controls
+  // for one idea, so the chips became headings: the whole list stays on the
+  // page and the header moves you down it. Fewer than two tags in play and the
+  // page is genuinely flat, which `onCallEntryGroups` reports as no groups.
+  const groups = onCallEntryGroups(sorted, onCallTagFacet, "Other services");
+
+  const disclosureFor = (entry: OnCallEntry) => (
+    <ReferralDisclosure key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+  );
 
   return (
     <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-2">
-      <OnCallFilterChips
-        options={filterOptions}
-        active={activeFilter}
-        onChange={setActiveFilter}
-        label="Filter referral services"
-        testId="on-call-referrals-filters"
-      />
-      {sorted.map((entry) => {
-        const details = parseReferralsDetails(entry.details);
-        const freshness = onCallEntryFreshness(entry, now);
-        const showVerify = freshness.state === "stale" && Boolean(onVerified);
-        return (
-          <Disclosure
-            key={entry.id}
-            title={entry.title}
-            description={entry.subtitle ?? undefined}
-            // A WARNING belongs in the collapsed header; a reassurance does
-            // not. The badge started inside the panel, so a referral nobody
-            // had confirmed in over a year looked current until someone
-            // expanded it — the one surface in the mode where staleness was
-            // hidden by default. Hoisting it fixed that and introduced the
-            // opposite fault: "Checked 14/08/2026" on every current row, a
-            // pill wider than the service's own name, so the name truncated at
-            // 390px to make room for the news that nothing is wrong.
-            //
-            // So the collapsed row carries it only when it is stale. The date
-            // a current service was last confirmed is still on the page, in
-            // the panel, where a reader who wants it goes looking.
-            meta={freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : undefined}
-          >
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-              {/* Sibling to the panel content, never inside the disclosure's
-                  own trigger `<button>` above: a button nested inside another
-                  button is invalid, duplicate-interactive markup. */}
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                {/* The reassuring half of the freshness pair. It reads "Checked
-                    <date>" and lives here rather than on the collapsed row, so
-                    it cannot crowd out the service's own name. */}
-                {freshness.state === "fresh" ? <OnCallFreshnessBadge freshness={freshness} /> : <span />}
-                {showVerify || onEditEntry ? (
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
-                    {onEditEntry ? (
-                      <button
-                        type="button"
-                        onClick={() => onEditEntry(entry)}
-                        aria-label={`Edit ${entry.title}`}
-                        data-testid={`on-call-referrals-edit-${entry.slug}`}
-                        className={cn(toolbarButton, "shrink-0")}
-                      >
-                        <Pencil aria-hidden className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-              {details ? (
-                <ReferralPanel entry={entry} details={details} />
-              ) : (
-                <p className={cn("text-sm", textMuted)}>No referral details recorded yet.</p>
-              )}
-            </div>
-          </Disclosure>
-        );
-      })}
+      {groups.length === 0
+        ? sorted.map(disclosureFor)
+        : groups.map((group) => (
+            <OnCallGroupSection
+              key={group.slug}
+              label={group.label}
+              slug={group.slug}
+              count={group.entries.length}
+              headingId={`on-call-referrals-${group.slug}-heading`}
+              testId={`on-call-referrals-group-${group.slug}`}
+            >
+              {group.entries.map(disclosureFor)}
+            </OnCallGroupSection>
+          ))}
     </div>
+  );
+}
+
+/** One service: the collapsed summary, and everything it opens. */
+function ReferralDisclosure({
+  entry,
+  now,
+  onEditEntry,
+  onVerified,
+}: {
+  entry: OnCallEntry;
+  now: Date;
+  onEditEntry?: (entry: OnCallEntry) => void;
+  onVerified?: (entry: OnCallEntry) => void;
+}) {
+  const details = parseReferralsDetails(entry.details);
+  const freshness = onCallEntryFreshness(entry, now);
+  const showVerify = freshness.state === "stale" && Boolean(onVerified);
+
+  return (
+    <Disclosure
+      title={entry.title}
+      description={entry.subtitle ?? undefined}
+      // A WARNING belongs in the collapsed header; a reassurance does not. The
+      // badge started inside the panel, so a referral nobody had confirmed in
+      // over a year looked current until someone expanded it — the one surface
+      // in the mode where staleness was hidden by default. Hoisting it fixed
+      // that and introduced the opposite fault: "Checked 14/08/2026" on every
+      // current row, a pill wider than the service's own name, so the name
+      // truncated at 390px to make room for the news that nothing is wrong.
+      //
+      // So the collapsed row carries it only when it is stale. The date a
+      // current service was last confirmed is still on the page, in the panel,
+      // where a reader who wants it goes looking.
+      meta={freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : undefined}
+    >
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+        {/* Sibling to the panel content, never inside the disclosure's own
+            trigger `<button>` above: a button nested inside another button is
+            invalid, duplicate-interactive markup. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* The reassuring half of the freshness pair. */}
+          {freshness.state === "fresh" ? <OnCallFreshnessBadge freshness={freshness} /> : <span />}
+          {showVerify || onEditEntry ? (
+            <div className="flex shrink-0 items-center gap-1.5">
+              {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+              {onEditEntry ? (
+                <button
+                  type="button"
+                  onClick={() => onEditEntry(entry)}
+                  aria-label={`Edit ${entry.title}`}
+                  data-testid={`on-call-referrals-edit-${entry.slug}`}
+                  className={cn(toolbarButton, "shrink-0")}
+                >
+                  <Pencil aria-hidden className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+        {details ? (
+          <ReferralPanel entry={entry} details={details} />
+        ) : (
+          <p className={cn("text-sm", textMuted)}>No referral details recorded yet.</p>
+        )}
+      </div>
+    </Disclosure>
   );
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
@@ -72,36 +72,43 @@ describe("OnCallFilterChips", () => {
   });
 });
 
-describe("Contacts filtered by its chip row", () => {
-  it("shows the row only when the entries offer a real choice", () => {
+describe("No On Call page mounts the chip row any more", () => {
+  // These three cases used to assert Contacts filtering itself down from a
+  // chip. The row was removed on the owner's instruction, 2026-09-13: all
+  // three pages that carried one filed by the SAME facet the page groups by,
+  // so a chip named a heading further down the page AND a row in the header's
+  // jump list. Worse, a chip HID the other groups, so a mistap cost the reader
+  // the list rather than their place.
+  //
+  // The cases are kept and inverted rather than deleted, because "the page has
+  // no chip row" is now the behaviour, and an assertion nobody wrote is how it
+  // would quietly come back.
+  it("renders no chip row on Contacts, whatever the entries offer", () => {
     render(<OnCallContactsSection entries={[ED]} now={NOW} />);
     expect(screen.queryByTestId("on-call-contacts-filters")).not.toBeInTheDocument();
 
     cleanup();
     render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} />);
-    expect(screen.getByTestId("on-call-contacts-filters")).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-contacts-filters")).not.toBeInTheDocument();
   });
 
-  it("narrows the list to the chosen area and back again", () => {
+  it("shows every group at once instead of narrowing to one", () => {
+    // The substantive difference. A filter answered "show me only Wards" by
+    // deleting Emergency; the page now answers "take me to Wards" and leaves
+    // Emergency where it was.
     render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} />);
     expect(screen.getByTestId("on-call-contact-row-ed-registrar")).toBeInTheDocument();
     expect(screen.getByTestId("on-call-contact-row-ward-4b")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("on-call-contacts-filters-wards"));
-    expect(screen.queryByTestId("on-call-contact-row-ed-registrar")).not.toBeInTheDocument();
-    expect(screen.getByTestId("on-call-contact-row-ward-4b")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("on-call-contacts-filters-all"));
-    expect(screen.getByTestId("on-call-contact-row-ed-registrar")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contacts-group-emergency")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contacts-group-wards")).toBeInTheDocument();
   });
 
-  it("keeps the chip row when a filter empties the list", () => {
-    // Filtering to nothing must not remove the way back. The empty branch is
-    // keyed on the unfiltered set for exactly this reason.
-    render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} />);
-    fireEvent.click(screen.getByTestId("on-call-contacts-filters-emergency"));
-    expect(screen.getByTestId("on-call-contacts-filters")).toBeInTheDocument();
-    expect(screen.getByTestId("on-call-contacts-filters-all")).toBeInTheDocument();
+  it("leaves every group anchored, so the header's jump list can reach it", () => {
+    // The replacement only works if each heading carries the anchor the
+    // header declares. Asserted on rendered DOM, never by grepping for `id=`.
+    const { container } = render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} />);
+    expect(container.querySelector("#on-call-group-emergency")).not.toBeNull();
+    expect(container.querySelector("#on-call-group-wards")).not.toBeNull();
   });
 
   it("gives a dialable row the drawing's call affordance without a nested control", () => {

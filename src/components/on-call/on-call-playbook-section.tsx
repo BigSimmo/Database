@@ -6,7 +6,7 @@ import Link from "next/link";
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -151,7 +151,7 @@ function PlaybookCard({
             sibling of the row content for consistency with every other
             section. */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <OnCallFreshnessBadge freshness={freshness} />
+          <OnCallStaleFlag freshness={freshness} />
           {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
           {onEditEntry ? (
             <button

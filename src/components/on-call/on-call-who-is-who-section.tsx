@@ -2,7 +2,7 @@
 
 import { Pencil, Users } from "lucide-react";
 
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cardPadding, cardSurface } from "@/components/card-recipes";
@@ -115,7 +115,7 @@ function RoleCard({
 
       {details?.availability ? <p className={cn(textMuted, "text-xs")}>{details.availability}</p> : null}
 
-      <OnCallFreshnessBadge freshness={freshness} />
+      <OnCallStaleFlag freshness={freshness} />
     </article>
   );
 }

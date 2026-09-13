@@ -130,11 +130,13 @@ describe("on-call section routes", () => {
     "%s renders an anchor, with the shared in-page scroll margin, for every declared section",
     (_title, route) => {
       const { container } = render(<route.Route />);
-      // The two anchors every view declares: the overview framing, and the
-      // entries list. They were previously read off the deleted nav header's
-      // section list; asserting them directly is the same guarantee without a
-      // component in the middle that no longer exists.
-      for (const anchorId of [`on-call-${route.view}-overview`, `on-call-${route.view}-entries`]) {
+      // The entries list is the only anchor every view declares now. There was
+      // an "overview" one until the hero above the list was removed: an
+      // eyebrow, a display-size title and a paragraph, all under a sticky
+      // header already naming the page. Nothing jumped to it — the header's
+      // list is built from the page's GROUPS — so it anchored a block whose
+      // only remaining job was to push the first contact below the fold.
+      for (const anchorId of [`on-call-${route.view}-entries`]) {
         const anchor = container.querySelector(`#${CSS.escape(anchorId)}`);
         expect(anchor, `${route.title}: no element renders an anchor for "${anchorId}"`).not.toBeNull();
         expect(anchor?.className, `${route.title}: "${anchorId}" has no in-page scroll margin`).toContain(inPageAnchor);
