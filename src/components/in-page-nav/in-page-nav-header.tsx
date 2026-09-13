@@ -343,161 +343,163 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               title is `min-w-0 flex-1`, so every other child shrinks rather than
               wrapping. */}
           {rowHasContent ? (
-          <div
-            className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
-          >
-            {back ? (
-              <ContextualBackLink
-                fallbackHref={back.href}
-                aria-label={`Back to ${back.label.toLowerCase()}`}
-                title={showBackLabel ? undefined : back.label}
-                className={cn(
-                  // `min-w-tap` is load-bearing on phones: the visible label is
-                  // `hidden sm:inline`, so without a width floor the control shrinks
-                  // to the icon + horizontal padding (~40px) and fails the production
-                  // tap-target contract that Production UI asserts on medications.
-                  "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                  showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
-                )}
-              >
-                <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
-                {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
-              </ContextualBackLink>
-            ) : null}
-            {rail && !titleHidden ? (
-              // With a rail, every section is already named in the row below, so
-              // from `sm` — where the whole rail fits — the disclosure would open
-              // a list of the same destinations. The title goes back to being a
-              // title. `sm:hidden` on the button rather than a second render of
-              // the whole header keeps one DOM node per concern.
-              <TitleTag className="hidden min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)] sm:block sm:text-base">
-                {title}
-              </TitleTag>
-            ) : null}
-            {titleHidden ? null : documentSections.length > 0 ? (
-              // The title is the section-list disclosure. Line two names where
-              // you are, which the track can place but never label.
-              <button
-                type="button"
-                ref={sectionTitleTriggerRef}
-                onClick={(event) => openSectionSheet(event.currentTarget)}
-                aria-expanded={sectionSheetOpen}
-                aria-haspopup="dialog"
-                data-testid={`${testIdPrefix}-section-trigger`}
-                className={cn(
-                  "focus-ring-tab flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)]",
-                  rail && "sm:hidden",
-                )}
-              >
-                <span className="min-w-0 flex-1">
-                  <TitleTag className="block truncate text-sm font-semibold leading-tight text-[color:var(--text-heading)] sm:text-base">
-                    {title}
-                  </TitleTag>
-                  {activeSection && ActiveIcon ? (
-                    <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
-                      <ActiveIcon className="h-3 w-3 shrink-0" aria-hidden />
-                      <span className="min-w-0 truncate">{activeSection.label}</span>
-                    </span>
+            <div
+              className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
+            >
+              {back ? (
+                <ContextualBackLink
+                  fallbackHref={back.href}
+                  aria-label={`Back to ${back.label.toLowerCase()}`}
+                  title={showBackLabel ? undefined : back.label}
+                  className={cn(
+                    // `min-w-tap` is load-bearing on phones: the visible label is
+                    // `hidden sm:inline`, so without a width floor the control shrinks
+                    // to the icon + horizontal padding (~40px) and fails the production
+                    // tap-target contract that Production UI asserts on medications.
+                    "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                    showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
+                  )}
+                >
+                  <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+                  {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
+                </ContextualBackLink>
+              ) : null}
+              {rail && !titleHidden ? (
+                // With a rail, every section is already named in the row below, so
+                // from `sm` — where the whole rail fits — the disclosure would open
+                // a list of the same destinations. The title goes back to being a
+                // title. `sm:hidden` on the button rather than a second render of
+                // the whole header keeps one DOM node per concern.
+                <TitleTag className="hidden min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)] sm:block sm:text-base">
+                  {title}
+                </TitleTag>
+              ) : null}
+              {titleHidden ? null : documentSections.length > 0 ? (
+                // The title is the section-list disclosure. Line two names where
+                // you are, which the track can place but never label.
+                <button
+                  type="button"
+                  ref={sectionTitleTriggerRef}
+                  onClick={(event) => openSectionSheet(event.currentTarget)}
+                  aria-expanded={sectionSheetOpen}
+                  aria-haspopup="dialog"
+                  data-testid={`${testIdPrefix}-section-trigger`}
+                  className={cn(
+                    "focus-ring-tab flex min-h-tap min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 text-left transition hover:bg-[color:var(--surface-subtle)]",
+                    rail && "sm:hidden",
+                  )}
+                >
+                  <span className="min-w-0 flex-1">
+                    <TitleTag className="block truncate text-sm font-semibold leading-tight text-[color:var(--text-heading)] sm:text-base">
+                      {title}
+                    </TitleTag>
+                    {activeSection && ActiveIcon ? (
+                      <span className="mt-0.5 flex items-center gap-1.5 text-3xs font-bold text-[color:var(--clinical-accent)]">
+                        <ActiveIcon className="h-3 w-3 shrink-0" aria-hidden />
+                        <span className="min-w-0 truncate">{activeSection.label}</span>
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(
+                      "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
+                      sectionSheetOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+              ) : (
+                <TitleTag className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
+                  {title}
+                </TitleTag>
+              )}
+              {primaryAction || actions ? (
+                // One joined group, not two free-standing controls. A bordered
+                // promoted action beside a borderless ellipsis reads as two
+                // unrelated things competing at the end of the row; a single
+                // border with a hairline between the members reads as one control
+                // with two actions. `sm:order-2` keeps the phone DOM order
+                // (verbs before mode) as the keyboard order while desktop still
+                // paints mode between the title and the verbs.
+                <span
+                  data-testid={`${testIdPrefix}-action-group`}
+                  className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] sm:order-2"
+                >
+                  {primaryAction ? (
+                    // Not the filled `--command` slab: a control pinned to every
+                    // scroll position should not be the page's heaviest. The label
+                    // is `sr-only` below `sm` so the accessible name never changes
+                    // with the breakpoint.
+                    <button
+                      type="button"
+                      onClick={primaryAction.onClick}
+                      title={primaryAction.label}
+                      aria-pressed={primaryAction.pressed}
+                      data-testid={`${testIdPrefix}-primary-action`}
+                      className={cn(
+                        // Explicit focus styles rather than `focus-ring-tab`: that
+                        // utility sets a `border-radius`, and a rounded child
+                        // inside a rounded, clipped group paints a second corner
+                        // against the group's own edge.
+                        "flex min-h-tap items-center justify-center gap-2 px-3 text-sm font-bold text-[color:var(--text-heading)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                        primaryActionIconOnly ? "w-tap px-0" : "max-sm:w-tap max-sm:gap-0 max-sm:px-0",
+                      )}
+                    >
+                      <primaryAction.icon
+                        className={cn(
+                          "h-5 w-5 shrink-0",
+                          primaryAction.pressed
+                            ? "fill-current text-[color:var(--clinical-accent)]"
+                            : "text-[color:var(--text-muted)]",
+                        )}
+                        aria-hidden
+                      />
+                      <span className={primaryActionIconOnly ? "sr-only" : "max-sm:sr-only"}>
+                        {primaryAction.label}
+                      </span>
+                    </button>
+                  ) : null}
+                  {actions ? (
+                    <button
+                      type="button"
+                      ref={actionsTriggerRef}
+                      onClick={() => setActionsOpen(true)}
+                      aria-label={`Open ${actionsNoun} actions`}
+                      aria-haspopup="dialog"
+                      aria-expanded={actionsOpen}
+                      title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
+                      data-testid={`${testIdPrefix}-actions-trigger`}
+                      className={cn(
+                        "grid h-tap w-tap shrink-0 place-items-center text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                        primaryAction && "border-l border-[color:var(--border)]",
+                      )}
+                    >
+                      <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+                    </button>
                   ) : null}
                 </span>
-                <ChevronDown
-                  aria-hidden
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)] transition motion-reduce:transition-none",
-                    sectionSheetOpen && "rotate-180",
-                  )}
+              ) : null}
+              {mode ? (
+                // Inline from `sm` only. Below that it renders inside the actions
+                // sheet instead — see the `mode` prop docs. `order-1` pulls it
+                // back beside the title on desktop.
+                <SegmentedControl
+                  label={mode.label}
+                  value={mode.value}
+                  options={mode.options}
+                  onChange={mode.onChange}
+                  // `fit`, not `equal`. `equal` gives each segment a `min-w-8rem`
+                  // floor sized for a full-width group, but `sm:w-auto` makes the
+                  // group shrink-to-fit and its intrinsic width is computed from
+                  // the labels — 171px measured against 268px of segments, which
+                  // overflowed under the primary action at 700–834px. `fit` sizes
+                  // the segments to their labels, and the phone band gets its even
+                  // split from the child override instead of from the floor.
+                  layout="fit"
+                  className="hidden sm:order-1 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap"
                 />
-              </button>
-            ) : (
-              <TitleTag className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
-                {title}
-              </TitleTag>
-            )}
-            {primaryAction || actions ? (
-              // One joined group, not two free-standing controls. A bordered
-              // promoted action beside a borderless ellipsis reads as two
-              // unrelated things competing at the end of the row; a single
-              // border with a hairline between the members reads as one control
-              // with two actions. `sm:order-2` keeps the phone DOM order
-              // (verbs before mode) as the keyboard order while desktop still
-              // paints mode between the title and the verbs.
-              <span
-                data-testid={`${testIdPrefix}-action-group`}
-                className="ml-auto inline-flex shrink-0 items-stretch overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)] sm:order-2"
-              >
-                {primaryAction ? (
-                  // Not the filled `--command` slab: a control pinned to every
-                  // scroll position should not be the page's heaviest. The label
-                  // is `sr-only` below `sm` so the accessible name never changes
-                  // with the breakpoint.
-                  <button
-                    type="button"
-                    onClick={primaryAction.onClick}
-                    title={primaryAction.label}
-                    aria-pressed={primaryAction.pressed}
-                    data-testid={`${testIdPrefix}-primary-action`}
-                    className={cn(
-                      // Explicit focus styles rather than `focus-ring-tab`: that
-                      // utility sets a `border-radius`, and a rounded child
-                      // inside a rounded, clipped group paints a second corner
-                      // against the group's own edge.
-                      "flex min-h-tap items-center justify-center gap-2 px-3 text-sm font-bold text-[color:var(--text-heading)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      primaryActionIconOnly ? "w-tap px-0" : "max-sm:w-tap max-sm:gap-0 max-sm:px-0",
-                    )}
-                  >
-                    <primaryAction.icon
-                      className={cn(
-                        "h-5 w-5 shrink-0",
-                        primaryAction.pressed
-                          ? "fill-current text-[color:var(--clinical-accent)]"
-                          : "text-[color:var(--text-muted)]",
-                      )}
-                      aria-hidden
-                    />
-                    <span className={primaryActionIconOnly ? "sr-only" : "max-sm:sr-only"}>{primaryAction.label}</span>
-                  </button>
-                ) : null}
-                {actions ? (
-                  <button
-                    type="button"
-                    ref={actionsTriggerRef}
-                    onClick={() => setActionsOpen(true)}
-                    aria-label={`Open ${actionsNoun} actions`}
-                    aria-haspopup="dialog"
-                    aria-expanded={actionsOpen}
-                    title={`${actionsNoun.charAt(0).toUpperCase()}${actionsNoun.slice(1)} actions`}
-                    data-testid={`${testIdPrefix}-actions-trigger`}
-                    className={cn(
-                      "grid h-tap w-tap shrink-0 place-items-center text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      primaryAction && "border-l border-[color:var(--border)]",
-                    )}
-                  >
-                    <Ellipsis className="h-5 w-5" strokeWidth={2.25} aria-hidden />
-                  </button>
-                ) : null}
-              </span>
-            ) : null}
-            {mode ? (
-              // Inline from `sm` only. Below that it renders inside the actions
-              // sheet instead — see the `mode` prop docs. `order-1` pulls it
-              // back beside the title on desktop.
-              <SegmentedControl
-                label={mode.label}
-                value={mode.value}
-                options={mode.options}
-                onChange={mode.onChange}
-                // `fit`, not `equal`. `equal` gives each segment a `min-w-8rem`
-                // floor sized for a full-width group, but `sm:w-auto` makes the
-                // group shrink-to-fit and its intrinsic width is computed from
-                // the labels — 171px measured against 268px of segments, which
-                // overflowed under the primary action at 700–834px. `fit` sizes
-                // the segments to their labels, and the phone band gets its even
-                // split from the child override instead of from the floor.
-                layout="fit"
-                className="hidden sm:order-1 sm:flex sm:w-auto sm:shrink-0 sm:flex-nowrap"
-              />
-            ) : null}
-          </div>
+              ) : null}
+            </div>
           ) : null}
           {rail ? (
             <InPageSectionRail

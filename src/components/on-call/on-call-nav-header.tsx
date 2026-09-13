@@ -106,13 +106,7 @@ export const ON_CALL_SECTION_HEADER_TEST_IDS = {
  * an action ("Print the pocket card") as well as by the pill, and backing out
  * of an action is what an arrow is for.
  */
-export function OnCallSectionNavHeader({
-  title,
-  sections,
-}: {
-  title: string;
-  sections: readonly PageSection[];
-}) {
+export function OnCallSectionNavHeader({ title, sections }: { title: string; sections: readonly PageSection[] }) {
   const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);
 
   if (resolved.length === 0) return null;

@@ -282,7 +282,6 @@ export function OnCallPlaybookSection({
   );
 }
 
-
 /**
  * One playbook group: the cards, with a heading only when there is another
  * group to tell it apart from.

@@ -574,9 +574,7 @@ export function MasterSearchHeader({
   const activeModePageId = modeOwnPagesAvailable
     ? activeModeSecondaryNavigationId(selectedAppMode.id, currentPathname ?? "")
     : null;
-  const activeModePage = activeModePageId
-    ? (modeOwnPages.find((page) => page.id === activeModePageId) ?? null)
-    : null;
+  const activeModePage = activeModePageId ? (modeOwnPages.find((page) => page.id === activeModePageId) ?? null) : null;
   /** A mode that shows no results has nowhere for a new conversation to land. */
   const modeHasConversation = selectedAppMode.search.resultsSurface !== "none";
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);

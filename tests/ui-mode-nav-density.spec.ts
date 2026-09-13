@@ -37,6 +37,18 @@ const PROFILE_BANDS = {
   ],
 } as const;
 
+/**
+ * Two calibrated profiles are deliberately absent from this table, and for the
+ * same reason: it drives the TOP mode bar, which is rendered by `ModeNav` for
+ * the modes in `MODE_NAV_ADOPTED_MODES`. `extended-counted` and
+ * `wordmark-five` belong to in-page rails — medication's record header and On
+ * Call's section pages — so there is no mode route at which this spec could
+ * open one. Their bands are pinned by the CSS scrape in
+ * `tests/mode-nav-contract.test.ts` and exercised in a browser by
+ * `tests/ui-smoke.spec.ts`'s prescribing journey and
+ * `tests/ui-on-call-boards.spec.ts` respectively. Adding a row here for either would fail looking for a bar that
+ * route never renders.
+ */
 type DensityProfile = keyof typeof PROFILE_BANDS;
 
 // Reused by the Specifiers and Formulation folded-active tests below, which are

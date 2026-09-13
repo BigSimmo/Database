@@ -367,7 +367,9 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // rendered label box rather than inferred from the band.
     for (const width of [NARROW, BOARD_WIDTH]) {
       await openBoard(page, ROUTES.contacts, width);
-      const clipped = await (await sectionBar(page)).evaluate((nav) =>
+      const clipped = await (
+        await sectionBar(page)
+      ).evaluate((nav) =>
         Array.from(nav.querySelectorAll("li"))
           .filter((slot) => getComputedStyle(slot).display !== "none")
           .flatMap((slot) => Array.from(slot.querySelectorAll("span")))

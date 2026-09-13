@@ -420,9 +420,10 @@ describe("mode identity accent", () => {
     // The other half of its job: the small "On Call" line under the page name
     // in the pill is this colour on the pill's own surface.
     const surface = name === "light" ? colourOf(light, "--surface") : colourOf(dark, "--surface");
-    expect(contrastRatio(tokens.get("--mode-identity")!, surface), `${name} mode identity as text`).toBeGreaterThanOrEqual(
-      4.5,
-    );
+    expect(
+      contrastRatio(tokens.get("--mode-identity")!, surface),
+      `${name} mode identity as text`,
+    ).toBeGreaterThanOrEqual(4.5);
   });
 
   it("defaults every mode to the product accent, so naming an identity is opt-in", () => {
