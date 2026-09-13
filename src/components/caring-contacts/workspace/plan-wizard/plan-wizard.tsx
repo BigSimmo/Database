@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
-import type { ReferralIntakePayload } from "@/lib/caring-contacts/repository";
+import type { ReferralIntakePayload } from "@/lib/caring-contacts/referral-intake";
 import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {

@@ -66,6 +66,7 @@ import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPrefere
 import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
 import type { CaringContactAction, CaringContactActor } from "./permissions";
+import type { ReferralIntakePayload } from "./referral-intake";
 import type { ReferralAction } from "./referrals";
 import type {
   ServiceRestartApprovalRole,
@@ -718,22 +719,12 @@ export type RepositoryOptions = { auditSink?: AuditSink };
 /**
  * Clinical payload captured at hospital referral intake (Hazard H-44).
  *
- * Kept off the `Referral` identity record (which remains identifiers + state only) but persisted
- * beside it so success UX and the plan wizard can round-trip what was actually written — never an
- * adapter echo of fields the store discarded.
+ * Defined in ./referral-intake so the plan wizard (client) can name the persisted
+ * shape without importing this contract — this file imports `service-state`.
+ * Kept off the `Referral` identity record (identifiers + state only) but persisted
+ * beside it so success UX and the plan wizard can round-trip what was actually written.
  */
-export type ReferralIntakePayload = {
-  patientIdentifier: string;
-  givenName: string;
-  familyName: string;
-  mobileNumber: string;
-  dischargeDate: string;
-  hospitalFacility: string;
-  cohort: string;
-  admittingWard: string;
-  clinicalSummary: string;
-  safetyAlerts: readonly string[];
-};
+export type { ReferralIntakePayload };
 
 export type CreateReferralInput = {
   referralId: ReferralId;
