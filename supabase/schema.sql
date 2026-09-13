@@ -12,6 +12,7 @@ set search_path = public, extensions;
 create extension if not exists vector with schema extensions;
 create extension if not exists pg_trgm with schema extensions;
 create extension if not exists "uuid-ossp" with schema extensions;
+create extension if not exists pg_cron with schema pg_catalog;
 grant usage on schema extensions to anon, authenticated, service_role;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -17216,7 +17217,7 @@ as $$
   ), outstanding_heads as (
     select h.* from public.site_content_public_records h cross join transition s
     where h.head_change_epoch > s.served_change_epoch
-  ), base as (
+  ), base as materialized (
     select public.site_content_health_operational_base() payload
   ), integrity as (
     select

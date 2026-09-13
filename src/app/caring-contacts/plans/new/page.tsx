@@ -8,9 +8,10 @@ import {
 import type { PlanWizardPathwayOption } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { CARING_CONTACTS_REFERRAL_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
+import type { ReferralIntakePayload } from "@/lib/caring-contacts/repository";
 import {
   PATHWAY_APPROVAL_ROLE_WORDING,
   pathwayVersionProvenanceWording,
@@ -137,8 +138,8 @@ export default async function CaringContactsNewPlanPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
   const requestedReferralId = readRequestedReferralId(await searchParams);
 
@@ -270,6 +271,21 @@ export default async function CaringContactsNewPlanPage({
         publishedAt: version.publishedAt,
       }));
 
+    const intakeRead = await auditedRead<ReferralIntakePayload | null>(
+      store,
+      actor,
+      { kind: "view", objectType: "patientDirectory", objectId: referral.id },
+      () => store.getReferralIntakePayload(referral.id, { actor }),
+    );
+    if (intakeRead.outcome === "failed") {
+      throw intakeRead.error instanceof Error
+        ? intakeRead.error
+        : new Error("Failed to read this referral's intake payload.");
+    }
+    if (!intakeRead.recorded) {
+      throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+    }
+
     return (
       <PlanWizard
         referralId={referral.id}
@@ -282,6 +298,7 @@ export default async function CaringContactsNewPlanPage({
         sendingPreferenceOptions={SENDING_PREFERENCE_OPTIONS}
         fictionalPatientMobileNumbers={DESIGNATED_FICTIONAL_PATIENT_MOBILE_NUMBERS}
         patientVisibleMessageSpecimen={EXACT_PATIENT_VISIBLE_MESSAGE}
+        intakePrefill={intakeRead.released}
       />
     );
   }

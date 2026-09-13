@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { TemplateDetail, type TemplateDetailView } from "@/components/caring-contacts/workspace/template-detail";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { pathwayVersionId as toPathwayVersionId } from "@/lib/caring-contacts/ids";
@@ -94,13 +94,13 @@ const CaringContactsShell = dynamic(() =>
  * never read -- on the one screen whose whole subject is what has and has not been approved.
  */
 export default async function CaringContactsTemplateDetailPage({ params }: { params: Promise<{ pathwayId: string }> }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
   const { pathwayId } = await params;
   // Before the store, before the actor, before any audit event exists to be thrown by. See the
   // module note: this is the check that stops a request switching off its own access record.
   if (!isAccessObjectIdShape(pathwayId)) notFound();
 
-  const actor = await resolveDemoActor();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
   // "service" names the one service-wide record, matching the object id the API route records

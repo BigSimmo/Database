@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-12"
+    "committed_at": "2026-09-13"
   },
   "routes": {
     "modes": [
@@ -218,6 +218,11 @@
         "path": "/mockups/calculators-clinical-console",
         "file": "src/app/mockups/calculators-clinical-console/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/caring-contacts/intake",
+        "file": "src/app/caring-contacts/intake/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/caring-contacts/team",
@@ -1390,6 +1395,10 @@
         "file": "src/app/api/differentials/route.ts"
       },
       {
+        "path": "/api/caring-contacts/intake",
+        "file": "src/app/api/caring-contacts/intake/route.ts"
+      },
+      {
         "path": "/api/health",
         "file": "src/app/api/health/route.ts"
       },
@@ -1456,6 +1465,10 @@
       {
         "path": "/api/search/universal",
         "file": "src/app/api/search/universal/route.ts"
+      },
+      {
+        "path": "/api/caring-contacts/ready",
+        "file": "src/app/api/caring-contacts/ready/route.ts"
       },
       {
         "path": "/api/caring-contacts/pathway-versions",
@@ -2089,6 +2102,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/deployment/caring-contacts-sovereign-australia.md",
+        "section": "deployment",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-7-report.md",
         "section": "care-plan",
         "catalogued": true
@@ -2476,6 +2494,11 @@
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/referral-feasibility.md",
+        "section": "caring-contacts",
         "catalogued": false
       },
       {
@@ -2892,6 +2915,11 @@
         "path": "docs/redesign/04-deferred.md",
         "section": "redesign",
         "catalogued": true
+      },
+      {
+        "path": "docs/caring-contacts/pilot-governance-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-addendum.md",
@@ -6251,6 +6279,9 @@
       },
       {
         "name": "decisions"
+      },
+      {
+        "name": "deployment"
       },
       {
         "name": "design-system"
@@ -9970,6 +10001,14 @@
         "scope": "Cloud Python lock and self-diagnostics",
         "outcome": "PASS: no actionable findings",
         "checks": "verify:pr-local PASS; focused Vitest 21/21; Python 3.11 and 3.12 lock reproduction PASS"
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "dependabot/github_actions/github-actions-91ab6ea131 (PR #2647)",
+        "head": "2df2db0b5a6402b5f9b7e46ccf0313a4341a069d",
+        "scope": "Run PR sweep: CI fix",
+        "outcome": "Static PR checks fixed: check:github-actions failed because the reviewed-SHA allowlist did not include the bumped anthropics/claude-code-action commit (v1.0.210 -> v1.0.215). Verified the upstream diff between the two pinned commits directly (git diff on a fresh clone of anthropics/claude-code-action): only Claude Code/Agent SDK version-number bumps, no permissions/secrets/trust-boundary change. Added the reviewed allowlist entry. No unresolved review threads.",
+        "checks": "npm run check:github-actions (passed); npx vitest run tests/github-action-pins.test.ts (7 passed); no provider-backed checks run"
       },
       {
         "date": "2026-07-19",

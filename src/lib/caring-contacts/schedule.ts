@@ -11,7 +11,11 @@
 //
 // Pure and deterministic: the same input always yields byte-identical output.
 import { awstCalendarDay, awstWallTimeToInstant, toAwstParts } from "./clock";
-import type { MessageType, SendingPreference } from "./model";
+import { validateGovernedMessage, type MessageValidationIssue } from "./message-policy";
+import type { MessageType, PlanState, SendingPreference } from "./model";
+
+declare const GovernedBodyBrand: unique symbol;
+export type ValidatedGovernedBody = string & { readonly [GovernedBodyBrand]: true };
 
 export type ScheduleInput = {
   dischargeAt: Date;
@@ -27,7 +31,49 @@ export type PlannedContact = {
   sendAt: Date; // exact instant
   messageType: MessageType;
   suppressed?: { reason: "absorbedByFirstContact" };
+  body?: ValidatedGovernedBody;
 };
+
+export type PrepareContactForDispatchResult =
+  | { ok: true; contact: PlannedContact & { body: ValidatedGovernedBody } }
+  | { ok: false; issues: MessageValidationIssue[] };
+
+/**
+ * Prepares a planned contact for outbound dispatch by validating its message body against the
+ * governed message policy.
+ *
+ * Ensures no message body reaches a recipient or dispatch record without passing the
+ * validateGovernedMessage chokepoint. If valid, attaches the branded ValidatedGovernedBody.
+ */
+export function prepareContactForDispatch(
+  contact: PlannedContact,
+  messageText: string,
+  options?: {
+    planState?: PlanState;
+    syntheticFictionalContactsAcknowledged?: boolean;
+    patientMobileNumber?: string;
+  },
+): PrepareContactForDispatchResult {
+  const validation = validateGovernedMessage({
+    text: messageText,
+    messageType: contact.messageType,
+    planState: options?.planState,
+    syntheticFictionalContactsAcknowledged: options?.syntheticFictionalContactsAcknowledged,
+    patientMobileNumber: options?.patientMobileNumber,
+  });
+
+  if (!validation.valid) {
+    return { ok: false, issues: validation.issues };
+  }
+
+  return {
+    ok: true,
+    contact: {
+      ...contact,
+      body: messageText as ValidatedGovernedBody,
+    },
+  };
+}
 
 /**
  * `firstContactReason` is the reason this function ACCEPTED, ready to be stored, or null when the

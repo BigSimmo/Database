@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a332d0c2-b378-49f3-9bd6-0165b67ed501",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#VX609A",
+    "outcome": "Recorded decision that quarantine path via fail_closed_deleted_document_owner_rollback and documents_ownerless_requires_publication_marker is accepted as complete control in public mode, while ON DELETE RESTRICT operates in private mode",
+    "baseRowFingerprint": "43dd864988f36a91cf3c424e6fc3b376d2daa274263a86bac34fe116a09d0005"
+  }
+}

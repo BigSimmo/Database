@@ -8,7 +8,7 @@ import {
   SCHEDULE_STRIP_DAYS_BEFORE,
 } from "@/components/caring-contacts/workspace/schedule-screen";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { awstCalendarDay, awstCalendarDayOffset, systemClock } from "@/lib/caring-contacts/clock";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
@@ -75,8 +75,8 @@ export default async function CaringContactsSchedulePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
   // "Today" is ambient time and is resolved here, at the edge, for the same reason

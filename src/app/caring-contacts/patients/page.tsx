@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
@@ -119,9 +119,9 @@ export default async function CaringContactsPatientsPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
 
-  const actor = await resolveDemoActor();
+  const actor = await resolveCaringContactsActor();
 
   // Before anything is read, audited or thrown. See "IGNORING A BOOKMARKED ?q= WAS NOT ENOUGH".
   const address = readPatientsDirectoryAddress(await searchParams, actor);

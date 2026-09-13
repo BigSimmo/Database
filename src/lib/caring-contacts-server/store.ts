@@ -1,10 +1,11 @@
 // src/lib/caring-contacts-server/store.ts
 //
 // The one place route handlers ask for a caring-contact store. Picks the store the same way the
-// rest of this seam works: postgres when CARING_CONTACTS_DATABASE_URL is configured (and cleared
-// by assertNotClinicalKbProject), the in-memory reference store otherwise -- so the workspace runs
-// with no database at all. That in-memory fallback is what the demo and this repository's offline
-// test suite run against.
+// rest of this seam works: postgres when CARING_CONTACTS_DATABASE_URL is configured AND demo mode
+// is off (live durable path; cleared by assertNotClinicalKbProject), the in-memory reference store
+// otherwise -- so the workspace runs with no database at all. Demo mode never opens Postgres: a
+// durable URL under forgeable demo actors is refused. That in-memory fallback is what the demo and
+// this repository's offline test suite run against.
 //
 // Memoised on the first call, then reused. Two reasons, not one:
 //   * the Postgres branch would otherwise build a brand-new `pg.Pool` on every call -- and once a
@@ -49,7 +50,29 @@ export async function caringContactsStore(): Promise<CaringContactRepository> {
 
 async function buildStore(): Promise<CaringContactRepository> {
   const url = caringContactsDatabaseUrl();
+  // Fail closed: an explicit demo flag must never bind forgeable/default demo actors to a durable
+  // patient database. Demo uses in-memory only. Durable Postgres requires live mode
+  // (CARING_CONTACTS_DEMO_ENABLED=false) with a signed production session path — never
+  // unauthenticated demo writes against real PHI storage.
+  //
+  // Checked against the explicit env flag (not isCaringContactsDemoEnabled()): non-production
+  // always enables demo actors for local/Playwright work, and developers may still point at a
+  // dedicated non-patient Postgres there. The sovereign misconfig is DEMO_ENABLED=true + a real DB.
+  if (url && process.env.CARING_CONTACTS_DEMO_ENABLED === "true") {
+    throw new Error(
+      "Caring Contacts refuses CARING_CONTACTS_DATABASE_URL while CARING_CONTACTS_DEMO_ENABLED=true. " +
+        "Demo actors are forgeable/defaulted; use in-memory demo (unset DATABASE_URL) or live mode " +
+        "(CARING_CONTACTS_DEMO_ENABLED=false with session HMAC and DATABASE_URL).",
+    );
+  }
   if (!url) {
+    // Live mode refuses the in-memory fallback: authenticated real-patient writes must not
+    // appear durable while sitting only in process memory.
+    if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
+      throw new Error(
+        "Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL; refusing in-memory fallback for real-patient writes.",
+      );
+    }
     // The demo population lives on THIS branch and only this one. `createDemoWorkspaceStore`
     // constructs the in-memory repository itself, so the seed has no parameter through which a
     // database-backed store could arrive, and nothing below this `if` can reach it -- see

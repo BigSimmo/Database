@@ -195,6 +195,7 @@ const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
  * `tests/caring-contacts-team-page.dom.test.tsx`.
  */
 const TEAM_ROUTE = `${WORKSPACE_ROUTE}/team`;
+const INTAKE_ROUTE = `${WORKSPACE_ROUTE}/intake`;
 
 /**
  * Every production screen this workspace serves, with the `h1` it must render.
@@ -260,6 +261,7 @@ const WORKSPACE_SCREENS = [
   { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
   { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
   { name: "Team", route: TEAM_ROUTE, heading: "Team" },
+  { name: "Intake", route: INTAKE_ROUTE, heading: "Referral intake" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];

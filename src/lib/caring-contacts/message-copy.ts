@@ -1,4 +1,10 @@
-import { calculateGsm7, maxSeptetsWithin, type Gsm7Evidence } from "./message-policy";
+import {
+  calculateGsm7,
+  maxSeptetsWithin,
+  validateGovernedMessage,
+  type Gsm7Evidence,
+  type MessageValidationIssue,
+} from "./message-policy";
 import { PROVISIONAL_MESSAGE_RULES } from "./message-rules";
 import { FICTIONAL_CONTACTS_BY_ROLE } from "./synthetic-contacts";
 
@@ -109,7 +115,8 @@ export function preferredNameMaxSeptets(unpersonalisedText: string): number {
 export type PatientVisibleMessageIssue =
   | { code: "preferred-name-not-recorded" }
   | { code: "preferred-name-too-long"; septets: number; maxSeptets: number }
-  | { code: "preferred-name-not-sendable"; unsupportedCharacters: string[] };
+  | { code: "preferred-name-not-sendable"; unsupportedCharacters: string[] }
+  | MessageValidationIssue;
 
 export type PatientVisibleMessageResolution =
   { ok: true; text: string } | { ok: false; issue: PatientVisibleMessageIssue };
@@ -148,7 +155,10 @@ export type PatientVisibleMessageResolution =
  * the TRANSPORT cannot carry, which is the same class as refusing one that is too long, and no part
  * of it decides anything about the patient.
  */
-export function resolvePatientVisibleMessage(preferredName: string | null): PatientVisibleMessageResolution {
+export function resolvePatientVisibleMessage(
+  preferredName: string | null,
+  options?: { syntheticFictionalContactsAcknowledged?: boolean },
+): PatientVisibleMessageResolution {
   const name = (preferredName ?? "").trim();
   if (name === "") return { ok: false, issue: { code: "preferred-name-not-recorded" } };
 
@@ -170,7 +180,17 @@ export function resolvePatientVisibleMessage(preferredName: string | null): Pati
     };
   }
 
-  return { ok: true, text: personalisedPatientVisibleMessage(name) };
+  const text = personalisedPatientVisibleMessage(name);
+  const validation = validateGovernedMessage({
+    text,
+    messageType: "standard",
+    syntheticFictionalContactsAcknowledged: options?.syntheticFictionalContactsAcknowledged ?? false,
+  });
+  if (!validation.valid) {
+    return { ok: false, issue: validation.issues[0] };
+  }
+
+  return { ok: true, text };
 }
 
 // PROVISIONAL — not clinically approved. Required by production-build spec §2.1: the automated response
