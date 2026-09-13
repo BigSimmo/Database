@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c62d2840-5bdf-4857-b4e7-bbf21948006c",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#RA0QAH",
+    "outcome": "Hardened flaky test assertions across browser suites (including Next 16 prefetch vs navigation discrimination and accessibility focus settlement) while strictly preserving retries: 0 determinism",
+    "baseRowFingerprint": "11306c58889703ac51bed66d1499c6228814fc4e21c4905cd4f2b9bd437d2062"
+  }
+}

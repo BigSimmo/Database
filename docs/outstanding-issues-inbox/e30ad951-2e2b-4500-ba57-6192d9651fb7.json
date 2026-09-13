@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "e30ad951-2e2b-4500-ba57-6192d9651fb7",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "00daa637-7da2-4311-8297-88daa74751d6",
+    "reason": "Codex P2: retract false #YSKD8J done. This branch does not modify ci.yml and has no observed completed browser-shard verdict; keep issue open until sharding yields a passing matrix run."
+  }
+}
