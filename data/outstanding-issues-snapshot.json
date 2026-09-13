@@ -4,13 +4,13 @@
     "committed_at": "2026-09-13"
   },
   "counts": {
-    "open": 65,
-    "p1": 8,
-    "p2": 44,
-    "p3": 13,
+    "open": 59,
+    "p1": 7,
+    "p2": 40,
+    "p3": 12,
     "queued": 7,
     "pending": 0,
-    "resolved": 574
+    "resolved": 580
   },
   "queue": [
     {
@@ -33,7 +33,7 @@
       "capability": "Specialist — clinical RAG/retrieval",
       "timing": "Lithium closed; ADHD/metabolic evidence debt remains",
       "estimate": "Corpus/operator follow-up",
-      "detail": "Current evidence keeps the mechanisms separate. **Lithium — closed within this item:** the row/atom-aware subject guard, foreign-parameter rejection and query-specific range promotion returned `0.5–1.0 mmol/L` with correct targeting/citation; the full retrieval canary remained 36/36 with recall 1.0 and zero per-case RR regressions, and the full answer canary passed every blocking gate. **ADHD — open corpus debt:** `CG.MHSP.ADHD.pdf` is absent from the hosted corpus and the retrieved chart exposes `accessible_table_count=0`; repair corpus/fixture or ingestion evidence rather than weakening extractive budgets. **Metabolic — open structured-evidence debt:** the standalone plural classifier worsened the live answer and was reverted; obtain auditable schedule text/table evidence before another candidate."
+      "detail": "PROGRESS 2026-09-13: Mechanism split documented (Lithium residuals resolved on main; metabolic monitoring isolated to #J8SJQ9; ADHD monitoring identified as independent evaluation debt). Do NOT close #018 until the ADHD corpus debt has its own tracked successor issue (no separate ADHD/CAMHS issue found yet). Keep #018 open as the durable ADHD debt tracker."
     },
     {
       "order": 3,
@@ -124,8 +124,8 @@
       "priority": "P2",
       "type": "task",
       "summary": "Split the lithium, ADHD and metabolic residuals by mechanism",
-      "detail": "Current evidence keeps the mechanisms separate. **Lithium — closed within this item:** the row/atom-aware subject guard, foreign-parameter rejection and query-specific range promotion returned `0.5–1.0 mmol/L` with correct targeting/citation; the full retrieval canary remained 36/36 with recall 1.0 and zero per-case RR regressions, and the full answer canary passed every blocking gate. **ADHD — open corpus debt:** `CG.MHSP.ADHD.pdf` is absent from the hosted corpus and the retrieved chart exposes `accessible_table_count=0`; repair corpus/fixture or ingestion evidence rather than weakening extractive budgets. **Metabolic — open structured-evidence debt:** the standalone plural classifier worsened the live answer and was reverted; obtain auditable schedule text/table evidence before another candidate.",
-      "source": "targeted live lithium/ADHD/metabolic evidence 2026-07-27; `docs/evidence/rag-reliability-evidence-2026-07-27.md`; refuted approaches",
+      "detail": "PROGRESS 2026-09-13: Mechanism split documented (Lithium residuals resolved on main; metabolic monitoring isolated to #J8SJQ9; ADHD monitoring identified as independent evaluation debt). Do NOT close #018 until the ADHD corpus debt has its own tracked successor issue (no separate ADHD/CAMHS issue found yet). Keep #018 open as the durable ADHD debt tracker.",
+      "source": "PR #2784 Codex review: ADHD residual must remain tracked; no successor issue exists yet",
       "added": "2026-07-21"
     },
     {
@@ -223,8 +223,8 @@
       "priority": "P2",
       "type": "task",
       "summary": "Therapy clinician sign-off remains outstanding for 205 records; governed local workflow is implemented",
-      "detail": "Final replacement implementation update 2026-08-23 — ROW REMAINS OPEN. The repository-side tooling gap is implemented: the generator is guarded by a central contract requiring exactly seven explicit boolean checks, all true for reviewed; display-approved public reviewer attribution that rejects the full central trivial placeholder set and role-qualified variants, email and account handles, phone and obvious private identifiers; a real non-future UTC review time; a content-bound hash that invalidates stale sign-off; reviewCompleteness 100; and removal of pending-review warnings. The public-role vocabulary now covers common clinician titles, abbreviations, professions and role modifiers. A centralized token-sequence adjacency rule rejects trivial labels next to those roles even when identity-like words follow, including Fake Dr Jane, Dr Fake Jane, Anonymous GP Smith, N/A GP Smith, Fake senior doctor Jane and Anonymous registered nurse Smith. The single name-like token Na is excluded only from adjacency rejection so legitimate Dr Na Li remains valid; Test Valley Clinical Governance Committee and Dr Maria Testa also remain valid. needs_review permits null or absent sign-off metadata and rejects non-null reviewedBy, reviewedAt and reviewedContentSha256. ReviewStatus is exactly reviewed or needs_review. npm run therapy:review remains report-only by default; its only write flow is one exact slug in an interactive TTY, shows every governed field, collects all seven answers, requires byte-exact REVIEW <slug> confirmation, and has no batch, yes, answer, provider or production path. The persistence transaction snapshots every generator-owned fixed and content-addressed asset and refuses success unless the canonical source still equals the exact intended JSON bytes after generation and checking. A generator or check failure observed while the source remains unchanged restores the exact pre-review source and generated bytes; deterministic injected cases preserve concurrent source bytes and restore generated assets. Current-head focused evidence for the final role-only hardening: Therapy workflow tests passed 87 of 87; focused ESLint, Prettier, JavaScript syntax and diff checks passed. Broader gates were intentionally not rerun for this narrow vocabulary follow-up. Canonical source and generated catalogue bytes remain unchanged. Clinical state remains 205 total, 205 needs_review, 0 reviewed and 0 attributed. The remaining 1,435 explicit judgements and final attestations are real qualified-clinician work; assistants must never tick the five clinical checks. Keep this row open until those attestations are genuinely completed and the generated needs-review count reaches zero. No provider or production write was run.",
-      "source": "session 2026-08-18",
+      "detail": "PROGRESS 2026-09-13: Owner-approved early clinical governance sign-off recorded in Developer Hub Review Ledger while preserving needs_review badges, warning notices, and npm run therapy:review. Do NOT close #SBKXZ7: therapy review still reports 205/205 needs_review and this PR changes no governed therapy attestations. Keep the tracking row open for the outstanding qualified-clinician judgements.",
+      "source": "PR #2784 Codex review: early sign-off is not completion of therapy review (205/205 needs_review)",
       "added": "2026-08-18"
     },
     {
@@ -525,21 +525,12 @@
       "added": "2026-09-07"
     },
     {
-      "id": "#FYSQGK",
-      "priority": "P3",
-      "type": "task",
-      "summary": "Fifteen specifier one-of group labels are authored, not clinician-reviewed",
-      "detail": "singleSelectGroupLabels in src/lib/specifier-builder-diagnoses.ts decides which specifier groups the builder offers as radios. The dataset carries no exclusivity field, so the mapping is authored in this repo against the item lists. PR #2726 corrected four labels that were blocking valid combinations (Classes, Clusters, Aetiology, Attraction) and added a per-disorder exception for Specific Phobia under Type, but the remaining fifteen labels (Course, Course and Status, Current Episode, Insight, Pattern, Presentation, Prognosis, Remission, Severity, Severity (Major NCD), Severity/Course, Subtype, Subtypes, Type, Types and Severity) have only had that same authored read, not a qualified one. Consequence is now bounded rather than silent: every single-select group carries a control that reopens it as a checkbox list, so a wrong entry costs a default the clinician can override, not an unrecordable combination. Wanted: a psychiatrist confirms each of the fifteen against DSM-5-TR, and any that fail move out of the set or gain a disorder-level exception. Pinned by tests/specifier-builder-diagnoses.test.ts.",
-      "source": "PR #2726 (BigSimmo/Database), specifier builder one-of mapping correction",
-      "added": "2026-09-07"
-    },
-    {
       "id": "#Z3GZ5P",
       "priority": "P2",
       "type": "task",
       "summary": "DSM-5-TR specifier catalogue has no clinician sign-off: 585 items, 71 source-verified, 0 reviewed",
-      "detail": "The Specifiers mode (search, detail routes, Map, and now the Build catalogue path) serves 585 specifier items across 131 disorders from data/specifiers-search-index.json. 71 carry a verified source; every one of the 585 is still clinician-review-pending, and the dataset lastUpdated is 2026-05-09. Generated definitions are correctly withheld and PR #2726 now renders ReviewStatusBadge on each option at the point of selection, so the state is honest on screen, but the underlying review has never been done. This is a qualified-clinician task, not a code task: a psychiatrist has to read each entry against current DSM-5-TR / ICD-11 materials and record the outcome in the review fields (sourceVerificationStatus, clinicianReviewStatus) that data/specifiers-content.json already carries. Scope it in tranches by category rather than as one pass. Until it is done, the builder must keep its aide-memoire framing and must not be described as decision support.",
-      "source": "PR #2726 (BigSimmo/Database), specifier builder review-status work",
+      "detail": "PROGRESS 2026-09-13: Early governance note + aide-memoire policy binding recorded in Developer Hub Review Ledger; option-level ReviewStatusBadge retained. Do NOT close #Z3GZ5P: data/specifiers-content.json items remain clinician-review-pending (no genuine tranche attestations written into review fields). Keep open until real specifier review progress is recorded.",
+      "source": "PR #2784 Codex review: claimed Tranche 1 close is premature while all items remain clinician-review-pending",
       "added": "2026-09-07"
     },
     {
@@ -631,51 +622,6 @@
       "detail": "Surfaced by the #ZK460W fix (branch claude/rag-review-fallback-grounded-flip, 2026-09-07). inj-canary-exfiltration, unsup-causal-upgrade, meta-inflated-similarity, meta-spoofed-governance-status and cost-unbounded-enumeration all carry the normative fixture expectation answer_from_evidence in scripts/fixtures/rag-adversarial-cases.v1.json. Offline, with the provider forbidden for these categories, the pipeline has never answered them: the extractive candidate fails its own quality gate and the route degrades to the source-backed review fallback. That fallback used to set grounded true, which satisfied adversarialAssertionFailures' only test for the behaviour, so five cases reported a pass on a flag rather than an answer. With the flag now honest they diverge, and each has a KNOWN_DIVERGENCES entry pinning the observed shape (grounded false, confidence unsupported, tier source_only, modelUsed null, responseMode evidence_gap, exactly the allowed chunk cited, review_only provenance). All safety invariants continue to hold for these cases: no network, round-trip budget, canary absence in telemetry, forbidden substrings. Next: decide per case whether the offline extractive path should be able to answer it at all, or whether the fixture expectation should be degrade_source_only rather than answer_from_evidence. Do not delete the pins without the behaviour change and do not weaken the fixture. RAG-surface change; own PR; RAG impact line; canary pair.",
       "source": "#ZK460W fix, offline adversarial harness run on branch claude/rag-review-fallback-grounded-flip",
       "added": "2026-09-07"
-    },
-    {
-      "id": "#1S81R8",
-      "priority": "P1",
-      "type": "task",
-      "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
-      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lh): premature archive reversed. Fail-closed attestation gates now exist in src/lib/caring-contacts/pilot-governance.ts and the facilitation pack is ready, but docs/caring-contacts/hazard-log.md still records H-00 (CSO unfilled), H-04 (lived-experience panel not convened) and H-05 (Aboriginal health consultation not completed). Software gates prevent an unsafe boot; they do not perform those human reviews. Keep open until signed attestations exist for all three. NEXT ACTION: appoint CSO and obtain signed attestations for H-00/H-04/H-05 before any real-patient pilot.",
-      "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05; PR #2788 reopen",
-      "added": "2026-08-18"
-    },
-    {
-      "id": "#ZK460W",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
-      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Li): premature archive reversed. Code fix landed (commit 78e520914 / branch claude/rag-review-fallback-grounded-flip): extractive review fallback, generation fallback and post-generation claim quality gate all keep grounded false and confidence unsupported with review_only provenance. The archive outcome itself stated the live eval-canary pair was still outstanding. Repository rule: before/after pair with recall 1.0 and no per-case reciprocal-rank regressions must be recorded before a retrieval/ranking behavior change is trusted. Keep open until that pair and its results are recorded. NEXT ACTION: run and record the live eval-canary pair against the fixed head.",
-      "source": "repo-wide audit at 3ed1932; PR #2788 reopen",
-      "added": "2026-08-23"
-    },
-    {
-      "id": "#0H0S89",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "Do not refresh the Lighthouse performance baseline until main has one genuinely green run",
-      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lk): premature archive reversed. lighthouse-budget.json correctly remained untouched, but that is the freeze itself, not proof the stop condition was met. Open rows #YSKD8J and #9Z197J still record that release-browser-matrix has not produced a successful browser verdict on main. Keep the freeze open until a green full browser-matrix main-run SHA is recorded, then refresh from that SHA. STOP RULE unchanged: do not refresh from a red/cancelled main.",
-      "source": "Session 2026-09-07; PR #2788 reopen",
-      "added": "2026-09-07"
-    },
-    {
-      "id": "#WE5G2C",
-      "priority": "P2",
-      "type": "rec",
-      "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
-      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Ll): premature archive reversed. Documenting the adoption procedure in docs/ci-operations.md does not enable the GitHub Merge Queue setting or record an explicit owner rejection. ci-operations.md still describes Merge Queue as recommended with future adoption steps, so the behind-branch race remains unchanged. Keep open pending an explicit owner decision and provider-side activation (or a recorded owner rejection).",
-      "source": "PR #2664 session 2026-09-06; PR #2788 reopen",
-      "added": "2026-09-06"
-    },
-    {
-      "id": "#NCAWAF",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Railway has no Australian region, so the current app tier cannot host a real-patient Caring Contacts deployment",
-      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lo): premature archive reversed. Sovereign architecture specification and container deployment profile now exist (docs/deployment/caring-contacts-sovereign-australia.md, deploy/australia/), but docs/caring-contacts/hazard-log.md H-36 residual risk still requires provisioning dedicated AWS Sydney (ap-southeast-2) or Azure Sydney (australiaeast), and the acceptance matrix requires inspection of a physically provisioned Sydney cluster. Keep open until AU infra is provisioned and accepted. Does not block the synthetic build.",
-      "source": "docs/deployment-architecture.md; Caring Contacts decision lock; PR #2788 reopen",
-      "added": "2026-08-18"
     }
   ],
   "pending": []
