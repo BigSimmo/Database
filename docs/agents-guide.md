@@ -62,6 +62,9 @@ this navigator does not make every linked procedure a mandatory startup step.
 
 ## Tooling and documentation ownership
 
+<!-- Named map retained for CLAUDE.md orientation (“AI tooling map”). -->
+**AI tooling map** (system → configuration ownership):
+
 - Root [AGENTS.md](../AGENTS.md) and its references carry repository instructions.
   [CLAUDE.md](../CLAUDE.md) provides platform orientation. Global personal preferences
   belong outside the repository; do not copy private configuration into these docs.

@@ -210,12 +210,12 @@ Optional `CONTEXT7_API_KEY` (`ctx7sk…`) from [context7.com/dashboard](https://
 raises rate limits. Set it as a user/OS env var, Cursor **Settings → MCP**, or a
 Cursor Cloud Agent Secret (shell `process.env`). Local stdio MCP and `npx ctx7`
 use that env; a separate host-injected Context7 connector may still ignore it —
-fall back to `npx ctx7 library|docs …` if host MCP returns quota exceeded.
+fall back to `npx ctx7 library "your-query"` or `npx ctx7 docs "your-query"` if host MCP returns quota exceeded.
 Without a key, Cursor expands `${env:CONTEXT7_API_KEY}` to empty and the server
 runs anonymously at lower rate limits. **Reload MCP servers** (or restart Cursor)
 after setting or rotating the key — the stdio child captures env at spawn.
 `.env.local` alone does not expand project MCP `${env:}`. Full setup notes:
-`docs/agents-guide.md`. Never commit the API key.
+[`docs/agents/cursor-cloud.md#context7-setup-and-peer-library-documentation`](docs/agents/cursor-cloud.md#context7-setup-and-peer-library-documentation). Never commit the API key.
 
 ### Figma
 
