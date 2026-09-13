@@ -14,6 +14,14 @@ export interface OnCallEntryRowProps {
   /** Metadata pills, freshness badge, section-specific detail — rendered below the heading. */
   children?: ReactNode;
   /**
+   * A right-hand affordance inside the row — the drawing's round call disc.
+   *
+   * Decorative by contract, never a control: the whole row is already the tap
+   * target, and a real button here would be invalid markup inside the `<a>`
+   * and a second announcement of one action. Callers pass a `<span>`.
+   */
+  trailing?: ReactNode;
+  /**
    * When present, the WHOLE row is this link (e.g. a `tel:` number, so ringing
    * someone is a single tap). Mutually exclusive with `onClick`.
    */
@@ -40,6 +48,7 @@ export function OnCallEntryRow({
   subtitle,
   icon: Icon,
   children,
+  trailing,
   href,
   onClick,
   testId,
@@ -62,6 +71,7 @@ export function OnCallEntryRow({
         ) : null}
         {children ? <span className="mt-1.5 flex flex-wrap items-center gap-1.5">{children}</span> : null}
       </span>
+      {trailing ? <span className="mt-0.5 shrink-0">{trailing}</span> : null}
     </>
   );
 

@@ -2,15 +2,24 @@
 
 import Link from "next/link";
 import { Pencil, Phone, Plus, Printer } from "lucide-react";
+import { useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { Button } from "@/components/ui/button";
+import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
+import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  ON_CALL_FILTER_ALL,
+  onCallEntryMatchesFilter,
+  onCallFilterOptions,
+  type OnCallFacetReader,
+} from "@/lib/on-call/entry-filters";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 export interface OnCallContactsSectionProps {
@@ -50,6 +59,9 @@ function contactAreaFor(entry: OnCallEntry): string {
   const first = entry.tags[0]?.trim();
   return first && first.length > 0 ? first : UNTAGGED_AREA;
 }
+
+/** The chip row filters on the same area the groups are headed by. */
+const contactAreaFacet: OnCallFacetReader = (entry) => [contactAreaFor(entry)];
 
 function parseContactDetails(details: unknown): OnCallContactDetails | null {
   const result = onCallDetailsSchemaFor("contacts").safeParse(details);
@@ -115,6 +127,7 @@ function ContactRow({
           subtitle={details?.contactName}
           icon={Phone}
           href={href}
+          trailing={href ? <OnCallCallDisc /> : undefined}
           testId={`on-call-contact-row-${entry.slug}`}
         >
           {primary ? (
@@ -179,7 +192,13 @@ export function OnCallContactsSection({
   // keeps the two lists derived from one function
   // (`src/lib/on-call/who-is-who.ts`), so neither can drift into showing the
   // other's entries.
-  const { contacts: contactEntries } = partitionContactsEntries(entries);
+  const { contacts: allContacts } = partitionContactsEntries(entries);
+  // The drawing's chip row. Areas are what Contacts already groups by, so the
+  // chips and the group headings name the same thing rather than offering two
+  // competing ways to cut the list.
+  const filterOptions = onCallFilterOptions(allContacts, contactAreaFacet);
+  const [activeFilter, setActiveFilter] = useState(ON_CALL_FILTER_ALL);
+  const contactEntries = allContacts.filter((entry) => onCallEntryMatchesFilter(entry, contactAreaFacet, activeFilter));
 
   const addButton = onAddEntry ? (
     <Button variant="secondary" size="sm" icon={Plus} onClick={onAddEntry} testId="on-call-contacts-add">
@@ -198,7 +217,7 @@ export function OnCallContactsSection({
     </Link>
   );
 
-  if (contactEntries.length === 0) {
+  if (allContacts.length === 0) {
     return (
       <EmptyState
         icon={Phone}
@@ -247,14 +266,33 @@ export function OnCallContactsSection({
         {addButton}
       </div>
 
+      <OnCallFilterChips
+        options={filterOptions}
+        active={activeFilter}
+        onChange={setActiveFilter}
+        label="Filter contacts by area"
+        testId="on-call-contacts-filters"
+      />
+
       {needsChecking.length > 0 ? (
         <section aria-labelledby="on-call-contacts-needs-checking-heading" className="grid gap-2">
-          <h3
-            id="on-call-contacts-needs-checking-heading"
-            className={cn(eyebrowText, "sticky top-0 z-[var(--z-raised)] bg-[color:var(--background)] py-1")}
+          <div
+            className={cn(
+              "sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1",
+            )}
           >
-            {NEEDS_CHECKING_HEADING}
-          </h3>
+            <h3 id="on-call-contacts-needs-checking-heading" className={eyebrowText}>
+              {NEEDS_CHECKING_HEADING}
+            </h3>
+            {/* Outside the heading, and hidden from assistive technology: the
+                drawing puts a count beside each group, but folding it into the
+                heading's accessible name turns "Needs checking" into "Needs
+                checking 3", and the list underneath already carries its own
+                length. */}
+            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+              {needsChecking.length}
+            </span>
+          </div>
           <div className="grid gap-2" data-testid="on-call-contacts-group-needs-checking">
             {sortEntries(needsChecking).map((entry) => (
               <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
@@ -268,12 +306,14 @@ export function OnCallContactsSection({
         const headingId = `on-call-contacts-area-${slug}-heading`;
         return (
           <section key={group.area} aria-labelledby={headingId} className="grid gap-2">
-            <h3
-              id={headingId}
-              className={cn(eyebrowText, "sticky top-0 z-[var(--z-raised)] bg-[color:var(--background)] py-1")}
-            >
-              {group.area}
-            </h3>
+            <div className="sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1">
+              <h3 id={headingId} className={eyebrowText}>
+                {group.area}
+              </h3>
+              <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+                {group.entries.length}
+              </span>
+            </div>
             <div className="grid gap-2" data-testid={`on-call-contacts-group-${slug}`}>
               {group.entries.map((entry) => (
                 <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />

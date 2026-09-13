@@ -2,13 +2,21 @@
 
 import { BookOpen, FileText, Pencil, User } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import type { OnCallLinkedDocument } from "@/components/on-call/on-call-playbook-section";
+import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
+import {
+  ON_CALL_FILTER_ALL,
+  onCallEntryMatchesFilter,
+  onCallFilterOptions,
+  onCallTagFacet,
+} from "@/lib/on-call/entry-filters";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
@@ -131,9 +139,16 @@ export function OnCallOrientationSection({
   onEditEntry,
   onVerified,
 }: OnCallOrientationSectionProps) {
-  const orientationEntries = entries.filter((entry) => entry.section === "orientation");
+  const allOrientation = entries.filter((entry) => entry.section === "orientation");
+  // "Starting", "Finishing", "This rotation" in the drawing are tags: the
+  // chips are whichever ones the owner actually used.
+  const filterOptions = onCallFilterOptions(allOrientation, onCallTagFacet);
+  const [activeFilter, setActiveFilter] = useState(ON_CALL_FILTER_ALL);
+  const orientationEntries = allOrientation.filter((entry) =>
+    onCallEntryMatchesFilter(entry, onCallTagFacet, activeFilter),
+  );
 
-  if (orientationEntries.length === 0) {
+  if (allOrientation.length === 0) {
     return (
       <EmptyState
         icon={BookOpen}
@@ -148,6 +163,13 @@ export function OnCallOrientationSection({
 
   return (
     <div data-testid={testId} className="grid gap-3">
+      <OnCallFilterChips
+        options={filterOptions}
+        active={activeFilter}
+        onChange={setActiveFilter}
+        label="Filter orientation material"
+        testId="on-call-orientation-filters"
+      />
       {sorted.map((entry) => (
         <OrientationCard
           key={entry.id}

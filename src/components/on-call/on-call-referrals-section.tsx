@@ -1,14 +1,22 @@
 "use client";
 
 import { Pencil, Phone, Repeat } from "lucide-react";
+import { useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
+import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
+import {
+  ON_CALL_FILTER_ALL,
+  onCallEntryMatchesFilter,
+  onCallFilterOptions,
+  onCallTagFacet,
+} from "@/lib/on-call/entry-filters";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 export interface OnCallReferralsSectionProps {
@@ -115,9 +123,14 @@ export function OnCallReferralsSection({
   onEditEntry,
   onVerified,
 }: OnCallReferralsSectionProps) {
-  const referralEntries = entries.filter((entry) => entry.section === "referrals");
+  const allReferrals = entries.filter((entry) => entry.section === "referrals");
+  // The drawing's chip row: "Takes tonight", "Community", "Youth" are tags the
+  // owner puts on a service, so the chips are whatever they actually used.
+  const filterOptions = onCallFilterOptions(allReferrals, onCallTagFacet);
+  const [activeFilter, setActiveFilter] = useState(ON_CALL_FILTER_ALL);
+  const referralEntries = allReferrals.filter((entry) => onCallEntryMatchesFilter(entry, onCallTagFacet, activeFilter));
 
-  if (referralEntries.length === 0) {
+  if (allReferrals.length === 0) {
     return (
       <EmptyState
         icon={Repeat}
@@ -132,6 +145,13 @@ export function OnCallReferralsSection({
 
   return (
     <div data-testid={testId} className="grid gap-2">
+      <OnCallFilterChips
+        options={filterOptions}
+        active={activeFilter}
+        onChange={setActiveFilter}
+        label="Filter referral services"
+        testId="on-call-referrals-filters"
+      />
       {sorted.map((entry) => {
         const details = parseReferralsDetails(entry.details);
         const freshness = onCallEntryFreshness(entry, now);
