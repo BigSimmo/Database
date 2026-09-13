@@ -13,12 +13,12 @@ npm run check:production-readiness
 
 is composed of two consecutive verification steps:
 
-1. `npm run check:privacy-readiness:release` — executes `node scripts/check-privacy-readiness.mjs --mode=release` (or `--release`).
+1. `npm run check:privacy-readiness:release` — executes `node scripts/check-privacy-readiness.mjs --release` (the script only recognizes `--release`; `--mode=release` is ignored and runs structural mode).
 2. `node scripts/run-tsx.mjs scripts/production-readiness.ts` — validates local environment configuration, Supabase target checks, and secret presence.
 
 ### Fail-Closed Invariant
 
-In release mode (`--mode=release` / `--release`), `scripts/check-privacy-readiness.mjs` enforces that every requirement in `docs/governance/privacy-readiness.v1.json` has reached either `"verified"` or `"accepted_decision"` status:
+In release mode (`--release`), `scripts/check-privacy-readiness.mjs` enforces that every requirement in `docs/governance/privacy-readiness.v1.json` has reached either `"verified"` or `"accepted_decision"` status:
 
 ```js
 if (release && !["verified", "accepted_decision"].includes(item.status)) {
@@ -68,4 +68,4 @@ The following three operational actions are tracked in `docs/governance/privacy-
 ## Local vs. Hosted Verification Boundary
 
 - **Offline / Local Verification**: Developers should run `npm run check:production-readiness:ci` or standard test suites (`npm test`) during routine development.
-- **Release Candidates**: Must run `npm run check:production-readiness` with all provider and legal gates satisfied. Do NOT downgrade `--mode=release` to bypass release requirements.
+- **Release Candidates**: Must run `npm run check:production-readiness` with all provider and legal gates satisfied. Do NOT omit `--release` (or use an unrecognized flag such as `--mode=release`) to bypass release requirements.

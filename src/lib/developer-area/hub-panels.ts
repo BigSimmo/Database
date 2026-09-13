@@ -1,3 +1,5 @@
+import { isCaringContactsWorkspaceEnabled } from "@/lib/caring-contacts-server/session";
+
 export type HubPanelGroup = "work" | "clinical" | "system" | "reference";
 
 export type HubPanel = {
@@ -211,6 +213,21 @@ export const HUB_PANELS: readonly HubPanel[] = [
   },
 ];
 
-export function panelsInGroup(group: HubPanelGroup): HubPanel[] {
-  return HUB_PANELS.filter((panel) => panel.group === group);
+export function panelsInGroup(
+  group: HubPanelGroup,
+  environment = process.env.NODE_ENV,
+  runtime: Record<string, string | undefined> = process.env,
+): HubPanel[] {
+  return HUB_PANELS.filter((panel) => {
+    if (panel.group !== group) return false;
+    // Production hubs must not advertise /caring-contacts when the workspace
+    // is locked off (every caring-contacts page calls notFound() then).
+    if (
+      panel.id === "caring-contacts-workspace" &&
+      !isCaringContactsWorkspaceEnabled(environment, runtime)
+    ) {
+      return false;
+    }
+    return true;
+  });
 }
