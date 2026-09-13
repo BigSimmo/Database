@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3142776f-6c99-414f-89df-6a1ffc3b90bc",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Tablet: forms transport search blank; factsheets sertraline and dictionary akathisia misroute",
+    "detail": "Tablet 820×1180 guest QA: (1) Forms search for transport returns blank/undiscoverable result. (2) Factsheets sertraline query misroutes. (3) Dictionary akathisia query misroutes. Phone paths for sertraline/akathisia worked — diagnose viewport/path conflict. Next: reproduce on tablet with exact URLs; fix routing or empty-state. Evidence: I-forms-transport-blank.png; L-factsheets-sertraline-misroute.png; M-dictionary-akathisia-misroute.png. IDs LQA-T-01/T-02/T-03.",
+    "source": "session 2026-09-13 tablet live QA; master ledger LQA-T-01/02/03",
+    "issueUlid": "01M2D2HJY76GR6B8GWXAYCPY6P"
+  }
+}

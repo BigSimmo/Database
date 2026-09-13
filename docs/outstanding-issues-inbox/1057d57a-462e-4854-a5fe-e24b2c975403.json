@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1057d57a-462e-4854-a5fe-e24b2c975403",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Tablet: prompt chips clipped at right edge across modes; no scroll affordance",
+    "detail": "Tablet 820×1180 design pass: prompt-chip rows clipped on Answer, Medication, Documents, Factsheets, DSM, Differentials, Sources, Forms. Final chip truncated (e.g. ECT con...). No clear H-scroll affordance or wrap. Next: wrap chips or add explicit scroll affordance; verify at 820px content width. Evidence: DESIGN-SIZING-TABLET.md; DS-02 / LQA-T-05.",
+    "source": "session 2026-09-13 design sizing tablet",
+    "issueUlid": "01M2D2HKJG2M4PX1CJ4QF9XFJJ"
+  }
+}

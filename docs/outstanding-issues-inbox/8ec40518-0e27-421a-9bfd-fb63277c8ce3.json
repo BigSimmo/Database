@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8ec40518-0e27-421a-9bfd-fb63277c8ce3",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Cross-viewport: calculator/modal close and control hit-layer interception",
+    "detail": "Phone, tablet, and desktop: calculator/PHQ-9 modal close or controls can be pointer-intercepted by overlay/content (duplicate close targets; wrapper interception). Visible close often still works. Next: single unambiguous close hit target ≥44px above content; fix PHQ-9 control hit testing. Evidence: DESIGN-SIZING-*; desktop calculator-phq9-modal; DS-03 / LQA-P2-04 / LQA-T-07.",
+    "source": "session 2026-09-13 design sizing all viewports",
+    "issueUlid": "01M2D2HM6WEKB6XRG2PQVGQ6GZ"
+  }
+}
