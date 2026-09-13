@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9b595f7f-cc4b-46a6-a03c-573f5794e3b6",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Guest Answer returns malformed or stub clinical answers on lithium/depression probes (live QA 2026-09-13)",
+    "detail": "Live guest desktop re-verification on psychiatry.tools. (1) Lithium-related Answer produced malformed prose including an appendix-style fragment and broken punctuation around the prophylactic range (e.g. \"0.4–0.8 mmol/L,5.\") with Status unknown citations. (2) First-line major depression Answer returned the source-backed stub that a full written answer could not be completed. (3) Subject-less \"monitoring schedule\" remained on Searching; Stop aborted cleanly. Same failure family as ledger #J8SJQ9 (antipsychotic metabolic monitoring stub). Next: reproduce with Answer canary / UI smoke; do not weaken eval cases; fix generation/extractive path so routine psych questions get complete grounded prose. Stop: do not hide stubs by relaxing mustContainAny or adding acceptSourceOnly where an authoritative answer is expected. Evidence: Live site QA master report 2026-09-13 (LQA-P1-ANS).",
+    "source": "session 2026-09-13 live QA psychiatry.tools; MASTER-LIVE-SITE-QA-REPORT; related #J8SJQ9",
+    "issueUlid": "01M2CF37Z6FY4M6E0TXVPS56P0"
+  }
+}
