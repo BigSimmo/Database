@@ -87,7 +87,7 @@ import {
   type WriteContext,
 } from "./repository";
 import type { PlanAssuranceAttestation } from "./assurances";
-import type { Episode } from "./episode";
+import { ValidationError, type Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
 type StagedWrite<T> = {
@@ -538,7 +538,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       const name =
         input?.patientDetail?.patientName ?? (input as unknown as { patientName?: string })?.patientName ?? "";
       if (typeof name !== "string" || name.trim().length === 0) {
-        throw new Error("Validation error: patient name must not be blank");
+        throw new ValidationError(
+          "Validation error: patient name must not be blank: Patient name cannot be blank or whitespace",
+        );
       }
       return runWrite<PlanRecord>({
         method: "createPlan",

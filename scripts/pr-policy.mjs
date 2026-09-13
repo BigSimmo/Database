@@ -349,10 +349,12 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
   // complete Clinical Governance Preflight, a RAG-ranking-surface diff without an
   // explicit `RAG impact:` declaration, and a Supabase-migration diff whose metadata
-  // claims a deferred deploy that merging does not honour. Every other metadata
-  // expectation (title, summary, verification, UI, risk and rollout) is
-  // advisory: it is surfaced as a warning so authors still get the nudge, but
-  // it never fails the check or blocks a merge.
+  // claims a deferred deploy that merging does not honour. Intermittent automated
+  // review (usage limits / eligibility) is explicitly not a gate (owner decision
+  // 2026-08-22 / #CCZ4HB; correction 2026-09-02 — decision stands until revisited).
+  // Every other metadata expectation (title, summary, verification, UI, risk and
+  // rollout) is advisory: it is surfaced as a warning so authors still get the nudge,
+  // but it never fails the check or blocks a merge.
   const errors = [];
   const warnings = [];
   const classification = classifyPullRequestFiles(files);
@@ -420,7 +422,7 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   }
 
   // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
-  // Preflight. This is the only other condition that fails the check.
+  // Preflight. Intermittent automated review is not a merge gate (owner decision).
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");

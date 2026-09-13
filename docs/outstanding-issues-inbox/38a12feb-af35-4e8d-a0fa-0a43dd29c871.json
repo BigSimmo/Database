@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "38a12feb-af35-4e8d-a0fa-0a43dd29c871",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Live /caring-contacts returns 404 for guest (phone + tablet QA 2026-09-13)",
+    "detail": "Guest live QA on psychiatry.tools: navigating to /caring-contacts returns branded Page not found on both phone 390×844 and tablet 820×1180. Site-map and tools catalogue expect a Caring Contacts workspace. Next: ship guest-reachable route (or demo) or remove/redirect marketed entry points. Stop: do not treat as intentional without product decision. Evidence: tablet/R-caring-contacts-404.png; PHONE-LIVE-QA-REPORT; MASTER ledger LQA-P1-CC.",
+    "source": "session 2026-09-13 live QA; PSYCHSIFT master ledger LQA-P1-CC",
+    "issueUlid": "01M2D2HJKXX1RBCA84MS6TQHVW"
+  }
+}

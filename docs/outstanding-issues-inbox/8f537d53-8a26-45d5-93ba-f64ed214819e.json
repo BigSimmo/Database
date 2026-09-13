@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8f537d53-8a26-45d5-93ba-f64ed214819e",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "eb53b29c-b44d-42cf-a46d-e99021816677",
+    "reason": "Codex P2: duplicate per-list composer reserve. Shell already owns phone-dock clearance via mobile-composer-reserve-pad in global-search-shell.tsx; entry itself notes end-of-list clearance is already correct. Extra Therapy/Sources list padding would double the shared reserve and still would not stop a mid-list card intersecting a fixed dock at scroll 0. Cancel unless unreachable content after scroll or an incorrect shared reserve is reproduced."
+  }
+}

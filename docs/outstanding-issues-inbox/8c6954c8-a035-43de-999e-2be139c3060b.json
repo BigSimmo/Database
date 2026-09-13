@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8c6954c8-a035-43de-999e-2be139c3060b",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Documents search can show high latency; no document-search stall watchdog (Guidelines draft link is intentional)",
+    "detail": "Live QA: documents mode searching \"guideline\" previously appeared to hang on Finding matching documents; re-verification later resolved in ~20s with 20 results (flaky latency, not confirmed indefinite hang). tools-catalog guidelines href is /?mode=documents&q=guideline&focus=1 without run=1 \u2014 this matches the intentional focused unsubmitted draft contract in page.tsx / global-search-shell.tsx (same pattern as other prompt-style Tools links). Do NOT add run=1 to that href. /api/search has no document stall watchdog comparable to answer streams. /documents/search page is a stub; dashboard mount depends on run=1 off /. Next: add stall/timeout UX for document search LoadingPanel; assert Tools\u2192Guidelines reaches a focused draft (not auto-run) and surfaces results or a clear error after explicit submit under N seconds. Stop: do not treat RANZCP empty results as a defect unless corpus expects hits; do not bypass the draft-link contract.",
+    "source": "session 2026-09-13 live QA; Codex review: run=1 is not a defect for draft Tools links",
+    "issueUlid": "01M2CF38K8X42YJ1X3GEYRG919"
+  }
+}

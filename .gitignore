@@ -26,6 +26,7 @@
 /.codex/*
 !/.codex/config.toml
 /.agents/*
+!/.agents/README.md
 !/.agents/plugins/
 /.agents/plugins/**
 !/.agents/plugins/marketplace.json

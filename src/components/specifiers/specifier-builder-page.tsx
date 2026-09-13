@@ -40,6 +40,7 @@ import {
   type BuilderCatalogGroup,
   type BuilderDiagnosis,
 } from "@/lib/specifier-builder-diagnoses";
+import { SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE } from "@/lib/specifiers-governance";
 import {
   findSpecifier,
   normalizeSpecifierSelection,
@@ -720,7 +721,9 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                           type={single ? "radio" : "checkbox"}
                           name={single ? activeStep.group.id : undefined}
                           aria-label={item.label}
-                          aria-describedby={`${item.slug}-review-status`}
+                          aria-describedby={
+                            SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE ? `${item.slug}-review-status` : undefined
+                          }
                           checked={checked}
                           onChange={() =>
                             single ? chooseCatalogSingle(activeStep.group, item.slug) : toggle(item.slug)
@@ -757,9 +760,11 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
                                 it, not only if they open its record afterwards. The input sets aria-label, which
                                 overrides the label's descendant text, so the status reaches assistive tech only
                                 through the aria-describedby wired to this id. */}
-                            <span id={`${item.slug}-review-status`}>
-                              <ReviewStatusBadge status={item.src} />
-                            </span>
+                            {SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE ? (
+                              <span id={`${item.slug}-review-status`}>
+                                <ReviewStatusBadge status={item.src} />
+                              </span>
+                            ) : null}
                           </span>
                           <span className="mt-1 block text-xs font-medium leading-5 break-words text-[color:var(--text-muted)]">
                             Recorded for {item.disorder}. Confirm the wording against the current manual before
