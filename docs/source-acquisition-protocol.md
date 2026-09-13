@@ -135,9 +135,11 @@ prints the outstanding queue, most local first.
 - **An unregistered publisher cannot leave D band.** The catalogue derives jurisdiction solely
   from `src/lib/source-authority-registry.ts`, so a source from a publisher that is not
   registered has no jurisdiction and is forced to D. Therapeutic Guidelines, the Australian
-  Medicines Handbook, Australian Prescriber, RACP, Cochrane, AIHW, HealthyWA and the Mental
-  Health Commission WA are all currently unregistered. The gate detects this and names the
-  publisher rather than failing obscurely.
+  Medicines Handbook, Australian Prescriber, RACP, Cochrane, AIHW, Healthdirect Australia,
+  HealthyWA and the Mental Health Commission WA were registered on 2026-09-07. Beyond Blue,
+  the NSW Agency for Clinical Innovation and Western Sydney Local Health District are examples
+  that remain unregistered. The gate detects this and names the publisher rather than failing
+  obscurely.
 
   Registering a publisher changes `classifySourceAuthority`, which retrieval selection uses to
   tier results. That makes it a retrieval behaviour change under the RAG ranking protection
