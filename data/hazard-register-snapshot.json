@@ -564,11 +564,6 @@
       "hazards": [],
       "ledgerMentions": [
         {
-          "id": "#Q6WD1M",
-          "priority": "P1",
-          "summary": "Ward Flow places patients with no eligibility check in the reducer at all"
-        },
-        {
           "id": "#BAY1TY",
           "priority": "P1",
           "summary": "Ward Flow: sex and gender identity are one field, and that single field drives bed matching"
@@ -582,6 +577,16 @@
           "id": "#G4YPNE",
           "priority": "P1",
           "summary": "Ward Flow: Aboriginal cultural safety review is unstarted and cannot be done by this team"
+        },
+        {
+          "id": "#MF6MZ7",
+          "priority": "P1",
+          "summary": "Ward Flow: enforce hospital authorisation as a candidate destination constraint"
+        },
+        {
+          "id": "#FJW91M",
+          "priority": "P1",
+          "summary": "Ward Flow: the Command mockup and the shipped reducer give opposite answers on a prior decline"
         }
       ],
       "openAssuranceDecisions": []
