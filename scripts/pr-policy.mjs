@@ -159,6 +159,13 @@ const migrationSubjectPattern =
 const ragRankingPatterns = [
   /^src\/lib\/rag\//,
   /^src\/lib\/(?:clinical-search|retrieval-selection|released-search-order|ranking-config|evidence|result-sort|answer-ranking|evidence-relevance|semantic-rerank|eval-document-matching)\.ts$/,
+  // Source authority feeds ordering too, one step further back: classifySourceAuthority tiers a
+  // result, australianSourceTier reads that tier, and selectAustralianClinicalContext orders and
+  // trims the model's context by it. Registering a publisher is therefore a retrieval behaviour
+  // change even though neither file computes a score. Added 2026-09-07 after PR #2711 registered
+  // nine Australian publishers and had to declare its RAG impact voluntarily, because this gate
+  // did not ask.
+  /^src\/lib\/(?:source-authority-registry|australian-source-priority)\.ts$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -688,6 +695,8 @@ function selfTest() {
   // The golden fixture and contract tests are protected surfaces too.
   assert.equal(classifyPullRequestFiles(["scripts/fixtures/rag-retrieval-golden.json"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["tests/ranking-tuning.test.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/source-authority-registry.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/australian-source-priority.ts"]).ragRanking, true);
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
