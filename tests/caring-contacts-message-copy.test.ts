@@ -163,6 +163,16 @@ describe("caring-contacts patient-visible copy", () => {
     expect(resolvePatientVisibleMessage("José")).toMatchObject({ ok: true });
   });
 
+  it("routes candidate message text through validateGovernedMessage and refuses prohibited terms", () => {
+    // Ledger #B16HW8: resolvePatientVisibleMessage routes through validateGovernedMessage.
+    // If a preferred name introduces a prohibited term (e.g. "Safe"), it fails closed with that issue.
+    const refused = resolvePatientVisibleMessage("Safe");
+    expect(refused).toEqual({
+      ok: false,
+      issue: { code: "prohibited-term", term: "safe" },
+    });
+  });
+
   it("builds the specimen from the template rather than holding a second copy of the wording", () => {
     // The reversal of Ruling [127] is narrow: the message gained a slot and nothing else changed.
     // The specimen is the template with the fictional name in it, so there is no second string that

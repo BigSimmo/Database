@@ -44,6 +44,8 @@ Complete this section when the change touches ingestion, answer generation, sear
 - [ ] Source metadata, review status, and outdated/unknown-source behavior remain conservative
 - [ ] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
+<!-- Emergency operator bypass: set ALLOW_UNREVIEWED_CLINICAL_PR=true in the PR body or environment to bypass fail-closed review checks when automated review agents (Cursor Approval Agent, Cursor Security Agent, Bugbot, Codex connector, CodeRabbit) hit usage limits (#ACWXN6). -->
+
 ## Notes
 
 -

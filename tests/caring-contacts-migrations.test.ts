@@ -1727,4 +1727,38 @@ describe("the workspace schema", () => {
       expect(rows[0].count).toBe("0");
     });
   });
+
+  describe("composite foreign keys enforce multi-tenant isolation (#4VKAA1)", () => {
+    it("refuses cross-team foreign key references onto plans and contacts", async () => {
+      // Seed a plan for TEAM_NORTH
+      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-NORTH-FK", patientId: "PATIENT-NORTH-FK" });
+
+      // 1. A contact for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected by foreign key constraint
+      await expect(
+        pool.query(
+          `insert into caring_contacts.contacts (id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day, send_at, message_type)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)`,
+          ["CONTACT-SOUTH-FK", "PLAN-NORTH-FK", TEAM_SOUTH, 1, "scheduled", 1, "Day 1", "2026-03-03", "standard"],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
+
+      // 2. A retention_state for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected
+      await expect(
+        pool.query(
+          `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at)
+           values ($1, $2, now())`,
+          ["PLAN-NORTH-FK", TEAM_SOUTH],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
+
+      // 3. A cultural_identity_reports for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected
+      await expect(
+        pool.query(
+          `insert into caring_contacts.cultural_identity_reports (plan_id, team_id, cultural_identity)
+           values ($1, $2, $3)`,
+          ["PLAN-NORTH-FK", TEAM_SOUTH, "Aboriginal"],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
+    });
+  });
 });

@@ -138,7 +138,9 @@ export function personalisationIssues(input: {
           ? "Enter what this person asked to be called. It is used in the messages themselves, so it is asked for rather than taken from the name above — a name typed family-name-first, or with a title, would open the message with the wrong word."
           : issue.code === "preferred-name-too-long"
             ? "This is too long to fit in the message. Messages are limited to two SMS parts, and what is entered here goes inside one. Use the shorter form the person actually goes by."
-            : `A text message here cannot carry ${issue.unsupportedCharacters.join(" ")}, so this plan's message could not be sent as written. Ask them how they would like their name spelled in a text message, and enter that.`,
+            : issue.code === "preferred-name-not-sendable"
+              ? `A text message here cannot carry ${issue.unsupportedCharacters.join(" ")}, so this plan's message could not be sent as written. Ask them how they would like their name spelled in a text message, and enter that.`
+              : "This name cannot be used because the resulting message violates message policy.",
     });
   }
 

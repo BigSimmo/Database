@@ -18,6 +18,7 @@ import {
   type ReferralId,
 } from "./ids";
 import { createInMemoryRepository } from "./in-memory-repository";
+import { ValidationError } from "./episode";
 import type { SendingPreference, TransitionResult } from "./model";
 import type { Actor } from "./permissions";
 import type {
@@ -60,7 +61,9 @@ export interface PlanStore {
 
 export function validatePatientName(name: unknown): string {
   if (typeof name !== "string" || name.trim().length === 0) {
-    throw new Error("Validation error: patient name must not be blank");
+    throw new ValidationError(
+      "Validation error: patient name must not be blank: Patient name cannot be blank or whitespace",
+    );
   }
   return name.trim();
 }
