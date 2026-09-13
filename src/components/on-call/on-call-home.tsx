@@ -55,6 +55,21 @@ import { clearOnCallRecent, useOnCallRecent } from "@/lib/on-call/recent-storage
  * stale entries on the home is a number you cannot act on from the home.
  */
 
+/**
+ * A module's trailing action.
+ *
+ * The label stays small because the drawing draws it small, but the target
+ * does not: `min-h-tap` gives it the production 48 px floor and `-my-3`
+ * hangs that hit area over the compact header row, so the row keeps its
+ * height and the thumb still gets a full target. Shared by both actions so
+ * one of them cannot quietly become a 24 px control again.
+ */
+const moduleAction = cn(
+  "-my-3 inline-flex min-h-tap items-center gap-1 rounded-sm px-1.5 text-xs font-semibold no-underline",
+  "text-[color:var(--text-muted)] transition-colors motion-reduce:transition-none hover:text-[color:var(--text-heading)]",
+  focusRing,
+);
+
 /** A module: a quiet monospaced label, an optional trailing action, and a body. */
 function HomeModule({
   id,
@@ -113,7 +128,7 @@ function CallCard({ entry }: { entry: OnCallEntry }) {
         ) : null}
       </span>
       <span className="grid gap-0.5">
-        <span className="text-sm-minus font-semibold">{entry.title}</span>
+        <span className="text-sm font-semibold">{entry.title}</span>
         <span className="nums text-lg-minus font-bold tracking-display">{number.value}</span>
       </span>
     </a>
@@ -331,11 +346,9 @@ export function OnCallHome() {
             id="on-call-home-wards"
             label="Your wards"
             action={
-              <Link
-                href={ON_CALL_SECTION_HREFS.contacts}
-                className={cn("text-xs font-semibold no-underline", focusRing)}
-              >
+              <Link href={ON_CALL_SECTION_HREFS.contacts} className={moduleAction}>
                 All contacts
+                <ChevronRight aria-hidden="true" className="size-icon-xs" />
               </Link>
             }
           >
@@ -365,11 +378,7 @@ export function OnCallHome() {
                 type="button"
                 onClick={() => clearOnCallRecent()}
                 data-testid="on-call-home-recent-clear"
-                className={cn(
-                  "inline-flex min-h-6 items-center gap-1 rounded-sm px-1.5 text-xs font-semibold text-[color:var(--text-muted)]",
-                  "transition-colors motion-reduce:transition-none hover:text-[color:var(--text-heading)]",
-                  focusRing,
-                )}
+                className={moduleAction}
               >
                 <Trash2 aria-hidden="true" className="size-icon-xs" />
                 Clear

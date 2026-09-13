@@ -1230,6 +1230,17 @@ export function MasterSearchHeader({
   }
 
   /**
+   * The desktop mode popover's shell, shared by both of its levels.
+   *
+   * Two copies of this expression is how the section level quietly stops
+   * looking like the mode level after the next tweak to one of them — the same
+   * reason `modeMenuRowClass` below exists. It also kept a second legacy
+   * shadow alias alive in this file for no design reason.
+   */
+  const modeMenuPopoverShell =
+    "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]";
+
+  /**
    * The row treatment the mode menu uses, shared by the mode options and the
    * in-mode section rows below them.
    *
@@ -2600,10 +2611,7 @@ export function MasterSearchHeader({
               id="app-mode-menu"
               role="dialog"
               aria-label={`${selectedAppMode.label} pages`}
-              className={cn(
-                glassOverlaySurface,
-                "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]",
-              )}
+              className={cn(glassOverlaySurface, modeMenuPopoverShell)}
             >
               <div className="flex items-center gap-1.5 border-b border-[color:var(--border)] px-2 py-2">
                 <button
@@ -2628,10 +2636,7 @@ export function MasterSearchHeader({
               id="app-mode-menu"
               role="dialog"
               aria-label="Choose app mode"
-              className={cn(
-                glassOverlaySurface,
-                "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]",
-              )}
+              className={cn(glassOverlaySurface, modeMenuPopoverShell)}
             >
               <div className="border-b border-[color:var(--border)] p-3 pb-2.5">
                 <div className="search-shell grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow]">

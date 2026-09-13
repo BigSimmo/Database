@@ -77,7 +77,7 @@ function RoleCard({
         <div className="min-w-0 flex-1 grid gap-0.5">
           <h4 className="text-base font-semibold text-[color:var(--text-heading)]">{entry.title}</h4>
           {details?.role && details.role !== entry.title ? (
-            <p className={cn(textMuted, "text-sm-minus")}>{details.role}</p>
+            <p className={cn(textMuted, "text-xs")}>{details.role}</p>
           ) : null}
         </div>
         {onEditEntry || showVerify ? (
@@ -104,7 +104,7 @@ function RoleCard({
       {entry.body ? <p className="text-sm leading-6 text-[color:var(--text)]">{entry.body}</p> : null}
 
       {entry.subtitle ? (
-        <p className="text-sm-minus text-[color:var(--text)]">
+        <p className="text-sm text-[color:var(--text)]">
           <span className={cn(eyebrowText, "mr-1.5")}>When to call</span>
           {entry.subtitle}
         </p>
