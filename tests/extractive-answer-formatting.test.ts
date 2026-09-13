@@ -2750,7 +2750,6 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
       figureChunk({
         title: "Lithium guideline",
         file_name: "Lithium guideline.pdf",
-        section_heading: null,
         parent_heading: null,
         section_path: [],
         ...scope,
