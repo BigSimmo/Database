@@ -137,7 +137,8 @@ export async function healthResponse(request: Request, options: HealthResponseOp
     }
   }
 
-  const ready = !Object.values(checks).some(
+  const { siteContent: _siteContentCheck, ...readinessChecks } = checks;
+  const ready = !Object.values(readinessChecks).some(
     (value) => value === "missing" || value === "error" || value === "unauthorized",
   );
 
