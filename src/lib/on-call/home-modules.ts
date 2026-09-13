@@ -85,19 +85,26 @@ export function onCallTelHref(raw: string | undefined | null): string | undefine
 const bySortOrder = (a: OnCallEntry, b: OnCallEntry) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title);
 
 /**
- * Contacts to ring first.
+ * A contact the home may show a number for.
  *
  * Role explainers are excluded even if tagged: they are Who's who rows and have
  * no number, so one on this module would be a call card that cannot call.
+ * Personal contacts are excluded too — Contacts already withholds their digits
+ * so a private mobile is not readable over a shoulder at the nurses' station,
+ * and the home (the most-looked-at screen in the mode) must not re-print them.
+ */
+function isHomeDialContact(entry: OnCallEntry): boolean {
+  return entry.section === "contacts" && !entry.isPersonal && !isRoleExplainerEntry(entry);
+}
+
+/**
+ * Contacts to ring first.
  */
 export function selectCallFirstContacts(entries: readonly OnCallEntry[]): OnCallEntry[] {
   return entries
     .filter(
       (entry) =>
-        entry.section === "contacts" &&
-        !isRoleExplainerEntry(entry) &&
-        hasTag(entry, ON_CALL_HOME_TAGS.callFirst) &&
-        onCallPrimaryNumber(entry) !== null,
+        isHomeDialContact(entry) && hasTag(entry, ON_CALL_HOME_TAGS.callFirst) && onCallPrimaryNumber(entry) !== null,
     )
     .sort(bySortOrder)
     .slice(0, ON_CALL_CALL_FIRST_LIMIT);
@@ -107,10 +114,7 @@ export function selectCallFirstContacts(entries: readonly OnCallEntry[]): OnCall
 export function selectSwitchboardContact(entries: readonly OnCallEntry[]): OnCallEntry | null {
   return (
     entries
-      .filter(
-        (entry) =>
-          entry.section === "contacts" && !isRoleExplainerEntry(entry) && hasTag(entry, ON_CALL_HOME_TAGS.switchboard),
-      )
+      .filter((entry) => isHomeDialContact(entry) && hasTag(entry, ON_CALL_HOME_TAGS.switchboard))
       .sort(bySortOrder)[0] ?? null
   );
 }
@@ -120,10 +124,7 @@ export function selectWardContacts(entries: readonly OnCallEntry[]): OnCallEntry
   return entries
     .filter(
       (entry) =>
-        entry.section === "contacts" &&
-        !isRoleExplainerEntry(entry) &&
-        hasTag(entry, ON_CALL_HOME_TAGS.ward) &&
-        onCallPrimaryNumber(entry) !== null,
+        isHomeDialContact(entry) && hasTag(entry, ON_CALL_HOME_TAGS.ward) && onCallPrimaryNumber(entry) !== null,
     )
     .sort(bySortOrder)
     .slice(0, ON_CALL_WARD_STRIP_LIMIT);

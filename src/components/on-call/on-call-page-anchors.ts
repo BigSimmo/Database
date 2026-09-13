@@ -20,3 +20,27 @@ export function onCallGroupSlug(label: string): string {
     .replace(/^-+|-+$/g, "");
   return slug || "group";
 }
+
+/**
+ * A unique slug for this label among those already allocated.
+ *
+ * `onCallGroupSlug` is many-to-one: "ED / General" and "ED General" both become
+ * `ed-general`. Groups stay separate — they are different owner-typed labels —
+ * so the header and the heading have to receive different ids as well, or both
+ * jump targets collapse onto the first matching element.
+ *
+ * Callers share one `taken` set per page so the declaration
+ * (`on-call-page-sections.ts`) and the rendered `id` stay the same string.
+ */
+export function allocateOnCallGroupSlug(label: string, taken: Set<string>): string {
+  const base = onCallGroupSlug(label);
+  if (!taken.has(base)) {
+    taken.add(base);
+    return base;
+  }
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n += 1;
+  const slug = `${base}-${n}`;
+  taken.add(slug);
+  return slug;
+}

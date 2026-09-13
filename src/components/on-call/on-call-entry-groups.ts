@@ -1,4 +1,4 @@
-import { onCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
+import { allocateOnCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
 import type { OnCallFacetReader } from "@/lib/on-call/entry-filters";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -57,13 +57,16 @@ export function onCallEntryGroups(
   // First-seen order, like the chip row before it: the entries arrive in the
   // owner's own order (`sort_order`, then title), and sorting here would
   // reshuffle the page every time an entry was renamed.
+  // One taken-set for the page: colliding labels ("ED / General" vs
+  // "ED General") stay separate groups and must receive separate anchors.
+  const taken = new Set<string>();
   const groups: OnCallEntryGroup[] = [...byLabel.entries()].map(([label, list]) => ({
     label,
-    slug: onCallGroupSlug(label),
+    slug: allocateOnCallGroupSlug(label, taken),
     entries: list,
   }));
   if (untagged.length > 0) {
-    groups.push({ label: fallbackLabel, slug: onCallGroupSlug(fallbackLabel), entries: untagged });
+    groups.push({ label: fallbackLabel, slug: allocateOnCallGroupSlug(fallbackLabel, taken), entries: untagged });
   }
 
   return groups.length > 1 ? groups : [];

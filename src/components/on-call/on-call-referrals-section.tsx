@@ -13,6 +13,7 @@ import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallReferralsSectionProps {
   entries: readonly OnCallEntry[];
@@ -92,6 +93,7 @@ function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCall
           title="Call to refer"
           subtitle={details.phone}
           href={telHref(details.phone)}
+          onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
           testId={`on-call-referral-phone-${entry.slug}`}
         />
       ) : null}

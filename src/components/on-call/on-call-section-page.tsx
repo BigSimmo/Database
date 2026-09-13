@@ -31,6 +31,7 @@ import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
@@ -210,7 +211,12 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // signed-out reader is offered nothing the API would answer with a 401.
   const listProps = {
     entries: sectionEntries,
-    onEditEntry: isAuthenticated ? (entry: OnCallEntry) => setEditorState({ open: true, entry }) : undefined,
+    onEditEntry: isAuthenticated
+      ? (entry: OnCallEntry) => {
+          recordOnCallRecent({ id: entry.id, title: entry.title });
+          setEditorState({ open: true, entry });
+        }
+      : undefined,
     onVerified: isAuthenticated ? upsertCachedEntry : undefined,
   };
 
@@ -344,6 +350,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         entry={editorState.entry}
         onSaved={upsertCachedEntry}
         onDeleted={removeCachedEntry}
+        createAsRoleExplainer={view === "who-is-who"}
       />
     </>
   );

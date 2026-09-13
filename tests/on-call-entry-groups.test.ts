@@ -63,6 +63,15 @@ describe("onCallEntryGroups", () => {
     expect(onCallEntryGroups([], onCallTagFacet)).toEqual([]);
   });
 
+  it("gives colliding normalized labels distinct slugs", () => {
+    // "ED / General" and "ED General" are different owner-typed groups. They
+    // must not share a DOM id or the header jumps to whichever rendered first.
+    const groups = onCallEntryGroups([entry("a", ["ED / General"]), entry("b", ["ED General"])], onCallTagFacet);
+    expect(groups.map((group) => group.label)).toEqual(["ED / General", "ED General"]);
+    expect(groups.map((group) => group.slug)).toEqual(["ed-general", "ed-general-2"]);
+    expect(new Set(groups.map((group) => group.slug)).size).toBe(2);
+  });
+
   it("ignores blank and padded tags rather than making a group out of one", () => {
     const groups = onCallEntryGroups([entry("a", ["  ", " Youth "]), entry("b", ["Community"])], onCallTagFacet);
     expect(groups.map((group) => group.label)).toEqual(["Youth", "Community"]);

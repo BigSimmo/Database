@@ -32,7 +32,7 @@ import {
   selectWardContacts,
   type OnCallUpcomingSession,
 } from "@/lib/on-call/home-modules";
-import { clearOnCallRecent, useOnCallRecent } from "@/lib/on-call/recent-storage";
+import { clearOnCallRecent, recordOnCallRecent, useOnCallRecent } from "@/lib/on-call/recent-storage";
 
 /**
  * The On Call home: a dashboard for the shift rather than a search box.
@@ -110,6 +110,7 @@ function CallCard({ entry }: { entry: OnCallEntry }) {
   return (
     <a
       href={href}
+      onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-call-${entry.slug}`}
       className={cn(
         "grid min-h-tap content-between gap-2 rounded-lg p-3 no-underline",
@@ -162,7 +163,12 @@ function SwitchboardRow({ entry }: { entry: OnCallEntry }) {
     );
   }
   return (
-    <a href={href} className={className} data-testid="on-call-home-switchboard">
+    <a
+      href={href}
+      onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
+      className={className}
+      data-testid="on-call-home-switchboard"
+    >
       {content}
     </a>
   );
@@ -175,6 +181,7 @@ function WardChip({ entry }: { entry: OnCallEntry }) {
   return (
     <a
       href={href}
+      onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-ward-${entry.slug}`}
       className={cn(
         cardSurface,
@@ -408,7 +415,9 @@ export function OnCallHome() {
           >
             <div className="grid gap-1.5">
               {recentEntries.map(({ item, entry }) => {
-                const number = onCallPrimaryNumber(entry);
+                // Same private treatment Contacts uses: a personal number does
+                // not print on the home, even if the row itself is still named.
+                const number = entry.isPersonal ? null : onCallPrimaryNumber(entry);
                 const href = onCallTelHref(number?.value);
                 const target = href ?? ON_CALL_SECTION_HREFS[entry.section];
                 const at = timeLabel(item.at);
@@ -417,6 +426,7 @@ export function OnCallHome() {
                   <a
                     key={item.id}
                     href={target}
+                    onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
                     data-testid={`on-call-home-recent-${entry.slug}`}
                     className={cn(
                       cardSurface,

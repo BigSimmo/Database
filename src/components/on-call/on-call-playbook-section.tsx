@@ -18,6 +18,7 @@ import {
   type OnCallEntry,
   type OnCallLinkedDocument,
 } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallPlaybookSectionProps {
@@ -179,6 +180,7 @@ function PlaybookCard({
                   title={`${step.order}. ${step.whoToCall}`}
                   subtitle={step.when}
                   href={telHref(step.phone)}
+                  onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
                   testId={`on-call-playbook-step-${entry.slug}-${step.order}`}
                 />
               </li>

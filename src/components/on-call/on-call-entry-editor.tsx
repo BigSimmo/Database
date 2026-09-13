@@ -14,6 +14,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { mergeOnCallEditorDetails } from "@/lib/on-call/editor-details";
 import {
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
@@ -21,6 +22,7 @@ import {
   type OnCallEntry,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
+import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 
 /**
  * The owner's only way to add, correct, or retire an On Call entry. Without
@@ -101,6 +103,13 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
   education: [
     { key: "recurrence", label: "Recurrence", kind: "text" },
     { key: "nextOccurrence", label: "Next occurrence", kind: "text" },
+    {
+      key: "nextOccurrenceDate",
+      label: "Next occurrence date",
+      kind: "text",
+      type: "date",
+      hint: "YYYY-MM-DD. Needed for Coming up on the home; the free-text field above is still what Teaching shows.",
+    },
     { key: "presenter", label: "Presenter", kind: "text" },
     { key: "location", label: "Location", kind: "text" },
     { key: "recordingUrl", label: "Recording URL", kind: "text", type: "url" },
@@ -177,10 +186,15 @@ type DraftState = {
   tags: string;
   isPersonal: boolean;
   includeOnCard: boolean;
+  isRoleExplainer: boolean;
   details: Record<string, string>;
 };
 
-function buildInitialDraft(section: OnCallSection, entry: OnCallEntry | null | undefined): DraftState {
+function buildInitialDraft(
+  section: OnCallSection,
+  entry: OnCallEntry | null | undefined,
+  createAsRoleExplainer = false,
+): DraftState {
   const details: Record<string, string> = {};
   for (const field of SECTION_DETAIL_FIELDS[section]) {
     details[field.key] =
@@ -195,6 +209,7 @@ function buildInitialDraft(section: OnCallSection, entry: OnCallEntry | null | u
     tags: entry?.tags.join(", ") ?? "",
     isPersonal: entry?.isPersonal ?? false,
     includeOnCard: entry?.includeOnCard ?? false,
+    isRoleExplainer: entry ? isRoleExplainerEntry(entry) : createAsRoleExplainer && section === "contacts",
     details,
   };
 }
@@ -290,6 +305,12 @@ export interface OnCallEntryEditorProps {
   onSaved: (entry: OnCallEntry) => void;
   /** Called with the deleted entry's id. Omit to disable delete (create-only use). */
   onDeleted?: (id: string) => void;
+  /**
+   * When creating a contacts entry from Who's who, seed the role-explainer
+   * discriminator. Without this, a new role cannot be told apart from a
+   * dialling contact and lands in the wrong list.
+   */
+  createAsRoleExplainer?: boolean;
 }
 
 export function OnCallEntryEditor({
@@ -299,8 +320,9 @@ export function OnCallEntryEditor({
   entry = null,
   onSaved,
   onDeleted,
+  createAsRoleExplainer = false,
 }: OnCallEntryEditorProps) {
-  const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(section, entry));
+  const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(section, entry, createAsRoleExplainer));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"saving" | "deleting" | null>(null);
@@ -315,7 +337,7 @@ export function OnCallEntryEditor({
   if (nextOpenKey !== openKey) {
     setOpenKey(nextOpenKey);
     if (nextOpenKey) {
-      setDraft(buildInitialDraft(section, entry));
+      setDraft(buildInitialDraft(section, entry, createAsRoleExplainer));
       setFieldErrors({});
       setFormError(null);
       setConfirmDeleteOpen(false);
@@ -337,7 +359,7 @@ export function OnCallEntryEditor({
     const trimmedTitle = draft.title.trim();
     if (!trimmedTitle) nextErrors.title = "Title is required.";
 
-    const detailsInput: Record<string, unknown> = section === "orientation" ? { pinnedSummaryIsOwnerNote: true } : {};
+    const formDetails: Record<string, unknown> = section === "orientation" ? { pinnedSummaryIsOwnerNote: true } : {};
     for (const field of fieldSpecs) {
       const raw = draft.details[field.key] ?? "";
       if (field.key === "escalationSteps") {
@@ -345,7 +367,7 @@ export function OnCallEntryEditor({
         if (steps === null) {
           nextErrors[field.key] = "Each step needs at least a who and a when, separated by |.";
         } else if (steps.length > 0) {
-          detailsInput[field.key] = steps;
+          formDetails[field.key] = steps;
         }
         continue;
       }
@@ -354,13 +376,19 @@ export function OnCallEntryEditor({
           .split(",")
           .map((item) => item.trim())
           .filter((item) => item.length > 0);
-        if (items.length > 0) detailsInput[field.key] = items;
+        if (items.length > 0) formDetails[field.key] = items;
         continue;
       }
       const trimmedValue = raw.trim();
-      if (trimmedValue) detailsInput[field.key] = trimmedValue;
+      if (trimmedValue) formDetails[field.key] = trimmedValue;
     }
 
+    const detailsInput = mergeOnCallEditorDetails({
+      section,
+      formDetails,
+      existingDetails: entry?.details,
+      roleExplainer: section === "contacts" ? draft.isRoleExplainer : undefined,
+    });
     const parsedDetails = onCallDetailsSchemaFor(section).safeParse(detailsInput);
     if (!parsedDetails.success) {
       for (const issue of parsedDetails.error.issues) {
@@ -543,6 +571,14 @@ export function OnCallEntryEditor({
           />
 
           <div className="grid gap-1">
+            {section === "contacts" ? (
+              <Checkbox
+                label="Who's who entry"
+                description="A role explainer instead of a dialling contact. The number to ring stays on Contacts."
+                checked={draft.isRoleExplainer}
+                onChange={(event) => setDraft((current) => ({ ...current, isRoleExplainer: event.target.checked }))}
+              />
+            ) : null}
             <Checkbox
               label="Personal number"
               description="Excluded from the printable card and any export."

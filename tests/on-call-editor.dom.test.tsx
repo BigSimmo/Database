@@ -8,6 +8,7 @@ import { useState } from "react";
 import { OnCallEntryEditor, OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
 afterEach(() => {
   cleanup();
@@ -274,6 +275,104 @@ describe("OnCallEntryEditor — the in-sheet quick verify for a stale entry", ()
   it("does not show the quick verify action for a fresh entry", () => {
     render(<OnCallEntryEditor open section="contacts" entry={ED_REGISTRAR} onSaved={vi.fn()} onClose={vi.fn()} />);
     expect(screen.queryByTestId(`on-call-verify-${ED_REGISTRAR.slug}`)).toBeNull();
+  });
+});
+
+describe("OnCallEntryEditor — preserved detail fields", () => {
+  it("keeps a role explainer's kind on an ordinary edit", async () => {
+    const user = userEvent.setup();
+    const explainer: OnCallEntry = {
+      ...ED_REGISTRAR,
+      details: { role: "ED registrar", kind: ROLE_EXPLAINER_KIND },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: explainer }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="contacts" entry={explainer} onSaved={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByRole("checkbox", { name: /who's who entry/i })).toBeChecked();
+    await user.type(screen.getByLabelText("Subtitle"), "Updated");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.details.kind).toBe(ROLE_EXPLAINER_KIND);
+    expect(body.details.role).toBe("ED registrar");
+  });
+
+  it("posts the Who's who discriminator when creating from that page", async () => {
+    const user = userEvent.setup();
+    const created: OnCallEntry = {
+      ...ED_REGISTRAR,
+      id: "55555555-5555-4555-8555-555555555555",
+      details: { role: "Consultant", kind: ROLE_EXPLAINER_KIND },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: created }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor
+        open
+        section="contacts"
+        entry={null}
+        createAsRoleExplainer
+        onSaved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: /who's who entry/i })).toBeChecked();
+    await user.type(screen.getByLabelText(/^Title/), "Consultant");
+    await user.type(screen.getByLabelText(/^Role/), "Consultant");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.details).toEqual({ role: "Consultant", kind: ROLE_EXPLAINER_KIND });
+  });
+
+  it("keeps an orientation checklist the form has no input for", async () => {
+    const user = userEvent.setup();
+    const checklist = [{ text: "Collect the phone" }, { text: "Hand back the keycard" }];
+    const orientation: OnCallEntry = {
+      ...ED_REGISTRAR,
+      section: "orientation",
+      slug: "first-fifteen",
+      title: "Your first fifteen minutes",
+      details: { pinnedSummaryIsOwnerNote: true, checklist },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: orientation }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="orientation" entry={orientation} onSaved={vi.fn()} onClose={vi.fn()} />);
+    await user.type(screen.getByLabelText("Subtitle"), "Updated");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.details.checklist).toEqual(checklist);
+    expect(body.details.pinnedSummaryIsOwnerNote).toBe(true);
+  });
+
+  it("keeps a teaching date when the owner only edits the free-text when", async () => {
+    const user = userEvent.setup();
+    const session: OnCallEntry = {
+      ...ED_REGISTRAR,
+      section: "education",
+      slug: "journal-club",
+      title: "Journal club",
+      details: { nextOccurrence: "Thursday 1pm", nextOccurrenceDate: "2026-09-16" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: session }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="education" entry={session} onSaved={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByLabelText("Next occurrence date")).toHaveValue("2026-09-16");
+    await user.type(screen.getByLabelText("Subtitle"), "Updated");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+    expect(body.details.nextOccurrenceDate).toBe("2026-09-16");
+    expect(body.details.nextOccurrence).toBe("Thursday 1pm");
   });
 });
 

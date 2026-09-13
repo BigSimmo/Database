@@ -28,6 +28,12 @@ export interface OnCallEntryRowProps {
   href?: string;
   /** Alternative to `href` for a row that opens something in place instead of navigating. */
   onClick?: () => void;
+  /**
+   * Fires when the row is activated (dial or in-place open). Used to record
+   * Recent — the list is never populated unless a production click path calls
+   * `recordOnCallRecent`.
+   */
+  onActivate?: () => void;
   testId?: string;
   anchorProps?: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className" | "children">;
 }
@@ -51,9 +57,13 @@ export function OnCallEntryRow({
   trailing,
   href,
   onClick,
+  onActivate,
   testId,
   anchorProps,
 }: OnCallEntryRowProps) {
+  function handleActivate() {
+    onActivate?.();
+  }
   const content = (
     <>
       {Icon ? (
@@ -95,7 +105,7 @@ export function OnCallEntryRow({
 
   if (href) {
     return (
-      <a href={href} data-testid={testId} className={rowClassName} {...anchorProps}>
+      <a href={href} data-testid={testId} className={rowClassName} onClick={handleActivate} {...anchorProps}>
         {content}
       </a>
     );
@@ -103,7 +113,15 @@ export function OnCallEntryRow({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} data-testid={testId} className={rowClassName}>
+      <button
+        type="button"
+        onClick={() => {
+          handleActivate();
+          onClick();
+        }}
+        data-testid={testId}
+        className={rowClassName}
+      >
         {content}
       </button>
     );

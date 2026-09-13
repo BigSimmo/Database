@@ -1,7 +1,7 @@
 import { BookOpen, FileText, MapPin, Phone, Repeat, Shield, Users, type LucideIcon } from "lucide-react";
 
 import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
-import { onCallGroupAnchorId, onCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
+import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import type { OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { MODE_NAV_MIN_ITEMS } from "@/components/mode-nav/mode-nav-bands";
@@ -57,8 +57,12 @@ function contactGroups(entries: readonly OnCallEntry[], now: Date): Group[] {
     const area = contactAreaLabel(entry);
     byArea.set(area, (byArea.get(area) ?? 0) + 1);
   }
+  // Seeded with the page's hoist heading so an area that normalizes to
+  // "needs-checking" cannot steal that id. The bar does not list that heading
+  // (it is already at the top), but the rendered section still carries it.
+  const taken = new Set<string>(["needs-checking"]);
   for (const [area, count] of [...byArea.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-    groups.push({ slug: onCallGroupSlug(area), label: area, count, icon: Phone });
+    groups.push({ slug: allocateOnCallGroupSlug(area, taken), label: area, count, icon: Phone });
   }
   return groups;
 }
@@ -84,9 +88,10 @@ function logisticsGroups(entries: readonly OnCallEntry[]): Group[] {
     const category = (entry.details as { category?: string }).category?.trim() || "Other";
     byCategory.set(category, (byCategory.get(category) ?? 0) + 1);
   }
+  const taken = new Set<string>();
   return [...byCategory.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, count]) => ({ slug: onCallGroupSlug(label), label, count, icon: MapPin }));
+    .map(([label, count]) => ({ slug: allocateOnCallGroupSlug(label, taken), label, count, icon: MapPin }));
 }
 
 /** Playbook: the scenarios, then the ones with nothing linked. */
@@ -116,9 +121,10 @@ function whoIsWhoGroups(entries: readonly OnCallEntry[]): Group[] {
     const area = contactAreaLabel(entry);
     byArea.set(area, (byArea.get(area) ?? 0) + 1);
   }
+  const taken = new Set<string>();
   return [...byArea.entries()]
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, count]) => ({ slug: onCallGroupSlug(label), label, count, icon: Users }));
+    .map(([label, count]) => ({ slug: allocateOnCallGroupSlug(label, taken), label, count, icon: Users }));
 }
 
 /**

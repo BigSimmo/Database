@@ -5,13 +5,14 @@ import { Lock, MapPinned, Pencil, Phone } from "lucide-react";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
-import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallLogisticsSectionProps {
   entries: readonly OnCallEntry[];
@@ -50,14 +51,6 @@ function logisticsCategoryFor(entry: OnCallEntry): string {
   return details?.category ?? UNGROUPED_CATEGORY;
 }
 
-function slugifyCategory(category: string): string {
-  const slug = category
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "group";
-}
-
 function LogisticsRow({
   entry,
   now,
@@ -83,6 +76,7 @@ function LogisticsRow({
             title={entry.title}
             subtitle={details?.location}
             href={href}
+            onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
             testId={`on-call-logistics-row-${entry.slug}`}
           >
             {details?.hours ? (
@@ -165,6 +159,7 @@ export function OnCallLogisticsSection({
   const sortEntries = (list: OnCallEntry[]) =>
     [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
+  const takenSlugs = new Set<string>();
   const groups = Array.from(byCategory.entries())
     .map(([category, list]) => ({
       category,
@@ -173,12 +168,13 @@ export function OnCallLogisticsSection({
       // claim the visible rows beside it are private too.
       allPrivate: list.every((entry) => entry.isPersonal),
     }))
-    .sort((a, b) => a.category.localeCompare(b.category));
+    .sort((a, b) => a.category.localeCompare(b.category))
+    .map((group) => ({ ...group, slug: allocateOnCallGroupSlug(group.category, takenSlugs) }));
 
   return (
     <div data-testid={testId} className="grid gap-5">
       {groups.map((group) => {
-        const slug = slugifyCategory(group.category);
+        const slug = group.slug;
         const headingId = `on-call-logistics-category-${slug}-heading`;
         return (
           <section

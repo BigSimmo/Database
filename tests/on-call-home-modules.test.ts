@@ -118,6 +118,18 @@ describe("selectCallFirstContacts", () => {
     expect(selectCallFirstContacts([explainer])).toEqual([]);
   });
 
+  it("excludes a personal contact even when it is tagged and has a number", () => {
+    // Contacts already withholds personal digits so they cannot be read over a
+    // shoulder. The home must not put the same number on the most-looked-at
+    // cards in the mode.
+    const personal = contact({
+      tags: ["call-first"],
+      isPersonal: true,
+      details: { role: "My mobile", phone: "0400 111 222" },
+    });
+    expect(selectCallFirstContacts([personal])).toEqual([]);
+  });
+
   it("caps at two, because a pair is the point", () => {
     const many = Array.from({ length: 5 }, (_, index) =>
       contact({ tags: ["call-first"], sortOrder: index, details: { role: "R", phone: `${index}` } }),
@@ -140,6 +152,15 @@ describe("selectSwitchboardContact", () => {
   it("is null when nothing is tagged", () => {
     expect(selectSwitchboardContact([contact({})])).toBeNull();
   });
+
+  it("excludes a personal switchboard tag so the home does not print the digits", () => {
+    const personal = contact({
+      tags: ["switchboard"],
+      isPersonal: true,
+      details: { role: "My switch", phone: "9" },
+    });
+    expect(selectSwitchboardContact([personal])).toBeNull();
+  });
 });
 
 describe("selectWardContacts", () => {
@@ -147,6 +168,15 @@ describe("selectWardContacts", () => {
     const dialable = contact({ tags: ["ward"], details: { role: "Ward 4B", extension: "5210" } });
     const notDialable = contact({ tags: ["ward"], details: { role: "Ward 5A" } });
     expect(selectWardContacts([dialable, notDialable]).map((e) => e.id)).toEqual([dialable.id]);
+  });
+
+  it("excludes a personal ward contact", () => {
+    const personal = contact({
+      tags: ["ward"],
+      isPersonal: true,
+      details: { role: "Ward 4B", extension: "5210" },
+    });
+    expect(selectWardContacts([personal])).toEqual([]);
   });
 
   it("caps the strip so it stays one swipe", () => {

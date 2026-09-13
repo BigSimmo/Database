@@ -10,12 +10,13 @@ import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { Button } from "@/components/ui/button";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
-import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { ON_CALL_HOME_TAGS, onCallPrimaryNumber } from "@/lib/on-call/home-modules";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
@@ -113,14 +114,6 @@ function telHref(raw: string | undefined): string | undefined {
   return compact.length > 0 ? `tel:${compact}` : undefined;
 }
 
-function slugifyArea(area: string): string {
-  const slug = area
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "group";
-}
-
 function ContactRow({
   entry,
   now,
@@ -173,6 +166,7 @@ function ContactRow({
           subtitle={entry.isPersonal ? undefined : (details?.availability ?? details?.contactName)}
           icon={Phone}
           href={href}
+          onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
           trailing={
             primary || href ? (
               <span className="flex items-center gap-2">
@@ -320,9 +314,14 @@ export function OnCallContactsSection({
   const sortByRole = (list: OnCallEntry[]) =>
     [...list].sort((a, b) => roleNameFor(a).localeCompare(roleNameFor(b)) || a.title.localeCompare(b.title));
 
+  // Same seed and same alphabetical walk as `contactGroups` in
+  // on-call-page-sections.ts, so a colliding pair of areas gets the same
+  // disambiguated slugs on both sides of the jump.
+  const takenSlugs = new Set<string>(["needs-checking"]);
   const areaGroups = Array.from(byArea.entries())
     .map(([area, list]) => ({ area, entries: sortEntries(list) }))
-    .sort((a, b) => a.area.localeCompare(b.area));
+    .sort((a, b) => a.area.localeCompare(b.area))
+    .map((group) => ({ ...group, slug: allocateOnCallGroupSlug(group.area, takenSlugs) }));
 
   return (
     <div data-testid={testId} className="grid gap-5">
@@ -389,7 +388,7 @@ export function OnCallContactsSection({
       {order !== "area"
         ? null
         : areaGroups.map((group) => {
-            const slug = slugifyArea(group.area);
+            const slug = group.slug;
             const headingId = `on-call-contacts-area-${slug}-heading`;
             return (
               <section
