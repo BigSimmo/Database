@@ -23,6 +23,22 @@ import {
 } from "@/lib/on-call/entry-filters";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
+/**
+ * How the list is ordered, from the page menu's segmented control (board 05).
+ *
+ * `area` is the default rather than the drawing's pressed "By role". Board 05
+ * presses "By role" while board 06 draws area groups, so the drawing
+ * contradicts itself; area is the shape that is built, tested and described by
+ * the section's own subtitle, and switching the default would change a shipped
+ * page for no stated reason.
+ *
+ * "Needs checking" stays hoisted under `role` and `area` in every case. It is
+ * a safety property, not a sort — an overdue number left in place among the
+ * good ones is invisible. `overdue` drops the grouping entirely, which is what
+ * makes it a different view rather than a relabelling of the default.
+ */
+export type OnCallContactsOrder = "role" | "area" | "overdue";
+
 export interface OnCallContactsSectionProps {
   entries: readonly OnCallEntry[];
   /** Injectable for deterministic tests; defaults to the real clock. */
@@ -34,6 +50,8 @@ export interface OnCallContactsSectionProps {
   onEditEntry?: (entry: OnCallEntry) => void;
   /** Handed a freshly-verified entry after a one-tap "still correct" confirm. Omit to hide it. */
   onVerified?: (entry: OnCallEntry) => void;
+  /** Chosen in the page menu; defaults to the area grouping this page shipped with. */
+  order?: OnCallContactsOrder;
 }
 
 interface OnCallContactDetails {
@@ -197,6 +215,7 @@ export function OnCallContactsSection({
   onAddEntry,
   onEditEntry,
   onVerified,
+  order = "area",
 }: OnCallContactsSectionProps) {
   // Role explainers share this section's rows but are not numbers to ring, so
   // they render on Who's who instead. Splitting here rather than at the page
@@ -285,7 +304,7 @@ export function OnCallContactsSection({
         testId="on-call-contacts-filters"
       />
 
-      {needsChecking.length > 0 ? (
+      {order !== "overdue" && needsChecking.length > 0 ? (
         <section aria-labelledby="on-call-contacts-needs-checking-heading" className="grid gap-2">
           <div
             className={cn(
@@ -312,27 +331,53 @@ export function OnCallContactsSection({
         </section>
       ) : null}
 
-      {areaGroups.map((group) => {
-        const slug = slugifyArea(group.area);
-        const headingId = `on-call-contacts-area-${slug}-heading`;
-        return (
-          <section key={group.area} aria-labelledby={headingId} className="grid gap-2">
-            <div className="sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1">
-              <h3 id={headingId} className={eyebrowText}>
-                {group.area}
-              </h3>
-              <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
-                {group.entries.length}
-              </span>
-            </div>
-            <div className="grid gap-2" data-testid={`on-call-contacts-group-${slug}`}>
-              {group.entries.map((entry) => (
-                <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {order === "role" ? renderFlatGroup(sortEntries(Array.from(byArea.values()).flat()), "role") : null}
+
+      {/* No groups at all — the overdue rows lead, each still badged. This is
+          the owner's maintenance view, and the one order that does not hoist
+          "Needs checking" into a heading of its own, because the whole list is
+          already in that order. */}
+      {order === "overdue"
+        ? renderFlatGroup(
+            [...sortEntries(needsChecking), ...sortEntries(Array.from(byArea.values()).flat())],
+            "overdue",
+          )
+        : null}
+
+      {order !== "area"
+        ? null
+        : areaGroups.map((group) => {
+            const slug = slugifyArea(group.area);
+            const headingId = `on-call-contacts-area-${slug}-heading`;
+            return (
+              <section key={group.area} aria-labelledby={headingId} className="grid gap-2">
+                <div className="sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1">
+                  <h3 id={headingId} className={eyebrowText}>
+                    {group.area}
+                  </h3>
+                  <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+                    {group.entries.length}
+                  </span>
+                </div>
+                <div className="grid gap-2" data-testid={`on-call-contacts-group-${slug}`}>
+                  {group.entries.map((entry) => (
+                    <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
     </div>
   );
+
+  function renderFlatGroup(list: OnCallEntry[], variant: "role" | "overdue") {
+    if (list.length === 0) return null;
+    return (
+      <div className="grid gap-2" data-testid={`on-call-contacts-group-${variant}`}>
+        {list.map((entry) => (
+          <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+        ))}
+      </div>
+    );
+  }
 }

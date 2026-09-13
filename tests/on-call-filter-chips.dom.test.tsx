@@ -138,3 +138,40 @@ describe("A private contact row", () => {
     expect(screen.getByTestId("on-call-contact-row-ed-registrar").tagName).toBe("A");
   });
 });
+
+describe("Contact ordering from the page menu", () => {
+  const STALE = {
+    ...contact("bed-management", "Bed management, after hours", ["Admin"], "5290"),
+    lastVerifiedAt: new Date("2024-01-01T00:00:00.000Z").toISOString(),
+  };
+
+  it("groups by area by default", () => {
+    render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} />);
+    expect(screen.getByTestId("on-call-contacts-group-emergency")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contacts-group-wards")).toBeInTheDocument();
+  });
+
+  it("drops the area groups for one flat list under 'by role'", () => {
+    render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} order="role" />);
+    expect(screen.queryByTestId("on-call-contacts-group-emergency")).not.toBeInTheDocument();
+    expect(screen.getByTestId("on-call-contacts-group-role")).toBeInTheDocument();
+  });
+
+  it("keeps overdue rows hoisted under 'by role' and 'by area'", () => {
+    // A safety property, not a sort: an overdue number left in place among the
+    // good ones is invisible.
+    for (const order of ["area", "role"] as const) {
+      cleanup();
+      render(<OnCallContactsSection entries={[ED, STALE]} now={NOW} order={order} />);
+      expect(screen.getByTestId("on-call-contacts-group-needs-checking")).toBeInTheDocument();
+    }
+  });
+
+  it("puts overdue rows first in one ungrouped list under 'overdue first'", () => {
+    render(<OnCallContactsSection entries={[ED, STALE]} now={NOW} order="overdue" />);
+    expect(screen.queryByTestId("on-call-contacts-group-needs-checking")).not.toBeInTheDocument();
+    const list = screen.getByTestId("on-call-contacts-group-overdue");
+    const rows = [...list.querySelectorAll("[data-testid^='on-call-contact-row-']")];
+    expect(rows[0]).toHaveAttribute("data-testid", "on-call-contact-row-bed-management");
+  });
+});

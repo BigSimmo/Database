@@ -9,7 +9,7 @@ import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
-import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
+import { OnCallContactsSection, type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
 import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
 import { OnCallOrientationSection } from "@/components/on-call/on-call-orientation-section";
@@ -31,8 +31,8 @@ import { cn } from "@/components/ui-primitives";
 import { activeModeSecondaryNavigationId } from "@/lib/mode-secondary-navigation";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { type OnCallEntry } from "@/lib/on-call/entry-model";
-import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
+import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -93,6 +93,14 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
     open: false,
     entry: null,
   });
+  // The page menu's order control lives in the header portal and the list it
+  // orders lives in the body, so the state belongs to their common parent
+  // rather than to either of them.
+  const [contactsOrder, setContactsOrder] = useState<OnCallContactsOrder>("area");
+  const [verifyAllState, setVerifyAllState] = useState<{ running: boolean; error: string | null }>({
+    running: false,
+    error: null,
+  });
   const title = ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
@@ -114,6 +122,51 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
       : view === "contacts"
         ? partitionContactsEntries(entries).contacts.length
         : entries.filter((entry) => entry.section === view).length;
+
+  // Overdue entries in THIS view, which is what "mark all as still correct"
+  // may stamp. Never the whole hub: a bulk write is only defensible when the
+  // reader can see everything it touches.
+  const staleEntries = entries.filter(
+    (entry) =>
+      entry.section === onCallViewStorageSection(view) &&
+      (view !== "who-is-who" ? !isRoleExplainerEntry(entry) : isRoleExplainerEntry(entry)) &&
+      onCallEntryFreshness(entry).state === "stale",
+  );
+
+  /**
+   * Stamp today on every overdue entry in this view.
+   *
+   * One request per entry through the existing per-entry endpoint, in series,
+   * rather than a new bulk route. `repository.ts` is in neither the owner-scope
+   * API sweep nor the tenancy scan (a known blind spot, recorded for change B),
+   * so adding a route that writes many rows at once would land the widest write
+   * in the mode exactly where neither gate looks. The reviewed single-entry
+   * route already owns the ownership check, and doing it a handful of times is
+   * the cheap, safe version of the same action — the list is the OVERDUE
+   * entries, which is a handful, not the whole section.
+   *
+   * A failure stops the run and says so. Half a stamp reported as a success is
+   * the one outcome that would make a stale number look checked.
+   */
+  async function verifyAllStale() {
+    setVerifyAllState({ running: true, error: null });
+    for (const entry of staleEntries) {
+      try {
+        const response = await fetch(`/api/on-call/entries/${entry.id}/verify`, { method: "POST" });
+        if (!response.ok) throw new Error(`Could not confirm ${entry.title}.`);
+        const payload: unknown = await response.json();
+        const updated = (payload as { entry?: OnCallEntry } | null)?.entry;
+        if (updated) upsertCachedEntry(updated);
+      } catch (error) {
+        setVerifyAllState({
+          running: false,
+          error: error instanceof Error ? error.message : "Could not confirm these entries.",
+        });
+        return;
+      }
+    }
+    setVerifyAllState({ running: false, error: null });
+  }
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -147,6 +200,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         return (
           <OnCallContactsSection
             {...listProps}
+            order={contactsOrder}
             onAddEntry={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
           />
         );
@@ -168,7 +222,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   return (
     <>
       <RegistryModeNav modeId="on-call" activeId={activeModeSecondaryNavigationId("on-call", pathname)} />
-      <OnCallPageMenu view={view} entryCount={visibleCount} />
+      <OnCallPageMenu
+        view={view}
+        entryCount={visibleCount}
+        order={view === "contacts" ? contactsOrder : undefined}
+        onOrderChange={view === "contacts" ? setContactsOrder : undefined}
+        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+        addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
+        onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
+        staleCount={staleEntries.length}
+      />
       <InformationPageShell testId={`on-call-${view}-main`}>
         <section
           id={`on-call-${view}-overview`}
@@ -208,6 +271,11 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
             ) : null}
           </div>
           {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+          {verifyAllState.error ? (
+            <p role="alert" className="text-sm font-semibold text-[color:var(--danger)]">
+              {verifyAllState.error}
+            </p>
+          ) : null}
           {loading && entries.length === 0 ? (
             // Nothing cached and the first fetch still running. An empty state
             // here would assert the section holds nothing before anything has

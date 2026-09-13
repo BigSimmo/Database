@@ -1,14 +1,16 @@
 "use client";
 
-import { Ellipsis, Lock, Printer, Tag } from "lucide-react";
+import { Check, Ellipsis, Lock, Plus, Printer, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState } from "react";
 
 import { inPageActionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { UniversalHeaderTrailingPortal } from "@/components/clinical-dashboard/universal-header-trailing-portal";
 import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 
 /**
@@ -28,11 +30,27 @@ import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 export function OnCallPageMenu({
   view,
   entryCount,
+  order,
+  onOrderChange,
+  onAdd,
+  addLabel,
+  onVerifyAll,
+  staleCount = 0,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
   /** How many entries the page is showing, for the sheet's one-line summary. */
   entryCount?: number;
+  /** Contacts only: the order control the drawing puts at the top of the sheet. */
+  order?: OnCallContactsOrder;
+  onOrderChange?: (next: OnCallContactsOrder) => void;
+  /** Opens the editor in create mode. Omitted when the viewer cannot write. */
+  onAdd?: () => void;
+  /** What one entry in this view is called, e.g. "Add a contact". */
+  addLabel?: string;
+  /** Stamps today on every overdue entry in this view. Omitted when nothing is overdue. */
+  onVerifyAll?: () => void;
+  staleCount?: number;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -75,6 +93,68 @@ export function OnCallPageMenu({
         testId="on-call-page-menu-sheet"
       >
         <div className="grid gap-2">
+          {order && onOrderChange ? (
+            <div className="grid gap-1.5 pb-1" data-testid="on-call-page-menu-order">
+              {/* Inside the sheet, not inline above the list: at phone width
+                  the shared header puts a segmented control here rather than
+                  claiming a band of its own, which is board 05's own note. */}
+              <p className={cn(eyebrowText)} id="on-call-page-menu-order-label">
+                Order
+              </p>
+              <SegmentedControl
+                value={order}
+                onChange={onOrderChange}
+                ariaLabelledBy="on-call-page-menu-order-label"
+                options={[
+                  { value: "role", label: "By role" },
+                  { value: "area", label: "By area" },
+                  { value: "overdue", label: "Overdue first" },
+                ]}
+              />
+            </div>
+          ) : null}
+
+          {onAdd ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onAdd();
+              }}
+              className={inPageActionRowClass}
+              data-testid="on-call-page-menu-add"
+            >
+              <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="grid gap-0.5">
+                <span>{addLabel ?? "Add an entry"}</span>
+                <span className={cn(textMuted, "text-xs font-normal")}>Role first, name only if you must.</span>
+              </span>
+            </button>
+          ) : null}
+
+          {onVerifyAll && staleCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onVerifyAll();
+              }}
+              className={inPageActionRowClass}
+              data-testid="on-call-page-menu-verify-all"
+            >
+              <Check aria-hidden="true" className="size-icon-md shrink-0" />
+              <span className="grid gap-0.5">
+                <span>Mark all as still correct</span>
+                {/* The consequence, in the number it actually applies to.
+                    "Stamps today on 42 entries" when only three are overdue
+                    would be a lie about a write. */}
+                <span className={cn(textMuted, "text-xs font-normal")}>
+                  {`Stamps today on ${staleCount} overdue ${staleCount === 1 ? "entry" : "entries"}.`}
+                </span>
+              </span>
+            </button>
+          ) : null}
+
           <Link
             href="/on-call/card"
             onClick={() => setOpen(false)}
