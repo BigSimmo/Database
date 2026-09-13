@@ -19,6 +19,8 @@ import {
 } from "./playwright-scroll";
 import { expectSingleSettledOwner, visibleByTestId } from "./playwright-settlement";
 
+test.beforeEach(stubZeroTouchPoints);
+
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
   { id: "project", label: "Clinical KB Database target", status: "ready", detail: "Test Supabase project ready." },
