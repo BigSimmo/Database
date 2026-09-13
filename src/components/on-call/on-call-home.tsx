@@ -481,7 +481,10 @@ export function OnCallHome() {
               testId="on-call-home-loading"
             />
           ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
+            // Two columns at phone width, as board 01 draws them. One column
+            // made the home a very long scroll for a page whose whole promise
+            // is that the thing you need is near the top.
+            <div className="grid grid-cols-2 gap-2">
               {tiles.map((tile) => {
                 const TileIcon = tile.icon;
                 return (

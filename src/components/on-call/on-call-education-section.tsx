@@ -67,7 +67,7 @@ function EducationCard({
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
-      className={cn(cardSurface, "grid gap-3 p-4")}
+      className={cn(cardSurface, "grid grid-cols-[minmax(0,1fr)] gap-3 p-4")}
       data-testid={`on-call-education-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -160,7 +160,7 @@ export function OnCallEducationSection({
   });
 
   return (
-    <div data-testid={testId} className="grid gap-3">
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <h3 className={eyebrowText}>Next occurrence first</h3>
       {sorted.map((entry) => (
         <EducationCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />

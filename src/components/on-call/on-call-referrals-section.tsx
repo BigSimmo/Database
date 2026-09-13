@@ -84,7 +84,7 @@ function AcceptanceList({ label, items }: { label: string; items: readonly strin
 
 function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCallReferralsDetails }) {
   return (
-    <div className="grid gap-2" data-testid={`on-call-referral-panel-${entry.slug}`}>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-referral-panel-${entry.slug}`}>
       <AcceptanceList label="Accepts" items={details.accepts} />
       <AcceptanceList label="Does not accept" items={details.exclusions} />
       {details.catchment ? <FactRow label="Catchment" value={details.catchment} /> : null}
@@ -144,7 +144,7 @@ export function OnCallReferralsSection({
   const sorted = [...referralEntries].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
   return (
-    <div data-testid={testId} className="grid gap-2">
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-2">
       <OnCallFilterChips
         options={filterOptions}
         active={activeFilter}
@@ -167,7 +167,7 @@ export function OnCallReferralsSection({
             // in the mode where staleness was hidden by default.
             meta={<OnCallFreshnessBadge freshness={freshness} />}
           >
-            <div className="grid gap-3">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
               {/* Sibling to the panel content, never inside the disclosure's
                   own trigger `<button>` above: a button nested inside another
                   button is invalid, duplicate-interactive markup. */}

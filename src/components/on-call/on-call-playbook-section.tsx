@@ -134,7 +134,7 @@ function PlaybookCard({
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
-      className={cn(cardSurface, "grid gap-3 p-4")}
+      className={cn(cardSurface, "grid grid-cols-[minmax(0,1fr)] gap-3 p-4")}
       data-testid={`on-call-playbook-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -165,10 +165,10 @@ function PlaybookCard({
         </div>
       </header>
 
-      <div className="grid gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         <h4 className={eyebrowText}>Escalation steps</h4>
         {steps.length > 0 ? (
-          <ol className="grid gap-2">
+          <ol className="grid grid-cols-[minmax(0,1fr)] gap-2">
             {steps.map((step) => (
               <li key={step.order}>
                 <OnCallEntryRow
@@ -186,7 +186,7 @@ function PlaybookCard({
         )}
       </div>
 
-      <div className="grid gap-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         <h4 className={eyebrowText}>Local guidance</h4>
         <LinkedGuidance linkedDocumentIds={entry.linkedDocumentIds} documents={documents} slug={entry.slug} />
       </div>
@@ -260,7 +260,7 @@ export function OnCallPlaybookSection({
               {unlinked.length}
             </span>
           </div>
-          <div className="grid gap-3" data-testid="on-call-playbook-group-no-guideline">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="on-call-playbook-group-no-guideline">
             {unlinked.map(card)}
           </div>
         </section>

@@ -65,7 +65,12 @@ export function OnCallEntryRow({
         </span>
       ) : null}
       <span className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{title}</span>
+        {/* Wraps to two lines rather than truncating. The role IS the row —
+            "Demo bed management, after hours" cut to "Demo bed manage…" is the
+            one piece of information a reader came for, and a number wide
+            enough to squeeze it is ordinary. Still bounded, so a long title
+            cannot push the row past the edge. */}
+        <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{title}</span>
         {subtitle ? (
           <span className="mt-0.5 block truncate text-xs text-[color:var(--text-muted)]">{subtitle}</span>
         ) : null}
@@ -75,7 +80,18 @@ export function OnCallEntryRow({
     </>
   );
 
-  const rowClassName = cn(cardInteractive, cardPadding.standard, "flex min-h-tap w-full items-start gap-3 text-left");
+  // `min-w-0` is load-bearing, not tidiness. These rows sit in a `grid`, and a
+  // grid item's default `min-width: auto` means a row that cannot shrink sets
+  // the track's width — so one long number pushed the whole page column past
+  // the viewport and every sibling, headings included, was silently clipped
+  // rather than scrolled. Found by capturing the board at 390px and looking at
+  // it; no offline gate could see it, and the horizontal-overflow check could
+  // not either, because the page never became scrollable.
+  const rowClassName = cn(
+    cardInteractive,
+    cardPadding.standard,
+    "flex min-h-tap w-full min-w-0 items-start gap-3 text-left",
+  );
 
   if (href) {
     return (
@@ -96,7 +112,7 @@ export function OnCallEntryRow({
   return (
     <div
       data-testid={testId}
-      className={cn(cardSurface, cardPadding.standard, "flex min-h-tap w-full items-start gap-3")}
+      className={cn(cardSurface, cardPadding.standard, "flex min-h-tap w-full min-w-0 items-start gap-3")}
     >
       {content}
     </div>

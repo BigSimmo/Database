@@ -268,7 +268,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
 
         <section
           id={`on-call-${view}-entries`}
-          className={cn(inPageAnchor, "grid gap-3")}
+          className={cn(inPageAnchor, "grid grid-cols-[minmax(0,1fr)] gap-3")}
           aria-labelledby={`on-call-${view}-entries-heading`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">

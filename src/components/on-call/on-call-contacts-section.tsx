@@ -21,6 +21,7 @@ import {
   onCallFilterOptions,
   type OnCallFacetReader,
 } from "@/lib/on-call/entry-filters";
+import { ON_CALL_HOME_TAGS, onCallPrimaryNumber } from "@/lib/on-call/home-modules";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
@@ -74,9 +75,24 @@ interface OnCallContactDetails {
 const UNTAGGED_AREA = "General";
 const NEEDS_CHECKING_HEADING = "Needs checking";
 
+/**
+ * The tags that are machinery, not an area.
+ *
+ * `ON_CALL_HOME_TAGS` are how an owner puts a contact on the dashboard —
+ * "call-first" pins it to the call cards, "ward" to the ward strip. They are a
+ * control, and they were being read as the row's AREA because the area is the
+ * first tag: a contact tagged `call-first` produced a Contacts group headed
+ * "call-first" and a filter chip to match. That is machinery leaking onto the
+ * page, and it was invisible offline — the browser board spec is what showed
+ * it, on a screen with realistic tags on it.
+ */
+const RESERVED_HOME_TAGS: readonly string[] = Object.values(ON_CALL_HOME_TAGS);
+
 function contactAreaFor(entry: OnCallEntry): string {
-  const first = entry.tags[0]?.trim();
-  return first && first.length > 0 ? first : UNTAGGED_AREA;
+  const area = entry.tags
+    .map((tag) => tag.trim())
+    .find((tag) => tag.length > 0 && !RESERVED_HOME_TAGS.includes(tag.toLowerCase()));
+  return area ?? UNTAGGED_AREA;
 }
 
 /**
@@ -102,14 +118,6 @@ function telHref(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   const compact = raw.replace(/[^\d+]/g, "");
   return compact.length > 0 ? `tel:${compact}` : undefined;
-}
-
-/** The one number the whole row rings. Direct beats after-hours beats pager. */
-function primaryNumber(details: OnCallContactDetails): { label: string; value: string } | null {
-  if (details.phone) return { label: "Direct", value: details.phone };
-  if (details.afterHoursPhone) return { label: "After hours", value: details.afterHoursPhone };
-  if (details.pager) return { label: "Pager", value: details.pager };
-  return null;
 }
 
 function slugifyArea(area: string): string {
@@ -139,7 +147,13 @@ function ContactRow({
   // they are withheld from the room. A private mobile printed in a list is
   // readable by whoever is standing behind you at the nurses' station, and the
   // owner can still open the entry to see it.
-  const primary = details && !entry.isPersonal ? primaryNumber(details) : null;
+  // `onCallPrimaryNumber`, not a second copy of the same idea. The copy that
+  // used to live in this file omitted `extension`, so a ward with only an
+  // extension rendered "No number on file" WITH its extension in a pill beside
+  // it, and the row would not dial — while the home's ward strip, reading the
+  // shared helper, dialled the same contact happily. Two answers to "what does
+  // this row ring".
+  const primary = entry.isPersonal ? null : onCallPrimaryNumber(entry);
   const href = telHref(primary?.value);
 
   const otherNumbers =
@@ -150,7 +164,7 @@ function ContactRow({
             ? `After hours ${details.afterHoursPhone}`
             : null,
           details.pager && details.pager !== primary?.value ? `Pager ${details.pager}` : null,
-          details.extension ? `Ext ${details.extension}` : null,
+          details.extension && details.extension !== primary?.value ? `Ext ${details.extension}` : null,
         ].filter((value): value is string => Boolean(value))
       : [];
 
@@ -161,18 +175,25 @@ function ContactRow({
       <div className="min-w-0 flex-1">
         <OnCallEntryRow
           title={entry.title}
-          subtitle={details?.contactName}
+          // Board 06 puts the availability under the role — "Always on",
+          // "From 17:00" — because that is what decides whether to ring now.
+          subtitle={entry.isPersonal ? undefined : (details?.availability ?? details?.contactName)}
           icon={Phone}
           href={href}
-          trailing={href ? <OnCallCallDisc /> : undefined}
+          trailing={
+            primary || href ? (
+              <span className="flex items-center gap-2">
+                {/* The number itself, right-aligned as drawn, rather than a
+                    pill under the title. A pill per datum turned a contact
+                    list into five rows a screen; the board shows twelve. */}
+                {primary ? <span className="nums text-sm font-bold">{primary.value}</span> : null}
+                {href ? <OnCallCallDisc /> : null}
+              </span>
+            ) : undefined
+          }
           testId={`on-call-contact-row-${entry.slug}`}
         >
-          {entry.isPersonal ? null : primary ? (
-            <span className={cn(metadataPillDensity.standard, "gap-1.5 rounded-full")}>
-              <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {`${primary.label}: ${primary.value}`}
-            </span>
-          ) : (
+          {entry.isPersonal || primary ? null : (
             <span className={cn(metadataPillDensity.standard, "rounded-full")}>No number on file</span>
           )}
           {otherNumbers.map((label) => (
@@ -180,13 +201,15 @@ function ContactRow({
               {label}
             </span>
           ))}
-          {details?.availability && !entry.isPersonal ? (
-            <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.availability}</span>
-          ) : null}
+
           {/* The rule made visible without the number being: board 06 shows a
               personal line as "Private · only you" and nothing else. */}
           {entry.isPersonal ? <OnCallPrivateFlag /> : null}
-          <OnCallFreshnessBadge freshness={freshness} />
+          {/* Only when it is telling the reader something. Board 06 badges the
+              overdue rows and leaves the current ones clean; a "checked" stamp
+              on all forty of them is a second line per row that says the page
+              is working. */}
+          {freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : null}
         </OnCallEntryRow>
       </div>
       {/* Sibling to the row, never nested inside it: the row's own tap target is
@@ -347,7 +370,7 @@ export function OnCallContactsSection({
               {needsChecking.length}
             </span>
           </div>
-          <div className="grid gap-2" data-testid="on-call-contacts-group-needs-checking">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="on-call-contacts-group-needs-checking">
             {sortEntries(needsChecking).map((entry) => (
               <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
             ))}
@@ -383,7 +406,7 @@ export function OnCallContactsSection({
                     {group.entries.length}
                   </span>
                 </div>
-                <div className="grid gap-2" data-testid={`on-call-contacts-group-${slug}`}>
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${slug}`}>
                   {group.entries.map((entry) => (
                     <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
                   ))}
@@ -397,7 +420,7 @@ export function OnCallContactsSection({
   function renderFlatGroup(list: OnCallEntry[], variant: "role" | "overdue") {
     if (list.length === 0) return null;
     return (
-      <div className="grid gap-2" data-testid={`on-call-contacts-group-${variant}`}>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${variant}`}>
         {list.map((entry) => (
           <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
         ))}

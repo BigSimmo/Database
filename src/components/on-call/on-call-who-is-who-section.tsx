@@ -72,7 +72,10 @@ function RoleCard({
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
-    <article className={cn(cardSurface, cardPadding.standard, "grid gap-2")} data-testid={`on-call-role-${entry.slug}`}>
+    <article
+      className={cn(cardSurface, cardPadding.standard, "grid grid-cols-[minmax(0,1fr)] gap-2")}
+      data-testid={`on-call-role-${entry.slug}`}
+    >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 grid gap-0.5">
           <h4 className="text-base font-semibold text-[color:var(--text-heading)]">{entry.title}</h4>
@@ -161,16 +164,16 @@ export function OnCallWhoIsWhoSection({
     .sort((a, b) => a.area.localeCompare(b.area));
 
   return (
-    <div data-testid={testId} className="grid gap-5">
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {groups.map((group) => {
         const slug = slugifyArea(group.area);
         const headingId = `on-call-who-is-who-${slug}-heading`;
         return (
-          <section key={group.area} aria-labelledby={headingId} className="grid gap-2">
+          <section key={group.area} aria-labelledby={headingId} className="grid grid-cols-[minmax(0,1fr)] gap-2">
             <h3 id={headingId} className={eyebrowText}>
               {group.area}
             </h3>
-            <div className="grid gap-2" data-testid={`on-call-who-is-who-group-${slug}`}>
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-who-is-who-group-${slug}`}>
               {group.entries.map((entry) => (
                 <RoleCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
               ))}

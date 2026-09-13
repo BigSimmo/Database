@@ -23,6 +23,42 @@ say why the drawing was not followed.
 Changing a disposition is a decision, not bookkeeping. If the drawing itself changes, the boards
 change here first and the test tells you what is now unaccounted for.
 
+## What proves a `built` claim
+
+Two things, because either alone is too weak.
+
+1. **`tests/on-call-mockup-conformance.test.ts`** — offline, and the ceiling on what it can know: a
+   testid can exist in source and never render. It therefore also requires that the load-bearing
+   testids are named by the browser spec below, so this file cannot quietly become the only record.
+2. **`tests/ui-on-call-boards.spec.ts`** — opens each board at 390 px, the width every artboard was
+   drawn at, and asserts the element is on the screen. It goes beyond the drawing where the site is
+   stricter: measured 48 px tap targets, nothing reaching past the right edge at 320 px, no search
+   composer anywhere in the mode, dark mode, and forced colours.
+
+Neither compares pixels. To look at the two side by side, run `npm run ensure` and then
+`node scripts/capture-on-call-boards.mjs --base-url <the URL it printed>`; it writes each artboard
+beside the route that implements it, plus an index page, into the gitignored `.tmp-visual/` tree.
+That is a review aid for a person, deliberately not a gate — a hand-drawn comp and a real
+application never match pixel for pixel, and the useful question is whether they read as the same
+screen.
+
+## What looking at them actually caught
+
+Recorded because it is the argument for doing this at all. Every one of these passed every offline
+gate, and none was visible in the source:
+
+- A contact tagged `call-first` produced a Contacts group headed **"call-first"** and a filter chip
+  to match — the home's machinery leaking onto the page as a user-facing area name.
+- A ward with only an extension read **"No number on file"** while displaying that extension in a
+  pill beside it, and its row would not dial, because this section carried its own copy of
+  "the number this row rings" that omitted `extension`.
+- Single-column grids left their items at `min-width: auto`, so one row that would not shrink
+  widened the whole page column past the viewport. Nothing scrolled — the shell clipped — so every
+  heading and paragraph on the page silently lost its right-hand edge.
+- The section tiles stacked one per row at phone width where the board draws two, making the home
+  a long scroll for a page whose whole promise is that what you need is near the top.
+- A "checked" stamp on every current row, doubling the height of a list meant to be scanned.
+
 ## The ledger
 
 | Board          | Element                                                                  | Disposition | Where                                               | Note                                                                                                                                                                                                                            |

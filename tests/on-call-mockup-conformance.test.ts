@@ -26,6 +26,8 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 
 const MOCKUP_PATH = "docs/on-call/design/prototypes/on-call-screens.html";
 const LEDGER_PATH = "docs/on-call/design/mockup-conformance.md";
+/** The browser spec that renders the boards and asserts them on a real page. */
+const BOARD_SPEC_PATH = "tests/ui-on-call-boards.spec.ts";
 
 /**
  * The four dispositions an element may carry. Anything else is a typo, not a
@@ -193,6 +195,70 @@ describe("On Call mockup conformance ledger", () => {
       expect(exists, `ledger line ${row.line} claims "${cited}" is built, but no component declares that testid`).toBe(
         true,
       );
+    }
+  });
+
+  it("backs the built claims with a spec that opens the page in a browser", () => {
+    // The ceiling on everything above, named in review: a testid can exist in
+    // source and never render — dead code, or a branch nothing reaches — and
+    // every assertion in this file would still pass. So the ledger is not the
+    // last word on "built": `ui-on-call-boards.spec.ts` opens each board at the
+    // width it was drawn at and asserts the element is really on the screen.
+    //
+    // This pins that the spec exists, covers every board, and is actually
+    // asserting the elements rather than merely loading the routes. It cannot
+    // verify each row one-for-one — an element can be covered by an assertion
+    // that never names its testid — but it does make a boards spec that quietly
+    // stops covering a board fail here.
+    const spec = read(BOARD_SPEC_PATH);
+    for (const board of boards) {
+      const number = board.slice(0, 2);
+      const drawnHere = rows.filter((row) => row.board === board);
+      const needsBrowserProof = drawnHere.some((row) => row.disposition === "built");
+      if (!needsBrowserProof) continue;
+      expect(
+        spec.includes(`test.describe("${number} `) || spec.includes(`${number} ${board.slice(3)}`),
+        `board "${board}" has built elements but ${BOARD_SPEC_PATH} never opens it`,
+      ).toBe(true);
+    }
+  });
+
+  it("asserts the load-bearing testids in the browser, not only in source", () => {
+    // The elements most easily faked by a source-only check: a module that
+    // renders empty, a marker on a branch nobody reaches, a control in a sheet
+    // that never opens. Each is named in the browser spec, so a regression that
+    // stops it rendering fails there rather than passing here.
+    const spec = read(BOARD_SPEC_PATH);
+    const loadBearing = [
+      "on-call-home-call-first",
+      "on-call-home-wards",
+      "on-call-home-pinned",
+      "on-call-home-upcoming",
+      "on-call-home-sections",
+      "on-call-page-menu-trigger",
+      "on-call-page-menu-order",
+      "on-call-contacts-filters",
+      "on-call-contacts-group-needs-checking",
+      "on-call-private-flag",
+      "on-call-playbook-group-no-guideline",
+      "on-call-logistics-private-note",
+      "on-call-orientation-checklist-",
+      "mode-nav-sheet",
+    ];
+    for (const testId of loadBearing) {
+      expect(spec.includes(testId), `${BOARD_SPEC_PATH} never asserts "${testId}" on a rendered page`).toBe(true);
+    }
+    // And each of those must be a `built` claim in the ledger, so the two
+    // records cannot describe different screens.
+    const builtIds = new Set(
+      rows.filter((row) => row.disposition === "built").map((row) => row.where.replace(/`/g, "").trim()),
+    );
+    for (const testId of loadBearing) {
+      if (testId === "mode-nav-sheet") continue;
+      expect(
+        [...builtIds].some((id) => id === testId || id.startsWith(testId)),
+        `${testId} is asserted in the browser but not recorded as built`,
+      ).toBe(true);
     }
   });
 

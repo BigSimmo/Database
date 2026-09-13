@@ -64,7 +64,7 @@ function OrientationCard({
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
-      className={cn(cardSurface, "grid gap-3 p-4")}
+      className={cn(cardSurface, "grid grid-cols-[minmax(0,1fr)] gap-3 p-4")}
       data-testid={`on-call-orientation-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -115,7 +115,7 @@ function OrientationCard({
       ) : null}
 
       {linkedDocs.length > 0 ? (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {linkedDocs.map((doc) => (
             <Link key={doc.id} href={`/documents/${doc.id}`} className={documentLinkRow}>
               <FileText className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -171,7 +171,7 @@ export function OnCallOrientationSection({
   const sorted = [...orientationEntries].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
   return (
-    <div data-testid={testId} className="grid gap-3">
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <OnCallFilterChips
         options={filterOptions}
         active={activeFilter}

@@ -11,6 +11,7 @@ import { isDemoMode } from "@/lib/env";
 // One declaration of the request shapes, shared with the [id] route: create and
 // update must not be able to drift apart.
 import { createOnCallEntrySchema } from "@/lib/on-call/api-schemas";
+import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import {
   ON_CALL_SECTIONS,
@@ -37,42 +38,12 @@ const onCallListQuerySchema = z.object({
 });
 
 /**
- * Obviously synthetic, non-clinical fixture entries shown only in demo mode. No real hospital
- * name, phone number, or clinical content — demo mode never reaches Supabase for this mode.
+ * Obviously synthetic, non-clinical fixture entries shown only in demo mode.
+ * No real organisation, phone number, or clinical content — demo mode never
+ * reaches Supabase for this mode. The corpus lives in
+ * `src/lib/on-call/demo-entries.ts` so the browser suite can assert against the
+ * same rows a visitor sees.
  */
-const DEMO_ON_CALL_ENTRIES: readonly z.infer<typeof onCallEntrySchema>[] = [
-  {
-    id: "00000000-0000-4000-8000-000000000001",
-    section: "contacts",
-    slug: "demo-switchboard",
-    title: "Demo Hospital Switchboard",
-    subtitle: "Example entry shown in demo mode",
-    body: null,
-    details: { role: "Switchboard operator", phone: "0000 000 000" },
-    linkedDocumentIds: [],
-    tags: ["demo"],
-    isPersonal: false,
-    includeOnCard: true,
-    sortOrder: 0,
-    lastVerifiedAt: null,
-  },
-  {
-    id: "00000000-0000-4000-8000-000000000002",
-    section: "orientation",
-    slug: "demo-orientation-note",
-    title: "Demo Orientation Note",
-    subtitle: "Example entry shown in demo mode",
-    body: "Placeholder orientation text shown only in demo mode.",
-    details: { pinnedSummaryIsOwnerNote: true },
-    linkedDocumentIds: [],
-    tags: ["demo"],
-    isPersonal: false,
-    includeOnCard: false,
-    sortOrder: 1,
-    lastVerifiedAt: null,
-  },
-];
-
 function demoOnCallEntries(section: OnCallSection | undefined) {
   return section ? DEMO_ON_CALL_ENTRIES.filter((entry) => entry.section === section) : DEMO_ON_CALL_ENTRIES;
 }
