@@ -1,0 +1,47 @@
+The withdrawal sentence gets one home, and a guard that could no longer fail is replaced
+
+Ward Core made `withdrawnReferrals[].reason` a `WithdrawalReason` union with the wording
+in `withdrawalReasonLabels`, so this page's stopgap can go. The label is byte-identical to
+the sentence this page shipped — checked, not accepted on the claim:
+
+  withdrawalReasonLabels.another_unit_accepted
+    = "Withdrawn — another unit accepted this patient."
+
+Nothing on screen changes. What changes is that the sentence has ONE home rather than two
+copies agreeing today, which was the argument my own note made for wanting this.
+
+MY VACUITY CANARY FIRED, AND THAT IS THE INTERESTING PART.
+
+The old guard asserted that no unit name survives into the rendered withdrawal line. Once
+the fixture holds `another_unit_accepted` instead of "Referral withdrawn once RGH Adult
+Secure confirmed the bed", THERE IS NO NAME IN ANY INPUT THE MODEL CAN PRODUCE — so that
+assertion could no longer fail. The canary beside it said so in its own words: "the
+fixture's reasons no longer name anything, so this guard is vacuous."
+
+A guard that cannot fail is worse than no guard, because it reports safety it is not
+checking. So it is REPLACED rather than deleted, and rather than relaxed to keep it green
+— the two ways this normally ends.
+
+WHAT IS STILL THIS PAGE'S TO GET WRONG, and it is a different failure from the one that
+started this. Prose can no longer arrive from the model, so the remaining mistake is
+rendering the raw union member: `another_unit_accepted` on a clinical screen is not a
+privacy failure any more, it is an incomprehensible one. That is exactly what a careless
+"simplify" back to `{entry.reason}` produces. The new assertions pin the rendered text to
+the shared label, reject any underscore, and still refuse every unit name in the network —
+that last one now guarding the LABEL's future wording rather than the fixture's present
+contents, which is where the risk actually moved to.
+
+Mutation-proven: rendering `entry.reason` reddens with "the withdrawal code is being
+rendered instead of its label: expected 'another_unit_accepted' not to be
+'another_unit_accepted'".
+
+AND I LOST THIS CHANGE ONCE WHILE PROVING IT, WHICH IS WORTH RECORDING. Restoring the
+mutated file with `git show HEAD:<path>` restored the merge commit's version — correct,
+clean, and not what I wanted, because the label switch was still uncommitted. The restore
+did exactly what it was asked. The rule I already knew and did not follow: commit before
+mutating. It cost one redo because I checked the file afterwards rather than assuming a
+successful restore meant a correct one.
+
+Verified: 3 files handed in, 3 ran, 25 passed, exit 0; eslint clean; prettier clean.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>

@@ -94,6 +94,7 @@ export const CLINICAL_TWMERGE_THEME = {
   // order decides the outcome, and tap-then-numeric is the forbidden direction.
   spacing: [
     "compact-meta",
+    "disclosure-icon",
     "hero-medallion",
     "icon-xs",
     "icon-sm",

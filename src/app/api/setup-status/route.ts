@@ -8,12 +8,13 @@ import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/au
 import { formatSupabaseUnavailableError, isSupabaseUnavailableError, probeSupabaseHealth } from "@/lib/supabase/health";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 import { assertSearchSchemaHealth } from "@/lib/validation/row-contracts";
+import { describeEvidencePreviewForAnyCaller, describeEvidencePreviewForOperator } from "@/lib/answer-preview";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type SetupCheckStatus = "ready" | "needs_setup" | "unknown";
-type SetupCheckId = "env" | "project" | "schema" | "search" | "openai" | "worker";
+type SetupCheckId = "env" | "project" | "schema" | "search" | "openai" | "worker" | "answerPreview";
 
 type SetupCheck = {
   id: SetupCheckId;
@@ -286,6 +287,12 @@ function setupStatusResponse(payload: SetupStatusPayload) {
   return NextResponse.json(payload, {
     headers: {
       "Cache-Control": "private, max-age=5, stale-while-revalidate=30",
+      // GET below picks between the full diagnostic payload and the coarse one using the
+      // operator token (`x-health-deep-token`, see allowDeepHealthProbe) and the
+      // administrator bearer in `Authorization`. Both variants are cacheable for the same
+      // URL, so a cache with no Vary can replay one caller's detail level to the other
+      // (2026-09-02 audit, L110). `private` already keeps this inside one browser.
+      Vary: "Authorization, x-health-deep-token",
       "X-Poll-After-Ms": String(payload.pollAfterMs ?? ""),
     },
   });
@@ -302,11 +309,37 @@ const COARSE_SETUP_DETAIL: Record<SetupCheckStatus, string> = {
   unknown: "Status unavailable. Operators can see specifics via the health deep probe or server logs.",
 };
 
+// `answerPreview` is the one check whose detail survives, and it is REBUILT here rather than
+// passed through. It is a diagnostic for the clinician using the app, not operator telemetry:
+// blanking it left the person reporting "the sources never appear" reading `Ready.` whatever had
+// happened. `describeEvidencePreviewForAnyCaller` assembles its string from a fixed enum and a
+// timestamp and nothing else, so rebuilding rather than copying keeps that guarantee even if the
+// authorized detail is later widened.
 function coarseSetupStatusPayload(payload: SetupStatusPayload): SetupStatusPayload {
   return {
     ...payload,
-    checks: payload.checks.map((item) => ({ ...item, detail: COARSE_SETUP_DETAIL[item.status] })),
+    checks: payload.checks.map((item) =>
+      item.id === "answerPreview"
+        ? { ...item, detail: describeEvidencePreviewForAnyCaller() }
+        : { ...item, detail: COARSE_SETUP_DETAIL[item.status] },
+    ),
   };
+}
+
+/** Why the answer wait did or did not show its sources.
+ *
+ * Diagnostic, not setup: it reports `ready` whenever the feature is enabled, so a withheld
+ * preview never reads as a broken installation. It exists because the preview is discarded at
+ * several points that recorded nothing, and a clinician reporting "the sources never appear"
+ * could not be answered without guessing — three rounds of guessing, in the case that prompted
+ * it. One enum and a timestamp; no query, document, owner, or clinical text ever reaches here.
+ */
+function answerPreviewCheck(): SetupCheck {
+  // The operator form, with the exact timestamp. `coarseSetupStatusPayload` swaps in the bucketed
+  // form for an anonymous caller — the only difference between the two is the precision of "when",
+  // never the decision word, so the anonymous reader is not shown a weaker truth.
+  const status = env.RAG_INCREMENTAL_EVIDENCE_PREVIEW ? "ready" : "needs_setup";
+  return check("answerPreview", "Answer wait shows sources", status, describeEvidencePreviewForOperator());
 }
 
 async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
@@ -396,6 +429,7 @@ async function buildSetupStatusPayload(): Promise<SetupStatusPayload> {
         : "Set OPENAI_API_KEY before real indexing or answers.",
     ),
     worker.check,
+    answerPreviewCheck(),
   ];
   const setupSettled = checks.every((item) => item.status === "ready");
   const pollAfterMs = worker.activeWork ? ACTIVE_INDEXING_POLL_MS : setupSettled ? null : SETUP_RECHECK_POLL_MS;

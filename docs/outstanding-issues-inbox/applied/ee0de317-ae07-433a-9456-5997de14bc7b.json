@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "ee0de317-ae07-433a-9456-5997de14bc7b",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two pieces of dead wiring found beside the mockup surface: an orphaned production component and a proxy redirect for a route that no longer exists",
+    "issueUlid": "01M1G7408GS76Z3Y16J3T4K5N3"
+  }
+}

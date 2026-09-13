@@ -21,6 +21,7 @@ import { ContactTimeAdjustment } from "./contact-time-adjustment";
 import { CONTACT_STATE_LABELS, MESSAGE_TYPE_LABELS } from "./contact-vocabulary";
 import { ListEmptyState } from "./list-empty-state";
 import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * The Schedule screen -- what this team's caring-contact plans put on one AWST day, and what the
@@ -505,7 +506,7 @@ function DayStrip({
             data-internal-link="true"
             data-schedule-day={day.calendarDay}
             aria-current={current ? "page" : undefined}
-            className="flex min-h-tap min-w-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-1 py-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--surface-subtle)] forced-colors:border-[CanvasText]"
+            className="flex min-h-tap min-w-0 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-1 py-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--clinical-accent-soft)] aria-[current]:font-semibold aria-[current]:text-[color:var(--clinical-accent)] aria-[current]:shadow-[var(--shadow-inset)] forced-colors:border-[CanvasText]"
           >
             <span aria-hidden="true" className="block truncate text-2xs font-medium text-[color:var(--text-muted)]">
               {stripDayLabel(day.calendarDay)}
@@ -585,7 +586,23 @@ function SelectedDay({
             </div>
           ) : null}
 
-          <div className="mt-5 grid min-w-0 gap-4 lg:grid-cols-3">
+          {/*
+            The three sending windows go 1-up, then 2-up, then 3-up — and the 3-up waits for
+            1440px rather than arriving at `lg:`.
+
+            This was `lg:grid-cols-3`, which put three columns on screen at 1024px. At that width
+            the content column was 384px (the shell's old two-column grid), so each window was
+            117px and each contact row inside it ~61px after `WindowColumn`'s `px-4` and
+            `ContactRow`'s `px-3` — for "Sends at: 9:00 am AWST", a state line and two controls.
+            Freeing the content column fixes most of that (704px at 1024, so 213px per window),
+            but three windows still only earn their keep once each can hold a contact row
+            comfortably. 2-up from `md:` gives ≥248px of content per window at every width from
+            768 up; 3-up at 1440 gives ~347px.
+
+            A raw `min-[1440px]:` rather than a named breakpoint: design-system GATES §3b forbids a
+            sixth `--breakpoint-*` token, and the shell already spells this width the same way.
+          */}
+          <div className="mt-5 grid min-w-0 gap-4 md:grid-cols-2 min-[1440px]:grid-cols-3">
             {day.windows.map((window) => (
               <WindowColumn
                 key={window.preference}
@@ -735,10 +752,7 @@ function WindowColumn({
   icon?: typeof Clock;
 }) {
   return (
-    <section
-      aria-label={heading}
-      className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]"
-    >
+    <section aria-label={heading} className={workspacePanelPadded}>
       <h4 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
         <Icon aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="min-w-0 truncate">{heading}</span>
@@ -809,10 +823,7 @@ function OutsideApprovedWindows({ group, acting }: { group: ScheduleGroup; actin
  */
 function NamedExceptions({ group, acting }: { group: ScheduleGroup; acting: ScheduleActingContext }) {
   return (
-    <section
-      aria-label="Named exceptions"
-      className="mt-5 min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]"
-    >
+    <section aria-label="Named exceptions" className={`${workspacePanelPadded} mt-5`}>
       <h4 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text-heading)]">
         <AlertTriangle aria-hidden="true" className="size-icon-md shrink-0" />
         <span className="min-w-0">Named exceptions</span>

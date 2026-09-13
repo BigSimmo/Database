@@ -12,6 +12,9 @@ const mockedModuleSpecifiers = [
   "@/lib/therapies",
   "@/lib/tools-catalog",
   "@/lib/universal-search",
+  "@/lib/site-content/site-content-publication",
+  "@/lib/medication-seed",
+  "@/lib/registry-seed",
 ] as const;
 
 function isolateNextModuleImport() {
@@ -102,9 +105,45 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
   it("keeps view-all destinations separate for specifiers, formulation, and therapies", async () => {
     const { universalSearchViewAllHref } = await loadUniversalSearch();
 
-    expect(universalSearchViewAllHref("specifiers", "mixed features")).toBe("/specifiers?q=mixed%20features&run=1");
-    expect(universalSearchViewAllHref("formulation", "rumination")).toBe("/formulation?q=rumination&run=1");
+    expect(universalSearchViewAllHref("specifiers", "mixed features")).toBe(
+      "/specifiers/search?q=mixed%20features&run=1",
+    );
+    expect(universalSearchViewAllHref("formulation", "rumination")).toBe("/formulation/search?q=rumination&run=1");
     expect(universalSearchViewAllHref("therapies", "grounding")).toBe("/therapy-compass/search?q=grounding&run=1");
+  });
+
+  // Five domains used to build "See all" on the bare mode path, which the proxy 307s to
+  // `<mode>/search` (consolidatedModeHomeTarget). That hop costs a server round-trip and, on
+  // phones, a frame of the wrong route shell before the second navigation settles
+  // (2026-09-02 audit, L112). Every consolidated domain must name its final path directly.
+  it("targets the consolidated search route directly, with no redirect hop", async () => {
+    const { universalSearchViewAllHref } = await loadUniversalSearch();
+    const { consolidatedModeHomeTarget, consolidatedModeSearchPath } =
+      await import("@/lib/consolidated-mode-home-redirect");
+
+    const expected: Record<string, string> = {
+      services: "/services/search?q=transport&run=1",
+      forms: "/forms/search?q=transport&run=1",
+      differentials: "/differentials/search?q=transport&run=1",
+      presentations: "/differentials/search?q=transport&run=1",
+      specifiers: "/specifiers/search?q=transport&run=1",
+      formulation: "/formulation/search?q=transport&run=1",
+      dsm: "/dsm/search?q=transport&run=1",
+    };
+
+    for (const [domain, href] of Object.entries(expected)) {
+      expect(universalSearchViewAllHref(domain as Parameters<typeof universalSearchViewAllHref>[0], "transport")).toBe(
+        href,
+      );
+      // The destination is a real route, not another redirect: feeding its own path back
+      // through the proxy's consolidated map must produce no further target.
+      const [pathname] = href.split("?");
+      expect(consolidatedModeHomeTarget(pathname, new URLSearchParams("q=transport&run=1"))).toBeNull();
+    }
+
+    // The paths come from the same map the proxy redirects through, so the two cannot drift.
+    expect(consolidatedModeSearchPath("services")).toBe("/services/search");
+    expect(consolidatedModeSearchPath("differentials")).toBe("/differentials/search");
   });
 
   it("filters to requested domains only", async () => {
@@ -656,8 +695,8 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
   });
 });
 
-describe("runUniversalSearch (owner catalogue cache)", () => {
-  it("reads each owner catalogue once and reuses it across warmer prefixes", async () => {
+describe("runUniversalSearch (canonical catalogue authority)", () => {
+  it("re-reads canonical publications across prefixes without consulting owner drafts", async () => {
     isolateNextModuleImport();
     const fetchOwnerMedicationRowsWithSeed = vi.fn<
       (supabase: unknown, ownerId: string, limit: number, options: { select?: string }) => Promise<unknown[]>
@@ -718,6 +757,12 @@ describe("runUniversalSearch (owner catalogue cache)", () => {
       fetchOwnerRegistryRows,
     }));
 
+    const readCanonicalSiteContentRecords = vi.fn(async () => ({
+      records: [],
+      source: "canonical_public",
+      snapshot: null,
+    }));
+    vi.doMock("@/lib/site-content/site-content-publication", () => ({ readCanonicalSiteContentRecords }));
     const { runUniversalSearch } = await loadUniversalSearch();
     const args = {
       limitPerDomain: 3,
@@ -729,23 +774,25 @@ describe("runUniversalSearch (owner catalogue cache)", () => {
     await runUniversalSearch({ ...args, query: "clo" });
     await runUniversalSearch({ ...args, query: "cloz" });
 
-    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledTimes(1);
-    expect(fetchOwnerRegistryRows).toHaveBeenCalledTimes(1);
-    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledWith(
-      args.supabase,
-      "owner-a",
-      500,
-      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    expect(fetchOwnerMedicationRowsWithSeed).not.toHaveBeenCalled();
+    expect(fetchOwnerRegistryRows).not.toHaveBeenCalled();
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledTimes(4);
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: args.supabase,
+        kind: "medication",
+        slug: null,
+        signal: expect.any(AbortSignal),
+      }),
     );
-    expect(fetchOwnerRegistryRows).toHaveBeenCalledWith(
-      args.supabase,
-      "owner-a",
-      "service",
-      500,
-      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    expect(readCanonicalSiteContentRecords).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: args.supabase,
+        kind: "service",
+        slug: null,
+        signal: expect.any(AbortSignal),
+      }),
     );
-    expect(fetchOwnerMedicationRowsWithSeed.mock.calls[0]?.[3]?.select).not.toBe("*");
-    expect(fetchOwnerRegistryRows.mock.calls[0]?.[4]?.select).not.toBe("*");
   });
 });
 

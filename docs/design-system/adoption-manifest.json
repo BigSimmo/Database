@@ -112,6 +112,7 @@
         "tests/accessible-table.dom.test.tsx",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/playwright-pr-shards.test.ts",
         "tests/ward-output.test.ts"
       ],
       "baseline": {
@@ -289,6 +290,10 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/on-call/on-call-contacts-section.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-section-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -300,7 +305,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -314,6 +318,10 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/on-call/on-call-contacts-section.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-section-page.tsx",
         "src/components/privacy-quiet-signal-page.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
@@ -325,7 +333,6 @@
         "src/components/therapy-compass/screens/other-screen.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/screens/recommend-screen.tsx",
-        "src/components/therapy-compass/screens/search-screen.tsx",
         "src/components/therapy-compass/therapy-card.tsx",
         "src/components/therapy-compass/therapy-compare-tray.tsx",
         "src/components/therapy-compass/workspace.tsx",
@@ -370,8 +377,16 @@
       "source": "src/components/ui/choice.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/document-admin.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/document-admin.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -401,6 +416,8 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/sources/sources-catalogue-client.tsx",
+        "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx",
@@ -409,6 +426,8 @@
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/sources/sources-catalogue-client.tsx",
+        "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
         "src/components/therapy-compass/ui.tsx",
         "src/components/tools/tools-search-results-page.tsx",
@@ -490,8 +509,8 @@
       "source": "src/components/ui/citation.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/answer-inline-sections.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/answer-inline-sections.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -520,8 +539,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -531,8 +550,8 @@
       "source": "src/components/ui/citation.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/clinical-dashboard/answer-inline-sections.tsx"],
+      "productImportFiles": ["src/components/clinical-dashboard/answer-inline-sections.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -548,8 +567,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -559,8 +578,14 @@
       "source": "src/components/ui/confirm-dialog.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/clinical-dashboard/settings-dialog.tsx"],
-      "productImportFiles": ["src/components/clinical-dashboard/settings-dialog.tsx"],
+      "directImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -570,6 +595,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
+        "tests/on-call-editor.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
@@ -635,10 +661,12 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx",
         "src/components/therapy-compass/record/source-provenance.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx",
         "src/components/therapy-compass/record/source-provenance.tsx"
       ],
       "designSync": {
@@ -652,7 +680,8 @@
         "tests/medication-interaction-surfaces.dom.test.tsx",
         "tests/privacy-ui.test.ts",
         "tests/ui-forms-section-nav.spec.ts",
-        "tests/ui-v2-components.dom.test.tsx"
+        "tests/ui-v2-components.dom.test.tsx",
+        "tests/ward-governance-thin-sample.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -684,7 +713,8 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/forms-information-disclosure.dom.test.tsx",
-        "tests/ui-forms-section-nav.spec.ts"
+        "tests/ui-forms-section-nav.spec.ts",
+        "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -770,15 +800,15 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
-        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/dashboard-notices.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -786,15 +816,15 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
-        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/dashboard-notices.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
       ],
@@ -810,6 +840,7 @@
         "tests/design-system-adoption.test.ts",
         "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
+        "tests/on-call-sections.dom.test.tsx",
         "tests/rsc-boundary.test.ts",
         "tests/therapy-compass-ui.dom.test.tsx",
         "tests/ui-primitives.dom.test.tsx"
@@ -897,8 +928,16 @@
       "source": "src/components/ui/link.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": [
+        "src/components/on-call/on-call-education-section.tsx",
+        "src/components/on-call/on-call-logistics-section.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/on-call/on-call-education-section.tsx",
+        "src/components/on-call/on-call-logistics-section.tsx",
+        "src/components/on-call/on-call-referrals-section.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -914,8 +953,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -933,7 +972,7 @@
         "preview": ".design-sync/previews/FieldError.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/on-call-editor.dom.test.tsx"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -981,8 +1020,16 @@
       "source": "src/components/ui/form-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
-      "productImportFiles": ["src/components/ui/select.tsx", "src/components/ui/text-field.tsx"],
+      "directImportFiles": [
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/text-field.tsx"
+      ],
+      "productImportFiles": [
+        "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/ui/select.tsx",
+        "src/components/ui/text-field.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1032,6 +1079,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/icon-button.dom.test.tsx",
+        "tests/require-lucide-icon-aria.test.ts",
         "tests/rsc-boundary.test.ts"
       ],
       "baseline": {
@@ -1061,7 +1109,8 @@
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "productImportFiles": [
         "src/components/ClinicalDashboard.tsx",
@@ -1071,7 +1120,8 @@
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx"
+        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1134,8 +1184,9 @@
         "src/components/clinical-dashboard/clinical-dashboard-lazy.tsx",
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/global-search-shell.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -1146,8 +1197,9 @@
         "src/components/clinical-dashboard/clinical-dashboard-lazy.tsx",
         "src/components/clinical-dashboard/dashboard-nav.tsx",
         "src/components/clinical-dashboard/document-search-results.tsx",
+        "src/components/clinical-dashboard/global-search-shell.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
-        "src/components/document-viewer/document-rail-panels.tsx",
+        "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/document-viewer/source-panels.tsx",
         "src/components/therapy-compass/ui.tsx"
       ],
@@ -1187,6 +1239,7 @@
         "src/components/calculators/calculator-sheet.tsx",
         "src/components/calculators/clinical-console.tsx",
         "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/guided-flow.tsx",
         "src/components/calculators/search-detail.tsx",
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
@@ -1200,6 +1253,7 @@
         "src/components/calculators/calculator-sheet.tsx",
         "src/components/calculators/clinical-console.tsx",
         "src/components/calculators/directory-grid.tsx",
+        "src/components/calculators/guided-flow.tsx",
         "src/components/calculators/search-detail.tsx",
         "src/components/clinical-dashboard/favourites-hub.tsx",
         "src/components/specifiers/specifier-reference-page.tsx",
@@ -1216,7 +1270,8 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/dose-line.dom.test.tsx",
-        "tests/ui-v2-answer-safety.dom.test.tsx"
+        "tests/ui-v2-answer-safety.dom.test.tsx",
+        "tests/ward-flow-seam.test.ts"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1493,11 +1548,11 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/ui/answer-card.tsx"
       ],
       "productImportFiles": [
-        "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-result-surface.tsx",
         "src/components/ui/answer-card.tsx"
       ],
       "designSync": {
@@ -1533,6 +1588,7 @@
       "directImportFiles": [
         "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-inline-sections.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-results.tsx",
         "src/components/clinical-dashboard/output-panel.tsx",
@@ -1543,6 +1599,7 @@
       "productImportFiles": [
         "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/answer-content.tsx",
+        "src/components/clinical-dashboard/answer-inline-sections.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/document-results.tsx",
         "src/components/clinical-dashboard/output-panel.tsx",
@@ -1611,8 +1668,10 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1622,8 +1681,10 @@
       "productImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
+        "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
+        "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
@@ -1664,10 +1725,12 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -1682,10 +1745,12 @@
         "tests/eval-process-safety.test.ts",
         "tests/search-results-header-band.dom.test.tsx",
         "tests/ui-formulation.spec.ts",
+        "tests/ui-overlap.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-v2-components.dom.test.tsx",
         "tests/ui-ward-coordinator.spec.ts",
-        "tests/ui-ward-roles.spec.ts"
+        "tests/ui-ward-roles.spec.ts",
+        "tests/ward-delays-screen.dom.test.tsx"
       ],
       "baseline": {
         "targetLayer": "v2",
@@ -1718,6 +1783,7 @@
         "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1733,6 +1799,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -1753,6 +1820,7 @@
         "src/components/clinical-dashboard/answer-source-drawer.tsx",
         "src/components/clinical-dashboard/clinical-ask-workspace.tsx",
         "src/components/clinical-dashboard/dashboard-shell.tsx",
+        "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/guide-dialog.tsx",
         "src/components/clinical-dashboard/image-lightbox.tsx",
         "src/components/clinical-dashboard/master-search-header.tsx",
@@ -1768,6 +1836,7 @@
         "src/components/forms/form-priority-facts-section.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -1784,6 +1853,7 @@
       "testFiles": [
         "tests/accessible-table.dom.test.tsx",
         "tests/answer-source-rail.dom.test.tsx",
+        "tests/answer-support-priority.dom.test.tsx",
         "tests/caring-contacts-overlay-host.dom.test.tsx",
         "tests/caring-contacts-overlay-trigger.dom.test.tsx",
         "tests/caring-contacts-plan-wizard.dom.test.tsx",
@@ -1791,10 +1861,13 @@
         "tests/document-filter-panel.dom.test.tsx",
         "tests/document-organization.test.ts",
         "tests/factsheet-save.dom.test.tsx",
+        "tests/filter-contract.dom.test.tsx",
         "tests/guide-centre-design-contract.dom.test.tsx",
         "tests/header-scroll-hide-contract.test.ts",
+        "tests/heading-hierarchy.dom.test.tsx",
         "tests/image-lightbox-geometry.test.ts",
         "tests/in-page-nav-route-sections.dom.test.tsx",
+        "tests/medication-lexicon-report-signoff.test.ts",
         "tests/mobile-sheet-safe-area-contract.test.ts",
         "tests/mode-nav-contract.test.ts",
         "tests/mode-nav.dom.test.tsx",
@@ -1813,6 +1886,8 @@
         "tests/ui-phone-scroll-page-owned.spec.ts",
         "tests/ui-smoke.spec.ts",
         "tests/ui-style-contract.spec.ts",
+        "tests/viewport-fill-contract.test.ts",
+        "tests/ward-shell-print-ancestor.test.ts",
         "tests/xlsx-extraction-budget.test.ts"
       ],
       "baseline": {
@@ -2009,11 +2084,21 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/ui/citation.tsx",
         "src/components/ui/dose-line.tsx",
         "src/components/ui/retrieval-state-banner.tsx"
       ],
-      "productImportFiles": ["src/components/ui/dose-line.tsx", "src/components/ui/retrieval-state-banner.tsx"],
+      "productImportFiles": [
+        "src/components/differentials/differential-detail-page.tsx",
+        "src/components/differentials/differential-overview-rail.tsx",
+        "src/components/therapy-compass/screens/compare-screen.tsx",
+        "src/components/ui/citation.tsx",
+        "src/components/ui/dose-line.tsx",
+        "src/components/ui/retrieval-state-banner.tsx"
+      ],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -2086,6 +2171,7 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
@@ -2093,6 +2179,7 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
+        "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "designSync": {
@@ -2157,7 +2244,7 @@
         "preview": ".design-sync/previews/ToastRegion.tsx",
         "previewValid": true
       },
-      "testFiles": ["tests/design-sync-visual-exports.test.ts"],
+      "testFiles": ["tests/design-sync-visual-exports.test.ts", "tests/design-system-contract-utils.test.ts"],
       "baseline": {
         "targetLayer": "v2",
         "liveLayer": "v2",
@@ -2266,6 +2353,7 @@
         "tests/answer-support-priority.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
+        "tests/ui-smoke.spec.ts",
         "tests/ui-v2-answer-safety.dom.test.tsx"
       ],
       "baseline": {
@@ -2338,7 +2426,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ClinicalDashboard"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/medications/page.tsx",
@@ -2348,7 +2436,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ClinicalDashboard"]
         },
         {
           "file": "src/app/(search-app)/page.tsx",
@@ -2418,9 +2506,24 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/card/page.tsx",
+        "src/app/(search-app)/on-call/contacts/page.tsx",
+        "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/logistics/page.tsx",
+        "src/app/(search-app)/on-call/orientation/page.tsx",
+        "src/app/(search-app)/on-call/page.tsx",
+        "src/app/(search-app)/on-call/playbook/page.tsx",
+        "src/app/(search-app)/on-call/referrals/page.tsx",
+        "src/app/(search-app)/on-call/search/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
-        "src/app/(search-app)/services/search/page.tsx"
+        "src/app/(search-app)/services/search/page.tsx",
+        "src/app/(search-app)/sources/[sourceId]/page.tsx",
+        "src/app/(search-app)/sources/method/page.tsx",
+        "src/app/(search-app)/sources/page.tsx",
+        "src/app/(search-app)/sources/publishers/page.tsx",
+        "src/app/(search-app)/sources/search/page.tsx",
+        "src/app/(search-app)/sources/topics/page.tsx"
       ],
       "routeRoots": true,
       "proofApplicability": "required",
@@ -2434,7 +2537,7 @@
       "proof": {
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": ["tests/ui-sources.spec.ts", "tests/ui-visual-baseline.spec.ts"]
         },
         "compact320": {
           "status": "passed",
@@ -2671,6 +2774,96 @@
           "sanctionedPatternsPresent": []
         },
         {
+          "file": "src/app/(search-app)/on-call/card/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/contacts/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/education/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/logistics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/orientation/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/on-call/playbook/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/referrals/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome", "SearchPage"]
+        },
+        {
           "file": "src/app/(search-app)/services/[slug]/page.tsx",
           "exists": true,
           "imports": [],
@@ -2699,6 +2892,66 @@
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
           "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/sources/[sourceId]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["DetailPage"]
+        },
+        {
+          "file": "src/app/(search-app)/sources/method/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/sources/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["ModeHome"]
+        },
+        {
+          "file": "src/app/(search-app)/sources/publishers/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/sources/search/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["SearchPage"]
+        },
+        {
+          "file": "src/app/(search-app)/sources/topics/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
         }
       ]
     },
@@ -3490,6 +3743,7 @@
       "documentedDisposition": null,
       "routes": [
         "src/app/caring-contacts/guidance/page.tsx",
+        "src/app/caring-contacts/intake/page.tsx",
         "src/app/caring-contacts/page.tsx",
         "src/app/caring-contacts/patients/[patientId]/page.tsx",
         "src/app/caring-contacts/patients/page.tsx",
@@ -3540,6 +3794,16 @@
       "roots": [
         {
           "file": "src/app/caring-contacts/guidance/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/intake/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -3820,7 +4084,7 @@
         {
           "file": "src/components/clinical-dashboard/answer-result-surface.tsx",
           "exists": true,
-          "imports": ["AnswerCard", "Sheet", "VerificationNotice"],
+          "imports": ["AnswerCard", "RetrievalStateBanner", "Sheet", "VerificationNotice"],
           "importedFamilies": ["answer", "layout"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
@@ -3940,10 +4204,25 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/contacts/page.tsx",
+      "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/orientation/page.tsx",
+      "src/app/(search-app)/on-call/page.tsx",
+      "src/app/(search-app)/on-call/playbook/page.tsx",
+      "src/app/(search-app)/on-call/referrals/page.tsx",
+      "src/app/(search-app)/on-call/search/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
       "src/app/(search-app)/services/search/page.tsx",
+      "src/app/(search-app)/sources/[sourceId]/page.tsx",
+      "src/app/(search-app)/sources/method/page.tsx",
+      "src/app/(search-app)/sources/page.tsx",
+      "src/app/(search-app)/sources/publishers/page.tsx",
+      "src/app/(search-app)/sources/search/page.tsx",
+      "src/app/(search-app)/sources/topics/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
       "src/app/(search-app)/specifiers/compare/page.tsx",
@@ -3961,6 +4240,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
+      "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
       "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
@@ -4018,10 +4298,25 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/contacts/page.tsx",
+      "src/app/(search-app)/on-call/education/page.tsx",
+      "src/app/(search-app)/on-call/logistics/page.tsx",
+      "src/app/(search-app)/on-call/orientation/page.tsx",
+      "src/app/(search-app)/on-call/page.tsx",
+      "src/app/(search-app)/on-call/playbook/page.tsx",
+      "src/app/(search-app)/on-call/referrals/page.tsx",
+      "src/app/(search-app)/on-call/search/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
       "src/app/(search-app)/services/search/page.tsx",
+      "src/app/(search-app)/sources/[sourceId]/page.tsx",
+      "src/app/(search-app)/sources/method/page.tsx",
+      "src/app/(search-app)/sources/page.tsx",
+      "src/app/(search-app)/sources/publishers/page.tsx",
+      "src/app/(search-app)/sources/search/page.tsx",
+      "src/app/(search-app)/sources/topics/page.tsx",
       "src/app/(search-app)/specifiers/[slug]/page.tsx",
       "src/app/(search-app)/specifiers/builder/page.tsx",
       "src/app/(search-app)/specifiers/compare/page.tsx",
@@ -4039,6 +4334,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
+      "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
       "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
@@ -4058,7 +4354,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 83,
+    "inheritedCkbV2RootCount": 99,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4066,9 +4362,9 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 39,
-    "rootCount": 84,
-    "productionRouteCount": 76,
-    "nextUiEntryCount": 136
+    "productImportedComponentCount": 42,
+    "rootCount": 100,
+    "productionRouteCount": 92,
+    "nextUiEntryCount": 155
   }
 }

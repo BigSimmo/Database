@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "bcbdf769-62cf-4d67-be04-9065a603f439",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#JFRCZ4",
+    "outcome": "Established by the git archive export the row asked for, and the probe found a real defect rather than confirming the skip. Outside any repository the gate logs a skip and exits 0, which was already correct. But an export extracted INSIDE another checkout answered git rev-parse --is-inside-work-tree with the OUTER repository's true; the generator then read that repository, found all 566 documents untracked, and threw an error the skip path could not recognise - exit 1 with a six-hundred-path dump and no explanation, exactly the unexplained failure this row predicted. isGitRepository now requires a repository ROOTED at the checkout (comparing git rev-parse --show-toplevel to cwd, normalised for Windows separators and case), pinned by a nested-repository fixture test. The isGitRepoImpl false branch also had no direct coverage - the existing test drove the message-sniffing path instead - and now has a test asserting generation is never reached. Behaviour is documented in docs/codebase-index.md, including that a skip and a pass share exit code 0 so the message must be read. Also silenced git's stderr in listDocumentPaths, which made a successful filesystem fallback print 'fatal: not a git repository'.",
+    "baseRowFingerprint": "7528fa05cd74f1ff7c85fcd6916fbc34ce4e46d1d26ca89d852925b72df9fa9d"
+  }
+}

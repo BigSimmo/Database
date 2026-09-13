@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "865fb266-39ee-4d86-8d4a-713a3d911177",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "An unbounded recursive delete in a ward test's cleanup",
+    "issueUlid": "01M1G4PSH152HN6ZF83PJM37D0"
+  }
+}

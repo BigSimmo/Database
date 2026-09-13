@@ -1,0 +1,39 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+Error: Failed to load custom Reporter from basic
+    at loadCustomReporterModule (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11362:9)
+    at file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11378:23
+    ... 3 lines matching cause stack trace ...
+    at _createServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/chunks/node.js:25975:84)
+    at createViteServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:8835:17)
+    at createVitest (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:14221:18)
+    at prepareVitest (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:14588:14)
+    at startVitest (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:14531:14) {
+  [cause]: Error: Failed to load url basic (resolved id: basic). Does the file exist?
+      at reviveInvokeError (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:546:14)
+      at Object.invoke (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:562:33)
+      at ServerModuleRunner.getModuleInformation (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:1199:7)
+      at ServerModuleRunner.import (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:1119:23)
+      at loadCustomReporterModule (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11360:26)
+      at file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11378:23
+      at async Promise.all (index 0)
+      at Vitest._setServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:13177:138)
+      at BasicMinimalPluginContext.handler (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:14191:5)
+      at _createServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/chunks/node.js:25975:84) {
+    code: 'ERR_LOAD_URL',
+    runnerError: Error: RunnerError
+        at reviveInvokeError (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:547:64)
+        at Object.invoke (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:562:33)
+        at ServerModuleRunner.getModuleInformation (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:1199:7)
+        at ServerModuleRunner.import (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/module-runner.js:1119:23)
+        at loadCustomReporterModule (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11360:26)
+        at file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:11378:23
+        at async Promise.all (index 0)
+        at Vitest._setServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:13177:138)
+        at BasicMinimalPluginContext.handler (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vitest/dist/chunks/cli-api.BK8pd4xc.js:14191:5)
+        at _createServer (file:///D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231/node_modules/vite/dist/node/chunks/node.js:25975:84)
+  }
+}
+
+
+

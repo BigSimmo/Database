@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "97f270b0-f713-45ae-8b04-0e1982db2518",
+  "createdOn": "2026-09-04",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Third confirmed occurrence of the shared-shell duplicate-testid Playwright strict-mode bug, now in Caring Contacts workspace (caring-contacts-phone-dock, PR #2600)",
+    "detail": "Same shape as the two occurrences already logged (see the outstanding-issue queued alongside PR #2613): getByTestId resolves to 2 elements, once inside a shared layout wrapper and once outside it. This time: tests/ui-caring-contacts-workspace.spec.ts:1992, 'Template detail at 390px: the phone dock does not own navigation', getByTestId('caring-contacts-phone-dock') resolved to 2 <nav aria-label=\"Phone workspace\"> elements (PR #2600 run 33868074584, job 101007656433). Confirmed unrelated to PR #2600's own diff (a documents/medications routing consolidation, not Caring Contacts). Three occurrences across three unrelated PRs and three different testids now strongly suggests a systemic layout-duplication bug (possibly a hydration or route-transition double-mount) rather than three independent flakes — worth escalating priority when the originally-queued investigation is picked up.",
+    "issueUlid": "01M1P6RP04D1D6PEPQNF1QB3QP"
+  }
+}

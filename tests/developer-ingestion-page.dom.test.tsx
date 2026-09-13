@@ -25,6 +25,7 @@ function readyPayload(overrides: Record<string, unknown> = {}) {
   return {
     jobs: [],
     activeJobCount: 0,
+    failedJobCount: 0,
     hasActiveJobs: false,
     pollAfterMs: null,
     pagination: { limit: 100, offset: 0, total: 0, nextOffset: 0, hasMore: false },
@@ -74,6 +75,18 @@ describe("developer ingestion page — shell and freshness (plan §8)", () => {
     const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
     expect(checkedAt).toHaveTextContent(/checked/i);
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/read live on demand/i);
+  });
+
+  // #L14: this client-rendered line followed the browser clock while the
+  // shell's server-rendered stamp followed the container clock (UTC on
+  // Railway), an unlabelled eight-hour gap on the one page that polls live.
+  // Both now pin Australia/Perth and print the zone name.
+  it("prints the timezone on the live checked-at line, pinned to Australia/Perth", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(readyPayload()));
+    render(<DeveloperIngestionPage />);
+
+    const checkedAt = await screen.findByTestId("developer-ingestion-checked-at");
+    expect(checkedAt).toHaveTextContent(/AWST/);
   });
 });
 
@@ -137,6 +150,7 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     );
     render(<DeveloperIngestionPage />);
     const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
+    expect(errorState).toHaveTextContent("Malformed response from ingestion endpoint");
     expect(errorState).toHaveTextContent(/could not be parsed as json/i);
     expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
@@ -156,11 +170,16 @@ describe("developer ingestion page — the four states (plan §4)", () => {
     expect(errorState).not.toHaveTextContent(/No ingestion jobs/i);
   });
 
-  it("unparseable response body: reports unparseable response body rather than network failure", async () => {
+  // Same failure as the case above, reached without a Content-Type header: a proxy
+  // error page served as a bare 200. Both must read as a parse failure, never as the
+  // network copy, which is what separates "the endpoint answered wrongly" from "the
+  // endpoint is down".
+  it("a 200 error page with no content type also reports a parse failure, not a network failure", async () => {
     fetchMock.mockResolvedValueOnce(new Response("<html><body>502 Bad Gateway</body></html>", { status: 200 }));
     render(<DeveloperIngestionPage />);
     const errorState = await screen.findByTestId("developer-ingestion-fetch-error");
-    expect(errorState).toHaveTextContent(/unparseable response body/i);
+    expect(errorState).toHaveTextContent("Malformed response from ingestion endpoint");
+    expect(errorState).toHaveTextContent(/could not be parsed as json/i);
     expect(errorState).not.toHaveTextContent(/could not reach the ingestion jobs endpoint/i);
   });
 });
@@ -189,6 +208,28 @@ describe("developer ingestion page — counts render as given", () => {
 
     const tile = await screen.findByTestId("developer-ingestion-count-active-value");
     expect(tile).toHaveTextContent("7");
+  });
+
+  // #L15: the tile used to derive from bucketJobs(state.jobs), i.e. only the
+  // current page, so older failures beyond the newest 100 rows vanished from
+  // the number — the direction this tile's own doc comment says it must not
+  // fail in. Deliberately mismatched, same shape as the activeJobCount case
+  // above: only 1 row on this page is failed-status, but the query-wide
+  // server count reports 12.
+  it("shows the server's own failedJobCount rather than recomputing a page-scoped length that could disagree (#L15)", async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(
+        readyPayload({
+          jobs: [{ id: "job-1", status: "failed", document_id: "doc-1" }],
+          failedJobCount: 12,
+          pagination: { limit: 100, offset: 0, total: 105, nextOffset: 100, hasMore: true },
+        }),
+      ),
+    );
+    render(<DeveloperIngestionPage />);
+
+    const tile = await screen.findByTestId("developer-ingestion-count-failed-value");
+    expect(tile).toHaveTextContent("12");
   });
 });
 

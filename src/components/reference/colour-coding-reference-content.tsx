@@ -98,7 +98,7 @@ export function ColourCodingReferenceContent({ variant, onOpenFullReference }: C
           tabIndex={isGuide ? -1 : undefined}
           className={cn(
             "font-semibold tracking-tight text-[color:var(--text-heading)] outline-none",
-            isGuide ? "text-2xl sm:text-3xl" : "text-2xl sm:text-3xl",
+            "text-2xl sm:text-3xl",
           )}
         >
           Colour coding & badges

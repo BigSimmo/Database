@@ -1,0 +1,40 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |node| tests/ward-admission-model.test.ts (37 tests | 1 failed) 19ms
+     × gives a fully-populated Admission exactly the permitted field set 7ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |node| tests/ward-admission-model.test.ts > Admission privacy — structural > gives a fully-populated Admission exactly the permitted field set
+AssertionError: expected [ 'arrivedAt', 'blockReason', …(16) ] to deeply equal [ 'arrivedAt', …(18) ]
+
+- Expected
++ Received
+
+@@ -1,8 +1,7 @@
+  [
+    "arrivedAt",
+-   "awayAtEmergencyDepartmentSince",
+    "blockReason",
+    "dischargeConfirmedAt",
+    "dischargeConfirmedBy",
+    "dischargeDateMoves",
+    "dischargeDateSetAt",
+
+ ❯ tests/ward-admission-model.test.ts:531:43
+    529|       leftAt: DAY_ZERO + 30 * MINUTES_PER_DAY,
+    530|     };
+    531|     expect(Object.keys(canonical).sort()).toEqual(ALLOWED_ADMISSION_FI…
+       |                                           ^
+    532|   });
+    533|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 passed (37)
+   Start at  03:24:33
+   Duration  261ms (transform 66ms, setup 0ms, import 86ms, tests 19ms, environment 0ms)
+

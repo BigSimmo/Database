@@ -5,6 +5,19 @@ import { edPressure } from "../src/components/ward-management/ward-pressure";
 import { isOpen } from "../src/components/ward-management/ward-derivations";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
 import { NOW_ANCHOR, allEmergencyDepartments } from "../src/components/ward-management/ward-sites";
+
+/*
+ * EVERY CALL NAMES ITS MOVEMENTS, and that is the change rather than a tidy-up.
+ *
+ * `edPressure` used to declare `movements: Movement[] = wardMovements`, so a caller who forgot to
+ * pass live state silently got the seed fixture and a plausible answer. Both production callers
+ * had forgotten — the flow diagram called `edPressure(now)` and the pressure strip was rendered
+ * without its optional prop — so raising a referral moved the queue while both ED panels sat still.
+ *
+ * These tests passed throughout, because they MEANT the fixture. They were the only callers the
+ * default was ever right for, which is exactly why it survived: the thing that should have exposed
+ * it was the thing it suited. Now they say so.
+ */
 import type { Movement } from "../src/components/ward-management/ward-model";
 
 // A real, valid, open movement (no legalForm, no closure) to spread from when a test needs a
@@ -23,16 +36,16 @@ function movementFrom(overrides: Partial<Movement>): Movement {
 
 describe("emergency department pressure", () => {
   it("reports every department, including quiet ones", () => {
-    expect(edPressure(NOW_ANCHOR)).toHaveLength(allEmergencyDepartments().length);
+    expect(edPressure(NOW_ANCHOR, wardMovements)).toHaveLength(allEmergencyDepartments().length);
   });
 
   it("counts only open movements — an arrived or closed patient is not still waiting", () => {
-    const total = edPressure(NOW_ANCHOR).reduce((sum, row) => sum + row.waiting, 0);
+    const total = edPressure(NOW_ANCHOR, wardMovements).reduce((sum, row) => sum + row.waiting, 0);
     expect(total).toBe(wardMovements.filter(isOpen).length);
   });
 
   it("never reports a longer wait than the department's longest-waiting movement", () => {
-    for (const row of edPressure(NOW_ANCHOR)) {
+    for (const row of edPressure(NOW_ANCHOR, wardMovements)) {
       const waits = wardMovements
         .filter((movement) => isOpen(movement) && movement.originEdId === row.ed.id)
         // IMPORTANT 3: mirror the implementation's clamp here too. Without it this expectation
@@ -51,7 +64,7 @@ describe("emergency department pressure", () => {
   // but the positive proof it used to carry has been restored as its own test underneath, using
   // an injected movement rather than fixture data.
   it("counts a breach only where a legal deadline has actually passed", () => {
-    for (const row of edPressure(NOW_ANCHOR)) {
+    for (const row of edPressure(NOW_ANCHOR, wardMovements)) {
       const breaching = wardMovements.filter(
         (movement) =>
           isOpen(movement) &&
@@ -78,7 +91,7 @@ describe("emergency department pressure", () => {
    */
   it("counts a movement whose deadline has passed — the counter is not hard-wired to zero", () => {
     const breachedMovement = movementFrom({
-      id: "TEST-past-due-transport",
+      id: "WF-TEST-past-due-transport",
       originEdId: "sjgm-ed",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 45 },
     });
@@ -109,7 +122,7 @@ describe("emergency department pressure", () => {
       return b.breaching - a.breaching || b.longestWaitMinutes - a.longestWaitMinutes || b.waiting - a.waiting;
     }
 
-    const rows = edPressure(NOW_ANCHOR);
+    const rows = edPressure(NOW_ANCHOR, wardMovements);
     for (let index = 1; index < rows.length; index += 1) {
       const previous = rows[index - 1];
       const current = rows[index];
@@ -145,10 +158,10 @@ describe("emergency department pressure", () => {
   // attribution, not just volume.
   it("attributes each department's count to that department, not a neighbour's", () => {
     const movements: Movement[] = [
-      movementFrom({ id: "TEST-peel-1", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 10 }),
-      movementFrom({ id: "TEST-peel-2", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 20 }),
-      movementFrom({ id: "TEST-peel-3", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 30 }),
-      movementFrom({ id: "TEST-fsh-1", originEdId: "fsh-ed", openedAt: NOW_ANCHOR - 5 }),
+      movementFrom({ id: "WF-TEST-peel-1", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 10 }),
+      movementFrom({ id: "WF-TEST-peel-2", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 20 }),
+      movementFrom({ id: "WF-TEST-peel-3", originEdId: "peel-ed", openedAt: NOW_ANCHOR - 30 }),
+      movementFrom({ id: "WF-TEST-fsh-1", originEdId: "fsh-ed", openedAt: NOW_ANCHOR - 5 }),
     ];
 
     const rows = edPressure(NOW_ANCHOR, movements);
@@ -168,7 +181,7 @@ describe("emergency department pressure", () => {
   // `Math.max(0, …)` clamp is removed from the implementation.
   it("clamps a future-dated openedAt to a zero wait rather than a negative one", () => {
     const movements: Movement[] = [
-      movementFrom({ id: "TEST-future-open", originEdId: "rgh-ed", openedAt: NOW_ANCHOR + 30 }),
+      movementFrom({ id: "WF-TEST-future-open", originEdId: "rgh-ed", openedAt: NOW_ANCHOR + 30 }),
     ];
     const rows = edPressure(NOW_ANCHOR, movements);
     const row = rows.find((candidate) => candidate.ed.id === "rgh-ed");
@@ -181,7 +194,7 @@ describe("emergency department pressure", () => {
   it("does not count a deadline due exactly now as breaching", () => {
     const movements: Movement[] = [
       movementFrom({
-        id: "TEST-due-now",
+        id: "WF-TEST-due-now",
         originEdId: "sjgm-ed",
         legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR },
       }),
@@ -198,7 +211,7 @@ describe("emergency department pressure", () => {
   it("never counts a legal form with no dueAt as breaching, however old the movement", () => {
     const movements: Movement[] = [
       movementFrom({
-        id: "TEST-no-deadline",
+        id: "WF-TEST-no-deadline",
         originEdId: "sjgm-ed",
         openedAt: NOW_ANCHOR - 10_000,
         legalForm: { code: "3B", kind: "detention" },
@@ -216,7 +229,7 @@ describe("emergency department pressure", () => {
   it("never counts a legal form with no dueAt as breaching, however old the movement", () => {
     const movements: Movement[] = [
       movementFrom({
-        id: "TEST-no-deadline",
+        id: "WF-TEST-no-deadline",
         originEdId: "sjgm-ed",
         openedAt: NOW_ANCHOR - 10_000,
         legalForm: { code: "3B", kind: "detention" },

@@ -1,9 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildAnswerRenderModel,
+  currencyReviewWarnings,
   describeSourceStrengthForCopy,
   formatAnswerRenderCopyText,
+  isCurrencyReviewWarning,
 } from "../src/lib/answer-render-policy";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import { answerStateForAnswer, buildAnswerClipboardText } from "@/components/clinical-dashboard/answer-copy-payload";
 import type {
   BestSourceRecommendation,
   Citation,
@@ -135,7 +139,34 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
   };
 }
 
+function clientAnswer(overrides: Partial<RagAnswer> = {}) {
+  return toClientAnswerPayload(answer(overrides));
+}
+
+it.each(["model_synthesis", "source_only"] as const)(
+  "R3 keeps explicit %s provenance with extractive routing",
+  (answerQualityTier) => {
+    const payload = clientAnswer({ answerQualityTier, routingMode: "extractive", fallbackReasonCode: "coverage_gap" });
+    const model = buildAnswerRenderModel(payload);
+    const copied = buildAnswerClipboardText({ answer: payload, weakEvidence: false, renderCopyText: model.copyText });
+    if (answerQualityTier === "model_synthesis") {
+      expect(answerStateForAnswer({ answer: payload, weakEvidence: false }).kind).not.toBe("source_only");
+      expect(copied).toMatch(/^AI-generated from the cited sources\./);
+      expect(copied).not.toMatch(/without (?:AI|model) synthesis/i);
+    } else {
+      expect(copied).toMatch(/^Assembled directly from the cited sources without model synthesis\./);
+    }
+  },
+);
+
 describe("answer render policy", () => {
+  it("caps trust and adds a warning from the bounded retrieval gate signal", () => {
+    const model = buildAnswerRenderModel(answer({ retrievalGateBlocked: true }));
+
+    expect(model.trust).toBe("low");
+    expect(model.warnings).toContain("Retrieval confidence gate was blocked for low signal.");
+  });
+
   it("labels review-only citations accurately instead of calling them generated-answer citations", () => {
     const model = buildAnswerRenderModel(
       answer({
@@ -265,6 +296,10 @@ describe("answer render policy", () => {
     const model = buildAnswerRenderModel(
       answer({
         sources: [reviewDue],
+        citations: [],
+        answerSections: [],
+        quoteCards: [],
+        bestSource: null,
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -308,7 +343,7 @@ describe("answer render policy", () => {
 
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -335,7 +370,7 @@ describe("answer render policy", () => {
   it("keeps high trust for routine claims on unverified evidence while the D5 flag is off", () => {
     // Locks the zero-change default: only high-risk claims are authority-gated.
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -363,7 +398,7 @@ describe("answer render policy", () => {
     vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
     try {
       const model = buildAnswerRenderModel(
-        answer({
+        clientAnswer({
           supportedClaims: [
             {
               claimId: "claim-1",
@@ -403,7 +438,7 @@ describe("answer render policy", () => {
     ],
   ])("caps high-risk trust for %s", (_label, assessment) => {
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
         supportedClaims: [
           {
             claimId: "claim-1",
@@ -424,7 +459,9 @@ describe("answer render policy", () => {
   it("prefers a direct supporting chunk as best source", () => {
     const direct = source({ id: "chunk-2", document_id: "doc-2", title: "Direct threshold", file_name: "direct.pdf" });
     const model = buildAnswerRenderModel(
-      answer({
+      clientAnswer({
+        answerQualityTier: "model_synthesis",
+        bestSource: undefined,
         sources: [source(), direct],
         supportedClaims: [
           {
@@ -438,6 +475,25 @@ describe("answer render policy", () => {
       }),
     );
     expect(model.bestSource?.chunk_id).toBe("chunk-2");
+  });
+
+  it("R3 retains an explicit best-source recommendation despite another direct supporting chunk", () => {
+    const model = buildAnswerRenderModel(
+      clientAnswer({
+        answerQualityTier: "model_synthesis",
+        sources: [source(), source({ id: "chunk-2", document_id: "doc-2" })],
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Withhold clozapine.",
+            riskClass: "high_risk",
+            supportingChunkIds: ["chunk-2"],
+            supportStatus: "direct",
+          },
+        ],
+      }),
+    );
+    expect(model.bestSource?.chunk_id).toBe("chunk-1");
   });
 
   it("copies the displayed table values, units, and canonical provenance", () => {
@@ -570,8 +626,8 @@ describe("answer render policy", () => {
     expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "visualEvidence", "relatedDocuments"]));
   });
 
-  it("promotes smartApiPlan core source links into canonical primary sources", () => {
-    const model = buildAnswerRenderModel(
+  it("does not widen the client renderer to server-only smartApiPlan links", () => {
+    const payload = toClientAnswerPayload(
       answer({
         smartApiPlan: {
           coreSourceLinks: [
@@ -592,14 +648,116 @@ describe("answer render policy", () => {
         } as RagAnswer["smartApiPlan"],
       }),
     );
+    const model = buildAnswerRenderModel(payload);
 
+    expect(payload).not.toHaveProperty("smartApiPlan");
+    expect(model.primarySources).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ chunk_id: "core-chunk" })]),
+    );
+    expect(model.copyText).not.toContain("/documents/doc-core?page=8&chunk=core-chunk");
+  });
+
+  it("does not let bestSource re-promote a review-only citation for the same passage", () => {
+    // Ledger #ZK460W / Copilot review on PR #2721. collectSourceCandidates gathers bestSource
+    // before citations and dedupes first-wins; without the override a strong bestSource would
+    // keep "Direct" / "strong match" labelling on a passage the answer marked review_only.
+    // smartApiPlan.coreSourceLinks are server-only (stripped by toClientAnswerPayload) and are
+    // covered separately by "does not widen the client renderer to server-only smartApiPlan links".
+    const model = buildAnswerRenderModel(
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [citation({ provenance: "review_only" })],
+          quoteCards: [],
+          answerSections: [],
+          bestSource: {
+            ...citation(),
+            source_strength: "strong",
+            quote: "Pinned best-source excerpt.",
+            snippet: "Pinned best-source excerpt.",
+            score: 0.99,
+            section_heading: "Monitoring",
+            image_count: 0,
+            viewer_href: "/documents/doc-1?page=4&chunk=chunk-1",
+          },
+        }),
+      ),
+    );
+
+    expect(model.trust).toBe("unsupported");
+    expect(model.primarySources).toHaveLength(1);
     expect(model.primarySources[0]).toMatchObject({
-      chunk_id: "core-chunk",
-      document_id: "doc-core",
-      href: "/documents/doc-core?page=8&chunk=core-chunk",
-      reason: "Selected by the answer plan.",
+      chunk_id: "chunk-1",
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
     });
-    expect(model.copyText).toContain("/documents/doc-core?page=8&chunk=core-chunk");
+  });
+
+  it("leaves an unrelated bestSource strength intact when no review-only citation covers that passage", () => {
+    // bestSource is only collected when its chunk is already in supportingChunkIds (citations /
+    // quotes / sections). Give the unrelated passage a normal citation so it remains eligible,
+    // while the review-only override stays scoped to chunk-1.
+    const model = buildAnswerRenderModel(
+      toClientAnswerPayload(
+        answer({
+          grounded: false,
+          confidence: "unsupported",
+          citations: [
+            citation({ provenance: "review_only" }),
+            citation({
+              chunk_id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+          ],
+          quoteCards: [],
+          answerSections: [],
+          sources: [
+            source(),
+            source({
+              id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+          ],
+          bestSource: {
+            ...citation({
+              chunk_id: "other-chunk",
+              document_id: "doc-other",
+              title: "Other Source",
+              file_name: "other-source.pdf",
+              page_number: 2,
+            }),
+            source_strength: "strong",
+            quote: "Unrelated best-source excerpt.",
+            snippet: "Unrelated best-source excerpt.",
+            score: 0.99,
+            section_heading: "Other",
+            image_count: 0,
+            viewer_href: "/documents/doc-other?page=2&chunk=other-chunk",
+          },
+        }),
+      ),
+    );
+
+    const reviewOnly = model.primarySources.find((row) => row.chunk_id === "chunk-1");
+    const unrelated = model.primarySources.find((row) => row.chunk_id === "other-chunk");
+    expect(reviewOnly).toMatchObject({
+      provenance: "review_only",
+      reason: "Added for source review; not accepted as claim support.",
+      sourceStrength: "none",
+    });
+    expect(unrelated).toMatchObject({
+      chunk_id: "other-chunk",
+      reason: "Pinned by backend as the best source.",
+      sourceStrength: "strong",
+    });
   });
 
   it("deduplicates conflicting section evidence by source rather than rendering duplicate rows", () => {
@@ -750,25 +908,12 @@ describe("answer render policy", () => {
               severity: "warning",
               message: "One or more supporting sources are not locally validated.",
             },
-          ],
-          supportedClaims: [
             {
-              claimId: "claim-1",
-              text: "Review the dose.",
-              riskClass: "high_risk",
-              supportingChunkIds: ["chunk-1"],
-              supportStatus: "direct",
+              code: "review_due_source",
+              severity: "warning",
+              message: "A supporting source is due for review.",
             },
           ],
-          evidenceAssessments: {
-            "chunk-1": {
-              relevance: "direct",
-              claimSupport: "direct",
-              authority: "approved",
-              currency: "review_due",
-              extractionQuality: "good",
-            },
-          },
         }),
       );
 
@@ -829,5 +974,33 @@ describe("answer render policy", () => {
       expect(text).toContain("Legacy Note | match strength not rated | /documents/doc-2");
       expect(text).not.toContain("none support");
     });
+  });
+});
+
+/**
+ * The answer surface summarises `warnings` in one chip. A source being due for
+ * review is a statement about that source's CURRENCY, not a missing piece of
+ * evidence, and the same overdue assessment separately drives the answer's
+ * stale-evidence state — so counting it as a gap both overstates the gaps and
+ * reports one fact twice under the wrong name. The surface needs to tell the two
+ * apart without matching prose it does not own, which is what these exports are
+ * for.
+ */
+describe("currency warnings are distinguishable from evidence gaps", () => {
+  it("recognises exactly the two currency sentences buildWarnings emits", () => {
+    expect(isCurrencyReviewWarning(currencyReviewWarnings.supporting)).toBe(true);
+    expect(isCurrencyReviewWarning(currencyReviewWarnings.retrieved)).toBe(true);
+    expect(
+      isCurrencyReviewWarning("Evidence support is low; verify linked sources before relying on the answer."),
+    ).toBe(false);
+    expect(isCurrencyReviewWarning("A supporting source is due for review")).toBe(false);
+  });
+
+  it("keeps the exported constants equal to the wording the model still emits", () => {
+    // The two are the same string in one place today. Pinning it here means a
+    // reworded warning cannot silently stop being recognised as a currency
+    // warning and start being counted as an evidence gap.
+    expect(currencyReviewWarnings.supporting).toBe("A supporting source is due for review.");
+    expect(currencyReviewWarnings.retrieved).toBe("A retrieved source is due for review.");
   });
 });

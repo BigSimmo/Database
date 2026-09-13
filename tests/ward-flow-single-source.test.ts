@@ -3,6 +3,8 @@ import { join } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
+import { seedWardFlowState } from "../src/components/ward-management/ward-flow-reducer";
+
 const WARD_DIR = "src/components/ward-management";
 
 /**
@@ -23,6 +25,64 @@ const SRC_DIR = "src";
  *  ward-management feature, so bare basenames are unambiguous here and this rule is unchanged
  *  from fix round 3. */
 const ALLOWED = new Set(["ward-movements.ts", "ward-flow-reducer.ts", "ward-pressure.ts", "ward-derivations.ts"]);
+
+/**
+ * Files allowed to import the ADMISSION seed (`ward-admissions-seed.ts`) — the sibling of the
+ * `ALLOWED` rule above, added Phase 8 Task 5 fix round 1, and it guards a SENTENCE rather than a
+ * number.
+ *
+ * `Admission` is currently not in reducer state and no `WardFlowEvent` creates, ends or moves one,
+ * so `wardAdmissions` is the only record of who is in a bed. The out-of-area ledger therefore reads
+ * the seed as a default parameter — and, because it does, that screen tells the reader in its own
+ * words that the list is seeded, that nothing done on these screens adds to it or takes from it,
+ * and that it is not a live statewide count.
+ *
+ * **That sentence is true today and nothing else keeps it true.** The moment admissions become live
+ * — a reducer key, an arrival event, a departure event — the screen's paragraph becomes false while
+ * every one of its tests stays green, because those tests pin the sentence's PRESENCE and cannot
+ * pin its TRUTH. This list is the tripwire: a second reader of the seed, or a move of the ledger
+ * off it, fails here and sends a reviewer back to that paragraph. It replaced a sentence this
+ * project had already had to correct once for being false on exactly this axis
+ * (`docs/ward-flow-phase-8-decisions.md`, D8-9), which is why it gets a guard that outlives the
+ * session that wrote it.
+ *
+ * Full paths from the repo root with forward slashes, matching `NOW_ANCHOR_ALLOWLIST`'s convention
+ * rather than `ALLOWED`'s bare basenames — this rule is scoped to the whole of `SRC_DIR`, where a
+ * bare basename could collide with an unrelated same-named file and silently exempt it.
+ *   - `ward-admissions-seed.ts` declares the fixture.
+ *   - `out-of-area/out-of-area-board.tsx` is the ledger screen. Adding a second entry here is not a
+ *     paperwork step: read that screen's provenance paragraph first and decide whether it is still
+ *     true.
+ */
+const ADMISSION_SEED_ALLOWLIST = new Set([
+  // Task 17, 2026-08-30, and the reason is a decision rather than a formality. Arrival now records
+  // a PERSON IN A BED: before it, `PATIENT_ARRIVED` closed the movement and created nobody, and
+  // `isOpen` then removed the closed movement from ten surfaces - so a patient who reached a ward
+  // vanished from the whole application at the moment it had succeeded in placing them. The reducer
+  // seeds `state.admissions` from this file so the beds start occupied by the same people the board
+  // already renders, and an arrival APPENDS a record of the same shape rather than introducing a
+  // second kind of occupant.
+  //
+  // This entry makes the out-of-area board's provenance paragraph the thing to check, which is why
+  // the assertion below now pins that paragraph instead of forbidding the state key.
+  "src/components/ward-management/ward-flow-reducer.ts",
+  "src/components/ward-management/ward-admissions-seed.ts",
+  "src/components/ward-management/out-of-area/out-of-area-board.tsx",
+  // Added at the ward board fold, 2026-08-29, following this constant's own instruction that a
+  // second entry is not a paperwork step — the provenance paragraph was read and assessed rather
+  // than waved through. The sentence it protects is "the list is seeded, no event in this prototype
+  // adds to it or removes from it, and it is not a live count of anything." `ward-board.tsx` reads
+  // the seed as `const admissions = wardAdmissions` and contains no `dispatch`, no `useState`, no
+  // `useWardFlow` and no `useReducer` — verified by grep before the entry was added. A read-only
+  // consumer emits no events, so it cannot make that sentence false. The comment's fear — that a
+  // second reader is usually the change that falsifies it — is a good prior and does not hold here.
+  //
+  // The guarantee is now carried by the companion assertion below rather than by this list being
+  // short: no file reading the admission seed may also dispatch a Ward Flow event. That is the
+  // property the prose actually promises, and it keeps biting if this board later gains the
+  // discharge-confirmation handler its own DB-2 work points at.
+  "src/components/ward-management/board/ward-board.tsx",
+]);
 
 /**
  * Files allowed to read `NOW_ANCHOR` anywhere under `SRC_DIR` — Task 6 fix round 4, widening fix
@@ -46,6 +106,12 @@ const NOW_ANCHOR_ALLOWLIST = new Set([
   "src/components/ward-management/ward-sites.ts", // declares the constant and uses it to build the fixture's capacity timestamps
   "src/components/ward-management/ward-movements.ts", // the movement fixture; every synthetic timestamp derives from it
   "src/components/ward-management/ward-flow-provider.tsx", // the provider, which reads it once to derive the live `now`
+  // Added 2026-08-30 for Task 1. RESET_SCENARIO and SET_SCENARIO re-seed from a fixture authored
+  // at NOW_ANCHOR, so the reducer must know that anchor to shift the fresh seed onto the demo's
+  // current now - otherwise a reset mid-demonstration hands back predictions already lapsed
+  // against a clock that has moved on. It reads the constant to compute a DIFFERENCE and never as
+  // a time in its own right, which is the same narrow use the provider is allowed on the line above.
+  "src/components/ward-management/ward-flow-reducer.ts",
 ]);
 
 /**
@@ -432,6 +498,112 @@ describe("one source of truth", () => {
       .filter(({ source }) => /from "[^"]*ward-movements"/.test(source))
       .map(({ file }) => file);
     expect(offenders).toEqual([]);
+  });
+
+  it("scans a non-empty set of src source files for the admission-seed allow-list check", () => {
+    // Same failure mode as every other rule here: a scan that came back empty would make the check
+    // below vacuous, and a vacuous check is worse than no check because it reads as a guard.
+    expect(srcDirFiles().length).toBeGreaterThan(0);
+  });
+
+  it("lets only the ledger screen read the admission seed, so its 'this is not live' sentence keeps a guard", () => {
+    const offenders = srcDirFiles()
+      .filter(({ normalizedFile }) => !ADMISSION_SEED_ALLOWLIST.has(normalizedFile))
+      .filter(({ source }) => /from "[^"]*ward-admissions-seed"/.test(source))
+      .map(({ normalizedFile }) => normalizedFile);
+    expect(
+      offenders,
+      `file(s) reading the admission seed outside ADMISSION_SEED_ALLOWLIST: ${offenders.join(", ")}. ` +
+        "Read that constant's comment before adding one — the out-of-area board states in its own words " +
+        "that this list is seeded and not live, and a second reader is usually the change that makes that false.",
+    ).toEqual([]);
+  });
+
+  it("lets no admission-seed reader dispatch a Ward Flow event, which is what that sentence promises", () => {
+    /*
+     * The companion to `ADMISSION_SEED_ALLOWLIST`, added at the fold when the ward board became its
+     * third entry. A bare allowlist entry would weaken the guard permanently: the rule would then
+     * be "these three files are trusted" rather than "nothing that reads this list can change it".
+     *
+     * This asserts the property the provenance paragraph actually promises — no event adds to or
+     * removes from the list — against every reader including the allowed ones. A reader that later
+     * grows a dispatch fails here even though it is on the list above, which is precisely the change
+     * the original comment was worried about and the one a longer allowlist would have stopped
+     * catching.
+     */
+    const offenders = srcDirFiles()
+      .filter(({ source }) => /from "[^"]*ward-admissions-seed"/.test(source))
+      // `dispatch(` only, deliberately narrow. The first draft of this rule also matched
+      // `useWardFlow(` and immediately fired on `out-of-area-board.tsx` — which calls that hook to
+      // READ `{ units, now }` and dispatches nothing. Reading the provider cannot falsify the
+      // sentence; only emitting an event can. A check that fires is a question, not a verdict.
+      .filter(({ source }) => /\bdispatch\s*\(/.test(source))
+      .map(({ normalizedFile }) => normalizedFile);
+    expect(
+      offenders,
+      `file(s) reading the admission seed AND dispatching a Ward Flow event: ${offenders.join(", ")}. ` +
+        "The ledger's provenance paragraph promises that no event adds to or removes from this list. " +
+        "A reader that dispatches can falsify it, whether or not it is on ADMISSION_SEED_ALLOWLIST.",
+    ).toEqual([]);
+  });
+
+  it("keeps the reducer's state free of any admissions key, which is the thing that sentence depends on", () => {
+    /*
+     * The two-line complement to `ADMISSION_SEED_ALLOWLIST` above, and it guards the scenario that
+     * constant's own comment names rather than the file shape.
+     *
+     * The import rule is a tripwire for the LIKELY change — a second module reading the seed — but
+     * three routes get past it: a re-export through a module that is already allowed, a dynamic
+     * `import()`, and admissions entering reducer state with no seed import at all (a new event
+     * building them, or a fetch). All three end in the same place, which is why the assertion is
+     * made there: the moment `WardFlowState` carries admissions, the out-of-area board's paragraph
+     * — "this prototype does not record admissions as they happen ... this is not a live statewide
+     * count" — is false, while every test that pins that paragraph stays green, because they pin
+     * its PRESENCE and cannot pin its TRUTH.
+     *
+     * Matched case-insensitively on the substring rather than by exact key, so `admissions`,
+     * `wardAdmissions` and `admissionsById` are all caught: this is a tripwire meant to fire on the
+     * shape of the change, not a list of names someone has to remember to extend.
+     */
+    /*
+     * REWRITTEN 2026-08-30 (Task 17), and deliberately not deleted. This used to assert that
+     * `WardFlowState` carried NO admissions key at all, because admissions in reducer state was
+     * what made the out-of-area board's provenance paragraph false while every test pinning that
+     * paragraph stayed green - they pin its PRESENCE and cannot pin its TRUTH.
+     *
+     * The state now carries admissions, because arrival has to record a person or the patient
+     * vanishes from ten surfaces. So the coupling this test exists to hold is unchanged and its
+     * direction is reversed: if the state can gain admissions during a session, the paragraph must
+     * SAY so. The guard now reads the sentence rather than forbidding the capability.
+     */
+    const stateKeys = Object.keys(seedWardFlowState());
+    // A seeded state that came back empty would make everything below vacuous.
+    expect(stateKeys.length).toBeGreaterThan(0);
+    const admissionKeys = stateKeys.filter((key) => key.toLowerCase().includes("admission"));
+    expect(admissionKeys.length, "the state must still carry admissions, or Task 17 has been undone").toBeGreaterThan(
+      0,
+    );
+
+    const provenance = readFileSync("src/components/ward-management/out-of-area/out-of-area-board.tsx", "utf8");
+    expect(
+      provenance,
+      "WardFlowState carries admissions, so a patient who arrives during a session is recorded - and " +
+        "the out-of-area board's provenance paragraph must say so. It previously told the reader that " +
+        "nothing on these screens adds anyone to this list, which stopped being true the moment " +
+        "arrival started creating a person. Update the paragraph rather than this assertion.",
+    ).toMatch(/ARRIVES during this session is added/);
+    expect(
+      provenance,
+      "the paragraph must still say this is not a live statewide count - the seed is still a seed",
+    ).toMatch(/not a live statewide count/);
+  });
+
+  it("keeps every ADMISSION_SEED_ALLOWLIST entry pointing at a file that exists", () => {
+    // A stale entry is an exemption for nothing, and it hides the day the real reader moves.
+    const scanned = new Set(srcDirFiles().map(({ normalizedFile }) => normalizedFile));
+    for (const allowed of ADMISSION_SEED_ALLOWLIST) {
+      expect(scanned, `${allowed} is allow-listed but no longer exists`).toContain(allowed);
+    }
   });
 
   it("no longer exports a stage summary frozen at import time", () => {

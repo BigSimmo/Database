@@ -122,8 +122,9 @@ function lastRowIndex(parsed, table) {
   return rows[rows.length - 1].line - 1;
 }
 
-function findRow(parsed, id) {
-  return parsed.rows.find((row) => row.id === id) ?? null;
+export function findRow(parsed, id) {
+  const normalized = normalizeIssueDisplayId(id);
+  return parsed.rows.find((row) => row.id === id || (row.id && normalizeIssueDisplayId(row.id) === normalized)) ?? null;
 }
 
 function isQueueHeaderRow(cells) {
@@ -142,7 +143,9 @@ function isQueueSeparatorRow(cells) {
  * - Renumbers Order 1..N to close gaps (skill contract).
  */
 export function pruneResolvedIdFromQueue(markdown, id) {
-  const target = String(id);
+  // Normalize so lowercase Crockford locators (accepted by validate/findRow)
+  // still prune uppercase queue citations.
+  const target = normalizeIssueDisplayId(id);
 
   const lines = markdown.split("\n");
   const queueStart = lines.findIndex((line) => line.startsWith("## Recommended execution queue"));
@@ -160,9 +163,9 @@ export function pruneResolvedIdFromQueue(markdown, id) {
 
     const idCell = cells[1] ?? "";
     const cited = issueIdCitations(idCell);
-    if (!cited.includes(target)) continue;
+    if (!cited.some((candidate) => normalizeIssueDisplayId(candidate) === target)) continue;
 
-    const remaining = cited.filter((candidate) => candidate !== target);
+    const remaining = cited.filter((candidate) => normalizeIssueDisplayId(candidate) !== target);
     if (remaining.length === 0) {
       lines.splice(index, 1);
       continue;
@@ -239,13 +242,43 @@ export function addIssue(markdown, fields, options = {}) {
   });
 }
 
+export function mergeArchiveOutcome(existingOutcome, newOutcome) {
+  const escapedExisting = String(existingOutcome ?? "").trim();
+  const escapedNew = escapeCell(newOutcome);
+  if (!escapedNew) return escapedExisting;
+  if (!escapedExisting) return escapedNew;
+  const noteContent = escapedNew.replace(/^Note:\s*/i, "");
+  const noteSegment = `Note: ${noteContent}`;
+  if (escapedExisting.includes(noteSegment)) {
+    return escapedExisting;
+  }
+  return `${escapedExisting} \\| ${noteSegment}`;
+}
+
 export function resolveIssue(markdown, id, outcome, options = {}) {
   if (!outcome) throw new Error("--outcome is required");
+  const allowArchived = Boolean(options.allowArchived ?? options.mergeOutcome);
   return guarded(markdown, (current) => {
     const parsed = parseIssues(current);
     const row = findRow(parsed, id);
     if (!row) throw new Error(`${id} is not in ${ISSUES_PATH}`);
-    if (row.table === "archive") throw new Error(`${id} is already archived`);
+    if (row.table === "archive") {
+      if (allowArchived) {
+        const cells = splitCells(row.raw);
+        cells[3] = mergeArchiveOutcome(cells[3], outcome);
+        const updatedRow = buildRow(cells);
+        if (splitCells(updatedRow).length !== ARCHIVE_CELLS) {
+          throw new Error(
+            `built an archive row with ${splitCells(updatedRow).length} cells, expected ${ARCHIVE_CELLS}`,
+          );
+        }
+        const lines = current.split("\n");
+        lines[row.line - 1] = updatedRow;
+        return pruneResolvedIdFromQueue(lines.join("\n"), id);
+      }
+      if (options.idempotent) return current;
+      throw new Error(`${id} is already archived`);
+    }
 
     const cells = splitCells(row.raw);
     // Open is ID|Pri|Type|Summary|Detail|Source|Added; archive drops Pri,
@@ -292,6 +325,30 @@ export function updateIssue(markdown, id, fields) {
     const lines = current.split("\n");
     lines[row.line - 1] = buildRow(cells);
     return lines.join("\n");
+  });
+}
+
+/**
+ * Amend the outcome of an archived issue row (#1BKK79).
+ * Preserves historical resolution while allowing outcome corrections or notes.
+ */
+export function updateArchivedIssue(markdown, id, outcome, options = {}) {
+  if (!outcome) throw new Error("--outcome is required to update an archived issue");
+  return guarded(markdown, (current) => {
+    const parsed = parseIssues(current);
+    const targetId = normalizeIssueDisplayId(id);
+    const row = parsed.rows.find((r) => r.table === "archive" && normalizeIssueDisplayId(r.id) === targetId);
+    if (!row) throw new Error(`${id} is not in archive table in ${ISSUES_PATH}`);
+
+    const cells = splitCells(row.raw);
+    cells[3] = options.replace ? escapeCell(outcome) : mergeArchiveOutcome(cells[3], outcome);
+    const updatedRow = buildRow(cells);
+    if (splitCells(updatedRow).length !== ARCHIVE_CELLS) {
+      throw new Error(`built an archive row with ${splitCells(updatedRow).length} cells, expected ${ARCHIVE_CELLS}`);
+    }
+    const lines = current.split("\n");
+    lines[row.line - 1] = updatedRow;
+    return pruneResolvedIdFromQueue(lines.join("\n"), id);
   });
 }
 
@@ -600,6 +657,12 @@ function selfTest() {
   };
   rejects("unknown id", () => resolveIssue(fixture, "#999", "x"));
   rejects("double archive", () => resolveIssue(resolved, "#005", "again"));
+  const doubleResolved = resolveIssue(resolved, "#005", "re-closed with note", { allowArchived: true });
+  const doubleRow = parseIssues(doubleResolved).rows.find((r) => r.id === "#005");
+  check(
+    "idempotent resolve merges outcome note",
+    doubleRow && doubleRow.raw.includes("Resolved by PR #1 \\| Note: re-closed with note"),
+  );
   rejects("bad priority", () => addIssue(fixture, { pri: "P9", summary: "x" }));
   rejects("bad type", () => addIssue(fixture, { type: "nope", summary: "x" }));
   rejects("missing summary", () => addIssue(fixture, {}));
@@ -697,7 +760,11 @@ function main() {
         source: argValue(argv, "source"),
       });
     } else if (command === "done") {
-      next = resolveIssue(markdown, positional, argValue(argv, "outcome"));
+      const allowArchived = argv.includes("--allow-archived") || argv.includes("--merge-outcome");
+      next = resolveIssue(markdown, positional, argValue(argv, "outcome"), {
+        allowArchived,
+        idempotent: argv.includes("--idempotent"),
+      });
     } else if (command === "update") {
       next = updateIssue(markdown, positional, {
         pri: argValue(argv, "pri"),

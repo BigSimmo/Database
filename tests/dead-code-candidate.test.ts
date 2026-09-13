@@ -21,6 +21,7 @@ import {
   historyIsComplete,
   main,
   parseRecentDays,
+  planIsHistory,
   removedDeclarationsInDiff,
 } from "../scripts/check-dead-code-candidate.mjs";
 
@@ -224,13 +225,32 @@ describe("dead-code candidate CLI", () => {
   });
 
   it("runs the default gate path instead of exiting silently", () => {
+    const root = createFixture();
+    for (const args of [
+      ["init"],
+      ["add", "--all"],
+      [
+        "-c",
+        "user.name=Dead Code Candidate Test",
+        "-c",
+        "user.email=dead-code-candidate@example.invalid",
+        "-c",
+        "commit.gpgSign=false",
+        "commit",
+        "-m",
+        "fixture",
+      ],
+      ["update-ref", "refs/remotes/origin/main", "HEAD"],
+    ])
+      execFileSync("git", args, { cwd: root, stdio: "ignore" });
+
     const result = spawnSync(process.execPath, [SCRIPT], {
-      cwd: REPOSITORY_ROOT,
+      cwd: root,
       encoding: "utf8",
     });
 
-    expect([0, 1]).toContain(result.status);
-    expect(result.stdout).toContain("[dead-code]");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("[dead-code] no removed declarations to assess.");
   });
 
   it("refuses when git diff fails instead of reporting zero candidates", () => {
@@ -454,5 +474,46 @@ describe("dead-code candidate diff parsing", () => {
     for (const sentinel of sentinels) {
       expect(fileReads.get(resolve(root, sentinel)), sentinel).toBe(1);
     }
+  });
+});
+
+describe("a finished plan's tick-boxes are formatting, not a backlog", () => {
+  // Ward Flow process audit P2-10 / P2-16. Measured 2026-08-30: the sixteen ward plans carry 555
+  // unchecked boxes and ZERO checked ones, including four shipped phases -- nobody ticks a box in
+  // this repository. `open > 0` was therefore true of every plan ever written, so every symbol named
+  // in any plan was exempt from dead-code detection permanently.
+
+  it("treats a superseded plan as history even though every box is unchecked", () => {
+    const body = [
+      "# Ward Flow -- standalone prototype",
+      "",
+      "> **SUPERSEDED 2026-08-25** by the sandbox plan. Do not execute this plan.",
+      "",
+      "- [ ] Step 1",
+      "- [ ] Step 2",
+    ].join(String.fromCharCode(10));
+    expect(planIsHistory(body)).toBe(true);
+  });
+
+  it("still treats an unmarked plan as in flight", () => {
+    const body = ["# A live plan", "", "- [ ] Step 1"].join(String.fromCharCode(10));
+    expect(planIsHistory(body)).toBe(false);
+  });
+
+  it("REFUSES to demote a live plan that merely QUOTES a supersession banner further down", () => {
+    // The dangerous direction. A missed exemption costs a refusal somebody can argue with; a wrong
+    // exemption un-guards a symbol that is genuinely in flight. So the marker must be a BANNER, and
+    // a mid-document heading must not count -- which is why the scan stops after the opening lines.
+    const body = [
+      "# A live plan",
+      "",
+      ...Array.from({ length: 30 }, (_, index) => `Line ${index} of preamble.`),
+      // A live plan discussing the plan it replaced. This line WOULD match the banner pattern, so
+      // the test discriminates: widen the scan and it wrongly demotes a plan that is in flight.
+      "> **SUPERSEDED 2026-08-01** was the banner on the approach this plan replaces.",
+      "",
+      "- [ ] Step 1",
+    ].join(String.fromCharCode(10));
+    expect(planIsHistory(body)).toBe(false);
   });
 });

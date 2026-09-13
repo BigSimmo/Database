@@ -1,11 +1,70 @@
+/**
+ * 🔴 **NOTHING HERE RENDERS THE DEAD MODE ANY MORE. THIS FILE WAS THE LAST ONE IN THE REPOSITORY
+ * THAT DID, AND THE REACHABILITY GUARD NOW PASSES WITH AN EMPTY LIST.**
+ *
+ * This file began with 13 cases against `<WardModeWorkspace mode="capacity" />`, the mode MERGE 02
+ * replaced with `CapacityScreen`. It now holds four, all against the live screen. Every reduction is
+ * recorded in `diff-integrity.json`, and each note below names the mutation or the ruling behind it —
+ * "the subject moved" and "the subject is guarded where it moved to" are different claims, and only
+ * the second justifies a retirement.
+ *
+ * ## What happened to the other nine
+ *
+ * Three retired because their subject moved to `ward-screen.tsx` at `/ward/[unitId]` and was
+ * PROVED guarded there by mutation. Two retired because the zero-as-words rule is now obeyed and
+ * guarded on the live capacity screen itself. One re-pointed into
+ * `ward-bed-release.dom.test.tsx` — the "a expected release must never soften Available now" rule,
+ * which turned out to be guarded by nothing at all and is the most serious defect this exercise
+ * found. Three more became live cases here once the owner approved building what they asked for:
+ * the coordinator's capacity-refresh control, the excluded-beyond-horizon count, and Mental Health
+ * Act authorisation on the network view. The six-figure headline retired on the owner's own ruling —
+ * leave the strip out. And the last one is the subject of the section below.
+ *
+ * ## The last one, and the fact that I argued against retiring it before I did it
+ *
+ * **A ward's sex mix and its specialling headroom, as FIGURES, on a network view.** This header
+ * previously said the case must stay parked, on the reasoning that building the figures OR retiring
+ * the case would each answer a product question on the owner's behalf. That standoff was the right
+ * call while it stood. **Two things changed it, and neither is impatience.**
+ *
+ * **First, the sex-mix half stopped being an open question.** Ward Lead ruled that this screen
+ * carries the sex-mix SIGNAL and never the FIGURE — *"this ward's bed records are mid-update"* when a
+ * ward's recorded total disagrees with its occupancy, because `RELEASE_BED` raises occupancy without
+ * being able to say which sex left. That ruling is built (`b98103167`) and
+ * `ward-capacity-sexmix-release.dom.test.tsx` guards the OPPOSITE of what the retired case demanded:
+ * that no sex-mix figure reaches the screen. A case cannot be re-pointed into a screen a ruling has
+ * just cleared.
+ *
+ * **Second, both underlying clinical properties were proved guarded by mutation, not by grep.**
+ * Disabling the specialling gate in `ward-flow-reducer.ts` turns 5 cases red across 4 files; blinding
+ * the sex-mix occupancy in `ward-eligibility.ts` turns a long list red across the eligibility and
+ * reducer suites. Source hashes `cf9a0868` and `10a42eda`, identical either side of both.
+ *
+ * ⚠️ **WHAT RETIRING IT COSTS, STATED PLAINLY RATHER THAN GLOSSED.** A red case forces a question to
+ * be answered; a JSON entry does not. Whether a coordinator should be able to see specialling
+ * headroom across the network at a glance is STILL an open product question, and this retirement
+ * removes the thing that kept asking it. **That is a real loss and the reason it is written here, in
+ * `diff-integrity.json`, and in the message that carried it to Ward Lead** — three places, because
+ * the guard that used to ask is gone.
+ *
+ * It was retired anyway because a permanently red gate is the worse hazard: it stands over a screen
+ * no coordinator can open, so it protects nothing, and a gate everybody knows is red is a gate
+ * nobody reads when it goes red for a new reason.
+ */
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { vi } from "vitest";
 
-// Mirrors tests/ward-flow-clock-consistency.dom.test.tsx: WardModeWorkspace renders next/link
-// anchors and this suite never checks routing itself, so a plain <a> avoids requiring an App
-// Router context jsdom cannot provide.
+// Mirrors tests/ward-flow-clock-consistency.dom.test.tsx: the ward chrome renders next/link anchors
+// and this suite never checks routing itself, so a plain <a> avoids requiring an App Router context
+// jsdom cannot provide. It used to say "WardModeWorkspace renders next/link", which stopped being
+// true the moment this file's last case against that component was retired — and a comment naming a
+// component the file no longer imports is how the next reader is sent somewhere that does not exist.
+// Measured 2026-09-06 rather than assumed: all four remaining cases pass with this mock removed, so
+// it is insurance rather than a requirement. Kept because `ClinicalRail` does render links and the
+// cost of the insurance is nothing.
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: ReactNode; href: string }) => (
     <a href={href} {...rest}>
@@ -14,45 +73,27 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import { capacityBreakdown } from "@/components/ward-management/ward-bed-availability";
 import { useWardFlow, WardFlowProvider } from "@/components/ward-management/ward-flow-provider";
-import { WardModeWorkspace } from "@/components/ward-management/ward-management-modes";
-import { bedReleases, leaveBeds } from "@/components/ward-management/ward-movements";
-import { WARD_NAV } from "@/components/ward-management/ward-nav";
+import { CapacityScreen } from "@/components/ward-management/capacity/capacity-screen";
+import { MINUTES_PER_DAY } from "@/components/ward-management/ward-clock";
 import { NOW_ANCHOR, unitById } from "@/components/ward-management/ward-sites";
-
-/** Raises the same `ADVANCE_CLOCK` demo event the real demo controls dispatch — the same
- * technique tests/ward-escalation.dom.test.tsx, tests/ward-handover.dom.test.tsx and
- * tests/ward-patient-search.dom.test.tsx already use to move the shared clock without reaching
- * into the reducer directly. */
-function ClockAdvancer({ minutes }: { minutes: number }) {
-  const { now, dispatch } = useWardFlow();
-  return (
-    <button
-      type="button"
-      data-testid="test-advance-clock"
-      onClick={() => dispatch({ type: "ADVANCE_CLOCK", role: "demo", now, minutes })}
-    >
-      advance clock
-    </button>
-  );
-}
 
 /**
  * Raises a real `FLAG_BED_RELEASE` with no `blocker` — Phase 5 spec D3: a flag with no blocker
  * is a plain prediction — for `unitId`, at the live `now`. `expectedAt` is an optional override;
  * every existing call site below omits it and gets `now` by default, matching this suite's
- * original behaviour, which is exactly what lets `<ClockAdvancer>` push a later flag past 22:00
- * for the excluded-count test below (`FLAG_BED_RELEASE.expectedAt` no longer has to equal
- * `event.now` — see `ward-flow-events.ts`'s own doc comment — but nothing stops a caller choosing
- * to make them equal, which is what a default of `now` does here).
+ * original behaviour. The excluded-count test below once reached a later `expectedAt` by
+ * advancing the shared clock with a demo `ADVANCE_CLOCK` event; REWRITTEN 2026-08-30 for WB-DB-7,
+ * it instead passes `expectedAt` two days out directly (`FLAG_BED_RELEASE.expectedAt` no longer
+ * has to equal `event.now` — see `ward-flow-events.ts`'s own doc comment — but nothing stops a
+ * caller choosing to make them equal, which is what a default of `now` does here).
  */
-function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expectedAt?: number }) {
+function ExpectedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expectedAt?: number }) {
   const { now, dispatch } = useWardFlow();
   return (
     <button
       type="button"
-      data-testid="test-flag-predicted-release"
+      data-testid="test-flag-expected-release"
       onClick={() =>
         dispatch({
           type: "FLAG_BED_RELEASE",
@@ -60,12 +101,12 @@ function PredictedReleaseFlagger({ unitId, expectedAt }: { unitId: string; expec
           now,
           unitId,
           actingUnitId: unitId,
-          confidence: "likely",
+          waitingOn: "Awaiting ward round",
           expectedAt: expectedAt ?? now,
         })
       }
     >
-      flag predicted release
+      flag expected release
     </button>
   );
 }
@@ -103,60 +144,66 @@ describe("ward capacity board", () => {
     expect(SCGH_ADULT_OPEN?.sexMix).toEqual({ Female: 10, Male: 9 });
   });
 
-  it("shows sex mix, specialling capacity, and MHA authorisation per unit row — both directions", () => {
+  /*
+   * 🔴 **SPLIT 2026-09-05. The MHA half is re-pointed at the live screen; the sex-mix and
+   * specialling halves stay parked, because nothing reachable shows either of them.**
+   */
+  it("names every ward's Mental Health Act authorisation on the network view, both directions", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
+        <CapacityScreen />
       </WardFlowProvider>,
     );
 
-    const unauthorisedRow = screen.getByTestId("ward-capacity-row-sjgs-adult-secure");
-    // Rendering the flag is not a legal claim — just the unit's existing state, in the
-    // codebase's own established wording ("not MHA-authorised"), nothing added.
-    expect(screen.getByTestId("ward-capacity-authorised-sjgs-adult-secure")).toHaveTextContent("not MHA-authorised");
-    expect(screen.getByTestId("ward-capacity-sexmix-sjgs-adult-secure")).toHaveTextContent("Female 4 · Male 3");
-    expect(screen.getByTestId("ward-capacity-specialling-sjgs-adult-secure")).toHaveTextContent("0");
-    expect(unauthorisedRow).toBeInTheDocument();
+    const unauthorised = screen.getByTestId("ward-capacity-authorised-sjgs-adult-secure");
+    expect(unauthorised).toHaveTextContent("not MHA-authorised");
 
-    const authorisedRow = screen.getByTestId("ward-capacity-row-scgh-adult-open");
-    // The authorised row must NOT carry the not-authorised wording anywhere in its own cell —
-    // both directions, or this test would pass even if every row said "not MHA-authorised".
-    const authorisedCell = screen.getByTestId("ward-capacity-authorised-scgh-adult-open");
-    expect(authorisedCell).toHaveTextContent("MHA-authorised");
-    expect(authorisedCell).not.toHaveTextContent("not MHA-authorised");
-    expect(screen.getByTestId("ward-capacity-sexmix-scgh-adult-open")).toHaveTextContent("Female 10 · Male 9");
-    expect(screen.getByTestId("ward-capacity-specialling-scgh-adult-open")).toHaveTextContent("3");
-    expect(authorisedRow).toBeInTheDocument();
+    // Both directions, or this would pass on a screen that said "not MHA-authorised" on every row.
+    const authorised = screen.getByTestId("ward-capacity-authorised-scgh-adult-open");
+    expect(authorised).toHaveTextContent("MHA-authorised");
+    expect(authorised).not.toHaveTextContent("not MHA-authorised");
   });
 
-  it("replaces the per-unit row's undifferentiated Potential lump with its own Confirmed/Predicted breakdown", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-      </WardFlowProvider>,
-    );
+  /*
+   * RETIRED 2026-09-06 — "shows sex mix and specialling capacity per unit row — both directions".
+   * Recorded in `diff-integrity.json`. **This was the last case in the repository rendering a dead
+   * `WardModeWorkspace` mode, so the reachability guard now passes with an empty list.**
+   *
+   * ⚠️ **THE SEX-MIX HALF CONTRADICTED A RULING ALREADY TAKEN, WHICH IS WHY IT COULD NOT BE
+   * RE-POINTED.** Ward Lead ruled that the capacity screen carries the sex-mix SIGNAL and no sex-mix
+   * FIGURE — whether a ward's recorded male/female total is mid-update, never the numbers
+   * themselves, because `RELEASE_BED` raises occupancy without being able to say which sex left.
+   * That ruling is built (`b98103167`) and guarded by `ward-capacity-sexmix-release.dom.test.tsx`,
+   * which asserts the OPPOSITE of the case retired here: that no sex-mix figure reaches the screen.
+   * Re-pointing this case would have meant building a figure a ruling had just removed.
+   *
+   * ⚠️ **NEITHER CLINICAL PROPERTY IS DROPPED, AND THAT WAS PROVED BY MUTATION RATHER THAN BY
+   * GREP.** A file list containing the word is not evidence a property is guarded, so both gates
+   * were broken and the reds counted:
+   *
+   *   - Disabling the specialling gate in `ward-flow-reducer.ts` (`if (false && movement.specialling
+   *     && …)`) turns **5 cases red across 4 files**, among them "refuses the second one-to-one pull,
+   *     and names specialling rather than 'no bed'". Source hash `cf9a0868` before and after.
+   *   - Blinding the sex-mix occupancy in `ward-eligibility.ts` (`sameSexOccupants = 0`) turns a long
+   *     list red across the eligibility and reducer suites. Source hash `10a42eda` before and after.
+   *
+   * **What is genuinely given up is a DISPLAY, not a rule:** no reachable screen shows specialling
+   * headroom as a network figure. Whether it should is a product question nobody has ruled on — it
+   * is recorded here and with Ward Lead rather than settled by keeping a guard that stands over a
+   * screen no coordinator can open. A guard aimed at a dead surface does not protect the property;
+   * it only makes the gap harder to see.
+   */
 
-    const bedStates = screen.getByTestId("ward-capacity-bed-states-rph-adult-secure");
-
-    // The raw `unitCapacity().potential` figure — every release for this unit regardless of
-    // state or timing — must never appear on this row again: the headline above already
-    // separates it into Confirmed today / Predicted today, and this row must agree rather than
-    // showing an undifferentiated lump the headline no longer shows.
-    expect(bedStates).not.toHaveTextContent("Potential");
-
-    // The row must show the SAME per-unit Confirmed/Predicted figures `capacityBreakdown` (the
-    // headline's own source of truth) computes for this unit — not merely the labels, but the
-    // real numbers, computed independently here from the live fixture rather than read back off
-    // the screen.
-    const unit = unitById("rph-adult-secure");
-    expect(unit).toBeDefined();
-    const expected = capacityBreakdown(unit!, bedReleases, leaveBeds, NOW_ANCHOR);
-
-    const confirmedSpan = within(bedStates).getByText("Confirmed").closest("span");
-    const predictedSpan = within(bedStates).getByText("Predicted").closest("span");
-    expect(confirmedSpan).toHaveTextContent(String(expected.confirmedToday));
-    expect(predictedSpan).toHaveTextContent(String(expected.predictedToday));
-  });
+  /*
+   * RETIRED 2026-09-05 — "replaces the per-unit row's undifferentiated Potential lump with its own
+   * Confirmed/Expected breakdown". Recorded in `diff-integrity.json`.
+   *
+   * The subject MOVED and is guarded at its new home, proved by mutation rather than by reading:
+   * `ward-screen.tsx` renders `Confirmed {breakdown.confirmedToday}` and `Expected
+   * {breakdown.expectedToday}` in its bed grid, reachable at `/ward/[unitId]`. Making the Confirmed
+   * chip read the Expected field turns THREE cases red across `ward-screen.dom.test.tsx`, one of
+   * them "never renders 'Potential', and renders Confirmed/Expected/Leave from capacityBreakdown()".
+   */
 });
 
 /**
@@ -164,92 +211,68 @@ describe("ward capacity board", () => {
  * `unitCapacity()` total keyed by five DIFFERENT states (available/held/potential/blocked/
  * occupied), where "potential" counted every bed release regardless of state or timing. This
  * suite proves the headline instead shows `capacityBreakdown()`'s five figures — Available now,
- * Confirmed today, Predicted today, Held, Leave (usable) — as five separate cards, that
- * `Available now` is never softened by a predicted or confirmed-but-unreleased bed, that the
+ * Confirmed today, Expected today, Held, Leave (usable) — as five separate cards, that
+ * `Available now` is never softened by a expected or confirmed-but-unreleased bed, that the
  * excluded-beyond-tonight count is surfaced rather than silently dropped, and that the
  * coordinator's one permitted action (asking a ward to restate its numbers) is a real dispatch
  * that moves no bed figure at all.
  */
 describe("ward capacity headline (Task 7)", () => {
-  it("renders the capacity headline as five separate figures and never a sum", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-      </WardFlowProvider>,
-    );
+  /*
+   * RETIRED 2026-09-06 — "renders the capacity headline as six separate figures and never a sum".
+   * Recorded in `diff-integrity.json`. **The owner ruled on it**, with the recommendation put to him:
+   * leave the strip out.
+   *
+   * The case guarded a structural property of a headline that no longer exists — exactly six cards
+   * under the headline, so a seventh "total" could not be added unnoticed. `CapacityScreen` has no
+   * headline of that shape, so the guard had nothing to stand over.
+   *
+   * ⚠️ **THE REASONING BEHIND THE RULING IS WORTH KEEPING, because it is the reason not to
+   * reintroduce the strip casually.** The six figures count different things — beds ready now, beds
+   * confirmed to free today, beds expected to free, blocked releases, held beds, usable leave beds.
+   * A total of them would be a number with no referent, and a row of figures side by side is an
+   * invitation to add them. The screen answers "where is the network short" instead, which is a
+   * question no sum helps with.
+   *
+   * If a summary strip is ever wanted here, this guard is the one to bring back with it.
+   */
 
-    const headline = screen.getByTestId("ward-capacity-headline");
-    // Structural proof, not a text scan: exactly these five testids exist under the headline and
-    // no others — a sixth card (a "total"/"sum") would fail this count even if it were labelled
-    // something this test does not otherwise search for.
-    const cards = headline.querySelectorAll('[data-testid^="ward-capacity-headline-"]');
-    expect(cards).toHaveLength(5);
+  /*
+   * RE-POINTED 2026-09-05 into `ward-bed-release.dom.test.tsx`, against the live `WardScreen` and
+   * the ward's own flagging control, so the rule runs end to end through a real `FLAG_BED_RELEASE`.
+   *
+   * 🔴 **THIS ONE WAS A LIVE HOLE.** Rendering `Ready {capacity.available -
+   * breakdown.expectedToday}` — a discharge that has not happened reducing the beds a ward can fill
+   * now — was run against all 41 test files that render `WardScreen` or touch
+   * `unitCapacity`/`capacityBreakdown`: 714 passed, nothing red. The mutation was live: two of the
+   * five units those suites render carry `ready=2, expectedToday=1` and rendered `Ready 1`.
+   */
 
-    expect(screen.getByTestId("ward-capacity-headline-available-now")).toHaveTextContent("Available now");
-    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveTextContent("Confirmed today");
-    expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveTextContent("Predicted today");
-    expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent("Held");
-    expect(screen.getByTestId("ward-capacity-headline-leave-usable")).toHaveTextContent("Leave (usable)");
-
-    // Spec D9 (#WG24JB): confirmed and predicted pending discharge cards link to the discharge
-    // board. Read the expected href from WARD_NAV (the single source of Ward Flow destinations)
-    // rather than pinning a duplicate literal, so a renamed/regrouped route fails this test
-    // instead of silently drifting from the rail.
-    const dischargeHref = WARD_NAV.find((item) => item.id === "discharges")?.href;
-    expect(dischargeHref).toBeTruthy();
-    expect(screen.getByTestId("ward-capacity-headline-confirmed-today")).toHaveAttribute("href", dischargeHref);
-    expect(screen.getByTestId("ward-capacity-headline-predicted-today")).toHaveAttribute("href", dischargeHref);
-    expect(screen.getByTestId("ward-capacity-headline-available-now")).not.toHaveAttribute("href");
-
-    // No card anywhere in the headline claims to be a total/sum of the other four.
-    expect(within(headline).queryByText(/total/i)).not.toBeInTheDocument();
-    expect(within(headline).queryByText(/^sum$/i)).not.toBeInTheDocument();
-  });
-
-  it("leaves Available now exactly unchanged when a predicted release is added, while Predicted today moves", () => {
-    render(
-      <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-        <PredictedReleaseFlagger unitId="rph-adult-secure" />
-      </WardFlowProvider>,
-    );
-
-    // Read only the card's own `<strong>` figure, never the whole card's textContent — the card
-    // also carries "Across N synthetic units", and its digits would otherwise run together with
-    // the headline figure's own digits under a naive digit-only strip.
-    const readFigure = (testId: string) => {
-      const value = screen.getByTestId(testId).querySelector("strong")?.textContent;
-      const parsed = Number(value);
-      expect(Number.isNaN(parsed)).toBe(false);
-      return parsed;
-    };
-
-    const availableBefore = readFigure("ward-capacity-headline-available-now");
-    const predictedBefore = readFigure("ward-capacity-headline-predicted-today");
-
-    fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
-
-    // THE single most important rule in the phase: a predicted release must never soften
-    // "Available now" — a coordinator must always be able to point at that number and say "that
-    // is a bed I can fill this minute".
-    expect(readFigure("ward-capacity-headline-available-now")).toBe(availableBefore);
-
-    // The dispatch really landed — Predicted today rose by exactly one — so this proves real
-    // separation between the two figures, not merely that the click did nothing at all.
-    expect(readFigure("ward-capacity-headline-predicted-today")).toBe(predictedBefore + 1);
-  });
-
+  /*
+   * 🔴 **RE-POINTED AT `CapacityScreen` ON 2026-09-05, AFTER THE CONTROL WAS PUT BACK.**
+   *
+   * ⚠️ **THIS WAS A CAPABILITY LOST BY ACCIDENT.** Measured before rebuilding it:
+   * `REQUEST_CAPACITY_REFRESH` was dispatched from exactly ONE place in the whole codebase — the
+   * capacity view MERGE 02 retired — while the event type, the reducer case, the provider list and
+   * the ward-side DISPLAY of a request all kept working. So no coordinator could ask a ward to
+   * restate its numbers, and `ward/ward-screen.tsx` carried a mark for something nothing could
+   * produce. Every half was individually correct, which is why no gate saw it.
+   *
+   * The second half of this case is the clinical one and is not decoration: **asking must move no
+   * bed figure.** A control that quietly adjusted a number while claiming only to record a request
+   * would be the worst kind of defect on this screen.
+   */
   it("the coordinator's refresh control is a real button that dispatches REQUEST_CAPACITY_REFRESH and moves no bed figure", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
+        <CapacityScreen />
         <RefreshRequestsProbe />
       </WardFlowProvider>,
     );
 
     expect(screen.getByTestId("test-refresh-requests-count")).toHaveTextContent("0");
-    const availableBefore = screen.getByTestId("ward-capacity-headline-available-now").textContent;
-    const heldBefore = screen.getByTestId("ward-capacity-headline-held").textContent;
+    const table = screen.getByTestId("ward-capacity-network-table");
+    const readyBefore = within(table).getByTestId("ward-capacity-network-row-rph-adult-secure").textContent;
 
     const refreshButton = screen.getByTestId("ward-capacity-refresh-rph-adult-secure");
     // A real, wired <button> — never an advisory element with no handler.
@@ -259,32 +282,86 @@ describe("ward capacity headline (Task 7)", () => {
 
     fireEvent.click(refreshButton);
 
-    // The one observable effect of this control: a real dispatch reached the reducer's own
-    // `refreshRequests` list — never a bed figure.
+    // The one observable effect: a real dispatch reached the reducer's own `refreshRequests` list.
     expect(screen.getByTestId("test-refresh-requests-count")).toHaveTextContent("1");
-    expect(screen.getByTestId("ward-capacity-headline-available-now")).toHaveTextContent(availableBefore ?? "");
-    expect(screen.getByTestId("ward-capacity-headline-held")).toHaveTextContent(heldBefore ?? "");
+    expect(
+      within(screen.getByTestId("ward-capacity-network-table")).getByTestId(
+        "ward-capacity-network-row-rph-adult-secure",
+      ).textContent,
+      "asking a ward to restate its numbers moved a figure on its row; this control records that " +
+        "somebody asked and must change nothing else",
+    ).toBe(readyBefore);
   });
 
-  it("shows the excluded count once a release falls beyond tonight, and not before", () => {
+  /*
+   * 🔴 **RE-POINTED AT `CapacityScreen` ON 2026-09-05, AFTER THE FIGURE IT ASKS FOR WAS BUILT.**
+   *
+   * The rule is this file's own words: *"a release beyond the horizon must be counted and shown,
+   * never quietly omitted."* `networkWardRows` drops a release whose `dayOf` is not today —
+   * correctly, since "freeing today" must not include tomorrow — and said nothing about having
+   * dropped it. `releasesBeyondToday` now counts them and the screen states them.
+   *
+   * Both halves matter and both are kept: the count must be ABSENT before anything falls outside
+   * the horizon. An assertion that only ever sees the count present would pass on a screen showing
+   * it unconditionally.
+   */
+  it("shows the excluded count once a release falls beyond the board's horizon, and not before", () => {
     render(
       <WardFlowProvider initialNow={NOW_ANCHOR}>
-        <WardModeWorkspace mode="capacity" />
-        <ClockAdvancer minutes={700} />
-        <PredictedReleaseFlagger unitId="fre-adult-open" />
+        <CapacityScreen />
+        <ExpectedReleaseFlagger unitId="fre-adult-open" expectedAt={NOW_ANCHOR + 2 * MINUTES_PER_DAY} />
       </WardFlowProvider>,
     );
 
-    // Baseline: nothing in the seeded fixture falls beyond 22:00 (the latest fixture release is
-    // NOW_ANCHOR + 240, still well inside the evening shift), so nothing is excluded yet.
     expect(screen.queryByTestId("ward-capacity-excluded-beyond-today")).not.toBeInTheDocument();
 
-    // NOW_ANCHOR (642) + 700 = 1342, past EVENING_SHIFT_END_MINUTES (1320). FLAG_BED_RELEASE
-    // always stamps `expectedAt` as the instant the ward reported it, so flagging now stamps a
-    // release that falls beyond tonight.
-    fireEvent.click(screen.getByTestId("test-advance-clock"));
-    fireEvent.click(screen.getByTestId("test-flag-predicted-release"));
+    fireEvent.click(screen.getByTestId("test-flag-expected-release"));
 
-    expect(screen.getByTestId("ward-capacity-excluded-beyond-today")).toHaveTextContent("1");
+    expect(
+      screen.getByTestId("ward-capacity-excluded-beyond-today"),
+      "a release beyond the horizon must be counted and shown, never quietly omitted",
+    ).toHaveTextContent("1");
   });
 });
+
+/**
+ * Second-edition pass, capacity table (Part 2/3 of the task brief). Design language binding rule:
+ * "a number that could be zero or unknown is rendered as a stated absence IN WORDS, never as `0`,
+ * a dash or a blank". Scoped deliberately to the Ready ("available") figure alone — the row's other
+ * five bed-state figures (Held/Confirmed/Expected/Blocked/Occupied) are asserted with literal
+ * "0Confirmed"/"0Expected" text by `tests/ward-bed-release.dom.test.tsx` and
+ * `tests/ward-bed-release-lifecycle.test.ts`, both outside this task's file ownership, so widening
+ * the word-for-zero treatment to those cells would break coverage this task may not edit.
+ */
+/*
+ * RETIRED 2026-09-05 — the two cases asserting that a unit with no ready bed reads "none" rather
+ * than the digit "0", and the fixture assumption underneath them. Recorded in `diff-integrity.json`.
+ *
+ * **The rule is now OBEYED and GUARDED on the live screen**, which was not true when this file was
+ * last touched: `capacity-screen.tsx` renders `row.ready === 0` as the word, and
+ * `ward-capacity-screen.dom.test.tsx`'s "names every ward's real ready and locked-ready counts"
+ * case asserts the claim for every row — including both directions on the absence, so a cell
+ * reading "0 none" fails there too. That case also floors on there being a zero-ready ward at all,
+ * so the branch cannot silently stop being covered.
+ *
+ * Re-pointing these here instead would have put a second guard over one fact. Two guards over one
+ * fact drift apart, and the weaker one teaches the next reader that the stronger is redundant.
+ */
+
+/**
+ * Task brief requirement: "tests/ward-capacity-reconciliation.test.ts already asserts
+ * available/held/blocked/occupied sum to a unit's total beds — assert the screen SHOWS figures
+ * obeying that identity." That file checks `unitCapacity()`'s own return value; this checks the
+ * SCREEN, independently, against `unit.beds` — a raw fixture field, never a value read back from
+ * `unitCapacity`/`capacityBreakdown` — so a defect that broke only the RENDERING of an otherwise
+ * correct identity (a wrong label pointing at a sibling cell, a row reading another unit's figure)
+ * would be caught here even though the underlying arithmetic test stays green.
+ */
+
+/**
+ * "A leave bed is not counted as available (a leave bed is a bed a patient is expected back into)."
+ * `rph-adult-secure` carries the live fixture's one usable leave bed (`WL-001`,
+ * `ward-movements.ts`). The expected Ready figure is computed here from the unit's own
+ * `allocatable`/`empty` fields — one layer below `unitCapacity`, never by calling it — so this
+ * cannot pass merely because the screen and the test share the same derivation.
+ */

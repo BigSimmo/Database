@@ -8,18 +8,27 @@ import {
   GitCompareArrows,
   Gauge,
   ListChecks,
-  MessageSquareText,
   ShieldCheck,
   Signpost,
   SlidersHorizontal,
 } from "lucide-react";
 
+import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { DsmDiagnosisNavHeader } from "@/components/dsm/dsm-diagnosis-nav-header";
+import { DsmDiagnosisNoteBuilder } from "@/components/dsm/dsm-diagnosis-note-builder";
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
-import { dsmCriteria, resolveDsmDifferential, type DsmDiagnosis, type DsmLabeledText } from "@/lib/dsm";
+import {
+  dsmCriteria,
+  dsmDifferentialParts,
+  dsmSpecifierSplit,
+  resolveDsmDifferential,
+  type DsmDiagnosis,
+  type DsmLabeledText,
+} from "@/lib/dsm";
+import { dsmNoteBuilderRecord } from "@/lib/dsm-note";
 
 /**
  * Explicit singular and plural rather than appending "s", because the one that
@@ -76,7 +85,14 @@ function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: n
 
 export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
   const criteria = dsmCriteria(diagnosis);
+  const { specifiers, absentNotes } = dsmSpecifierSplit(diagnosis);
   const compareHref = `/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)}`;
+
+  // The sidebar shows the first six and links out for the rest. Nine records
+  // carry more than six, and before this the extra ones simply vanished with no
+  // sign that the list had been cut.
+  const sidebarDifferentials = diagnosis.differentials.slice(0, 6);
+  const hiddenDifferentialCount = diagnosis.differentials.length - sidebarDifferentials.length;
 
   // "4 criteria, A-D" / "1 criterion, A". Twelve records carry a single criterion,
   // so the range is appended only when there are at least two to span — otherwise
@@ -118,6 +134,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
           title={diagnosis.title}
           description="Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
           code={diagnosis.icd_code}
+          copyCode
           category={diagnosis.category.label}
           breadcrumb={false}
         />
@@ -142,7 +159,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
               <SummaryTile
                 icon={SlidersHorizontal}
                 label="Specifiers"
-                value={countLabel(diagnosis.specifiers.length, "specifier", "specifiers")}
+                value={countLabel(specifiers.length, "specifier", "specifiers")}
               />
               <SummaryTile
                 icon={GitCompareArrows}
@@ -152,7 +169,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
               <SummaryTile
                 icon={Gauge}
                 label="Severity specifier"
-                value={diagnosis.severity_specifier_supported ? "Supported" : "Not listed"}
+                value={diagnosis.severity_specifier_supported ? "Supported" : "None in DSM-5-TR"}
               />
             </dl>
           </section>
@@ -235,13 +252,11 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                   <h2 id="specifiers-title" className="text-base font-extrabold text-[color:var(--text-heading)]">
                     Specifiers
                   </h2>
-                  <span className="ml-auto text-xs font-bold text-[color:var(--text-muted)]">
-                    {diagnosis.specifiers.length}
-                  </span>
+                  <span className="ml-auto text-xs font-bold text-[color:var(--text-muted)]">{specifiers.length}</span>
                 </div>
-                {diagnosis.specifiers.length ? (
+                {specifiers.length ? (
                   <dl className="divide-y divide-[color:var(--border)]">
-                    {diagnosis.specifiers.map((specifier) => (
+                    {specifiers.map((specifier) => (
                       <div
                         key={`${specifier.name}-${specifier.description}`}
                         className="grid gap-1 px-4 py-3 sm:grid-cols-[minmax(12rem,0.8fr)_minmax(0,1.2fr)] sm:gap-4"
@@ -254,34 +269,27 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                     ))}
                   </dl>
                 ) : (
-                  <p className="px-4 py-5 text-sm font-medium text-[color:var(--text-muted)]">
-                    No specifiers were included in the supplied record.
-                  </p>
+                  <div className="px-4 py-4 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                    {absentNotes.length ? (
+                      absentNotes.map((note) => (
+                        <p key={note.name}>
+                          <strong className="text-[color:var(--text-heading)]">{note.name}.</strong>
+                          {note.description ? ` ${note.description}` : ""}
+                        </p>
+                      ))
+                    ) : (
+                      <p>No specifiers were included in the supplied record.</p>
+                    )}
+                  </div>
                 )}
               </section>
 
-              <section
-                id="documentation"
-                aria-labelledby="documentation-title"
-                className={cn(
-                  inPageAnchor,
-                  "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquareText className="h-5 w-5 text-[color:var(--clinical-accent)]" aria-hidden />
-                  <h2 id="documentation-title" className="text-base font-extrabold text-[color:var(--text-heading)]">
-                    Documentation support
-                  </h2>
-                </div>
-                <p className="mt-2 rounded-lg border-l-[3px] border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-subtle)] px-3 py-3 text-sm font-medium leading-6 text-[color:var(--text-heading)] sm:px-4">
-                  {diagnosis.documentation_template}
-                </p>
-                <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                  Adapt this supplied template to the assessment. It is not a substitute for diagnostic reasoning or
-                  local documentation requirements.
-                </p>
-              </section>
+              <DsmDiagnosisNoteBuilder record={dsmNoteBuilderRecord(diagnosis)} />
+
+              {/* Renders nothing when no other mode holds a match for this
+                  diagnosis, so a record with no medication, service or form
+                  match keeps the page exactly as it was. */}
+              <CrossModeLinksSection queries={[diagnosis.title]} />
             </div>
 
             <aside className="grid gap-3 lg:sticky lg:top-20" aria-label="Diagnosis reference summary">
@@ -291,28 +299,72 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                   <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">
                     Differential considerations
                   </h2>
+                  {hiddenDifferentialCount > 0 ? (
+                    <span className="ml-auto text-2xs font-bold text-[color:var(--text-muted)]">
+                      {sidebarDifferentials.length} of {diagnosis.differentials.length}
+                    </span>
+                  ) : null}
                 </div>
                 <ul className="divide-y divide-[color:var(--border)]">
-                  {diagnosis.differentials.slice(0, 6).map((differential) => {
+                  {sidebarDifferentials.map((differential) => {
                     const match = resolveDsmDifferential(differential);
+                    const { name, discriminator } = dsmDifferentialParts(differential);
+
+                    /*
+                     * Every row is actionable, which it was not before. Rows that
+                     * resolve to a record open it; the rest — "Medical cause
+                     * (cardiac, respiratory, endocrine)" and its kind, which name
+                     * a category rather than a DSM record — search for the name.
+                     * Previously those rendered as inert text beside linked
+                     * siblings with nothing to explain the difference, so the
+                     * list looked half-broken rather than deliberate.
+                     */
+                    const href = match
+                      ? `/dsm/diagnoses/${match.slug}`
+                      : `/dsm/search?q=${encodeURIComponent(name)}&run=1`;
+
                     return (
                       <li key={differential} className="px-3 py-2.5">
-                        {match ? (
+                        <div className="flex items-start gap-1.5">
                           <Link
-                            href={`/dsm/diagnoses/${match.slug}`}
-                            className="group flex items-start justify-between gap-2 text-xs font-semibold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]"
+                            href={href}
+                            className="group min-w-0 flex-1 text-xs font-semibold leading-5 text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)]"
                           >
-                            <span>{differential}</span>
-                            <ChevronRight
-                              className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
-                              aria-hidden
-                            />
+                            <span className="flex items-start justify-between gap-2">
+                              <span className="min-w-0">{name}</span>
+                              {match ? (
+                                <ChevronRight
+                                  className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                                  aria-hidden
+                                />
+                              ) : (
+                                <Search
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--decoration-soft)] group-hover:text-[color:var(--clinical-accent)]"
+                                  aria-hidden
+                                />
+                              )}
+                            </span>
+                            {discriminator ? (
+                              <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+                                {discriminator}
+                              </span>
+                            ) : null}
                           </Link>
-                        ) : (
-                          <span className="text-xs font-semibold leading-5 text-[color:var(--text-heading)]">
-                            {differential}
-                          </span>
-                        )}
+                          {match ? (
+                            <Link
+                              href={`/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)},${encodeURIComponent(match.slug)}`}
+                              aria-label={`Compare ${diagnosis.title} with ${name}`}
+                              title={`Compare with ${name}`}
+                              // A full tap target, not a 28px icon box: this is a
+                              // phone control in a dense list, where the row above
+                              // and below are other diagnoses. The glyph stays
+                              // small; the hit area is what has to be 48px.
+                              className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-md text-[color:var(--decoration-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                            >
+                              <GitCompareArrows className="h-3.5 w-3.5" aria-hidden />
+                            </Link>
+                          ) : null}
+                        </div>
                       </li>
                     );
                   })}
@@ -339,25 +391,32 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                   <ClipboardList className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
                   <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Record summary</h2>
                 </div>
+                {/*
+                  Provenance, not counts. This card used to repeat Criteria,
+                  Specifiers and Severity from the at-a-glance strip a screen
+                  above it, and ICD-10 from the chip in the page header, so the
+                  most valuable block in the sidebar said nothing the reader had
+                  not already been told twice. What was genuinely only here — the
+                  record id and the catalogue it came from — was stranded in the
+                  footer pills, where nothing labelled it.
+                */}
                 <dl className="mt-3 grid gap-2.5 text-xs">
                   <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-[color:var(--text-muted)]">ICD-10</dt>
-                    <dd className={cn("font-extrabold text-[color:var(--text-heading)]", codeText)}>
-                      {diagnosis.icd_code}
+                    <dt className="font-semibold text-[color:var(--text-muted)]">Category</dt>
+                    <dd className="text-right font-extrabold text-[color:var(--text-heading)]">
+                      {diagnosis.category.label}
                     </dd>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-[color:var(--text-muted)]">Criteria</dt>
-                    <dd className="font-extrabold text-[color:var(--text-heading)]">{criteria.length}</dd>
+                    <dt className="font-semibold text-[color:var(--text-muted)]">Record</dt>
+                    <dd className={cn("text-right font-extrabold text-[color:var(--text-heading)]", codeText)}>
+                      {diagnosis.record_id}
+                    </dd>
                   </div>
                   <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-[color:var(--text-muted)]">Specifiers</dt>
-                    <dd className="font-extrabold text-[color:var(--text-heading)]">{diagnosis.specifiers.length}</dd>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="font-semibold text-[color:var(--text-muted)]">Severity specifier</dt>
-                    <dd className="font-extrabold text-[color:var(--text-heading)]">
-                      {diagnosis.severity_specifier_supported ? "Supported" : "Not listed"}
+                    <dt className="font-semibold text-[color:var(--text-muted)]">Source</dt>
+                    <dd className="text-right font-extrabold text-[color:var(--text-heading)]">
+                      Supplied local catalogue
                     </dd>
                   </div>
                 </dl>
@@ -379,10 +438,11 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
             </aside>
           </div>
 
+          {/* The record id and catalogue moved into the Record summary card,
+              which labels them. Repeating them here left the page ending on two
+              unlabelled pills that said the same thing. */}
           <div className="flex flex-wrap gap-2 border-t border-[color:var(--border)] pt-4">
             <span className={metadataPill}>DSM-5 Diagnosis</span>
-            <span className={cn(metadataPill, codeText)}>{diagnosis.record_id}</span>
-            <span className={metadataPill}>Supplied local catalogue</span>
           </div>
         </div>
       </InformationPageShell>

@@ -24,6 +24,7 @@ export type ToolCatalogId =
   | "differentials"
   | "documents"
   | "clinical-dictionary"
+  | "source-catalogue"
   | "guidelines"
   | "risk-safety"
   | "medication-prescribing"
@@ -55,6 +56,17 @@ export type ToolCatalogRecord = {
   neededInput: string[];
   output: string;
 };
+
+/**
+ * Tools the composer's smart search already answers directly, so surfacing them again
+ * as local results or shortcuts would send a clinician the long way round to something
+ * they have just been handed.
+ *
+ * One definition, three consumers. It was copied into the launcher and the tools
+ * directory separately, and a third copy was nearly added when the quick-action row
+ * moved out of the launcher.
+ */
+export const localSmartExcludedToolIds = new Set<ToolCatalogId>(["clinical-kb-search", "documents", "favourites"]);
 
 export const toolCatalogRecords: ToolCatalogRecord[] = [
   {
@@ -132,6 +144,22 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     checkFirst: ["Term or abbreviation", "Clinical topic or context", "Whether a distinction or comparison is needed"],
     neededInput: ["Term, abbreviation, or topic"],
     output: "Source-checked definition, related terminology, distinctions, and source links.",
+  },
+  {
+    id: "source-catalogue",
+    title: "Sources",
+    description: "Browse ranked clinical sources and their traceability.",
+    bestFor: "Source quality and provenance review",
+    detail: "Review source identity, quality bands, locations, publishers, topics, and application usage.",
+    href: appModeHomeHref("sources"),
+    area: "reference",
+    status: "ready",
+    sourceBacked: true,
+    actionLabel: "Browse",
+    keywords: ["sources", "catalogue", "publisher", "quality", "provenance", "traceability"],
+    checkFirst: ["Source identity", "Quality band", "Review and lifecycle status"],
+    neededInput: ["Optional title, publisher, topic, or usage filter"],
+    output: "Read-only source catalogue records with quality and traceability details.",
   },
   {
     id: "guidelines",
@@ -351,14 +379,85 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
   },
 ];
 
-export function toolCatalogRecordById(id: string): ToolCatalogRecord {
-  return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
+/**
+ * Public knowledge records rendered by the Tools catalogue. Consumer shortcuts
+ * (Answer/Documents), account state, and synthetic operational workspaces stay
+ * in the launcher but are never site-content producers.
+ */
+export const publicKnowledgeToolCatalogIds = [
+  "differentials",
+  "clinical-dictionary",
+  "medication-prescribing",
+  "services",
+  "forms",
+  "safety-plan",
+  "calculators",
+] as const satisfies readonly ToolCatalogId[];
+
+const publicKnowledgeToolCatalogIdSet: ReadonlySet<string> = new Set(publicKnowledgeToolCatalogIds);
+
+export const publicKnowledgeToolCatalogRecords = toolCatalogRecords.filter((record) =>
+  publicKnowledgeToolCatalogIdSet.has(record.id),
+);
+
+export function publicKnowledgeToolCatalogRecordById(id: string): ToolCatalogRecord | null {
+  return publicKnowledgeToolCatalogRecords.find((record) => record.id === id) ?? null;
 }
 
-/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+/**
+ * Resolves a catalogue record by id, and throws for an id the catalogue does not
+ * know. It used to fall back to the first record, so a typo rendered the PsychSift
+ * Search card in place of the tool that was asked for instead of failing; the only
+ * caller builds mockup fixtures at module load, where a thrown error is caught by the
+ * fixture test before anything is rendered.
+ */
+export function toolCatalogRecordById(id: string): ToolCatalogRecord {
+  const record = toolCatalogRecords.find((tool) => tool.id === id);
+  if (!record) throw new Error(`Unknown tool catalogue id: ${id}`);
+  return record;
+}
+
+/**
+ * Whether the Caring Contacts card may be offered at all.
+ *
+ * The workspace behind it fails closed in production (`isCaringContactsDemoEnabled`,
+ * src/lib/caring-contacts-server/session.ts): every route 404s until enterprise sign-on
+ * exists, with one exception for the isolated Playwright production server. Offering
+ * the card there would put an "Open" button on the live launcher whose target is a
+ * dead link on a suicide-prevention surface, so the card follows the same lock.
+ *
+ * It cannot call that predicate: the module is server-only, and the catalogue is
+ * rendered by client components, which see only what the client bundle inlines —
+ * `NODE_ENV` and `NEXT_PUBLIC_DEMO_MODE`. `PLAYWRIGHT_OFFLINE_MODE` never reaches the
+ * browser, and reading it here would make the server and the client disagree about
+ * the list. The two predicates still agree everywhere a server can start: a production
+ * process carrying `NEXT_PUBLIC_DEMO_MODE=true` without the Playwright offline flag is
+ * refused by `src/instrumentation.ts`. Pinned by tests/tools-catalog.test.ts.
+ *
+ * Both reads must stay as literal `process.env.NAME` member expressions — that is
+ * what Next inlines into the client bundle; an indirection reads `undefined` there.
+ */
+export function isCaringContactsToolListed(
+  environment: string | undefined = process.env.NODE_ENV,
+  demoMode: string | undefined = process.env.NEXT_PUBLIC_DEMO_MODE,
+): boolean {
+  if (environment !== "production") return true;
+  return demoMode === "true";
+}
+
+/**
+ * The catalogue as a given session may see it: account-scoped Favourites / Saved
+ * workflows are hidden from guests, and the Caring Contacts card is hidden wherever
+ * its workspace is locked (see `isCaringContactsToolListed`).
+ */
 export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
-  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
-  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  const caringContactsListed = isCaringContactsToolListed();
+  return toolCatalogRecords.filter((tool) => {
+    if (tool.id === "caring-contacts") return caringContactsListed;
+    if (favouritesAllowed) return true;
+    return tool.id !== "favourites" && !tool.href.startsWith("/favourites");
+  });
 }
 
 export function toolSearchText(tool: ToolCatalogRecord) {
@@ -405,6 +504,7 @@ export function rankToolRecords(
     fullText: toolSearchText,
     contentWeight: 2,
     phraseBonus: 4,
+    exactValues: (tool) => [normalizeSearchText(tool.actionLabel)],
     expandTokens: expansions.length ? (terms) => [...terms, ...expansions] : undefined,
     limit,
     tieBreak: (left, right) => left.title.localeCompare(right.title),

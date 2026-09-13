@@ -13,9 +13,12 @@ import {
   UserRoundCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
+import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
+import type { ReferralIntakePayload } from "@/lib/caring-contacts/referral-intake";
+import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {
   firstContactDayBounds,
@@ -81,6 +84,7 @@ import {
   previousPlanWizardStage,
   type PlanWizardStage,
 } from "./stages";
+import { workspacePanelPadded } from "../surfaces";
 import { StatedReason } from "./stated-reason";
 
 /**
@@ -228,16 +232,37 @@ export type PlanWizardProps = {
    * what this screen therefore cannot yet promise.
    */
   patientVisibleMessageSpecimen: string;
+  /**
+   * H-44 intake clinical payload round-tripped from the audited store for this referral, or null
+   * when the referral was created without one. Used to prefill patient detail and surface safety
+   * alerts — never an HTTP-response echo of discarded fields.
+   */
+  intakePrefill?: ReferralIntakePayload | null;
 };
 
-const panelClass =
-  "min-w-0 rounded-[var(--radius-lg)] border border-[color:var(--border)] bg-[color:var(--surface)] p-4 sm:p-5";
+const panelClass = workspacePanelPadded;
 
-const primaryControlClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-subtle)] disabled:text-[color:var(--text-muted)] forced-colors:border-[CanvasText]";
+/**
+ * The wizard's decisive command, on the shared recipe rather than a local accent fill.
+ *
+ * It was a filled `--clinical-accent` control, which put TWO filled primaries in TWO colours into
+ * one decision: pressing "Create and start this plan" opens an overlay whose own confirm is
+ * `primaryControl`, i.e. filled `--command`. `ckb-v2-tokens.css` states the rule this broke —
+ * one filled `--command` button per surface, and Clinical Sky is for navigation and selection,
+ * which is already how `aria-[current]` is drawn on the filter chips and the schedule day strip.
+ * Activating a plan is a decisive command, so Graphite is the right role for it and the overlay
+ * behind it now agrees.
+ *
+ * `primaryControl` also brings `controlBase` with it, which supplies `min-h-tap`, the focus ring,
+ * `forced-colors:border`, `active:translate-y-px` and `controlDisabled`. That last one is a
+ * deliberate, visible change: a disabled label lands on `--disabled` rather than `--text-muted`,
+ * because the design system encodes disabled (flatten the fill, drop the shadow, remove the press)
+ * instead of dimming label and fill together with an opacity. The wizard's disabled states are
+ * transient and use the native attribute, which WCAG's contrast criterion exempts.
+ */
+const primaryControlClass = `${primaryControl} min-w-0`;
 
-const secondaryControlClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-semibold text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border-[CanvasText]";
+const secondaryControlClass = `${floatingControl} min-w-0`;
 
 const optionRowClass =
   "min-w-0 border-t border-[color:var(--border)] px-4 py-2 text-left first:border-t-0 focus-within:outline focus-within:outline-2 focus-within:outline-offset-[-0.125rem] focus-within:outline-[color:var(--focus)]";
@@ -355,6 +380,65 @@ function SourcedFact({
   );
 }
 
+function IntakeClinicalBanner({ intake }: { intake: ReferralIntakePayload }) {
+  return (
+    <section
+      aria-label="Stored intake clinical payload"
+      className={`${panelClass} mb-4 border-l-4 border-l-[color:var(--focus)] space-y-2`}
+    >
+      <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">
+        Clinical intake loaded from the audited store
+      </h2>
+      <p className="text-xs leading-5 text-[color:var(--text-muted)]">
+        These fields were persisted with the referral at H-44 intake and round-tripped from the store for this plan.
+        Patient name and mobile are prefilled into personalisation; review safety alerts before activation.
+      </p>
+      <div className="text-xs space-y-1">
+        <p>
+          <span className="font-semibold text-[color:var(--text-muted)]">Facility / ward:</span>{" "}
+          <span className="text-[color:var(--text)]">
+            {intake.hospitalFacility} — {intake.admittingWard}
+          </span>
+        </p>
+        {intake.clinicalSummary ? (
+          <p>
+            <span className="font-semibold text-[color:var(--text-muted)]">Clinical summary:</span>{" "}
+            <span className="text-[color:var(--text)]">{intake.clinicalSummary}</span>
+          </p>
+        ) : null}
+        {intake.safetyAlerts.length > 0 ? (
+          <div>
+            <span className="font-semibold text-[color:var(--text-muted)]">Safety alerts:</span>
+            <ul className="mt-1 list-disc pl-5 text-[color:var(--text)]">
+              {intake.safetyAlerts.map((alert) => (
+                <li key={alert}>{alert}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function seedDraftFromIntake(
+  draft: ReturnType<typeof emptyPlanDraft>,
+  intake: ReferralIntakePayload | null | undefined,
+): ReturnType<typeof emptyPlanDraft> {
+  if (!intake) return draft;
+  const patientName = `${intake.givenName} ${intake.familyName}`.trim();
+  return {
+    ...draft,
+    patientDetail: {
+      ...draft.patientDetail,
+      patientName: draft.patientDetail.patientName || patientName,
+      preferredName: draft.patientDetail.preferredName || intake.givenName,
+      patientMobileNumber: draft.patientDetail.patientMobileNumber || intake.mobileNumber,
+      patientIdentifiers: draft.patientDetail.patientIdentifiers || intake.patientIdentifier,
+    },
+  };
+}
+
 export function PlanWizard({
   referralId,
   patientId,
@@ -366,6 +450,7 @@ export function PlanWizard({
   sendingPreferenceOptions,
   fictionalPatientMobileNumbers,
   patientVisibleMessageSpecimen,
+  intakePrefill = null,
 }: PlanWizardProps) {
   // THE DRAFT IS NOT REACT STATE. It is `plan-draft.ts`'s store, subscribed to here — see that
   // module's note for why: a lazy `useState` initialiser that read `sessionStorage` would make the
@@ -400,8 +485,44 @@ export function PlanWizard({
     readPlanDraft(referralId);
   }, [referralId]);
 
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const draft =
-    stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
+    stored !== null && stored.referralId === referralId
+      ? stored
+      : seedDraftFromIntake(emptyPlanDraft(referralId, referralPathwayVersionId), intakePrefill);
+
+  /**
+   * Writes `change` applied to `base`, re-based onto whatever is ACTUALLY held if a conflicting
+   * write landed first (#M6P1QQ). `base` is normally a closure-captured render value, which is
+   * exactly what can go stale between two writes React flushes from the same commit -- see
+   * `PlanDraft.version`'s own note for the shape of the race this catches.
+   *
+   * One retry, never a loop: `writePlanDraft` is synchronous start to finish and reads the live
+   * draft itself before writing, so nothing else can interleave between the retry's read and its
+   * write. A second conflict on the retry would mean a write happened DURING this synchronous call,
+   * which cannot happen in this single-threaded flow.
+   */
+  function writeDraftWithRetry(base: PlanDraft, change: (current: PlanDraft) => PlanDraft): void {
+    try {
+      writePlanDraft(change(base), { expectedVersion: base.version });
+    } catch (error) {
+      if (!(error instanceof DraftConcurrencyError)) throw error;
+      // Cast rather than re-derive: this module is the only thing that can have thrown from the
+      // call above, and it always throws `DraftConcurrencyError<PlanDraft>` -- see writePlanDraft.
+      const conflict = error as DraftConcurrencyError<PlanDraft>;
+      const live =
+        conflict.currentDraft ??
+        seedDraftFromIntake(emptyPlanDraft(base.referralId, base.pathwayVersionId), intakePrefill);
+      writePlanDraft(change(live), { expectedVersion: live.version });
+    }
+  }
 
   const isDirty =
     !discarded && submissionState.status === "idle" && isPlanDraftDirty(draft, referralId, referralPathwayVersionId);
@@ -418,13 +539,19 @@ export function PlanWizard({
   useEffect(() => {
     if (draft.stage !== "review") return;
     if (draft.submission !== null) return;
-    writePlanDraft({ ...draft, submission: mintPlanSubmissionIdentity() });
+    // Minted ONCE per effect run, outside the retry closure -- a retry must re-apply this SAME
+    // identity onto whatever is actually held, never mint a second one, or a re-based write could
+    // hand one patient two plan identities from one effect firing.
+    const submission = mintPlanSubmissionIdentity();
+    writeDraftWithRetry(draft, (current) => ({ ...current, submission }));
+    // writeDraftWithRetry is recreated each render; listing it would re-fire this mint effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mint once per draft identity, not per helper identity
   }, [draft]);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
   function update(change: (current: PlanDraft) => PlanDraft) {
     setDiscarded(false);
-    writePlanDraft(change(draft));
+    writeDraftWithRetry(draft, change);
   }
 
   function discard() {
@@ -507,9 +634,11 @@ export function PlanWizard({
   function recordOnLiveDraft(change: (current: PlanDraft) => PlanDraft) {
     const held = planDraftSnapshot();
     const base =
-      held !== null && held.referralId === referralId ? held : emptyPlanDraft(referralId, referralPathwayVersionId);
+      held !== null && held.referralId === referralId
+        ? held
+        : seedDraftFromIntake(emptyPlanDraft(referralId, referralPathwayVersionId), intakePrefill);
     setDiscarded(false);
-    writePlanDraft(change(base));
+    writeDraftWithRetry(base, change);
   }
 
   /**
@@ -674,13 +803,16 @@ export function PlanWizard({
     const created = await post(CREATE_PLAN_ENDPOINT, body);
     if (!created.ok) {
       // Nothing exists. This is the only path that may say so.
-      setSubmissionState({ status: "refused", refusal: created.refusal });
+      if (isMountedRef.current) setSubmissionState({ status: "refused", refusal: created.refusal });
       return;
     }
 
     // FROM HERE ON THE PLAN EXISTS, and no path below may report otherwise.
-    const notStarted = (refusal: string) =>
-      setSubmissionState({ status: "created-not-started", planId: body.planId, refusal });
+    const notStarted = (refusal: string) => {
+      if (isMountedRef.current) {
+        setSubmissionState({ status: "created-not-started", planId: body.planId, refusal });
+      }
+    };
 
     const expectedVersion = planVersionFromCreateAnswer(created.payload);
     if (expectedVersion === null) {
@@ -702,8 +834,10 @@ export function PlanWizard({
 
     // Both writes are confirmed. Only now, and in this order.
     clearPlanDraft();
-    setSubmissionState({ status: "created", planId: body.planId });
-    router.push(patientPlanRoute(patientId, body.planId));
+    if (isMountedRef.current) {
+      setSubmissionState({ status: "created", planId: body.planId });
+      router.push(patientPlanRoute(patientId, body.planId));
+    }
   }
 
   /**
@@ -759,21 +893,24 @@ export function PlanWizard({
     switch (stage) {
       case "agreement":
         return (
-          <AgreementStage
-            referralId={referralId}
-            patientId={patientId}
-            teamId={teamId}
-            actorId={actorId}
-            actorRoleLabels={actorRoleLabels}
-            assurances={draft.assurances}
-            identityChecked={draft.decisions.identityChecked}
-            verifyIdentityCommit={decisionCommits.verifyIdentity}
-            changePatientCommit={decisionCommits.changePatient}
-            onAssuranceChange={(change) =>
-              update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
-            }
-            onContinue={() => goTo("pathway")}
-          />
+          <>
+            {intakePrefill ? <IntakeClinicalBanner intake={intakePrefill} /> : null}
+            <AgreementStage
+              referralId={referralId}
+              patientId={patientId}
+              teamId={teamId}
+              actorId={actorId}
+              actorRoleLabels={actorRoleLabels}
+              assurances={draft.assurances}
+              identityChecked={draft.decisions.identityChecked}
+              verifyIdentityCommit={decisionCommits.verifyIdentity}
+              changePatientCommit={decisionCommits.changePatient}
+              onAssuranceChange={(change) =>
+                update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
+              }
+              onContinue={() => goTo("pathway")}
+            />
+          </>
         );
       case "pathway":
         return (

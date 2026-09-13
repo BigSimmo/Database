@@ -8,6 +8,8 @@ import {
   unsubmittedModeSearchTargetForSearchParams,
   consolidatedModeHomeModeIds,
   consolidatedModeHomeTarget,
+  consolidatedModeHomeTargetForSearchParams,
+  consolidatedModeSearchPath,
   isConsolidatedModeHomePath,
 } from "@/lib/consolidated-mode-home-redirect";
 
@@ -25,6 +27,8 @@ describe("consolidated mode home redirects", () => {
     expect(target("/formulation")).toBe("/?mode=formulation");
     expect(target("/differentials")).toBe("/?mode=differentials");
     expect(target("/therapy-compass")).toBe("/?mode=therapy-compass");
+    expect(target("/documents")).toBe("/?mode=documents");
+    expect(target("/sources")).toBe("/?mode=sources");
   });
 
   it("leaves every other path alone", () => {
@@ -32,9 +36,11 @@ describe("consolidated mode home redirects", () => {
       "/",
       "/favourites",
       "/tools",
+      // Medication redirects too, but through its own bespoke proxy fast-path
+      // (src/proxy.ts, medicationsHomeTarget()) rather than this shared map — it
+      // has no `/medications/search` route for the generic ${pathname}/search
+      // submitted-target logic to forward to.
       "/medications",
-      // Documents is dashboard-owned: the shell paints a real Documents home there.
-      "/documents",
       "/mockups/favourites-hub",
     ]) {
       expect(target(pathname)).toBeNull();
@@ -59,6 +65,10 @@ describe("consolidated mode home redirects", () => {
       "/services/search",
       "/forms/search",
       "/calculators/search",
+      "/sources/search",
+      "/sources/topics",
+      "/sources/publishers",
+      "/sources/method",
     ]) {
       expect(target(pathname)).toBeNull();
       expect(isConsolidatedModeHomePath(pathname)).toBe(false);
@@ -75,6 +85,7 @@ describe("consolidated mode home redirects", () => {
   it("forwards a submitted deep link to the mode's own results surface", () => {
     expect(target("/dsm", "q=panic+disorder&run=1")).toBe("/dsm/search?q=panic+disorder&run=1&mode=dsm");
     expect(target("/forms", "q=transport&run=1&focus=1")).toBe("/forms/search?q=transport&run=1&focus=1&mode=forms");
+    expect(target("/documents", "q=lithium&run=1")).toBe("/documents/search?q=lithium&run=1&mode=documents");
     // Navigation context rides along, so a scoped or mode-qualified deep link
     // does not silently lose its filters crossing the hop.
     expect(target("/differentials", "q=acute&run=1&queryMode=compare_guidance&scope.medications=lithium")).toBe(
@@ -216,5 +227,83 @@ describe("consolidated mode home redirects", () => {
         expect(unsubmittedModeSearchTarget(entry.href, new URLSearchParams()), entry.href).toBeNull();
       }
     }
+  });
+});
+
+/*
+ * `/sources` was the one bare mode path that still rendered a home of its own: a
+ * four-card page duplicating the shared home's title and subtitle, whose cards
+ * duplicated the Sources tab bar. It joined `consolidatedModeHomePaths` when that
+ * home was deleted, so the cases below moved from the standalone resolver onto the
+ * shared one. What must NOT move with them is the filter-only forward: `/sources`
+ * served both the home and the catalogue before the split, so a shareable catalogue
+ * link has to keep reaching `/sources/search`.
+ */
+describe("Sources: a consolidated home whose catalogue takes filter keys", () => {
+  const target = (pathname: string, search = "") => consolidatedModeHomeTarget(pathname, new URLSearchParams(search));
+
+  it("forwards a submitted Sources link to the catalogue, preserving the query string", () => {
+    expect(target("/sources", "q=RANZCP&run=1")).toBe("/sources/search?q=RANZCP&run=1&mode=sources");
+    expect(target("/sources", "q=RANZCP&run=1&focus=1&band=A")).toBe(
+      "/sources/search?q=RANZCP&run=1&focus=1&band=A&mode=sources",
+    );
+    // The legacy `query` alias counts as submitted, exactly as it does for every
+    // other consolidated path, so an old deep link is not silently stripped.
+    expect(target("/sources", "query=RANZCP&run=1")).toBe("/sources/search?query=RANZCP&run=1&mode=sources");
+  });
+
+  /*
+   * Before consolidation an unsubmitted visit rendered the four-card home. It now
+   * forwards to the shared home like every other bare mode path — the whole point
+   * of the change, and the case that would silently regress if `/sources` were ever
+   * dropped back out of the map.
+   */
+  it("forwards an unsubmitted visit to the shared home", () => {
+    expect(target("/sources")).toBe("/?mode=sources");
+    expect(target("/sources", "focus=1")).toBe("/?focus=1&mode=sources");
+    // A query with no `run=1` is a draft, not a submission.
+    expect(target("/sources", "q=RANZCP")).toBe("/?q=RANZCP&mode=sources");
+    // An empty query with `run=1` has nothing to search for.
+    expect(target("/sources", "q=%20&run=1")).toBe("/?q=+&run=1&mode=sources");
+  });
+
+  // A filter chip has no "draft" state the way a typed query does — a link
+  // carrying one is a complete, shareable catalogue selection on its own, so it
+  // forwards without needing `run=1`.
+  it("forwards a filter-only deep link even without run=1", () => {
+    expect(target("/sources", "topic=governance")).toBe("/sources/search?topic=governance&mode=sources");
+    expect(target("/sources", "usedBy=dictionary")).toBe("/sources/search?usedBy=dictionary&mode=sources");
+    expect(target("/sources", "band=A&jurisdiction=AU")).toBe("/sources/search?band=A&jurisdiction=AU&mode=sources");
+    // A filter alongside a draft (unsubmitted) query still forwards; the filter
+    // is the reason, not the query.
+    expect(target("/sources", "q=RANZCP&topic=governance")).toBe(
+      "/sources/search?q=RANZCP&topic=governance&mode=sources",
+    );
+  });
+
+  /*
+   * The filter keys belong to Sources alone. Applying them to every consolidated
+   * mode would turn an ordinary `?type=` or `?status=` on an unrelated bare path
+   * into a forward to a `/search` route that never expected one.
+   */
+  it("does not forward another mode on a Sources catalogue filter key", () => {
+    expect(target("/dsm", "topic=governance")).toBe("/?topic=governance&mode=dsm");
+    expect(target("/factsheets", "band=A")).toBe("/?band=A&mode=factsheets");
+    expect(target("/calculators", "sort=recent")).toBe("/?sort=recent&mode=calculators");
+  });
+
+  it("resolves the same destination the href builder uses", () => {
+    expect(consolidatedModeSearchPath("sources")).toBe("/sources/search");
+    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources/search?q=RANZCP&run=1");
+    // Unsubmitted resolves straight to the shared home rather than routing in-app
+    // navigation through the redirect for nothing.
+    expect(appModeHomeHref("sources")).toBe("/?mode=sources");
+  });
+
+  it("reads a page's own searchParams the same way the proxy reads the URL", () => {
+    expect(consolidatedModeHomeTargetForSearchParams("/sources", { q: "RANZCP", run: "1" })).toBe(
+      "/sources/search?q=RANZCP&run=1&mode=sources",
+    );
+    expect(consolidatedModeHomeTargetForSearchParams("/sources", {})).toBe("/?mode=sources");
   });
 });

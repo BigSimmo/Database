@@ -205,6 +205,37 @@ export function historyIsComplete({ root = process.cwd(), runGit = sh } = {}) {
   throw new Error(`git rev-parse returned an unexpected shallow-repository state: ${state || "<empty>"}`);
 }
 
+/**
+ * A plan that has been superseded or finished is HISTORY, and its tick-boxes are formatting rather
+ * than a backlog. Detected from an explicit marker only.
+ *
+ * Ward Flow process audit, P2-10 / P2-16. Measured 2026-08-30: the sixteen ward plans hold 12,523
+ * lines, 555 unchecked boxes and ZERO checked ones — including Phases 1, 2, 3 and 7, all shipped.
+ * Nobody ticks a box here; completion is recorded in prose and in commits. So `open > 0` was true of
+ * every plan that has ever existed, and every symbol named in any of them was protected forever.
+ * Historical formatting had become a permanent exemption from dead-code detection.
+ *
+ * FAIL CLOSED, deliberately: only an EXPLICIT terminal marker demotes a plan. A plan with no marker
+ * is still in flight, exactly as before. This is not a threshold that can be tuned to let a diff
+ * pass — there is no threshold, and the only way to exempt a plan is to state in the document that
+ * it is finished, which is a claim someone has to make and a reviewer can see.
+ */
+const TERMINAL_PLAN_MARKER =
+  /^\s*>?\s*\*{0,2}(SUPERSEDED|COMPLETE|COMPLETED|SHIPPED|ARCHIVED)\b|\bDo not execute this plan\b/im;
+
+/**
+ * Only a BANNER counts — the marker must appear in the document's opening lines, where a status
+ * banner lives. Scanning the whole body would let a mid-document heading such as "Complete the
+ * intake form" demote a live plan, and that error runs in the dangerous direction: it would un-guard
+ * a symbol that is genuinely in flight. A missed exemption costs a refusal someone can argue with; a
+ * wrong exemption costs live code.
+ */
+const PLAN_BANNER_LINES = 25;
+
+export function planIsHistory(body) {
+  return TERMINAL_PLAN_MARKER.test(body.split(/\r?\n/).slice(0, PLAN_BANNER_LINES).join("\n"));
+}
+
 /** A symbol named in a plan whose tasks are unchecked is scaffolding, not debris. */
 export function planContractHits(symbol, options = {}) {
   const contentIndex =
@@ -213,12 +244,13 @@ export function planContractHits(symbol, options = {}) {
   const hits = rg(symbol, ["docs/superpowers/plans", "docs/superpowers/specs"], {
     ...options,
     contentIndex,
-  });
+  }).filter((file) => !isExcludedDocumentationPath(file));
   return hits.map((file) => {
     const body = contentIndex.read(file);
     const open = (body.match(/^- \[ \]/gm) || []).length;
     const done = (body.match(/^- \[x\]/gim) || []).length;
-    return { file, open, done, inFlight: open > 0 };
+    const history = planIsHistory(body);
+    return { file, open, done, history, inFlight: open > 0 && !history };
   });
 }
 

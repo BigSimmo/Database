@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -5,17 +6,20 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  BIMODAL_RUNNER_TOLERANCE_FLOORS,
   DEFAULT_TOLERANCE,
   baselineFromRows,
   compareToLighthouseBudget,
   expectedBudgetRuns,
   gradeRun,
   incompleteBudgetEvidence,
+  isBimodalRunnerVarianceRun,
   majorityBreachDecision,
   numericBreachConfirmationRuns,
   readReports,
   renderBudgetTable,
   validateBaselineBrowserVersions,
+  validateLighthouseBaseline,
 } from "../scripts/check-lighthouse-budget.mjs";
 import { routeWithLighthouseParams } from "../scripts/lib/lighthouse-route-params.mjs";
 import { measurementFailureReason } from "../scripts/lighthouse-measurement-outcome.mjs";
@@ -135,7 +139,15 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     // have TBT silently skipped.
     const rows = completeRows().map((entry: Row) => (entry.run === "mobile-dsm" ? { ...entry, tbtMs: null } : entry));
 
-    expect(incompleteBudgetEvidence(rows, budget())).toEqual(["mobile-dsm: report has no tbtMs number"]);
+    expect(incompleteBudgetEvidence(rows, budget())).toEqual(["mobile-dsm: report has no valid tbtMs number"]);
+  });
+
+  it("rejects a report missing a newly configured tolerance metric", () => {
+    const rows = completeRows().map((entry: Row) => ({ ...entry, performanceScore: undefined }));
+
+    expect(incompleteBudgetEvidence(rows, budget({ tolerance: { performanceScore: { absolute: 0.02 } } }))).toContain(
+      "mobile-root: report has no valid performanceScore number",
+    );
   });
 
   it("rejects a run the recorded baseline does not cover", () => {
@@ -182,8 +194,9 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     }
   });
 
-  it("lists drift per run when the browsers themselves disagree", () => {
-    // Two different baseline browsers is not one fact, so it must not read as one.
+  it("rejects a mixed-browser baseline before making per-run comparisons", () => {
+    // A row-by-row comparison would make a transcribed multi-run baseline look
+    // valid when each current report happened to match its corresponding browser.
     const rows = completeRows();
     const mixed = Object.fromEntries(
       Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
@@ -193,8 +206,9 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     );
     const problems = incompleteBudgetEvidence(rows, budget({ baseline: mixed }));
 
-    expect(problems).toHaveLength(10);
-    expect(problems.every((problem: string) => problem.includes("measured by a different browser"))).toBe(true);
+    expect(problems).toEqual([
+      expect.stringContaining("baseline browser identity invalid: expected exactly one baseline Chrome version"),
+    ]);
   });
 
   it("keeps drift per run when a measurement gap shares the verdict", () => {
@@ -226,12 +240,9 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     );
 
     expect(incompleteBudgetEvidence(rows, budget({ baseline: stale }), { ignoreBaseline: true })).toEqual([]);
-    expect(incompleteBudgetEvidence(rows, budget({ baseline: stale }))).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("measured by a different browser"),
-        "mobile-forms: no baseline row recorded — refresh with --update",
-      ]),
-    );
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: stale }))).toEqual([
+      "mobile-forms: no baseline row recorded — refresh with --update",
+    ]);
   });
 
   it("still refuses a refresh when a report is missing", () => {
@@ -242,19 +253,19 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     ]);
   });
 
-  it("accepts a baseline that recorded no browser identity at all", () => {
-    // Older baselines predate the field; absent is not the same as mismatched.
+  it("rejects a baseline that recorded no browser identity", () => {
+    // Without browser identity the metrics cannot be shown comparable to this run.
     const rows = completeRows();
     const legacy = Object.fromEntries(
       Object.entries(baselineFromRows(rows)).map(([run, row]) => [run, { ...(row as object), chromeVersion: null }]),
     );
 
-    expect(incompleteBudgetEvidence(rows, budget({ baseline: legacy }))).toEqual([]);
+    expect(incompleteBudgetEvidence(rows, budget({ baseline: legacy }))).toEqual(
+      expect.arrayContaining([expect.stringContaining("baseline has no valid HeadlessChrome version")]),
+    );
   });
 
-  it("keeps drift per run when some baseline rows lack a recorded browser version", () => {
-    // When older baselines contain a mix of versioned and unversioned rows,
-    // drift is not uniform across all expected runs and must list per run.
+  it("rejects a baseline when even one row lacks a browser version", () => {
     const rows = completeRows();
     const mixed = Object.fromEntries(
       Object.entries(baselineFromRows(rows)).map(([run, entry], index) => [
@@ -264,9 +275,7 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
     );
     const problems = incompleteBudgetEvidence(rows, budget({ baseline: mixed }));
 
-    expect(problems).toHaveLength(9);
-    expect(problems.every((problem: string) => problem.includes("measured by a different browser"))).toBe(true);
-    expect(problems[0]).not.toContain("browser drift on");
+    expect(problems).toEqual([expect.stringContaining("baseline has no valid HeadlessChrome version")]);
   });
 
   it("rejects colliding route slugs before anything is measured", () => {
@@ -278,9 +287,38 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
   });
 });
 
+describe("isBimodalRunnerVarianceRun", () => {
+  it("matches only the calibrated desktop-root and documents-search run ids", () => {
+    expect(isBimodalRunnerVarianceRun("desktop-root")).toBe(true);
+    expect(isBimodalRunnerVarianceRun("mobile-documents-search")).toBe(true);
+    expect(isBimodalRunnerVarianceRun("desktop-documents-search")).toBe(true);
+    expect(BIMODAL_RUNNER_TOLERANCE_FLOORS.lcpMs).toBe(200);
+  });
+
+  it("rejects bare documents substrings and other routes (false-green guard)", () => {
+    expect(isBimodalRunnerVarianceRun("desktop-documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-documents-upload")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-root")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("")).toBe(false);
+    expect(isBimodalRunnerVarianceRun(null as unknown as string)).toBe(false);
+  });
+});
+
 describe("gradeRun", () => {
   it("records no breach without a baseline for that run", () => {
     expect(gradeRun(row("mobile-root", { lcpMs: 9000 }), undefined)).toEqual([]);
+  });
+
+  it("applies the bimodal LCP floor only on intended run ids", () => {
+    const baseline = { lcpMs: 786, cls: 0, tbtMs: 100 };
+    // +175ms clears default minAbsolute(100) + pct but stays under bimodal floor(200)
+    expect(gradeRun(row("desktop-root", { lcpMs: 961 }), baseline)).toEqual([]);
+    expect(gradeRun(row("desktop-documents-search", { lcpMs: 961 }), baseline)).toEqual([]);
+    // Unintended documents* name must still flag — closes false-green path
+    expect(gradeRun(row("desktop-documents", { lcpMs: 961 }), baseline)).toHaveLength(1);
+    expect(gradeRun(row("mobile-root", { lcpMs: 961 }), baseline)).toHaveLength(1);
   });
 
   it("ignores an improvement", () => {
@@ -327,7 +365,31 @@ describe("gradeRun", () => {
 });
 
 describe("compareToLighthouseBudget", () => {
+  it("rejects a missing configured metric in reports or baseline rows", () => {
+    const rows = completeRows();
+    const baseline = baselineFromRows(rows);
+    const config = budget({ baseline, tolerance: { performanceScore: { absolute: 0.02 } } });
+    const missingReport = rows.map((entry: Row) => ({ ...entry, performanceScore: undefined }));
+    const reportResult = compareToLighthouseBudget(missingReport, config);
+    expect(reportResult.status).toBe("fail");
+    expect(reportResult.incomplete).toContain("mobile-root: report has no valid performanceScore number");
+    const missingBaseline = Object.fromEntries(
+      Object.entries(baseline).map(([run, entry]) => [run, { ...(entry as object), performanceScore: undefined }]),
+    );
+    expect(compareToLighthouseBudget(rows, { ...config, baseline: missingBaseline }).status).toBe("fail");
+  });
+
   const baseline = baselineFromRows(completeRows());
+
+  it("fails evidence when a configured tolerance metric is missing from the baseline", () => {
+    const result = compareToLighthouseBudget(
+      completeRows(),
+      budget({ baseline, tolerance: { performanceScore: { absolute: 0.02 } } }),
+    );
+
+    expect(result).toMatchObject({ status: "fail", reason: "evidence incomplete", breaches: [] });
+    expect(result.incomplete).toContain("mobile-root: baseline performanceScore must be a finite non-negative number");
+  });
 
   it("warns rather than failing when no baseline is recorded yet", () => {
     const result = compareToLighthouseBudget(completeRows(), budget({ baseline: null }));
@@ -434,6 +496,55 @@ describe("baselineFromRows", () => {
   });
 });
 
+describe("check:lighthouse-budget --update", () => {
+  it("writes every configured tolerance metric into the refreshed baseline", () => {
+    // Removing the budget-aware serialization from the update path must make this
+    // fail: the refreshed baseline would omit performanceScore and reject itself.
+    const budgetPath = path.join(process.cwd(), "lighthouse-budget.json");
+    const originalBudget = readFileSync(budgetPath, "utf8");
+    const directory = mkdtempSync(path.join(tmpdir(), "lighthouse-update-"));
+    try {
+      writeFileSync(
+        budgetPath,
+        JSON.stringify({
+          enforce: true,
+          routes: ["/"],
+          strategies: ["mobile"],
+          tolerance: { performanceScore: { absolute: 0.02 } },
+          baseline: null,
+        }),
+      );
+      writeFileSync(
+        path.join(directory, "mobile-root.json"),
+        JSON.stringify({
+          requestedUrl: "http://localhost:4461/",
+          finalDisplayedUrl: "http://localhost:4461/",
+          environment: { hostUserAgent: "HeadlessChrome/140" },
+          categories: { performance: { score: 0.99 } },
+          audits: {
+            "largest-contentful-paint": { numericValue: 1000 },
+            "cumulative-layout-shift": { numericValue: 0 },
+            "total-blocking-time": { numericValue: 100 },
+            "first-contentful-paint": { numericValue: 500 },
+          },
+        }),
+      );
+
+      execFileSync(process.execPath, ["scripts/check-lighthouse-budget.mjs", "--update", "--dir", directory], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      });
+
+      const updated = JSON.parse(readFileSync(budgetPath, "utf8"));
+      expect(updated.baseline["mobile-root"].performanceScore).toBe(0.99);
+      expect(validateLighthouseBaseline(updated)).toMatchObject({ ok: true });
+    } finally {
+      writeFileSync(budgetPath, originalBudget);
+      rmSync(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+});
+
 describe("committed lighthouse-budget.json", () => {
   const committed = JSON.parse(readFileSync(path.join(process.cwd(), "lighthouse-budget.json"), "utf8")) as {
     routes: string[];
@@ -472,6 +583,7 @@ describe("committed lighthouse-budget.json", () => {
     expect(versions).toHaveLength(rows.length);
     expect(new Set(versions).size).toBe(1);
     expect(versions[0]).toContain("HeadlessChrome/");
+    expect(validateLighthouseBaseline(committed)).toMatchObject({ ok: true });
   });
 
   it("measures every route without a query string", () => {
@@ -706,6 +818,87 @@ describe("validateBaselineBrowserVersions", () => {
     const result = validateBaselineBrowserVersions(partial);
 
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("some rows are missing a recorded browser version");
+    expect(result.error).toContain("some rows are missing a valid HeadlessChrome version");
+  });
+});
+
+describe("validateLighthouseBaseline", () => {
+  it("rejects a transcribed numeric string instead of silently skipping that metric", () => {
+    const baseline = baselineFromRows(completeRows());
+    baseline["mobile-root"].lcpMs = "2281.896" as unknown as number;
+
+    const validation = validateLighthouseBaseline(budget({ baseline }));
+
+    expect(validation.ok).toBe(false);
+    expect(validation.errors).toContain("mobile-root: baseline lcpMs must be a finite non-negative number");
+    const comparison = compareToLighthouseBudget(completeRows(), budget({ baseline }));
+    expect(comparison).toMatchObject({ status: "fail", reason: "evidence incomplete", breaches: [] });
+  });
+
+  it.each([
+    ["non-finite", Number.NaN],
+    ["negative", -1],
+  ])("rejects a %s baseline metric", (_label, value) => {
+    const baseline = baselineFromRows(completeRows());
+    baseline["desktop-root"].tbtMs = value;
+
+    expect(validateLighthouseBaseline(budget({ baseline })).errors).toContain(
+      "desktop-root: baseline tbtMs must be a finite non-negative number",
+    );
+  });
+
+  it("rejects missing and unexpected rows", () => {
+    const baseline = baselineFromRows(completeRows());
+    delete baseline["mobile-root"];
+    baseline["desktop-transcribed"] = { ...baseline["desktop-root"] };
+
+    expect(validateLighthouseBaseline(budget({ baseline })).errors).toEqual(
+      expect.arrayContaining([
+        "mobile-root: no baseline row recorded — refresh with --update",
+        "desktop-transcribed: unexpected baseline row",
+      ]),
+    );
+  });
+
+  it("rejects a malformed browser label even when every row repeats it", () => {
+    const malformed = Object.fromEntries(
+      Object.entries(baselineFromRows(completeRows())).map(([run, entry]) => [
+        run,
+        { ...(entry as object), chromeVersion: "Chrome one-fifty-one" },
+      ]),
+    );
+
+    expect(validateLighthouseBaseline(budget({ baseline: malformed })).errors).toEqual(
+      expect.arrayContaining([expect.stringContaining("baseline has no valid HeadlessChrome version")]),
+    );
+  });
+
+  it("refuses mixed report browsers before comparing numbers", () => {
+    const rows = completeRows().map((entry: Row, index: number) => ({
+      ...entry,
+      chromeVersion: index % 2 === 0 ? "HeadlessChrome/150.0.0.0" : "HeadlessChrome/151.0.0.0",
+    }));
+    const matchingMixedBaseline = baselineFromRows(rows);
+
+    const result = compareToLighthouseBudget(rows, budget({ baseline: matchingMixedBaseline }));
+
+    expect(result).toMatchObject({ status: "fail", reason: "evidence incomplete", breaches: [] });
+    expect(result.incomplete).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("reports were measured by mixed Chrome versions"),
+        expect.stringContaining("baseline browser identity invalid"),
+      ]),
+    );
+  });
+
+  it("wires the GitHub refresh job to the shared full validator", () => {
+    const workflow = readFileSync(path.join(process.cwd(), ".github", "workflows", "ci.yml"), "utf8");
+    const refreshJob = workflow.slice(
+      workflow.indexOf("  lighthouse-baseline-refresh:"),
+      workflow.indexOf("  db-reset-verify:"),
+    );
+
+    expect(refreshJob).toContain("node scripts/check-lighthouse-budget.mjs --validate-baseline");
+    expect(refreshJob).not.toContain("node -e \"const b=require('./lighthouse-budget.json')");
   });
 });

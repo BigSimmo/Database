@@ -1,0 +1,11 @@
+Handed in: 1 file(s). Running…
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-iEXW60/report.json
+
+  files handed in : 1
+  files that ran  : 1
+  tests collected : 2
+  passed          : 1
+  failed          : 1
+  vitest exit     : 1
+
+FAILED: 1 test(s) failed.

@@ -268,7 +268,7 @@ function PrivacyFooter({ className }: { className?: string }) {
         <span className="block">Do not enter patient-identifiable information.</span>
         <Link
           href="/privacy"
-          className="mt-0.5 inline-flex min-h-6 items-center gap-1 font-semibold text-[color:var(--clinical-accent)] underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
+          className="mt-0.5 inline-flex min-h-tap items-center gap-1 font-semibold text-[color:var(--clinical-accent)] underline decoration-transparent underline-offset-4 transition hover:decoration-current focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
         >
           Privacy and data processing
           <ArrowRight aria-hidden="true" className="h-3.5 w-3.5" />

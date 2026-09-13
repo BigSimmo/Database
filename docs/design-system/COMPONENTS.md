@@ -703,13 +703,13 @@ surface. **Landed.** Danger contrast and hover/active tokens plus the 48px tap-f
 **Purpose.** Icon-only action with a mandatory `label`. **States/Keyboard.** As Button;
 the label is the accessible name; the glyph is `aria-hidden`. **Rules.** Visible face may
 be compact; the hit target meets the tap floor via padding or pseudo-element. **Open
-defects → PR.** `disabled:opacity` (one of the ten) → PR 3; ref forwarding → PR 4.
+defects → PR.** `disabled:opacity` (one of the 39, §9.33) → PR 3; ref forwarding → PR 4.
 
 ### 9.3 `AsyncButton` — deprecated
 
-**Disposition.** Retire or alias to `Button` (PR 4). Until then its one live defect
-stands: no `type="button"`, so it can submit a surrounding form. Do not build new surfaces
-on it.
+**Disposition.** Retire or alias to `Button` (PR 4). Do not build new surfaces on it.
+**Resolved.** `type` defaults to `"button"` (applied after the prop spread so an explicit
+`type="submit"` still wins) — it can no longer submit a surrounding form.
 
 ### 9.4 `ToggleSwitch`
 
@@ -886,9 +886,11 @@ links carry the `ExternalLink` icon and an explicit new-tab policy, not an accid
 universal · `DownloadLink`'s `download` semantics are not overridable by spread; `tone`
 is destructured, never leaked to the DOM · `LinkAction`'s arrow animates with `transform`,
 never `gap`. **Resolved (6 Aug 2026).** `tone` is destructured before the spread in
-`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Open defects → PR.** `download`
-still overridable by spread · `LinkAction` `gap` animation · new-tab policy implicit /
-raw underline offset → PR 9.
+`TextLink`, `ExternalTextLink`, and `DownloadLink`. **Resolved.** `DownloadLink`'s
+`download` is `Omit`ted from the spread type and applied after `{...props}`, so it can no
+longer be overridden; `LinkAction`'s arrow nudge uses `transition-transform` +
+`group-hover:translate-x-0.5`, never `gap`. **Open defects → PR.** new-tab policy implicit
+/ raw underline offset → PR 9.
 
 ### 9.21 `Tooltip`
 
@@ -930,17 +932,35 @@ source-derived and its reference preview exercises the typed confirmation path.
 **Contract.** Heading level is a prop — never a hardcoded `<h3>` · collapsed content is
 **not** find-in-page reachable via plain `hidden` (retracted claim); evaluate
 `hidden="until-found"` where discoverability matters · print-relevant disclosures expand
-under the print theme (PR 11) · the group supports controlled and default-open ids.
-**Landed.** `headingLevel` drives `h2`–`h6` for both components. **Open defects → PR.** print
-behaviour and truncation → PR 11.
+under the print theme (PR 11) · the group supports controlled and default-open ids ·
+the trigger is a **grid** and the panel repeats its template, so the label, the collapsed
+preview and the expanded body share one left edge · `py-2.5` plus a 28px first-line band
+(`leading-7`) puts a single-line row exactly on the 48px tap floor, and `items-start` holds
+the tile, `meta` and chevron to that band when copy wraps · the preview clamps to two
+lines · `icon` is a **leading tile for list-shaped groups**, passed as a bare glyph so the
+component owns the tile and its grid track cannot desync from
+`--spacing-disclosure-icon`; an inline glyph inside a sentence stays in `title` (see
+`medication-considerations.tsx`) · `surface` and the group's `variant` are props, never
+`className` overrides, because `cn()` joins strings and does not resolve Tailwind
+conflicts · panel copy uses the exported `disclosureBodyText`, never a restated size.
+**Landed.** `headingLevel` drives `h2`–`h6` for both components. Truncation is closed: the
+trigger had horizontal padding only, so a wrapped preview pressed its copy into the border;
+the preview was `text-xs` against a `text-sm leading-6` panel, so an `extendDescription` row
+re-sized the same sentence on open; and the panel's own `px-3` moved that copy sideways.
+Pinned in a browser by `tests/ui-forms-section-nav.spec.ts` ("symmetric vertical padding",
+"left edge and in the preview's type") — jsdom applies no Tailwind, so it can assert neither.
+**Accepted residual.** With `extendDescription` the trigger holds the tap floor whether or
+not the preview is present, so the copy moves down about 10px on expand. It does not change
+size, colour or left edge. **Open defects → PR.** print behaviour → PR 11.
 
 ### 9.26 `Progress`
 
 **Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
 left` — never `width` · indeterminate must use tokened duration; reduced motion shows a
 static state · the track/fill pair follows the edge rule. **Landed.** Determinate fill uses
-`scaleX()` and tokened transition duration. **Open defects → PR.** the indeterminate animation
-still carries a hardcoded `1.4s` timing → PR 9.
+`scaleX()` and tokened transition duration; indeterminate now uses the `animate-shimmer`
+`@theme` token rather than a hardcoded `1.4s` literal. **Open defects → PR.** none
+remaining on this component.
 
 ### 9.27 `StageList`
 
@@ -992,8 +1012,10 @@ sanitiser's tiny grammar renders as plain text.
 
 ### 9.33 `ui-primitives.tsx` recipes
 
-**Contract.** `controlBase` owns the disabled encoding — the ten remaining
-`disabled:opacity` uses migrate in PR 3 · the module splits in PR 12
+**Contract.** `controlBase` owns the disabled encoding — the 39 remaining
+`disabled:opacity` uses (ratcheted as `disabledOpacityUses` in
+`scripts/design-system-contract-baseline.json`; re-measured 2 Sep 2026, corrected from a
+stale "ten") migrate in PR 3 · the module splits in PR 12
 (`styles/recipes.ts`, actions, feedback, forms, clinical-source, source-metadata
 contract) so generic primitives stop importing clinical application modules · recipes
 never restate a token value. `interactiveCompact` and `tableMicroActionRow` use
@@ -1010,7 +1032,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 39
+Components with product imports: 42
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1021,30 +1043,30 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `AnswerFooter`           | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `AsyncButton`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Breadcrumb`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
-| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
+| `Button`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
+| `Checkbox`               | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Chip`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `Citation`               | source   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `CitationList`           | source   | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
-| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ExternalTextLink`       | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
-| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
+| `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
+| `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
 | `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
@@ -1053,19 +1075,19 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `Quantity`               | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               8 |
+| `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
 | `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
-| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              32 |
+| `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
+| `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              34 |
 | `Skeleton`               | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `SourceDesignationBadge` | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `SourceProvenance`       | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SourceStatusBadge`      | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `StageList`              | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
+| `StatusMark`             | source   | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `Tabs`                   | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
-| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
+| `TextField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
 | `TextLink`               | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToastRegion`            | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ToggleSwitch`           | controls | yes   | yes                | inherited-global-root | yes            | no                 |               2 |

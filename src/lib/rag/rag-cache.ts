@@ -1,37 +1,75 @@
+import { answerContractForRollout, type RagProgrammeRolloutDecision } from "@/lib/rag/rag-rollout";
+import { isIssuedRagShadowControl } from "@/lib/rag/rag-rollout";
+import { reviewedPolicyStateForRequest } from "@/lib/rag/rag-reviewed-policy-input";
+import { sanitizeRagEvalDiagnostics } from "@/lib/rag/rag-eval-diagnostics";
 import { createHash } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildClinicalTextSearchQuery } from "@/lib/clinical-search";
 import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bounded-ttl-cache";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
-import { queryCacheKeyForStorage } from "@/lib/query-privacy";
+import { hashQueryText, queryCacheKeyForStorage } from "@/lib/query-privacy";
 import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
-import { retrievalAccessScopeForArgs, retrievalAccessScopeKey } from "@/lib/owner-scope";
-import { compactContextText } from "@/lib/rag/rag-source-block";
-import { committedIndexGeneration } from "@/lib/reindex-pipeline";
+import { ragContextPackVersion } from "@/lib/rag/rag-context-pack";
+import { retrievalAccessScopeForArgs, retrievalAccessScopeKey, type RetrievalAccessScope } from "@/lib/owner-scope";
+import { assertRagRequestContextIntegrity } from "@/lib/rag/rag-context-snapshot";
+import { governedCorpusComponentState, sanitizeRagCandidateMatchCounts } from "@/lib/rag/rag-contracts";
+import { sanitizeRagQueryPlanDiagnostics } from "@/lib/rag/rag-retrieval-variants";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
-import type { Json } from "@/lib/supabase/database.types";
-import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 import {
-  ragAnswerPromptVersion,
-  ragAnswerSchemaVersion,
-  ragIndexingPromptVersion,
-  ragQueryClassifierPromptVersion,
-} from "@/lib/rag/rag-versioning";
+  retrievalPlanForQueryClass,
+  type RagRequestContext,
+  type SearchChunksArgs,
+  type SearchTelemetry,
+} from "@/lib/rag/rag-contracts";
+import type { Json } from "@/lib/supabase/database.types";
+import type { RagAnswer, RagQueryClass, SearchResult, SourcePolicyConflict } from "@/lib/types";
+import { restoreCachedContextPackAdmission } from "@/lib/rag/rag-context-admission";
+import { ragIndexingPromptVersion, ragQueryClassifierPromptVersion } from "@/lib/rag/rag-versioning";
 
+export type RagAnswerQueryPlanDiagnostics = Readonly<{
+  queryPlanKind: import("@/lib/rag/rag-programme-eval").RagQueryPlanKind;
+  subquestionCount: number;
+  candidateMatchCounts?: import("@/lib/rag/rag-contracts").RagCandidateMatchCounts;
+}>;
+const answerQueryPlanDiagnostics = new WeakMap<RagAnswer, RagAnswerQueryPlanDiagnostics>();
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 export const answerInflight = new Map<string, Promise<RagAnswer>>();
 const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-// v21 (answer-cache key identity): rows written under the previous key can pair a stored
-// answer with a question it does not answer, so they are evicted rather than trusted.
-const ragCacheDependencyVersion = "rag-cache-v21";
+// v22 (ledger #ZK460W): the source-backed review fallback used to relabel a rejected answer
+// `grounded: true` with `deterministic_support` citations. The extractive arm of that route
+// carries no `generation_fallback:` marker, so `getSharedCachedAnswer` does not evict those
+// rows — a repeat query would keep serving the unsafe shape for the whole answer-cache TTL
+// after rollout.
+// v23/v24 landed on main for unrelated reasons while that defect was still live, so production
+// still writes unsafe review-fallback answers under v24. v25 re-issues the intentional
+// #ZK460W invalidation: rows written under v24 (and earlier) become unreachable. The bump
+// costs one cold cache and is the mechanism this constant exists for.
+export const ragCacheDependencyVersion = "rag-cache-v25";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
+/**
+ * The two corpus-staleness stamps that carry no information about the corpus.
+ *
+ * Audit L21: a PostgREST `error` on the `documents` stamp query used to be
+ * folded into INDEXING_STAMP_EMPTY_CORPUS, making a failed read indistinguishable
+ * from "nothing is indexed". Both constants are stable across requests, so two
+ * stamp failures bracketing a worker-side reindex (which cannot call this
+ * process's in-process invalidation) let a pre-reindex answer be served with
+ * `answer_cache_hit` — the exact staleness this stamp exists to prevent. An
+ * error now produces the distinct UNAVAILABLE stamp, and neither read nor write
+ * trusts it.
+ */
+const INDEXING_STAMP_UNAVAILABLE = "index-stamp-unavailable";
+const INDEXING_STAMP_EMPTY_CORPUS = "no-indexed-documents";
+
+function isUnavailableIndexingStamp(indexingVersion: string) {
+  return indexingVersion.endsWith(`:${INDEXING_STAMP_UNAVAILABLE}`);
+}
 /**
  * Invalidation generations for deferred `setCachedAnswer` promotions. Review /
  * table-fact mutations do not change the documents indexing stamp, so the
@@ -73,6 +111,41 @@ function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) throw abortReason(signal);
 }
 
+function requestSnapshotCacheKey(args: Pick<SearchChunksArgs, "ragRequestContext">) {
+  if (!args.ragRequestContext) return "";
+  assertRagRequestContextIntegrity(args.ragRequestContext);
+  return args.ragRequestContext.snapshotCacheKey;
+}
+
+function requestCacheNamespace(args: Pick<SearchChunksArgs, "ragRequestContext" | "ragProgrammeRollout">) {
+  const snapshot = requestSnapshotCacheKey(args);
+  const decision = args.ragProgrammeRollout;
+  if (decision?.servedMode !== "candidate") return snapshot;
+  return hashQueryText(
+    JSON.stringify([
+      decision.cacheNamespace,
+      args.ragRequestContext?.snapshot.version,
+      args.ragRequestContext?.snapshot.rolloutVersion,
+      ...(decision.components.siteContent ? [snapshot] : []),
+    ]),
+  );
+}
+
+function siteAwareAnswerOwnerToken(ownerId: string) {
+  const ownerHash = createHash("sha256").update(`rag-site-aware-answer-owner-v1\0${ownerId}`).digest("hex");
+  return `answer-owner:${ownerHash}`;
+}
+
+export function isRagCacheAccessAllowed(args: Pick<SearchChunksArgs, "ownerId" | "accessScope" | "ragRequestContext">) {
+  try {
+    if (!requestSnapshotCacheKey(args)) return true;
+  } catch {
+    return false;
+  }
+  const scope = retrievalAccessScopeForArgs(args);
+  return scope.includePublic === true && !scope.ownerId;
+}
+
 function documentScopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
   const scope = args.documentIds?.length
     ? [...args.documentIds].sort().join(",")
@@ -100,6 +173,14 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
+export function governedCorpusComponentCacheNamespace(
+  base: string,
+  components: SearchChunksArgs["governedCorpusComponents"],
+) {
+  if (!components) return base;
+  return `${base}|site:${components?.siteContent ? "on" : "off"}|australian:${components?.australianAugmentation ? "on" : "off"}|australian-current:${components?.australianCurrent ? "on" : "off"}`;
+}
+
 export type AnswerGenerationFingerprintInput = {
   answerModel: string;
   fastModel: string;
@@ -114,6 +195,7 @@ export type AnswerGenerationFingerprintInput = {
   maxOutputTokens: number;
   providerMode: string;
   promptVersion: string;
+  contextPackVersion: string;
   schemaVersion: string;
   classifierPromptVersion: string;
   retrievalVersion: string;
@@ -126,7 +208,8 @@ export function buildAnswerGenerationFingerprint(input: AnswerGenerationFingerpr
   return createHash("sha256").update(JSON.stringify(input)).digest("hex").slice(0, 20);
 }
 
-export function answerGenerationFingerprint() {
+export function answerGenerationFingerprint(decision?: RagProgrammeRolloutDecision) {
+  const contract = answerContractForRollout(decision);
   return buildAnswerGenerationFingerprint({
     answerModel: env.OPENAI_ANSWER_MODEL,
     fastModel: env.OPENAI_FAST_ANSWER_MODEL,
@@ -140,8 +223,9 @@ export function answerGenerationFingerprint() {
     answerVerbosity: env.OPENAI_TEXT_VERBOSITY,
     maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
     providerMode: env.RAG_PROVIDER_MODE,
-    promptVersion: ragAnswerPromptVersion,
-    schemaVersion: ragAnswerSchemaVersion,
+    promptVersion: contract.promptVersion,
+    contextPackVersion: ragContextPackVersion,
+    schemaVersion: contract.schemaVersion,
     classifierPromptVersion: ragQueryClassifierPromptVersion,
     retrievalVersion: ragDeepMemoryVersion,
     indexingPromptVersion: ragIndexingPromptVersion,
@@ -150,40 +234,141 @@ export function answerGenerationFingerprint() {
   });
 }
 
-/**
- * Key the shared answer cache on the question itself, never on its retrieval plan.
- *
- * `normalizedCacheQuery` runs `buildClinicalTextSearchQuery`, which is deliberately lossy:
- * several branches splice the token list down to a fixed topic label so that related
- * questions share one retrieval pool. That is correct for the search cache below and wrong
- * here — two distinct questions collapsing to one plan would serve the first asker's answer
- * to the second, grounded and correctly cited, with nothing downstream able to notice.
- * Folding the mode into that same text made it collapsible too, so an `auto` answer could
- * be served to a `clinical` request.
- *
- * This mirrors `scopedAnswerCacheKey`'s raw-query normalisation, keeping the two answer
- * caches in agreement about what counts as the same question. Pinned by
- * `tests/rag-shared-answer-cache-key.test.ts`.
- */
-export function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode">) {
-  const query = args.query.trim().toLowerCase().replace(/\s+/g, " ");
-  return queryCacheKeyForStorage(`mode:${modeKey(args)}|query:${query}|generation:${answerGenerationFingerprint()}`);
+export type RagCacheFingerprintInput = Pick<
+  SearchChunksArgs,
+  | "query"
+  | "queryMode"
+  | "ragRequestContext"
+  | "ragQueryPlanVersion"
+  | "ragQueryPlanMode"
+  | "ragProgrammeRollout"
+  | "governedCorpusComponents"
+  | "governedInternationalCoverageGap"
+  | "answerSourcePolicy"
+>;
+
+/** Full answer semantics, unlike deliberately lossy retrieval normalization. */
+export function ragCacheFingerprint(args: RagCacheFingerprintInput): string {
+  return (
+    "answer-request:" +
+    hashQueryText(
+      JSON.stringify([
+        ragCacheDependencyVersion,
+        args.query.normalize("NFKC").trim().toLowerCase().replace(/\s+/g, " "),
+        modeKey(args),
+        args.answerSourcePolicy ?? "primary_plus_approved_supplements",
+        args.ragQueryPlanVersion ?? "rag-query-plan-v1",
+        args.ragProgrammeRollout?.servedMode === "legacy" ? "legacy" : (args.ragQueryPlanMode ?? "legacy"),
+        answerGenerationFingerprint(args.ragProgrammeRollout),
+        requestCacheNamespace(args),
+        governedCorpusComponentCacheNamespace(
+          "corpora",
+          args.ragProgrammeRollout?.servedMode === "legacy" ? undefined : args.governedCorpusComponents,
+        ),
+      ]),
+    )
+  );
+}
+
+export function sharedAnswerNormalizedQuery(args: RagCacheFingerprintInput) {
+  return ragCacheFingerprint(args);
 }
 
 export function scopedAnswerCacheKey(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
+  args: RagCacheFingerprintInput &
+    Pick<
+      SearchChunksArgs,
+      "documentId" | "documentIds" | "ownerId" | "accessScope" | "ragQueryPlanKind" | "ragSubquestionCount"
+    >,
 ) {
-  return [
-    ragCacheDependencyVersion,
-    scopeKey(args),
-    modeKey(args),
-    `generation:${answerGenerationFingerprint()}`,
-    args.query.trim().toLowerCase().replace(/\s+/g, " "),
-  ].join("|");
+  // Keep only a hashed owner tag outside the digest for scoped invalidation.
+  const owner = args.ownerId ? siteAwareAnswerOwnerToken(args.ownerId) : "anonymous";
+  return [ragCacheDependencyVersion, hashQueryText(scopeKey(args)), owner, ragCacheFingerprint(args)].join("|");
+}
+
+function boundedAnswerQueryPlanDiagnostics(
+  input:
+    Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts"> | null | undefined,
+): RagAnswerQueryPlanDiagnostics | undefined {
+  const diagnostics = sanitizeRagQueryPlanDiagnostics({
+    query_plan_kind: input?.ragQueryPlanKind,
+    subquestion_count: input?.ragSubquestionCount,
+  });
+  const candidateMatchCounts = sanitizeRagCandidateMatchCounts(
+    input?.ragCandidateMatchCounts,
+    diagnostics.subquestion_count,
+  );
+  return diagnostics.query_plan_kind !== undefined && diagnostics.subquestion_count !== undefined
+    ? {
+        queryPlanKind: diagnostics.query_plan_kind,
+        subquestionCount: diagnostics.subquestion_count,
+        ...(candidateMatchCounts ? { candidateMatchCounts } : {}),
+      }
+    : undefined;
+}
+
+function persistableAnswerQueryPlanDiagnostics(
+  diagnostics: RagAnswerQueryPlanDiagnostics | undefined,
+): RagAnswerQueryPlanDiagnostics | undefined {
+  return diagnostics
+    ? {
+        queryPlanKind: diagnostics.queryPlanKind,
+        subquestionCount: diagnostics.subquestionCount,
+      }
+    : undefined;
+}
+
+function markAnswerQueryPlanDiagnostics(answer: RagAnswer, diagnostics: RagAnswerQueryPlanDiagnostics | undefined) {
+  if (diagnostics) answerQueryPlanDiagnostics.set(answer, diagnostics);
+  return answer;
+}
+
+function storedAnswerQueryPlanDiagnostics(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const stored = value as Record<string, unknown>;
+  return boundedAnswerQueryPlanDiagnostics({
+    ragQueryPlanKind: stored.queryPlanKind as SearchChunksArgs["ragQueryPlanKind"],
+    ragSubquestionCount: stored.subquestionCount as number,
+  });
+}
+
+export function ragAnswerQueryPlanDiagnostics(answer: RagAnswer): RagAnswerQueryPlanDiagnostics | undefined {
+  return answerQueryPlanDiagnostics.get(answer);
+}
+
+export function restoreRagAnswerQueryPlanArgs(
+  answer: RagAnswer,
+  args: Pick<SearchChunksArgs, "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts">,
+) {
+  const diagnostics = answerQueryPlanDiagnostics.get(answer);
+  if (diagnostics) {
+    args.ragQueryPlanKind = diagnostics.queryPlanKind;
+    args.ragSubquestionCount = diagnostics.subquestionCount;
+    args.ragCandidateMatchCounts = diagnostics.candidateMatchCounts;
+  }
+}
+
+export function withRagAnswerQueryPlanDiagnostics(
+  answer: RagAnswer,
+  input: Pick<
+    SearchChunksArgs,
+    "ragQueryPlanKind" | "ragSubquestionCount" | "ragCandidateMatchCounts" | "reviewedPolicyRequest"
+  >,
+) {
+  answer.ragDiagnostics = sanitizeRagEvalDiagnostics({
+    ...answer.ragDiagnostics,
+    query_plan_kind: input.ragQueryPlanKind,
+    subquestion_count: input.ragSubquestionCount,
+    reviewed_input_state: reviewedPolicyStateForRequest(input.reviewedPolicyRequest),
+  });
+  return markAnswerQueryPlanDiagnostics(
+    answer,
+    boundedAnswerQueryPlanDiagnostics(input) ?? answerQueryPlanDiagnostics.get(answer),
+  );
 }
 
 export function cloneAnswer(answer: RagAnswer) {
-  return structuredClone(answer);
+  return markAnswerQueryPlanDiagnostics(structuredClone(answer), answerQueryPlanDiagnostics.get(answer));
 }
 
 /** Anonymous callers share no stable identity, so their PHI-bearing answers must never be cached or coalesced. */
@@ -191,15 +376,294 @@ export function answerCacheAllowedForOwner(ownerId?: string | null) {
   return Boolean(ownerId);
 }
 
+/** Canonical conflict payloads remain request-local and never enter cache identity or telemetry. */
+export function answerCacheAllowedForSourcePolicyConflicts(conflicts?: readonly SourcePolicyConflict[]) {
+  return !conflicts?.length;
+}
+
+type AnswerCachePolicyArgs = SearchChunksArgs & { sourcePolicyConflicts?: readonly SourcePolicyConflict[] };
+
+export function answerCoalescingAllowedForRequest(args: AnswerCachePolicyArgs) {
+  return (
+    (args.ragQueryPlanMode !== "shadow" || isIssuedRagShadowControl(args)) &&
+    answerCacheAllowedForOwner(args.ownerId) &&
+    !args.loadReviewedSourcePolicyInput &&
+    args.reviewedPolicyRequest?.state !== "reviewed" &&
+    answerCacheAllowedForSourcePolicyConflicts(args.sourcePolicyConflicts) &&
+    isRagCacheAccessAllowed(args) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0 &&
+    env.RAG_ANSWER_CACHE_SIZE > 0
+  );
+}
+
+export function answerCacheLookupAllowedForRequest(args: AnswerCachePolicyArgs, adversarialQuery: boolean) {
+  return (
+    (args.ragQueryPlanMode !== "shadow" || isIssuedRagShadowControl(args)) &&
+    !adversarialQuery &&
+    !args.loadReviewedSourcePolicyInput &&
+    args.reviewedPolicyRequest?.state !== "reviewed" &&
+    answerCacheAllowedForSourcePolicyConflicts(args.sourcePolicyConflicts) &&
+    answerCacheAllowedForOwner(args.ownerId) &&
+    !args.skipCache &&
+    env.RAG_ANSWER_CACHE_TTL_MS > 0
+  );
+}
+
+type RagPublicCacheKind = "search" | "answer";
+type RagPublicCacheEvidence = Pick<SearchResult, "document_id" | "id">;
+export type RagPublicCacheWriteProof = Readonly<{
+  version: "rag-public-cache-write-proof-v1";
+  cacheKind: RagPublicCacheKind;
+  snapshotCacheKey: string;
+  selectedEvidenceDigest: string;
+  allSelectedEvidencePublic: true;
+  pendingExclusion: "not_required" | "proven";
+}>;
+
+function selectedEvidenceDigest(selectedEvidence: readonly RagPublicCacheEvidence[]) {
+  if (
+    selectedEvidence.some(
+      (result) =>
+        typeof result.document_id !== "string" ||
+        result.document_id.length === 0 ||
+        typeof result.id !== "string" ||
+        result.id.length === 0,
+    )
+  ) {
+    throw new Error("Public cache proof requires stable selected-evidence identities.");
+  }
+  const tuples = selectedEvidence
+    .map((result) => [result.document_id, result.id] as const)
+    .sort(([leftDocument, leftId], [rightDocument, rightId]) => {
+      const left = `${leftDocument}\0${leftId}`;
+      const right = `${rightDocument}\0${rightId}`;
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
+  return createHash("sha256")
+    .update(`rag-public-selected-evidence-v1\0${JSON.stringify(tuples)}`)
+    .digest("hex");
+}
+
+export function createRagPublicCacheWriteProof(input: {
+  cacheKind: RagPublicCacheKind;
+  requestContext: RagRequestContext;
+  accessScope: RetrievalAccessScope;
+  selectedEvidence: readonly RagPublicCacheEvidence[];
+  allSelectedEvidencePublic: true;
+  pendingExclusion: "not_required" | "proven";
+}): RagPublicCacheWriteProof {
+  assertRagRequestContextIntegrity(input.requestContext);
+  if (!(["search", "answer"] as const).includes(input.cacheKind)) {
+    throw new Error("Public cache proof requires a supported cache kind.");
+  }
+  if (!(["not_required", "proven"] as const).includes(input.pendingExclusion)) {
+    throw new Error("Public cache proof requires an explicit pending-exclusion verdict.");
+  }
+  const scope = retrievalAccessScopeForArgs({ accessScope: input.accessScope });
+  if (!scope.includePublic || scope.ownerId) throw new Error("Public cache proof requires exact public-only scope.");
+  if (input.allSelectedEvidencePublic !== true)
+    throw new Error("Public cache proof requires explicit public evidence.");
+  const { snapshot, snapshotCacheKey } = input.requestContext;
+  if (!/^[0-9a-f]{64}$/.test(snapshotCacheKey) || !["current", "updating"].includes(snapshot.publicSiteContent.state)) {
+    throw new Error("Public cache proof requires a current or updating site snapshot.");
+  }
+  if (snapshot.publicSiteContent.state === "updating" && input.pendingExclusion !== "proven") {
+    throw new Error("Updating public cache proof requires exact pending-record exclusion.");
+  }
+  return Object.freeze({
+    version: "rag-public-cache-write-proof-v1",
+    cacheKind: input.cacheKind,
+    snapshotCacheKey,
+    selectedEvidenceDigest: selectedEvidenceDigest(input.selectedEvidence),
+    allSelectedEvidencePublic: true,
+    pendingExclusion: input.pendingExclusion,
+  });
+}
+
+function cacheWriteProofAllows(
+  args: Pick<SearchChunksArgs, "ragRequestContext" | "ragProgrammeRollout">,
+  cacheKind: RagPublicCacheKind,
+  selectedEvidence: readonly RagPublicCacheEvidence[],
+  proof?: RagPublicCacheWriteProof,
+) {
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  if (!snapshotCacheKey) return true;
+  const snapshot = args.ragRequestContext?.snapshot;
+  if (!snapshot || !proof || !Object.isFrozen(proof)) return false;
+  const proofKeys = [
+    "allSelectedEvidencePublic",
+    "cacheKind",
+    "pendingExclusion",
+    "selectedEvidenceDigest",
+    "snapshotCacheKey",
+    "version",
+  ];
+  if (Object.keys(proof).sort().join("|") !== proofKeys.join("|")) return false;
+  if (!/^[0-9a-f]{64}$/.test(snapshotCacheKey)) return false;
+  if (!["current", "updating"].includes(snapshot.publicSiteContent.state)) return false;
+  if (!["not_required", "proven"].includes(proof.pendingExclusion)) return false;
+  if (snapshot.publicSiteContent.state === "updating" && proof.pendingExclusion !== "proven") return false;
+  try {
+    return (
+      proof.version === "rag-public-cache-write-proof-v1" &&
+      proof.cacheKind === cacheKind &&
+      proof.snapshotCacheKey === snapshotCacheKey &&
+      proof.allSelectedEvidencePublic === true &&
+      proof.selectedEvidenceDigest === selectedEvidenceDigest(selectedEvidence)
+    );
+  } catch {
+    return false;
+  }
+}
+
+type SiteAwareWriteArgs = Pick<
+  SearchChunksArgs,
+  | "query"
+  | "documentId"
+  | "documentIds"
+  | "ownerId"
+  | "accessScope"
+  | "skipCache"
+  | "queryMode"
+  | "topK"
+  | "minSimilarity"
+  | "forceEmbedding"
+  | "lexicalOnly"
+  | "signal"
+  | "ragRequestContext"
+  | "ragQueryPlanVersion"
+  | "ragQueryPlanMode"
+  | "ragProgrammeRollout"
+  | "ragQueryPlanKind"
+  | "ragSubquestionCount"
+  | "governedCorpusComponents"
+  | "governedInternationalCoverageGap"
+  | "answerSourcePolicy"
+>;
+
+type SiteAwareWriteDescriptor = Readonly<{
+  args: Readonly<SiteAwareWriteArgs>;
+  signal?: AbortSignal;
+  invalidationOwnerId: string | null;
+  normalizedQuery: string;
+  localCacheKey: string;
+  sharedOwnerId: string | null;
+  sharedScopeKey: string;
+  sharedNormalizedQuery: string;
+  queryClass?: RagQueryClass;
+  queryVariants: readonly string[];
+}>;
+
+type SharedCacheRowIdentity = Readonly<{
+  ownerId: string | null;
+  kind: SharedCacheKind;
+  scopeKey: string;
+  normalizedQuery: string;
+  indexingVersion: string;
+  dependencyVersion: typeof ragCacheDependencyVersion;
+}>;
+
+function deepFreeze<T>(value: T): T {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return value;
+  for (const child of Object.values(value)) deepFreeze(child);
+  return Object.freeze(value);
+}
+
+function captureSiteAwareWriteArgs(args: SiteAwareWriteArgs): Readonly<SiteAwareWriteArgs> {
+  if (!args.ragRequestContext) throw new Error("Invalid RAG request context.");
+  assertRagRequestContextIntegrity(args.ragRequestContext);
+  const documentIds = args.documentIds ? ([...args.documentIds] as string[]) : undefined;
+  if (documentIds) Object.freeze(documentIds);
+  const accessScope = Object.freeze(retrievalAccessScopeForArgs(args));
+  const governedCorpusComponents = args.governedCorpusComponents
+    ? Object.freeze({ ...args.governedCorpusComponents })
+    : undefined;
+  return Object.freeze({
+    query: args.query,
+    answerSourcePolicy: args.answerSourcePolicy,
+    documentId: args.documentId,
+    documentIds,
+    ownerId: args.ownerId,
+    accessScope,
+    skipCache: args.skipCache,
+    queryMode: args.queryMode,
+    topK: args.topK,
+    minSimilarity: args.minSimilarity,
+    forceEmbedding: args.forceEmbedding,
+    lexicalOnly: args.lexicalOnly,
+    signal: args.signal,
+    ragRequestContext: args.ragRequestContext,
+    ragQueryPlanVersion: args.ragQueryPlanVersion,
+    ragQueryPlanMode: args.ragQueryPlanMode,
+    ragProgrammeRollout: args.ragProgrammeRollout,
+    ragQueryPlanKind: args.ragQueryPlanKind,
+    ragSubquestionCount: args.ragSubquestionCount,
+    governedCorpusComponents,
+  });
+}
+
+function createSiteAwareAnswerWriteDescriptor(args: SiteAwareWriteArgs): SiteAwareWriteDescriptor {
+  const capturedArgs = captureSiteAwareWriteArgs(args);
+  const queryVariants = Object.freeze([]) as unknown as string[];
+  return Object.freeze({
+    args: capturedArgs,
+    signal: capturedArgs.signal,
+    invalidationOwnerId: capturedArgs.ownerId ?? null,
+    normalizedQuery: normalizedCacheQuery(capturedArgs.query),
+    localCacheKey: scopedAnswerCacheKey(capturedArgs),
+    sharedOwnerId: capturedArgs.ownerId ?? null,
+    sharedScopeKey: scopeKey(capturedArgs),
+    sharedNormalizedQuery: sharedAnswerNormalizedQuery(capturedArgs),
+    queryVariants,
+  });
+}
+
+function sharedCacheRowIdentity(
+  descriptor: SiteAwareWriteDescriptor,
+  kind: SharedCacheKind,
+  indexingVersion: string,
+): SharedCacheRowIdentity {
+  return Object.freeze({
+    ownerId: descriptor.sharedOwnerId,
+    kind,
+    scopeKey: descriptor.sharedScopeKey,
+    normalizedQuery: descriptor.sharedNormalizedQuery,
+    indexingVersion,
+    dependencyVersion: ragCacheDependencyVersion,
+  });
+}
+
 export async function getCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<RagAnswer | null> {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return null;
+  if (
+    (args.ragQueryPlanMode === "shadow" && !isIssuedRagShadowControl(args)) ||
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
 
   const key = scopedAnswerCacheKey(args);
@@ -214,6 +678,12 @@ export async function getCachedAnswer(
     answerCache.delete(key);
     return null;
   }
+
+  // LRU recency bump (audit L134): a Map preserves insertion order, so without
+  // the re-insert a repeatedly-read hot answer still ages out in insertion order
+  // and is evicted before answers nobody has asked for since.
+  answerCache.delete(key);
+  answerCache.set(key, cached);
 
   const answer = cloneAnswer(cached.answer);
   answer.routingReason = answer.routingReason ? `${answer.routingReason}; answer_cache_hit` : "answer_cache_hit";
@@ -252,22 +722,93 @@ export async function getCachedAnswer(
 export async function setCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
   >,
   answer: RagAnswer,
-  options?: { indexingVersionAtRetrievalStart?: string | null },
+  options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
+  if (
+    (args.ragQueryPlanMode === "shadow" && !isIssuedRagShadowControl(args)) ||
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return;
+  const queryPlanDiagnostics = persistableAnswerQueryPlanDiagnostics(
+    boundedAnswerQueryPlanDiagnostics(args) ?? answerQueryPlanDiagnostics.get(answer),
+  );
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  if (snapshotCacheKey) {
+    const proof = options?.publicCacheWriteProof;
+    if (!proof || !cacheWriteProofAllows(args, "answer", answer.sources ?? [], proof)) return;
+    if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
+    const capturedAnswer = deepFreeze(markAnswerQueryPlanDiagnostics(cloneAnswer(answer), queryPlanDiagnostics));
+    const descriptor = createSiteAwareAnswerWriteDescriptor(args);
+    if (!cacheWriteProofAllows(descriptor.args, "answer", capturedAnswer.sources ?? [], proof)) return;
+    const indexingVersionAtRetrievalStart = options?.indexingVersionAtRetrievalStart;
+    const invalidationEpochAtStart = captureInvalidationEpoch(descriptor.invalidationOwnerId);
+    const indexingVersion = await cacheIndexingVersion(descriptor.args, { forceRefresh: true });
+    throwIfAborted(descriptor.signal);
+    if (invalidationEpochChanged(descriptor.invalidationOwnerId, invalidationEpochAtStart)) return;
+    if (indexingVersionAtRetrievalStart && indexingVersion !== indexingVersionAtRetrievalStart) return;
+    answerCache.set(descriptor.localCacheKey, {
+      expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
+      answer: capturedAnswer,
+      indexingVersion,
+    });
+
+    while (answerCache.size > env.RAG_ANSWER_CACHE_SIZE) {
+      const oldestKey = answerCache.keys().next().value;
+      if (!oldestKey) break;
+      answerCache.delete(oldestKey);
+    }
+    if (invalidationEpochChanged(descriptor.invalidationOwnerId, invalidationEpochAtStart)) {
+      answerCache.delete(descriptor.localCacheKey);
+      return;
+    }
+    const rowIdentity = sharedCacheRowIdentity(descriptor, "answer", indexingVersion);
+    void (async () => {
+      await setSharedSiteAwareCachedAnswer(descriptor, rowIdentity, capturedAnswer, proof);
+      if (!invalidationEpochChanged(descriptor.invalidationOwnerId, invalidationEpochAtStart)) return;
+      answerCache.delete(descriptor.localCacheKey);
+      await deleteSharedCacheRowByIdentity(rowIdentity);
+    })().catch(() => undefined);
+    return;
+  }
+  if (!cacheWriteProofAllows(args, "answer", answer.sources ?? [], options?.publicCacheWriteProof)) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
   const invalidationEpochAtStart = captureInvalidationEpoch(args.ownerId);
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   if (invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
+  // An unavailable stamp cannot vouch for the corpus, so a write under it would
+  // be matched later by another failed read and served as fresh (audit L21).
+  if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedAnswerCacheKey(args);
+  // Delete before set so a refreshed answer moves to the most-recent position
+  // rather than keeping its original insertion slot (audit L134).
+  answerCache.delete(key);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
-    answer: cloneAnswer(answer),
+    answer: markAnswerQueryPlanDiagnostics(cloneAnswer(answer), queryPlanDiagnostics),
     indexingVersion,
   });
 
@@ -281,7 +822,7 @@ export async function setCachedAnswer(
     return;
   }
   void (async () => {
-    await setSharedCachedAnswer(args, answer, indexingVersion);
+    await setSharedCachedAnswer(args, answer, indexingVersion, options?.publicCacheWriteProof);
     if (!invalidationEpochChanged(args.ownerId, invalidationEpochAtStart)) return;
     answerCache.delete(key);
     await deleteSharedCachedAnswerRow(args, indexingVersion);
@@ -304,6 +845,13 @@ export function retrievalPlanCacheQuery(
     | "minSimilarity"
     | "forceEmbedding"
     | "lexicalOnly"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
   >,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
@@ -314,7 +862,14 @@ export function retrievalPlanCacheQuery(
     `plan:${retrievalPlanForQueryClass(queryClass)}`,
     `class:${queryClass ?? "unknown"}`,
     `query:${normalizedQuery}`,
+    ...(args.ragProgrammeRollout?.servedMode === "candidate" ? [`request:${ragCacheFingerprint(args)}`] : []),
     `variants:${variantHash}`,
+    `queryPlan:${args.ragQueryPlanVersion ?? "rag-query-plan-v1"}`,
+    `queryPlanMode:${args.ragProgrammeRollout?.servedMode === "legacy" ? "legacy" : (args.ragQueryPlanMode ?? "legacy")}`,
+    governedCorpusComponentCacheNamespace(
+      "corpora",
+      args.ragProgrammeRollout?.servedMode === "legacy" ? undefined : args.governedCorpusComponents,
+    ),
     `mode:${modeKey(args)}`,
     `topK:${args.topK ?? 8}`,
     `min:${args.minSimilarity ?? 0.15}`,
@@ -323,23 +878,68 @@ export function retrievalPlanCacheQuery(
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
     ...(env.RAG_SEMANTIC_RERANK_ENABLED ? [`semanticRerank:${env.OPENAI_RERANK_MODEL}`] : []),
+    ...(requestCacheNamespace(args) ? [`snapshot:${requestCacheNamespace(args)}`] : []),
   ].join("|");
-  return queryCacheKeyForStorage(cacheKey);
+  return queryCacheKeyForStorage(cacheKey, args.query);
 }
 
-function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
-  return [ragCacheDependencyVersion, scopeKey(args), retrievalPlanCacheQuery(args, queryClass, queryVariants)].join(
-    "|",
-  );
+export function scopedSearchCacheKey(args: SearchChunksArgs, queryClass?: RagQueryClass, queryVariants: string[] = []) {
+  return [
+    ragCacheDependencyVersion,
+    args.ragProgrammeRollout?.servedMode === "candidate"
+      ? `${hashQueryText(scopeKey(args))}|${args.ownerId ? siteAwareAnswerOwnerToken(args.ownerId) : "anonymous"}`
+      : scopeKey(args),
+    retrievalPlanCacheQuery(args, queryClass, queryVariants),
+  ].join("|");
+}
+
+function createSiteAwareSearchWriteDescriptor(
+  args: SearchChunksArgs,
+  queryClass: RagQueryClass | undefined,
+  queryVariants: string[],
+): SiteAwareWriteDescriptor {
+  const capturedArgs = captureSiteAwareWriteArgs(args);
+  const capturedVariants = Object.freeze([...queryVariants]) as unknown as string[];
+  return Object.freeze({
+    args: capturedArgs,
+    signal: capturedArgs.signal,
+    invalidationOwnerId: capturedArgs.ownerId ?? null,
+    normalizedQuery: normalizedCacheQuery(capturedArgs.query),
+    localCacheKey: scopedSearchCacheKey(capturedArgs as SearchChunksArgs, queryClass, capturedVariants),
+    sharedOwnerId: null,
+    sharedScopeKey: scopeKey(capturedArgs),
+    sharedNormalizedQuery: retrievalPlanCacheQuery(capturedArgs, queryClass, capturedVariants),
+    queryClass,
+    queryVariants: capturedVariants,
+  });
 }
 
 function cloneSearchResults(results: SearchResult[]) {
-  return structuredClone(results);
+  return restoreCachedContextPackAdmission(structuredClone(results));
 }
 
-function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelemetry {
+function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry, shadowControl = false): SearchTelemetry {
+  const cacheTelemetry = { ...telemetry };
+  delete cacheTelemetry.candidate_match_counts;
+  if (shadowControl) {
+    delete cacheTelemetry.shadow_retrieval_state;
+    delete cacheTelemetry.candidate_retrieval_query_variant_count;
+  }
+  const {
+    query_plan_kind,
+    subquestion_count,
+    query_plan_reason_codes,
+    candidate_retrieval_query_variant_count,
+    ...cacheSafeTelemetry
+  } = cacheTelemetry;
   return {
-    ...telemetry,
+    ...cacheSafeTelemetry,
+    ...sanitizeRagQueryPlanDiagnostics({
+      query_plan_kind,
+      subquestion_count,
+      query_plan_reason_codes,
+      candidate_retrieval_query_variant_count,
+    }),
     shared_cache_hit: false,
     shared_cache_status: undefined,
     shared_cache_miss_reason: null,
@@ -367,7 +967,7 @@ export async function getCachedSearch(
   options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   throwIfAborted(args.signal);
-  if (!isSearchCacheEnabled(args)) return null;
+  if (!isSearchCacheEnabled(args) || !isRagCacheAccessAllowed(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
   const cached = searchCache.get(key);
@@ -410,17 +1010,56 @@ export async function setCachedSearch(
   results: SearchResult[],
   telemetry: SearchTelemetry,
   queryVariants: string[] = [],
-  options?: { indexingVersionAtRetrievalStart?: string | null },
+  options?: { indexingVersionAtRetrievalStart?: string | null; publicCacheWriteProof?: RagPublicCacheWriteProof },
 ): Promise<void> {
   throwIfAborted(args.signal);
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
-  const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
+  if (args.ragQueryPlanMode === "shadow" && !isIssuedRagShadowControl(args)) return;
+  if (
+    args.skipCache ||
+    env.RAG_SEARCH_CACHE_TTL_MS <= 0 ||
+    env.RAG_SEARCH_CACHE_SIZE <= 0 ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return;
+  const snapshotCacheKey = requestSnapshotCacheKey(args);
+  if (snapshotCacheKey) {
+    const proof = options?.publicCacheWriteProof;
+    if (!proof || !cacheWriteProofAllows(args, "search", results, proof)) return;
+    const capturedResults = deepFreeze(cloneSearchResults(results));
+    const capturedTelemetry = deepFreeze(
+      structuredClone(normalizeCacheStorageTelemetry(telemetry, isIssuedRagShadowControl(args))),
+    );
+    const descriptor = createSiteAwareSearchWriteDescriptor(args, capturedTelemetry.query_class, queryVariants);
+    if (!cacheWriteProofAllows(descriptor.args, "search", capturedResults, proof)) return;
+    const indexingVersionAtRetrievalStart = options?.indexingVersionAtRetrievalStart;
+    const indexingVersion = await cacheIndexingVersion(descriptor.args, { forceRefresh: true });
+    throwIfAborted(descriptor.signal);
+    if (indexingVersionAtRetrievalStart && indexingVersion !== indexingVersionAtRetrievalStart) return;
+    searchCache.set(descriptor.localCacheKey, {
+      expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
+      results: capturedResults,
+      telemetry: capturedTelemetry,
+      indexingVersion,
+    });
+
+    while (searchCache.size > env.RAG_SEARCH_CACHE_SIZE) {
+      const oldestKey = searchCache.keys().next().value;
+      if (!oldestKey) break;
+      searchCache.delete(oldestKey);
+    }
+    setSharedSiteAwareCachedSearch(descriptor, capturedResults, capturedTelemetry, indexingVersion, proof);
+    return;
+  }
+  if (!cacheWriteProofAllows(args, "search", results, options?.publicCacheWriteProof)) return;
+  const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry, isIssuedRagShadowControl(args));
   const clonedResults = cloneSearchResults(results);
 
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
   throwIfAborted(args.signal);
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
+  if (isUnavailableIndexingStamp(indexingVersion)) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
+  searchCache.delete(key);
   searchCache.set(key, {
     expiresAt: Date.now() + env.RAG_SEARCH_CACHE_TTL_MS,
     results: clonedResults,
@@ -433,7 +1072,14 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, clonedResults, cacheTelemetry, indexingVersion, queryVariants);
+  setSharedCachedSearch(
+    args,
+    clonedResults,
+    cacheTelemetry,
+    indexingVersion,
+    queryVariants,
+    options?.publicCacheWriteProof,
+  );
 }
 
 type SharedCacheKind = "search" | "answer";
@@ -445,7 +1091,15 @@ function sharedCacheSelector(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
   >,
   indexingVersion: string,
   // Required, not defaulted: "search" and "answer" rows key their query differently (plan
@@ -463,7 +1117,8 @@ function sharedCacheSelector(
     .gt("expires_at", new Date().toISOString())
     .limit(1);
 
-  query = args.ownerId ? query.eq("owner_id", args.ownerId) : query.is("owner_id", null);
+  const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
+  query = ownerId ? query.eq("owner_id", ownerId) : query.is("owner_id", null);
   return query;
 }
 
@@ -485,7 +1140,7 @@ export async function cacheIndexingVersion(
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
   if (cached) return cached.value;
 
-  let value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
+  let value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
   try {
     const supabase = createAdminClient();
     const documentFilters = args.documentIds?.length ? args.documentIds : args.documentId ? [args.documentId] : null;
@@ -507,8 +1162,11 @@ export async function cacheIndexingVersion(
     if (args.signal) query = query.abortSignal(args.signal);
     const { data, error } = await query;
     throwIfAborted(args.signal);
-    if (error || !data?.length) {
-      value = `${ragDeepMemoryVersion}:no-indexed-documents`;
+    if (error) {
+      // A failed read is NOT an empty corpus (audit L21).
+      value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
+    } else if (!data?.length) {
+      value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_EMPTY_CORPUS}`;
     } else {
       const latest = data[0] as { id?: string; updated_at?: string | null; metadata?: unknown };
       const metadata = normalizeSourceMetadata(latest.metadata);
@@ -521,7 +1179,7 @@ export async function cacheIndexingVersion(
     }
   } catch {
     if (args.signal?.aborted) throw abortReason(args.signal);
-    value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
+    value = `${ragDeepMemoryVersion}:${INDEXING_STAMP_UNAVAILABLE}`;
   }
   throwIfAborted(args.signal);
   writeBoundedExpiringCacheEntry(
@@ -544,7 +1202,7 @@ export async function getSharedCachedSearch(
   | null
 > {
   throwIfAborted(args.signal);
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
+  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || !isRagCacheAccessAllowed(args)) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
   try {
@@ -569,12 +1227,19 @@ export async function getSharedCachedSearch(
         shared_cache_hit: true,
         shared_cache_status: "hit",
         shared_cache_miss_reason: null,
+        governed_component_state: governedCorpusComponentState(args.governedCorpusComponents),
         query_class: payload.telemetry?.query_class,
         corpus_grounding: payload.telemetry?.corpus_grounding,
         vector_candidate_count: payload.telemetry?.vector_candidate_count,
         text_candidate_count: payload.telemetry?.text_candidate_count,
         embedding_field_count: payload.telemetry?.embedding_field_count,
         retrieval_query_variant_count: payload.telemetry?.retrieval_query_variant_count ?? 0,
+        ...sanitizeRagQueryPlanDiagnostics({
+          query_plan_kind: payload.telemetry?.query_plan_kind,
+          subquestion_count: payload.telemetry?.subquestion_count,
+          query_plan_reason_codes: payload.telemetry?.query_plan_reason_codes,
+          candidate_retrieval_query_variant_count: payload.telemetry?.candidate_retrieval_query_variant_count,
+        }),
         text_fast_path_latency_ms: 0,
         text_candidate_budget: payload.telemetry?.text_candidate_budget,
         text_fast_path_reason: payload.telemetry?.text_fast_path_reason ?? null,
@@ -624,12 +1289,35 @@ export async function getSharedCachedSearch(
 export async function getSharedCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
   >,
   startedAt: number,
   options?: { indexingVersionAtRequestStart?: string | null },
 ) {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
+  throwIfAborted(args.signal);
+  if (
+    (args.ragQueryPlanMode === "shadow" && !isIssuedRagShadowControl(args)) ||
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    env.RAG_ANSWER_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args)
+  )
+    return null;
   try {
     const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
     const { data, error } = await sharedCacheSelector(
@@ -640,7 +1328,12 @@ export async function getSharedCachedAnswer(
       sharedAnswerNormalizedQuery(args),
     ).maybeSingle();
     if (error || !data?.payload) return null;
-    const answer = cloneAnswer((data.payload as { answer: RagAnswer }).answer);
+    throwIfAborted(args.signal);
+    const payload = data.payload as { answer: RagAnswer; queryPlanDiagnostics?: unknown };
+    const answer = markAnswerQueryPlanDiagnostics(
+      cloneAnswer(payload.answer),
+      storedAnswerQueryPlanDiagnostics(payload.queryPlanDiagnostics),
+    );
     if (isGenerationFallbackAnswer(answer)) {
       await deleteSharedCachedAnswerRow({ ...args, accessScope: retrievalAccessScopeForArgs(args) }, indexingVersion);
       return null;
@@ -658,15 +1351,24 @@ export async function getSharedCachedAnswer(
     };
     return answer;
   } catch {
+    if (args.signal?.aborted) throw abortReason(args.signal);
     return null;
   }
 }
 
-async function replaceSharedCacheRow(
+async function replaceLegacySharedCacheRow(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "forceEmbedding"
+    | "signal"
+    | "ragRequestContext"
   >,
   payload: unknown,
   ttlMs: number,
@@ -678,6 +1380,7 @@ async function replaceSharedCacheRow(
   if (ttlMs <= 0) return;
   try {
     if (args.signal?.aborted) return;
+    const ownerId = kind === "search" && requestSnapshotCacheKey(args) ? null : args.ownerId;
     const supabase = createAdminClient();
     let deleteQuery = supabase
       .from("rag_response_cache")
@@ -687,12 +1390,12 @@ async function replaceSharedCacheRow(
       .eq("normalized_query", normalizedQuery)
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
-    deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
+    deleteQuery = ownerId ? deleteQuery.eq("owner_id", ownerId) : deleteQuery.is("owner_id", null);
     if (args.signal) deleteQuery = deleteQuery.abortSignal(args.signal);
     await deleteQuery;
     if (args.signal?.aborted) return;
     let insertQuery = supabase.from("rag_response_cache").insert({
-      owner_id: args.ownerId ?? null,
+      owner_id: ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
       normalized_query: normalizedQuery,
@@ -709,15 +1412,61 @@ async function replaceSharedCacheRow(
   }
 }
 
+async function replaceSharedCacheRow(
+  identity: SharedCacheRowIdentity,
+  payload: unknown,
+  ttlMs: number,
+  signal?: AbortSignal,
+) {
+  if (ttlMs <= 0) return;
+  try {
+    if (signal?.aborted) return;
+    const supabase = createAdminClient();
+    let deleteQuery = supabase
+      .from("rag_response_cache")
+      .delete()
+      .eq("cache_kind", identity.kind)
+      .eq("scope_key", identity.scopeKey)
+      .eq("normalized_query", identity.normalizedQuery)
+      .eq("indexing_version", identity.indexingVersion)
+      .eq("dependency_version", identity.dependencyVersion);
+    deleteQuery = identity.ownerId ? deleteQuery.eq("owner_id", identity.ownerId) : deleteQuery.is("owner_id", null);
+    if (signal) deleteQuery = deleteQuery.abortSignal(signal);
+    await deleteQuery;
+    if (signal?.aborted) return;
+    let insertQuery = supabase.from("rag_response_cache").insert({
+      owner_id: identity.ownerId,
+      cache_kind: identity.kind,
+      scope_key: identity.scopeKey,
+      normalized_query: identity.normalizedQuery,
+      indexing_version: identity.indexingVersion,
+      dependency_version: identity.dependencyVersion,
+      payload: payload as Json,
+      expires_at: new Date(Date.now() + ttlMs).toISOString(),
+    });
+    if (signal) insertQuery = insertQuery.abortSignal(signal);
+    await insertQuery;
+  } catch {
+    // Shared cache must never be part of the correctness path.
+  }
+}
+
 function setSharedCachedSearch(
   args: SearchChunksArgs,
   results: SearchResult[],
   telemetry: SearchTelemetry,
   indexingVersion: string,
   queryVariants: string[] = [],
+  publicCacheWriteProof?: RagPublicCacheWriteProof,
 ) {
-  if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return;
-  void replaceSharedCacheRow(
+  if (
+    args.skipCache ||
+    env.RAG_SEARCH_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "search", results, publicCacheWriteProof)
+  )
+    return;
+  void replaceLegacySharedCacheRow(
     "search",
     args,
     { results: cloneSearchResults(results), telemetry },
@@ -727,27 +1476,127 @@ function setSharedCachedSearch(
   );
 }
 
+function setSharedSiteAwareCachedSearch(
+  descriptor: SiteAwareWriteDescriptor,
+  results: readonly SearchResult[],
+  telemetry: Readonly<SearchTelemetry>,
+  indexingVersion: string,
+  publicCacheWriteProof: RagPublicCacheWriteProof,
+) {
+  if (descriptor.signal?.aborted || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return;
+  if (!cacheWriteProofAllows(descriptor.args, "search", results, publicCacheWriteProof)) return;
+  const isolatedResults = deepFreeze(cloneSearchResults(results as SearchResult[]));
+  const isolatedTelemetry = deepFreeze(structuredClone(telemetry));
+  const payload = deepFreeze({ results: isolatedResults, telemetry: isolatedTelemetry });
+  const rowIdentity = sharedCacheRowIdentity(descriptor, "search", indexingVersion);
+  void replaceSharedCacheRow(rowIdentity, payload, env.RAG_SEARCH_CACHE_TTL_MS, descriptor.signal);
+}
+
 async function setSharedCachedAnswer(
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "skipCache"
+    | "queryMode"
+    | "forceEmbedding"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "ragQueryPlanKind"
+    | "ragSubquestionCount"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
   >,
   answer: RagAnswer,
   indexingVersion: string,
+  publicCacheWriteProof?: RagPublicCacheWriteProof,
 ) {
-  if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
-  await replaceSharedCacheRow(
+  if (
+    (args.ragQueryPlanMode === "shadow" && !isIssuedRagShadowControl(args)) ||
+    !answerCacheAllowedForOwner(args.ownerId) ||
+    args.skipCache ||
+    env.RAG_ANSWER_CACHE_TTL_MS <= 0 ||
+    !isRagCacheAccessAllowed(args) ||
+    !cacheWriteProofAllows(args, "answer", answer.sources ?? [], publicCacheWriteProof)
+  )
+    return;
+  await replaceLegacySharedCacheRow(
     "answer",
     args,
-    { answer: cloneAnswer(answer) },
+    {
+      answer: cloneAnswer(answer),
+      queryPlanDiagnostics: persistableAnswerQueryPlanDiagnostics(
+        answerQueryPlanDiagnostics.get(answer) ?? boundedAnswerQueryPlanDiagnostics(args),
+      ),
+    },
     env.RAG_ANSWER_CACHE_TTL_MS,
     indexingVersion,
     sharedAnswerNormalizedQuery(args),
   );
 }
 
+async function setSharedSiteAwareCachedAnswer(
+  descriptor: SiteAwareWriteDescriptor,
+  rowIdentity: SharedCacheRowIdentity,
+  answer: Readonly<RagAnswer>,
+  publicCacheWriteProof: RagPublicCacheWriteProof,
+) {
+  if (
+    descriptor.signal?.aborted ||
+    env.RAG_ANSWER_CACHE_TTL_MS <= 0 ||
+    !cacheWriteProofAllows(descriptor.args, "answer", answer.sources ?? [], publicCacheWriteProof)
+  )
+    return;
+  const isolatedAnswer = deepFreeze(cloneAnswer(answer as RagAnswer));
+  const payload = deepFreeze({
+    answer: isolatedAnswer,
+    queryPlanDiagnostics: persistableAnswerQueryPlanDiagnostics(
+      answerQueryPlanDiagnostics.get(answer as RagAnswer) ?? boundedAnswerQueryPlanDiagnostics(descriptor.args),
+    ),
+  });
+  await replaceSharedCacheRow(rowIdentity, payload, env.RAG_ANSWER_CACHE_TTL_MS, descriptor.signal);
+}
+
+async function deleteSharedCacheRowByIdentity(identity: SharedCacheRowIdentity) {
+  try {
+    let deleteQuery = createAdminClient()
+      .from("rag_response_cache")
+      .delete()
+      .eq("cache_kind", identity.kind)
+      .eq("scope_key", identity.scopeKey)
+      .eq("normalized_query", identity.normalizedQuery)
+      .eq("indexing_version", identity.indexingVersion)
+      .eq("dependency_version", identity.dependencyVersion);
+    deleteQuery = identity.ownerId ? deleteQuery.eq("owner_id", identity.ownerId) : deleteQuery.is("owner_id", null);
+    await deleteQuery;
+  } catch (error) {
+    console.warn("Shared answer cache post-invalidation cleanup failed:", error);
+  }
+}
+
 async function deleteSharedCachedAnswerRow(
-  args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
+  args: Pick<
+    SearchChunksArgs,
+    | "query"
+    | "documentId"
+    | "documentIds"
+    | "ownerId"
+    | "accessScope"
+    | "queryMode"
+    | "ragRequestContext"
+    | "ragQueryPlanVersion"
+    | "ragQueryPlanMode"
+    | "ragProgrammeRollout"
+    | "governedCorpusComponents"
+    | "governedInternationalCoverageGap"
+    | "answerSourcePolicy"
+  >,
   indexingVersion: string,
 ) {
   try {
@@ -790,13 +1639,18 @@ export function invalidateRagCachesForOwner(ownerId?: string | null) {
 
   const sharedCacheOwnerId = ownerId === "anonymous" ? null : ownerId;
   for (const key of answerCache.keys()) {
-    if (ragCacheKeyMatchesOwner(key, ownerId)) answerCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId) || key.includes(siteAwareAnswerOwnerToken(ownerId))) {
+      answerCache.delete(key);
+    }
   }
   for (const key of answerInflight.keys()) {
-    if (ragCacheKeyMatchesOwner(key, ownerId)) answerInflight.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId) || key.includes(siteAwareAnswerOwnerToken(ownerId))) {
+      answerInflight.delete(key);
+    }
   }
   for (const key of searchCache.keys()) {
-    if (ragCacheKeyMatchesOwner(key, ownerId)) searchCache.delete(key);
+    if (ragCacheKeyMatchesOwner(key, ownerId) || key.includes(siteAwareAnswerOwnerToken(ownerId)))
+      searchCache.delete(key);
   }
   for (const key of cacheIndexingVersionCache.keys()) {
     if (ragCacheKeyMatchesOwner(key, ownerId)) cacheIndexingVersionCache.delete(key);
@@ -838,123 +1692,9 @@ export function invalidateRagCachesForDocumentMutation(
   if (options.affectsPublicCorpus !== false) invalidateAnonymousSharedRagCaches();
 }
 
-function sourceContextPackLimit(queryClass: RagQueryClass, options: { crossDocument?: boolean } = {}) {
-  return options.crossDocument || queryClass === "comparison" || queryClass === "broad_summary" ? 8 : 5;
-}
-
-export function packedContextCacheKey(
-  results: SearchResult[],
-  queryClass: RagQueryClass,
-  options: { crossDocument?: boolean; documentIds?: string[] } = {},
-) {
-  const contextLimit = sourceContextPackLimit(queryClass, options);
-  const scopeKey = options.documentIds?.length
-    ? stableHash([...new Set(options.documentIds)].sort().join("|"))
-    : "all-documents";
-  return [
-    queryClass,
-    options.crossDocument ? "cross-document" : "single-document",
-    `scope:${scopeKey}`,
-    contextLimit,
-    ...results
-      .slice(0, contextLimit)
-      .map((result) => `${result.id}:${result.document_id}:${result.chunk_index}:${result.page_number ?? "na"}`),
-  ].join("|");
-}
-
-export async function packAdjacentSourceContext(
-  supabase: ReturnType<typeof createAdminClient>,
-  results: SearchResult[],
-  queryClass: RagQueryClass,
-  options: { crossDocument?: boolean } = {},
-) {
-  const contextLimit = sourceContextPackLimit(queryClass, options);
-  const targetResults = results.slice(0, contextLimit);
-  const documentIds = Array.from(new Set(targetResults.map((result) => result.document_id)));
-  const chunkIndexes = Array.from(
-    new Set(
-      targetResults.flatMap((result) => [result.chunk_index - 1, result.chunk_index + 1]).filter((index) => index >= 0),
-    ),
-  );
-  if (documentIds.length === 0 || chunkIndexes.length === 0) return results;
-
-  try {
-    const { data, error } = await supabase
-      .from("document_chunks")
-      .select("id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,index_generation_id")
-      .in("document_id", documentIds)
-      .in("chunk_index", chunkIndexes)
-      .order("chunk_index", { ascending: true })
-      .limit(80);
-
-    if (error || !data?.length) return results;
-
-    const chunksByDocumentAndIndex = new Map<
-      string,
-      { id: string; section_heading: string | null; content: string; retrieval_synopsis?: string | null }
-    >();
-    const committedGenerationByDocument = new Map(
-      targetResults.map((result) => [result.document_id, committedIndexGeneration(result.source_metadata)] as const),
-    );
-    for (const chunk of data) {
-      const committedGeneration = committedGenerationByDocument.get(chunk.document_id);
-      if (chunk.index_generation_id && chunk.index_generation_id !== committedGeneration) continue;
-      chunksByDocumentAndIndex.set(`${chunk.document_id}:${chunk.chunk_index}`, {
-        id: chunk.id,
-        section_heading: chunk.section_heading,
-        content: chunk.content,
-        retrieval_synopsis: chunk.retrieval_synopsis ?? null,
-      });
-    }
-
-    const targetIds = new Set(targetResults.map((result) => result.id));
-    return results.map((result) => {
-      if (!targetIds.has(result.id)) return result;
-      const adjacent = [result.chunk_index - 1, result.chunk_index + 1]
-        .map((index) => chunksByDocumentAndIndex.get(`${result.document_id}:${index}`))
-        .filter(
-          (
-            chunk,
-          ): chunk is {
-            id: string;
-            section_heading: string | null;
-            content: string;
-            retrieval_synopsis?: string | null;
-          } => Boolean(chunk && chunk.id !== result.id && chunk.content.trim()),
-        )
-        .map((chunk) => {
-          const heading = chunk.section_heading ? `${chunk.section_heading}: ` : "";
-          return compactContextText(`${heading}${chunk.retrieval_synopsis || chunk.content}`, 520);
-        });
-
-      if (adjacent.length === 0) return result;
-      return {
-        ...result,
-        adjacent_context: adjacent.join(" "),
-      };
-    });
-  } catch {
-    return results;
-  }
-}
-
-// The numeric-faithfulness gate must verify answer figures against the SAME text
-// the model was shown. Generation runs on the packed context (packAdjacentSourceContext
-// merges neighbour-chunk text into adjacent_context), but answer.sources is the
-// unpacked answer-input set — so a dose/threshold the model faithfully copied from a
-// neighbour chunk would be absent from the finalize-time verification corpus and wrongly
-// flagged unverified, blanking a correct answer. Overlay the packed adjacent_context onto
-// the answer-input results (by chunk id) to rebuild the exact verification corpus, WITHOUT
-// mutating answer.sources itself (the route-boundary client trim and eval byte-identity
-// both depend on answer.sources staying unpacked — see answer-client-payload.ts).
-export function attachAdjacentContext(results: SearchResult[], packed: SearchResult[]): SearchResult[] {
-  const adjacentById = new Map<string, string>();
-  for (const source of packed) {
-    if (source.adjacent_context) adjacentById.set(source.id, source.adjacent_context);
-  }
-  if (adjacentById.size === 0) return results;
-  return results.map((result) => {
-    const adjacent = adjacentById.get(result.id);
-    return adjacent && adjacent !== result.adjacent_context ? { ...result, adjacent_context: adjacent } : result;
-  });
-}
+export {
+  attachAdjacentContext,
+  packAdjacentSourceContext,
+  packedContextCacheKey,
+  sourceContextPackLimit,
+} from "@/lib/rag/rag-context-pack";

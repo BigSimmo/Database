@@ -6,9 +6,22 @@ import {
   followUpTemplateKindsByMenuKey,
 } from "@/lib/answer-follow-up";
 import { buildRelatedInformationMenu } from "@/lib/rag/answer-composition";
+import { ragEvalCases } from "@/lib/rag/rag-eval-cases";
 import type { AnswerSection, ClinicalQueryIntent, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 describe("buildAnswerFollowUpQuery", () => {
+  it("P08C retains subject and constraints through elaboration and long anaphora without nested wrappers", () => {
+    const first = buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?");
+    const second = buildAnswerFollowUpQuery(
+      first,
+      "Please elaborate with an explanation and an example of how this changes the approach to monitoring over time.",
+    );
+    expect(second).toContain("lithium dosing");
+    expect(second).toContain("renal impairment");
+    expect(second).toContain("Please elaborate");
+    expect((second.match(/Follow-up to/g) ?? []).length).toBeLessThanOrEqual(1);
+  });
+
   it("returns the follow-up unchanged when there is no prior question", () => {
     expect(buildAnswerFollowUpQuery(undefined, "what about renal impairment?")).toBe("what about renal impairment?");
     expect(buildAnswerFollowUpQuery("", "what about renal impairment?")).toBe("what about renal impairment?");
@@ -24,6 +37,16 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("clozapine monitoring", "is it safe in pregnancy?")).toBe(
       'Follow-up to "clozapine monitoring": is it safe in pregnancy?',
     );
+  });
+
+  it("pins the programme follow-up case to one bounded prior question", () => {
+    const programmeCase = ragEvalCases.find((testCase) => testCase.id === "anaphoric-follow-up");
+
+    expect(buildAnswerFollowUpQuery("lithium dosing", "what about renal impairment?")).toBe(programmeCase?.question);
+    expect(programmeCase?.programmeExpectation?.requiredFacts).toEqual(
+      expect.arrayContaining(["one_prior_question_retained", "continuation_cue_required"]),
+    );
+    expect(programmeCase?.programmeExpectation?.forbiddenPatterns).toContain("unbounded_history_payload");
   });
 
   it("does not wrap a follow-up that restates the prior topic", () => {
@@ -42,11 +65,9 @@ describe("buildAnswerFollowUpQuery", () => {
     expect(buildAnswerFollowUpQuery("lithium dosing", "clozapine baseline bloods")).toBe("clozapine baseline bloods");
   });
 
-  it("keeps the wrapped query within the 2000-char API limit", () => {
-    const longPrior = "a".repeat(2100);
-    const result = buildAnswerFollowUpQuery(longPrior, "what about them?");
-    expect(result.length).toBeLessThanOrEqual(2000);
-    expect(result).toContain("what about them?");
+  it("T8-R2 rejects oversized prior context instead of truncating it to fit the API", () => {
+    const longPrior = "a".repeat(2100) + " material tail restriction";
+    expect(() => buildAnswerFollowUpQuery(longPrior, "what about them?")).toThrow(RangeError);
   });
 
   it("trims whitespace before deciding", () => {
@@ -233,7 +254,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
     }
   });
 
-  it("falls back to the query shape when a cached payload carries no query analysis", () => {
+  it("derives an evidence-backed subject when the client payload carries no query analysis", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
@@ -246,7 +267,7 @@ describe("buildAnswerFollowUpSuggestions · composition menu", () => {
       ["lithium dosing"],
     );
 
-    expect(suggestions).toContain("What monitoring is required for lithium dosing?");
+    expect(suggestions).toContain("What monitoring is required for lithium?");
   });
 });
 
@@ -339,6 +360,34 @@ describe("buildAnswerFollowUpSuggestions · evidence gate", () => {
 
     expect(suggestions).toEqual([]);
   });
+
+  it("does not treat renal as supported by the unrelated word adrenaline", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "renal dosing",
+      answerFor({
+        query: "renal dosing",
+        sources: [evidenceSource("Adrenaline administration requires monitoring and documentation.")],
+        analysisOverrides: { canonicalTerms: [], medications: [] },
+      }),
+      ["renal dosing"],
+    );
+
+    expect(suggestions).toEqual([]);
+  });
+
+  it("keeps token-bounded multiword subjects and configured inflected evidence", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "renal impairment dosing",
+      answerFor({
+        query: "renal impairment dosing",
+        sources: [evidenceSource("Renal impairment requires ongoing monitoring of serum levels.")],
+        analysisOverrides: { canonicalTerms: [], medications: [] },
+      }),
+      ["renal impairment dosing"],
+    );
+
+    expect(suggestions).toContain("What monitoring is required for renal impairment?");
+  });
 });
 
 describe("buildAnswerFollowUpSuggestions · already-answered suppression", () => {
@@ -386,23 +435,202 @@ describe("buildAnswerFollowUpSuggestions · already-answered suppression", () =>
 });
 
 describe("buildAnswerFollowUpSuggestions · thread and shape rules", () => {
-  it("puts reported gaps first and still respects the four-chip cap", () => {
+  it.each([
+    ["ART dosing", "Arterial monitoring is required.", false],
+    ["renal dosing", "Adrenaline monitoring is required.", false],
+    ["sodium valproate dosing", "Sodium monitoring and valproate are discussed separately.", false],
+    ["sodium valproate dosing", "Sodium monitoring is required.", false],
+    ["sodium valproate dosing", "SODIUM-VALPROATE monitoring is required.", true],
+    ["ART dosing", "ART: monitoring is required.", true],
+  ])("R3 bounds whole subject support for %s / %s", (query, content, supported) => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      query,
+      answerFor({ query, sources: [{ ...evidenceSource(content), title: "Guidance", section_heading: null }] }),
+    );
+    expect(suggestions.some((item) => /monitoring is required/i.test(item))).toBe(supported);
+  });
+  it("never turns a reported gap's prose into a question", () => {
     const suggestions = buildAnswerFollowUpSuggestions(
       "lithium dosing",
       {
         ...answerFor(),
         conflictsOrGaps: [
-          { type: "gap", message: "Paediatric dosing is not covered." },
-          { type: "conflict", message: "The two guidelines disagree on the target level." },
+          // The real messages `detectConflictsOrGaps` writes: full advisory
+          // sentences, one of them two sentences long. Wrapping either in
+          // "What does the source say about ...?" cannot produce English, and
+          // for a while the live answer page showed exactly that.
+          {
+            type: "gap",
+            message:
+              "Current evidence comes from one document; broaden document scope if you need cross-document comparison.",
+          },
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
         ],
       },
       ["lithium dosing"],
     );
 
+    for (const suggestion of suggestions) {
+      expect(suggestion).not.toContain("What does the source say about");
+      // Every suggestion is one question, so the only sentence-ending
+      // punctuation it may carry is its own trailing "?".
+      expect(suggestion.slice(0, -1)).not.toMatch(/[.;]/);
+      expect(suggestion.endsWith("?")).toBe(true);
+    }
+    // The gap is not silently dropped: the reader still sees its exact words as
+    // a caveat on the answer itself (`answer-render-policy`), and the authored
+    // question is offered whenever a slot is free — see the spare-slot test
+    // below. Here the four dosing chips fill every slot, and a concrete dosing
+    // question outranks a meta-question about coverage.
     expect(suggestions).toHaveLength(4);
-    expect(suggestions[0]).toBe("What does the source say about paediatric dosing is not covered?");
-    expect(suggestions[1]).toBe("What does the source say about the two guidelines disagree on the target level?");
-    expect(suggestions[2]).toBe("What monitoring is required for lithium?");
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers a gap's own words when the gap is already a question", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Which guideline governs paediatric dosing?" }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions[0]).toBe("Which guideline governs paediatric dosing?");
+    // A gap that asked for itself suppresses the generic source-gap template.
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("never displaces a concrete menu chip with the gap question", () => {
+    // The gap question is offered last and only into a spare slot. Put it first
+    // and a gapped medication_dose_risk answer trades the renal/hepatic dosing
+    // chip — a concrete, evidence-backed question — for a meta-question about
+    // coverage. The gap's own words are already on screen as a caveat, so the
+    // chip is the cheaper of the two things to lose.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor(),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions).toEqual([
+      "What monitoring is required for lithium?",
+      "What cautions or contraindications apply to lithium?",
+      "What should trigger stopping or escalating lithium?",
+      "How is lithium dosed in renal or hepatic impairment?",
+    ]);
+  });
+
+  it("offers the gap question in a spare slot on a menu that has no gap item", () => {
+    // `source_gap` lives only in the `management` menu, so before this a reported
+    // gap on any other query class went unmentioned entirely.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions.length).toBeLessThanOrEqual(4);
+    if (suggestions.length < 4) {
+      expect(suggestions.at(-1)).toBe("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
+  it("does not call a conflict a coverage gap", () => {
+    // `detectConflictsOrGaps` writes `type: "conflict"` when sources disagree on
+    // a withholding threshold. That answer HAS coverage, from several sources —
+    // the problem is that they contradict each other — so "What does the indexed
+    // guidance not cover?" misstates the evidence and points the clinician at
+    // the wrong follow-up.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          {
+            type: "conflict",
+            message:
+              "Sources disagree on the ANC withholding threshold (1.5 vs 2.0). Confirm the correct cut-off against the primary guideline before acting on any single source.",
+          },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("still offers the gap question when a gap accompanies a conflict", () => {
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium dosing",
+      {
+        ...answerFor({ answer: "Monitoring, cautions and escalation are all covered above." }),
+        conflictsOrGaps: [
+          { type: "conflict", message: "Sources disagree on the ANC withholding threshold (1.5 vs 2.0)." },
+          { type: "gap", message: "Paediatric dosing is not covered." },
+        ],
+      },
+      ["lithium dosing"],
+    );
+
+    if (suggestions.length < 4) {
+      expect(suggestions).toContain("What does the indexed guidance not cover for lithium?");
+    }
+  });
+
+  it("stays silent about a gap the answer already has a Source gap section for", () => {
+    // The menu loop drops its own `source_gap` template when a section of that
+    // kind was emitted; the direct offer has to apply the same rule, or the chip
+    // asks what the guidance does not cover directly beneath a section that
+    // just said. `source_gap` is a real emitted kind — `rag.ts` maps
+    // gap/unsupported/missing/unclear headings onto it.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "lithium management",
+      {
+        ...answerFor({
+          query: "lithium management",
+          intent: "general",
+          answer: "Review the plan at each visit.",
+          sections: [
+            {
+              heading: "Caveat",
+              kind: "source_gap",
+              body: "The guidance does not cover paediatric use.",
+              citation_chunk_ids: [],
+            },
+          ],
+        }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["lithium management"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for lithium?");
+  });
+
+  it("offers no gap question when the topic is not supported by the evidence", () => {
+    // `reportedGapQuestion` interpolates the topic, so offering it past this gate
+    // would name a subject the corpus never mentioned.
+    const suggestions = buildAnswerFollowUpSuggestions(
+      "quetiapine dosing",
+      {
+        ...answerFor({ query: "quetiapine dosing" }),
+        conflictsOrGaps: [{ type: "gap", message: "Paediatric dosing is not covered." }],
+      },
+      ["quetiapine dosing"],
+    );
+
+    expect(suggestions).not.toContain("What does the indexed guidance not cover for quetiapine?");
   });
 
   it("avoids repeating questions already asked in the thread", () => {

@@ -517,11 +517,14 @@ body:has(
     ]);
   });
 
-  it("top-aligns the sm+ hero canvas from first paint so a bottom-right install card cannot overlap the composer", () => {
+  it("top-aligns only constrained sm+ hero canvases so tall desktops remain centred", () => {
     const styles = readFileSync(join(import.meta.dirname, "..", "src", "app", "globals.css"), "utf8");
-    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px)");
+    expect(styles).toContain("@media (min-width: 640px) and (max-width: 1919.98px) and (max-height: 1279.98px)");
     expect(styles).toContain(
       '#main-content[data-phone-footer-owner="hero"] [data-mode-home-canvas] {\n    place-items: start center;\n    align-content: start;',
+    );
+    expect(styles).not.toMatch(
+      /@media \(min-width: 640px\) and \(max-width: 1919\.98px\) \{\s*#main-content\[data-phone-footer-owner="hero"\] \[data-mode-home-canvas\] \{/,
     );
     expect(styles).not.toContain("body:has(.pwa-notice-stack) #main-content");
     expect(styles).not.toMatch(

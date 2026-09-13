@@ -7,6 +7,17 @@ describe("universal also-matches submission state", () => {
     expect(shouldRunUniversalAlsoMatches("services", "?mode=services")).toBe(true);
   });
 
+  it("suppresses local catalogue universal also-matches for natural-language queries only", () => {
+    expect(shouldRunUniversalAlsoMatches("tools", "?mode=tools", "where can I check medication interactions?")).toBe(
+      false,
+    );
+    expect(
+      shouldRunUniversalAlsoMatches("prescribing", "?mode=prescribing", "medicine that needs regular blood tests"),
+    ).toBe(false);
+    expect(shouldRunUniversalAlsoMatches("prescribing", "?mode=prescribing", "medications")).toBe(true);
+    expect(shouldRunUniversalAlsoMatches("prescribing", "?mode=prescribing", "sertraline")).toBe(true);
+  });
+
   it("allows the server render until client URL state is available", () => {
     expect(shouldRunUniversalAlsoMatches("answer", null)).toBe(true);
   });

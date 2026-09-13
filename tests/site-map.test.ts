@@ -148,6 +148,20 @@ describe("tracked sitemap", () => {
     }
   });
 
+  it("describes Dictionary Sources as the query-preserving Sources compatibility redirect", async () => {
+    const data = collectSiteMapData();
+    const rendered = await renderSiteMap(data);
+
+    expect(data.redirects).toContainEqual({
+      route: "/dictionary/sources",
+      file: "src/app/(search-app)/dictionary/sources/page.tsx",
+      target: "/sources/search?usedBy=dictionary",
+    });
+    expect(rendered).toContain(
+      "`/dictionary/sources` - Query-preserving compatibility redirect to `/sources/search?usedBy=dictionary`",
+    );
+  });
+
   it("documents seeded dynamic slugs", () => {
     for (const service of serviceRecords) expectDocumentedRoute(service.slug);
     for (const form of formRecords) expectDocumentedRoute(form.slug);
@@ -197,5 +211,20 @@ describe("tracked sitemap", () => {
     expect(siteMap).toContain("legacy compatibility route");
     expect(siteMap).toContain("Live user registries may contain additional service or form slugs");
     expect(siteMap).toContain("individual document IDs are private runtime data");
+  });
+
+  it("disperses alphabetically adjacent routes so concurrent page-adding branches do not collide (#X2FP2R)", () => {
+    const data = collectSiteMapData();
+    const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
+    const routes = mockupRoutes.map((entry) => entry.route);
+    const alphabetical = [...routes].sort((a, b) => a.localeCompare(b));
+    // Dispersed order is not plain alphabetical order
+    expect(routes).not.toEqual(alphabetical);
+
+    // Alphabetically adjacent routes with shared prefix are dispersed across the list
+    const toolsRoutes = routes.filter((r) => r.startsWith("/mockups/tools-"));
+    expect(toolsRoutes.length).toBeGreaterThan(3);
+    const positions = toolsRoutes.map((r) => routes.indexOf(r));
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(toolsRoutes.length - 1);
   });
 });

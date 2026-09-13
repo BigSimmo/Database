@@ -123,8 +123,13 @@ test.describe("Perfected Tools results mode mockup @mockup", () => {
     const mockup = await gotoMockup(page, 1440);
     await page.locator('[data-testid="global-search-input"]:visible').fill("Risk & Safety");
 
-    await expect(mockup.getByText("1 tool", { exact: true })).toBeVisible();
-    await expect(mockup.getByRole("heading", { level: 2, name: "Risk & Safety" }).first()).toBeVisible();
+    // The claim is that "&" normalises and the exactly-titled tool wins — not that it is
+    // the only match. "Risk & Safety" legitimately also matches "Safety plan" and
+    // "Differentials" on their own terms, so the "1 tool" this line used to carry was the
+    // same rot the count assertion below was already rewritten to avoid: it went red the
+    // moment the catalogue grew into it. Assert the ranking instead, which is the claim.
+    const results = mockup.locator('section[aria-label="Tool results"] article');
+    await expect(results.first().getByRole("heading", { level: 2, name: "Risk & Safety" })).toBeVisible();
   });
 
   test("renders every result included in the reported count", async ({ page }) => {

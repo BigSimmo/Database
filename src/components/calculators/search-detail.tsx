@@ -11,9 +11,7 @@ import {
   ListChecks,
   Search,
   Sigma,
-  Sparkles,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ModeHomeHero } from "@/components/mode-home-template";
@@ -31,13 +29,8 @@ import {
   type CalculatorDomain,
   type CalculatorFixture,
 } from "./calculator-fixtures";
-import {
-  actionsForBand,
-  relatedForBand,
-  relatedKindLabels,
-  type RelatedItem,
-  type RelatedKind,
-} from "./calculator-pathways";
+import { partitionEvidenceSources, type CalculatorEvidenceSource } from "./calculator-evidence";
+import { actionsForBand } from "./calculator-pathways";
 import {
   BandLegend,
   CalculatorItems,
@@ -56,21 +49,6 @@ import {
 
 type DomainFilter = CalculatorDomain | "all";
 export type SessionAnswers = Record<string, AnswerMap>;
-
-const relatedKindChip: Record<RelatedKind, string> = {
-  guideline:
-    "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
-  medication:
-    "border-[color:var(--type-table-border)] bg-[color:var(--type-table-soft)] text-[color:var(--type-table)]",
-  differential:
-    "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
-  service:
-    "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
-  form: "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
-  answer: "border-[color:var(--type-search-border)] bg-[color:var(--type-search-soft)] text-[color:var(--type-search)]",
-  calculator:
-    "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
-};
 
 /** First item whose text matches the query — shown as match context in results. */
 function matchContext(calc: CalculatorFixture, query: string): string | null {
@@ -353,7 +331,7 @@ export function CalculatorSearchHome({
             <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-6 text-center">
               <p className="text-sm font-bold text-[color:var(--text-heading)]">No calculator matches that.</p>
               <p className="text-sm-minus font-medium text-[color:var(--text-muted)]">
-                Try a symptom (“hopeless”, “drinking”) or ask Clinical Guide below.
+                Try a symptom (“hopeless”, “drinking”) or ask PsychSift below.
               </p>
             </div>
           ) : null}
@@ -375,7 +353,8 @@ export function CalculatorSearchHome({
       )}
 
       <p className="text-center text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-        Scores support clinical judgement — they never replace a full assessment. Nothing entered here is stored.
+        Calculator answers remain in this browser session and are not intentionally submitted by this calculator
+        interface. Application telemetry and clinical-record documentation are governed separately.
       </p>
     </main>
   );
@@ -383,38 +362,75 @@ export function CalculatorSearchHome({
 
 /* ---------- detail view: score-linked panels ---------- */
 
+function EvidenceLinkList({ sources }: { sources: CalculatorEvidenceSource[] }) {
+  return (
+    <>
+      {sources.map((source, sourceIndex) => (
+        <span key={source.id}>
+          {sourceIndex ? ", " : null}
+          <a href={source.url} className="underline underline-offset-2">
+            {source.title}
+          </a>
+        </span>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The internal governance record rides on every instrument's `sourceIds`, so it
+ * would otherwise print beside a validation study as clinical evidence. It is
+ * kept and linked, under its own label.
+ */
+function ActionEvidenceLines({ sourceIds }: { sourceIds: string[] }) {
+  const { clinical, governance } = partitionEvidenceSources(sourceIds);
+  if (!clinical.length && !governance.length) return null;
+
+  return (
+    <>
+      {clinical.length ? (
+        <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          Sources: <EvidenceLinkList sources={clinical} />
+        </span>
+      ) : null}
+      {governance.length ? (
+        <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          Governance reference: <EvidenceLinkList sources={governance} />
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; derived: DerivedCalculator }) {
   const actions = actionsForBand(calc, derived);
 
   return (
     <section
-      aria-label="Next clinical actions"
+      aria-label="Clinical considerations"
       className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)]"
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Next clinical actions</h2>
-        <span className="inline-flex min-h-5 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-3xs font-bold uppercase tracking-label text-[color:var(--clinical-accent)]">
-          <Sparkles className="size-icon-xs" aria-hidden="true" />
-          Score-linked
-        </span>
+        <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Clinical considerations</h2>
       </div>
 
-      {!derived.started ? (
+      {derived.flags.map((flag) => (
+        <p
+          key={flag}
+          role="alert"
+          className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-2.5 text-sm-minus font-bold leading-5 text-[color:var(--danger)]"
+        >
+          <AlertTriangle className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
+          {flag}
+        </p>
+      ))}
+
+      {!derived.complete ? (
         <p className="rounded-md bg-[color:var(--surface-inset)] p-2.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
-          Answer the items and recommendations for the scored severity band appear here.
+          Answer every item before source-linked clinical considerations are shown.
         </p>
       ) : (
         <>
-          {derived.flags.map((flag) => (
-            <p
-              key={flag}
-              role="alert"
-              className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-2.5 text-sm-minus font-bold leading-5 text-[color:var(--danger)]"
-            >
-              <AlertTriangle className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
-              {flag}
-            </p>
-          ))}
           <ol className="grid gap-2">
             {actions.map((action, actionIndex) => (
               <li key={action.label} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5">
@@ -425,101 +441,20 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
                   <span className="block text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     {action.label}
                   </span>
-                  {action.detail ? (
-                    <span className="mt-0.5 block text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-                      {action.detail}
-                    </span>
-                  ) : null}
+                  <ActionEvidenceLines sourceIds={action.sourceIds} />
                 </span>
               </li>
             ))}
           </ol>
           {derived.band ? (
             <p className="flex flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] pt-2.5 text-2xs font-semibold text-[color:var(--text-muted)]">
-              For
+              Completed result:
               <SeverityPill tone={derived.result.tone} label={derived.result.label} />— updates automatically as the
               score changes.
             </p>
           ) : null}
         </>
       )}
-    </section>
-  );
-}
-
-export function RelatedContentPanel({
-  calc,
-  derived,
-  onOpenCalculator,
-}: {
-  calc: CalculatorFixture;
-  derived: DerivedCalculator;
-  onOpenCalculator: (calcId: string) => void;
-}) {
-  const visible = relatedForBand(calc, derived);
-  const all = relatedForBand(calc, { ...derived, band: calc.bands[calc.bands.length - 1] });
-  const moreAtHigherSeverity = all.length > visible.length;
-
-  if (!all.length) return null;
-
-  const rowClass = cn(
-    "grid w-full min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 py-2 text-left transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
-    focusRing,
-  );
-
-  const rowBody = (item: RelatedItem) => (
-    <>
-      <span
-        className={cn(
-          "inline-flex min-h-5 w-[4.75rem] items-center justify-center rounded-md border px-1.5 text-3xs font-bold uppercase tracking-label",
-          relatedKindChip[item.kind],
-        )}
-      >
-        {relatedKindLabels[item.kind]}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm-minus font-semibold leading-5 text-[color:var(--text-heading)]">
-          {item.title}
-        </span>
-        {item.note ? (
-          <span className="block truncate text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-            {item.note}
-          </span>
-        ) : null}
-      </span>
-      <ArrowRight className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)]" aria-hidden="true" />
-    </>
-  );
-
-  return (
-    <section
-      aria-label="Related knowledge-base content"
-      className="grid content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)]"
-    >
-      <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>From the knowledge base</h2>
-      <div className="grid gap-1.5">
-        {visible.map((item) =>
-          item.kind === "calculator" && item.calcId ? (
-            <button
-              key={item.title}
-              type="button"
-              onClick={() => onOpenCalculator(item.calcId as string)}
-              className={rowClass}
-            >
-              {rowBody(item)}
-            </button>
-          ) : (
-            <Link key={item.title} href={item.href ?? "/"} className={rowClass}>
-              {rowBody(item)}
-            </Link>
-          ),
-        )}
-      </div>
-      {moreAtHigherSeverity ? (
-        <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-          More referral and treatment content surfaces at higher severity bands.
-        </p>
-      ) : null}
     </section>
   );
 }
@@ -533,6 +468,8 @@ export function ScorePanel({
   derived: DerivedCalculator;
   onReset: () => void;
 }) {
+  const { clinical: evidenceSources, governance: governanceSources } = partitionEvidenceSources(calc.sourceIds);
+
   return (
     <section
       aria-label="Score"
@@ -568,7 +505,16 @@ export function ScorePanel({
           <CopyResultButton calc={calc} state={derived} />
           <ResetButton onReset={onReset} disabled={!derived.started} />
         </div>
-        <p className="font-mono text-3xs font-semibold text-[color:var(--text-muted)]">{calc.source}</p>
+        {evidenceSources.length ? (
+          <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
+            Sources: <EvidenceLinkList sources={evidenceSources} />
+          </p>
+        ) : null}
+        {governanceSources.length ? (
+          <p className="text-3xs font-semibold text-[color:var(--text-muted)]">
+            Governance reference: <EvidenceLinkList sources={governanceSources} />
+          </p>
+        ) : null}
       </div>
     </section>
   );
@@ -614,13 +560,11 @@ function CalculatorDetail({
   answers,
   onAnswersChange,
   onBack,
-  onOpenCalculator,
 }: {
   calc: CalculatorFixture;
   answers: AnswerMap;
   onAnswersChange: (next: AnswerMap) => void;
   onBack: () => void;
-  onOpenCalculator: (calcId: string) => void;
 }) {
   const derived = deriveCalculator(calc, answers);
 
@@ -669,7 +613,6 @@ function CalculatorDetail({
         <aside className="grid content-start gap-4 lg:sticky lg:top-4 lg:self-start">
           <ScorePanel calc={calc} derived={derived} onReset={() => onAnswersChange({})} />
           <NextActionsPanel calc={calc} derived={derived} />
-          <RelatedContentPanel calc={calc} derived={derived} onOpenCalculator={onOpenCalculator} />
         </aside>
       </div>
     </main>
@@ -711,7 +654,6 @@ export function CalculatorsSearchDetailMockup() {
             setOpenId(null);
             resetDetailScroll();
           }}
-          onOpenCalculator={openCalculator}
         />
       ) : (
         <CalculatorSearchHome session={session} onOpen={openCalculator} />

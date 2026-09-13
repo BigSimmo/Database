@@ -22,7 +22,7 @@ export type TrackerRowState = {
  * The tracker's reading of one transport job: which leg it has reached, and the one instant
  * the model actually recorded for that leg.
  *
- * `TransportJob` has no `requestedAt` field at all — the reducer's `HANDOVER_READY` case is
+ * `TransportJob` has no `requestedAt` field at all — the reducer's `BOOK_TRANSPORT` case is
  * the only thing that creates a transport job, and it writes only
  * `{ id, provider, escortRequired }`, no timestamp (`ward-flow-reducer.ts`). So a job sitting
  * at the `"Requested"` leg has genuinely nothing to report: `stampAt` comes back `undefined`

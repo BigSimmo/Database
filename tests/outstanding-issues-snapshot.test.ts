@@ -45,7 +45,8 @@ const INBOX = [
   },
 ];
 
-const REVISION = { sha: "a".repeat(40), committed_at: "2026-08-20T09:14:00Z" };
+// v2 shape: a date, no sha. `readLedgerRevision` explains why the sha went.
+const REVISION = { committed_at: "2026-08-20" };
 
 describe("buildSnapshot", () => {
   it("parses both ID schemes and never drops alphanumeric ids", () => {
@@ -203,6 +204,53 @@ describe("buildSnapshot", () => {
  * refuses a repo-less image. The `fatal:` line git prints on stderr during this
  * block is the reproduction, not a test failure.
  */
+describe("pending inbox requests in the committed artefact", () => {
+  let dir: string;
+  let ledgerPath: string;
+  let inboxDir: string;
+  let snapshotPath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "issues-snapshot-pending-"));
+    ledgerPath = join(dir, "outstanding-issues.md");
+    inboxDir = join(dir, "inbox");
+    snapshotPath = join(dir, "outstanding-issues-snapshot.json");
+    mkdirSync(inboxDir);
+    writeFileSync(ledgerPath, LEDGER, "utf8");
+    writeFileSync(
+      join(inboxDir, "11111111-2222-3333-4444-555555555555.json"),
+      JSON.stringify({
+        id: "11111111-2222-3333-4444-555555555555",
+        action: "add",
+        createdOn: "2026-09-01",
+        payload: { summary: "Queued on some other branch" },
+      }),
+      "utf8",
+    );
+  });
+
+  afterEach(() => rmSync(dir, { force: true, recursive: true, maxRetries: 5, retryDelay: 100 }));
+
+  it("omits pending by default, so an ordinary branch never rewrites this file", () => {
+    // The committed artefact must not depend on what OTHER branches have
+    // queued, or two concurrent ledger PRs conflict on a file neither is really
+    // changing (`#Y090R5`). Everything derived from the canonical ledger is
+    // still rebuilt in full — only the inbox-derived section is withheld.
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.pending).toEqual([]);
+    expect(snapshot.counts.pending).toBe(0);
+    expect(snapshot.counts.open).toBe(3);
+  });
+
+  it("includes pending when the caller asks, which is how the built image stays truthful", () => {
+    // `prebuild` passes `--with-pending`, so the developer hub in the deployed
+    // image still lists the requests that have not been reconciled yet.
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath, includePending: true });
+    expect(snapshot.counts.pending).toBe(1);
+    expect(snapshot.pending[0].summary).toBe("Queued on some other branch");
+  });
+});
+
 describe("ledger revision when git cannot be read", () => {
   let dir: string;
   let ledgerPath: string;
@@ -246,6 +294,30 @@ describe("ledger revision when git cannot be read", () => {
 
     const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
     expect(snapshot.ledger_revision).toEqual(REVISION);
+  });
+
+  it("normalises a v1 committed revision to a date, so the preserve path cannot reintroduce the sha", () => {
+    // The one path that PRESERVES rather than re-reads git is the production
+    // image, which has no `.git`. A v1 file on disk there still carries a sha
+    // and a full timestamp, and carrying that through verbatim would write the
+    // conflicting v1 shape straight back into a v2 file — silently, in the only
+    // environment that takes this branch.
+    writeFileSync(
+      snapshotPath,
+      JSON.stringify({
+        version: SNAPSHOT_VERSION,
+        ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T09:14:00Z" },
+        counts: {},
+        queue: [],
+        open: [],
+        pending: [],
+      }),
+      "utf8",
+    );
+
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.ledger_revision).toEqual({ committed_at: "2026-08-20" });
+    expect(snapshot.ledger_revision).not.toHaveProperty("sha");
   });
 
   it("records null when there is no committed snapshot to preserve from", () => {

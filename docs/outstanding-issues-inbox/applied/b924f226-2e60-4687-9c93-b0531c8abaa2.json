@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "b924f226-2e60-4687-9c93-b0531c8abaa2",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "tests/ward-screen-fd23-leaks.dom.test.tsx is unowned and carries a known blind spot",
+    "issueUlid": "01M1G4PSBCS2741SYDMAQ3E4NT"
+  }
+}

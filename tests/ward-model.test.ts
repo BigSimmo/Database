@@ -17,7 +17,7 @@ describe("ward model constants", () => {
       "placement_requested",
       "destination_review",
       "accepted_awaiting_bed",
-      "bed_held",
+      "pulled",
       "handover_ready",
       "moving",
       "arrived",
@@ -30,7 +30,7 @@ describe("ward model constants", () => {
     expect(DECLINE_REASONS).toContain("specialling_unavailable");
     expect(DECLINE_REASONS).toContain("acuity_mix");
     expect(DECLINE_REASONS).toContain("capability_mismatch");
-    expect(DECLINE_REASONS).toContain("bed_held_for_earlier_referral");
+    expect(DECLINE_REASONS).toContain("bed_pulled_for_earlier_referral");
   });
 
   it("caps parallel referrals so wards are not spammed", () => {
@@ -46,6 +46,44 @@ describe("ward model constants", () => {
     // screen renders it against `openedAt`. Pinned here so a later task cannot silently redefine
     // it as, or attach it to, a legal deadline.
     expect(ED_ACCESS_TARGET_MINUTES).toBe(1440);
+  });
+});
+
+/**
+ * Owner ruling PD-6, 2026-08-30: `Decline.note` is removed. It held free text written about a named
+ * individual, immediately beside a controlled vocabulary — and a controlled vocabulary with an
+ * escape hatch next to it is not a controlled vocabulary.
+ *
+ * Guarded rather than merely done, because the field is the kind a future decline screen re-adds in
+ * one line as an obvious convenience. If a reason cannot be expressed, the answer is a new member of
+ * `DECLINE_REASONS`, decided and recorded — never a text field restored here.
+ *
+ * Checked on real seeded declines rather than a hand-built literal, so it fails on a fixture that
+ * starts carrying one as well as on a type that starts permitting one.
+ */
+describe("a decline gives a reason from the list and nothing else (PD-6)", () => {
+  const seededDeclines = wardMovements.flatMap((movement) => movement.declines);
+
+  it("has declines to check, so this cannot pass by scanning nothing", () => {
+    expect(seededDeclines.length).toBeGreaterThan(0);
+  });
+
+  it("carries exactly unitId, at and reason — no note, and no free-text field under any name", () => {
+    const allowed = ["at", "reason", "unitId"];
+    for (const decline of seededDeclines) {
+      expect(
+        Object.keys(decline).sort(),
+        "a decline carries a field beyond its unit, its time and its reason. PD-6 removed `note` " +
+          "because free text about a named individual sat beside a controlled vocabulary; a field " +
+          "added back under any name is that same escape hatch. Add a DECLINE_REASONS member instead.",
+      ).toEqual(allowed);
+    }
+  });
+
+  it("gives every decline a reason drawn from DECLINE_REASONS, which is what makes the list the only channel", () => {
+    for (const decline of seededDeclines) {
+      expect(DECLINE_REASONS, `${decline.unitId} declined with an unlisted reason`).toContain(decline.reason);
+    }
   });
 });
 
@@ -215,7 +253,7 @@ describe("ward movements", () => {
     // consistent with their stage; the generated routine movements must too, or a movement
     // can render as "Moving" with no transport job anywhere in the app.
     for (const movement of wardMovements) {
-      if (movement.stage === "accepted_awaiting_bed" || movement.stage === "bed_held") {
+      if (movement.stage === "accepted_awaiting_bed" || movement.stage === "pulled") {
         expect(movement.acceptedUnitId, `${movement.id} is ${movement.stage} with no accepted unit`).toBeDefined();
       }
       if (movement.stage === "moving") {

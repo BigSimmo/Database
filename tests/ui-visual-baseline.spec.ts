@@ -41,6 +41,24 @@ const documentPath =
 const phone = { width: 390, height: 820 } as const;
 const desktop = { width: 1280, height: 900 } as const;
 
+/**
+ * The ribbon (`SearchResultsHeaderBand`) is unconditionally in the DOM in every
+ * state — including while `useRegistryRecords` is still waiting on its first
+ * `/api/registry/records` round trip — so `settle()`'s plain visibility check
+ * passes before the fetch resolves. A capture taken in that window shows a
+ * spinner and no filter/sort row instead of the settled match count and
+ * controls, purely from CI scheduling jitter. `data-status` on the ribbon
+ * (`search-results-header-band.tsx`) already distinguishes the two transient
+ * states from every settled one, so wait for those to clear rather than
+ * masking or widening the target.
+ */
+async function waitForRibbonSettled(page: Page): Promise<void> {
+  const ribbon = page.locator('[data-testid="search-query-ribbon"]:visible').first();
+  await expect
+    .poll(() => ribbon.getAttribute("data-status"), { timeout: 20_000 })
+    .not.toMatch(/^(?:loading|refetching)$/);
+}
+
 type BaselineTarget = {
   readonly name: string;
   readonly route: string;
@@ -79,12 +97,14 @@ const targets: readonly BaselineTarget[] = [
     route: "/services?q=CMHT&run=1",
     selector: '[data-testid="search-query-ribbon"]',
     viewport: desktop,
+    prepare: waitForRibbonSettled,
   },
   {
     name: "search-results-band-phone",
     route: "/services?q=CMHT&run=1",
     selector: '[data-testid="search-query-ribbon"]',
     viewport: phone,
+    prepare: waitForRibbonSettled,
   },
   {
     name: "document-viewer",

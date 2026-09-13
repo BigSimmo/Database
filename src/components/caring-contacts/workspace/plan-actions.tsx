@@ -1,13 +1,13 @@
 "use client";
 
-import { CircleAlert } from "lucide-react";
+import { CircleAlert, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import { cn, controlBase, ignoreUnavailableActivation } from "@/components/ui-primitives";
+import { cn, ignoreUnavailableActivation } from "@/components/ui-primitives";
 
 import type { WorkspaceOverlayCommit } from "./overlays/overlay-commits";
-import { WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
+import { OVERLAY_TRIGGER_CLASS, WorkspaceOverlayTrigger } from "./overlays/overlay-trigger";
 import {
   ACTING_ACCOUNT_ENDPOINT,
   ACTING_ACCOUNT_UNREADABLE,
@@ -423,7 +423,25 @@ export function PlanActions({ context }: PlanActionsProps) {
        * this is correctness by construction and is recorded as such rather than as evidence.
        */}
       <div role="status" data-testid="caring-contacts-plan-action-outcome" className="mt-3 min-w-0">
-        {outcome === null ? null : outcome.kind === "recorded" ? (
+        {/*
+          The wait, said out loud. `changeOnItsWay` was already tracked around every write and
+          handed to the guards, so a control could not be pressed twice — but nothing on screen
+          ever showed it. Between pressing "Hold this plan" and the answer arriving, the one
+          surface that stops a suicide-prevention plan for a person said nothing at all, while the
+          sign-up wizard two screens away renders sending, refused and half-done copy for the same
+          class of wait. Two screens in one workspace answering the same question in opposite ways
+          is the defect; this is the half that was missing.
+
+          Inside the existing `role="status"` region rather than beside it, so the wait and the
+          answer that replaces it are announced through one region a reader is already following.
+          `aria-hidden` is deliberately NOT set: this is the announcement.
+        */}
+        {changeOnItsWay ? (
+          <p className="flex min-w-0 items-center gap-2 text-sm font-medium text-[color:var(--text-muted)]">
+            <Loader2 aria-hidden="true" className="size-icon-md shrink-0 animate-spin motion-reduce:animate-none" />
+            <span className="min-w-0">Recording this on the plan…</span>
+          </p>
+        ) : outcome === null ? null : outcome.kind === "recorded" ? (
           <StatedReason
             heading={`${planActionCardName(outcome.action)} — recorded on the plan`}
             because={outcome.announcement}
@@ -463,7 +481,11 @@ export function PlanActions({ context }: PlanActionsProps) {
                     }
                   : ignoreUnavailableActivation
               }
-              className={cn(controlBase, "w-full border border-[color:var(--border)] px-5 sm:w-auto")}
+              // The SAME recipe as "Hold this plan" beside it. These two sit in one `gap-3` row and
+              // used to disagree on corner radius (12px against 10px), padding and fill — one of
+              // them had no background at all — which read as a rendering fault rather than as two
+              // deliberate choices.
+              className={cn(OVERLAY_TRIGGER_CLASS, "w-full sm:w-auto")}
             >
               Let this plan run again
             </button>
@@ -496,7 +518,24 @@ export function PlanActions({ context }: PlanActionsProps) {
           refusal={refusalAtOpen("withdrawal")}
           reasonId="caring-contacts-plan-action-withdrawal-reason"
         >
-          <WorkspaceOverlayTrigger overlayId="withdrawal" commit={commitFor("withdrawal")} className="w-full sm:w-auto">
+          {/*
+            The one control on this screen that cannot be undone looks like it.
+
+            It carried the same neutral trigger recipe as "Hold this plan" forty pixels above it,
+            and holding is the reversible one — this screen's own copy says a withdrawal "is the
+            opposite of holding it: nothing is kept to come back to, and it cannot be undone". The
+            danger treatment only appeared once the overlay was already open, which is after the
+            reader has committed to opening it. It reads as danger BEFORE the press, not after.
+
+            Tone on the edge and the label rather than a filled red button: this is a control that
+            opens a confirmation, not the confirmation itself, and the overlay's own confirm is
+            where the filled danger belongs. The word "withdrawal" still carries the meaning.
+          */}
+          <WorkspaceOverlayTrigger
+            overlayId="withdrawal"
+            commit={commitFor("withdrawal")}
+            className="w-full border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] text-[color:var(--danger-text)] hover:border-[color:var(--danger)] sm:w-auto"
+          >
             <span className="truncate">Record a withdrawal</span>
           </WorkspaceOverlayTrigger>
         </ActionBlock>

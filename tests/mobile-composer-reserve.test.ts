@@ -134,6 +134,9 @@ describe("mobile composer reserve contract", () => {
     // back in. Without it the modes that borrow `resultKind: "tools"` as a benign
     // search kind (Factsheets, Dictionary, Therapy Compass) inherited the Tools
     // dock on `/` and lost the hero composer, ticker and privacy notice.
+    // Hero/composer ownership for the dashboard was extracted into
+    // dashboard-mode-surface.ts under the ClinicalDashboard maintainability budget.
+    const modeSurface = source("src/components/clinical-dashboard/dashboard-mode-surface.ts");
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
@@ -141,27 +144,29 @@ describe("mobile composer reserve contract", () => {
     expect(shell).toMatch(
       /const heroOwnsPhoneComposer =\s*isStandaloneModeHome && mobileHomeComposerPlacement === "hero";/,
     );
-    expect(shell).toMatch(
-      /heroComposerBreakpoint=\{\s*mobileHomeComposerPlacement === "footer" \|\| isDictionaryCatalogue \? "sm-up" : "all"\s*\}/,
+    // Dictionary is no longer a term here: the catalogue takes the page composer
+    // slot, so it has no hero slot for a breakpoint to gate and the dead term
+    // only invited the "catalogue is a home" reading that #2639 punished.
+    expect(shell).toMatch(/heroComposerBreakpoint=\{mobileHomeComposerPlacement === "footer" \? "sm-up" : "all"\}/);
+    expect(shell).not.toContain('mobileHomeComposerPlacement === "footer" || isDictionaryCatalogue');
+    expect(modeSurface).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
+    expect(modeSurface).toMatch(
+      /const heroComposerBreakpoint(?::[^=]+)?=\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,
     );
-    expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toMatch(
-      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && \(showSharedHome \|\| activeModeResultKind !== "tools"\) \? "all" : "sm-up";/,
+    expect(modeSurface).not.toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(modeSurface).not.toMatch(
+      /const heroComposerBreakpoint(?::[^=]+)?=\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
     );
-    expect(dashboard).not.toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
-    expect(dashboard).not.toMatch(
-      /const heroComposerBreakpoint =\s*showDesktopHomeComposer && activeModeResultKind !== "tools" \? "all" : "sm-up";/,
-    );
-    expect(dashboard).toContain(
+    expect(modeSurface).toContain(
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
-    expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
+    expect(modeSurface).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
     // Prescribing keeps MedicationHome until explicit submit; draft keystrokes
     // must not drop the hero slot (and idle phone reserve) for the dock path.
-    expect(dashboard).toMatch(
+    expect(modeSurface).toMatch(
       /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted/,
     );
-    expect(dashboard).not.toMatch(
+    expect(modeSurface).not.toMatch(
       /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted &&\s*!query\.trim\(\)/,
     );
     // Results mount only after submit — never on the first draft keystroke.
@@ -169,8 +174,9 @@ describe("mobile composer reserve contract", () => {
     expect(dashboard).not.toContain("showHome={!query.trim() && !modeSearchSubmitted}");
     // DifferentialsHome shows results (no mode-home slot) when a draft query
     // coincides with stale evidence matches after clearing a submitted search.
-    expect(dashboard).toMatch(
-      /activeModeResultKind === "differentials" &&\s*!modeSearchSubmitted &&\s*!\(query\.trim\(\) && documentMatches\.length > 0\)/,
+    // Count is named documentMatchCount in the extracted helper (param rename).
+    expect(modeSurface).toMatch(
+      /activeModeResultKind === "differentials" &&\s*!modeSearchSubmitted &&\s*!\(query\.trim\(\) && documentMatchCount > 0\)/,
     );
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',

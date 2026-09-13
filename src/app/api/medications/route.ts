@@ -9,23 +9,28 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
-import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
-import { deriveGovernanceFromSections, rowGovernance, rowToMedicationRecord } from "@/lib/medication-records";
+import { defaultMedicationRecords } from "@/lib/medication-seed";
+import { medicationAliasesForEntity } from "@/lib/medication-entities";
+import { publicMedicationGovernance } from "@/lib/medication-records";
 import { medicationCatalogInterpretation, searchMedicationCatalog } from "@/lib/medication-query";
 import {
   medicationBrandNames,
   medicationToSearchResult,
+  normalizeSearchText,
   type MedicationRecord,
   type MedicationSearchMatch,
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
-
-const MEDICATION_MAX_RECORDS = 500;
 
 const medicationListQuerySchema = z.object({
   q: z
@@ -71,7 +76,8 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
 }
 
 function rankCatalogMatches(records: MedicationRecord[], q: string, limit: number, projectIndex = false) {
-  const { matches, analysis } = searchMedicationCatalog(records, q, limit);
+  const smartExpansions = smartSearchExpansions("prescribing", q);
+  const { matches, analysis } = searchMedicationCatalog(records, q, limit, smartExpansions);
   // Rank on full records for vocabulary, but serialize the slim identity shape
   // when fields=index so matches do not reintroduce stats/sections/quick.
   const serialized = projectIndex
@@ -81,7 +87,7 @@ function rankCatalogMatches(records: MedicationRecord[], q: string, limit: numbe
       }))
     : matches;
   return {
-    matches: matchesPayload(serialized),
+    matches: matchesPayload(serialized, smartExpansions.length > 0, analysis.correctedQuery),
     interpretation: medicationCatalogInterpretation(analysis),
   };
 }
@@ -90,13 +96,28 @@ function medicationResponse(payload: Record<string, unknown>, options: { request
   return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
-function matchesPayload(matches: MedicationSearchMatch[]) {
-  return matches.map((match) => ({
-    medication: match.medication,
-    result: medicationToSearchResult(match),
-    score: match.score,
-    reasons: match.reasons,
-  }));
+function queryIncludesMedicationIdentity(query: string, medication: MedicationRecord) {
+  const normalizedQuery = ` ${normalizeSearchText(query)} `;
+  const directIdentities = [medication.name, medication.slug.replace(/-/g, " "), ...medicationBrandNames(medication)];
+  const identities = [...directIdentities, ...directIdentities.flatMap(medicationAliasesForEntity)];
+  return identities.some((identity) => {
+    const normalizedIdentity = normalizeSearchText(identity);
+    return normalizedIdentity.length > 0 && normalizedQuery.includes(` ${normalizedIdentity} `);
+  });
+}
+
+function matchesPayload(matches: MedicationSearchMatch[], rankingOnly = false, query = "") {
+  return matches.map((match) => {
+    const hasLiteralIdentityMatch = queryIncludesMedicationIdentity(query, match.medication);
+    return {
+      medication: match.medication,
+      // Smart aliases may improve retrieval order, but Smart-only relevance
+      // must not be interpreted outwardly as evidence of medication suitability.
+      result: medicationToSearchResult(rankingOnly && !hasLiteralIdentityMatch ? { ...match, score: 0 } : match),
+      score: match.score,
+      reasons: match.reasons,
+    };
+  });
 }
 
 // The anonymous payload is entirely derived from the curated snapshot, so both
@@ -106,22 +127,12 @@ function matchesPayload(matches: MedicationSearchMatch[]) {
 // `loadMedicationSnapshot`, so caching these two derivations introduces no
 // aliasing the route did not already have. Ranking still runs per query.
 function buildPublicGovernance(records: MedicationRecord[]) {
-  return Object.fromEntries(
-    records.map((record) => {
-      const governance = deriveGovernanceFromSections(record);
-      return [
-        record.slug,
-        {
-          sourceStatus: governance.source_status,
-          validationStatus: governance.validation_status,
-        },
-      ];
-    }),
-  );
+  return Object.fromEntries(records.map((record) => [record.slug, publicMedicationGovernance(record)]));
 }
 
 let cachedPublicIndexRecords: MedicationRecord[] | null = null;
 let cachedPublicGovernance: ReturnType<typeof buildPublicGovernance> | null = null;
+let cachedPublicGovernanceDay: string | null = null;
 
 function publicIndexRecords() {
   cachedPublicIndexRecords ??= toIndexRecords(defaultMedicationRecords());
@@ -130,7 +141,25 @@ function publicIndexRecords() {
 
 function publicGovernance(records: MedicationRecord[]) {
   // Slugs are identical for the full and index projections, so one map serves both.
-  cachedPublicGovernance ??= buildPublicGovernance(records);
+  //
+  // Keyed by UTC day, not cached outright. Source freshness is a function of the
+  // reading clock, so a lifetime cache would re-freeze exactly what this module
+  // stopped freezing: a process that started before a record aged out would keep
+  // serving the pre-ageing status until it happened to restart. A day is the
+  // finest granularity the status can actually change at, so this preserves the
+  // per-request-mapping saving the latency audit bought while keeping the answer
+  // honest across a date boundary.
+  //
+  // This is the tightest link, not the only one: anonymous responses go out with
+  // `public, max-age=300, s-maxage=3600, stale-while-revalidate=86400`
+  // (`src/lib/fixture-response-cache.ts`), so a CDN may keep serving a day-old
+  // governance map for about 25 h past the flip. Immaterial against a 365-day review
+  // interval, but do not read the day key as a same-day guarantee at the edge.
+  const today = new Date().toISOString().slice(0, 10);
+  if (cachedPublicGovernance === null || cachedPublicGovernanceDay !== today) {
+    cachedPublicGovernance = buildPublicGovernance(records);
+    cachedPublicGovernanceDay = today;
+  }
   return cachedPublicGovernance;
 }
 
@@ -180,29 +209,41 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      return medicationResponse(
-        {
-          ...publicMedicationPayload(q, limit, fields),
-          publicAccess: true,
+    const seedRecords = defaultMedicationRecords();
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: null,
+      seeds: seedRecords.map((record) => ({
+        record,
+        governance: publicMedicationGovernance(record),
+      })),
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as MedicationRecord,
+        governance: {
+          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+          ...canonicalSiteContentGovernance(canonicalRecord),
         },
-        { request, fixture: true },
-      );
-    }
-
-    const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);
-    const fullRecords = rows.map(rowToMedicationRecord);
+      }),
+    });
+    const fullRecords = canonical.records.map((entry) => entry.record);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
-    const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
+    const governanceBySlug = Object.fromEntries(
+      canonical.records.map((entry) => [entry.record.slug, entry.governance]),
+    );
     const ranked = q ? rankCatalogMatches(fullRecords, q, limit, fields === "index") : undefined;
 
-    return medicationResponse({
-      records,
-      matches: ranked?.matches,
-      interpretation: ranked?.interpretation,
-      total: rows.length,
-      governance: governanceBySlug,
-    });
+    return medicationResponse(
+      {
+        publicAccess: true,
+        records,
+        matches: ranked?.matches,
+        interpretation: ranked?.interpretation,
+        total: fullRecords.length,
+        governance: governanceBySlug,
+      },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

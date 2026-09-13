@@ -1,6 +1,9 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { shallowSkipDecision, validatePrivacyReadiness } from "../scripts/check-privacy-readiness.mjs";
+import { decideReviewedCommitHistoryFromFacts } from "../scripts/lib/reviewed-commit-history-decision.mjs";
+import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(
   readFileSync(new URL("../docs/governance/privacy-readiness.v1.json", import.meta.url), "utf8"),
@@ -13,7 +16,112 @@ const retentionParityMigration = readFileSync(
 
 describe("privacy readiness contract", () => {
   it("accepts the honest structural register", () => {
-    expect(validatePrivacyReadiness(manifest)).toEqual([]);
+    // This suite had no shallow-checkout handling at all, so on a partial clone it failed with
+    // "reviewedCommit does not exist" — a statement about the checkout being read as a statement
+    // about the register. Its sibling hazard suite had a guard; this one did not. See
+    // tests/helpers/reviewed-commit-history.ts for the 2026-09-07 incident.
+    const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
+    if (skipReason) warnReviewedCommitSkipped("privacy readiness", skipReason);
+    expect(validatePrivacyReadiness(manifest, { checkGit })).toEqual([]);
+  });
+
+  it("skips structural Git checks when a shallow checkout has the commit but cannot answer its ancestry", () => {
+    // A fetched commit object alone does not make the evidence-at-commit checks safe: the
+    // reviewed snapshot still cannot be walked. This is the present-but-unreachable partial
+    // history case reported on the privacy CLI.
+    expect(
+      shallowSkipDecision({ release: false, shallow: true, commitPresent: true, ancestor: false, treeReadable: true }),
+    ).toEqual({
+      skip: true,
+      blocked: false,
+    });
+    expect(
+      shallowSkipDecision({ release: true, shallow: true, commitPresent: true, ancestor: false, treeReadable: true }),
+    ).toEqual({
+      skip: false,
+      blocked: true,
+    });
+  });
+
+  it("skips structural Git checks when a nested reviewed tree is unavailable", () => {
+    // A root tree can be present while a nested governance path is absent from a filtered
+    // checkout. The CLI must not enable checkGit until its recursive tree walk is readable.
+    expect(
+      shallowSkipDecision({ release: false, shallow: false, commitPresent: true, ancestor: true, treeReadable: false }),
+    ).toEqual({
+      skip: true,
+      blocked: false,
+    });
+  });
+
+  it("never skips the reviewedCommit checks in release mode when history is unanswerable", () => {
+    // The release gate's repository binding is exactly these checks, so a
+    // truncated checkout must block the release rather than quietly pass it.
+    expect(
+      shallowSkipDecision({
+        release: false,
+        shallow: true,
+        commitPresent: false,
+        ancestor: false,
+        treeReadable: false,
+      }),
+    ).toEqual({
+      skip: true,
+      blocked: false,
+    });
+    expect(
+      shallowSkipDecision({ release: true, shallow: true, commitPresent: false, ancestor: false, treeReadable: false }),
+    ).toEqual({
+      skip: false,
+      blocked: true,
+    });
+    // A reachable commit or a full clone is proved, not skipped, in either mode.
+    for (const release of [false, true]) {
+      expect(
+        shallowSkipDecision({ release, shallow: true, commitPresent: true, ancestor: true, treeReadable: true }),
+      ).toEqual({
+        skip: false,
+        blocked: false,
+      });
+      expect(
+        shallowSkipDecision({ release, shallow: false, commitPresent: false, ancestor: false, treeReadable: false }),
+      ).toEqual({
+        skip: false,
+        blocked: false,
+      });
+    }
+  });
+
+  it("shares the reviewed-history unavailability matrix with decideReviewedCommitHistoryFromFacts", () => {
+    // Release mode must only wrap the shared answer with blocked — not re-implement it.
+    const cases = [
+      { shallow: true, commitPresent: true, ancestor: false, treeReadable: true },
+      { shallow: false, commitPresent: true, ancestor: true, treeReadable: false },
+      { shallow: true, commitPresent: false, ancestor: false, treeReadable: false },
+      { shallow: true, commitPresent: true, ancestor: true, treeReadable: true },
+      { shallow: false, commitPresent: false, ancestor: false, treeReadable: false },
+    ] as const;
+    for (const facts of cases) {
+      const { checkGit } = decideReviewedCommitHistoryFromFacts(facts);
+      expect(shallowSkipDecision({ release: false, ...facts })).toEqual({
+        skip: !checkGit,
+        blocked: false,
+      });
+      expect(shallowSkipDecision({ release: true, ...facts })).toEqual({
+        skip: false,
+        blocked: !checkGit,
+      });
+    }
+  });
+
+  it("encodes history=skipped or history=checked on the structural PASS line", () => {
+    // Greppable PASS without a history marker is a silent-success footgun when structural
+    // mode skips Git binding. Release already fail-closes; this pins the success line.
+    const result = spawnSync(process.execPath, ["scripts/check-privacy-readiness.mjs"], {
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toMatch(/PRIVACY_READINESS_PASS mode=structural requirements=\d+ history=(checked|skipped)/);
   });
 
   it("keeps Railway processor evidence linked to the privacy impact assessment", () => {
@@ -22,9 +130,11 @@ describe("privacy readiness contract", () => {
   });
 
   it("fails release closed on the remaining human and environment blockers", () => {
-    expect(validatePrivacyReadiness(manifest, { release: true })).toContain(
-      "PRIV-LEGAL-RAILWAY-DPA: release-blocking status pending",
-    );
+    const releaseErrors = validatePrivacyReadiness(manifest, { release: true });
+    expect(releaseErrors).toContain("PRIV-LEGAL-RAILWAY-DPA: release-blocking status pending");
+    expect(releaseErrors.filter((error: string) => error.includes("release-blocking status"))).toHaveLength(6);
+    expect(releaseErrors).not.toContain("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET: release-blocking status partial");
+    expect(releaseErrors).not.toContain("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY: release-blocking status partial");
     expect(packageJson.scripts["check:production-readiness"]).toContain("check:privacy-readiness:release");
     expect(packageJson.scripts["check:production-readiness:ci"]).toContain("check:privacy-readiness");
     expect(packageJson.scripts["check:production-readiness:ci"]).not.toContain("check:privacy-readiness:release");
@@ -33,7 +143,10 @@ describe("privacy readiness contract", () => {
   it("records current provider evidence without promoting repository-only OpenAI claims", () => {
     const byId = new Map(manifest.requirements.map((item: { id: string }) => [item.id, item]));
 
-    expect(byId.get("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET")).toMatchObject({ status: "partial" });
+    expect(byId.get("PRIV-PROVIDER-PRODUCTION-HMAC-SECRET")).toMatchObject({
+      status: "verified",
+      verifiedByRole: "Production platform owner",
+    });
     expect(byId.get("PRIV-PROVIDER-OPENAI-ZDR")).toMatchObject({
       status: "pending",
       externalEvidenceReference: expect.stringContaining("API input/output sharing disabled"),
@@ -48,7 +161,10 @@ describe("privacy readiness contract", () => {
       externalEvidenceReference: expect.stringContaining("submitted and acknowledged by OpenAI"),
     });
     expect(byId.get("PRIV-LEGAL-OPENAI-DPA")).toMatchObject({ status: "pending" });
-    expect(byId.get("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY")).toMatchObject({ status: "partial" });
+    expect(byId.get("PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY")).toMatchObject({
+      status: "verified",
+      verifiedByRole: "Database operations owner",
+    });
     expect(byId.get("PRIV-LEGAL-APP8-CROSS-BORDER-BASIS")).toMatchObject({ status: "pending" });
     expect(byId.get("PRIV-CLINICAL-PHI-MINIMISATION")).toMatchObject({ status: "partial" });
   });

@@ -1,0 +1,11 @@
+Handed in: 12 file(s). Running…
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-5f8LOQ/report.json
+
+  files handed in : 12
+  files that ran  : 12
+  tests collected : 167
+  passed          : 166
+  failed          : 0
+  vitest exit     : 0
+
+OK — all 12 handed-in file(s) ran, 166 test(s) passed.

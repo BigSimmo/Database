@@ -105,7 +105,10 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { limited?: boolean } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
@@ -126,7 +129,7 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { li
           ],
           error: null,
         }
-      : ok([]),
+      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -186,6 +189,55 @@ afterEach(() => {
 });
 
 describe("medications API", () => {
+  it.each([
+    { sourceText: undefined, sourceCheckedAt: null, sourcesRecorded: false },
+    { sourceText: "Recorded source without a checked date", sourceCheckedAt: null, sourcesRecorded: true },
+    { sourceText: "TGA PI checked 2026-05-14", sourceCheckedAt: "2026-05-14", sourcesRecorded: true },
+  ])(
+    "serves initialized medication render bytes and source metadata: $sourceText",
+    async ({ sourceText, sourceCheckedAt, sourcesRecorded }) => {
+      const renderPayload = {
+        slug: "released-medication",
+        name: "Released medication",
+        class: "Canonical class",
+        subclass: "Canonical subclass",
+        category: "Canonical category",
+        accent: "#123456",
+        tag: "Released",
+        schedule: "S4",
+        stats: [{ label: "Dose", value: "Exact" }],
+        sections: [
+          { title: "Use", type: "table", rows: [{ key: "Indication", val: "Exact bytes" }] },
+          ...(sourceText ? [{ title: "Sources", type: "src", rows: [{ key: "Source Review", val: sourceText }] }] : []),
+        ],
+        quick: [{ label: "Check", value: "Canonical" }],
+      };
+      const client = createSupabaseMock(undefined, {
+        canonicalRows: [
+          {
+            initialized: true,
+            record: { sourceStatus: "current", validationStatus: "locally_reviewed" },
+            render_payload: renderPayload,
+            snapshot: { state: "current" },
+          },
+        ],
+      });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/route");
+      const response = await GET(request("/api/medications"));
+      const payload = (await response.json()) as { records: unknown[]; governance: Record<string, unknown> };
+      expect(payload.records).toEqual([renderPayload]);
+      expect(payload.governance[renderPayload.slug]).toEqual({
+        sourceStatus: "current",
+        validationStatus: "locally_reviewed",
+        sourceCheckedAt,
+        sourcesRecorded,
+        lastReviewedAt: null,
+        reviewDueAt: null,
+      });
+    },
+  );
+
   it("serves mock records in demo mode without touching Supabase", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });
@@ -219,6 +271,35 @@ describe("medications API", () => {
       true,
     );
     expect(payload.governance?.acamprosate?.validationStatus).toBe("unverified");
+  });
+
+  it("re-derives the public governance map instead of caching it for the process lifetime", async () => {
+    // The public/demo governance map is memoised so the route does not remap every
+    // record per request. Source freshness is a function of the reading clock, so a
+    // lifetime cache would re-freeze exactly what read-time derivation unfreezes: a
+    // long-lived process started before a record aged out would keep serving the
+    // pre-ageing status until it happened to restart.
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    type GovernancePayload = {
+      governance?: Record<string, { sourceStatus?: string }>;
+    };
+
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-09-02T00:00:00.000Z"));
+      const first = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(first.governance?.acamprosate?.sourceStatus).toBe("current");
+
+      // Well past the 365-day review interval for the whole catalogue.
+      vi.setSystemTime(new Date("2028-09-02T00:00:00.000Z"));
+      const second = (await (await GET(request("/api/medications"))).json()) as GovernancePayload;
+      expect(second.governance?.acamprosate?.sourceStatus).toBe("review_due");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("serves an identity-only slim catalog for fields=index", async () => {
@@ -260,11 +341,20 @@ describe("medications API", () => {
 
     const brandResponse = await GET(request("/api/medications?q=campral&limit=5"));
     const brandPayload = (await brandResponse.json()) as {
-      matches?: Array<{ medication: { slug: string }; reasons: string[] }>;
+      matches?: Array<{ medication: { slug: string }; result: { match: string }; reasons: string[] }>;
     };
     expect(brandResponse.status).toBe(200);
     expect(brandPayload.matches?.[0]?.medication.slug).toBe("acamprosate");
+    expect(brandPayload.matches?.[0]?.result.match).toBe("Exact clinical fit");
     expect(brandPayload.matches?.[0]?.reasons).toContain("brand");
+
+    const exactResponse = await GET(request("/api/medications?q=sertraline&limit=5"));
+    const exactPayload = (await exactResponse.json()) as {
+      matches?: Array<{ medication: { slug: string }; result: { match: string } }>;
+    };
+    expect(exactResponse.status).toBe(200);
+    expect(exactPayload.matches?.[0]?.medication.slug).toBe("sertraline");
+    expect(exactPayload.matches?.[0]?.result.match).toBe("Exact clinical fit");
 
     const typoResponse = await GET(request("/api/medications?q=sertaline&limit=5"));
     const typoPayload = (await typoResponse.json()) as {
@@ -275,6 +365,61 @@ describe("medications API", () => {
     expect(typoPayload.matches?.[0]?.medication.slug).toBe("sertraline");
     expect(typoPayload.interpretation?.correctedQuery).toBe("sertraline");
     expect(typoPayload.interpretation?.corrections).toContainEqual({ from: "sertaline", to: "sertraline" });
+  });
+
+  it("uses Prescribing expansions for ordinary catalogue matches without exposing Smart analysis", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(
+      request("/api/medications?q=medicine%20that%20needs%20regular%20blood%20tests&limit=10"),
+    );
+    const payload = (await response.json()) as {
+      matches?: Array<{
+        medication: { slug: string };
+        result: { id: string; match: string };
+        score: number;
+        reasons: string[];
+      }>;
+      interpretation?: unknown;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.matches?.[0]?.medication.slug).toBe("warfarin-vka");
+    expect(payload.matches?.find((match) => match.medication.slug === "warfarin-vka")?.result.match).toBe(
+      "Related match",
+    );
+    expect(Object.keys(payload.matches?.[0] ?? {}).sort()).toEqual(["medication", "reasons", "result", "score"]);
+    expect(payload.interpretation).toBeUndefined();
+  });
+
+  it("keeps literal medication identity wording in mixed Smart queries", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const cases = [
+      ["sertraline antidepressant sexual side effects", "sertraline"],
+      ["lithium medicine that needs regular blood tests", "lithium-carbonate-ir-sr"],
+      ["valproate medicine that needs regular blood tests", "sodium-valproate-oral-iv"],
+    ] as const;
+
+    for (const [query, expectedSlug] of cases) {
+      const response = await GET(request(`/api/medications?q=${encodeURIComponent(query)}&limit=5`));
+      const payload = (await response.json()) as {
+        matches?: Array<{
+          medication: { slug: string };
+          result: { match: string };
+          reasons: string[];
+        }>;
+      };
+
+      expect(response.status).toBe(200);
+      expect(payload.matches?.[0]?.medication.slug).toBe(expectedSlug);
+      expect(payload.matches?.[0]?.reasons).toEqual(expect.arrayContaining(["name", "brand"]));
+      expect.soft(payload.matches?.[0]?.result.match, query).toBe("Exact clinical fit");
+    }
   });
 
   it("projects matched medications to the index shape when fields=index&q is set", async () => {
@@ -347,7 +492,7 @@ describe("medications API", () => {
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it("scopes medication queries to the authenticated owner", async () => {
+  it("serves the canonical uninitialized population without reading authenticated owner drafts", async () => {
     const client = createSupabaseMock((call) => (call.table === "medication_records" ? ok([medicationRow()]) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/medications/route");
@@ -362,8 +507,7 @@ describe("medications API", () => {
     expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("acamprosate");
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
-    expect(client.calls.some((call) => call.table === "medication_records")).toBe(true);
-    expect(client.calls.some((call) => call.filters.some((filter) => filter.column === "owner_id"))).toBe(true);
+    expect(client.calls).toEqual([]);
   });
 
   it("serves curated public detail for unauthenticated slug requests", async () => {
@@ -403,7 +547,7 @@ describe("medications API", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("serves a seeded medication detail when registry corpus embedding fails after the row upsert", async () => {
+  it("serves an uninitialized public medication detail without owner writes during a corpus embedding outage", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     let stored: Array<Record<string, unknown>> = [];
     const client = createSupabaseMock((call) => {
@@ -429,10 +573,8 @@ describe("medications API", () => {
     expect(response.status).toBe(200);
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 
   it("returns 404 for an unknown medication slug during a corpus embedding outage", async () => {
@@ -456,9 +598,7 @@ describe("medications API", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[medications] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(client.from).not.toHaveBeenCalled();
   });
 });

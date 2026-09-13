@@ -8,12 +8,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { LAST_APP_MODE_STORAGE_KEY } from "@/components/clinical-dashboard/use-last-app-mode";
 import { appModeSelectionHref, visibleAppModeDefinitionsForSession, type AppModeId } from "@/lib/app-modes";
+import { standaloneModeHomeHref } from "@/lib/search-route-ownership";
 
 /**
- * The shared-home URL the mode picker itself will open for `modeId`.
+ * The destination URL the mode picker itself will open for `modeId`.
  */
 function modeSelectionHref(modeId: AppModeId) {
-  return appModeSelectionHref(modeId);
+  return standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId);
 }
 
 const router = vi.hoisted(() => ({

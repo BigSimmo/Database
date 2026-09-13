@@ -1,5 +1,18 @@
 # Caring Contacts Phase 2B — handover
 
+> **PHASE 2B HAS LANDED ON `main`. Verified 2026-09-02:** the whole of Phase 2B was squash-merged as
+> `17df388e8` — "feat(caring-contacts): Phase 2B workspace, plan lifecycle, team roster and database
+> (#2451)", 2026-08-29 — and none of the four feature branches named below exists on `origin` any
+> more (`git branch -r` lists no `caring-contacts-demo-seed`, `-schedule`, `-plan-detail` or
+> `-message-name`). **Everything below the banner is historical.** The merge checklist has been
+> executed, the owed gates were run on the merged tree (build record Rulings [149]–[150]), Tasks 20
+> and 21 were accepted afterwards ([151]–[152]), Group 4 was un-deferred by the owner and built
+> ([155]), and the close-out is [160]. **Do not merge, fetch or provision anything this file
+> names.** Work from a fresh worktree off `origin/main`; the build record is the ledger, and the
+> master progress ledger (`PROGRESS-LEDGER.md`) is the current index. The "Owner decisions owed" and
+> "Repo-level findings" sections are still worth reading — check each against
+> `docs/outstanding-issues.md` before re-filing.
+
 **Written 2026-08-26 by the controller of the subagent-driven build.** Read this before anything else.
 `phase-2b-build-record.md` is the full ledger and every ruling is in it; this file is the map.
 
@@ -115,10 +128,12 @@ than merely alter them. A populated screen needs its own server with `CARING_CON
   sits in, whether that array is filtered, or what CSS governs the element. The general orphan scan is the
   same shape for the whole app. **It proves a route is referenced in source, not that it is reachable at
   any viewport a user can have.** Found because Templates shipped unreachable below 768px while passing.
-- **`listSendableContacts` means "not individually stopped", not "should be sent now"** (Ruling [129]).
-  The behaviour is correct and the send gate exists at the write (`requiresActivePlan`), but the name
-  promises more than the function delivers. Rename it, or give it a plan-state-aware sibling, before
-  anything is built that dispatches.
+- ~~**`listSendableContacts` means "not individually stopped", not "should be sent now"** (Ruling [129]).~~
+  **CLOSED 2026-09-02 by `#PAMATF` (Ruling [129A]), which overturns [129] with owner approval.** The read
+  now consults the owning plan's state through `planSendingHold`, so the name is true: a draft or paused
+  plan offers nothing sendable. [129] declined this to avoid duplicating the write gate, and that cost is
+  real — the shared repository contract now asserts the read and `requiresActivePlan` agree for every
+  `PlanState`, so the two cannot drift. The write gate itself is unchanged. Do not re-file this.
 - `middayOf` and `awstCalendarDayOffset` both spell midday, and nothing pins them equal.
 - **A hand-maintained test gate drifts silently from the suites that exist.** `test:cc-guards` names its
   suites as literal paths in `package.json`. Nothing adds a suite when one is written, and nothing warns

@@ -1,0 +1,164 @@
+diff --git a/tests/ward-statistics-derivations.test.ts b/tests/ward-statistics-derivations.test.ts
+index eb510d7bc..17b60afcd 100644
+--- a/tests/ward-statistics-derivations.test.ts
++++ b/tests/ward-statistics-derivations.test.ts
+@@ -86,9 +86,21 @@ describe("admissionStagePosition — the one place an AdmissionState VALUE is re
+     waitlisted: "no-bed-yet",
+     pulled: "bed-given-not-arrived",
+     occupied: "in-the-bed",
+-    left: "ended",
++    departed: "ended",
+   };
+ 
++  /**
++   * ⚠️ **THIS TEST, WITH "gives each state its own position" BELOW, IS THE GUARD FOR A HALF-LANDED
++   * RENAME — AND IT CAUGHT ONE.** `"left"` became `"departed"` on 2026-09-01. An adversarial check
++   * applied exactly the half-landed version — rename the union member and the seed, leave the stale
++   * `case "left"` in place — and all 32 tests passed, because a member-driven check then compared
++   * `undefined` against `EXPECTED["departed"]`, which is also `undefined`. This table is written out
++   * as a literal for that reason, and this test is what walks it.
++   *
++   * ⚠️ **It depends on the `default:` arm still throwing.** The last test in this block is what keeps
++   * that arm alive; strip it and this one passes in silence through the very rename it exists for.
++   * Established by construction on 2026-09-01 against a real stale switch, not reasoned about.
++   */
+   it("covers every member of ADMISSION_STATES, and the set it walks is not empty", () => {
+     // The vacuity guard: without it, an ADMISSION_STATES that had collapsed to `[]` would make
+     // every assertion in the loop below pass by never running.
+@@ -100,7 +112,7 @@ describe("admissionStagePosition — the one place an AdmissionState VALUE is re
+   });
+ 
+   it("maps the departed state to 'ended' and nothing else", () => {
+-    expect(admissionStagePosition(admission({ state: "left" }))).toBe("ended");
++    expect(admissionStagePosition(admission({ state: "departed" }))).toBe("ended");
+     expect(admissionStagePosition(admission({ state: "occupied" }))).not.toBe("ended");
+   });
+ 
+@@ -111,11 +123,22 @@ describe("admissionStagePosition — the one place an AdmissionState VALUE is re
+   });
+ 
+   /**
+-   * ⚠️ **THE GUARD FOR A HALF-LANDED RENAME, AND IT IS LIVE RATHER THAN HYPOTHETICAL.** Another
+-   * session is renaming `"left"` to `"departed"` now. An adversarial check applied exactly that —
+-   * rename the union member and the seed, leave the stale `case "left"` in place — and all 32
+-   * tests passed, because the member-driven check above then compared `undefined` against
+-   * `EXPECTED["departed"]`, which is also `undefined`.
++   * ⚠️ **THIS TEST IS NOT THE CATCHER, AND BELIEVING IT IS COSTS YOU THE TWO THAT ARE.** It passes
++   * green straight through a half-landed rename. What it does instead is keep the `default:` throw
++   * arm alive — and that arm is the only reason "covers every member" and "gives each state its own
++   * position" can see anything at all. Remove the arm and the function returns `undefined` for an
++   * unhandled state, and both of those pass in silence. So this is the floor beneath them, not a
++   * third check of the same thing: do not delete it as redundant coverage.
++   *
++   * The history, since it is what the two above were written for. `"left"` became `"departed"` on
++   * 2026-09-01. An adversarial check applied exactly the half-landed version — rename the union
++   * member and the seed, leave the stale `case "left"` in place — and all 32 tests passed, because
++   * the member-driven check above then compared `undefined` against `EXPECTED["departed"]`, which
++   * is also `undefined`.
++   *
++   * The probe value is therefore `"left"` and not `"departed"`: `"departed"` is now a real member
++   * that the switch handles, so asking it to throw would assert the opposite of what is wanted.
++   * The value fed in here must always be one the union does NOT hold.
+    *
+    * `tsc` sees that. **Vitest does not run `tsc`,** and the suite is what people run. So this test
+    * reaches the `default:` arm with a value the union does not hold and asserts it THROWS rather
+@@ -123,12 +146,17 @@ describe("admissionStagePosition — the one place an AdmissionState VALUE is re
+    * point of the test: it simulates the runtime a stale `switch` would actually meet.
+    */
+   it("throws rather than returning undefined for a state it does not handle", () => {
+-    const renamed = { ...admission({}), state: "departed" as unknown as AdmissionState };
++    // The probe must always be a value the union does NOT hold, or this test asserts the opposite of
++    // its purpose. Asserted rather than trusted: a transitional compat `case "left"` added during
++    // some future rename would otherwise turn this red with "did not throw", which does not say why.
++    const probe = "left";
++    expect(ADMISSION_STATES as readonly string[]).not.toContain(probe);
++    const renamed = { ...admission({}), state: probe as unknown as AdmissionState };
+ 
+     expect(() => admissionStagePosition(renamed)).toThrow(/no stage position for admission state/);
+     // And the message names the offending value, so the failure says WHICH member was missed
+     // rather than only that one was.
+-    expect(() => admissionStagePosition(renamed)).toThrow(/departed/);
++    expect(() => admissionStagePosition(renamed)).toThrow(/left/);
+   });
+ });
+ 
+@@ -178,7 +206,7 @@ describe("pullToArrival", () => {
+ 
+   it("keeps a completed gap after the admission has ended, and says how many of those there are", () => {
+     const result = pullToArrival([
+-      admission({ id: "AD-A", state: "left", pulledAt: 0, arrivedAt: 200, leftAt: 5000 }),
++      admission({ id: "AD-A", state: "departed", pulledAt: 0, arrivedAt: 200, leftAt: 5000 }),
+       admission({ id: "AD-B", state: "occupied", pulledAt: 0, arrivedAt: 400 }),
+     ]);
+ 
+@@ -344,19 +372,42 @@ describe("referralToBedJoin", () => {
+   });
+ 
+   /**
+-   * ⚠️ **THE SEEDED MEASUREMENT, AND IT IS A PIN ON THE FIXTURE RATHER THAN A STATEMENT ABOUT THE
+-   * MODEL.** Both numbers below are read from today's seed. That is deliberate and it is also the
+-   * whole hazard: a fixture is not a contract, so the day somebody edits the seed this test goes
+-   * red — which is the correct behaviour, and precisely why the SCREEN no longer repeats either
+-   * number in prose. The page renders its counts and explains only what a matched pair would have
+-   * to be in order to date a bed; that sentence survives any value this test ends up asserting.
++   * ⚠️ **THE MEASUREMENT THE SCREEN'S EMPTY STATE IS BUILT ON, AND THE FIGURE IN IT MOVED.**
++   * This asserted NINE matches until 2026-09-01. Those nine were then removed, for a separate
++   * reason: they asked for no ward bed and were sitting at the top of the coordinator's
++   * bed-matching queue. So the join is now a true nought, and that is a BETTER state than the one
++   * this test used to pin, not a regression.
+    *
+-   * This comment claimed until 2026-09-01 that the matches were accidental collisions and that
+-   * arrivals preceded referrals by weeks. Both were false, both were copied onto the page, and this
+-   * test stayed green through both — because it was measuring the count and nothing was watching
+-   * the reason.
++   * ⚠️ **THE NINE WERE AUTHORED, NOT ACCIDENTAL — and this comment said the opposite until the
++   * merge of 2026-09-01.** `52ad01dda` added them deliberately, in its own words, "by using the ids
++   * the admissions ALREADY hold, so not one admission changed", to close the first of two causes
++   * that left all 65 community team pages empty. The earlier account of them as a collision between
++   * the admissions fixture's ward tags and referrals that happened to share hospital abbreviations
++   * was false, and so was "arriving weeks before the referral": three of the nine were 1.03, 3.03
++   * and 5.04 days. The ~1-day case is the dangerous one, because it reads as a rounding error
++   * rather than a category error. Both false claims were copied onto the SCREEN, and this test
++   * stayed green through both — because it was measuring the count and nothing was watching the
++   * reason. That is why the page no longer repeats either number in prose: it renders its counts
++   * and explains only what a matched pair would have to be in order to date a bed, and that
++   * sentence survives any value this test ends up asserting.
++   *
++   * ⚠️ **AND NO JOIN WAS EVER ATTEMPTED — DO NOT READ THIS NOUGHT AS A JOIN THAT MISSED.** All four
++   * producers in `ward-admissions-seed.ts` MANUFACTURE `referralId` from the admission's own id by
++   * string substitution. So `withReferralIdCount` equals the seeded admission count by construction,
++   * always, and it is evidence that nothing joins rather than evidence that something might.
++   * `Admission.referralId` is documented as "the join back to the front door" and in the seed nothing
++   * writes a front-door value into it — a field with no producer, which passes every gate and renders
++   * as a legitimate empty state.
++   *
++   * ⚠️ **So a POSITIVE count here is the good news, not the regression.** When somebody wires the
++   * front door properly this test goes red, correctly, and the right response is to update this
++   * expectation — not to hunt for a fixture collision. Said here because the red will otherwise send
++   * its reader looking for the wrong thing at the exact moment they have built the right one.
++   *
++   * The guards below still earn their place: they separate "both sides populated" from "an upstream
++   * list came back empty", which is the other world a nought is consistent with.
+    */
+-  it("matches nine seeded pairs and finds not one of them chronologically possible", () => {
++  it("finds no seeded pair at all, with both sides of the join non-empty", () => {
+     const seeded = seedWardFlowState();
+     const result = referralToBedJoin(seeded.admissions, seeded.referrals);
+ 
+@@ -364,11 +415,12 @@ describe("referralToBedJoin", () => {
+     expect(result.withReferralIdCount).toBeGreaterThan(0);
+     expect(result.referralsSearchedCount).toBeGreaterThan(0);
+ 
+-    // The ids DO match. Asserted as a positive number rather than as `> 0`, so a fixture change
+-    // that alters the match surfaces here rather than passing quietly.
+-    expect(result.joinedCount).toBe(9);
++    // The ids do not collide any more. Asserted exactly, so a fixture change that reintroduces a
++    // collision — or a front door that starts writing real ids — surfaces here rather than passing
++    // quietly.
++    expect(result.joinedCount).toBe(0);
+ 
+-    // And not one of the nine is a person who was referred before they arrived.
++    // And with nothing joined there is nothing that could carry a duration.
+     expect(result.chronologicallyCoherentCount).toBe(0);
+   });
+ });

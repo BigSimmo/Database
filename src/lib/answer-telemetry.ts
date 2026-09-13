@@ -1,7 +1,26 @@
-import { normalizedQueryTextForStorage, queryTextForStorage } from "@/lib/query-privacy";
+import { sanitizeRagEvalDiagnostics } from "@/lib/rag/rag-eval-diagnostics";
+import { env } from "@/lib/env";
+import {
+  answerPrivacyMetadata,
+  answerTextForStorage,
+  normalizedQueryTextForStorage,
+  queryPrivacyMetadata,
+  queryTextForStorage,
+} from "@/lib/query-privacy";
+import {
+  buildRagQueryMetadata,
+  ragProgrammeTelemetryForAnswer,
+  ragQueryObservationForAnswer,
+  type RagProgrammeTelemetry,
+} from "@/lib/rag/rag-programme-telemetry";
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer } from "@/lib/types";
+import {
+  classifyRagFallbackReason,
+  isProviderGenerationFallbackCode,
+  normalizeRagFallbackReasonCode,
+} from "@/lib/rag/rag-fallback-reason";
 
 // Per-answer observability (threat-model §7 follow-up).
 //
@@ -25,6 +44,7 @@ const UUID_PATTERN = /^[0-9a-f-]{36}$/i;
 // builder is decoupled from the full RagAnswer surface and trivially testable.
 export type AnswerTelemetrySource = Pick<
   RagAnswer,
+  | "ragDiagnostics"
   | "grounded"
   | "confidence"
   | "sources"
@@ -35,6 +55,7 @@ export type AnswerTelemetrySource = Pick<
   | "providerMode"
   | "answerQualityTier"
   | "responseMode"
+  | "fallbackReasonCode"
   | "fallbackReason"
   | "degradedMode"
   | "openAIUsage"
@@ -54,9 +75,25 @@ function meanHybridScore(sources: AnswerTelemetrySource["sources"]): number | nu
   return mean || null;
 }
 
+function boundedFallbackReasonCode(answer: AnswerTelemetrySource) {
+  if (Object.prototype.hasOwnProperty.call(answer, "fallbackReasonCode")) {
+    return normalizeRagFallbackReasonCode(answer.fallbackReasonCode);
+  }
+  const legacyReason = [answer.fallbackReason, answer.degradedMode?.reason, answer.routingReason]
+    .filter(Boolean)
+    .join("; ");
+  return legacyReason ? classifyRagFallbackReason({ routingReason: legacyReason }) : null;
+}
+
 // Build the rag_retrieval_logs insert row for an answered request. Pure and
 // synchronous so it can be unit-tested without a database.
-export function buildAnswerLogRow(args: { query: string; ownerId?: string | null; answer: AnswerTelemetrySource }) {
+export function buildAnswerLogRow(args: {
+  query: string;
+  ownerId?: string | null;
+  interactionId: string;
+  answer: AnswerTelemetrySource;
+  programmeTelemetry?: RagProgrammeTelemetry;
+}) {
   const { answer } = args;
   const sources = answer.sources ?? [];
   const topSource = sources[0] ?? null;
@@ -64,9 +101,15 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
   const timings = answer.latencyTimings ?? {};
   const usage = answer.openAIUsage ?? {};
   const isMiss = answer.grounded === false || answer.confidence === "unsupported";
+  const fallbackReasonCode = boundedFallbackReasonCode(answer);
 
   const answerTelemetry = {
     log_source: "answer",
+    rag_diagnostics: sanitizeRagEvalDiagnostics({
+      ...args.programmeTelemetry,
+      ...answer.ragDiagnostics,
+      fallback_reason_code: fallbackReasonCode,
+    }),
     route: answer.routingMode ?? answer.retrievalDiagnostics?.routeMode ?? null,
     model: answer.modelUsed ?? null,
     provider_mode: answer.providerMode ?? null,
@@ -74,14 +117,17 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
     confidence: answer.confidence,
     grounded: answer.grounded,
     response_mode: answer.responseMode ?? null,
-    routing_reason: answer.routingReason ?? null,
-    fallback_reason: answer.fallbackReason ?? null,
+    fallback_reason_code: fallbackReasonCode,
     degraded: answer.degradedMode?.active ?? false,
+    provider_generation_degraded: isProviderGenerationFallbackCode(fallbackReasonCode),
     generation_latency_ms: finiteOrNull(timings.generation_latency_ms),
     search_latency_ms: finiteOrNull(timings.search_latency_ms),
     answer_retry_count: finiteOrNull(timings.answer_retry_count),
+    provider_generation_truncated: timings.provider_generation_truncated === true,
     embedding_prefetched: typeof timings.embedding_prefetched === "boolean" ? timings.embedding_prefetched : null,
     request_ids: answer.openAIRequestIds ?? [],
+    interaction_id: args.interactionId,
+    ...(args.programmeTelemetry && env.RAG_TELEMETRY_EXTENDED ? { rag_programme: args.programmeTelemetry } : {}),
     // Raw token counts are the durable primitive — USD cost = tokens × per-model
     // price is derived downstream from a pricing table, not baked into the row.
     tokens: {
@@ -119,8 +165,46 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
     embedding_field_count: finiteOrNull(timings.embedding_field_count),
     embedding_cache_hit: typeof timings.embedding_cache_hit === "boolean" ? timings.embedding_cache_hit : null,
     is_miss: isMiss,
-    miss_reason: isMiss ? (answer.fallbackReason ?? answer.responseMode ?? "unsupported") : null,
+    miss_reason: isMiss ? (fallbackReasonCode ?? answer.responseMode ?? "unsupported") : null,
     metadata: { answer: answerTelemetry } as unknown as Json,
+  };
+}
+
+export function buildRagQueryLogRow(args: {
+  query: string;
+  ownerId?: string | null;
+  interactionId: string;
+  answer: AnswerTelemetrySource & Pick<RagAnswer, "answer">;
+  programmeTelemetry: RagProgrammeTelemetry;
+  observation?: ReturnType<typeof ragQueryObservationForAnswer>;
+}) {
+  const observation = args.observation;
+  const fallbackReasonCode = boundedFallbackReasonCode(args.answer);
+  return {
+    owner_id: args.ownerId ?? null,
+    query: queryTextForStorage(args.query),
+    answer: answerTextForStorage(args.answer.answer),
+    source_chunk_ids: observation?.sourceChunkIds ?? args.answer.sources.map((source) => source.id),
+    model: observation?.model ?? args.answer.modelUsed ?? null,
+    metadata: {
+      ...(observation?.metadata ?? {}),
+      rag_diagnostics: sanitizeRagEvalDiagnostics({
+        ...args.programmeTelemetry,
+        ...args.answer.ragDiagnostics,
+        fallback_reason_code: fallbackReasonCode,
+      }),
+      grounded: args.answer.grounded,
+      confidence: args.answer.confidence,
+      routing_mode: args.answer.routingMode ?? null,
+      fallback_reason_code: fallbackReasonCode,
+      degraded: args.answer.degradedMode?.active ?? false,
+      provider_generation_degraded: isProviderGenerationFallbackCode(fallbackReasonCode),
+      provider_generation_truncated: args.answer.latencyTimings?.provider_generation_truncated === true,
+      model_used: args.answer.modelUsed ?? null,
+      ...buildRagQueryMetadata(args.programmeTelemetry, env.RAG_TELEMETRY_EXTENDED),
+      ...queryPrivacyMetadata(args.query),
+      ...answerPrivacyMetadata(),
+    } as Json,
   };
 }
 
@@ -129,24 +213,52 @@ export function buildAnswerLogRow(args: { query: string; ownerId?: string | null
 // detached and its error swallowed (with a throttled warning).
 let answerLogFailureCount = 0;
 
-export async function logAnswerDiagnostics(args: {
+type AnswerDiagnosticsArgs = {
   supabase: ReturnType<typeof createAdminClient>;
   query: string;
   ownerId?: string | null;
-  answer: AnswerTelemetrySource;
-}) {
+  interactionId: string;
+  answer: AnswerTelemetrySource & RagAnswer;
+};
+
+export async function logAnswerDiagnostics(args: AnswerDiagnosticsArgs) {
   try {
-    const { error } = await args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow(args));
-    if (error) throw error;
-  } catch (error) {
+    const programmeTelemetry = ragProgrammeTelemetryForAnswer(args.answer);
+    if (!programmeTelemetry || programmeTelemetry.interaction_id !== args.interactionId) {
+      throw new Error("Missing or mismatched RAG programme observation context.");
+    }
+    const [queryResult, retrievalResult] = await Promise.allSettled([
+      args.supabase.from("rag_queries").insert(
+        buildRagQueryLogRow({
+          ...args,
+          programmeTelemetry,
+          observation: ragQueryObservationForAnswer(args.answer),
+        }),
+      ),
+      args.supabase.from("rag_retrieval_logs").insert(buildAnswerLogRow({ ...args, programmeTelemetry })),
+    ]);
+    for (const result of [queryResult, retrievalResult]) {
+      if (result.status === "rejected") throw result.reason;
+      if (result.value.error) throw result.value.error;
+    }
+  } catch {
     answerLogFailureCount += 1;
     if (answerLogFailureCount <= 3 || answerLogFailureCount % 25 === 0) {
-      console.warn("rag_retrieval_logs answer insert failed", {
+      console.warn("RAG answer telemetry insert failed", {
         failures: answerLogFailureCount,
-        message: error instanceof Error ? error.message : "unknown answer logging error",
+        message: "answer_logging_failed",
       });
     }
   }
+}
+
+export async function persistAnswerDiagnostics(args: AnswerDiagnosticsArgs): Promise<void> {
+  const persistence = logAnswerDiagnostics(args);
+  if (env.RAG_AWAIT_QUERY_LOGS) {
+    await persistence;
+    return;
+  }
+  void persistence;
 }
 
 export const DEFAULT_RETRIEVAL_LOG_RETENTION_DAYS = 90;

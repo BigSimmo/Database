@@ -4,9 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { PatientsDirectory } from "@/components/caring-contacts/workspace/patients-directory";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
-import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-filter";
+import { readPatientsDirectoryAddress } from "@/lib/caring-contacts/patients-directory-address";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
 import { READ_ACTIONS, type PatientNameProjection, type PlanRecord } from "@/lib/caring-contacts/repository";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
@@ -101,21 +101,30 @@ const CaringContactsShell = dynamic(() =>
  * search term was not applied without ever echoing it.
  *
  * THE REDIRECT IS THE FIRST THING THIS PAGE DOES, and that placement is the guarantee rather than a
- * tidiness preference: it happens before `resolveDemoActor`, before the store is opened and before
- * every `auditedRead` below, so a dropped value cannot reach an access-trail record, an error
- * message or a thrown `Error` on its way through. `redirect()` in a Server Component is a 307 that
- * REPLACES the history entry (Next 16 `redirect` reference), so the bookmarked address carrying the
- * name is not left behind as an entry of its own.
+ * tidiness preference: it happens before the store is opened and before every `auditedRead` below,
+ * so a dropped value cannot reach an access-trail record, an error message or a thrown `Error` on
+ * its way through. `redirect()` in a Server Component is a 307 that REPLACES the history entry
+ * (Next 16 `redirect` reference), so the bookmarked address carrying the name is not left behind as
+ * an entry of its own.
+ *
+ * `resolveDemoActor()` now runs BEFORE the address is read, not after -- `readPatientsDirectoryAddress`
+ * needs the actor to decide whether a `filterToken` in the address may be redeemed for THIS viewer at
+ * all (see that function's module note). That is still safe to do ahead of the redirect: it is a
+ * cookie read, not a store read, and records nothing to an access trail, so the property above --
+ * nothing crosses into the store or an audited read before a dropped value has been caught -- holds
+ * exactly as before.
  */
 export default async function CaringContactsPatientsPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+
+  const actor = await resolveCaringContactsActor();
 
   // Before anything is read, audited or thrown. See "IGNORING A BOOKMARKED ?q= WAS NOT ENOUGH".
-  const address = readPatientsDirectoryAddress(await searchParams);
+  const address = readPatientsDirectoryAddress(await searchParams, actor);
   if (address.droppedUnrecognisedParams) {
     redirect(
       address.canonicalQuery === ""
@@ -125,7 +134,6 @@ export default async function CaringContactsPatientsPage({
   }
   const filter = address.filter;
 
-  const actor = await resolveDemoActor();
   const store = await caringContactsStore();
 
   // "service" names the one service-wide record, matching the object id the API route records
@@ -238,6 +246,7 @@ export default async function CaringContactsPatientsPage({
         mayViewPlans={mayViewPlans}
         mayViewPatientNames={mayViewPatientNames}
         savedSearchNotApplied={address.searchNotApplied}
+        initialSearchQuery={address.searchQuery}
       />
     </CaringContactsShell>
   );

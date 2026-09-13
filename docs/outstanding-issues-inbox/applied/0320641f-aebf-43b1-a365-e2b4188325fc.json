@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0320641f-aebf-43b1-a365-e2b4188325fc",
+  "createdOn": "2026-09-06",
+  "action": "update",
+  "payload": {
+    "id": "#S76Z3Y",
+    "detail": "RECONSTRUCTED 2026-09-06, and this one could NOT be re-derived from the row. The summary names two artefacts, an orphaned production component and a proxy redirect for a route that no longer exists, without naming either, and the detail field was empty, so the specifics are not recoverable from the ledger. next.config.ts does carry header/rewrite rules including a /mockups/:path* entry and a therapy-compass-data rewrite block, but nothing there could be matched to the row's claim with confidence, and guessing at it would be worse than recording the gap.\n\nNEXT ACTION: re-run the discovery rather than trying to recall it. npm run check:knip reports unimported and unused exports and is the tool most likely to surface the orphaned component; the redirect half needs the rewrite and redirect entries in next.config.ts checked one by one against the routes in docs/site-map.md, which is generated and therefore current. Record whatever the sweep finds here, with names this time. If the sweep finds nothing, close this row as not reproducible rather than leaving it open indefinitely.\n\nPROCESS NOTE: this row is the clearest example of the cost of an empty detail field. Everything the finder knew was lost at the moment of recording, and the work now has to be done again from scratch.",
+    "baseRowFingerprint": "aab9c4fe03bb59962f3b9a6b9afd1fc0063f7375885aedd1050b6f995b34909b"
+  }
+}

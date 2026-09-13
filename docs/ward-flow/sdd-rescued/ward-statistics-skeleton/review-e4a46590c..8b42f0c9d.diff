@@ -1,0 +1,192 @@
+# Review package: e4a46590c..8b42f0c9d
+
+## Commits
+8b42f0c9d fix(ward-flow): name the constant gap on the page, not only in a comment
+
+## Files changed
+ .../statistics/statistics-screen.tsx               | 38 ++++++++++++
+ tests/ward-statistics.dom.test.tsx                 | 72 ++++++++++++++++++++++
+ 2 files changed, 110 insertions(+)
+
+## Diff
+diff --git a/src/components/ward-management/statistics/statistics-screen.tsx b/src/components/ward-management/statistics/statistics-screen.tsx
+index 6a95b1822..07e983d06 100644
+--- a/src/components/ward-management/statistics/statistics-screen.tsx
++++ b/src/components/ward-management/statistics/statistics-screen.tsx
+@@ -259,20 +259,58 @@ export function StatisticsScreen({
+                   <span data-testid="ward-statistics-arrival-shortest">
+                     {arrivals.shortestMinutes === null ? "—" : splitDuration(arrivals.shortestMinutes)}
+                   </span>
+                   , longest{" "}
+                   <span data-testid="ward-statistics-arrival-longest">
+                     {arrivals.longestMinutes === null ? "—" : splitDuration(arrivals.longestMinutes)}
+                   </span>
+                   . The range is shown beside the average on purpose: where the two ends meet, every measured gap is
+                   identical, and an average alone would read as though it had spread behind it.
+                 </p>
++
++                {/*
++                 * ⚠️ **THE CAUSE, ON THE PAGE — because until 2026-09-01 it lived only in the
++                 * comment above and no reader of the page could reach it.** The paragraph above
++                 * explains the DISPLAY CHOICE ("the range is shown on purpose") and stops there,
++                 * which showed the reader the symptom and withheld the reason for it. Every other
++                 * gap on this page names its cause and says whose change would fix it; this was
++                 * the only figure that did not, and it is the figure most likely to be quoted,
++                 * because it is the only one that renders a confident-looking headline number.
++                 *
++                 * ⚠️ **CONDITIONAL ON THE TWO ENDS BEING EQUAL, and that is the whole point.** An
++                 * unconditional sentence would pass every test in the world this fixture happens
++                 * to be in today and would become a lie the moment somebody gives the instants
++                 * real variety — sitting there being false with nothing to catch it. Written this
++                 * way it disappears on its own, which is the same self-invalidating property the
++                 * referral-to-bed paragraph already has.
++                 *
++                 * The null checks are not decoration: this branch cannot reach here with a null
++                 * end (a non-null average implies at least one measured gap), but `null === null`
++                 * is true, so an equality test alone would render this against an empty
++                 * population if the guard above ever changed shape.
++                 */}
++                {arrivals.shortestMinutes !== null &&
++                arrivals.longestMinutes !== null &&
++                arrivals.shortestMinutes === arrivals.longestMinutes ? (
++                  <p className={styles.figureNote} data-testid="ward-statistics-arrival-constant-gap">
++                    <strong>
++                      The two ends meet, which means this is not a measurement of how long beds take to fill: it is a
++                      single interval, written into the records by the fixture and read back out of all of them.
++                    </strong>{" "}
++                    Where the admissions fixture derives one of the two instants from the other by a fixed offset, every
++                    gap it can produce is that offset — so the average, the shortest and the longest are one number
++                    shown three times, and there is no spread behind them to be wide or narrow. Nothing on this page can
++                    give it one. The fix is on the admissions side, where the instants are written, and it is a change
++                    to the fixture rather than to this page; the moment somebody writes the two instants independently,
++                    the two ends part and this paragraph disappears on its own.
++                  </p>
++                ) : null}
+               </>
+             )}
+ 
+             <p className={styles.figureNote} data-testid="ward-statistics-arrival-population">
+               Historical, not a picture of tonight:{" "}
+               <span data-testid="ward-statistics-arrival-ended-count">{arrivals.endedCount}</span> of the measured
+               admissions have since ended, and their completed gap still counts. A further{" "}
+               <span data-testid="ward-statistics-arrival-awaiting-count">{arrivals.awaitingArrivalCount}</span>{" "}
+               {arrivals.awaitingArrivalCount === 1 ? "person has" : "people have"} a bed given away and have not
+               arrived; their gap is still running, so it is not yet a measured fact and contributes nothing above.
+diff --git a/tests/ward-statistics.dom.test.tsx b/tests/ward-statistics.dom.test.tsx
+index a9ce0aae3..9407b674d 100644
+--- a/tests/ward-statistics.dom.test.tsx
++++ b/tests/ward-statistics.dom.test.tsx
+@@ -344,20 +344,80 @@ describe("pull to arrival — a real figure, computed from the record", () => {
+       ],
+       referrals: [],
+       bedReleases: [],
+     });
+ 
+     expect(screen.getByTestId("ward-statistics-arrival-ended-count").textContent).toBe("1");
+     expect(screen.getByTestId("ward-statistics-arrival-population").textContent).toContain("Historical");
+   });
+ });
+ 
++/**
++ * ⚠️ **THE NEGATIVE HALF IS THE TEST.** The seeded world today has one identical gap on every
++ * record, so an UNCONDITIONAL sentence would pass a presence assertion, pass the live-world
++ * assertion, and be a lie the first time anybody gives the fixture real variety. A test that only
++ * proves the sentence appears is therefore half a test: it cannot tell "conditional and currently
++ * true" from "hardcoded and currently lucky". Both directions are asserted below, and the absence
++ * case is the one that would go red on a hardcoded paragraph.
++ */
++describe("a constant gap names its cause, and only while it is constant", () => {
++  it("names the seeded interval and where the fix belongs when the two ends meet", () => {
++    renderScreen({
++      admissions: [
++        // Two records, the same gap on both: 0 -> 120 and 500 -> 620 are both two hours. That is
++        // the shape a fixed offset between the two instants produces, and the shape this sentence
++        // exists to explain.
++        admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
++        admission({ id: "AD-B", pulledAt: 500, arrivedAt: 620 }),
++      ],
++      referrals: [],
++      bedReleases: [],
++    });
++
++    // The world the sentence describes: an average with the two ends sitting on top of it.
++    expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("2h 00m");
++
++    const text = screen.getByTestId("ward-statistics-arrival-constant-gap").textContent ?? "";
++    // The claim the page was missing: this is not a measurement of the service.
++    expect(text).toContain("not a measurement of how long beds take to fill");
++    // The mechanism, named rather than gestured at.
++    expect(text).toContain("derives one of the two instants from the other by a fixed offset");
++    // And whose change would fix it — the property every other gap on this page already has.
++    expect(text).toContain("The fix is on the admissions side");
++    expect(text).toContain("change to the fixture rather than to this page");
++    // It must never name the seeded value or the population size: both are seed facts that move,
++    // and a sentence carrying them would age into a wrong figure on the page that is believed
++    // hardest. Any digit at all in this paragraph is that defect.
++    expect(text).not.toMatch(/[0-9]/);
++  });
++
++  it("says nothing of the kind once the gaps actually differ", () => {
++    renderScreen({
++      admissions: [
++        // 0 -> 120 is two hours, 0 -> 360 is six. A real spread, so the sentence would be false.
++        admission({ id: "AD-A", pulledAt: 0, arrivedAt: 120 }),
++        admission({ id: "AD-B", pulledAt: 0, arrivedAt: 360 }),
++      ],
++      referrals: [],
++      bedReleases: [],
++    });
++
++    // The figure still renders in full — this is not an empty state, and the ends now differ...
++    expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("2h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("6h 00m");
++    // ...so the constant-gap explanation must be gone from the page entirely, not merely reworded.
++    expect(screen.queryByTestId("ward-statistics-arrival-constant-gap")).toBeNull();
++  });
++});
++
+ describe("the two empty states say WHY, mechanically", () => {
+   it("names the field and the reason bed readiness cannot be timed", () => {
+     renderScreen({ admissions: [], referrals: [], bedReleases: [] });
+ 
+     const text = screen.getByTestId("ward-statistics-readiness-timing-absent").textContent ?? "";
+     expect(text).toContain("BedRelease.preparing");
+     expect(text).toContain("boolean");
+     // The point that stops somebody filling the gap with data entry: there is no state to time.
+     expect(text).toContain("no timed state to measure");
+     expect(text).toContain("change to the bed model");
+@@ -413,20 +473,32 @@ describe("the live world", () => {
+       <WardFlowProvider initialNow={NOW_ANCHOR}>
+         <StatisticsScreen />
+       </WardFlowProvider>,
+     );
+ 
+     expect(screen.getByTestId("ward-statistics-screen")).toBeTruthy();
+     // The seeded world has measurable arrivals, so the average branch — not the empty one — renders.
+     expect(screen.queryByTestId("ward-statistics-arrival-nothing-to-average")).toBeNull();
+     expect(screen.getByTestId("ward-statistics-arrival-average").textContent).toBe("5h 00m");
+ 
++    /*
++     * ⚠️ AND THE SEEDED WORLD IS THE CONSTANT-GAP WORLD, which is the whole reason the sentence
++     * had to be written. The seed derives one instant from the other by a single offset at every
++     * site that writes both, so the two ends land on the headline and the average re-reports one
++     * seeded interval. Asserted from the seed rather than a hand-built fixture: a reader of the
++     * app sees only this rendering, and a sentence that appeared for test fixtures and not for the
++     * live page would leave the real reader with the symptom and no cause, exactly as before.
++     */
++    expect(screen.getByTestId("ward-statistics-arrival-shortest").textContent).toBe("5h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-longest").textContent).toBe("5h 00m");
++    expect(screen.getByTestId("ward-statistics-arrival-constant-gap")).toBeTruthy();
++
+     /*
+      * ⚠️ THE LIVE-WORLD ENDED COUNT, pinned to a non-zero literal, and it is the guard for the
+      * in-flight `"left"` -> `"departed"` rename. Every other test of this figure uses a hand-built
+      * two-record fixture whose `state: "left"` literal still hits a stale `case "left"`, so a
+      * half-landed rename left them all green while the page silently rendered "0 of the measured
+      * admissions have since ended" — inverting the caveat that stops a historical figure being
+      * read as tonight's ward. Only a seed-driven assertion sees that.
+      */
+     const endedCount = screen.getByTestId("ward-statistics-arrival-ended-count").textContent ?? "";
+     expect(Number(endedCount)).toBeGreaterThan(0);

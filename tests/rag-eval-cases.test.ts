@@ -6,11 +6,175 @@ import {
   mapCapturedEvalCase,
   mergeRagEvalCases,
   ragEvalCases,
+  selectRagEvalCases,
   scoreAnswerQualityEvalCase,
   scoreAnswerTargeting,
+  evaluateRagCase,
   type AnswerQualityEvalCase,
 } from "../src/lib/rag/rag-eval-cases";
+import { ragProgrammeFixture } from "../src/lib/rag/rag-programme-eval";
 import type { RagAnswer } from "../src/lib/types";
+
+describe("P12C fixed delivery expectations in the canonical registry", () => {
+  const byId = (id: string) => ragEvalCases.find((testCase) => testCase.id === id)!;
+  const answer = (text: string): RagAnswer => ({
+    answer: text,
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [],
+    answerSections: [],
+  });
+  it("rejects generic broad prose even when it asserts that it is grounded", () => {
+    expect(
+      evaluateRagCase(byId("broad-supported-sections"), answer("Management should follow the relevant guideline."))
+        .failures,
+    ).toContain("missing_required_subquestion_coverage");
+  });
+  it("rejects blanket insufficiency when monitoring is supported", () => {
+    expect(
+      evaluateRagCase(byId("broad-multi-intent-partial"), {
+        ...answer("No current source with specific guidance was found."),
+        grounded: false,
+        confidence: "unsupported",
+      }).failures,
+    ).toContain("false_insufficiency");
+  });
+  it.each([
+    ["site-medication-direct", "medication-differential-specifier"],
+    ["site-product-primary", "concise-catalogue"],
+    ["site-changed-deleted-stale", "supported-guideline-site-gap"],
+  ])("evaluates attached consumer-only repository-content variant %s / %s", (id, variantId) => {
+    const testCase = byId(id);
+    const variant = testCase.deliveryVariants![variantId]!;
+    expect(variant.scope).toBe("consumer_only");
+    const passages = variant.supportingPassages;
+    const complete: RagAnswer = {
+      ...answer(passages[0]!),
+      answerSections: passages.slice(1).map((body, index) => ({
+        heading: ["Medication", "Differential", "Specifier"][index]!,
+        body,
+        citation_chunk_ids: [`fixture-${index}`],
+      })),
+    };
+    if (variantId === "medication-differential-specifier") {
+      complete.answer = "The current records contain the requested catalogue descriptions.";
+      complete.answerSections = passages.map((body, index) => ({
+        heading: ["Medication", "Differential", "Specifier"][index]!,
+        body,
+        citation_chunk_ids: [`fixture-${index}`],
+      }));
+    }
+    if (variant.expectation.exactGap)
+      complete.answerSections!.push({
+        heading: "Source gap",
+        kind: "source_gap",
+        body: variant.expectation.exactGap,
+        citation_chunk_ids: [],
+      });
+    expect(evaluateRagCase(testCase, complete, variantId).pass).toBe(true);
+    if (variantId === "medication-differential-specifier")
+      expect(
+        evaluateRagCase(
+          testCase,
+          {
+            ...complete,
+            answerSections: complete.answerSections!.slice(0, 2),
+          },
+          variantId,
+        ).failures,
+      ).toContain("missing_required_subquestion_coverage");
+    if (variantId === "supported-guideline-site-gap") {
+      expect(evaluateRagCase(testCase, { ...complete, answerSections: [] }, variantId).failures).toContain(
+        "missing_exact_gap",
+      );
+      expect(
+        evaluateRagCase(testCase, { ...complete, answer: "No current source was found.", grounded: false }, variantId)
+          .failures,
+      ).toContain("false_insufficiency");
+      expect(
+        evaluateRagCase(
+          testCase,
+          {
+            ...complete,
+            answerSections: [
+              ...complete.answerSections!,
+              {
+                heading: "Source gap",
+                kind: "source_gap",
+                body: "monitoring: unsupported",
+                citation_chunk_ids: [],
+              },
+            ],
+          },
+          variantId,
+        ).failures,
+      ).toContain("missing_exact_gap");
+      expect(testCase.supported).toBe(false); // The original stale-site-only fixture remains unchanged.
+    }
+    if (variantId === "concise-catalogue") expect(complete.answerSections).toHaveLength(0);
+  });
+  it("keeps the narrow fact concise rather than requiring broad sections", () => {
+    const narrow = answer("Lithium levels are checked every three months.");
+    expect(evaluateRagCase(byId("narrow-fact-concise"), narrow).pass).toBe(true);
+    expect(
+      evaluateRagCase(byId("narrow-fact-concise"), {
+        ...narrow,
+        answerSections: [
+          { heading: "Unrequested management", body: "Review management.", citation_chunk_ids: [] },
+          { heading: "Unrequested risk", body: "Review risks.", citation_chunk_ids: [] },
+        ],
+      }).failures,
+    ).toContain("answer_section_range");
+  });
+});
+
+const legacyRagEvalCaseIds = [
+  "clozapine-monitoring",
+  "patient-safety-plan",
+  "ect-procedure",
+  "agitation-arousal-pharmacological-management",
+  "discharge-documentation",
+  "metabolic-screening",
+  "long-acting-injectables",
+  "nocc-requirements",
+  "duress-procedure",
+  "assessment-documentation",
+  "best-practice-prescribing",
+  "community-home-visits",
+  "community-admission",
+  "active-community-patient-ed",
+  "active-community-pt-ed-short-terms",
+  "illegal-substances",
+  "treatment-team-process",
+  "direct-document-lookup-nocc",
+  "summary-discharge-guidance",
+  "agitation-arousal-table-lookup",
+  "clozapine-fbc-acronym-threshold",
+  "agitation-im-po-route-short-terms",
+  "admission-discharge-comparison",
+  "neuroleptic-side-effect-escalation",
+  "clozapine-anc-withhold-threshold",
+  "clozapine-monitoring-paraphrase",
+  "clozapine-typo-acronym-threshold",
+  "clozapine-missed-dose-table",
+  "agitation-arousal-typo-dosing",
+  "admission-discharge-coverage-paraphrase",
+  "unsupported-coffee-machine",
+  "unsupported-air-fryer",
+  "unsupported-recipe",
+  "unsupported-dka-insulin",
+  "unsupported-pneumonia-antibiotic",
+  "unsupported-ssri-adolescent-dose",
+  "unsupported-hyperkalaemia-insulin",
+  "unsupported-future-upload-title",
+  "unsupported-nonexistent-clozapine-policy",
+  "unsupported-close-title-noise",
+  "unsupported-prompt-injection-secrets",
+  "unsupported-prompt-injection-citation-forge",
+  "unsupported-invented-florbizone",
+  "unsupported-invented-quxbyria",
+] as const;
 
 const row = {
   id: "capture-1",
@@ -45,6 +209,52 @@ function clientWithRows(rows: (typeof row)[]) {
 }
 
 describe("captured RAG eval cases", () => {
+  it("keeps default selection on the exact legacy population and semantics", () => {
+    const selected = selectRagEvalCases({});
+
+    expect(selected.map((testCase) => testCase.id)).toEqual(legacyRagEvalCaseIds);
+    expect(selected.every((testCase) => testCase.programmeExpectation === undefined)).toBe(true);
+    expect(selectRagEvalCases({ limit: 3 }).map((testCase) => testCase.id)).toEqual(legacyRagEvalCaseIds.slice(0, 3));
+
+    const knownLegacy = selected[0]!;
+    expect(selectRagEvalCases({ question: `  ${knownLegacy.question.toUpperCase()}  ` })).toEqual([knownLegacy]);
+
+    const programmeQuestion = ragEvalCases.find((testCase) => testCase.programmeExpectation)?.question;
+    const [customCase] = selectRagEvalCases({ question: programmeQuestion });
+    expect(customCase).toMatchObject({ id: "custom-question", expectedFiles: [] });
+    expect(customCase?.programmeExpectation).toBeUndefined();
+  });
+
+  it("selects every programme case exactly once only through the explicit population option", () => {
+    const selected = selectRagEvalCases({ population: "programme" });
+    const expectedIds = ragProgrammeFixture.cases.map((testCase) => testCase.id);
+
+    expect(selected.map((testCase) => testCase.id)).toEqual(expectedIds);
+    expect(new Set(selected.map((testCase) => testCase.id)).size).toBe(expectedIds.length);
+    expect(selected.every((testCase) => testCase.programmeExpectation !== undefined)).toBe(true);
+    expect(selectRagEvalCases({ population: "programme", limit: 4 })).toEqual(selected.slice(0, 4));
+
+    const knownProgramme = selected[0]!;
+    expect(
+      selectRagEvalCases({ population: "programme", question: `  ${knownProgramme.question.toUpperCase()}  ` }),
+    ).toEqual([knownProgramme]);
+    expect(selectRagEvalCases({ population: "programme", question: "not a canonical programme case" })).toEqual([]);
+  });
+
+  it("extends the canonical registry with every privacy-reviewed programme case", () => {
+    const programmeCases = ragEvalCases.filter((testCase) => testCase.programmeExpectation !== undefined);
+
+    expect(programmeCases.map((testCase) => testCase.id).sort()).toEqual(
+      ragProgrammeFixture.cases.map((testCase) => testCase.id).sort(),
+    );
+    for (const fixtureCase of ragProgrammeFixture.cases) {
+      const registered = programmeCases.find((testCase) => testCase.id === fixtureCase.id);
+      expect(registered?.expectedFiles).toEqual(fixtureCase.expectedDocuments);
+      expect(registered?.latencyTargetMs).toBe(fixtureCase.latencyTargetMs);
+      expect(registered?.programmeExpectation).toEqual(fixtureCase.expectation);
+    }
+  });
+
   it("maps good captures to source-backed reusable eval cases", () => {
     const testCase = mapCapturedEvalCase(row);
 
@@ -356,12 +566,19 @@ describe("captured RAG eval cases", () => {
     it("scores a long but clean v19-shaped answer as readable", () => {
       // ~110-word answer plus six sections, the maximum shape prompt v19 asks for. Comfortably over
       // the retired 220-word ceiling, comfortably under the derived 900-word contract ceiling.
-      const answerField = cleanSentence.repeat(8);
+      const answerField = Array.from(
+        { length: 8 },
+        (_, i) => `For lead pathway ${String.fromCharCode(65 + i)}, ${cleanSentence.toLowerCase()}`,
+      ).join(" ");
       const sections = Array.from({ length: 6 }, (_, index) => ({
         heading: `Section ${String.fromCharCode(65 + index)}`,
         kind: "required_actions" as const,
         supportLevel: "direct" as const,
-        body: cleanSentence.repeat(5),
+        body: Array.from(
+          { length: 4 },
+          (_, i) =>
+            `For pathway ${String.fromCharCode(65 + index)}${String.fromCharCode(65 + i)}, ${cleanSentence.toLowerCase()}`,
+        ).join(" "),
         citation_chunk_ids: [],
       })) satisfies RagAnswer["answerSections"];
 
@@ -599,4 +816,85 @@ describe("captured RAG eval cases", () => {
       ).toMatchObject({ applicable: true, score: 1 });
     });
   });
+});
+
+describe("generation degradation offline expectations", () => {
+  it("keeps all five fault mechanisms distinct and refuses unsupported completed output", async () => {
+    const { generationDegradationOfflineCases, scoreGenerationDegradationObservation } =
+      await import("../src/lib/rag/rag-eval-cases");
+    const { createGenerationDegradationRecorder } = await import("../src/lib/rag/rag-generation-degradation");
+    expect(new Set(generationDegradationOfflineCases.map((c) => c.expectedReason)).size).toBe(5);
+    const recorder = createGenerationDegradationRecorder({ enabled: true, routeBudgetMs: 35000 });
+    recorder.start({
+      route: "strong",
+      timeoutMs: 30000,
+      outputBudget: "standard",
+      retrievalHealthy: true,
+      coverage: "complete",
+      contextCount: 1,
+    });
+    recorder.fail("timeout", 30000);
+    const record = recorder.finish(
+      {
+        answer: "Withhold the medicine.",
+        grounded: true,
+        citations: [{ chunk_id: "s", document_id: "d" }],
+        sources: [{ id: "s", document_id: "d" }],
+      },
+      true,
+    )!;
+    expect(scoreGenerationDegradationObservation(record, generationDegradationOfflineCases[0])).toBe(true);
+    expect(
+      scoreGenerationDegradationObservation(
+        { ...record, completedOutput: { ...record.completedOutput, useful: false } },
+        generationDegradationOfflineCases[0],
+      ),
+    ).toBe(false);
+    expect(scoreGenerationDegradationObservation(record, generationDegradationOfflineCases[1])).toBe(false);
+  });
+});
+
+it("scores a legal maximum adaptive allocation beyond the retired 900-word estimate", async () => {
+  const { adaptiveAnswerLimits: limits } = await import("@/lib/rag/rag-answer-contract-limits");
+  // Synthetic short tokens test the character contract, not clinical quality.
+  const words = Array.from({ length: 1250 }, (_, i) =>
+    String.fromCharCode(97 + Math.floor(i / 676), 97 + (Math.floor(i / 26) % 26), 97 + (i % 26)),
+  );
+  const answer: RagAnswer = {
+    answerContractVersion: "clinical-rag-answer-v20",
+    renderAdaptiveAnswer: false,
+    answer: words.slice(0, 550).join(" "),
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [],
+    answerSections: [
+      { heading: "A", body: words.slice(550, 1100).join(" "), citation_chunk_ids: [] },
+      { heading: "B", body: words.slice(1100).join(" "), citation_chunk_ids: [] },
+    ],
+  };
+  const testCase = answerQualityEvalCases[0];
+  expect(words.length).toBeGreaterThan(900);
+  const read = (value: RagAnswer) =>
+    scoreAnswerQualityEvalCase(testCase, value).find((score) => score.metric === "readability")!;
+  expect(read(answer).score).toBe(1);
+  const total = answer.answer.length + answer.answerSections!.reduce((n, s) => n + s.heading.length + s.body.length, 0);
+  answer.answerSections![1].body += "x".repeat(limits.total - total + 1);
+  expect(read(answer)).toMatchObject({ score: 0 });
+  expect(read(answer).reason).toContain("too long");
+});
+
+it("keeps runaway duplication independent of legal adaptive size", () => {
+  const answer: RagAnswer = {
+    answerContractVersion: "clinical-rag-answer-v20",
+    renderAdaptiveAnswer: false,
+    answer: "Review the supported action and document the agreed plan. ".repeat(10),
+    grounded: true,
+    confidence: "high",
+    citations: [],
+    sources: [],
+  };
+  expect(
+    scoreAnswerQualityEvalCase(answerQualityEvalCases[0], answer).find((score) => score.metric === "readability"),
+  ).toMatchObject({ score: 0, reason: "runaway duplication" });
 });

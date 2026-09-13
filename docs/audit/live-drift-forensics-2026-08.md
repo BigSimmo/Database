@@ -1434,7 +1434,7 @@ fix. **Consequence: the `migration_history` finding count does NOT drop in this 
 
 Performed only after all 22 indexes a guard validates were confirmed built. The `supabase migration
 list` pre-flight showed the pending set was **exactly** the four new versions and nothing else — itself
-confirmation that D4 auto-deploy is off, since none had been applied by merge.
+confirmation that D4 auto-deploy is off _(superseded: see §D4 — SETTLED 2026-08-21; deploy-on-merge is ON)_, since none had been applied by merge.
 
 ```
 $ supabase db push --linked --project-ref sjrfecxgysukkwxsowpy --skip-vault --yes

@@ -20,7 +20,6 @@ const routes = [
     path: "/dictionary/compare?a=mental-state-examination&b=mini-mental-state-examination",
     testId: "dictionary-compare-main",
   },
-  { path: "/dictionary/sources", testId: "dictionary-sources-main" },
 ] as const;
 
 async function blockExternalRequests(page: Page) {
@@ -357,4 +356,45 @@ test("preserves contrast modes, reduced motion, axe, and print content", async (
   await page.emulateMedia({ media: "print" });
   await expect(page.getByText("A · MSE", { exact: true }).first()).toBeVisible();
   await expect(page.getByText("B · MMSE", { exact: true }).first()).toBeVisible();
+});
+
+// The catalogue is a result view, so from sm up it must carry the same compact
+// pill every other results page carries: no rotating "Try ..." ticker, no
+// Prompts rail, no APP-5 privacy line. It regressed because the page was wired
+// to the mode-home composer slot, and slot id is what selects the placement the
+// home helpers are gated on (PR #2639).
+test("carries the compact result pill alone from sm up, like every other catalogue", async ({ page }) => {
+  for (const width of [820, 1280] as const) {
+    await page.setViewportSize({ width, height: 900 });
+    await gotoDictionary(page, "/dictionary/search", "dictionary-catalogue-main");
+    const slot = page.getByTestId("dictionary-catalogue-composer");
+    await expect(slot).toBeVisible();
+    await expect(slot.getByTestId("global-search-input")).toBeVisible();
+
+    // Exactly one composer on the page, and the page-owned slot is the only
+    // element carrying that id — the shell must not emit a second one.
+    await expect(page.getByTestId("global-search-input")).toHaveCount(1);
+    expect(await page.locator("#desktop-page-search-composer-slot").count()).toBe(1);
+    await expect(page.locator("#mode-home-desktop-composer-slot")).toHaveCount(0);
+
+    // The home-only helpers stay off a results page.
+    await expect(page.getByTestId("search-example-ticker")).toHaveCount(0);
+    await expect(page.getByTestId("smart-search-prompt-row")).toHaveCount(0);
+    await expect(page.getByRole("group", { name: "Search privacy notice" })).toHaveCount(0);
+
+    // 80px settled: the compact pill's exact height, from the page slot's own
+    // 5rem reserve override rather than the taller mode-home token.
+    const height = (await slot.boundingBox())?.height ?? 0;
+    expect(height).toBeGreaterThan(64);
+    expect(height).toBeLessThanOrEqual(96);
+
+    // Still under the mode nav and above the Filter band, which is the only
+    // reason this slot is page-owned at all.
+    const nav = await page.getByRole("link", { name: "Topics" }).first().boundingBox();
+    const ribbon = await page.getByTestId("search-query-ribbon").boundingBox();
+    const slotBox = await slot.boundingBox();
+    const navBottom = (nav?.y ?? 0) + (nav?.height ?? 0);
+    expect(slotBox?.y ?? 0).toBeGreaterThanOrEqual(navBottom);
+    expect(slotBox?.y ?? 0).toBeLessThan(ribbon?.y ?? 0);
+  }
 });

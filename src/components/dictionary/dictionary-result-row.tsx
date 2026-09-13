@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Check, GitCompareArrows, Layers3 } from "lucide-react";
 
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { cn } from "@/components/ui-primitives";
 import { dictionaryCompareHref, dictionaryKindLabel, type DictionarySearchHit } from "@/lib/dictionary";
 
@@ -58,7 +59,10 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
               <Link
                 href={`/dictionary/${primary.slug}`}
                 aria-label={`Open ${primary.term}`}
-                className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10"
+                className={cn(
+                  "grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10",
+                  stretchedRowLinkClass,
+                )}
               >
                 <ArrowRight className="size-icon-sm" aria-hidden="true" />
               </Link>
@@ -69,7 +73,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
               <div key={entry.slug} className="flex min-w-0 items-center gap-2">
                 <Link
                   href={`/dictionary/${entry.slug}`}
-                  className="min-h-tap min-w-0 flex-1 rounded-md py-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                  className="relative z-10 min-h-tap min-w-0 flex-1 rounded-md py-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                 >
                   {entry.term}
                   <span className="mt-0.5 block text-xs font-medium leading-4 text-[color:var(--text-muted)]">
@@ -79,7 +83,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
                 <Link
                   href={dictionaryCompareHref([compareWith ?? "", entry.slug])}
                   aria-label={`Add ${entry.term} to comparison`}
-                  className="inline-flex min-h-tap shrink-0 items-center gap-1 rounded-md px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
+                  className="relative z-10 inline-flex min-h-tap shrink-0 items-center gap-1 rounded-md px-2 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
                 >
                   <GitCompareArrows className="h-3.5 w-3.5" aria-hidden="true" />
                   <span className="hidden sm:inline">Add to compare</span>
@@ -95,7 +99,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
 
   if (hit.type === "topic") {
     return (
-      <article className="grid min-w-0 grid-cols-[0.1875rem_minmax(0,1fr)] border-b border-[color:var(--border)] bg-[color:var(--surface)] last:border-b-0">
+      <article className="relative grid min-w-0 grid-cols-[0.1875rem_minmax(0,1fr)] border-b border-[color:var(--border)] bg-[color:var(--surface)] last:border-b-0">
         <span className={tone.topic.spine} aria-hidden="true" />
         <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-3.5 sm:px-4 sm:py-4">
           <div className="min-w-0">
@@ -116,7 +120,10 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
           <Link
             href={`/dictionary/topics/${hit.topic.slug}`}
             aria-label={`Open ${hit.topic.title}`}
-            className="grid min-h-tap min-w-tap place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10"
+            className={cn(
+              "grid min-h-tap min-w-tap place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10",
+              stretchedRowLinkClass,
+            )}
           >
             <ArrowRight className="size-icon-sm" aria-hidden="true" />
           </Link>
@@ -127,7 +134,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
 
   const { entry } = hit;
   return (
-    <article className="grid min-w-0 grid-cols-[0.1875rem_minmax(0,1fr)] border-b border-[color:var(--border)] bg-[color:var(--surface)] last:border-b-0">
+    <article className="relative grid min-w-0 grid-cols-[0.1875rem_minmax(0,1fr)] border-b border-[color:var(--border)] bg-[color:var(--surface)] last:border-b-0">
       <span className={tone.entry.spine} aria-hidden="true" />
       <div className="min-w-0 px-3 py-3.5 sm:px-4 sm:py-4">
         <div className="flex min-w-0 items-start gap-2">
@@ -152,7 +159,10 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
           <Link
             href={`/dictionary/${entry.slug}`}
             aria-label={`Open ${entry.term}`}
-            className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10"
+            className={cn(
+              "grid min-h-tap min-w-tap shrink-0 place-items-center rounded-lg text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10 sm:min-w-10",
+              stretchedRowLinkClass,
+            )}
           >
             <ArrowRight className="size-icon-sm" aria-hidden="true" />
           </Link>
@@ -161,7 +171,7 @@ export function DictionaryResultRow({ hit, compareWith }: { hit: DictionarySearc
           <SourceLine label={hit.reason} />
           <Link
             href={dictionaryCompareHref([compareWith ?? "", entry.slug])}
-            className="inline-flex min-h-8 items-center gap-1 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="relative z-10 inline-flex min-h-tap items-center gap-1 text-2xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10"
           >
             <GitCompareArrows className="h-3.5 w-3.5" aria-hidden="true" />
             Add to compare

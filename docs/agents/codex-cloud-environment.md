@@ -10,6 +10,12 @@ Use `docs/codex-cloud.md` as the environment contract:
 
 - Configure setup as `bash scripts/setup-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
 - Configure maintenance as `bash scripts/maintain-codex-cloud.sh && bash scripts/install-codex-cloud-command-shims.sh`.
+- For an explicitly owner-authorized GitHub shell environment, use
+  `bash scripts/run-codex-cloud-github.sh setup` and
+  `bash scripts/run-codex-cloud-github.sh maintenance` instead, with the connected profile.
+  The encrypted setup secret is consumed before profile scrubbing; only the standard `gh`
+  credential store persists for that authorized capability. See the scoped exception and
+  acceptance requirements in `docs/codex-cloud.md` (Setup and maintenance).
 - Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary and protected RAG work.
   Use `connected` only when the user explicitly authorizes the required provider access.
 - When MCP tools are already callable in a Cloud session and the task needs them, use the host
@@ -100,5 +106,19 @@ Use `docs/codex-cloud.md` as the environment contract:
   rather than weakening the provider-variable contract.
 - Cloud browser proof is Playwright/Chromium, Firefox, or WebKit container evidence, not
   physical iPhone Safari/PWA acceptance.
+
+### Summary rules formerly carried inline in `AGENTS.md`
+
+These are the Codex Cloud bullets `AGENTS.md` carried inline until they were consolidated here.
+They are reproduced verbatim; where they restate a rule above, both wordings stand.
+
+Codex Cloud uses an isolated Linux container and does not inherit desktop credentials, local services, or uncommitted work. Full environment specification and runbooks live in `docs/codex-cloud.md`.
+
+- Default to `CODEX_CLOUD_ACCESS_PROFILE=offline` for ordinary/RAG work; use `connected` only with explicit provider authorization.
+- Personal Pro split control plane: Codex Cloud for code and GitHub connector; ChatGPT web for Railway and read-only Supabase metadata.
+- Acceptance: run `bash scripts/check-codex-cloud-raw-env.sh`, `npm run check:codex-cloud`, and `npm run check:codex-cloud -- --runtime` (with `CODEX_CLOUD_EXPECTED_BASE_SHA`).
+- Do not expose provider secrets (OpenAI, Supabase, Railway, GitHub PATs) in Cloud agent shells or committed config.
+- Authenticated live tests run via `.github/workflows/authenticated-live-tests.yml` with manual dispatch, never from Cloud agent shells.
+- Branch deletion helper `bash scripts/delete-codex-cloud-branch-with-pat.sh` is operator-only outside Cloud.
 
 <!-- END:codex-cloud-environment -->

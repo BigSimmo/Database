@@ -45,7 +45,7 @@ import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { PriorityFactsSection } from "@/components/forms/form-priority-facts-section";
-import { DisclosureGroup } from "@/components/ui/disclosure";
+import { DisclosureGroup, disclosureBodyText } from "@/components/ui/disclosure";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
@@ -535,6 +535,17 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
       label: "Use safeguard",
       value: "Check current source before every use",
     },
+    ...(details?.officialPdfEditingRestricted !== undefined
+      ? [
+          {
+            icon: ShieldCheck,
+            label: "PDF permissions",
+            value: details.officialPdfEditingRestricted
+              ? "Editing restricted (printing and form-filling permitted)"
+              : "Editing permitted",
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -613,20 +624,20 @@ function formInformationItems(rows: Array<{ label: string; value?: string | null
     const value = displayText(row.value);
     return {
       id: `form-info-${index}-${row.label}`,
-      title: (
-        <span className="inline-flex min-w-0 items-center gap-2">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-            <Icon className="h-3.5 w-3.5" aria-hidden />
-          </span>
-          <span className="truncate">{row.label}</span>
-        </span>
-      ),
+      // The glyph alone: Disclosure draws the tile and owns its grid track, so the
+      // tile can no longer drift from the column the panel aligns to. It also used
+      // to sit inside the title's `truncate` box, where a long label clipped it.
+      icon: <Icon className="size-icon-sm" aria-hidden />,
+      title: row.label,
       description: value,
       // The collapsed line is a preview of this same value. Opening the row
       // replaces that preview with the fully wrapped answer instead of echoing
       // it in a visually separate, bordered panel.
       extendDescription: true,
-      content: <p className={cn("text-sm leading-6", textMuted)}>{value}</p>,
+      // Type comes from the shared constant, which the collapsed preview also
+      // uses. Restating "text-sm leading-6" here is how the two drifted, so the
+      // same sentence changed size the moment a reader opened the row.
+      content: <p className={cn(disclosureBodyText, "m-0", textMuted)}>{value}</p>,
     };
   });
 }
@@ -836,28 +847,57 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
                     {displayText(form.source?.label, "Official form")}
                   </p>
+                  {details?.officialPdfEditingRestricted !== undefined ? (
+                    <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
+                      {details.officialPdfEditingRestricted
+                        ? "Editing restricted (printing and form-filling permitted)"
+                        : "Editing permitted"}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span
-                className={cn(
-                  "hidden min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)] sm:inline-flex",
-                  details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
-                )}
-              >
-                {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
-              </span>
-              <div className="flex items-center gap-2 sm:hidden">
+              <div className="hidden flex-wrap items-center gap-1.5 sm:flex">
+                <span
+                  className={cn(
+                    "inline-flex min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)]",
+                    details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
+                  )}
+                >
+                  {details?.officialPdfPasswordProtected ? "Password required" : "Check source"}
+                </span>
+                {details?.officialPdfEditingRestricted !== undefined ? (
+                  <span
+                    className={cn(
+                      "inline-flex min-h-7 items-center rounded-full border px-2 text-xs font-semibold shadow-[var(--shadow-inset)]",
+                      details.officialPdfEditingRestricted ? toneWarning : toneNeutral,
+                    )}
+                  >
+                    {details.officialPdfEditingRestricted ? "Editing restricted" : "Editing permitted"}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex items-center gap-1.5 sm:hidden">
                 <span
                   className={cn(
                     "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
                     details?.officialPdfPasswordProtected ? toneWarning : toneNeutral,
                   )}
                 >
-                  {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+                  {details?.officialPdfPasswordProtected ? "Password required" : "Check source"}
                 </span>
+                {details?.officialPdfEditingRestricted !== undefined ? (
+                  <span
+                    className={cn(
+                      "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
+                      details.officialPdfEditingRestricted ? toneWarning : toneNeutral,
+                    )}
+                  >
+                    {details.officialPdfEditingRestricted ? "Editing restricted" : "Editing permitted"}
+                  </span>
+                ) : null}
                 <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (
@@ -922,8 +962,17 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               </div>
             </section>
 
-            <section id="form-information" aria-label="Form information" className={cn(inPageAnchor, "grid gap-2")}>
-              <DisclosureGroup className="min-w-0" items={formInformationItems(detailRows)} headingLevel={3} />
+            <section id="form-information" aria-label="Form information" className={inPageAnchor}>
+              {/* One bordered container with divided rows, not thirteen separate
+                  cards: no row here is separable or independently actionable, so
+                  the repeated borders were 26 rules drawn around what is really
+                  one label/value table. */}
+              <DisclosureGroup
+                className="min-w-0"
+                variant="list"
+                items={formInformationItems(detailRows)}
+                headingLevel={3}
+              />
             </section>
 
             {/* The `-mobile`/`-desktop` id pairs below are the section anchors

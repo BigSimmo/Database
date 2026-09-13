@@ -139,8 +139,12 @@ export type InPageNavHeaderProps =
        */
       rail?: {
         label: string;
-        /** Calibrated label family — moves only the band widths. */
-        density?: ModeNavDensityProfile;
+        /**
+         * Calibrated label family, moving only the band widths. Required: see
+         * the note on `InPageSectionRail`'s own `density` for why inheriting a
+         * default here shipped a regression.
+         */
+        density: ModeNavDensityProfile;
         /** `true` when every slot carries a count badge beside its label. */
         countedLabels?: boolean;
       };
@@ -173,6 +177,14 @@ export type InPageNavHeaderProps =
  * below that `PhoneHeaderCollapsePortal` moves this subtree into the universal
  * header's collapse row, which owns the scroll motion — this must never grow a
  * scroll-hide hook of its own.
+ *
+ * `z-20`, one below `MasterSearchHeader`'s `z-30`, is load-bearing too: this bar
+ * and the app header are siblings in the DOM (this one renders inside `<main>`,
+ * after the header), not nested inside its stacking context. Equal z-index ties
+ * resolve by DOM order, so a bare `z-30` here used to win the tie once scrolled
+ * under the app header — painting over (and swallowing clicks meant for) the
+ * open Mode menu and other header popovers, on desktop where this bar renders
+ * in place instead of collapsing into the universal header.
  */
 export function InPageNavHeader(props: InPageNavHeaderProps) {
   const {
@@ -282,7 +294,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
             // safe-area). The collapse addon is a sibling of `.edge-glass-header`,
             // so this bar cannot inherit that inset — a literal `px-3` sat 4px
             // closer to the bezel than the hamburger / chat+ chrome above it.
-            "inpage-nav-header relative z-30 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
+            "inpage-nav-header relative z-20 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
             className,
           )}
         >

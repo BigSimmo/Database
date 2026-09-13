@@ -5,7 +5,7 @@
 > the next handover. Start with `docs/ward-flow-phase-3-handover.md`.
 
 Spec: docs/superpowers/specs/2026-08-19-ward-flow-phase-3-role-screens-design.md (reachable, 19 sections)
-Worktree: C:/Users/joshs/.codex/worktrees/ward-management-design/Database — branch codex/ward-management-design
+Worktree: local Codex worktree `ward-management-design` (machine-local path omitted) — branch codex/ward-management-design
 Base at start: cf751504f (clean tree). Phase 2 complete and green at 04cf7bc53/3789eea62.
 Build-order item 1 (correcting docs/ward-flow-context.md) already done at 7f373e80f.
 
@@ -559,7 +559,7 @@ I did not record that as a flake on the strength of the explanation. Re-run in i
 
 ## Session 3 — resumed 2026-08-22
 
-New controller session. Confirmed worktree `C:/Users/joshs/.codex/worktrees/ward-management-design/Database`,
+New controller session. Confirmed worktree `ward-management-design` (machine-local path omitted; `Database`,
 branch `codex/ward-management-design`, clean tree at `15bce2ebe`, **2 docs-only commits ahead of
 `origin/codex/ward-management-design`** (`8f0c3cc84`, `15bce2ebe` — the handover correction and the
 node_modules explanation). Nothing on origin that local lacks. `node_modules` populated at 523 entries.

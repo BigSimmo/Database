@@ -15,10 +15,9 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
 import {
-  fetchOwnerRegistryRows,
-  mergeRegistryGovernanceWithDefaults,
-  mergeRegistryRecordsWithDefaults,
-} from "@/lib/registry-seed";
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -30,7 +29,6 @@ export const runtime = "nodejs";
 // ranking cannot hide rows past an arbitrary cap. Summary views return counts
 // only. This ceiling is a defensive bound above realistic registry sizes;
 // `limit` only bounds ranked `matches` for an explicit `q` query.
-const REGISTRY_MAX_RECORDS = 500;
 const REGISTRY_COMPRESSION_THRESHOLD_BYTES = 1_024;
 const gzipAsync = promisify(gzip);
 
@@ -186,21 +184,37 @@ export async function GET(request: Request) {
       return rateLimitJsonResponse("Registry requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      return await registryResponse(
-        {
-          ...publicRegistryPayload(kind, q, limit, view),
-          publicAccess: true,
-        },
-        { request, fixture: true },
-      );
-    }
-
-    const rows = await fetchOwnerRegistryRows(supabase, access.ownerId, kind, REGISTRY_MAX_RECORDS);
-    const records = mergeRegistryRecordsWithDefaults(kind, rows);
-    const governanceBySlug = mergeRegistryGovernanceWithDefaults(kind, rows);
-
-    return await registryResponse(registryListPayload(kind, records, governanceBySlug, q, limit, view), { request });
+    const seedRecords = kind === "form" ? formRecords : serviceRecords;
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind,
+      slug: null,
+      seeds: seedRecords.map((record) => {
+        const derived = deriveGovernanceColumns(record);
+        return {
+          record,
+          governance: { sourceStatus: derived.source_status, validationStatus: derived.validation_status },
+        };
+      }),
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as ServiceRecord,
+        governance: canonicalSiteContentGovernance(canonicalRecord),
+      }),
+    });
+    const records = canonical.records.map((entry) => entry.record);
+    const governanceBySlug = Object.fromEntries(
+      canonical.records.map((entry) => [entry.record.slug, entry.governance]),
+    );
+    return await registryResponse(
+      {
+        ...registryListPayload(kind, records, governanceBySlug, q, limit, view),
+        publicAccess: true,
+      },
+      {
+        request,
+        fixture: canonical.source === "seed_uninitialized",
+      },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

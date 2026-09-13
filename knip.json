@@ -8,7 +8,9 @@
     "*.config.{ts,mts,mjs,cjs}"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "eslint-rules/**/*.mjs"],
-  "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "supabase/functions/**"],
-  "vitest": { "config": ["vitest.config.mts"] },
+  "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "supabase/functions/**", "docs/**"],
+  "vitest": {
+    "config": ["vitest.config.mts"]
+  },
   "playwright": false
 }

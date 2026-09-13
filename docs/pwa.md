@@ -81,6 +81,12 @@ The worker caches a request only when its class and every listed condition match
 | `/_next/static/*`                                               | Same-origin `GET`; no query string, `Authorization`, or `Range`; destination is `font`, `script`, `style`, or `worker` | Cache first, then network and store                     | Static, maximum 128 entries |
 | `/manifest.webmanifest`, `/icon.svg`, `/apple-icon`, `/icons/*` | Same-origin `GET`; no query string, `Authorization`, or `Range`                                                        | Stale while revalidate                                  | Shell, maximum 16 entries   |
 
+`/apple-icon` is allowlisted but is, in practice, network-only: Next's metadata-image loader emits the generated
+Apple icon as `<link rel="apple-touch-icon" href="/apple-icon?<contenthash>">`, and the query string fails the
+"no query string" condition above before the allow-list is consulted. Only a bare `GET /apple-icon` (which the
+browser never issues for the rendered link) would be cached. This is deliberate: less is cached, and the entry
+stays so that a future bare reference is treated like the other icons rather than falling through to the denylist.
+
 Every allowlisted runtime and precache fetch uses `credentials: "omit"`. Before storage, the response must be an exact,
 non-redirected, successful same-origin/basic response and must not carry private/no-store caching, attachment,
 authentication-challenge, HTML-for-an-asset, or credential-varying metadata. A visible `Set-Cookie` is rejected as an

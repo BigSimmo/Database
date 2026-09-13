@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5c835fa5-ce89-4846-a4e2-ffdc3e0dd608",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#S76Z3Y",
+    "outcome": "Pruned the orphaned src/components/clinical-hydration-boundary.tsx component and updated docs/design-system/adoption-manifest.json. The proxy half of this row is NOT done and was deliberately not taken: /mockups/document-search-command looked dead but is the single mockup path that still redirects in production, and mockups/README.md, docs/site-map.md and the site-map generator all name it by hand — so sitemap:check cannot catch its removal. Retiring it is a four-file decision for the owner, not a dead-code prune.",
+    "baseRowFingerprint": "5d5c377a13a9ba464df07313f0350c6dcb2e98751607f323c5e0415858eaf54d"
+  }
+}

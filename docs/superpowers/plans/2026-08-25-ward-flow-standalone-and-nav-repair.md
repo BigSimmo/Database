@@ -6,7 +6,16 @@
 > Unadvertised is not sandboxed. The superseding plan moves it into the developer-gated subtree the
 > repository already uses for Caring Contacts and Care Plan.
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers: DO NOT EXECUTE. This plan is history.** The banner above reverses it, and
+> the reversal is a safety one — following the steps below would leave Ward Flow reachable by URL
+> with no sign-in. Execute `2026-08-25-ward-flow-sandbox-and-design-repair.md` instead.
+>
+> This line previously read _"REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to
+> implement this plan task-by-task"_ — an executable instruction sitting four lines below
+> "Do not execute this plan", with the full task body still beneath it. Removed 2026-08-30
+> (process audit P1-07). **Two agents could obey opposite instructions and both cite direct
+> authority from the same file**, and the unchecked boxes below made it look like a live backlog.
+> The boxes are kept because this is a record of what was proposed; they are not work.
 
 **Goal:** Take Ward Flow out of the clinical application entirely — reachable only from the
 developer hub — and repair the navigation, landmark and structure defects that accumulated while it

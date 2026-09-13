@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8ddc7abc-d54a-4ee1-896b-cf9a537ec878",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0491531b-a3d2-43a5-a128-23cdafa4291f",
+    "reason": "Outcome text no longer matches what lands. The orphaned client-hydration-boundary component prune stands, but the second half — 'dead proxy redirect' — was wrong: /mockups/document-search-command is the one mockup path that still redirects in production, named by hand in mockups/README.md, docs/site-map.md and scripts/generate-site-map.ts. The redirect is restored, so a receipt claiming it was pruned would archive a false record."
+  }
+}

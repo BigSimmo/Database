@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "300aebe4-a12d-4f20-9abe-126f5bf6acc1",
+  "createdOn": "2026-09-06",
+  "action": "done",
+  "payload": {
+    "id": "#CJCH2E",
+    "outcome": "Differentiated malformed JSON response from unreachable endpoint in IngestionPanel",
+    "baseRowFingerprint": "f9f3d409aefc588b7fa27c00141da8ee9ff2db23087904b64c95e023647bf795"
+  }
+}

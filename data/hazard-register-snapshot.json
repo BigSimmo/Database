@@ -1,0 +1,590 @@
+{
+  "version": "hazard-register-snapshot-v1",
+  "generatedAt": "2026-09-13",
+  "counts": {
+    "registers": 3,
+    "registersMissing": 1,
+    "registersUnsigned": 2,
+    "hazards": 45,
+    "unmitigated": 0,
+    "reviewExpired": 0
+  },
+  "registers": [
+    {
+      "id": "psychsift-answer-pipeline",
+      "name": "PsychSift answer pipeline",
+      "scope": "Retrieval, answer generation, citations and copy/export.",
+      "sourcePath": "docs/clinical-hazard-controls.json",
+      "exists": true,
+      "authority": "Static evidence register only. It does not establish clinical adequacy, regulatory classification, or risk acceptance.",
+      "signedOff": false,
+      "gate": "check:clinical-hazard-controls",
+      "reviewedAt": "2026-08-23",
+      "reviewExpiresAt": "2026-11-23",
+      "reviewExpired": false,
+      "hazards": [
+        {
+          "id": "H1",
+          "title": "A wrong clinical number reaches the clinician",
+          "status": "partial",
+          "owner": "Clinical safety owner",
+          "residualRisk": "Faithful-but-wrong source values and clinical plausibility remain outside deterministic numeric faithfulness proof.",
+          "controlCount": 2,
+          "testCount": 3,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        },
+        {
+          "id": "H2",
+          "title": "A stale or unverified guideline is presented as current/authoritative",
+          "status": "partial",
+          "owner": "Source governance owner",
+          "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority.",
+          "controlCount": 2,
+          "testCount": 2,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        },
+        {
+          "id": "H3",
+          "title": "A safety caveat present on screen is stripped on copy/export",
+          "status": "partial",
+          "owner": "Clinical UX owner",
+          "residualRisk": "Canonical answer copy preserves table and safety context; every secondary quote/export path is not asserted by one end-to-end clinical acceptance test.",
+          "controlCount": 1,
+          "testCount": 2,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        },
+        {
+          "id": "H4",
+          "title": "A claim is attributed to the wrong source / a source is given false authority",
+          "status": "partial",
+          "owner": "Answer quality owner",
+          "residualRisk": "Deterministic claim support and provenance labels do not prove that a clinically plausible source or claim is true.",
+          "controlCount": 2,
+          "testCount": 3,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        },
+        {
+          "id": "H5",
+          "title": "An answer that should be withheld or flagged is presented as trusted",
+          "status": "partial",
+          "owner": "Answer quality owner",
+          "residualRisk": "Fail-closed relevance and similarity provenance are tested, while broader confidence policy still requires clinical validation.",
+          "controlCount": 2,
+          "testCount": 3,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        },
+        {
+          "id": "H6",
+          "title": "Adversarial / corrupted document content changes the answer",
+          "status": "partial",
+          "owner": "Application security owner",
+          "residualRisk": "Prompt-facing identity fields are neutralized and evidence is fenced; faithful-but-wrong or corrupted clinical source content remains an open clinical-truth hazard.",
+          "controlCount": 2,
+          "testCount": 1,
+          "reviewExpiresAt": "2026-11-23",
+          "reviewExpired": false
+        }
+      ],
+      "openAssuranceDecisions": [
+        {
+          "id": "CLINICAL-TRUTH-AUTHORITY",
+          "owner": "Clinical governance authority",
+          "residualRisk": "Static tests establish code behavior, not clinical truth, source authority, or clinical adequacy."
+        },
+        {
+          "id": "EXTERNAL-RISK-ACCEPTANCE",
+          "owner": "Authorised risk owner",
+          "residualRisk": "No authorised external clinical or regulatory risk acceptance is recorded."
+        }
+      ]
+    },
+    {
+      "id": "caring-contacts",
+      "name": "Caring Contacts",
+      "scope": "The Caring Contacts workspace only. It does not cover the answer pipeline.",
+      "sourcePath": "docs/caring-contacts/hazard-log.md",
+      "exists": true,
+      "authority": "DRAFT — requires clinical sign-off by the owner before any real-patient use. This document is a starting point assembled from what this repository already records. It is not clinical authority, it is not a risk assessment anybody has performed, and nothing in it constitutes approval of a pilot. No row below has been reviewed, accepted, or signed off by a clinician. Until the owner signs it, treat every \"residual risk\" cell as an unreviewed assertion by whoever drafted the row, not as an accepted level of risk.",
+      "signedOff": false,
+      "gate": null,
+      "reviewedAt": null,
+      "reviewExpiresAt": null,
+      "reviewExpired": false,
+      "documentStatus": "first draft, 2026-09-04. Unreviewed.",
+      "hazards": [
+        {
+          "id": "H-00",
+          "title": "No named clinical safety officer, so nobody owns clinical risk for this service",
+          "status": "controlled-unreviewed",
+          "owner": "Josh (owner)",
+          "residualRisk": "Requires formal human CSO appointment and signed attestation file before live mode can boot; runtime fails closed with PilotGovernanceViolationError",
+          "harm": "Every hazard below is unowned. An incident has no named person to escalate to; a clinical judgement about wording, cadence or an adverse event has no author",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-04",
+          "title": "The patient-visible message set has never been read by anyone with lived experience",
+          "status": "controlled-unreviewed",
+          "owner": "Josh (owner) to convene",
+          "residualRisk": "The facilitation pack is ready; the physical review panel must be convened and documented before attestation sign-off",
+          "harm": "A discharged patient in a suicide-aftercare programme receives wording nobody with lived experience has judged; the wording may be harmful in ways only that review would surface",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-05",
+          "title": "No Aboriginal cultural safety review, in a Western Australian suicide-aftercare service",
+          "status": "controlled-unreviewed",
+          "owner": "Aboriginal health governance",
+          "residualRisk": "Formal consultation with WA Aboriginal health leadership (AHCWA/WAPHA) must be completed before live pilot",
+          "harm": "Culturally unsafe contact, wording or reporting in a population where suicide aftercare carries specific and well-documented cultural safety requirements",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-36",
+          "title": "Application data and SMS metadata egress outside Australia violates sovereign lock",
+          "status": "controlled-unreviewed",
+          "owner": "Ops / Cloud Engineering",
+          "residualRisk": "Requires provisioning dedicated AWS Sydney (ap-southeast-2) or Azure Sydney (australiaeast) container environment rather than shared multi-region PaaS",
+          "harm": "Identifiers, PHI, or messages process outside Australian jurisdiction, violating sovereign healthcare policy",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-44",
+          "title": "Hospital referral feed feasibility is unconfirmed and is the largest programme risk",
+          "status": "controlled-unreviewed",
+          "owner": "Josh (owner) to open the conversation",
+          "residualRisk": "WA Health HSS enterprise feed onboarding timeline remains external; manual intake screen provides production fallback",
+          "harm": "The service cannot start, or starts on manual entry nobody has designed for; the whole build rests on an integration nobody has confirmed is possible",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C01",
+          "title": "A caring contact is delivered after the recipient has died",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Depends entirely on the death reaching this system. Nothing here detects a death nobody reported — that is H-44's feed, unconfirmed",
+          "harm": "A bereaved family receives an automated \"thinking of you\" message addressed to the dead person",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C02",
+          "title": "A death timestamp that cannot be parsed makes the cancellation fail open",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The exception has no defined human workflow attached to it in this repository",
+          "harm": "As H-C01",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C03",
+          "title": "A correction to a recorded death puts messages back in flight",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The incident requires a human to act on it, and no on-call rota exists (H-00)",
+          "harm": "Messages restart off the back of a data fix, with nobody having decided that they should",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C04",
+          "title": "A third party ends a service the patient chose",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Nothing prevents a third party from persuading the patient's own clinician to withdraw on the patient's behalf",
+          "harm": "A patient loses an aftercare contact they consented to, on somebody else's say-so",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C05",
+          "title": "A readmission or a changed mobile silently resumes or rebases the calendar",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Requires a human to unpause; no reminder mechanism exists",
+          "harm": "Contacts arrive on the wrong days, or resume without a human decision",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C06",
+          "title": "An urgent-safety pathway retirement leaves running plans sending",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Whether a given retirement _is_ urgent is a human judgement with no criteria written down",
+          "harm": "Contacts keep going out under wording or cadence that was withdrawn for safety",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C07",
+          "title": "An empty or unwritten message is sent as a caring contact",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "A sender that never calls the chokepoint meets no refusal — see the note below",
+          "harm": "A person in aftercare receives a blank message, or receives nothing while the record says they were contacted",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C08",
+          "title": "An implementer drafts patient-visible wording for a suicide-prevention message",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The refusal is the whole control. The wording still has to be written, by the review H-04 names",
+          "harm": "Unreviewed clinical copy reaches a discharged patient at the moment a service ends",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C09",
+          "title": "A message carries commercial or risk-scoring vocabulary",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "A denylist catches known-bad words, never bad wording in general. Only the H-04 review addresses the general case",
+          "harm": "A person in suicide aftercare is addressed as a marketing target or told they are \"high risk\"",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C10",
+          "title": "A message omits how to get help",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The required fragments are PROVISIONAL content nobody clinical has approved",
+          "harm": "Someone reads a message from a mental-health service that tells them nothing about where to turn",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C11",
+          "title": "A message invites a reply on a channel nobody reads",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "Only a question mark is detected. \"Text back if you need us\" contains none and would pass",
+          "harm": "A distressed person replies expecting to be heard, and is not",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C12",
+          "title": "The patient's own mobile number is echoed into the message body",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Only checks the number the caller supplies; a stale or second number is not compared",
+          "harm": "A patient receives their own number back from a service, an alarming and identifying artefact",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C13",
+          "title": "A message reaches a patient carrying a number that connects to nobody",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The acknowledgement flag exists and is greppable, but nothing stops a future caller passing it in production",
+          "harm": "A person in crisis dials a number from a mental-health service and reaches dead air",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C14",
+          "title": "A working crisis number is marked as fake, or the crisis sentence is reworded",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The numbers in that sentence (Lifeline, 13YARN) are not aged by any check in this repository — see \"Unverified\" below",
+          "harm": "The one sentence that must survive is deleted, reworded, or suppressed as synthetic",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C15",
+          "title": "A message is silently split into three or more SMS segments, or truncated",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The ceiling is only evaluated when the text is GSM-7 encodable — see H-C16",
+          "harm": "A safety message arrives cut in half, or the half with the crisis number never arrives",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C16",
+          "title": "A non-GSM-7 name silently disables the segment ceiling",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The refusal is in the _name_ path only. A non-GSM-7 character introduced anywhere else in a message still bypasses the ceiling",
+          "harm": "The length check at message-policy.ts:186 never runs, and nothing else is checking length",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C17",
+          "title": "A contact goes out outside the approved hours",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "AWST is hard-coded. A patient outside Western Australia would receive contacts at the wrong local time",
+          "harm": "An unsolicited message about suicide aftercare arrives at 3 am",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C18",
+          "title": "A retry sends late rather than not at all",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "The interaction is documented and tested, but no production sender exercises it (see the B2 note)",
+          "harm": "As H-C17",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C19",
+          "title": "A message is dispatched against an ended, cancelled or withdrawn plan",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Defence in depth on two layers, one of which (the chokepoint) has no production caller",
+          "harm": "A withdrawn patient — or a bereaved family — receives a contact after the service ended",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C20",
+          "title": "A draft or paused plan sends anyway",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "As H-C19",
+          "harm": "Contacts begin before anybody activated the plan, or resume during a hold",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C21",
+          "title": "A confirmed incident does not stop sending",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Somebody has to notice and record the stop. No automatic detector exists for any of the five reasons",
+          "harm": "The failure that triggered the incident keeps happening while it is being investigated",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C22",
+          "title": "One person restarts a stopped service alone",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The roles are seats nobody occupies until H-00 closes, so today one person is all there is",
+          "harm": "A service stopped for a clinical or privacy incident resumes on one person's judgement",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C23",
+          "title": "The incident banner leaks patient detail onto every screen",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "A future edit could widen the parameter; only the type stops it",
+          "harm": "A patient's name, number or clinical note is rendered service-wide",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C24",
+          "title": "An author approves their own pathway version",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Two approvals from two people is a process control, not a competence check",
+          "harm": "Clinical content ships with no independent check at all",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C25",
+          "title": "One person supplies both required pathway approvals by changing role",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "As H-C22: the seats are unfilled",
+          "harm": "The dual-approval record is real in form and empty in substance",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C26",
+          "title": "A pathway version's approval is read as approval of the message wording",
+          "status": "controlled-unreviewed",
+          "owner": "Josh (owner)",
+          "residualRisk": "Depends on every screen reading the constant rather than writing its own sentence",
+          "harm": "A clinician believes a discharged patient's message has been signed off when it has not",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C27",
+          "title": "A clinician reads another team's patients",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Team membership is asserted by the session, and this prototype's session model is not the eventual one",
+          "harm": "Unauthorised access to identifiable mental-health records",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C28",
+          "title": "Patient data leaks into the audit trail",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "A denylist of field names and one number format. A free-text field with a new name would pass unless its name is on the list",
+          "harm": "The trail intended to prove good behaviour becomes a second copy of the record it audits",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C29",
+          "title": "A search term or a patient's name is recorded as an audited object id",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "—",
+          "harm": "The audit trail itself becomes a searchable index of what was typed about whom",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C30",
+          "title": "A refused write leaves no trace",
+          "status": "controlled-unreviewed",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "Only covers refusals at the boundary. A refusal further out has no record",
+          "harm": "An attempted unauthorised action is invisible afterwards",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C31",
+          "title": "Identifying detail is kept indefinitely",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "Seven years is a working assumption, not a legal determination — phase-1-handoff.md says so. Nothing schedules the clearance",
+          "harm": "A suicide-aftercare record naming a patient persists with no end date",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C32",
+          "title": "A coordinator's attestation is read as the patient's consent",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The distinction is carried by wording and a type guard. A screen that paraphrases it loses it",
+          "harm": "The service believes it holds consent it does not hold; the actual agreement lives in the hospital record",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C33",
+          "title": "Training data mixes with live data",
+          "status": "partial",
+          "owner": "H-00 (unfilled)",
+          "residualRisk": "It is a predicate future code is _expected_ to consult; nothing forces a new query to ask",
+          "harm": "Synthetic contacts are treated as real, or a real patient's data appears in a training sandbox",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-C34",
+          "title": "A published figure re-identifies an Aboriginal or Torres Strait Islander patient",
+          "status": "partial",
+          "owner": "Josh (owner)",
+          "residualRisk": "The owner recorded on 2026-08-26 that one commit can move both the number and its pin, and accepted that gap for a prototype holding no real data. That acceptance does not survive a real-patient pilot. Connected to H-05",
+          "harm": "Re-identification in a small population, in a service where that is a specific and serious harm",
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        }
+      ],
+      "openAssuranceDecisions": []
+    },
+    {
+      "id": "ward-flow",
+      "name": "Ward Flow",
+      "scope": "Bed matching, placement, transport and movements.",
+      "sourcePath": null,
+      "exists": false,
+      "authority": "No hazard register has been written. Nothing here has been reviewed against one.",
+      "signedOff": false,
+      "gate": null,
+      "reviewedAt": null,
+      "reviewExpiresAt": null,
+      "reviewExpired": false,
+      "hazards": [],
+      "ledgerMentions": [
+        {
+          "id": "#Q6WD1M",
+          "priority": "P1",
+          "summary": "Ward Flow places patients with no eligibility check in the reducer at all"
+        },
+        {
+          "id": "#BAY1TY",
+          "priority": "P1",
+          "summary": "Ward Flow: sex and gender identity are one field, and that single field drives bed matching"
+        },
+        {
+          "id": "#6DT5K7",
+          "priority": "P1",
+          "summary": "Ward Flow: the 'it suggests nothing' rule may be reversed, and the reversal is written down nowhere"
+        },
+        {
+          "id": "#G4YPNE",
+          "priority": "P1",
+          "summary": "Ward Flow: Aboriginal cultural safety review is unstarted and cannot be done by this team"
+        }
+      ],
+      "openAssuranceDecisions": []
+    }
+  ]
+}

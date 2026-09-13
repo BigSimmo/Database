@@ -18,6 +18,7 @@ function source(relativePath: string) {
 }
 
 const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
+const dashboardModeSurfaceSource = source("src/components/clinical-dashboard/dashboard-mode-surface.ts");
 const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
 const universalAlsoMatchesSource = source("src/components/clinical-dashboard/universal-search-also-matches.tsx");
 const universalCommandSurfaceSource = source("src/components/clinical-dashboard/universal-search-command-surface.tsx");
@@ -87,6 +88,17 @@ describe("audit navigation and auth regressions", () => {
     expect(headApplications).toBe(redirectApplications);
   });
 
+  it.each([
+    ["dsm", "major depressive", "/dsm/search?q=major+depressive&focus=1&run=1"],
+    ["formulation", "I keep going over it", "/formulation/search?q=I+keep+going+over+it&focus=1&run=1"],
+  ])("redirects submitted %s searches before the streamed page renders", (mode, query, expected) => {
+    const submitted = new URL("https://clinical-kb.test/");
+    submitted.search = new URLSearchParams({ mode, q: query, focus: "1", run: "1" }).toString();
+    expect(legacyHomeRedirectUrl(submitted, "GET")?.toString()).toBe(`https://clinical-kb.test${expected}`);
+    expect(legacyHomeRedirectUrl(new URL(`https://clinical-kb.test/?mode=${mode}`), "GET")).toBeNull();
+    expect(legacyHomeRedirectUrl(submitted, "POST")).toBeNull();
+  });
+
   it("only redirects submitted root legacy mode aliases, leaving bare /?mode= on the shared home", () => {
     // Selection-only (no q+run=1) must stay on `/` so the shared-home contract
     // covers favourites/differentials/specifiers the same as every other mode.
@@ -109,11 +121,63 @@ describe("audit navigation and auth regressions", () => {
       new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=1&extra=drop"),
       "GET",
     );
-    expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1");
-    expect(favouritesSubmitted?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1&run=1");
+    // `q` is trimmed, a duplicated `run` collapses to one, `mode` is consumed by the
+    // pathname — and every other parameter rides along (see the case below).
+    expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1&extra=drop");
+    expect(favouritesSubmitted?.toString()).toBe(
+      "https://clinical-kb.test/favourites?q=lithium&focus=1&run=1&extra=drop",
+    );
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "POST")).toBeNull();
     expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=answer"), "GET")).toBeNull();
     expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
+  });
+
+  // Tools is the one alias that forwards whether or not the URL is submitted. It has no
+  // shared home to fall back to (`shouldShowSharedHome` excludes `tools`), so `/?mode=tools`
+  // used to render a second, hub-shaped launcher and Tools had two surfaces depending on how
+  // the clinician arrived. The hub's verb shortcut row moved to `/tools`, so the alias has
+  // nothing of its own left to show.
+  it("forwards the tools alias to the canonical directory whether or not it is submitted", () => {
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "GET")?.toString()).toBe(
+      "https://clinical-kb.test/tools",
+    );
+    expect(
+      legacyHomeRedirectUrl(
+        new URL("https://clinical-kb.test/?mode=tools&q=medications&focus=1&run=1#detail"),
+        "GET",
+      )?.toString(),
+    ).toBe("https://clinical-kb.test/tools?q=medications&focus=1&run=1");
+    // A non-navigation method still falls through, same as every other alias.
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=tools"), "POST")).toBeNull();
+  });
+
+  // This redirect used to rebuild the destination from scratch (`destination.search = ""`,
+  // then only q/focus/run re-added), so `queryMode` and the scope filters were already gone
+  // one hop before `consolidatedModeHomeTarget` — whose own doc promises "every other query
+  // parameter rides along untouched" — ran for differentials/specifiers. The clinician saw
+  // unscoped, auto-mode results for a link they had scoped, with no error (2026-09-02 audit,
+  // L9).
+  it("carries queryMode and scope filters through the legacy /?mode= redirect", () => {
+    const scoped = legacyHomeRedirectUrl(
+      new URL(
+        "https://clinical-kb.test/?mode=specifiers&q=+mixed+features+&run=1&queryMode=compare_guidance&scope.source=raanzcp&scopeRef=doc-42&focus=0",
+      ),
+      "GET",
+    );
+
+    expect(scoped).not.toBeNull();
+    const destination = new URL(scoped!.toString());
+    expect(destination.pathname).toBe("/specifiers");
+    expect(destination.searchParams.get("q")).toBe("mixed features");
+    expect(destination.searchParams.get("run")).toBe("1");
+    expect(destination.searchParams.get("queryMode")).toBe("compare_guidance");
+    expect(destination.searchParams.get("scope.source")).toBe("raanzcp");
+    expect(destination.searchParams.get("scopeRef")).toBe("doc-42");
+    // `mode` is consumed by the destination pathname and must not travel: forwarding it would
+    // let `/?mode=specifiers&…` arrive at the consolidated redirect claiming another mode.
+    expect(destination.searchParams.has("mode")).toBe(false);
+    // `focus` is a flag, not a value: anything but "1" is absence, as before.
+    expect(destination.searchParams.has("focus")).toBe(false);
   });
 
   it("closes the master mode menu when focus leaves its wrapper", () => {
@@ -128,25 +192,35 @@ describe("audit navigation and auth regressions", () => {
     expect(focusLeaveContract).toContain("if (usesPhoneSearchLayout) return;");
     expect(focusLeaveContract).toContain("const nextFocusedElement = event.relatedTarget;");
     expect(focusLeaveContract).toContain("event.currentTarget.contains(nextFocusedElement)");
-    expect(focusLeaveContract).toContain("setModeMenuOpen(false);");
+    expect(focusLeaveContract).toContain("closeModeMenu();");
+    // Shared close helper must cancel the pending mode-menu focus rAF (ArrowDown open path).
+    expect(masterSearchHeaderSource).toContain("cancelModeMenuFocus();");
+    expect(masterSearchHeaderSource).toContain("modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {");
   });
 
   it("opens the master mode menu as a phone bottom sheet below the phone layout gate", () => {
     expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
     expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
     expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
-    expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
+    // The desktop trigger now opens a searchable grouped dialog (not a plain
+    // menu), so it always announces `dialog` regardless of phone layout.
+    expect(masterSearchHeaderSource).toContain('aria-haspopup="dialog"');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
     expect(masterSearchHeaderSource).toContain(
       'contentClassName="max-h-[calc(100dvh-0.75rem)] rounded-t-3xl bg-[color:var(--surface-lux)] sm:max-w-md sm:rounded-2xl"',
     );
-    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-\[3\.25rem\]/);
+    expect(masterSearchHeaderSource).toMatch(/usesPhoneSearchLayout\s*\?\s*"min-h-14\b[\s\S]*:\s*"min-h-12\b/);
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
     expect(masterSearchHeaderSource).toContain(
       "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
     );
-    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
+    // The searchable desktop dialog reuses this same live matchMedia read to
+    // decide whether to reset `modeMenuQuery` before the rAF-scheduled focus
+    // (see `openModeMenuWithFocus`/`toggleModeMenu`), so it is now bound to a
+    // local first and passed to the setter rather than called inline twice.
+    expect(masterSearchHeaderSource).toContain("const phoneLayout = currentUsesPhoneSearchLayout();");
+    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(phoneLayout);");
   });
 
   it("prefetches only the mode a user focuses or points at", () => {
@@ -171,7 +245,7 @@ describe("audit navigation and auth regressions", () => {
 
     expect(masterSearchHeaderSource).toContain("function prefetchModeSelection(modeId: AppModeId)");
     expect(masterSearchHeaderSource).toContain(
-      'const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId)',
+      "const href = standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId)",
     );
     expect(masterSearchHeaderSource).toContain("router.prefetch(href,");
     expect(masterSearchHeaderSource).toContain("onInvalidate:");
@@ -187,19 +261,40 @@ describe("audit navigation and auth regressions", () => {
     );
   });
 
-  it("defers cross-mode search on narrow screens until expansion except for completed answers", () => {
-    expect(universalAlsoMatchesSource).toContain('modeId !== "prescribing" && submissionActive');
-    expect(universalAlsoMatchesSource).toContain('(isWide || modeId === "answer" || expanded)');
+  it("runs cross-mode search on submission at every width, so a closed tray can state its count", () => {
+    // `prescribing` was excluded here while the panel mounted ABOVE the medication
+    // results; the mount moved below them, so the mode is no longer suppressed and
+    // the gate is plain submission. tests/ui-stress.spec.ts pins the panel's
+    // position under those results.
+    //
+    // The narrow-screen deferral this contract used to pin is gone deliberately.
+    // Waiting for the click meant the phone header could only say "Tap to open"
+    // and the tray was still rendered when nothing was behind it — a blind door.
+    // The lookup is eager at every width and an empty tray is dropped instead.
+    expect(universalAlsoMatchesSource).toContain("const searchActive = submissionActive;");
+    expect(universalAlsoMatchesSource).not.toContain('modeId !== "prescribing"');
+    expect(universalAlsoMatchesSource).not.toContain('(isWide || modeId === "answer" || expanded)');
+    // The header now says pending / a count / nothing found. The "Tap to open"
+    // arm it replaced survives only in the comment above the searchActive gate,
+    // which is why this pins the expression rather than searching for the string.
+    expect(universalAlsoMatchesSource).toContain(
+      'const headerMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : "No other matches";',
+    );
     expect(universalAlsoMatchesSource).toContain("enabled: trimmedQuery.length >= 2 && searchActive");
     expect(universalAlsoMatchesSource).toContain('if (modeId === "answer" && currentGroups.length === 0) return null;');
+    expect(universalAlsoMatchesSource).toContain("if (!searchPending && currentGroups.length === 0) return null;");
     expect(universalAlsoMatchesSource).toContain("const [viewportReady, setViewportReady] = useState(false);");
     expect(universalAlsoMatchesSource).toContain("setViewportReady(true);");
-    expect(universalAlsoMatchesSource).toContain('searchPending ? "Searching other modes"');
+    // The panel status is a three-way now — pending / a count / nothing found —
+    // because one fixed string announced "No additional matches" over a grid of
+    // populated mode cards. The pending arm is the one this contract is about.
+    expect(universalAlsoMatchesSource).toMatch(/const panelStatus = searchPending\s*\n?\s*\? "Searching other modes"/);
+    expect(universalAlsoMatchesSource).toContain('const emptyMessage = "No additional matches in other modes.";');
   });
 
   it("mounts Answer-mode also-matches only after generation completes", () => {
     const alsoMatchesGate = sourceSegment(
-      clinicalDashboardSource,
+      dashboardModeSurfaceSource,
       "const showUniversalAlsoMatches =",
       "const showDesktopHomeComposer =",
       { label: "also-matches visibility gate" },

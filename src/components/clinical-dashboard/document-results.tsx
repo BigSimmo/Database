@@ -5,13 +5,14 @@ import { memo } from "react";
 import { BookOpen, FileImage, Filter, ListChecks } from "lucide-react";
 
 import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { DocumentBadge, DocumentFileTile, documentFileKind } from "@/components/clinical-dashboard/document-ui";
 import { cn, floatingControl, sourceCard, textMuted } from "@/components/ui-primitives";
 import { type SmartDocumentTag } from "@/lib/document-tags";
-import type { RelatedDocument } from "@/lib/types";
+import type { ClientRelatedDocument } from "@/lib/answer-client-payload";
 
 export { StagedAnswerResultSurface } from "@/components/clinical-dashboard/answer-result-surface";
 
@@ -24,7 +25,7 @@ function relatedPageLabel(pages: number[]) {
   return `p.${valid[0]} +${valid.length - 1}`;
 }
 
-function relatedDocumentHref(document: RelatedDocument) {
+function relatedDocumentHref(document: ClientRelatedDocument) {
   const params = new URLSearchParams();
   params.set("page", String(document.best_pages[0] ?? 1));
   const chunkId = document.best_chunk_ids[0];
@@ -37,7 +38,7 @@ function RelatedDocumentCard({
   onScopeDocument,
   onTagSearch,
 }: {
-  document: RelatedDocument;
+  document: ClientRelatedDocument;
   onScopeDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag) => void;
 }) {
@@ -52,7 +53,7 @@ function RelatedDocumentCard({
   );
 
   return (
-    <article className={cn(sourceCard, "p-2.5 sm:p-3.5")}>
+    <article className={cn(sourceCard, "relative p-2.5 sm:p-3.5")}>
       <div className="flex items-start gap-2.5">
         <DocumentFileTile kind={documentFileKind(document.file_name)} compact />
         <div className="min-w-0 flex-1">
@@ -61,7 +62,10 @@ function RelatedDocumentCard({
           </p>
           <Link
             href={relatedDocumentHref(document)}
-            className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+            className={cn(
+              "mt-0.5 inline-flex min-h-tap items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              stretchedRowLinkClass,
+            )}
           >
             <span className="line-clamp-2">{title}</span>
           </Link>
@@ -70,7 +74,7 @@ function RelatedDocumentCard({
           type="button"
           onClick={() => onScopeDocument(document.document_id)}
           aria-label={`Scope search to ${title}`}
-          className={cn(floatingControl, "w-tap shrink-0 px-0 text-xs sm:w-auto sm:px-2.5")}
+          className={cn(floatingControl, "relative z-10 w-tap shrink-0 px-0 text-xs sm:w-auto sm:px-2.5")}
         >
           <Filter aria-hidden="true" className="h-4 w-4" />
           <span className="hidden sm:inline">Scope</span>
@@ -101,7 +105,13 @@ function RelatedDocumentCard({
         </p>
       ) : null}
 
-      <DocumentTagCloud labels={tagCloudLabels} limit={3} compact className="mt-2" onTagClick={onTagSearch} />
+      <DocumentTagCloud
+        labels={tagCloudLabels}
+        limit={3}
+        compact
+        className="relative z-10 mt-2"
+        onTagClick={onTagSearch}
+      />
     </article>
   );
 }
@@ -111,7 +121,7 @@ function RelatedDocumentsPanelImpl({
   onScopeDocument,
   onTagSearch,
 }: {
-  documents: RelatedDocument[];
+  documents: ClientRelatedDocument[];
   onScopeDocument: (documentId: string) => void;
   onTagSearch: (tag: SmartDocumentTag) => void;
 }) {

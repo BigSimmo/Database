@@ -269,7 +269,6 @@ export function LoadingPanel({ label, variant = "spinner", lines = 3, layout = "
           : `${insetCard} mt-3 grid min-h-28 place-items-center p-4 text-center text-sm font-semibold text-[color:var(--text-muted)]`,
       )}
       role="status"
-      aria-live="polite"
     >
       <div className={cn(layout === "centered" && "flex flex-col items-center gap-3")}>
         <Loader2

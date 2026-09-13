@@ -10,7 +10,7 @@
  * no `git rev-parse` lookup could ever match — so the throttle the ledger exists to
  * provide silently never fired.
  *
- *   node scripts/branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]
+ *   node scripts/branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json] [--verbose]
  *   node scripts/branch-review-ledger.mjs append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c>
  *   node scripts/branch-review-ledger.mjs migrate-legacy [--base <commit>] [--dry-run]
  *   node scripts/branch-review-ledger.mjs dedupe [--dry-run]
@@ -434,7 +434,7 @@ function resolveHead(value, { required = false } = {}) {
   return /^[0-9a-f]{40}$/i.test(cleaned) ? cleaned.toLowerCase() : cleaned;
 }
 
-const BOOLEAN_FLAGS = new Set(["json", "supersede", "dry-run"]);
+const BOOLEAN_FLAGS = new Set(["json", "supersede", "dry-run", "verbose"]);
 
 export function parseFlags(argv) {
   const flags = {};
@@ -471,11 +471,28 @@ function summarize(row) {
   return `  ${row.date}  ${row.head.replace(/`/g, "").slice(0, 12).padEnd(12)}  ${row.scope}\n      ${outcome}`;
 }
 
+/**
+ * The `files:` line of a lookup. Every immutable record is a source, so listing them
+ * put ~580 content-addressed paths on one ~60 KB line ahead of the verdict every time a
+ * reviewer ran the throttle check. Print counts by default; `--verbose` lists the paths.
+ *
+ * @param {string[]} sources
+ * @param {{ verbose?: boolean }} [options]
+ */
+export function lookupFilesLine(sources, { verbose = false } = {}) {
+  if (verbose) return `files: ${sources.join(", ")}`;
+  const records = sources.filter((source) => source.endsWith(RECORD_SUFFIX)).length;
+  const tables = sources.length - records;
+  return `files: ${tables} ledger table(s) + ${records} immutable record(s) (pass --verbose to list them)`;
+}
+
 function runLookup(_liveMarkdown, argv) {
   const { flags, positional } = parseFlags(argv);
   const ref = positional[0] ?? flags.ref;
   if (!ref || ref === true) {
-    console.error("usage: branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]");
+    console.error(
+      "usage: branch-review-ledger.mjs lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json] [--verbose]",
+    );
     process.exitCode = 2;
     return;
   }
@@ -493,7 +510,7 @@ function runLookup(_liveMarkdown, argv) {
   console.log(`ref:   ${ref}`);
   console.log(`head:  ${head}${/^[0-9a-f]{40}$/.test(head) ? "" : "  (not resolvable to a SHA here)"}`);
   if (scope) console.log(`scope: exact ${JSON.stringify(scope)}`);
-  console.log(`files: ${sources.join(", ")}`);
+  console.log(lookupFilesLine(sources, { verbose: flags.verbose === true }));
   console.log("");
 
   if (atHead.length > 0) {
@@ -955,7 +972,7 @@ function main() {
   if (command === "dedupe") return runDedupe(markdown, rest);
   if (command === "rotate") return runRotate(markdown, rest);
   console.error("usage: branch-review-ledger.mjs <lookup|append|migrate-legacy|dedupe|rotate|--self-test> [...]");
-  console.error("  lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json]");
+  console.error("  lookup <branch-or-ref> [--head <sha>] [--scope <text>] [--json] [--verbose]");
   console.error(
     "  append --ref <x> --head <sha> --scope <s> --outcome <o> --checks <c> [--date <YYYY-MM-DD>] [--supersede]",
   );

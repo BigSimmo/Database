@@ -149,7 +149,9 @@ describe("the name the message opens with is ASKED FOR, never split off the stor
     expect(detail?.preferredName).toBe("Jo");
     expect(detail?.patientName).toBe(TITLED);
 
-    const message = resolvePatientVisibleMessage(detail?.preferredName ?? null);
+    const message = resolvePatientVisibleMessage(detail?.preferredName ?? null, {
+      syntheticFictionalContactsAcknowledged: true as const,
+    });
     expect(message).toMatchObject({ ok: true });
     if (message.ok) {
       // Positive control FIRST: the name the clinician typed really is in the message, so the two
@@ -165,7 +167,7 @@ describe("the name the message opens with is ASKED FOR, never split off the stor
     // "helpfully" defaulting the empty preferred name to the first word of `patientName` would
     // greet this patient as "Mr".
     expect(createPlanPatientDetail({ ...COMPLETE, patientName: TITLED, preferredName: "" })).toBeNull();
-    expect(resolvePatientVisibleMessage(null)).toEqual({
+    expect(resolvePatientVisibleMessage(null, { syntheticFictionalContactsAcknowledged: true })).toEqual({
       ok: false,
       issue: { code: "preferred-name-not-recorded" },
     });

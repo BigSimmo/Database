@@ -5,6 +5,11 @@ import { describe, expect, it, vi } from "vitest";
 import { DsmSearchPage } from "@/components/dsm/dsm-search-page";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 
+// Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
+// it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
+vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => ({
+  UniversalSearchAlsoMatches: () => null,
+}));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(window.location.search),

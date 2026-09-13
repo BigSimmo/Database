@@ -18,6 +18,7 @@ import {
   panelSubtle,
   primaryControl,
 } from "@/components/ui-primitives";
+import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { MissingValue } from "@/components/ui/missing-value";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
@@ -270,7 +271,7 @@ export function FavouritesHub({
               aria-label="Choose favourite type"
             >
               <span className="grid h-7 w-7 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <SelectedTabIcon className="h-3.5 w-3.5" />
+                <SelectedTabIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="grid min-w-0 gap-0.5">
                 <span className="text-2xs font-bold uppercase leading-none tracking-eyebrow text-[color:var(--text-muted)]">
@@ -582,7 +583,7 @@ export function FavouritesHub({
 function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrowseSets: () => void }) {
   const Icon = item.icon;
   return (
-    <article className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
+    <article className="relative grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
       <span className={iconTilePremium}>
         <Icon aria-hidden="true" className="h-4 w-4" />
       </span>
@@ -597,17 +598,20 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
         </div>
       </div>
       <div className="hidden items-center gap-1.5 sm:flex">
-        <Link href={item.href} className={cn(floatingControl, "px-2.5 text-xs")}>
+        <Link href={item.href} className={cn(floatingControl, "px-2.5 text-xs", stretchedRowLinkClass)}>
           {item.primaryAction}
         </Link>
-        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "px-2.5 text-xs")}>
+        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "relative z-10 px-2.5 text-xs")}>
           <Folder aria-hidden="true" className="h-3.5 w-3.5" />
           Browse sets
         </button>
       </div>
       <Link
         href={item.href}
-        className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
+        className={cn(
+          "grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden",
+          stretchedRowLinkClass,
+        )}
         aria-label={`Open ${item.title}`}
       >
         <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4" />

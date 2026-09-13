@@ -30,7 +30,13 @@ shape, so there was nothing to add there. [[dev-drive-project-location]] separat
 of the repo's disk footprint — the same directory is the main _token_ risk for reads, not just disk space.
 
 **How to apply:** Follow this automatically in every Database repo session; it needs no action or approval from
-Josh each time. Do not shrink or restructure `AGENTS.md`/`CLAUDE.md` to save tokens even though they are large —
-that size is deliberate (shared safety/process rules read by five different AI tooling systems, per the file's
-own "AI tooling map"), and trimming it is a project decision for the team, not something to do unilaterally for
-token savings.
+Josh each time. Do not shrink `AGENTS.md`/`CLAUDE.md` by dropping or condensing rules to save tokens — those
+rules are shared safety and process contracts read by five different AI tooling systems (per the file's own "AI
+tooling map"), and cutting one is a project decision for the team, never something to do unilaterally for token
+savings.
+
+Their current shape is the result of one such project decision, taken deliberately in 2026-09: `AGENTS.md` is a
+small always-loaded core — the boundaries that prevent irreversible harm, plus the sections a gate parses by
+exact text — and an index. Every other rule keeps its heading there and its full text, verbatim, in a named file
+under `docs/agents/`. So a large `AGENTS.md` is no longer the expected state, and a rule that is not in the core
+has not been dropped; open the file the core names for it. Restoring the old single wall would undo that work.

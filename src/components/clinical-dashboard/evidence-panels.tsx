@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useId, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useCallback, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
@@ -25,6 +25,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 
+import { Sheet } from "@/components/ui/sheet";
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { ClinicalOutputPanel } from "@/components/clinical-dashboard/output-panel";
 import {
@@ -61,27 +62,27 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import type { AnswerState } from "@/components/ui/answer-state";
+import { answerUsesDegradedMode, type AnswerState } from "@/components/ui/answer-state";
 import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
   extractSafetyFindings,
   formatSafetyFindingLabel,
+  safetyFindingTone,
   sortSafetyFindingsBySeverity,
   type SafetyFinding,
   type SafetyFindingKind,
+  type SafetyFindingTone,
 } from "@/lib/clinical-safety";
 import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
-  AnswerSection,
-  BestSourceRecommendation,
-  EvidenceSummary,
-  QuoteCard,
-  RagAnswer,
-  SearchResult,
-  VisualEvidenceCard,
-} from "@/lib/types";
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
+import type { AnswerSection, EvidenceSummary, VisualEvidenceCard } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 import {
   type AnswerEvidenceMapRow,
@@ -132,8 +133,8 @@ type AnswerSupportPriority = {
  * treats as caution and which a clinician should verify for the same reason.
  */
 export function answerSupportPriority(
-  answer: RagAnswer,
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  answer: ClientRagAnswerPayload,
+  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
   table: VisualEvidenceCard | null,
   safetyFindings: ReturnType<typeof extractSafetyFindings>,
   options: { grounded: boolean; weakEvidence: boolean; answerState?: AnswerState | null },
@@ -150,7 +151,7 @@ export function answerSupportPriority(
 
   const degradedState = options.answerState != null && options.answerState.kind !== "ready";
 
-  if (answer.answerQualityTier === "source_only" || !options.grounded || options.weakEvidence || degradedState) {
+  if (answerUsesDegradedMode(answer) || !options.grounded || options.weakEvidence || degradedState) {
     return {
       title: "Review source match",
       detail:
@@ -192,6 +193,30 @@ export function AnswerUtilityActions({
   onSubmitFeedback?: (feedbackType: AnswerFeedbackType) => void;
 }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const feedbackTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeFeedback = useCallback(() => setFeedbackOpen(false), []);
+  /**
+   * Submitting closes the sheet, because the sheet is where the outcome is NOT.
+   *
+   * `ClinicalDashboard.submitAnswerFeedback` reports every outcome — success,
+   * network failure, an expired feedback token, and synthetic demo answers —
+   * through the page-level `actionNotice` alone, which renders outside this
+   * portaled modal. While the sheet is open that notice is behind the backdrop
+   * and the page under it is inert, so the reader sees a tap that did nothing.
+   * The demo and expired-token paths are the worst of it: both return before
+   * `pendingFeedback` is ever set, so there is not even a spinner to explain the
+   * silence.
+   *
+   * This did not arise until the list became a modal (2026-09-02). As an in-flow
+   * disclosure the notice was simply visible above it, so nothing had to close.
+   */
+  const submitFeedbackAndClose = useCallback(
+    (feedbackType: AnswerFeedbackType) => {
+      onSubmitFeedback?.(feedbackType);
+      setFeedbackOpen(false);
+    },
+    [onSubmitFeedback],
+  );
   return (
     <section className="max-w-[68ch]" aria-label="Answer utilities">
       {/* Copy sits left; the two verdict controls sit right, as the approved
@@ -231,11 +256,13 @@ export function AnswerUtilityActions({
                 negative, because an unlabelled negative tells a reviewer
                 nothing about which claim failed. */}
             <button
+              ref={feedbackTriggerRef}
               id="answer-feedback-trigger"
               data-testid="answer-feedback-trigger"
               type="button"
               onClick={() => setFeedbackOpen((current) => !current)}
               className={cn(chatMicroAction, "min-w-12 justify-center px-2")}
+              aria-haspopup="dialog"
               aria-expanded={feedbackOpen}
               aria-controls={feedbackOpen ? "answer-feedback-detail" : undefined}
               aria-label="Report a problem with this answer"
@@ -245,10 +272,50 @@ export function AnswerUtilityActions({
           </span>
         ) : null}
       </div>
-      {onSubmitFeedback && feedbackOpen ? (
-        <div id="answer-feedback-detail" className="px-2 pb-2">
-          <AnswerFeedbackPanel pending={pendingFeedback} onSubmit={onSubmitFeedback} tone="problems" />
-        </div>
+      {/* A Sheet, not an in-flow disclosure. As a disclosure this opened partly
+          behind the fixed phone composer, and it could not scroll itself clear:
+          every scripted scroll that would do it is a DOWNWARD scroll, downward
+          scroll is what hides the phone chrome, and closing the panel then
+          shrank the page back to the top without the upward travel that reveals
+          the chrome again — so the composer stayed gone. `ui-smoke`'s critical
+          answer journey caught exactly that, twice. The options were reachable
+          by scrolling (measured 390x844: the last one cleared the composer by
+          180px at full scroll), so the defect was never reachability — it was
+          that the list LOOKED complete when it was not.
+
+          A sheet answers both at once: it owns its own scrollport above the
+          composer, so nothing is clipped and no page scroll is needed, and it is
+          the same overlay the safety-findings control beside it already opens.
+          `mobilePlacement` defaults to "bottom", so this rises from the bottom
+          on a phone and is a centred dialog from `sm:` up. */}
+      {onSubmitFeedback ? (
+        <Sheet
+          id="answer-feedback-detail"
+          open={feedbackOpen}
+          onClose={closeFeedback}
+          returnFocusRef={feedbackTriggerRef}
+          title={answerFeedbackQuestion.problems.title}
+          description={answerFeedbackQuestion.problems.description}
+          closeLabel="Close report a problem"
+          testId="answer-feedback-sheet"
+          headerLeading={
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)]">
+              <ThumbsDown aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+          }
+          headerClassName="gap-2 p-2.5 sm:p-3"
+          titleClassName="text-base-minus leading-5"
+          contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
+        >
+          {/* The sheet header already asks the question, so the panel does not
+              ask it again. */}
+          <AnswerFeedbackPanel
+            pending={pendingFeedback}
+            onSubmit={submitFeedbackAndClose}
+            tone="problems"
+            chrome="bare"
+          />
+        </Sheet>
       ) : null}
     </section>
   );
@@ -361,7 +428,7 @@ type ClinicalNotesRow = {
 function clinicalNoteHref(
   sourceIndex: number,
   sourceLinks: SourceLink[],
-  bestSource: BestSourceRecommendation | null,
+  bestSource: ClientBestSourceRecommendation | null,
 ): string | undefined {
   return sourceLinks[sourceIndex - 1]?.href ?? sourceLinks[0]?.href ?? bestSource?.viewer_href ?? undefined;
 }
@@ -547,17 +614,15 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   return Boolean(detail) && detail !== title;
 }
 
-function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
-  return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
+function clinicalNotesTableEvidenceCount(answer: ClientRagAnswerPayload) {
+  return (answer.visualEvidence ?? []).filter((item) => item.accessibleTableMarkdown || item.tableRows?.length).length;
 }
 
 function clinicalNotesRowsForTab(
   sections: ClinicalDetailSection[],
   tab: ClinicalNotesTabId,
   sourceLinks: SourceLink[] = [],
-  bestSource: BestSourceRecommendation | null = null,
+  bestSource: ClientBestSourceRecommendation | null = null,
 ) {
   const meta = clinicalNotesTabMeta[tab];
   const rows: ClinicalNotesRow[] = [];
@@ -630,14 +695,13 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
  * evidence is passed separately).
  */
 export function trustGatedAnswerForClinicalNotes(
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
-): RagAnswer {
+): ClientRagAnswerPayload {
   if (isAnswerSourceBacked(answer)) {
     return {
       ...answer,
       visualEvidence,
-      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
     };
   }
   // Clear free-text answer too: labeled Action/Monitoring prose can rebuild
@@ -651,7 +715,6 @@ export function trustGatedAnswerForClinicalNotes(
     comparisonMatrix: undefined,
     comparisonEvaluationState: undefined,
     visualEvidence,
-    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
   };
 }
 
@@ -662,11 +725,11 @@ export function trustGatedAnswerForClinicalNotes(
  * @param viewMode - Selects the standard or high-yield section set.
  * @returns The sorted clinical detail sections with display-ready items.
  */
-function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
+function clinicalNotesDetailSectionsForAnswer(answer: ClientRagAnswerPayload, viewMode: AnswerViewMode) {
   const sections =
     viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
   const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
-  const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
+  const keepVerifySource = answerUsesDegradedMode(answer) || answer.grounded === false;
   return sortClinicalDetailSections(
     sections
       .filter((section) => (keepVerifySource || section.id !== "verify-source") && section.id !== "bottom-line")
@@ -678,7 +741,11 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
   );
 }
 
-export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
+export function clinicalNotesDisplayCountForAnswer(
+  answer: ClientRagAnswerPayload,
+  viewMode: AnswerViewMode,
+  fallback: number,
+) {
   const tabs = clinicalNotesAvailableTabs(
     clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
   );
@@ -697,12 +764,12 @@ export function ClinicalNotesChecklistPanel({
   onCopy,
   onOpenTables,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload;
   visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   copied: boolean;
   onCopy: () => void;
   onOpenTables?: () => void;
@@ -844,7 +911,7 @@ export function ClinicalNotesChecklistPanel({
                 )}
                 aria-hidden="true"
               >
-                <RowIcon className="h-4 w-4" />
+                <RowIcon aria-hidden="true" className="h-4 w-4" />
               </span>
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -953,16 +1020,28 @@ export function ClinicalNotesChecklistPanel({
   );
 }
 
-function safetyFindingKindTone(kind: SafetyFindingKind) {
-  return kind === "contraindication" || kind === "red_flag" ? toneDanger : toneWarning;
+function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
+  // Sized to the eyebrow beside it rather than to the old icon cell: at h-5 the
+  // glyph outweighed the label it now sits next to.
+  if (safetyFindingTone(kind) === "stop") {
+    return <ShieldAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
+  }
+  return <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0" />;
 }
 
-function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
-  if (kind === "contraindication" || kind === "red_flag") {
-    return <ShieldAlert aria-hidden="true" className="h-5 w-5" />;
-  }
-  return <CircleAlert aria-hidden="true" className="h-5 w-5" />;
-}
+/**
+ * The accent for a finding's tone.
+ *
+ * `know` is deliberately the muted text colour rather than a status colour:
+ * `docs/design-system/TOKENS.md` reserves `--danger` and `--warning` for
+ * sanctioned urgency, and an answer where routine monitoring is painted amber
+ * is one where the amber has stopped meaning anything.
+ */
+const safetyToneAccent: Record<SafetyFindingTone, string> = {
+  stop: "text-[color:var(--danger)]",
+  act: "text-[color:var(--warning)]",
+  know: "text-[color:var(--text-muted)]",
+};
 
 // Issue 9: governance provenance retained on safety-finding citations lets the safety
 // panel badge sources that are outdated, due for review, or not locally validated —
@@ -981,6 +1060,19 @@ function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): str
   return labels;
 }
 
+/**
+ * The safety findings list, as read on a phone.
+ *
+ * The row used to lead with three stacked pills — a kind pill, the source link,
+ * then a governance pill — which at 390px wrapped to three lines and put ~110px
+ * of chrome above the first word of the finding. The clinician is here for the
+ * finding, so the order is now: what kind of finding, then the finding, then
+ * where it came from.
+ *
+ * The kind is drawn as an eyebrow beside its icon rather than as a pill: the
+ * icon and the pill were saying the same thing twice, and one line of them fits
+ * the governance chip alongside instead of below.
+ */
 export function SafetyFindingsListContent({ findings, query }: { findings: SafetyFinding[]; query?: string }) {
   if (findings.length === 0) return null;
 
@@ -994,58 +1086,74 @@ export function SafetyFindingsListContent({ findings, query }: { findings: Safet
       // them. Inert outside a flex container.
       className="shrink-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]"
     >
-      {sortedFindings.map((finding, index) => (
-        <article
-          key={`${finding.id}:${finding.href}:${index}`}
-          data-testid="safety-finding-row"
-          className="grid min-h-[70px] grid-cols-[auto_minmax(0,1fr)] items-start gap-3 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0"
-        >
-          <span
+      {sortedFindings.map((finding, index) => {
+        const tone = safetyFindingTone(finding.kind);
+        const accent = safetyToneAccent[tone];
+        return (
+          <article
+            key={`${finding.id}:${finding.href}:${index}`}
+            data-testid="safety-finding-row"
+            data-tone={tone}
+            // A 2px rule in the finding's own tone, so the list reads as a
+            // gradient from stop to know while sorted by severity. The rule is
+            // never the only carrier of that state — the eyebrow beside it names
+            // the kind in words.
             className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-md",
-              finding.kind === "contraindication" || finding.kind === "red_flag"
-                ? "text-[color:var(--danger)]"
-                : "text-[color:var(--warning)]",
+              "grid gap-1.5 border-b border-l-2 border-[color:var(--border)] px-3 py-3 last:border-b-0",
+              tone === "stop"
+                ? "border-l-[color:var(--danger)]"
+                : tone === "act"
+                  ? "border-l-[color:var(--warning)]"
+                  : "border-l-[color:var(--border-strong)]",
             )}
-            aria-hidden="true"
           >
-            <SafetyFindingRowIcon kind={finding.kind} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", safetyFindingKindTone(finding.kind))}>
-                {finding.label}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className={cn("inline-flex min-w-0 items-center gap-1.5", accent)}>
+                <SafetyFindingRowIcon kind={finding.kind} />
+                <span className="truncate text-3xs font-semibold uppercase tracking-eyebrow">{finding.label}</span>
               </span>
-              <Link
-                href={finding.href}
-                onClick={() => query && logCitationOpen(query, finding.citation)}
-                className="inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
-                aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
-              >
-                <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
-                <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-              </Link>
-              {safetyFindingGovernanceLabels(finding.citation).map((label) => (
-                <span
-                  key={label}
-                  data-testid="safety-finding-governance"
-                  className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneWarning)}
-                >
-                  {label}
-                </span>
-              ))}
+              {/* One `ms-auto` on the group, not on each chip. A citation can
+                  carry two governance labels — a currency label and "not locally
+                  validated" — and an auto margin on both splits the free space
+                  between them, so neither ends up flush right. */}
+              <span className="ms-auto flex items-center gap-2">
+                {safetyFindingGovernanceLabels(finding.citation).map((label) => (
+                  <span
+                    key={label}
+                    data-testid="safety-finding-governance"
+                    // Scaled to the severity eyebrow beside it rather than above
+                    // it: at text-2xs the governance chip was the largest thing
+                    // in the row, so "Not locally validated" read as louder than
+                    // "Red flag".
+                    className={cn(subtleStatusPill, "min-h-6 px-2 text-3xs", toneWarning)}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </span>
             </div>
-            <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
-          </div>
-        </article>
-      ))}
+            <p className="text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
+            <Link
+              href={finding.href}
+              onClick={() => query && logCitationOpen(query, finding.citation)}
+              // `-mb-1.5` trims the row's own bottom padding back, so a full tap
+              // target does not read as a gap under the last finding.
+              className="-mb-1.5 inline-flex min-h-tap min-w-0 items-center gap-1 text-xs font-semibold text-[color:var(--primary)] transition hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-compact-meta"
+              aria-label={`Open source ${formatSafetyFindingLabel(finding)}`}
+            >
+              <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
+              <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+            </Link>
+          </article>
+        );
+      })}
     </div>
   );
 }
 
 export function compactEvidenceSummary(
-  answer: RagAnswer,
-  sources: SearchResult[],
+  answer: ClientRagAnswerPayload,
+  sources: ClientSearchResult[],
   sourceSummary?: EvidenceSummary,
   renderModel?: AnswerRenderModel,
 ) {
@@ -1082,7 +1190,7 @@ function renderModelAllows(renderModel: AnswerRenderModel, block: AnswerRenderMo
   return renderModel.allowedBlocks.includes(block);
 }
 
-export function evidenceTabOrder(_answer: RagAnswer, renderModel: AnswerRenderModel): EvidenceTabName[] {
+export function evidenceTabOrder(_answer: ClientRagAnswerPayload, renderModel: AnswerRenderModel): EvidenceTabName[] {
   const order: EvidenceTabName[] = ["Claims", "Quotes", "Tables", "Images", "Gaps"];
   return order.filter((tab) => {
     if (tab === "Tables") {
@@ -1106,7 +1214,7 @@ export function evidenceTabCount({
   renderModel,
 }: {
   tab: EvidenceTabName;
-  sources: SearchResult[];
+  sources: ClientSearchResult[];
   visualEvidence: VisualEvidenceCard[];
   answerEvidenceMapRows: AnswerEvidenceMapRow[];
   renderModel: AnswerRenderModel;
@@ -1126,13 +1234,13 @@ export function evidenceTabCount({
   return renderModel.warnings.length;
 }
 
-export function clinicalNotesCount(answer: RagAnswer) {
+export function clinicalNotesCount(answer: ClientRagAnswerPayload) {
   return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }
 
-export function answerHasCentralTable(answer: RagAnswer) {
+export function answerHasCentralTable(answer: ClientRagAnswerPayload) {
   return (
     answer.queryClass === "table_threshold" ||
     answer.responseMode === "threshold_table" ||
@@ -1140,7 +1248,7 @@ export function answerHasCentralTable(answer: RagAnswer) {
   );
 }
 
-export function primaryVisualTable(answer: RagAnswer) {
+export function primaryVisualTable(answer: ClientRagAnswerPayload) {
   return answer.visualEvidence?.find((item) => item.accessibleTableMarkdown || item.tableRows?.length) ?? null;
 }
 
@@ -1167,10 +1275,25 @@ function feedbackToneClass(tone: "success" | "warning" | "danger" | "neutral") {
   return toneNeutral;
 }
 
+/** The question the panel asks, so a Sheet header can ask it instead. */
+export const answerFeedbackQuestion = {
+  problems: {
+    title: "What is wrong with this answer?",
+    description:
+      "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer.",
+  },
+  full: {
+    title: "Is the answer supported?",
+    description:
+      "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer.",
+  },
+} as const;
+
 export function AnswerFeedbackPanel({
   pending,
   onSubmit,
   tone = "full",
+  chrome = "card",
 }: {
   pending: AnswerFeedbackType | null;
   onSubmit: (feedbackType: AnswerFeedbackType) => void;
@@ -1181,29 +1304,36 @@ export function AnswerFeedbackPanel({
    * mis-click waiting to record the opposite of what they meant.
    */
   tone?: "full" | "problems";
+  /**
+   * `"bare"` drops the card's own border and its heading pair for a host that
+   * already carries them — the Sheet the answer surface opens, whose title and
+   * description ARE `answerFeedbackQuestion`. Asking the same question twice,
+   * once in the sheet header and again three lines below it, is the duplication
+   * this exists to avoid.
+   */
+  chrome?: "card" | "bare";
 }) {
   const problemsOnly = tone === "problems";
+  const bare = chrome === "bare";
   const options = problemsOnly
     ? answerFeedbackOptions.filter((item) => item.tone !== "success")
     : answerFeedbackOptions;
+  const question = answerFeedbackQuestion[problemsOnly ? "problems" : "full"];
   return (
     <section
       data-testid="answer-review-panel"
       data-tone={tone}
-      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3"
+      data-chrome={chrome}
+      className={cn(!bare && "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3")}
       aria-label={problemsOnly ? "Report a problem" : "Answer review"}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-[color:var(--text)]">
-            {problemsOnly ? "What is wrong with this answer?" : "Is the answer supported?"}
-          </p>
-          <p className={cn("mt-1 text-xs leading-5", textMuted)}>
-            {problemsOnly
-              ? "Name the fault so a reviewer can find it. This sends feedback for review; it does not change the answer."
-              : "Record whether the linked evidence supports the answer. This sends feedback for review; it does not change the answer."}
-          </p>
-        </div>
+        {bare ? null : (
+          <div>
+            <p className="text-sm font-semibold text-[color:var(--text)]">{question.title}</p>
+            <p className={cn("mt-1 text-xs leading-5", textMuted)}>{question.description}</p>
+          </div>
+        )}
         {pending ? (
           <span className={metadataPillDensity.dense}>
             <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
@@ -1211,7 +1341,7 @@ export function AnswerFeedbackPanel({
           </span>
         ) : null}
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+      <div className={cn("grid grid-cols-2 gap-2 sm:flex sm:flex-wrap", bare ? "mt-0" : "mt-3")}>
         {options.map((item) => {
           const Icon = item.icon;
           return (
@@ -1246,13 +1376,12 @@ export { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 export function AnswerSafetyNotice({
   demoMode,
   weakEvidence = false,
-  retrievalDiagnostics,
+  retrievalGateBlocked = false,
 }: {
   demoMode: boolean;
   weakEvidence?: boolean;
-  retrievalDiagnostics?: RagAnswer["retrievalDiagnostics"];
+  retrievalGateBlocked?: boolean;
 }) {
-  const retrievalGateBlocked = retrievalDiagnostics?.gateStatus === "blocked";
   return (
     <div
       data-testid="answer-safety-notice"
@@ -1288,10 +1417,10 @@ export function QuoteCards({
   onScopeDocument,
   query,
 }: {
-  quotes: QuoteCard[];
+  quotes: ClientQuoteCard[];
   copiedQuotes: boolean;
   onCopyQuotes: () => void;
-  onFollowUp?: (quote: QuoteCard) => void;
+  onFollowUp?: (quote: ClientQuoteCard) => void;
   onScopeDocument: (documentId: string) => void;
   query?: string;
 }) {
@@ -1367,7 +1496,7 @@ export function QuoteCards({
   );
 }
 
-export function formatQuoteCardsForClipboard(quotes: QuoteCard[]) {
+export function formatQuoteCardsForClipboard(quotes: ClientQuoteCard[]) {
   return quotes
     .map((quote, index) =>
       [

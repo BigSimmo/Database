@@ -212,6 +212,15 @@ Following a Supabase database restore or disaster recovery failover, verify all 
 
 ## Standing guardrails
 
+- **Anonymous provider spend is capped, not merely alerted (L42).** `SPEND_ALERT_DAILY_USD`
+  only raises an alert. The enforced ceiling is in `src/lib/api-rate-limit.ts`, beside the
+  per-caller rate-limit tables: **300 anonymous provider-backed generation requests per hour**,
+  counted in one shared bucket across `answer`, `clinical_ask`, `speech_transcription` and
+  anonymous document summaries, on top of the existing per-caller and per-bucket limits. Over
+  the ceiling the API returns `429` with code `anonymous_generation_ceiling` (distinct from the
+  ordinary `rate_limited`) and the message tells the caller to sign in. Authenticated callers
+  are unaffected. Raising the number raises the maximum unauthenticated OpenAI bill, so treat
+  it as a spend decision.
 - Never raw-SQL against live — committed migration + `schema.sql` reconciliation only.
 - Never redeploy a worker image that expects the hardened completion RPC until `20260708130000` is confirmed live.
 - Any retrieval/ranking change re-runs `eval:retrieval:quality` 36/36 before it ships.

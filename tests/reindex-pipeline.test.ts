@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   abandonedReindexGenerationTotal,
+  assertDocumentGenerationPromotionIdentity,
   committedIndexGeneration,
   hasAbandonedReindexGenerations,
   imageRowNeedsGenerationRestamp,
@@ -77,12 +78,30 @@ describe("reindex pipeline queue state", () => {
         committedGeneration: "generation-a",
       }),
     ).toBe(true);
+    // Audit L11: fail CLOSED when the document carries no committed generation,
+    // exactly like the SQL predicate. `is_committed_document_generation` compares
+    // `row_generation = document_generation`; with a NULL document generation that
+    // yields NULL, so search_document_chunks excludes the row. The TS predicate
+    // used to return true here, which let the document viewer interleave staged,
+    // uncommitted rows with the live ones during the first atomic reindex of a
+    // legacy (never-stamped) document — duplicate evidence on screen that search
+    // would never return.
     expect(
       isCommittedGenerationMetadata({
         rowMetadata: { index_generation_id: "legacy-generation" },
         committedGeneration: null,
       }),
-    ).toBe(true);
+    ).toBe(false);
+    expect(
+      isCommittedGenerationMetadata({
+        rowMetadata: { index_generation_id: "legacy-generation" },
+        committedGeneration: undefined,
+      }),
+    ).toBe(false);
+    // A row with no generation of its own stays visible either way: the SQL's
+    // `row_generation is null` arm is unconditional.
+    expect(isCommittedGenerationMetadata({ rowMetadata: {}, committedGeneration: null })).toBe(true);
+    expect(isCommittedGenerationMetadata({ rowMetadata: undefined, committedGeneration: null })).toBe(true);
   });
 
   it("identifies image rows that still need typed generation columns populated", () => {
@@ -140,5 +159,27 @@ describe("reindex pipeline queue state", () => {
     ).toBe(3);
     expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 0 })).toBe(false);
     expect(hasAbandonedReindexGenerations({ document_chunks: 0, document_images: 1 })).toBe(true);
+  });
+
+  it("requires an immutable previous-generation pointer for document promotion receipts", () => {
+    const identity = {
+      kind: "document_generation" as const,
+      documentId: "document-42",
+      generationId: "generation-current",
+      generationDigest: "a".repeat(64),
+      previousGenerationId: "generation-previous",
+      previousGenerationDigest: "b".repeat(64),
+    };
+
+    expect(assertDocumentGenerationPromotionIdentity(identity)).toBe(identity);
+    expect(() => assertDocumentGenerationPromotionIdentity({ ...identity, previousGenerationId: undefined })).toThrow(
+      /previousGenerationId/,
+    );
+    expect(() =>
+      assertDocumentGenerationPromotionIdentity({ ...identity, generationId: "generation-previous" }),
+    ).toThrow(/distinct/i);
+    expect(() => assertDocumentGenerationPromotionIdentity({ ...identity, siteReleaseId: "wrong-domain" })).toThrow(
+      /unsupported fields/i,
+    );
   });
 });

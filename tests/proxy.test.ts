@@ -1,7 +1,16 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
 import { env } from "@/lib/env";
+import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
+import {
+  DEVELOPER_ACCESS_COOKIE,
+  DEVELOPER_ACCESS_QUERY_PARAM,
+  developerAccessTokenValid,
+  issueDeveloperAccessToken,
+} from "@/lib/developer-area/link-access";
 import * as ssr from "@supabase/ssr";
 import { vi } from "vitest";
 
@@ -27,6 +36,12 @@ type ProxyCookieOptions = {
 
 function requestFor(path = "/"): NextRequest {
   return new NextRequest(new URL(`http://localhost${path}`));
+}
+
+function requestWithCookie(path: string, name: string, value: string): NextRequest {
+  return new NextRequest(new URL(`http://localhost${path}`), {
+    headers: { cookie: `${name}=${value}` },
+  });
 }
 
 function scriptSrcOf(csp: string): string {
@@ -61,7 +76,10 @@ describe("proxy content-security-policy", () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("img-src 'self' data: blob: https://*.supabase.co;");
-    expect(csp).toContain("connect-src 'self' https://*.supabase.co https://*.ingest.sentry.io");
+    // No browser Sentry SDK exists, so connect-src carries no third-party telemetry
+    // origin (2026-09-02 audit, L34).
+    expect(csp).toContain("connect-src 'self' https://*.supabase.co;");
+    expect(csp).not.toContain("sentry.io");
     // OpenAI calls are server-side only; the browser must not be allowed to
     // reach the provider origin (2026-07-13 audit, finding 12).
     expect(csp).not.toContain("api.openai.com");
@@ -192,6 +210,16 @@ describe("production mockup boundary", () => {
     expect(shouldBlockProductionMockups("/mockups/development-notes", { NODE_ENV: "production" })).toBe(true);
     expect(shouldBlockProductionMockups("/mockups/caring-contacts-archive", { NODE_ENV: "production" })).toBe(true);
   });
+
+  // #L69: ward-flow is the fourth entry in DEVELOPER_GATED_PATH_PREFIXES but had
+  // no coverage here at all (only development, caring-contacts and care-plan
+  // did) — a dropped prefix would fail closed (404), but nothing would catch it.
+  it("lets the Ward Flow subtree through the blanket block, and keeps a look-alike prefix blocked", () => {
+    for (const path of ["/mockups/ward-flow", "/mockups/ward-flow/constellation"]) {
+      expect(shouldBlockProductionMockups(path, { NODE_ENV: "production" }), path).toBe(false);
+    }
+    expect(shouldBlockProductionMockups("/mockups/ward-flow-archive", { NODE_ENV: "production" })).toBe(true);
+  });
 });
 
 describe("developer-area header (x-developer-area)", () => {
@@ -228,6 +256,22 @@ describe("developer-area header (x-developer-area)", () => {
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area")).toBeNull();
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
   });
+
+  // #L69: the test above only ever exercised /mockups/development and
+  // /mockups/care-plan/**, so a regression that dropped /mockups/caring-contacts
+  // or /mockups/ward-flow from DEVELOPER_GATED_PATH_PREFIXES would fail closed
+  // (a bare 404 via the blanket production block) rather than open — safe, but
+  // silent, and a reviewer counting "two subtrees" from the test names alone
+  // would not know to look for the other two. Iterates the constant itself so
+  // this cannot silently narrow again the way the two prefixes above did.
+  it("sets the header for every prefix in DEVELOPER_GATED_PATH_PREFIXES, not only the two the case above names", async () => {
+    for (const prefix of DEVELOPER_GATED_PATH_PREFIXES) {
+      const deepPath = `${prefix}/deep/path`;
+      const response = await proxy(requestFor(deepPath));
+      expect(response.headers.get("x-middleware-request-x-developer-area"), deepPath).toBe("1");
+      expect(response.headers.get("x-middleware-request-x-developer-area-path"), deepPath).toBe(deepPath);
+    }
+  });
 });
 
 describe("static compatibility redirects", () => {
@@ -236,6 +280,30 @@ describe("static compatibility redirects", () => {
     expect(response.status).toBe(307);
     const location = new URL(response.headers.get("location")!);
     expect(location.pathname).toBe("/mockups/ward-flow/network");
+  });
+
+  it("exchanges a developer key before redirecting a retired gated path", async () => {
+    const key = "developer-area-test-key".padEnd(32, "-");
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    process.env.DEVELOPER_AREA_ACCESS_KEY = key;
+    try {
+      const response = await proxy(
+        requestFor(`/mockups/ward-flow/constellation?${DEVELOPER_ACCESS_QUERY_PARAM}=${key}&view=network`),
+      );
+
+      const location = response.headers.get("location");
+      expect(location).toBeTruthy();
+      expect(location).toContain("/mockups/ward-flow/network");
+      expect(location).toContain("view=network");
+      expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
+      expect(location).not.toContain(key);
+      expect(response.headers.getSetCookie().some((cookie) => cookie.startsWith(`${DEVELOPER_ACCESS_COOKIE}=`))).toBe(
+        true,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+      else process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    }
   });
 });
 
@@ -266,6 +334,42 @@ describe("document-source fallback redirects", () => {
   });
 });
 
+describe("medications redirect", () => {
+  it("forwards focus and scope context on an unsubmitted draft link instead of dropping them", async () => {
+    // Regression: the unsubmitted branch of medicationsHomeTarget() once called
+    // appModeSelectionHref("prescribing") with no options, silently erasing every
+    // incoming param (the PWA manifest shortcut's ?focus=1, a draft ?q=...
+    // &queryMode=... link) on the way to /?mode=prescribing.
+    const response = await proxy(requestFor("/medications?focus=1&q=lithium&queryMode=compare_guidance"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.searchParams.get("mode")).toBe("prescribing");
+    expect(location.searchParams.get("focus")).toBe("1");
+    expect(location.searchParams.get("q")).toBe("lithium");
+    expect(location.searchParams.get("queryMode")).toBe("compare_guidance");
+    expect(location.searchParams.get("run")).toBeNull();
+  });
+
+  it("still redirects a bare, param-free visit to the plain shared home", async () => {
+    const response = await proxy(requestFor("/medications"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.search).toBe("?mode=prescribing");
+  });
+
+  it("still resolves a submitted search straight to the dashboard-owned results surface", async () => {
+    const response = await proxy(requestFor("/medications?q=lithium&run=1"));
+    expect(response.status).toBe(307);
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/");
+    expect(location.searchParams.get("mode")).toBe("prescribing");
+    expect(location.searchParams.get("q")).toBe("lithium");
+    expect(location.searchParams.get("run")).toBe("1");
+  });
+});
+
 describe("cross-site mutation blocking", () => {
   it("blocks cross-site POST requests to API routes with 403", async () => {
     const request = new NextRequest(new URL("http://localhost/api/documents"), {
@@ -285,5 +389,165 @@ describe("cross-site mutation blocking", () => {
     });
     const response = await proxy(request);
     expect(response.status).not.toBe(403);
+  });
+});
+
+describe("API CSRF guard beyond Sec-Fetch-Site: cross-site (L28)", () => {
+  function mutation(headers: Record<string, string>) {
+    return new NextRequest(new URL("http://localhost/api/documents"), { method: "POST", headers });
+  }
+
+  it("blocks a same-site request whose Origin is a sibling subdomain", async () => {
+    const response = await proxy(mutation({ "sec-fetch-site": "same-site", origin: "http://evil.localhost" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata whose Origin does not match the request host", async () => {
+    const response = await proxy(mutation({ origin: "https://attacker.example" }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("cross_site_forbidden");
+  });
+
+  it("blocks a request without Fetch Metadata or Origin whose Referer is another host", async () => {
+    const response = await proxy(mutation({ referer: "https://attacker.example/form" }));
+    expect(response.status).toBe(403);
+  });
+
+  it("allows a request without Fetch Metadata whose Origin matches the request host", async () => {
+    const response = await proxy(mutation({ origin: "http://localhost" }));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("allows a non-browser client that sends neither Fetch Metadata, Origin nor Referer", async () => {
+    const response = await proxy(mutation({}));
+    expect(response.status).not.toBe(403);
+  });
+
+  it("does not apply the Origin check to webhook routes", async () => {
+    const request = new NextRequest(new URL("http://localhost/api/webhooks/supabase"), {
+      method: "POST",
+      headers: { origin: "https://attacker.example" },
+    });
+    const response = await proxy(request);
+    expect(response.status).not.toBe(403);
+  });
+});
+
+// The developer-gated area grew from two prefixes to four, and three comments went on
+// describing "the two prototypes" / "the two developer-gated subtrees" — under-describing
+// the authorization surface on the files that implement it (2026-09-02 audit, L76/L82).
+// The durable fix is that a comment names the constant instead of counting, so this guard
+// checks the naming rather than any particular wording.
+describe("developer-gated area comments name the constant instead of counting (L76/L82)", () => {
+  const commented = ["src/proxy.ts", "src/app/mockups/layout.tsx"] as const;
+
+  it("points every gated-area comment at DEVELOPER_GATED_PATH_PREFIXES", () => {
+    for (const relativePath of commented) {
+      const source = readFileSync(resolve(process.cwd(), relativePath), "utf8");
+      expect(source).toContain("DEVELOPER_GATED_PATH_PREFIXES");
+      // Any wording that fixes the number is what went stale before.
+      expect(source).not.toMatch(/\btwo (?:prototypes|developer-gated|subtrees)/i);
+      expect(source).not.toMatch(/\bthe two (?:subtrees|prefixes)\b/i);
+    }
+  });
+});
+
+describe("passwordless developer-area access (?devkey)", () => {
+  // src/proxy.ts owns the exchange: the URL secret goes in, a signed cookie
+  // comes back, and the key is stripped from the address bar by a redirect.
+  // This is a production credential on psychiatry.tools, so the assertions below
+  // are written around the ways it could fail OPEN or leak the key onward.
+  // Built from readable words rather than written as a 32-character random-looking
+  // literal. A high-entropy string assigned to a name like KEY is exactly what the
+  // Gitleaks `generic-api-key` rule is for, and it fired on this file's first
+  // version (secret-scan, run 34232733033). The value only has to be a key of
+  // sufficient length -- nothing here depends on it looking random -- so the fix
+  // is to stop it resembling a credential, never to allowlist the finding.
+  const KEY = "developer-area-test-key".padEnd(32, "-");
+
+  function withKey<T>(run: () => Promise<T>): Promise<T> {
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    process.env.DEVELOPER_AREA_ACCESS_KEY = KEY;
+    return run().finally(() => {
+      if (previous === undefined) delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+      else process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    });
+  }
+
+  function accessCookie(response: Response) {
+    return response.headers.getSetCookie().find((cookie) => cookie.startsWith(`${DEVELOPER_ACCESS_COOKIE}=`));
+  }
+
+  it("exchanges a correct key for a signed cookie and redirects the key out of the URL", async () => {
+    await withKey(async () => {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+
+      const location = response.headers.get("location");
+      expect(location).toBeTruthy();
+      // The whole point of the redirect: the secret must not survive into the
+      // address bar, the shared history entry, or an onward Referer header.
+      expect(location).not.toContain(KEY);
+      expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
+
+      const cookie = accessCookie(response);
+      expect(cookie).toBeTruthy();
+      expect(cookie).toContain("HttpOnly");
+      expect(cookie).toContain("SameSite=lax");
+      // The cookie is never sent on a clinical request.
+      expect(cookie).toContain("Path=/mockups");
+      // And it carries a signature, not the key.
+      expect(cookie).not.toContain(KEY);
+
+      const token = cookie!.slice(cookie!.indexOf("=") + 1).split(";")[0];
+      expect(developerAccessTokenValid(token, { DEVELOPER_AREA_ACCESS_KEY: KEY })).toBe(true);
+    });
+  });
+
+  it("issues no cookie for a wrong key, but still strips it from the URL", async () => {
+    await withKey(async () => {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=wrong-guess`));
+
+      expect(accessCookie(response)).toBeUndefined();
+      // Stripped anyway, so a failed guess cannot ride the DEVELOPER_AREA_PATH
+      // header into the sign-in screen's `next` value.
+      expect(response.headers.get("location")).not.toContain("wrong-guess");
+    });
+  });
+
+  it("issues no cookie when the deployment has no key configured", async () => {
+    const previous = process.env.DEVELOPER_AREA_ACCESS_KEY;
+    delete process.env.DEVELOPER_AREA_ACCESS_KEY;
+    try {
+      const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+      expect(accessCookie(response)).toBeUndefined();
+    } finally {
+      if (previous !== undefined) process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
+    }
+  });
+
+  it("ignores the parameter outside the developer-gated prefixes", async () => {
+    await withKey(async () => {
+      // A look-alike path and an ordinary clinical path must not be able to mint
+      // this cookie -- only the subtrees the gate actually covers.
+      for (const path of ["/mockups/care-plan-archive", "/documents"]) {
+        const response = await proxy(requestFor(`${path}?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
+        expect(accessCookie(response)).toBeUndefined();
+      }
+    });
+  });
+
+  it("renews a valid cookie on an ordinary gated visit, and renews nothing for a forged one", async () => {
+    await withKey(async () => {
+      const token = issueDeveloperAccessToken({ DEVELOPER_AREA_ACCESS_KEY: KEY }) as string;
+
+      const renewed = await proxy(requestWithCookie("/mockups/development", DEVELOPER_ACCESS_COOKIE, token));
+      expect(accessCookie(renewed)).toBeTruthy();
+
+      // Rolling renewal must extend only what already verifies; a forged value
+      // is left to be refused by DeveloperAreaGate, never re-stamped as valid.
+      const forged = await proxy(requestWithCookie("/mockups/development", DEVELOPER_ACCESS_COOKIE, "v1.1.forged"));
+      expect(accessCookie(forged)).toBeUndefined();
+    });
   });
 });

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f3d9d01a-becc-4d99-8f8b-74d0ca970038",
+  "createdOn": "2026-09-01",
+  "action": "cancel",
+  "payload": {
+    "requestId": "224cda1c-ae72-4921-b8aa-e6b3e315796a",
+    "reason": "Superseded within the same PR by request 79b8bfd3-66bc-4111-80b7-5df25727c4c3 after the owner approved a read-only production count. The P1 escalation was premature: the code defect is real, but production holds 0 privately-owned documents, so nothing is exposed and the hazard cannot fire yet. Reissued at P2 with the measurement and an explicit trigger condition."
+  }
+}

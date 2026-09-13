@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a03788d9-ff0f-4b5a-a755-1c7c9fe80deb",
+  "createdOn": "2026-09-10",
+  "action": "done",
+  "payload": {
+    "id": "#0JGJTK",
+    "outcome": "Removed directive prescribing, ECT, and admission copy from calculator-pathways mockups, pinned by calculator-mockup-clinical-safety.test.ts",
+    "baseRowFingerprint": "3e102c4bd9448bfca0a720fab230d38dcef3e06591c10ad665c7e2c10474d742"
+  }
+}

@@ -6,11 +6,14 @@ import {
   ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
+  Landmark,
+  LibraryBig,
   ListChecks,
   Network,
   Search,
   Sparkles,
   Stethoscope,
+  Scale,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -43,6 +46,7 @@ export const registryModeNavDensityProfiles = {
   // "Presentations". `extended` was chosen when the mode had five destinations
   // and Search/Browse were two names for one place.
   dictionary: "balanced-four",
+  sources: "balanced-four",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**
@@ -68,6 +72,9 @@ const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> = {
   // on the same screen.
   topics: BookOpenText,
   sources: BookMarked,
+  catalogue: LibraryBig,
+  publishers: Landmark,
+  method: Scale,
 };
 
 /**

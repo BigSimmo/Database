@@ -1,0 +1,13 @@
+GLOBBED_FROM_DISK_FILE_COUNT=76
+--- attempt 1 at 2026-08-29T23:40:51+08:00 ---
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+
+ Test Files  76 passed (76)
+      Tests  1103 passed (1103)
+   Start at  23:40:52
+   Duration  42.34s (transform 3.28s, setup 5.90s, import 10.80s, tests 34.28s, environment 23.28s)
+
+EXIT_CODE=0

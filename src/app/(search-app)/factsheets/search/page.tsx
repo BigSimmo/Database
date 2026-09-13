@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { filterFactsheets } from "@/components/factsheets/factsheets-data";
 import { FactsheetsSearchPage } from "@/components/factsheets/factsheets-search-page";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 export const metadata: Metadata = { title: "Search Patient Information | PsychSift" };
 
@@ -20,6 +21,7 @@ export default async function FactsheetsSearchRoute({
   const params = await searchParams;
   const query = (firstValue(params.q) ?? "").trim();
   const category = firstValue(params.category);
-  const results = filterFactsheets(query, category);
-  return <FactsheetsSearchPage query={query} category={category} results={results} />;
+  const expansions = smartSearchExpansions("factsheets", query);
+  const results = filterFactsheets(query, category, expansions);
+  return <FactsheetsSearchPage query={query} category={category} expansions={expansions} results={results} />;
 }

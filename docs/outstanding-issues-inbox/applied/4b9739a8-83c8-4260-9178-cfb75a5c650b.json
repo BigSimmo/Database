@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4b9739a8-83c8-4260-9178-cfb75a5c650b",
+  "createdOn": "2026-09-03",
+  "action": "done",
+  "payload": {
+    "id": "#TK9GH7",
+    "outcome": "Duplicate of #1M0J6D. Both rows were materialized by reconciliation 090347a3 from two independent add requests (b11bdfdd P2, 4478f605 P3) describing the identical shallow-clone defect (same two specs, same two truncated commits). This PR's original cancel request targeted the already-applied 4478f605, which is now a no-op per planRequestBatch; this done request removes the resulting duplicate row directly instead. Flagged by Codex review (discussion_r3919851568) on PR #2575.",
+    "baseRowFingerprint": "34bcd4274dda7d262874445480ad86d370e06e5ba03c47879925d39b0c9d43ae"
+  }
+}

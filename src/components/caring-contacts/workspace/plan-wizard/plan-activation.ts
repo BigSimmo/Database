@@ -770,19 +770,20 @@ export function plannedScheduleSentence(summary: PlannedScheduleSummary): string
  *
  * The first version of this said "no message is scheduled to go out yet". THAT IS FALSE.
  * `createPlan` writes every planned contact in state `scheduled` (or `suppressed` for an absorbed
- * one) AT CREATION, and `listSendableContacts` in both stores filters on
- * `contact.state === "scheduled"` with NO plan-state gate -- nothing in `model.ts`'s contact
- * transitions consults `plan.state` either. So creating a plan schedules its contacts, full stop,
- * and a reassurance to the contrary was one the code does not support, printed on the exact screen
- * a coordinator acts on.
+ * one) AT CREATION, so creating a plan schedules its contacts, full stop, and a reassurance to the
+ * contrary was one the code does not support -- printed on the exact screen a coordinator acts on.
+ * That is still true, and it is what this copy says.
  *
- * What actually stops a message is that there is nothing that sends: this prototype is connected to
- * no messaging provider, and the only reader of `listSendableContacts` anywhere in the tree is
- * `simulation.ts`. That is the true statement and it is the one made here.
+ * WHAT HAS CHANGED (#PAMATF): the open domain question this note used to defer is now answered. It
+ * recorded that `listSendableContacts` filtered on `contact.state === "scheduled"` with NO
+ * plan-state gate, so a draft plan's contacts presented there as sendable. Both stores now consult
+ * `planSendingHold` first, so a draft plan offers nothing sendable. The copy below is UNCHANGED by
+ * that, and deliberately: the contacts really are scheduled, which is what it says. What is no
+ * longer true is that anything would treat them as ready to go out.
  *
- * Whether a DRAFT plan's contacts should be sendable at all is a real domain question with its own
- * blast radius, and it is filed separately. This copy does not pre-empt it, and nothing in Task 9
- * changes `listSendableContacts`.
+ * What still stops a message regardless is that there is nothing that sends: this prototype is
+ * connected to no messaging provider, and the only reader of `listSendableContacts` anywhere in the
+ * tree is `simulation.ts`.
  */
 const PLAN_EXISTS =
   "The plan was created and is on this patient's record, and its contacts are scheduled -- creating a plan schedules them. No second plan was created. Nothing reaches any handset either way: this prototype is connected to no messaging provider and has nothing that sends.";

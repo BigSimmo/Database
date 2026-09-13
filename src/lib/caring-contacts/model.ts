@@ -204,6 +204,49 @@ export function contactSendability(state: ContactState): ContactSendability {
   }
 }
 
+/**
+ * Why a plan is not sending, whatever its individual contacts say. Null means the plan itself is
+ * not in the way.
+ *
+ * A draft plan's contacts sit in `scheduled` and a paused plan's do too -- neither lifecycle write
+ * touches them -- so a read that asked only the contact would announce a plan nobody has started,
+ * and a plan a coordinator deliberately paused, as work the service is about to do.
+ * `planNotStarted` and `planPaused` are different facts from each other and from `planEnded`, and a
+ * caller has to be able to say which.
+ *
+ * WHY IT LIVES HERE, beside `contactSendability` (#PAMATF, 2026-09-02). It was written in
+ * ./schedule-view for the Schedule screen, and its own doc there called it "THE GATE
+ * `listSendableContacts` DOES NOT HAVE" -- an accurate description of a rule about the DOMAIN that
+ * happened to live in a view module, and one that the read it named could not consult without
+ * importing a view. Now that `listSendableContacts` has the gate, both consult this. That module
+ * re-exports these two names, so every existing import still resolves.
+ */
+export type PlanSendingHold = "planNotStarted" | "planPaused" | "planEnded";
+
+/**
+ * An exhaustive switch rather than a list of held states, for the same reason `contactSendability`
+ * is one: a `PlanState` added later and left unclassified must not compile, so a new state cannot
+ * default into "this plan is sending".
+ */
+export function planSendingHold(state: PlanState): PlanSendingHold | null {
+  switch (state) {
+    case "draft":
+      return "planNotStarted";
+    case "active":
+      return null;
+    case "paused":
+      return "planPaused";
+    case "withdrawn":
+    case "cancelled":
+    case "completed":
+      return "planEnded";
+    default: {
+      const unclassified: never = state;
+      return unclassified;
+    }
+  }
+}
+
 // Ties the classification above to the two facts this module already held, rather than leaving
 // three overlapping descriptions of the same state machine to drift apart. Load-time, and thrown
 // rather than asserted in a test, for the same reason `schedule.ts` checks its send window here:
@@ -216,5 +259,13 @@ for (const state of DISPATCHED_CONTACT_STATES) {
 for (const state of TERMINAL_CONTACT_STATES) {
   if (contactSendability(state) === "stillToSend") {
     throw new Error(`caring-contacts model: terminal contact state ${state} is classified as still to send`);
+  }
+}
+// The same tie for the plan side. A terminal plan is not sending, by definition -- so if the two
+// descriptions of that one fact ever disagree, the build must not start rather than a read
+// deciding a withdrawn plan's contacts may still go out.
+for (const state of TERMINAL_PLAN_STATES) {
+  if (planSendingHold(state) !== "planEnded") {
+    throw new Error(`caring-contacts model: terminal plan state ${state} is not classified as ended`);
   }
 }

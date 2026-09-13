@@ -15,7 +15,7 @@ import type { TransportJob } from "@/components/ward-management/ward-model";
 function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
   return {
     id: "TR-TEST",
-    provider: "St John WA",
+    provider: "Patient transport service",
     escortRequired: false,
     ...overrides,
   };

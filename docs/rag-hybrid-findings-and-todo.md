@@ -4,7 +4,7 @@ Living list of issues found while fixing the live-only hybrid-RPC schema drift a
 online RAG. Grouped by priority. **Last reconciled: 2026-07-14.** `✅` is complete/closed, `🔶` is
 partially complete with an explicit remaining action, and `⏳` is genuinely open. Historical
 measurements are evidence, not instructions to repeat provider-backed work without approval. See also the master plan
-(`C:\Users\joshs\.claude\plans\please-review-the-current-synthetic-pinwheel.md`) for RC IDs and
+(a local Claude plan file, `please-review-the-current-synthetic-pinwheel.md`, not in the repository) for RC IDs and
 `docs/search-rag-master-plan.md`.
 
 ---

@@ -1,0 +1,12 @@
+Handed in: 87 file(s). Running…
+Not implemented: navigation to another Document
+JSON report written to C:/Users/joshs/AppData/Local/Temp/ward-tests-DldSG7/report.json
+
+  files handed in : 87
+  files that ran  : 87
+  tests collected : 1269
+  passed          : 1268
+  failed          : 1
+  vitest exit     : 1
+
+FAILED: 1 test(s) failed.

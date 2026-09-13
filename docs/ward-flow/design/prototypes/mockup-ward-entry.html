@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ward Home — RPH Adult Secure</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    />
+
+    <style>
+      /* ═══════════════════════════════════════════════════════════════════════
+     Ward Flow — community referrals hub. "Board" direction.
+     One screen, two scopes: the coordinator's all-teams overview, and a
+     single team's hub. State is always worded as well as coloured.
+     ═══════════════════════════════════════════════════════════════════════ */
+      :root {
+        --ground: #eef0f3;
+        --surface: #ffffff;
+        --panel: #f6f7f9;
+        --sunken: #e9ecf0;
+        /* --faint was #8a94a3 = 3.08:1 on white. Every caption and every "none"
+       used it, so the whole quiet layer of the page failed 4.5:1. Now 4.63:1. */
+        --ink: #101724;
+        --ink-2: #38455a;
+        --muted: #5a6678;
+        --faint: #6b7684;
+        --rule: #d6dbe3;
+        --rule-2: #b9c1cd;
+        --signal: #8a5000;
+        --signal-wash: #fbf0df;
+        --crit: #a8351f;
+        --crit-wash: #fbeae6;
+        --good: #1a6349;
+        --cool: #1f4e79;
+        --bar: #c9d0da;
+        --shadow: 0 1px 2px rgb(16 23 36 / 0.06);
+        --sp-1: 0.25rem;
+        --sp-2: 0.5rem;
+        --sp-3: 0.75rem;
+        --sp-4: 1rem;
+        --sp-5: 1.5rem;
+        --sp-6: 2rem;
+        --sp-7: 3rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --ground: #0c1015;
+          --surface: #151a21;
+          --panel: #1a2028;
+          --sunken: #10151b;
+          --ink: #e9edf2;
+          --ink-2: #c2cbd6;
+          --muted: #94a1b1;
+          --faint: #7f8c9c;
+          --rule: #242c36;
+          --rule-2: #38434f;
+          --signal: #e3a53a;
+          --signal-wash: #2a2113;
+          --crit: #ea6d51;
+          --crit-wash: #2b1712;
+          --good: #4cb98a;
+          --cool: #6fa8d6;
+          --bar: #2c3541;
+          --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+        }
+      }
+      :root[data-theme="dark"] {
+        --ground: #0c1015;
+        --surface: #151a21;
+        --panel: #1a2028;
+        --sunken: #10151b;
+        --ink: #e9edf2;
+        --ink-2: #c2cbd6;
+        --muted: #94a1b1;
+        --faint: #7f8c9c;
+        --rule: #242c36;
+        --rule-2: #38434f;
+        --signal: #e3a53a;
+        --signal-wash: #2a2113;
+        --crit: #ea6d51;
+        --crit-wash: #2b1712;
+        --good: #4cb98a;
+        --cool: #6fa8d6;
+        --bar: #2c3541;
+        --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      /* Referenced by the teams table header and never defined — without it the word
+     "Open" printed visibly in a column that is deliberately unlabelled. */
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+      }
+      body {
+        background: var(--ground);
+        color: var(--ink);
+        font-family: "Archivo", ui-sans-serif, system-ui, sans-serif;
+        font-weight: 400;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+      }
+      :focus-visible {
+        outline: 2px solid var(--signal);
+        outline-offset: 2px;
+        border-radius: 2px;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition: none !important;
+          animation: none !important;
+        }
+      }
+
+      .shell {
+        max-width: 102rem;
+        margin: 0 auto;
+        padding: var(--sp-4) var(--sp-4) var(--sp-7);
+      }
+      @media (min-width: 48rem) {
+        .shell {
+          padding: var(--sp-5) var(--sp-5) var(--sp-7);
+        }
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        text-wrap: balance;
+      }
+      h1 {
+        font-weight: 700;
+        font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2rem);
+        letter-spacing: -0.024em;
+      }
+      .panel-title {
+        font-weight: 600;
+        font-size: 0.8125rem;
+        text-transform: uppercase;
+        letter-spacing: 0.085em;
+        color: var(--muted);
+      }
+      .num {
+        font-family: "JetBrains Mono", ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .prototype {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        align-items: center;
+        font-size: 0.6875rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--faint);
+        padding-bottom: var(--sp-4);
+      }
+
+      /* ─── masthead + scope ──────────────────────────────────────────────── */
+      .masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-4);
+        align-items: flex-end;
+        justify-content: space-between;
+      }
+      .identity {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+        min-width: 0;
+      }
+      .eyebrow {
+        font-size: 0.75rem;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .covers {
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin: 0;
+      }
+      .covers b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .liveness {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        font-size: 0.8125rem;
+        color: var(--muted);
+        margin: 0;
+      }
+      .pip {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        background: var(--good);
+        flex: none;
+      }
+
+      .picker {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-2);
+        align-items: center;
+      }
+      .picker button {
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        padding: 0.45rem 0.85rem;
+        cursor: pointer;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+      .picker button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--ground);
+        border-color: var(--ink);
+      }
+      .picker label {
+        font-size: 0.8125rem;
+        color: var(--muted);
+      }
+      .picker select {
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+        max-width: 15rem;
+      }
+
+      /* ─── totals ────────────────────────────────────────────────────────── */
+      .totals {
+        display: grid;
+        gap: var(--sp-3);
+        margin-top: var(--sp-5);
+        grid-template-columns: repeat(2, 1fr);
+      }
+      @media (min-width: 52rem) {
+        .totals {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      @media (min-width: 76rem) {
+        .totals {
+          grid-template-columns: repeat(5, 1fr);
+        }
+      }
+      .total {
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--panel);
+        padding: var(--sp-4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+      }
+      .total dt {
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.35;
+        margin: 0;
+      }
+      .total dd {
+        margin: 0;
+        display: flex;
+        align-items: baseline;
+        gap: 0.35rem;
+      }
+      .figure {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 1.75rem;
+        letter-spacing: -0.03em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .unit {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--muted);
+      }
+      .total .sub {
+        font-size: 0.75rem;
+        color: var(--faint);
+        line-height: 1.4;
+      }
+      .total[data-flag="true"] {
+        border-color: color-mix(in oklab, var(--signal) 50%, var(--rule));
+        background: var(--signal-wash);
+      }
+      .total[data-flag="true"] .figure {
+        color: var(--signal);
+      }
+      .volume {
+        display: flex;
+        gap: 2px;
+        height: 1.5rem;
+        align-items: flex-end;
+      }
+      .volume span {
+        flex: 1;
+        background: var(--bar);
+        border-radius: 1px 1px 0 0;
+        min-height: 2px;
+      }
+      .volume span[data-peak="true"] {
+        background: var(--signal);
+      }
+      .caption {
+        font-size: 0.6875rem;
+        color: var(--faint);
+        letter-spacing: 0.04em;
+      }
+
+      /* ─── grid + panels ─────────────────────────────────────────────────── */
+      .grid {
+        display: grid;
+        gap: var(--sp-3);
+        margin-top: var(--sp-3);
+        align-items: start;
+      }
+      @media (min-width: 60rem) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (min-width: 84rem) {
+        .grid {
+          grid-template-columns: 1fr 1fr 19rem;
+        }
+      }
+
+      .panel {
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .panel > header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        padding: var(--sp-3) var(--sp-4);
+        background: var(--panel);
+        border-bottom: 1px solid var(--rule);
+      }
+      .panel > header .n {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .blurb {
+        margin: 0;
+        padding: var(--sp-3) var(--sp-4) 0;
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .rows {
+        list-style: none;
+        margin: var(--sp-3) 0 0;
+        padding: 0;
+      }
+      .rows li {
+        border-top: 1px solid var(--rule);
+      }
+      .rows li:first-child {
+        border-top: 0;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto;
+        gap: var(--sp-1) var(--sp-3);
+        align-items: center;
+        padding: var(--sp-3) var(--sp-4);
+        text-decoration: none;
+        transition: background 120ms ease;
+      }
+      .row:hover {
+        background: var(--panel);
+      }
+      .row .id {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--faint);
+      }
+      .row .path {
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.4;
+        min-width: 0;
+      }
+      .row .path .arrow {
+        color: var(--faint);
+        padding: 0 0.3rem;
+      }
+      .row .wait {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .row .chip {
+        justify-self: end;
+      }
+      .row .meta {
+        grid-column: 2 / -1;
+        font-size: 0.75rem;
+        color: var(--muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0 var(--sp-3);
+        line-height: 1.5;
+      }
+      .row .team {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .rows li[data-level="urgent"] .row {
+        background: var(--crit-wash);
+      }
+      .rows li[data-level="urgent"] .row:hover {
+        background: color-mix(in oklab, var(--crit) 14%, var(--surface));
+      }
+      .rows li[data-level="stalled"] .row {
+        background: var(--signal-wash);
+      }
+      .rows li[data-level="stalled"] .row:hover {
+        background: color-mix(in oklab, var(--signal) 16%, var(--surface));
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        letter-spacing: 0.055em;
+        text-transform: uppercase;
+        padding: 0.2rem 0.45rem;
+        border-radius: 2px;
+        border: 1px solid transparent;
+      }
+      .chip[data-level="urgent"] {
+        color: var(--crit);
+        border-color: color-mix(in oklab, var(--crit) 40%, transparent);
+      }
+      .chip[data-level="routine"] {
+        color: var(--muted);
+        border-color: var(--rule-2);
+      }
+      .chip[data-level="stalled"] {
+        color: var(--signal);
+        border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+      }
+      .chip[data-level="accepted"] {
+        color: var(--good);
+        border-color: color-mix(in oklab, var(--good) 40%, transparent);
+      }
+
+      /* ─── rail ──────────────────────────────────────────────────────────── */
+      .rail {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-3);
+      }
+      @media (min-width: 60rem) and (max-width: 83.99rem) {
+        .rail {
+          grid-column: 1 / -1;
+          flex-direction: row;
+          flex-wrap: wrap;
+        }
+        .rail > * {
+          flex: 1 1 20rem;
+        }
+      }
+      .attention {
+        list-style: none;
+        margin: 0;
+        padding: var(--sp-4);
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-4);
+      }
+      .attention li {
+        border-left: 2px solid var(--signal);
+        padding-left: var(--sp-3);
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        color: var(--ink-2);
+      }
+      .attention .who {
+        display: block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--signal);
+        margin-bottom: 0.2rem;
+      }
+      .links {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .links li + li a {
+        border-top: 1px solid var(--rule);
+      }
+      .links a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        padding: var(--sp-3) var(--sp-4);
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: background 120ms ease;
+      }
+      .links a:hover {
+        background: var(--panel);
+      }
+      .links .arr {
+        color: var(--faint);
+        transition: transform 140ms ease;
+      }
+      .links a:hover .arr {
+        transform: translateX(2px);
+      }
+
+      /* ─── bands ────────────────────────────────────────────────────────── */
+      .band {
+        display: grid;
+        gap: var(--sp-3);
+        margin-top: var(--sp-3);
+      }
+      @media (min-width: 60rem) {
+        .band {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .people {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .people li + li {
+        border-top: 1px solid var(--rule);
+      }
+      .person {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: var(--sp-1) var(--sp-3);
+        align-items: center;
+        padding: var(--sp-3) var(--sp-4);
+        text-decoration: none;
+        transition: background 120ms ease;
+      }
+      .person:hover {
+        background: var(--panel);
+      }
+      .person .name {
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      .person .where {
+        grid-column: 1 / -1;
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .person .when {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--ink-2);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .absent {
+        padding: var(--sp-4);
+        font-size: 0.8125rem;
+        color: var(--muted);
+        line-height: 1.6;
+        margin: 0;
+      }
+      .absent b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .facts {
+        margin: 0;
+        padding: var(--sp-4);
+        display: grid;
+        gap: var(--sp-3);
+        grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+      }
+      .facts dt {
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+      }
+      .facts dd {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+
+      /* ─── the teams table (all-teams scope) ────────────────────────────── */
+      .teams {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+      .teams caption {
+        text-align: left;
+        padding: var(--sp-3) var(--sp-4) 0;
+        font-size: 0.75rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      .teams th,
+      .teams td {
+        text-align: right;
+        padding: var(--sp-3) var(--sp-4);
+        border-top: 1px solid var(--rule);
+      }
+      .teams th:first-child,
+      .teams td:first-child {
+        text-align: left;
+      }
+      .teams thead th {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--muted);
+        border-top: 0;
+        white-space: nowrap;
+      }
+      .teams tbody tr:hover {
+        background: var(--panel);
+      }
+      .teams td.n {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .teams td .zero {
+        color: var(--faint);
+        font-weight: 400;
+      }
+      .teams .open {
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        padding: 0.3rem 0.6rem;
+        cursor: pointer;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+        white-space: nowrap;
+      }
+      .teams .open:hover {
+        background: var(--ink);
+        color: var(--ground);
+        border-color: var(--ink);
+      }
+      .teams tr[data-flag="true"] td:first-child {
+        box-shadow: inset 3px 0 0 var(--signal);
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      /* ─── footnote ─────────────────────────────────────────────────────── */
+      .footnote {
+        border-top: 1px solid var(--rule);
+        margin-top: var(--sp-6);
+        padding-top: var(--sp-5);
+        font-size: 0.8125rem;
+        line-height: 1.65;
+        color: var(--muted);
+      }
+      .footnote h2 {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        color: var(--ink-2);
+        margin-bottom: var(--sp-3);
+      }
+      .footnote ul {
+        margin: 0 0 var(--sp-5);
+        padding-left: 1.1rem;
+      }
+      .footnote li {
+        margin-bottom: var(--sp-2);
+      }
+      .footnote b {
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+
+      /* ═══════════════════════════════════════════════════════════════════════
+     Ward home — ward entry screen. New below this line; nothing above is
+     edited. The problem this screen solves is reluctance to re-answer the
+     same shift questions, so the hero CTA and the confirm panel are the
+     whole point — everything else (referrals, ward facts) is context.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+      /* the one unmistakable way in — always present, never gated on the form */
+      .hero {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--sp-5);
+        align-items: center;
+        justify-content: space-between;
+        margin-top: var(--sp-4);
+        padding: var(--sp-5);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--panel);
+      }
+      .hero-figures {
+        display: flex;
+        flex-direction: column;
+        gap: var(--sp-2);
+        min-width: 0;
+        flex: 1 1 22rem;
+      }
+      .hero-figure-main {
+        display: flex;
+        align-items: baseline;
+        gap: var(--sp-3);
+      }
+      .hero .figure {
+        font-size: 3rem;
+      }
+      .hero-figure-label {
+        font-size: 0.8125rem;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .hero-cost {
+        margin: 0;
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+        line-height: 1.55;
+        max-width: 34rem;
+      }
+      .hero-cost b {
+        color: var(--signal);
+        font-weight: 600;
+      }
+
+      .cta {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        text-decoration: none;
+        text-align: center;
+        white-space: nowrap;
+        background: var(--ink);
+        color: var(--ground);
+        font-weight: 700;
+        font-size: 1.0625rem;
+        padding: var(--sp-4) var(--sp-6);
+        border-radius: 3px;
+        border: 1px solid var(--ink);
+        box-shadow: var(--shadow);
+        transition:
+          transform 120ms ease,
+          background 120ms ease;
+      }
+      .cta:hover {
+        background: color-mix(in oklab, var(--ink) 85%, var(--good));
+      }
+      .cta:active {
+        transform: translateY(1px);
+      }
+      .cta-sub {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--ground);
+        opacity: 0.8;
+      }
+      .cta-sub .num {
+        color: var(--ground);
+      }
+
+      .hero-availability {
+        margin: var(--sp-2) 0 0;
+        font-size: 0.75rem;
+        color: var(--faint);
+      }
+
+      /* the confirm panel — one tap for "nothing changed", a short step for a real edit */
+      .confirm-all {
+        padding: 0 var(--sp-4);
+        margin-top: var(--sp-4);
+      }
+      .btn-confirm-all {
+        font: inherit;
+        font-size: 0.875rem;
+        font-weight: 600;
+        width: 100%;
+        text-align: left;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-radius: 3px;
+        color: var(--good);
+        border: 1px solid color-mix(in oklab, var(--good) 45%, transparent);
+        background: var(--surface);
+      }
+      .btn-confirm-all:hover {
+        background: color-mix(in oklab, var(--good) 10%, var(--surface));
+      }
+
+      .qlist {
+        list-style: none;
+        margin: var(--sp-3) 0 0;
+        padding: 0;
+      }
+      .qrow {
+        border-top: 1px solid var(--rule);
+        padding: var(--sp-4);
+      }
+      .qrow[data-fresh="stale"],
+      .qrow[data-fresh="unanswered"] {
+        background: var(--signal-wash);
+        border-left: 3px solid var(--signal);
+      }
+      .qrow-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-2) var(--sp-4);
+      }
+      .qrow-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--ink-2);
+        max-width: 28rem;
+      }
+      .qrow-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--sp-2) var(--sp-3);
+        margin-top: var(--sp-2);
+      }
+      .qrow-who {
+        font-size: 0.75rem;
+        color: var(--muted);
+      }
+      .qrow-why {
+        margin: var(--sp-2) 0 0;
+        font-size: 0.8125rem;
+        color: var(--ink-2);
+        line-height: 1.5;
+      }
+      .qrow-skip {
+        margin: var(--sp-2) 0 0;
+        font-size: 0.75rem;
+        color: var(--faint);
+        line-height: 1.5;
+      }
+
+      .qrow-edit {
+        margin-top: var(--sp-3);
+      }
+      .qrow-edit summary {
+        cursor: pointer;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--cool);
+        list-style: revert;
+      }
+      .qrow-edit summary::marker {
+        color: var(--faint);
+      }
+      .stepper {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-2);
+        margin-top: var(--sp-3);
+        flex-wrap: wrap;
+      }
+      .stepper .step {
+        font: inherit;
+        font-weight: 700;
+        width: 2rem;
+        height: 2rem;
+        line-height: 1;
+        cursor: pointer;
+        border: 1px solid var(--rule-2);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+      .stepper .step:hover {
+        background: var(--panel);
+      }
+      .stepper input[type="number"] {
+        font-family: "JetBrains Mono", monospace;
+        font-variant-numeric: tabular-nums;
+        font-size: 0.9375rem;
+        width: 4rem;
+        text-align: center;
+        padding: 0.4rem;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+      .stepper .save,
+      .answer-now .save {
+        font: inherit;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        padding: 0.45rem 0.85rem;
+        cursor: pointer;
+        border: 1px solid var(--ink);
+        border-radius: 3px;
+        background: var(--ink);
+        color: var(--ground);
+      }
+      .stepper .save:hover,
+      .answer-now .save:hover {
+        background: color-mix(in oklab, var(--ink) 85%, var(--good));
+      }
+
+      .answer-now {
+        display: flex;
+        gap: var(--sp-2);
+        margin-top: var(--sp-3);
+        flex-wrap: wrap;
+      }
+      .answer-now input[type="text"] {
+        flex: 1 1 16rem;
+        font: inherit;
+        font-size: 0.875rem;
+        padding: 0.5rem 0.65rem;
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        background: var(--surface);
+        color: var(--ink);
+      }
+      /* ─── this screen only ─── */
+      .identity--end {
+        align-items: flex-end;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell" role="main">
+      <p class="prototype">
+        <span>Synthetic prototype</span><span aria-hidden="true">&middot;</span><span>No real patient data</span
+        ><span aria-hidden="true">&middot;</span><span>Every figure invented — listed at the foot</span>
+      </p>
+
+      <div class="masthead">
+        <div class="identity">
+          <span class="eyebrow">Ward home</span>
+          <h1>RPH Adult Secure</h1>
+          <p class="covers">Royal Perth Hospital &middot; Locked &middot; Adult &middot; <b>20 beds</b></p>
+        </div>
+        <div class="identity identity--end">
+          <span class="eyebrow">Today</span>
+          <p class="covers">Friday 4 September &middot; 14:32</p>
+        </div>
+      </div>
+
+      <!-- ══════════════ THE WAY IN — always here, always enabled ══════════════ -->
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-figures">
+          <div class="hero-figure-main">
+            <span class="figure" id="hero-free">1</span>
+            <span class="hero-figure-label" id="hero-title">free bed<br />on this ward right now</span>
+          </div>
+          <p class="hero-cost" id="hero-cost">
+            These figures were last confirmed <b>14 hours ago</b>. The coordinator is matching referrals to a bed here
+            using that number right now.
+          </p>
+        </div>
+        <div>
+          <a class="cta" href="#" id="hero-cta">
+            <span>Open bed list</span>
+            <span class="cta-sub"
+              ><span class="num">20</span> beds &middot; <span class="num" id="hero-cta-free">1</span> free</span
+            >
+          </a>
+          <p class="hero-availability">Always available — an unanswered question below never blocks this.</p>
+        </div>
+      </section>
+
+      <dl class="totals">
+        <div class="total">
+          <dt>Beds on this ward</dt>
+          <dd><span class="figure">20</span></dd>
+        </div>
+        <div class="total">
+          <dt>Empty right now</dt>
+          <dd><span class="figure" id="val-empty">2</span></dd>
+          <span class="sub">Confirmed 14 hours ago</span>
+        </div>
+        <div class="total">
+          <dt>Can be allocated</dt>
+          <dd><span class="figure" id="val-allocatable">1</span></dd>
+          <span class="sub">Confirmed 14 hours ago</span>
+        </div>
+        <div class="total" data-flag="true" id="tile-held">
+          <dt>Held back</dt>
+          <dd><span class="figure" id="val-held">1</span></dd>
+          <span class="sub" id="sub-held">Empty but not allocatable right now</span>
+        </div>
+        <div class="total" data-flag="true" id="tile-lastconfirmed">
+          <dt>Bed counts last confirmed</dt>
+          <dd>
+            <span class="figure" id="val-lastconfirmed">14</span><span class="unit" id="unit-lastconfirmed">h ago</span>
+          </dd>
+          <span class="sub" id="sub-lastconfirmed">By R. Yalden, night shift</span>
+        </div>
+      </dl>
+
+      <!-- ══════════════ THE QUESTIONS — confirm in one tap, or change ══════════════ -->
+      <section class="panel" style="margin-top: var(--sp-3)" aria-labelledby="cp-title">
+        <header>
+          <h2 class="panel-title" id="cp-title">Confirm today's numbers</h2>
+          <span class="n" id="cp-count">0 of 3 confirmed today</span>
+        </header>
+        <p class="blurb">
+          Bed counts were last confirmed 14 hours ago by R. Yalden, night shift handover. If nothing has changed,
+          confirm with one tap — you do not need to re-enter anything.
+        </p>
+
+        <div class="confirm-all">
+          <button type="button" class="btn-confirm-all" id="btn-confirm-all">
+            Confirm both bed counts — nothing has changed
+          </button>
+        </div>
+
+        <ul class="qlist">
+          <li class="qrow" data-fresh="stale" id="q-empty">
+            <div class="qrow-head">
+              <span class="qrow-label">Beds empty right now</span>
+              <span class="figure" id="q-empty-value">2</span>
+            </div>
+            <div class="qrow-meta">
+              <span class="chip" data-level="stalled" id="q-empty-chip">Stale &mdash; 14h old</span>
+              <span class="qrow-who" id="q-empty-who">Confirmed 14 hours ago by R. Yalden</span>
+            </div>
+            <details class="qrow-edit">
+              <summary>Change the number</summary>
+              <div class="stepper">
+                <button type="button" class="step" data-target="q-empty-value" data-dir="-1" aria-label="Decrease">
+                  &minus;
+                </button>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="20"
+                  value="2"
+                  id="q-empty-input"
+                  aria-label="Beds empty right now"
+                />
+                <button type="button" class="step" data-target="q-empty-value" data-dir="1" aria-label="Increase">
+                  +
+                </button>
+                <button type="button" class="save" id="q-empty-save">Save</button>
+              </div>
+            </details>
+          </li>
+
+          <li class="qrow" data-fresh="stale" id="q-alloc">
+            <div class="qrow-head">
+              <span class="qrow-label">Of those, how many can you actually allocate</span>
+              <span class="figure" id="q-alloc-value">1</span>
+            </div>
+            <div class="qrow-meta">
+              <span class="chip" data-level="stalled" id="q-alloc-chip">Stale &mdash; 14h old</span>
+              <span class="qrow-who" id="q-alloc-who">Confirmed 14 hours ago by R. Yalden</span>
+            </div>
+            <p class="qrow-why">
+              The other empty bed is held &mdash; not every empty bed can be offered. Staffing, a bed held for someone
+              on leave, or a room out of use are the usual reasons.
+            </p>
+            <details class="qrow-edit">
+              <summary>Change the number</summary>
+              <div class="stepper">
+                <button type="button" class="step" data-target="q-alloc-value" data-dir="-1" aria-label="Decrease">
+                  &minus;
+                </button>
+                <input
+                  type="number"
+                  inputmode="numeric"
+                  min="0"
+                  max="20"
+                  value="1"
+                  id="q-alloc-input"
+                  aria-label="Beds you can actually allocate"
+                />
+                <button type="button" class="step" data-target="q-alloc-value" data-dir="1" aria-label="Increase">
+                  +
+                </button>
+                <button type="button" class="save" id="q-alloc-save">Save</button>
+              </div>
+            </details>
+          </li>
+
+          <li class="qrow" data-fresh="unanswered" id="q-constraints">
+            <div class="qrow-head">
+              <span class="qrow-label">Anything limiting who can come in right now</span>
+            </div>
+            <div class="qrow-meta">
+              <span class="chip" data-level="stalled" id="q-constraints-chip">Never answered on this ward</span>
+            </div>
+            <p class="qrow-why" id="q-constraints-answer" hidden></p>
+            <div class="answer-now">
+              <input
+                type="text"
+                id="q-constraints-input"
+                placeholder="e.g. male-only bay today &mdash; or leave blank if nothing is limiting intake"
+              />
+              <button type="button" class="save" id="q-constraints-save">Save answer</button>
+            </div>
+            <p class="qrow-skip">
+              Leaving this blank does not stop you opening the ward below &mdash; it just means the coordinator will not
+              see any constraint recorded against this bed.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ══════════════ CONTEXT — who is waiting, and what this ward is ══════════════ -->
+      <div class="grid">
+        <section class="panel" aria-labelledby="rw-title">
+          <header>
+            <h2 class="panel-title" id="rw-title">Referrals waiting for this ward</h2>
+            <span class="n">3 waiting</span>
+          </header>
+          <p class="blurb">Every referral currently asking for a bed here, worst wait at the top.</p>
+          <ul class="rows">
+            <li data-level="urgent">
+              <a class="row" href="#"
+                ><span class="id">RF-205</span
+                ><span class="path">Coolbinia<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+                ><span class="wait">2h</span><span class="chip" data-level="urgent">Urgent</span
+                ><span class="meta"
+                  ><span>From Inner City team</span><span>Involuntary, secure bed required</span></span
+                ></a
+              >
+            </li>
+            <li data-level="stalled">
+              <a class="row" href="#"
+                ><span class="id">RF-198</span
+                ><span class="path">Ashfield<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+                ><span class="wait">1d 6h</span
+                ><span class="chip" data-level="stalled">Asked 1 day ago, no reply logged</span
+                ><span class="meta"><span>From Midland team</span></span></a
+              >
+            </li>
+            <li data-level="routine">
+              <a class="row" href="#"
+                ><span class="id">RF-211</span
+                ><span class="path">Karrinyup<span class="arrow" aria-hidden="true">&rarr;</span>RPH Adult Secure</span
+                ><span class="wait">5h</span><span class="chip" data-level="routine">Routine</span
+                ><span class="meta"><span>From Osborne team</span></span></a
+              >
+            </li>
+          </ul>
+        </section>
+
+        <section class="panel" aria-labelledby="aw-title">
+          <header><h2 class="panel-title" id="aw-title">About this ward</h2></header>
+          <dl class="facts">
+            <div>
+              <dt>Hospital</dt>
+              <dd>Royal Perth Hospital</dd>
+            </div>
+            <div>
+              <dt>Type</dt>
+              <dd>Locked &middot; Adult</dd>
+            </div>
+            <div>
+              <dt>Beds</dt>
+              <dd class="num">20</dd>
+            </div>
+          </dl>
+          <p class="absent">
+            No additional intake criteria are held for this ward beyond locked and adult.
+            <b>If something today limits who can come in, use the constraints question above</b> &mdash; that is the
+            only place it is recorded.
+          </p>
+        </section>
+
+        <aside class="rail" aria-label="Attention and shortcuts">
+          <section class="panel" aria-labelledby="att-title">
+            <header>
+              <h2 class="panel-title" id="att-title">Needs a decision</h2>
+              <span class="n">3</span>
+            </header>
+            <ul class="attention">
+              <li>
+                <span class="who">Bed counts</span>Last confirmed 14 hours ago. The coordinator is matching referrals to
+                this ward using that figure right now.
+              </li>
+              <li>
+                <span class="who">3 referrals, 1 bed</span>Three referrals are waiting and only one bed can currently be
+                allocated. Not all three can be offered this bed.
+              </li>
+              <li>
+                <span class="who">Constraints</span>Never answered on this ward. The coordinator cannot see whether
+                anything limits who can come in.
+              </li>
+            </ul>
+          </section>
+          <section class="panel" aria-labelledby="go-title">
+            <header><h2 class="panel-title" id="go-title">Go to</h2></header>
+            <ul class="links">
+              <li>
+                <a href="#">Referral board<span class="arr" aria-hidden="true">&rarr;</span></a>
+              </li>
+              <li>
+                <a href="#">Ward roster<span class="arr" aria-hidden="true">&rarr;</span></a>
+              </li>
+              <li>
+                <a href="#">This ward's statistics<span class="arr" aria-hidden="true">&rarr;</span></a>
+              </li>
+              <li>
+                <a href="#">All wards<span class="arr" aria-hidden="true">&rarr;</span></a>
+              </li>
+            </ul>
+          </section>
+        </aside>
+      </div>
+
+      <div class="footnote">
+        <h2>Every figure here is invented</h2>
+        <ul>
+          <li>
+            <b>Staff names and confirmation history:</b> "R. Yalden", "night shift handover", "confirmed 14 hours ago",
+            and every "confirmed just now by you" state this page's demo buttons produce.
+          </li>
+          <li><b>Referrals:</b> RF-205, RF-198, RF-211, their suburbs, waits, source teams and chip reasons.</li>
+          <li>
+            <b>The held-back reason placeholder</b> ("staffing, a bed held for someone on leave, a room out of use") is
+            example wording, not a recorded reason for this ward today.
+          </li>
+          <li>
+            <b>The "Go to" destinations</b> (Referral board, Ward roster, Statistics, All wards) — plausible next steps,
+            not verified routes.
+          </li>
+          <li>
+            <b>Today's date and time</b> in the masthead, and every count that changes when you press a button on this
+            mockup.
+          </li>
+        </ul>
+        <h2>What is real</h2>
+        <ul>
+          <li>
+            <b>RPH Adult Secure, Royal Perth Hospital, Locked, Adult, 20 beds</b> &mdash; from this repository's ward
+            model (<code>ward-sites.ts</code>).
+          </li>
+          <li>
+            <b>2 beds empty, 1 allocatable, 1 free</b> &mdash; the same source. The free figure on the primary button is
+            the smaller of empty and allocatable, exactly as the model defines it.
+          </li>
+        </ul>
+        <h2>Why this page works this way</h2>
+        <ul>
+          <li>
+            <b>Confirming is one tap; changing is the extra step.</b> The two bed-count questions share a single
+            "nothing has changed" button, because they are normally reported together every shift. Only opening "Change
+            the number" costs more than a glance — try the button above.
+          </li>
+          <li>
+            <b>The two kinds of question decay differently.</b> Bed counts turn stale in hours because they change every
+            shift. A ward's intake constraints change far less often, so a nurse is never punished for not re-answering
+            something that has not moved &mdash; but here it has never been answered at all, which is a different
+            problem from staleness and is worded differently: "Never answered" rather than "Stale".
+          </li>
+          <li>
+            <b>"Open bed list" never waits for the form.</b> It sits above every question, shows the real free-bed
+            count, and works whether every question is answered or not. What changes is the sentence beside it, which
+            states plainly how old that count is and who is relying on it.
+          </li>
+          <li>
+            <b>The gap between empty and allocatable is shown, not collapsed.</b> A ward with 2 beds physically empty
+            but only 1 it can actually give away is a different fact from "1 free bed", and the coordinator on the other
+            end needs both numbers, not just the smaller one.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var state = { empty: 2, alloc: 1 };
+
+        function clamp(n) {
+          return Math.max(0, Math.min(20, n));
+        }
+
+        function recomputeTotals() {
+          var held = clamp(state.empty - state.alloc);
+          var free = Math.min(state.empty, state.alloc);
+          document.getElementById("val-empty").textContent = state.empty;
+          document.getElementById("val-allocatable").textContent = state.alloc;
+          document.getElementById("val-held").textContent = held;
+          document.getElementById("hero-free").textContent = free;
+          document.getElementById("hero-cta-free").textContent = free;
+          var heldTile = document.getElementById("tile-held");
+          var subHeld = document.getElementById("sub-held");
+          if (held > 0) {
+            heldTile.setAttribute("data-flag", "true");
+            subHeld.textContent = "Empty but not allocatable right now";
+          } else {
+            heldTile.removeAttribute("data-flag");
+            subHeld.textContent = "Nothing is held back";
+          }
+        }
+
+        function markFresh(rowId, chipId, whoId) {
+          document.getElementById(rowId).setAttribute("data-fresh", "fresh");
+          var chip = document.getElementById(chipId);
+          chip.setAttribute("data-level", "accepted");
+          chip.textContent = "Confirmed just now";
+          document.getElementById(whoId).textContent = "Confirmed just now by you";
+        }
+
+        function markLastConfirmedNow() {
+          document.getElementById("val-lastconfirmed").textContent = "0";
+          document.getElementById("unit-lastconfirmed").textContent = "min ago";
+          document.getElementById("sub-lastconfirmed").textContent = "By you, just now";
+          document.getElementById("tile-lastconfirmed").removeAttribute("data-flag");
+          document.getElementById("hero-cost").innerHTML =
+            "These figures were confirmed <b>just now</b>. The coordinator is matching referrals to a bed here using a current number.";
+        }
+
+        function updateConfirmCount() {
+          var fresh = 0;
+          ["q-empty", "q-alloc", "q-constraints"].forEach(function (id) {
+            if (document.getElementById(id).getAttribute("data-fresh") === "fresh") fresh++;
+          });
+          document.getElementById("cp-count").textContent = fresh + " of 3 confirmed today";
+        }
+
+        document.getElementById("btn-confirm-all").addEventListener("click", function () {
+          markFresh("q-empty", "q-empty-chip", "q-empty-who");
+          markFresh("q-alloc", "q-alloc-chip", "q-alloc-who");
+          markLastConfirmedNow();
+          updateConfirmCount();
+        });
+
+        document.getElementById("q-empty-save").addEventListener("click", function () {
+          var v = clamp(parseInt(document.getElementById("q-empty-input").value, 10) || 0);
+          state.empty = v;
+          document.getElementById("q-empty-value").textContent = v;
+          markFresh("q-empty", "q-empty-chip", "q-empty-who");
+          markLastConfirmedNow();
+          recomputeTotals();
+          updateConfirmCount();
+          document.querySelector("#q-empty details").removeAttribute("open");
+        });
+
+        document.getElementById("q-alloc-save").addEventListener("click", function () {
+          var v = clamp(parseInt(document.getElementById("q-alloc-input").value, 10) || 0);
+          state.alloc = v;
+          document.getElementById("q-alloc-value").textContent = v;
+          markFresh("q-alloc", "q-alloc-chip", "q-alloc-who");
+          markLastConfirmedNow();
+          recomputeTotals();
+          updateConfirmCount();
+          document.querySelector("#q-alloc details").removeAttribute("open");
+        });
+
+        document.getElementById("q-constraints-save").addEventListener("click", function () {
+          var input = document.getElementById("q-constraints-input");
+          var text = input.value.trim() || "None recorded.";
+          var answer = document.getElementById("q-constraints-answer");
+          answer.textContent = text;
+          answer.hidden = false;
+          document.getElementById("q-constraints").setAttribute("data-fresh", "fresh");
+          var chip = document.getElementById("q-constraints-chip");
+          chip.setAttribute("data-level", "accepted");
+          chip.textContent = "Confirmed just now";
+          updateConfirmCount();
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll(".step"), function (btn) {
+          btn.addEventListener("click", function () {
+            var inputId = btn.getAttribute("data-target").replace("-value", "-input");
+            var input = document.getElementById(inputId);
+            var dir = parseInt(btn.getAttribute("data-dir"), 10);
+            input.value = clamp((parseInt(input.value, 10) || 0) + dir);
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

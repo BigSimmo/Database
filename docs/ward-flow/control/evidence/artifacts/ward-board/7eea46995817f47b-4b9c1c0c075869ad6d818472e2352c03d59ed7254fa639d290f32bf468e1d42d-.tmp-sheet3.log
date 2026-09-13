@@ -1,0 +1,33 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-daily-sheet.dom.test.tsx (44 tests | 1 failed) 2004ms
+     × says on the PAPER that a patient is at an emergency department, not only on the screen 70ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-daily-sheet.dom.test.tsx > the as-at stamp — DB-10's safeguard, and DB-12's rule that it cannot lie > says on the PAPER that a patient is at an emergency department, not only on the screen
+AssertionError: the sheet shows 1 of 2 people away on this ward: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/ward-daily-sheet.dom.test.tsx:142:7
+    140|       notes.length,
+    141|       `the sheet shows ${notes.length} of ${awayHere.length} people aw…
+    142|     ).toBe(awayHere.length);
+       |       ^
+    143|
+    144|     for (const note of notes) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 43 passed (44)
+   Start at  06:21:30
+   Duration  3.85s (transform 480ms, setup 214ms, import 628ms, tests 2.00s, environment 844ms)
+

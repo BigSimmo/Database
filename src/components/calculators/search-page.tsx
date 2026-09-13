@@ -12,6 +12,7 @@ import {
 } from "@/components/clinical-dashboard/result-filter-control";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
@@ -23,6 +24,7 @@ import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
+import { smartSearchExpansions } from "@/lib/smart-search-intent";
 
 import {
   calculatorDomainCandidateCount,
@@ -43,6 +45,7 @@ import {
   type CalculatorFixture,
 } from "./calculator-fixtures";
 import { CalculatorSheet } from "./calculator-sheet";
+import { calculatorRecordById, calculatorRecordHref, calculatorSearchHref } from "./calculator-routes";
 import {
   MetaPill,
   SeverityPill,
@@ -246,17 +249,25 @@ function AboutPanel() {
         About these tools
       </h2>
       <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-        Scores support clinical judgement — they never replace a full assessment. Every calculator cites its source and
-        maps its result to next clinical actions. Nothing you enter is stored.
+        Scores support clinical judgement — they never replace a full assessment. Calculator answers remain in this
+        browser session and are not intentionally submitted by this calculator interface. Application telemetry and
+        clinical-record documentation are governed separately.
       </p>
       <p className="text-2xs font-semibold leading-4 text-[color:var(--text-muted)]">
-        {plannedCalculators.length} more calculators (CIWA-Ar, EPDS, COWS) are coming next.
+        {plannedCalculators.length} candidate calculators remain governance-gated pending version, rights and workflow
+        review.
       </p>
     </section>
   );
 }
 
-export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: string }) {
+export function CalculatorsSearchPage({
+  initialQuery = "",
+  initialCalculatorId,
+}: {
+  initialQuery?: string;
+  initialCalculatorId?: string;
+}) {
   const router = useRouter();
   const searchCommand = useSearchCommand();
   const hydrated = useSyncExternalStore(
@@ -266,6 +277,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
   const normalizedQuery = normalizeCalculatorQuery(query);
+  const smartExpansions = useMemo(() => smartSearchExpansions("calculators", query), [query]);
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedDomains, setSelectedDomains] = useState<ReadonlySet<CalculatorDomain>>(new Set());
@@ -273,7 +285,14 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   const [time, setTime] = useState<CalculatorTimeFilter>("all");
   const [density, setDensity] = useState<Density>("comfortable");
   const [session, setSession] = useState<SessionAnswers>({});
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => calculatorRecordById(initialCalculatorId)?.id ?? null);
+  const [previousInitialCalculatorId, setPreviousInitialCalculatorId] = useState(initialCalculatorId);
+
+  // Adopt route changes before rendering the dialog, without resetting user actions on ordinary rerenders.
+  if (previousInitialCalculatorId !== initialCalculatorId) {
+    setPreviousInitialCalculatorId(initialCalculatorId);
+    setOpenId(calculatorRecordById(initialCalculatorId)?.id ?? null);
+  }
 
   const records = useMemo(
     () =>
@@ -289,17 +308,29 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
   );
   const results = useMemo(
     () =>
-      filterCalculatorRecords(records, query, filters).map((record) => ({
+      filterCalculatorRecords(records, query, filters, smartExpansions).map((record) => ({
         ...record,
         context: matchContext(record.calc, normalizedQuery),
       })),
-    [filters, normalizedQuery, query, records],
+    [filters, normalizedQuery, query, records, smartExpansions],
   );
   const inProgress = useMemo(() => records.filter((record) => record.derived.started), [records]);
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
   const activeFilterCount = selectedDomains.size + (progress === "all" ? 0 : 1) + (time === "all" ? 0 : 1);
 
   const calculatorSheetId = useId();
+
+  function openCalculator(calculatorId: string) {
+    const calculator = calculatorRecordById(calculatorId);
+    if (!calculator) return;
+    setOpenId(calculator.id);
+    router.push(calculatorRecordHref(calculator.id));
+  }
+
+  function closeCalculator() {
+    setOpenId(null);
+    router.push(calculatorSearchHref(query));
+  }
 
   useEffect(() => {
     if (!activeCalc) return;
@@ -309,6 +340,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       if (event.key === "Escape") {
         event.preventDefault();
         setOpenId(null);
+        router.push(calculatorSearchHref(query));
       }
     };
     window.addEventListener("keydown", onKey);
@@ -316,7 +348,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       window.removeEventListener("keydown", onKey);
       popSheet(calculatorSheetId);
     };
-  }, [activeCalc, calculatorSheetId]);
+  }, [activeCalc, calculatorSheetId, query, router]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {
@@ -338,7 +370,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Clinical domain",
     selected: selectedDomains,
     options: domainOrder.map((domain) => {
-      const count = calculatorDomainCandidateCount(records, query, filters, domain);
+      const count = calculatorDomainCandidateCount(records, query, filters, domain, smartExpansions);
       return {
         value: domain,
         label: domainLabels[domain],
@@ -353,7 +385,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Session progress",
     value: progress,
     options: progressOptions.map((option) => {
-      const count = calculatorProgressCandidateCount(records, query, filters, option.value);
+      const count = calculatorProgressCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),
@@ -368,7 +400,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
     label: "Completion time",
     value: time,
     options: timeOptions.map((option) => {
-      const count = calculatorTimeCandidateCount(records, query, filters, option.value);
+      const count = calculatorTimeCandidateCount(records, query, filters, option.value, smartExpansions);
       return {
         ...option,
         hint: String(count),
@@ -415,6 +447,8 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculator results"
+        className="pb-6 sm:pb-7"
+        footer={<UniversalSearchAlsoMatches modeId="calculators" query={query} />}
         header={
           <>
             <SearchResultsHeaderBand
@@ -450,7 +484,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
                 </span>
               }
             />
-            <div className="pt-3">
+            <div className="pt-2.5">
               <ShowAllChip
                 href={consolidatedModeSearchPath("calculators")}
                 icon={appModeIcons.calculators}
@@ -474,13 +508,13 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
         }
         sidebar={
           <>
-            <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
+            <ContinuePanel inProgress={inProgress} onOpen={openCalculator} />
             <AboutPanel />
           </>
         }
         sidebarMobile={
           <div className="grid gap-4 xl:hidden">
-            <ContinuePanel inProgress={inProgress} onOpen={setOpenId} />
+            <ContinuePanel inProgress={inProgress} onOpen={openCalculator} />
             <AboutPanel />
           </div>
         }
@@ -494,7 +528,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
                 derived={derived}
                 context={context}
                 compact={density === "compact"}
-                onOpen={() => setOpenId(calc.id)}
+                onOpen={() => openCalculator(calc.id)}
               />
             ))}
           </div>
@@ -515,8 +549,7 @@ export function CalculatorsSearchPage({ initialQuery = "" }: { initialQuery?: st
           calc={activeCalc}
           answers={session[activeCalc.id] ?? {}}
           onAnswersChange={(next) => setSession((current) => ({ ...current, [activeCalc.id]: next }))}
-          onClose={() => setOpenId(null)}
-          onOpenCalculator={setOpenId}
+          onClose={closeCalculator}
         />
       ) : null}
     </>

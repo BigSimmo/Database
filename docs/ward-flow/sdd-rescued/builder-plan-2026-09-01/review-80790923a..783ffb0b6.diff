@@ -1,0 +1,109 @@
+# Review package: 80790923a..783ffb0b6
+
+## Commits
+783ffb0b6 docs(ward-flow): name the invariant holding transport's terminal states apart
+0f87e8f6d docs(ward-flow): mark the FD-23 referral projections do-not-delete
+
+## Files changed
+ src/components/ward-management/ward-model.ts       | 22 +++++++++++++++++++
+ .../ward-management/ward-referral-visibility.ts    | 25 ++++++++++++++++++++++
+ 2 files changed, 47 insertions(+)
+
+## Diff
+diff --git a/src/components/ward-management/ward-model.ts b/src/components/ward-management/ward-model.ts
+index e808e53b4..9a5cef63d 100644
+--- a/src/components/ward-management/ward-model.ts
++++ b/src/components/ward-management/ward-model.ts
+@@ -355,20 +355,42 @@ export type TransportJob = {
+    * that array — and `ward-legal-forms.ts` is pinned in roughly fifteen places by
+    * `tests/ward-legal-figure-guard.test.ts`, the Mental Health Act figure guard the owner has said
+    * must never be disturbed. Widening a type there is a deliberate change with that guard in front
+    * of it, not a side effect of removing two organisation names from a different field.
+    *
+    * Nothing writes a bad code today: the only populated `formRequired` comes from the seed.
+    */
+   formRequired?: string;
+   acceptedAt?: Instant;
+   enRouteAt?: Instant;
++  /**
++   * ⚠️ THESE THREE READ AS INDEPENDENT AND ARE NOT — `closure` on `Movement` (below) is the
++   * invariant that keeps them apart, and it is NOT stated anywhere in this type.
++   *
++   * Nothing here stops a hand-built `TransportJob` from carrying both `arrivedAt` and
++   * `cancelledAt`, but the reducer can never produce one. In `ward-flow-reducer.ts`,
++   * `PATIENT_ARRIVED` sets `arrivedAt` and the movement's own `closure` in the same update, and
++   * refuses to run at all once `movement.closure` is already set. `RECORD_EXAMINATION`'s
++   * `community_order`/`revoked` branch — the one that closes a movement without an admission —
++   * sets `cancelledAt` the same way, guarded by the identical `movement.closure` check.
++   * Whichever of the two runs first sets `closure`, and that is what makes the second one
++   * impossible; nothing on `TransportJob` itself does the excluding.
++   *
++   * A fourth terminal transition that sets one of these fields (or a new one) MUST do both halves
++   * of that: reject when `movement.closure` is already set, and set `closure` itself in the same
++   * update. Do either alone and this type stops matching what the reducer can actually produce.
++   *
++   * (`collectedAt` is not part of this exclusion — it is an intermediate step either terminal path
++   * can follow, not a terminal state of its own. And `CANCEL_TRANSPORT`, despite the name
++   * similarity, never sets `cancelledAt` at all: it replaces the whole job with a fresh one for
++   * rebooking and records the old one in `movement.unwinds` instead — see `UnwindRecord` below.)
++   */
+   collectedAt?: Instant;
+   arrivedAt?: Instant;
+   cancelledAt?: Instant;
+ };
+ 
+ export type MovementClosure = {
+   at: Instant;
+   outcome: "arrived" | "did_not_proceed";
+   reason: string;
+ };
+diff --git a/src/components/ward-management/ward-referral-visibility.ts b/src/components/ward-management/ward-referral-visibility.ts
+index eedd833df..37d53ee33 100644
+--- a/src/components/ward-management/ward-referral-visibility.ts
++++ b/src/components/ward-management/ward-referral-visibility.ts
+@@ -49,20 +49,45 @@ import { referralState } from "@/components/ward-management/ward-referrals";
+  * a ward told nothing at all would keep working the referral. It tells the ward THAT, never WHERE,
+  * never by whom, never how many places were tried. Nothing else about the other destinations
+  * survives the projection.
+  *
+  * **What is NOT decided here.** Whether the same rule binds the other destination kinds — whether
+  * an emergency department may see that a ward was also asked — is not in the ruling and is not
+  * taken by this module. Only the ward-scoped projection exists, because only the ward-facing rule
+  * was given. An ED-scoped projection is a product decision, not an implementer's.
+  */
+ 
++/**
++ * ⚠️ ZERO PRODUCTION IMPORTERS IS EXPECTED — this is not orphaned code.
++ *
++ * No file under `src/` imports this module today. The only importer anywhere in the repo is
++ * `tests/ward-referral-visibility.test.ts`, which calls `wardScopedReferral`, `wardScopedReferrals`
++ * and `coordinatorScopedReferral` directly (`coordinatorScopedReferrals` currently has no caller at
++ * all, not even a test). That absence is correct, not neglect: `Referral` carries no patient link,
++ * so no ward-facing screen can render a referral today even if it tried. These functions exist to
++ * be ready the day one can.
++ *
++ * `tests/ward-referral-screen-boundary.test.ts` is a static contract test that depends on these
++ * names without importing them — its guidance text tells a ward-facing component to route through
++ * `wardScopedReferral()` / `wardScopedReferrals()` instead of the full `Referral` record, and its
++ * forbidden-vocabulary check names `coordinatorScopedReferral` / `coordinatorScopedReferrals`
++ * explicitly. Delete the functions below because "nothing imports them", and that test starts
++ * naming functions that no longer exist. The FD-23 boundary this file encodes (see the doc comment
++ * above) then has nothing left telling the next author to come here instead of reading
++ * `Referral.destinations` straight off the model — at the exact moment somebody finally builds a
++ * ward-facing referral surface and has the most reason to get it wrong.
++ *
++ * Before removing any exported symbol below, run `npm run check:dead-code-candidate` — it exists
++ * for exactly this shape, a written contract with no consumer yet, and is built to refuse the
++ * removal.
++ */
++
+ /**
+  * The ward arm as a ward-scoped projection carries it — the bed criteria the ward is being asked
+  * about, and nothing else.
+  *
+  * Structurally identical to `WardReferralDestination` today and deliberately declared separately
+  * rather than aliased to it. An alias would mean a field added to the model's ward arm arrives
+  * here automatically; a separate declaration means somebody has to decide.
+  */
+ export type WardScopedDestination = {
+   kind: "psychiatric_ward";

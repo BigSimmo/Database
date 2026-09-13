@@ -148,7 +148,7 @@ from its own data. Supply arrives instead as a ward-reported bed release.
 
 ## 4. Where the build is
 
-Worktree `C:/Users/joshs/.codex/worktrees/ward-management-design/Database`, branch
+Worktree: a local Codex worktree named `ward-management-design` (machine-local path omitted), branch
 `codex/ward-management-design`. **Nothing pushed. No PR.** 15 commits.
 
 | Phase                         | Scope                                                                                           | State                                                                |
@@ -162,10 +162,25 @@ Phase boundaries and their reasoning are in §18 of the design spec.
 
 ### Routes today
 
-`/ward-management` (coordinator) · `/network` · `/queue` · `/capacity` · `/movements` ·
-`/exceptions` · `/transport` · `/governance` · `/patients/[patientId]`
+All Ward Flow routes live under the developer-gated `/mockups/ward-flow` prefix (the sandbox
+move; `/ward-management` paths no longer exist). There are 32 routes in total (31 renderable + 1
+redirect-only), pinned by `tests/ward-landmarks.test.ts`. The eight core views: `/mockups/ward-flow`
+(coordinator) · `/mockups/ward-flow/network` · `/mockups/ward-flow/queue` ·
+`/mockups/ward-flow/capacity` · `/mockups/ward-flow/movements` · `/mockups/ward-flow/exceptions` ·
+`/mockups/ward-flow/transport` · `/mockups/ward-flow/governance`; plus the Phase 3 role screens
+(`ed/[edId]`, `ward/[unitId]`, `board/[unitId]`, `transport/officer`), the Phase 4-5 boards
+(`handover`, `escalation`, `search`, `discharges`, `morning`, `referrals`, `referrals/new`,
+`out-of-area`), the patient/community/statistics surfaces (`movements/[movementId]`,
+`people/[patientId]`, `people/new`, `wards`, `community`, `community/[teamId]`, `statistics`,
+`statistics/overview`, `statistics/compare`, `statistics/ward/[unitId]`, `statistics/ed/[edId]`)
+and the `constellation` redirect stub. `/mockups/ward-flow/patients/[patientId]` no longer
+exists — it was renamed to `/mockups/ward-flow/movements/[movementId]`, nested under the existing
+`/movements` mode page. The full current list, with description and source directory for each
+route, is in `docs/ward-management-mode-map.md`; `src/components/ward-management/ward-nav.ts` is
+the source of truth for navigation.
 
-`/constellation` was retired by Phase 2. The mode navigation now lives in the left rail, not in a
+`/mockups/ward-flow/constellation` was retired by Phase 2 and remains as a redirect-only stub to
+`/mockups/ward-flow/network`. The mode navigation now lives in the left rail, not in a
 horizontal strip.
 
 ---
@@ -228,6 +243,11 @@ Eight gates, evaluated before any ranking: `authorisation`, `cohort`, `security`
 
 ### `ward-sites.ts` — the network
 
+> ℹ️ **CORRECTION — 23 units, not 22.** Measured 2026-09-01: pinned by
+> `expect(screen.getByTestId("units")).toHaveTextContent("23")` in
+> `tests/ward-flow-provider.dom.test.tsx`. The passage below is stale; it is a correction of fact,
+> not a reversed decision.
+
 17 sites, **8 emergency departments**, **22 units**. `NOW_ANCHOR = 10 * 60 + 42` (10:42).
 
 ```
@@ -249,6 +269,13 @@ units past their staleness window, one unit whose feed and ward figures disagree
 unauthorised units, a private site, WACHS sites.
 
 ### `ward-movements.ts` — the demand
+
+> ℹ️ **CORRECTION — 50 movements and 9 bed releases, not 48 and 6.** Measured 2026-09-01: pinned by
+> `expect(screen.getByTestId("movements")).toHaveTextContent("50")` in
+> `tests/ward-flow-provider.dom.test.tsx` (a comment there notes "48 -> 50 on 2026-08-30: WF-019
+> and WF-020"), and `bedReleases` in
+> `src/components/ward-management/ward-movements.ts` holds ids `WR-001` through `WR-009` (9
+> entries). The passage below is stale; it is a correction of fact, not a reversed decision.
 
 **48 movements** (18 hand-authored covering every awkward state, 30 generated deterministically
 from their index) and **6 bed releases**. Built at realistic bad-night pressure across all eight

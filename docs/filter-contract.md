@@ -106,9 +106,35 @@ discard the query: the commit becomes "Show N in all items" instead of a dead en
 **Render it only when the catalogue is meaningfully larger than the result set.** Otherwise the
 two segments show the same number and the row is noise.
 
-| Gets scope                                                              | Does not                                            |
-| ----------------------------------------------------------------------- | --------------------------------------------------- |
-| services (219), medication (328), differentials (232), specifiers (585) | factsheets (8), applications (13), formulation (12) |
+| Gets scope                                         | Does not                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| services (219), medication (328), specifiers (585) | factsheets (8), applications (13), formulation (12), differentials search |
+
+**Differentials search is the exception that proves the counts rule.** The catalogue is 232 (201
+diagnoses + 31 presentations) and by size it belongs in the left column, but `differentials-home.tsx`
+cannot state either segment honestly. `data/differentials-snapshot.json` is 1.2 MB and that client
+component deliberately never imports it — doing so to get an "all" count would put the whole snapshot
+in the bundle — while `useDifferentialSearch` only ever receives query-matched results. So the page
+can produce a constant `232`, but not "how many of the 232 survive the current urgency selection",
+and section 3 requires both counts to come from the same predicate as the filter.
+
+`/api/differentials` used to compound this: its `total` measured the records it was returning, which
+under a query are the ranked matches, so it reported the caller's own result count rather than the
+catalogue. That is fixed — all four branches of the route report the catalogue size, pinned by
+`tests/differentials-route.test.ts` — so the honest figure is now available. What is still missing is
+the _scoped_ count: "how many of the 232 survive the current urgency selection" needs the catalogue
+in memory, which is the megabyte this client must not import. The total alone cannot satisfy
+section 3.
+
+Differentials **browse** (`differential-stream-workspace.tsx`) does get scope, because its server
+component hands it a model carrying matched and unmatched entries together, distinguished by
+`isMatch` — which is exactly the in-memory universe the search page lacks. Services can do this for
+the same reason: its 219-item registry is already client-side.
+
+The search page therefore takes the reach action instead — a `secondaryAction` reading "Browse the
+full differentials catalogue", uncounted, routing through `differentialRouteWithQuery` so the query
+survives. That is the same escape from a filtered-to-zero state without discarding the query, framed
+as reach rather than refinement.
 
 Documents is deliberately excluded: it already answers this with a `N of M documents shown` meter
 and a "Browse all sources" action framed as _reach, not refinement_. That is a better fit for a
@@ -136,6 +162,35 @@ Clinical validation (3) were exactly that, a ragged single column down a phone s
 halve the height and align the counts. A group with no counts keeps the wrapping chip row, which is
 still the right renderer for short bare labels.
 
+**The same argument applies to a counted `lens`, and the answer there is the segmented bar.** A lens
+is an exact partition, so it takes `SegmentedControl` rather than the two-column grid — which is what
+`ChoiceChip`'s own contract already says: _"Compact many-of-many selection. Use SegmentedControl for
+one-of-many choices."_
+
+**It is derived, never declared.** A lens whose options all carry a count renders as a segmented bar
+because of what it is, not because a call site asked. There is no renderer flag, and adding one would
+break section 1 — a mode declares semantics, and picking a layout is the thing that rule exists to
+stop. An earlier revision shipped `renderAs: "segmented"` as a migration seam so modes could move one
+at a time; it is gone, and the option list is what decides.
+
+Two conditions bound it, both load-bearing:
+
+- **At most five options.** That is where the chip tier above ends. A segmented bar is one control
+  read left to right; past five it wraps into rows and stops reading as one, which is the ragged
+  shape this rule exists to remove. A longer lens keeps the chip row.
+  A dead end does **not** send the group back to chips, and an earlier revision that made it do so was
+  wrong: documents' Source locality marks an option dead the moment its count reaches zero, so a
+  state-dependent renderer made the control morph from a segmented bar into a chip row while the reader
+  was using it. The shape of the option list decides the renderer; nothing about the current selection
+  can change it. `SegmentedControl` carries the dead end itself, on a `deadEnd` field kept deliberately
+  separate from `disabled` — `disabled` means "not on offer" and leaves the arrow path, `deadEnd` means
+  "your own narrowing emptied this" and stays on it with `aria-disabled` and a stated reason, exactly as
+  section 3 requires.
+
+Counts may carry units. `SegmentedControl` takes the same `hint`/`hintLabel` split as an option (see
+the rule below), so `"1 loaded source"` is announced while `1` is displayed. Before that split a
+counted lens with a unit had to stay on chips — which is what kept documents' Source locality there.
+
 **`hint` is announced, `hintLabel` is displayed.** `hint` carries the unit (`"1 loaded source"`) and
 is what the option's accessible name is built from; `hintLabel` is the short visible form (`"1"`).
 Set both when a count has a unit — spelling the unit into every visible option is what made the
@@ -148,6 +203,39 @@ and owns openness. A selected option always survives the needle, so an active co
 never become unreachable. A group whose options are all filtered out by the needle disappears
 rather than showing an empty heading.
 
+## 5b. One panel, two presentations
+
+The groups, footer and header are identical at every width. Only the container changes, and the
+choice is made by `usePhoneMedia()` rather than by a media query, because anchoring needs the
+trigger's measured box and that only exists in JS.
+
+| Width            | Container                                                                 | Modality                                        |
+| ---------------- | ------------------------------------------------------------------------- | ----------------------------------------------- |
+| phone (< 640px)  | `Sheet`, bottom sheet, drag grip, safe-area padding                       | modal — focus trapped, background inert         |
+| tablet / desktop | content-sized panel anchored under the trigger, at the `--z-popover` rung | non-modal — results stay readable and reachable |
+
+**Why the rail went.** `placement="responsive-right"` makes `Sheet` a full-height 32rem rail from
+`sm` up. That is right for six facet groups and wrong for two: differentials left roughly 85% of it
+empty, and a 768px tablet gave two thirds of its screen to a refinement of the list behind it. There
+was no tablet treatment at all — 768px simply inherited desktop.
+
+**Why non-modal.** The rail trapped focus and scrimmed the results, so the thing being filtered was
+the thing the reader could no longer see or reach. The anchored panel uses `useDismissableLayer`
+(outside-pointerdown and Escape) instead, whose focus restore declines to steal focus back if the
+reader has already moved it.
+
+**A mode opts in by passing `anchorRef`** — the same ref given to its wide-screen
+`ResultFilterTrigger`. Omit it and the rail is unchanged, which is what keeps this additive; only
+differentials search passes it today.
+
+Two things not to undo:
+
+- **The phone keeps the modal sheet.** `tests/ui-accessibility.spec.ts` proves the roving radiogroup
+  under a real focus trap precisely because jsdom cannot vouch for focus behaviour.
+- **400% zoom is already handled.** It reduces the viewport to roughly 320 CSS px, so
+  `usePhoneMedia()` matches and the bottom sheet renders. The anchored panel never has to survive
+  320px, and widening that query to "fix" it would break both blocking criteria at once.
+
 ## 6. Invariants
 
 - **`footerNote` counts what the filters actually govern.** Specifiers currently reports
@@ -157,7 +245,9 @@ rather than showing an empty heading.
   intentions. Therapy-compass now uses the shared sheet's filter-only clear; the composer's
   explicit "Clear search" action remains responsible for deleting the query.
 - **One trigger component.** `ResultFilterTrigger`. Therapy-compass now uses the shared trigger
-  at the phone breakpoint and the shared facet chips on desktop.
+  at every breakpoint, both slots rendered from one helper, as forms, on-call and documents do.
+  Its former desktop facet rail is gone: an always-open rail made Therapy the only mode whose
+  filters were expanded by default, and it pushed the first result below the fold.
 - **Tap targets are `min-h-tap` (48px) on phone.** Do not relax to 44px for generic WCAG
   guidance; it reintroduces a known `ui-smoke` flake.
 
@@ -186,10 +276,13 @@ Contract first, then one PR per mode:
    Services is also the first mode dense enough (6 facet groups) to exercise the
    `> 3 groups` chrome added to the shared sheet for this — see section 5.
 4. **Therapy-compass** — converge runtime use of the bespoke phone-only filter sheet and trigger
-   onto `ResultFilterSheet`, `ResultFilterTrigger`, and `ResultFilterFacetChips`. Topics are OR
+   onto `ResultFilterSheet` and `ResultFilterTrigger`. Topics are OR
    within their group. Review status and handout availability are independent one-option groups
    that AND with Topics and with each other. Option counts and filtering share
-   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query.
+   `matchesTopics`/`matchesAvailability`, and Clear filters preserves the query. The desktop
+   `ResultFilterFacetChips` rail this mode carried through the migration has since been retired
+   for the shared trigger, so both breakpoints now open the same sheet and only one copy of each
+   facet group is ever in the document.
 5. **Documents last** — converged onto the shared component. Its needle and collapse-by-default
    mechanics moved up into `ResultFilterSheet` first, as part of services (§5); documents itself
    deleted its ~500-line bespoke `DocumentFilterPanel` and rebuilt on `ResultFilterSheet` with

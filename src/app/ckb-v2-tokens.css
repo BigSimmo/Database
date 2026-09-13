@@ -222,9 +222,9 @@
    subtree inside html.dark and overrode the inherited dark values (DS-01). */
 .ckb-v2.ckb-v2 {
   --background: #ffffff;
-  --surface: #ffffff;
+  --surface: #fcfdfe;
   --surface-chrome: #ffffff;
-  --surface-raised: #ffffff;
+  --surface-raised: #fcfdfe;
   --surface-lux: #ffffff;
 
   /* The only non-white surfaces - both whispers */
@@ -235,8 +235,8 @@
   --clinical-chat-table-header: #fbfcfd;
   --clinical-chat-document: #f8fafc;
 
-  --border: #e6ebf2;
-  --border-strong: #d3dbe5;
+  --border: #e2e8f0;
+  --border-strong: #c8d2de;
   /* Solid, not 55% alpha: alpha computed LIGHTER than --border, so panels had
      weaker edges than the cards nested inside them (#43). */
   --border-lux: #dde4ee;
@@ -254,7 +254,7 @@
      names resolve to the same value during the deprecation window. */
   --text-soft: #8894a6;
   --decoration-soft: #8894a6;
-  --disabled: #9aa5b5;
+  --disabled: #8794a8;
 
   --command: #111827;
   --command-hover: #0b1220;
@@ -464,7 +464,8 @@
     --primary-soft: Canvas;
     --success: CanvasText;
     --warning: CanvasText;
-    --danger: Mark;
+    /* Status text sits on Canvas; Mark is a fill, not its paired foreground. */
+    --danger: CanvasText;
     --danger-solid: Mark;
     --danger-solid-hover: Mark;
     --danger-solid-active: Mark;

@@ -1,15 +1,21 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
 import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
+import type {
+  ClientCitation,
+  ClientRagAnswerPayload,
+  ClientSafetyWarning,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,
   sourceTextForDisplay,
 } from "@/lib/source-text-sanitizer";
-import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind, SearchResult } from "@/lib/types";
+import type { RagAnswer, SafetyWarningKind, SearchResult } from "@/lib/types";
 
 export type SafetyFindingKind = SafetyWarningKind;
-export type SafetyFinding = SafetyWarning;
+export type SafetyFinding = ClientSafetyWarning;
 
 const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: RegExp }> = [
   {
@@ -49,8 +55,36 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   },
 ];
 
+/**
+ * How much of a passage two findings must share before containment is treated as
+ * "the same passage". Below this, a short fragment is a substring of too much.
+ */
+const minPassageOverlap = 40;
+
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
+}
+
+const conciseTextLimit = 260;
+const conciseTextCut = 257;
+
+// Audit L111: the chip text was cut at a fixed character offset with no word or
+// number boundary, so a dose or count straddling the cut rendered as a partial
+// number — "ANC 1500" became "ANC 1" — which reads as a complete threshold.
+// Cut at the last word boundary instead. When a single token runs past the whole
+// limit there is no boundary to use, so drop a trailing partial number rather
+// than show half of one.
+function truncateAtSafeBoundary(text: string, cut: number) {
+  const slice = text.slice(0, cut);
+  // Audit L111, second boundary case (Codex review on PR #2610): when the cut
+  // itself lands on whitespace, the slice already ends on a COMPLETE token, so
+  // backing up to the previous space deletes a whole value. "…ANC below 1500"
+  // became "…ANC below" — worse than the original defect, because it still reads
+  // as a finished clinical instruction with the threshold silently removed.
+  if (/\s/.test(text.charAt(cut)) || /\s$/.test(slice)) return slice.trimEnd();
+  const lastSpace = slice.lastIndexOf(" ");
+  if (lastSpace > 0) return slice.slice(0, lastSpace).trimEnd();
+  return slice.replace(/[\d.,]*\d[\d.,]*$/, "").trimEnd() || slice.trimEnd();
 }
 
 function conciseSourceText(text: string) {
@@ -58,15 +92,25 @@ function conciseSourceText(text: string) {
   const normalized = normalizeText(
     (sourceTextForCompactDisplay(useful.text || text) || sourceTextForDisplay(text))
       .replace(/\bsource mentions\s*:?\s*/gi, "")
-      .replace(/\b(?:procedure|policy|protocol)\s+[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/gi, "")
+      // Audit M9: this scrub removes a document code such as
+      // "Procedure PAE-PRO-0338/16". With the `i` flag it also matched any
+      // lowercase hyphenated word, so "protocol re-challenge",
+      // "policy co-prescribing" and "procedure post-operative" lost the subject
+      // of the sentence in a rendered Safety finding. The keyword stays
+      // case-insensitive by spelling; the code itself must be upper case and
+      // must contain a digit, which every real code does.
+      .replace(
+        /\b(?:[Pp]rocedure|[Pp]olicy|[Pp]rotocol)\s+(?=[A-Z0-9/-]*\d)[A-Z]{2,}(?:-[A-Z0-9]+)+(?:\/\d+)?\b[\s.:-]*/g,
+        "",
+      )
       .replace(/\bpage\s+\d+\s+of\s+\d+\b[\s.:-]*/gi, "")
       .replace(/\bchunk\s*(?:id|index)?\s*[:#=-]?\s*[a-z0-9_-]+\b[\s.:-]*/gi, ""),
   );
-  if (normalized.length <= 260) return normalized;
-  return `${normalized.slice(0, 257).trim()}...`;
+  if (normalized.length <= conciseTextLimit) return normalized;
+  return `${truncateAtSafeBoundary(normalized, conciseTextCut)}...`;
 }
 
-function citationFromSource(source: SearchResult): Citation {
+function citationFromSource(source: ClientSearchResult): ClientCitation {
   return {
     chunk_id: source.id,
     document_id: source.document_id,
@@ -85,8 +129,112 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
   return terms.some((term) => haystack.includes(term.toLowerCase()));
 }
 
-export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
-  if (answer?.safetyWarnings) return answer.safetyWarnings.slice(0, limit);
+type SafetyAnswerInput = Omit<ClientRagAnswerPayload, "sources"> & {
+  sources: Array<ClientSearchResult | SearchResult>;
+  smartPanel?: Pick<NonNullable<RagAnswer["smartPanel"]>, "query">;
+};
+
+/**
+ * Collapse findings that are the same passage counted twice.
+ *
+ * The candidate list below draws from `quoteCards` AND `sources`, and a quote
+ * card is an extract of its own parent chunk — same document, same page, its
+ * text a substring of the chunk's. Both used to survive, because the dedupe key
+ * was the text itself and two different lengths of one passage are two different
+ * strings. They could also carry different labels: `safetyPatterns.find` returns
+ * the first pattern the text matches, and the longer text reaches severities the
+ * extract does not. On the live clozapine answer that rendered as "3 safety
+ * notes" over two passages, the first two of them the same words under "Red
+ * flag" and "Monitoring".
+ *
+ * A count is the whole point of this surface, so an inflated one is not cosmetic.
+ * Same document, same page, one text containing the other: keep the fuller text,
+ * and keep the most severe label of the group — a passage that names both an
+ * urgent trigger and a monitoring step is a red flag that also mentions
+ * monitoring, not two findings.
+ *
+ * Applied to every path into this module, including an answer that arrives with
+ * `safetyWarnings` already computed, so a future producer of those warnings
+ * cannot reintroduce the double count.
+ */
+export function collapseDuplicateSafetyFindings(findings: SafetyFinding[]): SafetyFinding[] {
+  // A single pass is order-greedy: it merges into the FIRST passage-key match,
+  // so a finding that contains two already-kept ones lands on the first and
+  // leaves the second nested inside it. That matters because this runs twice on
+  // the same data — server-side into the payload, then again on the client — and
+  // a pass that has not reached a fixed point can return a different count each
+  // time, so the chip reads "2 safety notes" before hydration and "1" after.
+  // Every iteration that changes anything removes at least one finding, so the
+  // input length bounds the loop.
+  let current = findings;
+  for (let pass = 0; pass < findings.length; pass += 1) {
+    const next = collapseSafetyFindingsOnce(current);
+    if (next.length === current.length) return next;
+    current = next;
+  }
+  return current;
+}
+
+function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] {
+  const kept: SafetyFinding[] = [];
+  const normalized = new Map<SafetyFinding, string>();
+  const passageKey = (finding: SafetyFinding) =>
+    `${finding.citation.document_id}:${finding.citation.page_number ?? "?"}`;
+
+  for (const finding of findings) {
+    const text = normalizeText(finding.text).toLowerCase();
+    normalized.set(finding, text);
+    const duplicateIndex = kept.findIndex((candidate) => {
+      const other = normalized.get(candidate) ?? "";
+      if (other === text && passageKey(candidate) === passageKey(finding)) return true;
+      const contains = other.includes(text) || text.includes(other);
+      if (!contains) return false;
+      // Same chunk is not a heuristic: a quote card and the source it was cut
+      // from carry the same `chunk_id`, so containment there is proof of one
+      // passage however short the extract. The length floor below exists only
+      // for the cross-chunk case, and applying it here would let a quote under
+      // 40 characters double-count against its own parent — the exact defect
+      // this function was written for.
+      const sameChunk =
+        Boolean(candidate.citation.chunk_id) && candidate.citation.chunk_id === finding.citation.chunk_id;
+      if (sameChunk) return true;
+      if (passageKey(candidate) !== passageKey(finding)) return false;
+      // Across chunks, containment only counts when the shorter side is long
+      // enough to identify a passage. A stray fragment is a substring of almost
+      // anything.
+      const shorter = other.length < text.length ? other : text;
+      return shorter.length >= minPassageOverlap;
+    });
+
+    if (duplicateIndex === -1) {
+      kept.push(finding);
+      continue;
+    }
+
+    const existing = kept[duplicateIndex];
+    const existingText = normalized.get(existing) ?? "";
+    const fuller = text.length > existingText.length ? finding : existing;
+    const severest = safetyKindPriority[finding.kind] < safetyKindPriority[existing.kind] ? finding : existing;
+    // The id encodes the kind, so a merge that takes one finding's text and
+    // another's severity has to rebuild it rather than keep a `monitoring:` id
+    // on a row now labelled "Red flag".
+    kept[duplicateIndex] =
+      fuller === severest
+        ? fuller
+        : {
+            ...fuller,
+            id: `${severest.kind}:${fuller.citation.chunk_id}`,
+            kind: severest.kind,
+            label: severest.label,
+          };
+    normalized.set(kept[duplicateIndex], normalizeText(kept[duplicateIndex].text).toLowerCase());
+  }
+
+  return kept;
+}
+
+export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefined, limit = 5): SafetyFinding[] {
+  if (answer?.safetyWarnings) return collapseDuplicateSafetyFindings(answer.safetyWarnings).slice(0, limit);
   if (!answer?.grounded) return [];
   if (answer.relevance && !answer.relevance.isSourceBacked) return [];
 
@@ -122,7 +270,8 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
     const text = sanitizeAnswerText(conciseSourceText(candidate.text)) || conciseSourceText(candidate.text);
     if (!text) continue;
     if (answer.relevance) {
-      const sourceBacked = candidate.source?.relevance?.isSourceBacked;
+      const sourceBacked =
+        candidate.source && "relevance" in candidate.source && candidate.source.relevance?.isSourceBacked;
       const moderateOrStrong = candidate.sourceStrength === "strong" || candidate.sourceStrength === "moderate";
       const overlapsQuery = hasQueryConceptOverlap(text, coreTerms);
       if (!sourceBacked && !(moderateOrStrong && overlapsQuery)) continue;
@@ -144,10 +293,13 @@ export function extractSafetyFindings(answer: RagAnswer | null | undefined, limi
       href: documentCitationHref(candidate.citation),
     });
 
-    if (findings.length >= limit) break;
+    // Deliberately NOT `>= limit`: the collapse below can merge two of these
+    // into one, and stopping at the limit first would let a duplicate crowd out
+    // a genuinely distinct finding.
+    if (findings.length >= limit * 2) break;
   }
 
-  return findings;
+  return collapseDuplicateSafetyFindings(findings).slice(0, limit);
 }
 
 export function formatSafetyFindingLabel(finding: SafetyFinding) {
@@ -166,4 +318,68 @@ const safetyKindPriority: Record<SafetyFindingKind, number> = {
 
 export function sortSafetyFindingsBySeverity(findings: SafetyFinding[]): SafetyFinding[] {
   return [...findings].sort((left, right) => safetyKindPriority[left.kind] - safetyKindPriority[right.kind]);
+}
+
+/**
+ * What the reader is being asked to do, which is not the same question as how
+ * severe the finding is.
+ *
+ * The three tiers exist so routine monitoring stops being painted amber.
+ * `docs/design-system/TOKENS.md` reserves the clinical status colours for
+ * "source state and sanctioned urgency only", and an answer whose every finding
+ * is a warning colour teaches the reader that the warning colours mean nothing —
+ * which is exactly the state a contraindication cannot afford them to be in.
+ *
+ * `stop` earns `--danger`, `act` earns `--warning`, and `know` deliberately
+ * earns neither.
+ */
+export type SafetyFindingTone = "stop" | "act" | "know";
+
+const safetyKindTone: Record<SafetyFindingKind, SafetyFindingTone> = {
+  contraindication: "stop",
+  red_flag: "stop",
+  escalation: "act",
+  dose_limit: "act",
+  monitoring: "know",
+  exclusion: "know",
+  caveat: "know",
+};
+
+export function safetyFindingTone(kind: SafetyFindingKind): SafetyFindingTone {
+  return safetyKindTone[kind];
+}
+
+/**
+ * The findings collapsed to one entry per kind, in severity order, for the
+ * rail of clinical points under an answer.
+ *
+ * Grouped by kind rather than listed per finding because `SafetyFinding` has no
+ * short title: it carries `label` ("Contraindication") and `text` (the whole
+ * passage), and a rail of full passages is the panel this rail exists to
+ * replace. The count keeps two monitoring findings from rendering as two
+ * identical pills.
+ */
+export type SafetyFindingGroup = {
+  kind: SafetyFindingKind;
+  label: string;
+  tone: SafetyFindingTone;
+  count: number;
+};
+
+export function groupSafetyFindingsByKind(findings: SafetyFinding[]): SafetyFindingGroup[] {
+  const groups = new Map<SafetyFindingKind, SafetyFindingGroup>();
+  for (const finding of sortSafetyFindingsBySeverity(findings)) {
+    const existing = groups.get(finding.kind);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    groups.set(finding.kind, {
+      kind: finding.kind,
+      label: finding.label,
+      tone: safetyFindingTone(finding.kind),
+      count: 1,
+    });
+  }
+  return [...groups.values()];
 }

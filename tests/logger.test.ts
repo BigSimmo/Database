@@ -22,6 +22,43 @@ describe("redactLogContext", () => {
     expect(out.answer).toBe("[redacted]");
   });
 
+  it("redacts camelCase and snake_case query / answer / question keys, not just the bare words (L1)", () => {
+    // `_` and letters are word characters, so a `\b`-anchored `query` matched the
+    // bare key only; the most natural spellings of a clinical query or answer
+    // field passed straight through the redaction layer that promises
+    // call-site-independent protection.
+    const clinical = "56yo male with psychosis on 12mg haloperidol";
+    const out = redactLogContext({
+      queryText: clinical,
+      query_text: clinical,
+      rawQuery: clinical,
+      normalizedQuery: clinical,
+      question: clinical,
+      answerText: "clinical answer text",
+      answer_text: "clinical answer text",
+      queryMode: "clinical",
+      status: 200,
+      requestId: "req-1",
+    });
+
+    for (const key of [
+      "queryText",
+      "query_text",
+      "rawQuery",
+      "normalizedQuery",
+      "question",
+      "answerText",
+      "answer_text",
+    ]) {
+      expect(out[key], key).toBe("[redacted]");
+    }
+    // Over-redaction of a mode/class label is the accepted cost; operational
+    // keys that do not carry the words stay readable.
+    expect(out.queryMode).toBe("[redacted]");
+    expect(out.status).toBe(200);
+    expect(out.requestId).toBe("req-1");
+  });
+
   it("redacts nested sensitive keys", () => {
     const out = redactLogContext({ details: { apiKey: "k", code: "P0001" } }) as {
       details: Record<string, unknown>;

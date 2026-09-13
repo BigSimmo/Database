@@ -35,6 +35,7 @@ import {
   commandDropdownPointerMediaQuery,
   commandSurfaceRemoteSearchEnabled,
   differentialRedFlagTerms,
+  filterCommandSurfaceCrossModesForSmartSearch,
   filteredSuggestions,
   isFormCodeQuery,
   searchCommandSurfaceConfig,
@@ -44,7 +45,7 @@ import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/u
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
-import { interpretSmartSearch, isSmartNaturalSearchMode } from "@/lib/smart-search-intent";
+import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 
 // Domains whose live result totals a cross-mode chip should sum. Answer/favourites
 // chips have no countable domain; the
@@ -173,17 +174,18 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   );
 }
 
-function SmartRotatingHint({
+function ExampleTicker({
   examples,
   modeLabel,
-  showSmartLine,
+  showLine,
   showPhoneTicker,
   onPickExample,
 }: {
   examples: string[];
   modeLabel: string;
-  /** Smart is a provider-free capability of the supported catalogue modes. */
-  showSmartLine: boolean;
+  /** Tablet/desktop rotating "Try …" line above the pill. Mode-home hero only. */
+  showLine: boolean;
+  /** Compact tappable ticker below an in-flow phone home composer. */
   showPhoneTicker: boolean;
   onPickExample: (example: string) => void;
 }) {
@@ -192,7 +194,7 @@ function SmartRotatingHint({
   const [isTickerHeld, setIsTickerHeld] = useState(false);
   const activeExample = examples[activeExampleIndex % examples.length];
 
-  const visible = showSmartLine || showPhoneTicker;
+  const visible = showLine || showPhoneTicker;
 
   useEffect(() => {
     if (!visible) return;
@@ -220,12 +222,13 @@ function SmartRotatingHint({
 
   return (
     <>
-      {showSmartLine ? (
-        <div data-testid="smart-search-rotating-text" className="smart-search-rotating-text">
-          <span>Smart search</span>
-          <span aria-hidden="true">·</span>
+      {showLine ? (
+        // One wording for every mode. It carries no "Smart" promise, so the
+        // dormant modes (Documents, Answer, Favourites) can share the exact
+        // same home composer as the catalogue modes.
+        <div data-testid="search-example-ticker" className="search-example-ticker">
           <span>
-            Try <span className="smart-search-rotating-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
+            Try <span className="search-example-ticker-query">&ldquo;{activeExample}&rdquo;</span> in {modeLabel}.
           </span>
         </div>
       ) : null}
@@ -469,6 +472,7 @@ export function UniversalSearchCommandSurface({
   onListboxIdReady,
   onActiveItemIdChange,
   showPhoneSuggestionTicker = false,
+  showHomeSuggestions = false,
   placement = "inline",
   children,
 }: {
@@ -491,28 +495,25 @@ export function UniversalSearchCommandSurface({
   onActiveItemIdChange?: (activeItemId: string | null) => void;
   /** Show the compact, tappable suggestion ticker below an in-flow phone home composer. */
   showPhoneSuggestionTicker?: boolean;
+  /**
+   * Show the tablet/desktop home helpers: the rotating "Try …" line above the
+   * pill and the "Prompts" chip rail below it. Only the mode-home hero composer
+   * opts in; submitted result views, page slots, and the answer dock render the
+   * pill alone so every mode's results page carries one compact search bar.
+   */
+  showHomeSuggestions?: boolean;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
   const config = searchCommandSurfaceConfig(modeId);
-  const crossModes = useMemo(
-    () =>
-      config
-        ? filterCrossModesForSession(config.crossModes, {
-            // Hosts pass the precomputed session decision; do not OR demoMode again.
-            authenticated: canAccessFavourites,
-            demoMode: false,
-          })
-        : [],
-    [canAccessFavourites, config],
-  );
-  const listboxId = useId();
-  const router = useRouter();
-  const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
   const smartInterpretation = interpretSmartSearch(modeId, trimmedQuery);
   const smartNaturalSearch = smartInterpretation.naturalLanguage;
+  const suppressLocalOnlySmartActions = smartNaturalSearch && isSmartLocalOnlyMode(modeId);
+  const listboxId = useId();
+  const router = useRouter();
+  const [activeIndex, setActiveIndex] = useState(-1);
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
@@ -531,7 +532,7 @@ export function UniversalSearchCommandSurface({
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId),
+    enabled: dropdownOpen && dropdownDisplayable && commandSurfaceRemoteSearchEnabled(modeId, smartNaturalSearch),
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites().items;
@@ -585,6 +586,15 @@ export function UniversalSearchCommandSurface({
 
   const sections = useMemo(() => {
     if (!config) return [];
+    const crossModes = filterCommandSurfaceCrossModesForSmartSearch(
+      modeId,
+      trimmedQuery,
+      filterCrossModesForSession(config.crossModes, {
+        // Hosts pass the precomputed session decision; do not OR demoMode again.
+        authenticated: canAccessFavourites,
+        demoMode: false,
+      }),
+    );
     const built: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }> = [];
     let counter = 0;
     const nextId = () => `${listboxId}-item-${counter++}`;
@@ -610,7 +620,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Open">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <HitIcon className="h-4 w-4" />
+                  <HitIcon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-extrabold text-[color:var(--text-heading)]">
@@ -641,7 +651,7 @@ export function UniversalSearchCommandSurface({
 
     const visibleFavouriteMatches =
       modeId === "favourites" ? favouriteMatches : favouriteMatches.filter((match) => match.standalone);
-    if (canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length) {
+    if (!suppressLocalOnlySmartActions && canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length) {
       built.push({
         key: "local-favourites",
         heading: `${modeId === "favourites" ? "Current mode" : "Also in Favourites"} · ${visibleFavouriteMatches.length}`,
@@ -821,7 +831,7 @@ export function UniversalSearchCommandSurface({
               render: (active: boolean) => (
                 <OptionShell active={active} hint="Open">
                   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                    <GroupIcon className="h-4 w-4" />
+                    <GroupIcon aria-hidden="true" className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{item.title}</span>
@@ -890,7 +900,7 @@ export function UniversalSearchCommandSurface({
                           ? "dictionary"
                           : null;
 
-    if (actionSetId) {
+    if (actionSetId && !suppressLocalOnlySmartActions) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);
       if (actions.length) {
         built.push({
@@ -906,7 +916,7 @@ export function UniversalSearchCommandSurface({
             render: (active) => (
               <OptionShell active={active} hint="Run">
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                  <action.icon className="h-4 w-4" />
+                  <action.icon aria-hidden="true" className="h-4 w-4" />
                 </span>
                 <span className="truncate text-sm font-semibold text-[color:var(--text)]">{action.label}</span>
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
@@ -976,7 +986,6 @@ export function UniversalSearchCommandSurface({
   }, [
     canAccessFavourites,
     config,
-    crossModes,
     favouriteMatches,
     listboxId,
     mode,
@@ -991,6 +1000,7 @@ export function UniversalSearchCommandSurface({
     router,
     savedHrefs,
     showFormCodeHint,
+    suppressLocalOnlySmartActions,
     trimmedQuery,
     universalGroups,
     orderedUniversalGroups,
@@ -1112,12 +1122,13 @@ export function UniversalSearchCommandSurface({
     >
       <SmartIntentCue active={smartNaturalSearch} modeLabel={mode.label} />
       {smartNaturalSearch ? null : (
-        // The phone ticker and desktop line both demonstrate deterministic
-        // catalogue search. Neither depends on Clinical Ask or a provider flag.
-        <SmartRotatingHint
+        // The phone ticker and the tablet/desktop line both demonstrate an
+        // ordinary example search. Neither depends on Clinical Ask or a
+        // provider flag, and both are home-only.
+        <ExampleTicker
           examples={config.examples}
           modeLabel={mode.label}
-          showSmartLine={isSmartNaturalSearchMode(modeId)}
+          showLine={showHomeSuggestions}
           showPhoneTicker={showPhoneSuggestionTicker}
           onPickExample={(example) => {
             onQueryChange(example);
@@ -1180,14 +1191,16 @@ export function UniversalSearchCommandSurface({
           />
         ) : null}
       </div>
-      <SmartPromptRow
-        examples={config.examples}
-        onPickExample={(example) => {
-          onQueryChange(example);
-          if (dropdownDisplayable) onDropdownOpenChange(true);
-          onFocusSearchInput?.();
-        }}
-      />
+      {showHomeSuggestions ? (
+        <SmartPromptRow
+          examples={config.examples}
+          onPickExample={(example) => {
+            onQueryChange(example);
+            if (dropdownDisplayable) onDropdownOpenChange(true);
+            onFocusSearchInput?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

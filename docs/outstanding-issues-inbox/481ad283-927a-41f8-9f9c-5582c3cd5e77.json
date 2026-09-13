@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "481ad283-927a-41f8-9f9c-5582c3cd5e77",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#707F09",
+    "outcome": "Implemented dev-only reading of docs/outstanding-issues-inbox/*.json in loadLedgerSnapshot so pending requests panel is populated during local next dev without disk snapshot regeneration",
+    "baseRowFingerprint": "5675f3c379411b0924ebef7e95b593ba74aafe496c43e2933b0ae452fe1944d8"
+  }
+}

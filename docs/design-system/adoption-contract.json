@@ -139,9 +139,24 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/card/page.tsx",
+        "src/app/(search-app)/on-call/contacts/page.tsx",
+        "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/logistics/page.tsx",
+        "src/app/(search-app)/on-call/orientation/page.tsx",
+        "src/app/(search-app)/on-call/page.tsx",
+        "src/app/(search-app)/on-call/playbook/page.tsx",
+        "src/app/(search-app)/on-call/referrals/page.tsx",
+        "src/app/(search-app)/on-call/search/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
-        "src/app/(search-app)/services/search/page.tsx"
+        "src/app/(search-app)/services/search/page.tsx",
+        "src/app/(search-app)/sources/[sourceId]/page.tsx",
+        "src/app/(search-app)/sources/method/page.tsx",
+        "src/app/(search-app)/sources/page.tsx",
+        "src/app/(search-app)/sources/publishers/page.tsx",
+        "src/app/(search-app)/sources/search/page.tsx",
+        "src/app/(search-app)/sources/topics/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],
@@ -166,7 +181,7 @@
         },
         "browser": {
           "status": "passed",
-          "evidence": ["tests/ui-visual-baseline.spec.ts"]
+          "evidence": ["tests/ui-sources.spec.ts", "tests/ui-visual-baseline.spec.ts"]
         }
       },
       "baseline": {
@@ -517,7 +532,8 @@
         "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "src/app/caring-contacts/guidance/page.tsx",
         "src/app/caring-contacts/reports/page.tsx",
-        "src/app/caring-contacts/team/page.tsx"
+        "src/app/caring-contacts/team/page.tsx",
+        "src/app/caring-contacts/intake/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],

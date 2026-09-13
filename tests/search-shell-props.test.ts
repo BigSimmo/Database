@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { modeSecondaryNavigationRegistry } from "@/lib/mode-secondary-navigation";
 import { searchShellPropsForPathname } from "@/lib/search-shell-props";
 
 describe("searchShellPropsForPathname", () => {
@@ -75,5 +76,31 @@ describe("searchShellPropsForPathname", () => {
       initialMode: "calculators",
       desktopSearchPlacement: "hero",
     });
+  });
+
+  it("keeps one Sources composer on catalogue views and hides it on method and detail pages", () => {
+    const visible = { initialMode: "sources", desktopSearchPlacement: "hero" } as const;
+    expect(searchShellPropsForPathname("/sources")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/search")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/topics")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/publishers")).toEqual(visible);
+    expect(searchShellPropsForPathname("/sources/method")).toEqual({ ...visible, searchComposerVisible: false });
+    expect(searchShellPropsForPathname("/sources/src_example")).toEqual({ ...visible, searchComposerVisible: false });
+  });
+
+  it("derives reserved sources subroutes from modeSecondaryNavigationRegistry so registered routes are never treated as detail pages", () => {
+    const visible = { initialMode: "sources", desktopSearchPlacement: "hero" } as const;
+    for (const entry of modeSecondaryNavigationRegistry.sources) {
+      if (!entry.href) continue;
+      const props = searchShellPropsForPathname(entry.href);
+      expect(props.initialMode).toBe("sources");
+      expect(props.desktopSearchPlacement).toBe("hero");
+      if (entry.id === "method") {
+        expect(props.searchComposerVisible).toBe(false);
+      } else {
+        expect(props.searchComposerVisible).not.toBe(false);
+        expect(props).toEqual(visible);
+      }
+    }
   });
 });

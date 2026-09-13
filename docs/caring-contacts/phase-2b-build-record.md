@@ -2638,6 +2638,41 @@ it took one grep: _who calls this, and what happens after?_
 I also reported the false version to the owner as a clinical risk. That is the more serious half of the
 error: an overstated safety warning spends the same credibility as a missed one.
 
+### Ruling [129A] — the gate moves into the read after all (2026-09-02, `#PAMATF`)
+
+**This overturns Ruling [129] above, with the owner's explicit approval, and the reasoning in [129] is
+sound. Read both.**
+
+[129] declined a behaviour change for a good reason: `requiresActivePlan` on `contactStatusWrite` is a real
+gate, it is correctly placed, and adding a second one duplicates it — "two places to keep in step where
+there is now one". Every fact in that ruling was re-verified before this change and every one still holds.
+No coordinator was shown a paused plan's contacts as sendable, and no path sent them.
+
+What changed the answer is not a new fact but a different weighing of the residual [129] itself named: "the
+name promises more than the function delivers, so a future reader could build a dispatcher on it without
+finding the gate". [129] priced that at a rename or a doc comment. The counter-argument is that a rename or
+a sibling leaves the misleading behaviour reachable and merely relabelled — a safe alternative nothing
+obliges a future sender to choose. That is the identical shape as `#59JT7W`, where the closing-message
+refusal sat in a function nothing was obliged to call, and it is why the third route was taken: gate the
+existing read, which makes the existing name true and leaves nothing to pick up by mistake.
+
+**The cost [129] predicted is real and is now pinned rather than merely accepted.** There are two gates —
+`planSendingHold` (read) and `requiresActivePlan` (write) — and the shared repository contract now asserts
+that for every `PlanState` they agree: the read returns contacts exactly when the write admits a dispatch.
+Two places to keep in step, with a test that fails if they stop being in step. That is the honest price;
+[129] was right that it is a price.
+
+**What did not change:** the write gate. It is untouched, and "refuses to begin a dispatch unless the plan
+is active" still reaches it, against both stores, because it takes its target before pausing. Nothing here
+weakens the control [129] identified.
+
+**Also unchanged: the readmission behaviour [129] cited as design intent.** A readmission still pauses the
+plan and cancels ZERO contacts, and cancelling a suicide-prevention schedule over a week's inpatient stay
+would still be worse than the problem it solved. What changed is only that a paused plan's contacts are no
+longer LISTED as sendable while they wait. The contract test now asserts both halves — nothing sendable,
+and all ten contacts still present and still `scheduled` — so the reversibility that mattered to [129] is
+pinned more directly than it was.
+
 ### Ruling [130] — make wrong overlay wiring a COMPILE error, not a runtime throw
 
 Task 10 hit a real hole. `delivery-detail` is **Mutation: No** in the frozen matrix, but `overlay-trigger.tsx`

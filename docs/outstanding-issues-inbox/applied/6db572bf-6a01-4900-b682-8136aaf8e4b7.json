@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6db572bf-6a01-4900-b682-8136aaf8e4b7",
+  "createdOn": "2026-09-01",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c772a1b8-a7c7-4719-9885-2ab3651f3e0e",
+    "reason": "Superseded by a corrected close request. Codex P2 on PR #2503 correctly caught that this outcome's inventory sentence is literally false: it claims the only remaining 'decision support' strings under src/ are the document-intent taxonomy and the privacy page, but the phrase still appears in all seven CORRECTED sites, because the agreed replacement wording is 'not validated decision support' and contains it. A re-grep confirms the claim was also incomplete in three further ways it did not mention: master-search-header.tsx:166 (a filter placeholder for the document-intent facet), four negative guidance strings in calculators/calculator-fixtures.ts, and hub-panels.ts:172. Every one of those is a benign negative caveat or a taxonomy value, so the CONCLUSION stands - the app makes no positive decision-support claim anywhere - but an archived row must not carry a false literal inventory, because a future auditor grepping the phrase will find hits and conclude the sweep was unreliable. Replaced rather than edited, per the inbox immutability rule."
+  }
+}

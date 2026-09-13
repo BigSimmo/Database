@@ -198,9 +198,18 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
 
     // Non-vacuity first. A budget of "0 observed, 0 expected" would pass while
     // proving the path never ran — the failure mode that makes a guard useless.
-    // Assert the scenario actually produced a grounded answer and actually
+    // Assert the scenario actually produced a cited answer and actually
     // talked to the client before trusting any count.
-    expect(answer.grounded, "scenario must produce a grounded answer, or the budget measures nothing").toBe(true);
+    //
+    // Ledger #ZK460W. This read `answer.grounded === true` until 2026-09-07. Offline, with no
+    // provider, this scenario has always ended on the source-backed review fallback, which used
+    // to relabel itself grounded — so the flag proved the relabelling ran, not that the answer
+    // path did. Citations are the honest non-vacuity signal: retrieval, hydration and citation
+    // building all had to complete to produce one, which is exactly the work being budgeted.
+    expect(
+      answer.citations.length,
+      "scenario must produce a cited answer, or the budget measures nothing",
+    ).toBeGreaterThan(0);
     expect(counter.total(), "scenario must issue at least one round trip").toBeGreaterThan(0);
     expect(counter.countOf("match_document_chunks_text_v2"), "text retrieval RPC must have run").toBeGreaterThan(0);
 
@@ -239,7 +248,8 @@ describe("Supabase round-trip budgets on the offline answer path", () => {
 
     const { answer, counter } = await answerWithCountedClient("What ANC threshold should withhold clozapine?", many);
 
-    expect(answer.grounded, "scenario must produce a grounded answer").toBe(true);
+    // Ledger #ZK460W, same substitution as the single-source budget above.
+    expect(answer.citations.length, "scenario must produce a cited answer").toBeGreaterThan(0);
     expect(counter.total(), "scenario must issue at least one round trip").toBeGreaterThan(0);
     expect(
       counter.total(),

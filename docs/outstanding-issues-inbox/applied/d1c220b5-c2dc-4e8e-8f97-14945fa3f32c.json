@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d1c220b5-c2dc-4e8e-8f97-14945fa3f32c",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "A ward DOM-test sweep recorded 61 findings and wrote out only 8; the other 53 exist nowhere",
+    "detail": "docs/ward-flow/wf-build3-004-dom-test-sweep.md details 8 findings and summarises the remaining 53 thematically. The count survived, the content did not. Surfaced when another chat asked whether a specific blind test was among the six recorded for one file and the question could not be answered - four of those six exist in no document and in no surviving agent report. A count that cannot be checked, triaged or compared is the only use that document had. Recommended disposition from Ward Builder One: retire and re-run, not recover.",
+    "source": "Ward Builder Three, at 97a090ed8",
+    "issueUlid": "01M1G4NQH5QS6QAEQW4BMTTS50"
+  }
+}

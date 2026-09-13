@@ -1,41 +1,77 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState, type MouseEvent } from "react";
 import { CircleAlert, ShieldAlert, TriangleAlert } from "lucide-react";
+
+import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
+import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
+import { AnswerInlineSections } from "@/components/clinical-dashboard/answer-inline-sections";
+import {
+  answerUsesAdaptiveMainSurface,
+  projectAnswerForMainSurface,
+  type ProjectedAnswerSection,
+} from "@/components/clinical-dashboard/answer-section-projector";
 import {
   isPreformattedGroundedAnswer,
   NaturalLanguageAnswer,
   UserQuestionBubble,
 } from "@/components/clinical-dashboard/answer-content";
-import { answerStateForAnswer } from "@/components/clinical-dashboard/answer-copy-payload";
 import { AnswerUtilityActions, SafetyFindingsListContent } from "@/components/clinical-dashboard/evidence-panels";
 import { AnswerSourceDrawer } from "@/components/clinical-dashboard/answer-source-drawer";
 import { useAnswerSourceSelection } from "@/components/clinical-dashboard/use-answer-source-selection";
 import { CanonicalAnswerTables } from "@/components/clinical-dashboard/visual-evidence";
-import { annotateSourceAttachments, buildAnswerSourceRows } from "@/components/clinical-dashboard/answer-source-rows";
+import {
+  annotateSourceAttachments,
+  buildAnswerSourceRows,
+  citedSourceIdsForAnswerProjection,
+} from "@/components/clinical-dashboard/answer-source-rows";
 import { citedDocumentHref } from "@/components/clinical-dashboard/source-actions";
 import { AnswerCard, type AnswerSupportStrength } from "@/components/ui/answer-card";
-import { VerificationNotice } from "@/components/ui/verification-notice";
+import { answerUsesDegradedMode, answerUsesSourceOnlyProvenance } from "@/components/ui/answer-state";
 import { Sheet } from "@/components/ui/sheet";
 import { answerSurface, cn } from "@/components/ui-primitives";
-import { type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { isCurrencyReviewWarning, type AnswerRenderModel } from "@/lib/answer-render-policy";
+import { demoAnswerDisclosure } from "@/lib/answer-client-payload";
+import { publicFallbackReason } from "@/lib/rag/rag-fallback-reason";
+import type {
+  ClientBestSourceRecommendation,
+  ClientQuoteCard,
+  ClientRagAnswerPayload,
+  ClientSearchResult,
+} from "@/lib/answer-client-payload";
 import { type AppModeId } from "@/lib/app-modes";
-import { extractSafetyFindings } from "@/lib/clinical-safety";
-import type { BestSourceRecommendation, EvidenceSummary, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
+import { extractSafetyFindings, groupSafetyFindingsByKind } from "@/lib/clinical-safety";
+import type { EvidenceSummary } from "@/lib/types";
+import { type AnswerEvidenceMapRow, type AnswerViewMode } from "@/lib/ward-output";
+import { compactVerificationWordingFor, VerificationNotice } from "@/components/ui/verification-notice";
 
 /**
  * Renders a staged answer with inline content and optional clinical notes, evidence, safety findings, and follow-up interfaces.
  *
  * @returns The staged answer surface.
  */
-/** The header status chips share one shape so they read as one status line. */
-const chipShape =
-  "inline-flex min-h-6 items-center gap-1 rounded-full border px-2 text-3xs font-semibold uppercase tracking-eyebrow";
+/** The header status chips share one shape so they read as one status line.
+ *
+ * Sentence case at `--text-xs`, replacing uppercase at `--text-3xs`. **Owner preference, not a
+ * spec violation being corrected** — `docs/design-system/sweep-2026-08-29-unenforced-rules.md`
+ * row 9 counts `uppercase tracking-eyebrow` sites among the 75 SANCTIONED ones, so the previous
+ * setting was allowed and SPEC §11 carries no gate either way. Recorded as preference so a later
+ * reader does not take it for a rule.
+ *
+ * The size change is not cosmetic and must not be reverted with the capitalisation. At 10px,
+ * `uppercase` + `tracking-eyebrow` was carrying real legibility: every glyph sat at cap height
+ * with 0.08em of air. Sentence case at 10px drops most glyphs to x-height and takes the spacing
+ * away, which would have left the single most load-bearing string on this screen quieter than
+ * before rather than calmer. `--text-xs` is also what SPEC §"Type scale" assigns to chips; 10px
+ * is the micro floor for count bubbles and legends.
+ *
+ * Nothing about what these state has changed: same words, same amber tokens, same icons. */
+const chipShape = "inline-flex min-h-6 items-center gap-1 rounded-full border px-2.5 text-xs font-semibold";
 /**
  * An interactive chip is a small pill inside a full-size button, not a small
  * button. `before:-inset-y-*` hit expansion draws the same 48px region and is
@@ -52,8 +88,9 @@ const chipButton =
   // 390px before that was removed: the safety chip covered a 133x9px band of the
   // support chip beside it and a 133x2px band of the answer prose below, and a
   // tap in either band opened the chip instead of doing nothing. Keep the full
-  // 48px hitbox in layout; `AnswerCard` gives these chips a row of their own so
-  // the honest height costs nothing.
+  // 48px hitbox in layout; `AnswerCard` puts these chips in a centre-aligned
+  // status row that takes its height from the tallest child, so the honest 48px
+  // costs nothing even while they share the line with the static support pill.
   "inline-flex min-h-12 shrink-0 items-center focus-visible:outline-none";
 const chipFocus =
   "group-focus-visible:outline group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-[color:var(--focus)]";
@@ -66,6 +103,7 @@ function StagedAnswerResultSurfaceImpl({
   renderModel,
   weakEvidence,
   sources,
+  demoMode,
   safetyFindings,
   copiedAnswer,
   pendingFeedback,
@@ -77,37 +115,76 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  generating = false,
   onScopeDocument,
 }: {
-  answer: RagAnswer;
+  answer: ClientRagAnswerPayload & { interactionId?: string };
   query: string;
-  bestSource: BestSourceRecommendation | null;
+  bestSource: ClientBestSourceRecommendation | null;
   sourceSummary?: EvidenceSummary;
   renderModel: AnswerRenderModel;
   weakEvidence: boolean;
-  sources: SearchResult[];
+  answerViewMode?: AnswerViewMode;
+  answerEvidenceMapRows?: AnswerEvidenceMapRow[];
+  answerGrounded?: boolean;
+  sources: ClientSearchResult[];
+  demoMode: boolean;
+  /** Kept as an optional compatibility prop for extracted surface callers. */
+  safeAnswerSections?: ProjectedAnswerSection[];
   safetyFindings: ReturnType<typeof extractSafetyFindings>;
   copiedAnswer: boolean;
   pendingFeedback: AnswerFeedbackType | null;
   onCopyAnswer: () => void;
   onSubmitFeedback: (feedbackType: AnswerFeedbackType) => void;
-  onFollowUpQuote?: (quote: QuoteCard) => void;
+  onFollowUpQuote?: (quote: ClientQuoteCard) => void;
   crossModeQueries?: Array<string | null | undefined>;
   onCrossModeSearch?: (mode: AppModeId, query: string) => void;
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  /** A generation is in flight — true for a follow-up, while the prior answer is still on screen. */
+  generating?: boolean;
   /** Narrows the search to one document, from the source drawer's overflow menu. */
   onScopeDocument?: (documentId: string) => void;
 }) {
   const router = useRouter();
-  const sourceCount =
+  const isDemoAnswer = demoMode || answer.demoMode === true || answer.fallbackMode === "non_production_demo";
+  const degradedAnswer = answerUsesDegradedMode({
+    answerQualityTier: answer.answerQualityTier,
+    fallbackReasonCode: answer.fallbackReasonCode,
+    degradedMode: answer.degradedMode,
+  });
+  const sourceOnlyAnswer = answerUsesSourceOnlyProvenance({
+    answerQualityTier: answer.answerQualityTier,
+    routingMode: answer.routingMode,
+  });
+  const preformatted = isPreformattedGroundedAnswer(answer);
+  const projectedAnswer = useMemo(
+    () =>
+      projectAnswerForMainSurface({
+        answer,
+        sources: answer.sources.length > 0 ? answer.sources : sources,
+        preformatted,
+      }),
+    [answer, preformatted, sources],
+  );
+  const renderAdaptiveAnswer = answerUsesAdaptiveMainSurface(answer);
+  const citedSourceIds = useMemo(
+    () => (renderAdaptiveAnswer ? citedSourceIdsForAnswerProjection(projectedAnswer) : undefined),
+    [projectedAnswer, renderAdaptiveAnswer],
+  );
+  const legacySourceCount =
     renderModel.primarySources.length ||
     sourceSummary?.total_sources ||
     sources.length ||
     answer.sources?.length ||
     answer.citations.length;
-  const sourceOnly = answer.answerQualityTier === "source_only";
+  // Adaptive source rows already carry their exact final citation order. Let
+  // NaturalLanguageAnswer apply its existing four-row presentation cap to that
+  // complete set rather than feeding it a trust-capped/recommended subset first.
+  const leadSourceLinks = renderAdaptiveAnswer ? [] : renderModel.primarySources;
+  const leadBestSource = renderAdaptiveAnswer ? null : bestSource;
+  const leadSourceCount = renderAdaptiveAnswer ? projectedAnswer.leadCitationSources.length : legacySourceCount;
   const centralTables = renderModel.tables;
   /**
    * The one cited-source list. The rail under the answer lists these rows and the
@@ -116,11 +193,14 @@ function StagedAnswerResultSurfaceImpl({
    */
   const railSources = useMemo(
     () =>
-      annotateSourceAttachments(buildAnswerSourceRows(bestSource, sources, renderModel.primarySources), {
-        tables: renderModel.tables,
-        visualEvidence: renderModel.visualEvidence,
-      }),
-    [bestSource, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
+      annotateSourceAttachments(
+        buildAnswerSourceRows(bestSource, sources, renderModel.primarySources, citedSourceIds),
+        {
+          tables: renderModel.tables,
+          visualEvidence: renderModel.visualEvidence,
+        },
+      ),
+    [bestSource, citedSourceIds, sources, renderModel.primarySources, renderModel.tables, renderModel.visualEvidence],
   );
   // `trust` already distinguishes these; until now only a conditionally-rendered
   // side card ever showed the difference, so a "medium" answer - which includes
@@ -162,9 +242,32 @@ function StagedAnswerResultSurfaceImpl({
     onSubmitFeedback("wrong_source");
   }, [onSubmitFeedback]);
   const safetyTriggerRef = useRef<HTMLButtonElement>(null);
-  function openSafetyFindings() {
+  /**
+   * Which pill opened the sheet, so closing returns focus there rather than to
+   * the first pill in the rail.
+   *
+   * `safetyTriggerRef` alone cannot do this: the rail has one button per finding
+   * kind, so a ref bound to the first would drag focus back to the left edge
+   * after opening from any other pill — and because the rail scrolls
+   * horizontally, that also scrolls the row out from under the reader. `Sheet`
+   * consults this resolver before `returnFocusRef`, so the ref stays as the
+   * fallback for the case where the opener has since unmounted.
+   */
+  const safetyOpenerRef = useRef<HTMLButtonElement | null>(null);
+  // One trigger, so a plain ref is enough — unlike the safety rail, which has a button per
+  // finding and needs `resolveSafetyReturnFocus` to send focus back to the one that was tapped.
+  const limitationsTriggerRef = useRef<HTMLButtonElement>(null);
+  function openSafetyFindings(event: MouseEvent<HTMLButtonElement>) {
+    safetyOpenerRef.current = event.currentTarget;
     setSafetyFindingsOpen(true);
   }
+  const resolveSafetyReturnFocus = useCallback(() => {
+    const opener = safetyOpenerRef.current;
+    // Only if it is still in the document — a re-rendered answer replaces these
+    // buttons, and focusing a detached node silently drops focus to <body>.
+    return opener?.isConnected ? opener : null;
+  }, []);
+
   function closeSafetyFindingsReview() {
     setSafetyFindingsOpen(false);
   }
@@ -183,6 +286,7 @@ function StagedAnswerResultSurfaceImpl({
     () => answerStateForAnswer({ answer, sources, weakEvidence }),
     [answer, sources, weakEvidence],
   );
+
   // Built once so both arms of the `ready` / degraded split below stay identical.
   // The split exists only because `AnswerCardProps` discriminates on `state` to make
   // `onOpenSource` required for a degraded card (DECISIONS §Q1), and a union-typed
@@ -197,47 +301,93 @@ function StagedAnswerResultSurfaceImpl({
     // stale/partial/ungrounded outrank source_only, so keying on the kind announced
     // "AI-generated" directly above the Source-only disclosure saying no model wrote
     // it (#228).
-    attribution: (sourceOnly ? "extractive" : "model") as "extractive" | "model",
-    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : sourceCount,
-    // The compact governed instruction moves into the Source-only disclosure on
-    // screen. Print keeps the complete notice in the card header because a
-    // collapsed interactive disclosure is not part of the printed record.
-    className: sourceOnly ? "hidden print:flex" : undefined,
+    attribution: (sourceOnlyAnswer ? "extractive" : "model") as "extractive" | "model",
+    sourceCount: "sourceCount" in answerState ? answerState.sourceCount : leadSourceCount,
+    className: sourceOnlyAnswer ? "hidden print:flex" : undefined,
   };
   /**
    * The header status line the approved specimen draws: the support chip (owned
-   * by AnswerCard), the safety-notes control, and the cited count.
+   * by AnswerCard) and the safety-notes control.
    *
-   * The safety chip is the ONLY route to the safety-critical findings sheet now
-   * that the support card is gone, so it is a real button whenever there are
-   * findings — never a decorative label. Its count is worded, not bare: "2
-   * safety notes" survives forced-colors and greyscale print, where a coloured
-   * chip alone would not.
+   * The cited count is deliberately NOT here. It was, and at 390px it rendered
+   * "2 cited" twice within one screen — once beside the support chip and again
+   * on the source rail's own heading 160px below, which already reads
+   * "2 cited · 1 also found" and is the only place that explains why an uncited
+   * card carries a dash instead of a number. Two spellings of one number in one
+   * glance invite the reader to look for a difference between them.
+   *
+   * The safety findings themselves are NOT here any more (owner decision,
+   * 2026-09-03). They render as the Key points rail below the prose, at the
+   * seam where the answer ends and its evidence begins, because a finding is
+   * extracted content rather than a statement about the answer's status. This
+   * row is now the support chip plus the limitations control alone.
    */
-  const citedSourceCount = railSources.filter((row) => row.cited !== false).length || renderModel.primarySources.length;
-  const retrievedSourceCount = Math.max(citedSourceCount, sourceCount, sources.length);
-  const answerMetaChips =
+  const answerMetaChips = null;
+  /**
+   * The Key points rail: one pill per finding kind, in severity order,
+   * every pill opening the same sheet.
+   *
+   * Grouped by kind because `SafetyFinding` carries no short title — only
+   * `label` ("Contraindication") and `text`, the whole passage — so a pill per
+   * finding would either repeat "Monitoring" twice or put a full passage in a
+   * pill. The count carries the repetition instead.
+   *
+   * Each pill is a small pill inside a full-size button, exactly as the header
+   * chips are, and for the same recorded reason: `before:-inset-y-*` hit
+   * expansion draws a 48px region that `boundingBox()` cannot see, so every
+   * tap-target gate passes while the control silently covers its neighbours.
+   * The button carries the height, the pill carries the look.
+   */
+  const clinicalPointGroups = useMemo(() => groupSafetyFindingsByKind(safetyFindings), [safetyFindings]);
+  const clinicalPointsRail =
     safetyFindings.length > 0 ? (
-      <button
-        ref={safetyTriggerRef}
-        id="answer-safety-findings-drawer-trigger"
-        data-testid="answer-safety-findings-trigger"
-        type="button"
-        onClick={openSafetyFindings}
-        className={cn("group", chipButton)}
-        aria-label={`Open safety-critical source findings — ${safetyFindings.length} ${safetyFindings.length === 1 ? "note" : "notes"}`}
+      <section
+        data-testid="answer-clinical-points"
+        aria-label={`Key points — ${safetyFindings.length} ${safetyFindings.length === 1 ? "point" : "points"}`}
+        className="flex min-w-0 items-center gap-2 overflow-x-auto scrollbar-none"
       >
-        <span
-          className={cn(
-            chipShape,
-            "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)] transition group-hover:bg-[color:var(--warning-soft)]/70",
-            chipFocus,
-          )}
-        >
-          <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
-          {safetyFindings.length} {safetyFindings.length === 1 ? "safety note" : "safety notes"}
+        <span className="shrink-0 text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+          Key points
         </span>
-      </button>
+        {clinicalPointGroups.map((group, index) => (
+          <button
+            key={group.kind}
+            // The first pill is the sheet's return-focus target, so a tap
+            // anywhere on the rail returns focus somewhere predictable.
+            ref={index === 0 ? safetyTriggerRef : undefined}
+            id={index === 0 ? "answer-safety-findings-drawer-trigger" : undefined}
+            data-testid={index === 0 ? "answer-safety-findings-trigger" : "answer-clinical-point"}
+            data-tone={group.tone}
+            type="button"
+            onClick={openSafetyFindings}
+            className={cn("group shrink-0", chipButton)}
+            aria-label={`Open key points — ${group.label}${group.count > 1 ? `, ${group.count}` : ""}`}
+          >
+            <span
+              className={cn(
+                "inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-2xs font-medium transition",
+                group.tone === "stop"
+                  ? "border-[color:var(--danger)]/35 bg-[color:var(--danger)]/8 text-[color:var(--text-heading)] group-hover:bg-[color:var(--danger)]/12"
+                  : group.tone === "act"
+                    ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/60 text-[color:var(--text-heading)] group-hover:bg-[color:var(--warning-soft)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
+                chipFocus,
+              )}
+            >
+              {group.tone === "stop" ? (
+                <ShieldAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--danger)]" />
+              ) : group.tone === "act" ? (
+                <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
+              ) : (
+                <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
+              )}
+              {group.label}
+              {/* Neutral, never a status-coloured numeral. */}
+              {group.count > 1 ? <span className="nums text-[color:var(--text-muted)]">{group.count}</span> : null}
+            </span>
+          </button>
+        ))}
+      </section>
     ) : null;
   /**
    * Evidence gaps sit with the other status chips rather than in the action row.
@@ -245,41 +395,145 @@ function StagedAnswerResultSurfaceImpl({
    * beside them — and the action row the specimen draws is Copy plus the two
    * verdicts, which at 390px is already the full width of the row.
    */
+  const answerReviewDue = answerState.kind === "stale_evidence";
+  /**
+   * "A supporting source is due for review." is a currency warning, not a gap in
+   * the evidence, so it is never counted as one — it is the same fact the
+   * `Review due` half of the label already carries.
+   */
+  const answerGapWarningCount = renderModel.warnings.filter((warning) => !isCurrencyReviewWarning(warning)).length;
+  /**
+   * The chip is the ONLY place the default view states that a cited source is
+   * overdue on a source-only answer, and since the Source-only pill was folded
+   * into this disclosure it is also the only place the default view states that
+   * no model wrote the answer. `VerificationNotice` is `hidden print:flex`
+   * there, so if the label drops either fact, nothing on screen carries it.
+   *
+   * That is why `Source-only` and `Review due` are prefixes rather than
+   * alternatives to the count: dropping `Review due` for a warning count was a
+   * genuine regression in an earlier cut, and the combination that exposes it
+   * (source-only + stale + warnings) is the common one, because the same overdue
+   * assessment that sets the stale state also adds a warning.
+   */
+  const answerLimitationsChipLabel = [
+    sourceOnlyAnswer ? "Source-only" : null,
+    answerReviewDue || (answerGapWarningCount === 0 && renderModel.warnings.length > 0) ? "Review due" : null,
+    answerGapWarningCount > 0 ? `${answerGapWarningCount} limitation${answerGapWarningCount === 1 ? "" : "s"}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const answerMetaChipsWithGaps =
-    renderModel.warnings.length > 0 ? (
+    renderModel.warnings.length > 0 || answerReviewDue || sourceOnlyAnswer ? (
       <>
         {answerMetaChips}
         <button
-          id="answer-evidence-gaps-trigger"
-          data-testid="answer-evidence-gaps-trigger"
+          id="answer-limitations-trigger"
+          data-testid="answer-limitations-trigger"
           type="button"
-          onClick={() => setEvidenceGapsOpen((current) => !current)}
+          ref={limitationsTriggerRef}
+          onClick={() => setEvidenceGapsOpen(true)}
           className={cn("group", chipButton)}
-          aria-expanded={evidenceGapsOpen}
-          aria-controls={evidenceGapsOpen ? "answer-evidence-gaps-detail" : undefined}
+          aria-label={`Answer limitations — ${answerLimitationsChipLabel}`}
+          // `aria-haspopup`, not `aria-expanded`/`aria-controls`. This opens a dialog now, and
+          // the two announcements are not interchangeable: `aria-expanded` promises a region
+          // revealed in place, which is exactly the behaviour that has gone. The dialog is not
+          // in the tree while closed, so a persistent `aria-controls` would dangle.
+          aria-haspopup="dialog"
         >
           <span
             className={cn(
               chipShape,
-              "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text-muted)] transition group-hover:bg-[color:var(--surface-subtle)]",
+              evidenceGapsOpen
+                ? "border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)]"
+                : // `--text`, not `--text-muted`. On a source-only answer `VerificationNotice` is
+                  // `hidden print:flex`, so this label is the ONLY on-screen carrier of "no model
+                  // wrote this answer" and "a cited source is overdue". Muted grey made the
+                  // one string that must be read the quietest thing in the row.
+                  "border-[color:var(--border)] bg-[color:var(--surface-wash)] text-[color:var(--text)] group-hover:bg-[color:var(--surface-subtle)]",
+              "transition",
               chipFocus,
             )}
           >
             <CircleAlert aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--warning)]" />
-            {renderModel.warnings.length} evidence {renderModel.warnings.length === 1 ? "gap" : "gaps"}
+            {answerLimitationsChipLabel}
+            {/* No chevron. A chevron promises an expansion in place; this opens a sheet, and
+                the sheet's own arrival is the state change a reader sees. The earlier note
+                here — that the chip looked identical open and closed, so on a phone the only
+                way to tell was to find the panel — no longer applies for the same reason. */}
           </span>
         </button>
       </>
     ) : (
       answerMetaChips
     );
-  const answerMetaTrailing =
-    citedSourceCount > 0 ? (
-      <span className="nums text-3xs text-[color:var(--text-muted)]" data-testid="answer-cited-count">
-        {citedSourceCount === retrievedSourceCount
-          ? `${citedSourceCount} cited`
-          : `${citedSourceCount} of ${retrievedSourceCount} cited`}
-      </span>
+
+  /**
+   * The overdue-sources control, which names WHICH cited sources are past their
+   * review date and links to each.
+   *
+   * It used to sit in the answer body, below the prose. Owner decision
+   * (2026-09-01): it belongs inside the evidence-gaps disclosure, with the other
+   * statements about what qualifies this answer's evidence, rather than above
+   * it. Only the per-source detail — WHICH sources, and the route into each — is
+   * behind the tap; that a source is overdue at all is still stated on the
+   * default view, by `VerificationNotice` on a model-written answer and by the
+   * chip's `Review due` label on every answer including source-only ones, where
+   * that notice is `hidden print:flex`.
+   */
+  const overdueSourcesBanner =
+    answerState.kind === "stale_evidence" ? (
+      <RetrievalStateBanner
+        state={answerState}
+        onOpenSource={openAnswerStateSource}
+        className="w-fit min-w-0 max-w-full flex-none self-start"
+      />
+    ) : null;
+  /**
+   * The limitations content, now the body of a sheet rather than a panel that expanded in place.
+   *
+   * The move is not cosmetic. `evidence-panels.tsx` already records what an in-flow disclosure
+   * does on this surface: it opens partly behind the fixed phone composer and cannot scroll
+   * clear of it, so the reader is shown a panel they cannot finish reading. A `Sheet` owns its
+   * own scrollport above that composer. It also settles the layout argument that put the chip on
+   * its own row — a panel that is no longer in the flow cannot push the governed caution below
+   * it down the page, which is what the previous placement note here was guarding against.
+   *
+   * It exists for an overdue-sources banner alone, not only for warnings —
+   * otherwise moving the banner in here would delete it outright on an answer
+   * whose only evidence qualification is that a source is overdue. It exists for
+   * `sourceOnly` alone for the same reason: that is the answer with the most to
+   * disclose and the one most likely to carry no other warning.
+   *
+   * Order is severity, not source: provenance first, then which sources are
+   * overdue, then the rest.
+   */
+  const answerEvidenceGapsDetail =
+    renderModel.warnings.length > 0 || overdueSourcesBanner || sourceOnlyAnswer ? (
+      <div id="answer-limitations-detail" className="grid gap-2">
+        {/* The governed extractive wording, verbatim from the same lookup the
+            Source-only pill used before it was folded in here. Never reworded at
+            this call site. */}
+        {sourceOnlyAnswer ? (
+          <p
+            data-testid="answer-limitation-source-only"
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/70 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            <span className="mb-0.5 block text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--warning)]">
+              Source-only
+            </span>
+            {compactVerificationWordingFor(answerState.kind, "extractive")}
+          </p>
+        ) : null}
+        {overdueSourcesBanner}
+        {renderModel.warnings.map((warning, index) => (
+          <p
+            key={`${warning}:${index}`}
+            className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
+          >
+            {warning}
+          </p>
+        ))}
+      </div>
     ) : null;
 
   function openAnswerStateSource(sourceId: string, locator?: string) {
@@ -288,29 +542,28 @@ function StagedAnswerResultSurfaceImpl({
   }
 
   const answerProse = (
-    <NaturalLanguageAnswer
-      text={answer.answer}
-      query={query}
-      preformatted={isPreformattedGroundedAnswer(answer)}
-      sourceOnly={sourceOnly}
-      sourceOnlyVerificationState={answerState.kind}
-      answerState={answerState}
-      onOpenStateSource={openAnswerStateSource}
-      bestSource={bestSource}
-      sources={sources}
-      sourceLinks={renderModel.primarySources}
-      // Server-assessed, per-sentence. This is what lets a number in the prose
-      // restate an attribution the answer pipeline already made rather than one
-      // this layer invented; where it is absent the prose renders unmarked.
-      claims={answer.supportedClaims}
-      railRows={railSources}
-      copied={copiedAnswer}
-      onCopy={onCopyAnswer}
-      onOpenSource={openSourceFromClaim}
-      onOpenRailSource={openSourceFromRail}
-      openSourceIndex={openSourceIndex}
-      showCopyAction={false}
-    />
+    <>
+      <NaturalLanguageAnswer
+        text={projectedAnswer.leadText}
+        query={query}
+        preformatted={preformatted}
+        sourceCount={leadSourceCount}
+        sourceOnly={sourceOnlyAnswer}
+        bestSource={leadBestSource}
+        sources={projectedAnswer.leadCitationSources}
+        sourceLinks={leadSourceLinks}
+        clinicalPoints={clinicalPointsRail}
+        claims={answer.claimMarks}
+        railRows={railSources}
+        onOpenSource={openSourceFromClaim}
+        onOpenRailSource={openSourceFromRail}
+        openSourceIndex={openSourceIndex}
+        showCopyAction={false}
+        copied={copiedAnswer}
+        onCopy={onCopyAnswer}
+      />
+      {renderAdaptiveAnswer ? <AnswerInlineSections sections={projectedAnswer.sections} /> : null}
+    </>
   );
 
   return (
@@ -343,6 +596,20 @@ function StagedAnswerResultSurfaceImpl({
                 `stale_evidence`/`partial_retrieval` — the two kinds that say
                 something the notice cannot (#227 over #207; see answer-card.tsx).
                 This surface no longer decides that. */}
+            {isDemoAnswer ? (
+              <p role="note" className="text-sm text-[color:var(--warning)]">
+                {demoAnswerDisclosure}
+              </p>
+            ) : null}
+            {degradedAnswer ? (
+              <p
+                role="note"
+                data-testid="current-answer-degradation"
+                className="text-sm text-[color:var(--text-muted)]"
+              >
+                {publicFallbackReason(answer.fallbackReasonCode ?? "unknown")}
+              </p>
+            ) : null}
             {/* The question is a chat bubble on the current turn, exactly as it is
                 on every prior turn. It used to be a muted echo inside the card
                 header, which made the newest exchange read as a document with a
@@ -360,7 +627,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement="content"
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
               >
                 {answerProse}
               </AnswerCard>
@@ -373,7 +639,6 @@ function StagedAnswerResultSurfaceImpl({
                 retrievalStatePlacement={answerState.kind === "stale_evidence" ? "content" : "header"}
                 verificationPlacement="content"
                 metaChips={answerMetaChipsWithGaps}
-                metaTrailing={answerMetaTrailing}
                 // Navigate to the cited page — do not reuse onScopeDocument. That
                 // handler only replaces selectedDocumentIds and leaves the clinician
                 // on the answer screen with a silent filter change while the button
@@ -383,19 +648,6 @@ function StagedAnswerResultSurfaceImpl({
                 {answerProse}
               </AnswerCard>
             )}
-
-            {renderModel.warnings.length > 0 && evidenceGapsOpen ? (
-              <div id="answer-evidence-gaps-detail" className="grid max-w-[68ch] gap-2">
-                {renderModel.warnings.map((warning, index) => (
-                  <p
-                    key={`${warning}:${index}`}
-                    className="rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/45 px-2.5 py-2 text-xs leading-5 text-[color:var(--text)]"
-                  >
-                    {warning}
-                  </p>
-                ))}
-              </div>
-            ) : null}
 
             <AnswerUtilityActions
               copied={copiedAnswer}
@@ -420,7 +672,22 @@ function StagedAnswerResultSurfaceImpl({
                 is one thing; removing a navigation route on the same evidence is
                 another. Still collapsed, still below the caution. */}
             {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} variant="line" />
+              // `universalMode` is what lets this line reach DSM, Formulation,
+              // Specifiers, Therapy, Dictionary and Tools, which no catalogue in
+              // the browser can resolve. Answer is the only surface that may pass
+              // it: every other mode mounts `UniversalSearchAlsoMatches`, and a
+              // second lookup there would print the same records twice.
+              //
+              // Withdrawn while generating, matching the rule the sibling tray
+              // follows on this mode (`answer && !loading` in ClinicalDashboard),
+              // so the lookup never races the answer stream and the open tray
+              // never holds matches for the question being replaced.
+              <CrossModeLinksSection
+                queries={crossModeQueries}
+                onModeSearch={onCrossModeSearch}
+                variant="line"
+                universalMode={generating ? undefined : "answer"}
+              />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (
@@ -467,9 +734,9 @@ function StagedAnswerResultSurfaceImpl({
           <Sheet
             open={safetyFindingsOpen}
             onClose={closeSafetyFindingsReview}
-            title="Safety-critical source findings"
-            description="Items come from source text. Verify before clinical use."
-            closeLabel="Close safety findings"
+            title="Key points"
+            description="Drawn from the cited source text. Verify before clinical use."
+            closeLabel="Close key points"
             // The warning tones are written out rather than layered onto
             // `iconTilePremium`: that recipe carries the clinical-accent border and
             // background, so appending `text-…` recoloured only the glyph — the sheet
@@ -502,9 +769,38 @@ function StagedAnswerResultSurfaceImpl({
             // so the gesture went to the page behind the sheet. A plain block
             // scrollport keeps the list at its natural height and scrolls it.
             bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-0 pt-2 sm:p-3"
+            resolveReturnFocusTarget={resolveSafetyReturnFocus}
             returnFocusRef={safetyTriggerRef}
           >
             <SafetyFindingsListContent findings={safetyFindings} />
+          </Sheet>
+        ) : null}
+
+        {/* The limitations sheet. Same shape as the key-points sheet above deliberately: two chips
+            sitting on one status line should not open two different kinds of thing. */}
+        {answerEvidenceGapsDetail ? (
+          <Sheet
+            open={evidenceGapsOpen}
+            onClose={() => setEvidenceGapsOpen(false)}
+            title="Answer limitations"
+            description="What qualifies the evidence behind this answer."
+            closeLabel="Close answer limitations"
+            headerLeading={
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]">
+                <CircleAlert aria-hidden="true" className="h-3.5 w-3.5" />
+              </span>
+            }
+            headerClassName="gap-2 p-2.5 sm:p-3"
+            titleClassName="text-base-minus leading-5"
+            closeButtonClassName="inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            contentClassName="max-h-[88dvh] bg-[color:var(--surface-raised)] sm:max-h-[min(80dvh,36rem)] sm:max-w-lg"
+            // Plain block scrollport, not `flex flex-col`, for the reason recorded on the sheet
+            // above: as a flex column the single child is shrunk to the space left rather than
+            // kept at its natural height, and the overflow is clipped instead of scrolled.
+            bodyClassName="bg-[color:var(--surface-raised)] px-3 pb-3 pt-2 sm:p-3"
+            returnFocusRef={limitationsTriggerRef}
+          >
+            {answerEvidenceGapsDetail}
           </Sheet>
         ) : null}
       </div>

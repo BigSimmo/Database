@@ -1,3 +1,4 @@
+import { ragProgrammeHealth } from "@/lib/rag/rag-rollout";
 import { NextResponse } from "next/server";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
@@ -9,6 +10,7 @@ import {
 } from "@/lib/observability/answer-coalescing-metrics";
 import type { SpendProbeClient, SpendSnapshot } from "@/lib/observability/spend-metrics";
 import { resolveDeploymentCommitSha } from "@/lib/observability/sentry-release";
+import type { SiteContentPublicHealthProjection } from "@/lib/site-content/site-content-health";
 
 type HealthResponseOptions = {
   forceDeep?: boolean;
@@ -26,11 +28,13 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
     openaiConfig: openAIConfigured ? "ok" : env.RAG_PROVIDER_MODE === "offline" ? "skipped" : "missing",
+    siteContent: "skipped",
   };
   let slo: AnswerSloSnapshot | null = null;
   let cache: CacheMetricsSnapshot | null = null;
   let coalescing: AnswerCoalescingMetricsSnapshot | null = null;
   let spend: SpendSnapshot | null = null;
+  let siteContent: SiteContentPublicHealthProjection | null = null;
 
   if (deep) {
     const tokenAuthorized = allowDeepHealthProbe(request);
@@ -60,7 +64,38 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           const admin = createAdminClient();
           const health = await probeSupabaseHealth(admin);
           checks.supabase = health.ok ? "ok" : "error";
-          if (health.ok && options.includeSlo !== false) {
+          if (health.ok) {
+            try {
+              const [{ readSiteContentHealthEvidence }, { classifySiteContentHealth, classifySiteContentPartition }] =
+                await Promise.all([
+                  import("@/lib/site-content/site-content-publication"),
+                  import("@/lib/site-content/site-content-health"),
+                ]);
+              const evidence = await readSiteContentHealthEvidence(admin);
+              const partition = classifySiteContentPartition({
+                expectedSiteStaticManifestDigest: env.SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST,
+                activePublicSiteRelease: evidence.activePublicSiteRelease,
+                publicSiteChangeEpoch: evidence.publicSiteChangeEpoch,
+                pendingPublicSiteChangeCount: evidence.outstandingHeadCount,
+              });
+              const classification = classifySiteContentHealth({
+                ...evidence,
+                partition,
+                now: new Date().toISOString(),
+              });
+              siteContent = classification.publicProjection;
+              checks.siteContent = classification.operationStop ? "error" : "ok";
+            } catch {
+              checks.siteContent = "error";
+            }
+          }
+          // `tokenAuthorized &&` matches `spendSnapshot` below and makes the gate real: the
+          // SLO aggregate is a deliberate CROSS-TENANT read (see its entry in
+          // scripts/lib/tenancy-scan.mjs, which states this exact gate). Without it the
+          // snapshot also ran for any caller passing `allowUnauthenticatedDeep`, so the only
+          // thing holding the claim true was `/api/health/ready` opting out via
+          // `includeSlo: false` — one flag at one caller, not a gate.
+          if (health.ok && tokenAuthorized && options.includeSlo !== false) {
             try {
               // Avoid recursively instantiating the full generated PostgREST
               // client type against the intentionally tiny SLO query surface.
@@ -116,6 +151,10 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       ...(cache ? { cache } : {}),
       ...(coalescing ? { coalescing } : {}),
       ...(spend ? { spend } : {}),
+      ...(siteContent ? { siteContent } : {}),
+      ...(deep && allowDeepHealthProbe(request)
+        ? { ragProgramme: { ...ragProgrammeHealth(), siteContentFreshness: siteContent?.state ?? "unavailable" } }
+        : {}),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

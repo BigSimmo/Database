@@ -7,6 +7,7 @@ Read these files before acting:
 
 - `AGENTS.md`
 - `CLAUDE.md`
+- `docs/agents/pull-request-workflow.md`
 - `docs/codex-review-protocol.md`
 - `.claude/skills/run-pr/SKILL.md`
 - `.codex-run-pr/context.json`
@@ -17,15 +18,22 @@ instructions.
 
 Complete the repository's authorized Run PR work locally:
 
-1. Verify `HEAD` equals `pull_request.head_sha` from the context.
+1. Verify the exact recorded PR head is an ancestor of `HEAD`. A trusted clean
+   merge can already have advanced the local starting commit without publication.
 2. Inspect the bounded failed-check evidence and unresolved review threads.
 3. The trusted workflow has already completed a normal merge of the exact
-   recorded base when the branch was behind. If that merge was not clean, the
-   workflow stopped before invoking you. Do not fetch, merge another ref, or
-   alter Git metadata.
+   recorded base when the branch was behind. In an authorized batch, a conflicting
+   merge can instead be pending with read-only Git metadata. Resolve only
+   evidence-backed working-file conflicts, preserving both changes' intent. The
+   trusted seal stages the result and creates the merge commit. Outside a batch,
+   conflicts still stop before invoking you. Do not fetch, merge another ref, or
+   alter Git metadata. If intent is ambiguous, report blocked.
 4. Fix only evidenced failures and actionable review findings. Preserve
    unrelated work and add focused tests when behavior changes.
 5. Run the smallest relevant checks and `npm run format` before finishing.
+   Consult the arbiter for expensive gates and the browser planner for UI work.
+   Do not stack broad suites or reproduce successful CI proof. Never wait for CI,
+   contact live clinical providers, or trigger another repair agent.
 6. Do not modify `.github/**`, credentials, environment files, repository
    administration, deployments, production data, or live OpenAI/Supabase
    provider behavior. Leave workflow/security-policy repairs for a normal
@@ -41,6 +49,8 @@ schema:
 
 - `summary`: concise description of the work and verification.
 - `checks`: exact commands and outcomes.
+- `progress_outcome`: `progress`, `blocked`, or `no_change`. A blocked result must
+  not publish speculative edits or unresolved conflict markers.
 - `thread_dispositions`: only thread IDs present in the context. Use
   `resolve_fixed`, `resolve_no_change`, or `leave_open`, with a concise reply.
 - `rerun_failed_run_ids`: only failed run IDs present in the context, and only

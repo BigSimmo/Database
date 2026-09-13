@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -33,6 +35,7 @@ describe("app mode search contract", () => {
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
     expect(universalSearchPreferredDomains("factsheets")).toEqual([]);
     expect(universalSearchPreferredDomains("calculators")).toEqual([]);
+    expect(universalSearchPreferredDomains("sources")).toEqual([]);
   });
 
   it("requires every mode to declare its search behavior and copy", () => {
@@ -60,6 +63,24 @@ describe("app mode search contract", () => {
     for (const mode of appModeDefinitions) {
       expect(isSearchableAppMode(mode.id)).toBe(true);
     }
+  });
+
+  it("rejects unknown ids from isSearchableAppMode exactly as isAppModeId does", () => {
+    for (const candidate of ["", "not-a-mode", "ANSWER", "answer ", ...appModeIds]) {
+      expect(isSearchableAppMode(candidate), candidate).toBe(isAppModeId(candidate));
+    }
+    expect(isSearchableAppMode("not-a-mode")).toBe(false);
+  });
+
+  it("does not re-enumerate every search kind inside isSearchableAppMode", () => {
+    // SearchableAppModeId is AppModeId, so a list naming every AppModeSearchKind can never
+    // return false for a defined mode; it only looks like a distinction. The predicate
+    // must delegate to isAppModeId rather than carry that list.
+    const source = readFileSync(path.join(process.cwd(), "src/lib/app-modes.ts"), "utf8");
+    const body = /export function isSearchableAppMode[\s\S]*?\n\}/.exec(source)?.[0] ?? "";
+    expect(body).not.toBe("");
+    expect(body).not.toMatch(/kind === "/);
+    expect(body).toContain("isAppModeId(");
   });
 
   it("routes medication mode through document search with a medication-oriented query mode", () => {
@@ -193,6 +214,25 @@ describe("app mode search contract", () => {
     expect(config.kind).toBe("therapies");
     expect(config.resultKind).toBe("therapies");
     expect(appModeHomeHref("therapy-compass", { query: "CBT", run: true })).toBe("/therapy-compass/search?q=CBT&run=1");
+  });
+
+  it("routes Sources searches to the read-only catalogue", () => {
+    const config = appModeSearchConfig("sources");
+    const mode = appModeDefinitions.find((definition) => definition.id === "sources");
+
+    expect(appModeIds).toHaveLength(17);
+    expect(mode).toMatchObject({
+      label: "Sources",
+      description: "Ranked clinical source catalogue and traceability",
+      href: "/sources",
+    });
+    expect(config).toMatchObject({
+      kind: "tools",
+      placeholder: "Search sources, publishers, or topics...",
+      resultHeading: "Sources",
+      nextStep: "Filter by quality, location, publisher, topic, or usage",
+    });
+    expect(appModeHomeHref("sources", { query: "RANZCP", run: true })).toBe("/sources/search?q=RANZCP&run=1");
   });
 
   it("keeps source-library shortcut searches in their active mode family", () => {
@@ -418,6 +458,8 @@ describe("app mode search contract", () => {
       formulation: "/formulation/search?q=clozapine&run=1",
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       calculators: "/calculators/search?q=clozapine&run=1",
+      sources: "/sources/search?q=clozapine&run=1",
+      "on-call": "/on-call/search?q=clozapine&run=1",
       // Same route, submitted branch: these still own a home of their own.
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.

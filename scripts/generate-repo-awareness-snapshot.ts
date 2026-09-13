@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, type ExecFileSyncOptionsWithStringEncoding } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -37,8 +38,40 @@ export type SiteMapInput = {
 // (`pages`, `redirects`, `api`) carries one — so a repeated regeneration on an
 // unchanged repository can never reorder two entries and fail the staleness
 // gate.
-function byPath<T extends { path: string; file: string }>(left: T, right: T) {
-  return left.path.localeCompare(right.path) || left.file.localeCompare(right.file);
+/**
+ * A DISPERSING order, not a presentational one — the same device
+ * `buildReviewStateSection` applies to `review_state.records`, applied here for
+ * the same measured reason.
+ *
+ * Sorted by path, two routes added on two branches land next to each other
+ * whenever their paths sort next to each other, and adjacent insertions are a
+ * hard conflict in the committed snapshot. That is not hypothetical and not
+ * rare: `/mockups/source-rail-desktop-scroll` and
+ * `/mockups/specifier-record-directions` both sort under `/mockups/s`, and PR
+ * #2674 conflicted on exactly that pair. A conflict here sets
+ * `mergeable_state=dirty`, which suppresses `refs/pull/<n>/merge` and leaves
+ * the check list empty rather than red.
+ *
+ * A SHA-1 of the path is uniformly distributed, so two additions land hundreds
+ * of lines apart and git's three-way merge resolves both hunks untouched.
+ * Alphabetical order is presentation and belongs to the page, which sorts
+ * before rendering.
+ *
+ * The hash is a total order in practice but not by construction, so `path` and
+ * `file` still break ties: two entries colliding on a SHA-1 prefix must not
+ * reorder between runs and flap the staleness gate.
+ */
+function dispersalKey(value: string): string {
+  return createHash("sha1").update(value).digest("hex");
+}
+
+function byDispersedPath<T extends { path: string; file: string; target?: string }>(left: T, right: T) {
+  return (
+    dispersalKey(left.path).localeCompare(dispersalKey(right.path)) ||
+    left.path.localeCompare(right.path) ||
+    left.file.localeCompare(right.file) ||
+    (left.target ?? "").localeCompare(right.target ?? "")
+  );
 }
 
 export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData()): RoutesSection {
@@ -54,13 +87,13 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
       file: route.file,
       area: (route.route.startsWith("/mockups") ? "mockup" : "product") as RouteArea,
     }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
   const redirects = siteMap.redirects
     .map((redirect) => ({ path: redirect.route, file: redirect.file, target: redirect.target }))
-    .sort(byPath);
+    .sort(byDispersedPath);
 
-  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byPath);
+  const api = siteMap.apiRoutes.map((route) => ({ path: route.route, file: route.file })).sort(byDispersedPath);
 
   const modes = appModeDefinitions
     .map((mode) => ({
@@ -72,24 +105,16 @@ export function buildRoutesSection(siteMap: SiteMapInput = collectSiteMapData())
       // from the route list alone.
       dev_only: "devOnly" in mode && mode.devOnly === true,
     }))
-    // App-mode ids are unique by construction (they are a hand-maintained
-    // enum-like registry in `app-modes.ts`), so `id` alone is already a total
-    // order and needs no tiebreaker.
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort(
+      (left, right) =>
+        left.id.localeCompare(right.id) || left.home.localeCompare(right.home) || left.label.localeCompare(right.label),
+    );
 
   return {
     modes,
     pages,
     redirects,
     api,
-    counts: {
-      modes: modes.length,
-      pages: pages.length,
-      product_pages: pages.filter((page) => page.area === "product").length,
-      mockup_pages: pages.filter((page) => page.area === "mockup").length,
-      redirects: redirects.length,
-      api: api.length,
-    },
   };
 }
 
@@ -107,12 +132,13 @@ function filterDocumentPaths(output: string): string[] {
   return output
     .split("\0")
     .filter((entry) => entry.endsWith(".md"))
-    .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)));
+    .filter((entry) => !EXCLUDED_DOC_PREFIXES.some((prefix) => entry.startsWith(prefix)))
+    .sort((a, b) => a.localeCompare(b));
 }
 
 function scanDocsDirectory(dir: string, baseDir = dir): string[] {
   if (!existsSync(dir)) return [];
-  const entries = readdirSync(dir, { withFileTypes: true });
+  const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
   const results: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
@@ -123,7 +149,7 @@ function scanDocsDirectory(dir: string, baseDir = dir): string[] {
       results.push(rel);
     }
   }
-  return results;
+  return results.sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -136,9 +162,18 @@ function scanDocsDirectory(dir: string, baseDir = dir): string[] {
  * to scanning docs/ directly from the filesystem.
  */
 export function listDocumentPaths(repoRoot = process.cwd()): string[] {
-  const options = {
+  // Annotated rather than inferred. The two sibling call sites pass their
+  // options inline, so `stdio` gets `StdioOptions` from context; a standalone
+  // object has no such context, and `as const` would infer a readonly tuple
+  // that `execFileSync` rejects.
+  const options: ExecFileSyncOptionsWithStringEncoding = {
     cwd: repoRoot,
-    encoding: "utf8" as const,
+    encoding: "utf8",
+    // Silence git's stderr, matching `readReviewRecordRows` and
+    // `readCapturedRevision`. Without it a git-less checkout takes the
+    // filesystem fallback below and still prints `fatal: not a git repository`,
+    // so a run that succeeded reads as a failure (`#JFRCZ4`).
+    stdio: ["ignore", "pipe", "ignore"],
   };
   try {
     const untracked = filterDocumentPaths(
@@ -215,11 +250,16 @@ function catalogueTargets(readmeMarkdown: string): Set<string> {
 export function buildDocumentationSection(docPaths: readonly string[], readmeMarkdown: string): DocumentationSection {
   const catalogued = catalogueTargets(readmeMarkdown);
 
-  // `path` alone is already a total order here: `docPaths` comes from
-  // `git ls-files`, which cannot list the same repo path twice, so no two
-  // entries can compare equal and no tiebreaker is needed.
+  // Dispersed by a hash of the path, for the reason on `byDispersedPath` above:
+  // two branches each adding a document under the same directory would
+  // otherwise insert on the same lines. `path` breaks ties, and it is already a
+  // total order here — `docPaths` comes from `git ls-files`, which cannot list
+  // the same repo path twice — so the order is deterministic across platforms.
+  // Keep hash-dispersed order from the sort above — do NOT re-sort by path.
+  // A final path sort would cluster same-directory docs onto adjacent lines and
+  // recreate the merge conflicts `dispersalKey` exists to prevent (AGENTS.md).
   const documents = [...docPaths]
-    .sort((left, right) => left.localeCompare(right))
+    .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right))
     .map((repoPath) => ({
       path: repoPath,
       section: documentSection(repoPath),
@@ -230,19 +270,11 @@ export function buildDocumentationSection(docPaths: readonly string[], readmeMar
   for (const document of documents) {
     sectionNames.add(document.section);
   }
-  // `name` alone is already a total order here: `sectionNames` is a unique Set,
-  // so sorting produces deterministic output with no tiebreaker needed.
   const sections = [...sectionNames].sort((left, right) => left.localeCompare(right)).map((name) => ({ name }));
 
   return {
     documents,
     sections,
-    counts: {
-      documents: documents.length,
-      catalogued: documents.filter((document) => document.catalogued).length,
-      uncatalogued: documents.filter((document) => !document.catalogued).length,
-      sections: sections.length,
-    },
   };
 }
 
@@ -283,12 +315,17 @@ export function buildTestHealthSection(ledger: FlakeLedgerFile): TestHealthSecti
     // this module never checks it itself. `Array.prototype.sort` is specified
     // as stable, so even if that external guarantee ever lapsed, a duplicate
     // `id` could only ever tie deterministically, never reorder between runs.
-    .sort((left, right) => left.expires.localeCompare(right.expires) || left.id.localeCompare(right.id));
+    .sort(
+      (left, right) =>
+        left.expires.localeCompare(right.expires) ||
+        left.id.localeCompare(right.id) ||
+        left.spec.localeCompare(right.spec) ||
+        left.title.localeCompare(right.title),
+    );
 
   return {
     note: typeof ledger.$comment === "string" ? ledger.$comment : null,
     quarantined,
-    counts: { quarantined: quarantined.length },
   };
 }
 
@@ -356,7 +393,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
   const files: string[] = [];
   if (path.isAbsolute(dir)) {
     if (existsSync(dir)) {
-      const entries = readdirSync(dir, { withFileTypes: true });
+      const entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".md")) {
           files.push(path.join(dir, entry.name));
@@ -369,7 +406,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
     }
     const archiveDir = "docs/archive";
     if (existsSync(archiveDir)) {
-      const entries = readdirSync(archiveDir, { withFileTypes: true });
+      const entries = readdirSync(archiveDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
       for (const entry of entries) {
         if (entry.isFile() && entry.name.startsWith("branch-review-ledger-") && entry.name.endsWith(".md")) {
           files.push(path.posix.join(archiveDir, entry.name));
@@ -377,7 +414,9 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
       }
     }
     if (existsSync(REVIEW_RECORDS_DIR)) {
-      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true });
+      const entries = readdirSync(REVIEW_RECORDS_DIR, { withFileTypes: true }).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
       for (const entry of entries) {
         if (entry.isFile() && entry.name.endsWith(".record.md")) {
           files.push(path.posix.join(REVIEW_RECORDS_DIR, entry.name));
@@ -385,7 +424,7 @@ function findReviewFilesFs(dir = REVIEW_RECORDS_DIR): string[] {
       }
     }
   }
-  return files.sort();
+  return files.sort((a, b) => a.localeCompare(b));
 }
 
 /**
@@ -414,7 +453,7 @@ export function readReviewRecordRows(dir = REVIEW_RECORDS_DIR): { file: string; 
     files = output
       .split("\0")
       .filter(Boolean)
-      .sort()
+      .sort((a, b) => a.localeCompare(b))
       .map((entry) => (cwd ? path.join(dir, entry) : entry));
   } catch {
     files = findReviewFilesFs(dir);
@@ -444,30 +483,49 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
       const head = rawHead.replaceAll("`", "");
       return { date, ref, head, scope, outcome, checks };
     })
-    // Newest first, then ref, head and scope. That is NOT guaranteed to be a
-    // total order: 21 records in the current corpus share a date, ref AND head,
-    // because one branch can be reviewed twice at one commit under different
-    // scopes, and nothing structurally prevents two records sharing all four.
+    // Ordered by `head` — a DISPERSING key, not a presentational one. This is
+    // the whole point of the ordering, so do not "restore" newest-first here.
     //
-    // Determinism therefore rests on two further facts, not on the comparator:
-    // `readReviewRecordRows` sorts filenames and preserves row order within
-    // each file, so its output order is the same on every platform, and
-    // `Array.prototype.sort` is specified stable, so ties keep that order. If
-    // either ever stops holding — records merged from a
-    // second source, or an unsorted glob — this comparator will start flapping
-    // the staleness gate for exactly those records, and no test will say why.
+    // The corpus holds 2,662 records across only 53 distinct dates, so a
+    // date-descending order put every new record into the same dense block at
+    // the head of the array. Two branches each appending one review record —
+    // the ordinary handoff — therefore inserted on the same lines and produced
+    // a hard conflict in the committed snapshot, which sets
+    // `mergeable_state=dirty` on GitHub. That suppresses `refs/pull/<n>/merge`,
+    // so `pull_request` CI does not run at all and the check list reads empty
+    // rather than red (`#EFETZT`; twice in fifteen minutes on PR #2413).
+    //
+    // A commit sha is uniformly distributed hex — 2,323 distinct values here —
+    // so concurrent appends land hundreds of lines apart and git's three-way
+    // merge resolves both hunks with no conflict. Newest-first is presentation
+    // and belongs to the page: `ReviewStatePageContent` sorts before paginating.
+    //
+    // `head` alone is NOT a total order — a branch reviewed twice at one commit
+    // under different scopes repeats it — so date, ref and scope break ties.
+    // Even those four are not provably total, and determinism therefore rests
+    // on two further facts, not on the comparator: `readReviewRecordRows` sorts
+    // filenames and preserves row order within each file, so its output order
+    // is the same on every platform, and `Array.prototype.sort` is specified
+    // stable, so ties keep that order. If either ever stops holding — records
+    // merged from a second source, or an unsorted glob — this comparator will
+    // start flapping the staleness gate for exactly those records, and no test
+    // will say why.
     .sort(
       (left, right) =>
-        right.date.localeCompare(left.date) ||
-        left.ref.localeCompare(right.ref) ||
         left.head.localeCompare(right.head) ||
-        left.scope.localeCompare(right.scope),
+        left.date.localeCompare(right.date) ||
+        left.ref.localeCompare(right.ref) ||
+        left.scope.localeCompare(right.scope) ||
+        left.outcome.localeCompare(right.outcome) ||
+        left.checks.localeCompare(right.checks),
     );
 
-  return {
-    records,
-    counts: { records: records.length, refs: new Set(records.map((record) => record.ref)).size },
-  };
+  // No `counts` here, deliberately — see `ReviewStateSection` in
+  // `repo-awareness-types.ts`. An aggregate over an append-only set changes on
+  // BOTH sides of every concurrent append, so a stored count is a guaranteed
+  // conflict no ordering can disperse. `reviewStateCounts()` derives it once at
+  // render instead, so a count and its own list still cannot disagree.
+  return { records };
 }
 
 /**
@@ -511,21 +569,44 @@ export function buildReviewStateSection(rows: readonly { file: string; line: str
  *
  * Docs are a `*.md` glob rather than the `docs/` directory: inbox JSON and
  * other non-emitted files under that tree must not advance the stamp.
+ *
+ * The review corpus is excluded from that glob, mirroring `EXCLUDED_DOC_PREFIXES`.
+ * Appending a review record writes `docs/branch-review-records/<sha>.record.md`,
+ * which the bare glob matched — so every handoff moved this stamp on both the
+ * feature branch and `main`, and two lines that always differ are a conflict no
+ * amount of dispersal in `review_state.records` can avoid (`#EFETZT`). Dropping
+ * a true input is the sanctioned direction stated above: it can only understate
+ * freshness, never overstate it. The rotated archives go with it for the same
+ * reason.
  */
 const REVISION_INPUTS = [
   "src/app",
   "src/lib/app-modes.ts",
   "src/lib/consolidated-mode-home-redirect.ts",
   ":(glob)docs/**/*.md",
+  ":(exclude,glob)docs/branch-review-records/**",
+  ":(exclude,glob)docs/archive/branch-review-ledger-*.md",
   "tests/flake-ledger.json",
   "scripts/generate-site-map.ts",
 ];
 
-export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; committed_at: string } | null {
+/**
+ * The commit DATE, never a timestamp and never the sha — see `captured_revision`
+ * in `repo-awareness-types.ts`. `%cI` is read rather than `%cs` so that a
+ * snapshot written by an older generator, which stored the full ISO instant,
+ * still narrows to the same date here instead of being rejected outright.
+ */
+export function toRevisionDate(value: string): string | null {
+  const match = /^(\d{4}-\d{2}-\d{2})/u.exec(value);
+  return match ? match[1] : null;
+}
+
+export function readCommittedRevision(path = OUTPUT_PATH): { committed_at: string } | null {
   try {
     const revision = JSON.parse(readFileSync(path, "utf8")).captured_revision;
-    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
-    return { sha: revision.sha, committed_at: revision.committed_at };
+    if (typeof revision?.committed_at !== "string") return null;
+    const committed_at = toRevisionDate(revision.committed_at);
+    return committed_at ? { committed_at } : null;
   } catch {
     return null;
   }
@@ -534,7 +615,7 @@ export function readCommittedRevision(path = OUTPUT_PATH): { sha: string; commit
 export function readCapturedRevision({
   cwd,
   snapshotPath = OUTPUT_PATH,
-}: { cwd?: string; snapshotPath?: string } = {}): { sha: string; committed_at: string } | null {
+}: { cwd?: string; snapshotPath?: string } = {}): { committed_at: string } | null {
   let output = "";
   try {
     output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", ...REVISION_INPUTS], {
@@ -546,8 +627,9 @@ export function readCapturedRevision({
     // Git is unavailable or not a git repository; fall back to reading committed snapshot.
   }
   if (output) {
-    const [sha, committed_at] = output.split("\t");
-    if (sha && committed_at) return { sha, committed_at };
+    const [, committedAt] = output.split("\t");
+    const committed_at = committedAt ? toRevisionDate(committedAt) : null;
+    if (committed_at) return { committed_at };
   }
   const resolvedSnapshotPath = cwd ? path.join(cwd, snapshotPath) : snapshotPath;
   return readCommittedRevision(resolvedSnapshotPath);
@@ -569,7 +651,20 @@ export function generate(): RepoAwarenessSnapshot {
 // `import.meta.url` on Windows, because a relative argv[1] stays relative and an
 // absolute one is missing the drive-letter leading slash — the guard would
 // silently never fire and the file would never be written.
+async function main() {
+  if (process.argv.includes("--check")) {
+    const { checkRepoAwarenessSnapshot } = await import("./check-repo-awareness-snapshot");
+    const exitCode = checkRepoAwarenessSnapshot();
+    if (exitCode !== 0) process.exit(exitCode);
+  } else {
+    writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
+    console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  writeFileSync(OUTPUT_PATH, `${JSON.stringify(generate(), null, 2)}\n`, "utf8");
-  console.log(`[repo-awareness] wrote ${OUTPUT_PATH}`);
+  void main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
 }

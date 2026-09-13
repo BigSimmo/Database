@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { isAbsolute, posix as posixPath, relative, sep } from "node:path";
 
 const zeroSha = /^0{40}$/;
 
@@ -37,6 +38,7 @@ const outputs = [
   "build_changed",
   "lockfile_changed",
   "pr_policy_body_changed",
+  "site_content_changed",
 ];
 
 function normalizePath(filePath) {
@@ -66,6 +68,119 @@ function pathMatches(filePath, patterns) {
   });
 }
 
+function isWithinPath(rootPath, candidatePath) {
+  const relativePath = relative(rootPath, candidatePath);
+  return (
+    relativePath === "" || (!isAbsolute(relativePath) && relativePath !== ".." && !relativePath.startsWith(`..${sep}`))
+  );
+}
+
+function validateSiteContentChangeOwners(value, label = "site-content-owner-manifest-malformed") {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    value.version !== "site-content-change-owners-v1"
+  ) {
+    throw new Error(label);
+  }
+  const repositoryRealPath = realpathSync(".");
+  const producers = value.producers;
+  if (!producers || typeof producers !== "object" || Array.isArray(producers) || Object.keys(producers).length === 0) {
+    throw new Error(label);
+  }
+  for (const [mode, owners] of Object.entries(producers)) {
+    if (!mode || !Array.isArray(owners) || owners.length === 0 || owners.some((owner) => typeof owner !== "string")) {
+      throw new Error(label);
+    }
+    if (owners.join("|") !== [...new Set(owners)].sort().join("|")) throw new Error(label);
+    for (const owner of owners) {
+      if (owner.length === 0) throw new Error("site-content-owner-manifest-empty-owner");
+      const normalizedOwner = normalizePath(owner);
+      const canonicalOwner = posixPath.normalize(normalizedOwner);
+      if (
+        owner !== normalizedOwner ||
+        canonicalOwner !== normalizedOwner ||
+        canonicalOwner === "" ||
+        canonicalOwner === "." ||
+        normalizedOwner.includes("//") ||
+        normalizedOwner.split("/").includes(".")
+      ) {
+        throw new Error("site-content-owner-manifest-noncanonical-owner");
+      }
+      if (owner.startsWith("/") || owner.includes("..") || owner.includes("\\")) {
+        throw new Error(label);
+      }
+      if (/[?\[\]{}]/.test(owner) || (/\*/.test(owner) && !owner.endsWith("/**"))) {
+        throw new Error("site-content-owner-manifest-malformed-glob");
+      }
+      const repositoryRoot = owner.split("/", 1)[0];
+      const allowedRepositoryRoots = new Set(["data", "public", "src"]);
+      if (allowedRepositoryRoots.has(repositoryRoot) && owner === `${repositoryRoot}/**`) {
+        throw new Error("site-content-owner-manifest-broad-path");
+      }
+      if (!allowedRepositoryRoots.has(repositoryRoot)) {
+        throw new Error("site-content-owner-manifest-unknown-root");
+      }
+      const ownerPath = owner.endsWith("/**") ? owner.slice(0, -3) : owner;
+      if (!existsSync(ownerPath)) throw new Error("site-content-owner-manifest-missing-owner");
+      const ownerStat = lstatSync(ownerPath);
+      if (ownerStat.isSymbolicLink() || (owner.endsWith("/**") ? !ownerStat.isDirectory() : !ownerStat.isFile())) {
+        throw new Error("site-content-owner-manifest-missing-owner");
+      }
+      const ownerPathParts = ownerPath.split("/");
+      for (let partCount = 1; partCount < ownerPathParts.length; partCount += 1) {
+        const ancestorPath = ownerPathParts.slice(0, partCount).join("/");
+        if (lstatSync(ancestorPath).isSymbolicLink()) {
+          throw new Error("site-content-owner-manifest-escaping-owner");
+        }
+      }
+      const allowedRootRealPath = realpathSync(repositoryRoot);
+      const ownerRealPath = realpathSync(ownerPath);
+      if (!isWithinPath(repositoryRealPath, ownerRealPath) || !isWithinPath(allowedRootRealPath, ownerRealPath)) {
+        throw new Error("site-content-owner-manifest-escaping-owner");
+      }
+    }
+  }
+  return producers;
+}
+
+const siteContentOwnerManifest = JSON.parse(
+  readFileSync("src/lib/site-content/site-content-change-owners.json", "utf8"),
+);
+const siteContentProducerOwners = validateSiteContentChangeOwners(siteContentOwnerManifest);
+const exactOwnerPattern = (owner) => {
+  const escaped = owner.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return owner.endsWith("/**") ? new RegExp(`^${escaped.slice(0, -5)}(?:/.*)?$`) : new RegExp(`^${escaped}$`);
+};
+const siteContentPatterns = [
+  ...Object.values(siteContentProducerOwners).flat().map(exactOwnerPattern),
+  ...[
+    ".github/workflows/ci.yml",
+    "scripts/ci-change-scope.mjs",
+    ".env.example",
+    "src/lib/env.ts",
+    "src/lib/health-response.ts",
+    "scripts/build-site-content-manifest.ts",
+    "scripts/sync-site-content-corpus.ts",
+    "scripts/check-site-content-freshness.ts",
+    "supabase/schema.sql",
+    "src/lib/embedding-dimensions.ts",
+    "src/lib/source-governance.ts",
+    "src/lib/ranking-config.ts",
+    "src/lib/rag/rag-retrieval-variants.ts",
+    "tests/ci-scope-contract.test.ts",
+    "tests/health-route.test.ts",
+    "tests/health-response-deep-probe.test.ts",
+  ].map(exactOwnerPattern),
+  /^src\/lib\/site-content\//,
+  /^supabase\/functions\/site-content-sync\//,
+  /^supabase\/migrations\/[^/]*site_content[^/]*\.sql$/,
+  /^tests\/fixtures\/site-content\//,
+  /^tests\/site-content-.*\.test\.ts$/,
+  /^src\/lib\/retrieval-.*\.ts$/,
+];
+
 /** App Router API handlers are not browser journeys — keep them out of ui_changed. */
 function isUiChangedPath(filePath) {
   if (filePath === "src/app/api" || filePath.startsWith("src/app/api/")) return false;
@@ -83,6 +198,79 @@ function isUiChangedPath(filePath) {
  * quarantined, the lane comes back on every UI PR without anyone remembering to
  * re-enable it.
  */
+/**
+ * The advisory-project spec NAMES, read from `mockupSpecPattern` in playwright.config.ts — the one
+ * place that decides which specs the advisory project runs.
+ *
+ * Parsed here rather than duplicated, and parsed ONCE rather than in two places:
+ * `assertMockupSpecParity` below reads the same function, so the guard and the classifier can no
+ * longer disagree about what the config says even if the config's shape changes.
+ */
+function advisorySpecNames() {
+  const source = readFileSync("playwright.config.ts", "utf8");
+  const alternation = source.match(/const mockupSpecPattern\s*=\s*\/\.\*ui-\(([^)]+)\)\\.spec\\.ts\//u);
+  if (!alternation) {
+    throw new Error(
+      "mockup-spec-parity: could not read the `mockupSpecPattern` alternation from playwright.config.ts. " +
+        "If that constant moved or changed shape, update this reader — do not delete it. Guessing the " +
+        "advisory spec list is what produced three separate drifts already.",
+    );
+  }
+  const names = alternation[1]
+    .split("|")
+    .map((name) => name.trim())
+    .filter(Boolean);
+  if (names.length === 0) throw new Error("mockup-spec-parity: the `mockupSpecPattern` alternation is empty.");
+  return names;
+}
+
+/**
+ * 🔴 **THE WARD ARM IS DERIVED, NOT RESTATED — because restating it drifted three times.**
+ *
+ * `ui-ward-*.spec.ts` journeys carry no "mockup" in the path, so every name-based rule in
+ * `mockupPatterns` misses them and they needed an explicit alternation. That alternation was a
+ * SECOND copy of a list whose first copy lives in playwright.config.ts, and the two fell out of step
+ * on `morning` (Phase 6 Task 2), then on `forced-colors` (2026-09-04), then on THREE at once
+ * (`ward-search`, `ward-statistics-compare`, `ward-table-thresholds`) — that last time because a
+ * merge resolved the playwright config as a union while this list was not in the conflict at all,
+ * so nothing marked the divergence. Each time the consequence was the same: a spec in one list and
+ * not the other either never runs, or trips `check:ci-scope` on somebody else's branch.
+ *
+ * ⚠️ **THIS MAKES THE GUARD'S WARD ARM STRUCTURAL RATHER THAN CHECKED, AND THAT IS THE POINT — but
+ * it must be said out loud.** `assertMockupSpecParity` can no longer fail on a ward spec, because a
+ * ward spec that is in the config is in this list by construction. **The guard is NOT thereby
+ * decorative:** every non-ward entry in `mockupSpecPattern` is still matched by a HAND-WRITTEN rule
+ * above, so adding a spec the other rules do not cover still fails it by name. The self-test proves
+ * that direction rather than assuming it.
+ *
+ * ⚠️ **AND IT FAILS LOUDLY RATHER THAN EMPTY.** An unreadable config or a ward-less alternation
+ * throws, instead of yielding a regex that quietly matches nothing — which is the drift returning
+ * wearing the shape of a pass.
+ */
+const wardAdvisorySpecs = (() => {
+  const ward = advisorySpecNames().filter((name) => name.startsWith("ward-"));
+  if (ward.length === 0) {
+    throw new Error(
+      "mockup-spec-parity: `mockupSpecPattern` names no ward specs. Either the config changed shape " +
+        "or the ward journeys left the advisory project; an empty ward arm here matches nothing and " +
+        "would leave every ui-ward-*.spec.ts edit with advisory_ui_changed=false.",
+    );
+  }
+  // Validated rather than escaped. Every advisory spec name is a plain kebab identifier, so a name
+  // carrying a regex metacharacter means the config has changed shape — and building a pattern out
+  // of it would produce a regex that matches the wrong thing SILENTLY. Fail instead.
+  for (const name of ward) {
+    if (!/^[a-z0-9-]+$/u.test(name)) {
+      throw new Error(
+        `mockup-spec-parity: advisory spec name ${JSON.stringify(name)} is not a plain kebab identifier, ` +
+          "so it cannot be interpolated into a pattern safely. Read `mockupSpecPattern` in " +
+          "playwright.config.ts and update this reader deliberately.",
+      );
+    }
+  }
+  return new RegExp(String.raw`^tests/ui-(?:${ward.join("|")})\.spec\.ts$`, "u");
+})();
+
 const mockupPatterns = [
   "src/app/mockups",
   "tests/ui-mockups.spec.ts",
@@ -105,12 +293,40 @@ const mockupPatterns = [
   /^tests\/.*mockup.*\.spec\.ts$/,
   /^tests\/ui-tools(?:-collapse|-task-directory)?\.spec\.ts$/,
   // Ward Flow is a gated /mockups/ward-flow prototype. Its implementation tree
-  // and the three ui-ward-*.spec.ts journeys carry no "mockup" in the path, so
-  // every rule above misses them. After those specs moved into chromium-mockups,
-  // a component-only or spec-only edit left advisory_ui_changed=false and the
+  // and the ui-ward-*.spec.ts journeys carry no "mockup" in the path, so every
+  // rule above misses them. After those specs moved into chromium-mockups, a
+  // component-only or spec-only edit left advisory_ui_changed=false and the
   // 46 journeys ran in neither lane.
+  //
+  // `morning` was added to playwright.config.ts's `mockupSpecPattern` by Phase 6
+  // Task 2 but never here, so `assertMockupSpecParity` below had been failing
+  // `check:ci-scope` on this branch — the exact drift that guard exists to name,
+  // caught by it and repaired here rather than by widening the guard. Keep this
+  // alternation and that one in step; a spec in one and not the other either
+  // never runs or trips this gate.
   "src/components/ward-management",
-  /^tests\/ui-ward-(?:management|coordinator|discharges|roles)\.spec\.ts$/,
+  // `forced-colors` added 2026-09-04, and by the same route as `morning` before it: the spec was
+  // added to `mockupSpecPattern` in playwright.config.ts on a ward branch and never here, so the
+  // union resolution that brought that branch onto the integration line tripped
+  // `assertMockupSpecParity` immediately. The guard named the file and the consequence
+  // ("editing that spec would leave advisory_ui_changed=false and the journey unrun") — repaired
+  // here rather than by widening the guard, which is the second time this exact drift has been
+  // caught by it and the second time the repair is one alternative in this list.
+  //
+  // ⚠️ **THE HAND-WRITTEN ALTERNATION IS GONE, AND THE THIRD OCCURRENCE IS WHY.** On 2026-09-06
+  // `search`, `statistics-compare` and `table-thresholds` were all missing at once, because the
+  // integration merge resolved `playwright.config.ts`'s `mockupSpecPattern` as a union of both
+  // sides while THIS list was not in that conflict at all — so nothing marked the divergence, and
+  // the first thing to notice was CI's `Static PR checks` going red on `ui-ward-search.spec.ts`.
+  // Three occurrences of one drift by one mechanism was the argument for deriving this from the
+  // config rather than restating it, and `wardAdvisorySpecs` below is that derivation.
+  //
+  // ⚠️ **IT DID NOT MAKE THE GUARD TAUTOLOGICAL, WHICH WAS THE CONDITION FOR DOING IT AT ALL.** A
+  // ward spec in the config is now in this list by construction, so `assertMockupSpecParity` can no
+  // longer fail on one — but every NON-ward entry in `mockupSpecPattern` is still matched by a
+  // hand-written rule above, so a spec the other rules miss still fails the parity check by name.
+  // That is what the control exercises: a brand-new non-ward surface added to the config goes red.
+  wardAdvisorySpecs,
 ];
 
 function quarantineLedgerHasEntries(readLedger) {
@@ -148,6 +364,11 @@ const workflowPatterns = [
   "plugins/clinical-kb/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
+  // AGENTS.md is a small core plus an index; the rules themselves live in
+  // docs/agents/**. Without this entry an edit to a moved rule matches only
+  // /^.*\.md$/ and drops to the docs-only lane — the same edit that used to
+  // route here when the text sat inline in AGENTS.md.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
   /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
@@ -156,6 +377,9 @@ const workflowPatterns = [
 const codexAutofixPatterns = [
   ".github/workflows/codex-autofix-review-comments.yml",
   "AGENTS.md",
+  // check-codex-autofix-workflow.mjs enforces docs/agents/codex-github-review.md
+  // against the live workflow, so an edit there must re-run that guard.
+  "docs/agents",
   "docs/codex-review-protocol.md",
   "scripts/check-codex-autofix-workflow.mjs",
 ];
@@ -286,6 +510,26 @@ const perfExclusionPatterns = [
   // perf_changed and the job failed mobile TBT +32.7% against a baseline
   // the same change cannot move.
   "data/outstanding-issues-snapshot.json",
+  // Same reasoning, same developer hub, sibling artefact:
+  // `src/lib/developer-area/repo-awareness-snapshot.ts` imports this JSON and
+  // the only route importers are under `src/app/mockups/development/`. It was
+  // missed when the sibling was carved out, and it is the more frequent one —
+  // every `ledger:append` regenerates it, so a routine handoff paid a
+  // ~7-minute Lighthouse run against a budget the change cannot move
+  // (`#EFETZT`, whose measured cost is "one full CI round trip" per
+  // occurrence).
+  "data/repo-awareness-snapshot.json",
+  // Developer hub panels: reachable only from `src/app/mockups/development/**`,
+  // which is already excluded and 404s in production.
+  "src/components/developer-area/hub",
+  // Same hub, its data layer — with ONE carve-out. `headers.ts` is imported by
+  // `src/proxy.ts` and `src/lib/api-csrf.ts`, whose matcher runs before every
+  // budgeted page request, so it is a production request-path module wearing a
+  // developer-area path. Excluding it would skip the Lighthouse budget for a
+  // change that moves TTFB/LCP directly — the same reasoning that already keeps
+  // `src/proxy.ts` itself out of this list. Every other module here is reached
+  // only from the mockups tree or the developer-area gate components.
+  /^src\/lib\/developer-area\/(?!headers\.ts$).+/,
 ];
 
 function isPerfChangedPath(filePath) {
@@ -301,7 +545,7 @@ const dbPatterns = [
   "src/lib/supabase",
   "docs/database-drift-detection.md",
   "docs/supabase-migration-reconciliation.md",
-  /^scripts\/(check-drift|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
+  /^scripts\/(check-drift|check-chain-mirror-parity|generate-drift-manifest|check-m13-migration|check-retrieval-owner-migration|check-supabase-project|audit-tables|reindex|reindex-health|cleanup-abandoned-reindex-generations)\.ts$/,
   /^tests\/(supabase|drift|private-rag|private-access|retrieval-owner).*\.test\.ts$/,
 ];
 
@@ -438,6 +682,9 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const prPolicyBodyChanged = normalized.includes("PR_POLICY_BODY.md");
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
+  const siteContentChanged =
+    normalized.some((file) => pathMatches(file, siteContentPatterns)) ||
+    fullRunSentinelFiles.some((sentinel) => normalized.includes(sentinel));
   // Only two categories are allowed to take the lightweight path: recognised
   // documentation and recognised non-executable workflow/policy surfaces.
   // Unknown non-doc files fail closed to the heavy plan. Executable files that
@@ -479,6 +726,7 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
     build_changed: buildChanged,
     lockfile_changed: lockfileChanged,
     pr_policy_body_changed: prPolicyBodyChanged,
+    site_content_changed: siteContentChanged,
   };
 }
 
@@ -995,6 +1243,18 @@ function selfTest() {
     db_changed: true,
     perf_changed: false,
   });
+  assertScope("perf-off-for-developer-hub-components", ["src/components/developer-area/hub/ingestion-panel.tsx"], {
+    perf_changed: false,
+  });
+  assertScope("perf-off-for-developer-hub-lib", ["src/lib/developer-area/repo-awareness-snapshot.ts"], {
+    perf_changed: false,
+  });
+  // The carve-out above, pinned: headers.ts is on the production request path
+  // via src/proxy.ts and src/lib/api-csrf.ts, so it must stay perf-scoped even
+  // though it sits under the excluded developer-area directory.
+  assertScope("perf-on-for-proxy-owned-developer-headers", ["src/lib/developer-area/headers.ts"], {
+    perf_changed: true,
+  });
 
   assertScope("perf-on-for-route-page", ["src/app/(search-app)/dsm/page.tsx"], {
     ui_changed: true,
@@ -1020,6 +1280,11 @@ function selfTest() {
   // cannot reach a budgeted route. Closing the last P1 on PR #2302 otherwise
   // forced Lighthouse onto a docs/ledger reconcile.
   assertScope("perf-off-for-outstanding-issues-snapshot", ["data/outstanding-issues-snapshot.json"], {
+    perf_changed: false,
+  });
+  // The sibling developer-hub snapshot, carved out for the same reason. Pinned
+  // separately because it was the one the original carve-out missed.
+  assertScope("perf-off-for-repo-awareness-snapshot", ["data/repo-awareness-snapshot.json"], {
     perf_changed: false,
   });
   assertScope("perf-on-for-build-config", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
@@ -1271,6 +1536,12 @@ function selfTest() {
       build_changed: false,
     },
   );
+  assertScope("agent-rule-reference", ["docs/agents/pull-request-workflow.md"], {
+    workflow_changed: true,
+    codex_autofix_changed: true,
+    docs_only: false,
+    source_changed: false,
+  });
   assertScope("package", ["package.json"], {
     source_changed: false,
     coverage_changed: true,
@@ -1372,6 +1643,58 @@ function selfTest() {
   assertScope("inherited-pr-policy-body-does-not-sync", ["docs/testing.md"], {
     pr_policy_body_changed: false,
   });
+  for (const owners of Object.values(siteContentProducerOwners)) {
+    for (const owner of owners) {
+      assertScope(`site-content-owner:${owner}`, [owner.replace(/\/\*\*$/, "/representative.json")], {
+        site_content_changed: true,
+      });
+    }
+  }
+  assertScope("site-content-shared-owner", ["src/lib/retrieval-selection.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-exact-owner", ["src/lib/dictionary-data.ts"], { site_content_changed: true });
+  assertScope("site-content-canonical-glob-owner", ["public/therapy-compass-data/representative.json"], {
+    site_content_changed: true,
+  });
+  assertScope("site-content-negative-ui", ["src/components/ordinary-card.tsx"], { site_content_changed: false });
+  try {
+    validateSiteContentChangeOwners({ version: "site-content-change-owners-v1", producers: {} });
+    throw new Error("site-content-owner-manifest-malformed:self-test-did-not-fail");
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-malformed")) throw error;
+  }
+  for (const owner of ["data/**", "public/**", "src/**"]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error("site-content-owner-manifest-broad-path:self-test-did-not-fail");
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes("site-content-owner-manifest-broad-path")) throw error;
+    }
+  }
+  for (const [expectedError, owner] of [
+    ["site-content-owner-manifest-empty-owner", ""],
+    ["site-content-owner-manifest-missing-owner", "src/lib/therpies.ts"],
+    ["site-content-owner-manifest-missing-owner", "src/lib/site-content/missing-owner-root/**"],
+    ["site-content-owner-manifest-unknown-root", "unknown/owner.ts"],
+    ["site-content-owner-manifest-unknown-root", "unknown/**"],
+    ["site-content-owner-manifest-malformed-glob", "src/lib/*.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib//dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "src/lib/./dictionary-data.ts"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data//**"],
+    ["site-content-owner-manifest-noncanonical-owner", "public/therapy-compass-data/./**"],
+  ]) {
+    try {
+      validateSiteContentChangeOwners({
+        version: "site-content-change-owners-v1",
+        producers: { malformed: [owner] },
+      });
+      throw new Error(`${expectedError}:self-test-did-not-fail`);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes(expectedError)) throw error;
+    }
+  }
   console.log("CI change scope self-test passed.");
 }
 

@@ -2,6 +2,14 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Cloud environment verification boundaries (2026-09-07)
+
+The [Cloud reliability audit](audit/codex-cloud-reliability-20260907.md) records passing hosted
+GitHub/runtime checks and the remaining external boundaries: the known raw `OPENAI_BASE_URL`
+launcher injection and incomplete production privacy/governance evidence. Keep the raw guard
+and release validator fail-closed. GitHub connectivity is not clinical production acceptance;
+new lifecycle code still needs hosted branch evidence before its PR can claim that proof.
+
 ## Testing speed playbook (pointer)
 
 Day-to-day selection, local Playwright keep-root, and refuted speed levers live in
@@ -369,11 +377,11 @@ API rather than estimated:
 
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the broad offline local gate for cross-module risk: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
+- `npm run verify:cheap` is the broad offline local gate for cross-module risk: 38 static/consistency gates (`check:runtime` through `check:owner-scope`; `npm run check:gate-manifest` lists them and pins the count), then lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
 - `npm run verify:pr-local` is the risk-routed local mirror of the normal PR gate: runtime, installed-lock parity, changed-file format, conditional `npm ci --dry-run --ignore-scripts` for package/lockfile edits, then focused docs/workflow contracts or the fail-closed executable plan with lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
-- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/install parity, scope/plan self-tests, and changed-file formatting, and `pr-required` is the single always-reporting required aggregate. Focused documentation or workflow contracts run for recognised light scopes; mixed heavy+workflow changes do not repeat the same workflow suites outside full coverage. Lint/typecheck, one full unit run with coverage, safety/RAG, build, both Docker image builds, required production Chromium, and migration replay run only when their file scopes apply; unknown non-document paths fail closed to this heavy route. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and every release/manual/scheduled run; the wrapper owns its build and omits production Chromium only after that project passed earlier in the same run. Lighthouse baseline refresh is a focused dispatch exception, not a full-run sentinel.
+- CI uses a risk-scoped PR gate: `changes` classifies paths, `static-pr` always runs runtime/install parity, scope/plan self-tests, diff integrity, and changed-file formatting, and `pr-required` is the single always-reporting required aggregate. Focused documentation or workflow contracts run for recognised light scopes; mixed heavy+workflow changes do not repeat the same workflow suites outside full coverage. Lint/typecheck, one full unit run with coverage, safety/RAG, build, both Docker image builds, required production Chromium, and migration replay run only when their file scopes apply; unknown non-document paths fail closed to this heavy route. UI PRs also run one non-blocking advisory Chromium invocation for quarantined and mockup journeys. The external `Supabase Preview` check may still replay migrations on branch databases when enabled. `release-browser-matrix` runs on UI/performance/lockfile-relevant `main` pushes and every release/manual/scheduled run; the wrapper owns its build and omits production Chromium only after that project passed earlier in the same run. Lighthouse baseline refresh is a focused dispatch exception, not a full-run sentinel.
 - `tests/ui-accessibility.spec.ts` covers reduced-motion and forced-colors dashboard usability so those modes are no longer only reviewed by inspection.
 - `tests/ui-tools.spec.ts` covers the Applications dashboard mode at mobile and desktop sizes, including the `/applications` compatibility redirect.
 - `AGENTS.md` now points future agents to these gates and to this document.
@@ -416,6 +424,38 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 **Deferred admin surfaces: DONE (2026-07-06).** `DocumentDrawer` + the label panels/helpers had already landed via #250/#251 (`document-admin.tsx`, wired). The remaining half-wired state was finished on `claude/dashboard-decomp-final`: `ToolsHub` + `MobileSectionFab` cut over to `dashboard-nav.tsx` and `SettingsDialog` (+ its 7 `Settings*` helpers) to `settings-dialog.tsx`. **Both #250 sibling files had drifted from the live monolith** (settings-dialog.tsx predated the auth-email sign-in flow; dashboard-nav.tsx had stale colour tokens and prop lists) and were regenerated verbatim from the current monolith blocks before wiring — reusable lesson: an orphaned prepared module is stale the moment the monolith copy keeps evolving; always re-diff before cutover. `global-mockup-search-shell.tsx` now imports `SettingsDialog` from the module. The dead `document-admin/` **directory** (shadowed by the live `document-admin.tsx` file in module resolution, imported by nothing) was deleted. Monolith: 4,373 → ~3,450 lines (orchestrator + data/state hooks + small render/stream helpers). Live-surface `data-testid`/`aria-label` corpus verified byte-identical across both moves.
 
 ## Phase 4 - Release maturity
+
+### Readiness and clinical usefulness are separate acceptance gates (2026-09-13)
+
+The RAG M2 merge did not establish live answer-quality improvement: the observed
+public web deployment still preceded that merge. Newer builds started successfully
+but failed readiness. A bounded production diagnostic timed out in site-content
+bootstrap hashing. The health wrapper reused an expensive SQL CTE without an
+explicit materialization boundary; the repair evaluates that evidence once per
+statement while retaining every integrity check and the existing digest format.
+
+With the committed 843-record bootstrap fixture on PostgreSQL 17.6.1.127, the
+original RPC completed in 12.614 seconds; three candidate runs took 4.550–4.969
+seconds and returned identical complete evidence. Missing records, altered render
+payloads, digest mismatches and an invalid initialized transition remained rejected.
+These are bounded local results, not hosted recovery or non-bootstrap performance
+proof. `npm run check:production-readiness` still reports pending privacy/legal sign-offs;
+the readiness repair does not clear those separate requirements.
+
+- Prove the serving commit and effective answer route before attributing a clinical
+  answer to merged code. Build, merge, deployment readiness and clinical usefulness
+  require their own evidence; fixed-provider fact ties are not live quality gains.
+- Exercise readiness with the committed full bootstrap fixture and a bounded
+  request budget. Compare complete evidence and corruption handling before accepting
+  a performance change; do not substitute longer timeouts or disabled checks.
+- For clinician answers, declare required guideline-supported details before
+  evaluating output. Topic relevance and citation presence alone do not establish
+  useful monitoring instructions, timing or actions. Standard answers must include
+  essential supported information; elaboration adds depth.
+- A migration merge can automatically apply to production. Keep its PR unmerged
+  until the production window is explicitly approved, then verify application,
+  serving identity and actual answer quality separately. This readiness repair
+  does not establish provider quality or close the remaining RAG programme.
 
 - `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
 - CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.

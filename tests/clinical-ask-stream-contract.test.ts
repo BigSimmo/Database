@@ -139,6 +139,70 @@ describe("Clinical Ask SSE contract", () => {
     ).not.toThrow();
   });
 
+  const streamRequest = {
+    mode: "services" as const,
+    question: "Synthetic question",
+    confirmedContext: {},
+    clarificationAnswers: {},
+    priorTurns: [],
+    allowExternalFallback: false as const,
+    inputTransport: "typed" as const,
+  };
+
+  it("surfaces a 429 as rate_limited with the server retry window instead of internal_error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json(
+          {
+            error: "Too many Clinical Ask requests. Retry shortly.",
+            message: "Too many Clinical Ask requests. Retry shortly.",
+            code: "rate_limited",
+            details: { kind: "rate_limit", retryAfterSeconds: 42, resetAt: "2026-09-02T00:00:00.000Z" },
+          },
+          { status: 429, headers: { "Retry-After": "42" } },
+        ),
+      ),
+    );
+    const result = await streamClinicalAsk(streamRequest, new AbortController().signal, vi.fn());
+    expect(result.feedback).toBeNull();
+    expect(result.response).toMatchObject({ state: "failed", mode: "services", code: "rate_limited", retryable: true });
+    if (result.response.state === "failed") {
+      expect(result.response.message).toContain("Too many Clinical Ask requests.");
+      expect(result.response.message).toContain("42 seconds");
+    }
+  });
+
+  it("surfaces a 401 as unauthorized and not retryable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { error: "Authentication required.", message: "Authentication required.", code: "unauthorized" },
+            { status: 401 },
+          ),
+        ),
+    );
+    const result = await streamClinicalAsk(streamRequest, new AbortController().signal, vi.fn());
+    expect(result.response).toMatchObject({
+      state: "failed",
+      mode: "services",
+      code: "unauthorized",
+      retryable: false,
+    });
+    if (result.response.state === "failed") expect(result.response.message).toMatch(/sign in/i);
+  });
+
+  it("keeps other non-OK statuses as a generic retryable failure without echoing the body", async () => {
+    const body = "upstream detail";
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 502 })));
+    const result = await streamClinicalAsk(streamRequest, new AbortController().signal, vi.fn());
+    expect(result.response).toMatchObject({ state: "failed", code: "internal_error", retryable: true });
+    expect(JSON.stringify(result)).not.toContain(body);
+  });
+
   it("turns malformed provider-like stream data into a generic failure", async () => {
     const raw = "provider secret output";
     vi.stubGlobal(

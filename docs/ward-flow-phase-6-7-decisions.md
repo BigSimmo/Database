@@ -113,11 +113,438 @@ reflect how any of this works, and a fixed reason list keeps free text out.
 
 ---
 
+## Four further answers, given during the design conversation (2026-08-27)
+
+These were put to the owner while Phases 6 and 7 were being specified, because each one changed the
+work materially and three of them would have produced a matching bug that looks like a subtle defect
+rather than a modelling error. All four were answered; each is now recorded at the decision it
+settles, in the specification named beside it.
+
+| Question                                                                                                                      | Answer                                                                                                                                                            | Recorded at             |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| Does an **Involuntary** bed accept a voluntary patient?                                                                       | **Yes.** An Involuntary bed accepts both; a Voluntary bed accepts voluntary only. It is a capability, not a value to match on — the same shape as the sex rule.   | Phase 7 spec, D3 rule 2 |
+| Nothing on a referral says a person needs a **forensic** bed. How should Phase 7 handle it?                                   | **Forensic beds are described but never matched.** They are shown honestly and are never offered to any Phase 7 referral. Nothing is added to a referral.         | Phase 7 spec, D7        |
+| A referral carries three person-facts. How wide does **"nothing else"** go?                                                   | **The three-field rule governs facts about the person.** The referral may also carry its own operational facts: source, urgency, origin site, transport, outcome. | Phase 7 spec, D5        |
+| The morning page's point is handing a colleague a link, but the prototype is administrator-gated. What should Phase 6 assume? | **It stays in the sandbox.** The shareable artefact is the printed page and the guided tour shown live, not a public URL.                                         | Phase 6 spec, D9        |
+
+## Two further answers, given before Phase 7 began (2026-08-27)
+
+Both were put to the owner after Phase 6 was built and before Phase 7's first task.
+
+### Where the youth beds go
+
+**Bentley Health Service, in a unit called the East Metropolitan Youth Unit (EMyU).**
+
+This answers the open question below, and it answers it better than either option offered. The
+question assumed the choice was between inventing a fictional site and attaching an invented ward to a
+real hospital name. The owner supplied a **real fact instead**: Bentley Health Service is already in
+the site table, and EMyU is its actual youth unit. So the prototype is not asserting something false
+about a real hospital — it is describing one correctly.
+
+The bed **numbers** in that unit remain invented, exactly like every other number in this prototype,
+and the standing banner still applies. Use the name verbatim, including its capitalisation.
+
+This narrows roadmap decision 12 ("sites stay synthetic; real WA town names may be used for geography
+and distance only") rather than contradicting it: a real unit name supplied by the owner is a fact he
+holds, not a fact the prototype invented. The general rule is unchanged for everything else.
+
+### The morning page gains a demand figure
+
+**Yes — at the end of Phase 7, once real referrals exist.**
+
+Phase 6 deliberately left demand out, because "how many people are waiting" could only have been a
+count of movements that happen to be open in an emergency department, and building it then would have
+meant building it twice. Once Phase 7's referral queue is real, the morning page gains one figure for
+people waiting.
+
+A bed coordinator starting a shift wants both halves of the equation. It is cheap to add while the
+referral work is fresh and expensive to retrofit into a page people have already learned to read.
+Everything Phase 6 decided about that page still holds: the figure is derived, never computed on the
+page, and it is never summed into any bed figure.
+
+## A fifth answer, given mid-build (2026-08-27)
+
+### A referral gains a fourth field: whether an involuntary bed is needed
+
+**Decided: add it.** This is the one place the permitted-field list moves from three to four, and the
+owner moved it deliberately after being shown what the three-field version cost.
+
+**What prompted it.** Task 2 built bed matching and surfaced that the Voluntary/Involuntary dimension
+could not affect matching at all. A referral carried age band, sex and secure-bed-needed, and nothing
+about legal status — so the gate had nothing to compare and passed for every bed. Two of the four bed
+dimensions were therefore decorative in matching: forensic by the owner's explicit choice, legal status
+by accident of the field list.
+
+**The field is a requirement on the REQUEST, never a fact stored about a person.** This matters and it
+follows roadmap decision 5's existing convention exactly — cohort is expressed as "this request needs an
+adolescent bed", and the word never attaches to a patient. So the field is
+`involuntaryBedNeeded: boolean`, read as "this request needs a bed that can hold someone
+involuntarily". It is not a legal determination, not a status, and not a claim about the person.
+
+**It is not a legal figure and does not weaken that constraint.** No figure, timeframe, threshold or
+duration from the Mental Health Act is introduced. A plain requirement flag sits in exactly the same
+category as the Voluntary/Involuntary bed label the owner already permitted.
+
+**The matching rule it makes real** — an accepts-rule, never an equality:
+
+- A referral that does **not** need an involuntary bed is accepted by **any** bed.
+- A referral that **does** need one is accepted **only** by a bed that can hold someone involuntarily
+  (the existing `unit.authorised`).
+
+Consequences that must travel with it: the structural privacy test asserts the type's exact field set
+and must be widened to four deliberately, not incidentally; the intake form gains the field; and the
+seed must contain at least one referral needing an involuntary bed **and** at least one bed that must
+refuse it, or the rule is untestable.
+
+Forensic is unchanged and stays descriptive-only.
+
+## A sixth answer, given mid-build (2026-08-28)
+
+### A referral records where the person is from, as a REGION
+
+**Decided: add it now, while the referral record is still being built.** The owner named this for what it
+is: a governance decision, not an implementation one. It widens the permitted facts about a person for
+the first time in five phases.
+
+**What prompted it.** Preparing the Phase 8 groundwork surfaced that everything geographic measures from
+somewhere, and today the system knows only which hospital a person is sitting in. Without this, the
+out-of-area ledger — the equity measure the roadmap calls "the one with teeth" — would measure distance
+from _the hospital that referred them_, not from home, and would have to be renamed to say so.
+
+The groundwork also found the gap already being papered over: **a bed can be declined today for being
+"out of catchment" while the system holds no catchment for anybody.**
+
+**A region, never an address.** The field carries a broad area chosen from a fixed list — never a street
+address, never free text, never a postcode. Roadmap decision 12 already permits real Western Australian
+place names "for geography and distance only", and a region name is exactly that: public geography, not
+a fact the prototype invented about a person's home.
+
+**The permitted-fields list now has a clearer shape, and it is worth stating in full** because it has
+grown twice in one night and the reasons differ:
+
+| Kind                                | Fields                                                                    | Why permitted                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **Facts about the person**          | `ageBand`, `sex`, `homeRegion`                                            | The minimum needed to place someone safely and to measure whether they were placed far from home.   |
+| **Requirements on the request**     | `secureBedNeeded`, `involuntaryBedNeeded`                                 | Roadmap decision 5's convention — a requirement on the request, never a fact stored about a person. |
+| **Facts about the referral itself** | source, raised-at, urgency, origin site, transport needed, state, outcome | Operational. Not about the person at all.                                                           |
+
+Still absolutely excluded, and this has not moved: name, date of birth, record number, **address**,
+diagnosis, narrative history, treatment, and **free text anywhere**.
+
+**What must travel with it:** the structural privacy test asserts the type's exact field set and must be
+widened deliberately, not incidentally; the region comes from a fixed list with a membership check, so an
+address can never be entered where a region belongs; and the intake form offers a picker, never a text
+box.
+
 ## Still open
 
 - Everything the clinician check comes back with.
+- **Two questions raised by the design conversation and left with the owner**, neither of which
+  blocks implementation. Both are written up in full at the foot of each specification.
+  1. ~~The site table uses real WA hospital names beside invented units and bed numbers.~~
+     **ANSWERED 2026-08-27** — see the youth-beds decision above. The narrow case that prompted it is
+     closed: the youth unit is a real unit at a real site, not an invention. The broader question —
+     whether every site name should eventually be clearly synthetic — is still open, but nothing in
+     Phase 7 now depends on it.
+  2. Should the morning page and the existing shift-handover page eventually be one page? They answer
+     different questions today.
+
+---
+
+## Where the two specifications are
+
+- **Phase 6** — `docs/superpowers/specs/2026-08-27-ward-flow-phase-6-morning-page-design.md`
+- **Phase 7** — `docs/superpowers/specs/2026-08-27-ward-flow-phase-7-front-door-design.md`
+
+Both were written on 2026-08-27 in one conversation, as the roadmap instructs, and each carries its
+own numbered decisions, an explicit statement of what is deliberately excluded, and a table naming
+which decisions are unvalidated assumptions and what each would cost to reverse.
 
 Both bed-category readings were confirmed by the owner on 2026-08-27 and are no longer open. One of
 them — sex designation — corrected an assumption recorded here wrongly, which is precisely the
 reason assumptions are written down as assumptions rather than folded silently into a
 specification.
+
+---
+
+## The bed model becomes three stages plus a flag (OWNER, 2026-08-28)
+
+**Decided by the product owner on 2026-08-28**, after the structural argument below was put to him
+and he agreed to it. This supersedes the four-stage model
+(`predicted → confirmed → blocked → released`) that Phases 5 to 7 were built on top of.
+
+### The defect that prompted it, verified in the code before it was raised
+
+`capacityBreakdown` (`ward-bed-availability.ts`) sorts today's releases into `confirmedToday` or
+`predictedToday`. A release in state `"blocked"` matches **neither branch**, so it falls through
+both and is counted **nowhere**.
+
+Mark a confirmed discharge as blocked and the ward's confirmed count drops by one, with nothing
+appearing anywhere to say why. **The figures improve at the exact moment the ward is stuck.**
+
+### The change
+
+**Three stages**, describing how certain the discharge is:
+
+- **predicted** — with the existing `likely` / `possible` confidence
+- **confirmed**
+- **released**
+
+**`blocked` stops being a stage and becomes a flag** that sits on top of a predicted or confirmed
+discharge, carrying a reason and the role that recorded it. A discharge that is decided and stuck is
+exactly that: still confirmed, and flagged.
+
+**Transitions go both ways**, and a reversal is recorded like any other change. `confirmed` can
+return to `predicted` when a decision is reversed. The one-way model did not stop that happening —
+it made a ward record it dishonestly.
+
+### What does NOT change
+
+- **A predicted bed is still never counted as available.** The Phase 5 rule is untouched.
+- Leave beds are still counted separately and never mixed into the available figure.
+- Only the ward can move a bed between stages; the coordinator can see them and not change them.
+- Only genuinely empty beds are offered.
+
+### What changes in the counting, and it is one place
+
+A blocked-but-confirmed bed **keeps counting as confirmed**, and the number of blocked beds is shown
+separately beside it. Nothing else moves.
+
+**What this gains beyond honesty:** "how many confirmed discharges are stuck, and why" becomes a
+question the system can answer. That is a figure a bed coordinator actually wants, and the four-stage
+model structurally could not produce it.
+
+### Cost
+
+One fewer member of `BED_RELEASE_STATES`; one optional reason field on `BedRelease`; one extra figure
+in `CapacityBreakdown`; a blocked indicator on the ward and morning screens. Materially cheaper now
+than after Phases 8 and 9 build on top.
+
+### What this does NOT settle
+
+**The clinician check is still owed** (`docs/ward-flow-clinician-check.md`). This change answers the
+question the reviewer had the strongest structural argument about; it answers none of the others, and
+the remaining ones are exactly the ones that need someone who works on a ward. **Ask anyway.**
+
+The blocked-discharge reason list remains **owner-pending** and must not be invented by an agent —
+it is already flagged as pending in the separate ward-board plan, and that list and this change are
+the same question arriving twice.
+
+## The five remaining bed-model questions, answered (OWNER, 2026-08-28)
+
+Decided in the same conversation as the three-stage change above.
+
+### Q1 — "Predicted" changes axis: from how confident, to what is outstanding
+
+The two confidence levels (`likely` / `possible`) are replaced by **what the discharge is still
+waiting on**, chosen from a fixed list.
+
+**Why.** Confidence asks a ward to estimate a probability. People are poor at that, and worse, two
+wards' "likely" do not mean the same thing — so a coordinator cannot compare them or add them up.
+What a discharge is waiting on is a **fact, not a judgement**: it is comparable across wards, and it
+tells a coordinator something they can act on. A bed waiting on transport is a different prospect
+from one waiting on a family meeting.
+
+**BLOCKED ON THE OWNER'S LIST.** The permitted values must come from him or a charge nurse and must
+never be invented by an agent. This is the same list as the blocked-discharge reasons, which is
+already owner-pending in the ward-board plan — the two are one list arriving twice.
+
+### Q2 — The "today" horizon stays, and so does the excluded count
+
+Anything expected after this evening stays out of every count, and the screen keeps saying how many
+were left out.
+
+**Why.** That excluded count is the safety valve. If it is routinely large in real use, that is
+evidence the horizon is too short, and it surfaces on its own rather than being guessed at now.
+Changing it later is one constant.
+
+### Q3 — Provenance stays as a role and a timestamp
+
+No change. A name would add accountability pressure but no information a coordinator can act on, and
+it would break the standing rule that an owner is always a role, never a person. If anything is
+missing it is not _who_ but _how_ — whether a number was counted or estimated — and nobody has asked
+for that, so it is not built speculatively.
+
+### Q4 — No missing stage. A released bed is allocatable immediately; preparation is a note
+
+**The owner's own clinical answer, and it is load-bearing:**
+
+> "Once a bed is available, a patient will be pulled. Pulled patient takes hours to transport and
+> move, so it is fine to allocate this bed. Just have a note for preparing bed maybe until it is
+> ready. I.e. cleaning or something like that."
+
+So there is **no fifth stage**, and the design question that prompted this — whether a bed is really
+fillable the moment the person leaves — is answered: **yes, because the pull takes hours anyway.**
+
+What is added instead is a **preparation note**: a bed may carry a short indication that it is being
+made ready (cleaning, and whatever else his list eventually names). It is **informational and must
+never gate allocation** — a bed with a preparation note is still offered, still counts as available,
+and still appears in every figure. Anything else would reintroduce the delay this answer says does
+not exist.
+
+This is consistent with his earlier correction recorded in the ward-board plan: **the bed is lost at
+the PULL, not at the arrival.**
+
+### Q5 — Leave beds stay separate, with one thing to check
+
+No change: a bed someone is coming back to is not a bed you can fill.
+
+**But the rule is not quite "leave beds never count".** The model already carries a `usable` flag per
+leave bed, and `capacityBreakdown` counts the usable ones in `leaveUsable`. **Outstanding question
+for the owner:** who decides a leave bed is usable, and on what basis? That flag is the one route by
+which a bed someone is returning to can reach the available figure.
+
+## The three lists (OWNER-APPROVED, 2026-08-28 — proposed by the session, accepted by the owner)
+
+**Provenance, stated precisely because it matters.** These words were **proposed by this session and
+approved by the product owner**. They are NOT clinician-supplied vocabulary, and no charge nurse has
+seen them. That distinction is recorded here so a later reader does not mistake an approved proposal
+for a validated one — and so the clinician check, when it happens, knows to ask about these too.
+
+The owner's own instruction stands: whatever a ward actually says goes in **verbatim**. If a
+clinician offers different words, theirs replace these.
+
+### List 1 — why a DECIDED discharge is stuck (`BED_RELEASE_BLOCKERS`)
+
+The Phase 5 reasons are kept unchanged, and **one is added**.
+
+**CORRECTION, 2026-08-28.** This section originally said "the six Phase 5 reasons" and listed six.
+There were **seven**: the transcription dropped `Awaiting receiving-service acceptance`, which
+shipped in Phase 5 and is named in its own test's title. The implementing agent noticed the
+discrepancy, kept all seven, added the approved eighth, and flagged it rather than deleting a live
+entry from a working picker on the strength of a slip in this document. **That was the right call.**
+The list as shipped is eight:
+
+- Awaiting clean
+- Awaiting pharmacy
+- Awaiting placement confirmation
+- Awaiting service coordination
+- Awaiting accommodation
+- Awaiting transport
+- Awaiting receiving-service acceptance ← present since Phase 5; omitted from this document's
+  first draft, never from the code
+- **Awaiting family or carer arrangement** ← added
+
+**Why the addition overturns a principled exclusion.** Phase 5 deliberately excluded family
+availability on the grounds that it describes the person rather than the bed. That reasoning is
+sound in general and is kept everywhere else. Here it fails on its own terms: a discharge held up
+because nobody can collect someone, or because the family need a day's notice, **is** a real reason
+a bed is not coming free. Excluding it does not stop it happening — it makes a ward choose "awaiting
+service coordination" instead, and the recorded reason becomes wrong. A wrong reason is worse than a
+blunt one.
+
+Still excluded, and the Phase 5 reasoning still holds for these: guardianship and financial
+arrangements.
+
+### List 2 — what a PREDICTED discharge is waiting on (replaces `BED_RELEASE_CONFIDENCE_LEVELS`)
+
+This list did not exist. It replaces `likely` / `possible` (Q1).
+
+- Awaiting ward round
+- Awaiting family or carer agreement
+- Awaiting accommodation
+- Awaiting community team acceptance
+- **Nothing outstanding**
+
+**"Nothing outstanding" carries more weight than it looks.** It is a predicted discharge with no
+obstacle at all — the closest thing to today's "likely", and the one a coordinator can most safely
+plan against. Without it the list would force a ward to name an obstacle that does not exist.
+
+**This is the list most in need of a clinician's words.** It was reasoned about from shape; the owner
+approved it, but he is not the one who holds up a discharge waiting on a ward round.
+
+### List 3 — what a RELEASED bed is being made ready for (`BED_PREPARATION_NOTES`)
+
+- Being cleaned
+- Awaiting maintenance or repair
+
+Cleaning is the owner's own example. Maintenance is the other thing expected to take a bed out of use
+briefly without anything clinical changing.
+
+**Unchanged and absolute:** a bed carrying a preparation note is **still offered, still counts in
+`availableNow`, and still appears in every figure.** The note must never gate allocation — the pull
+of the next patient takes hours anyway, which is the owner's own clinical reasoning for Q4.
+
+### One rule that binds all three
+
+These lists appear on a screen a coordinator reads as fact. **The wording ships verbatim.** No agent
+tidies, shortens, sentence-cases or "improves" any entry, and no agent adds an entry. Adding one is a
+recorded product decision, never an implementer's convenience — the same rule `ward-change-reasons.ts`
+has carried since Phase 5.
+
+## The eight follow-up rulings (OWNER-APPROVED, 2026-08-29)
+
+Recommendations put to the product owner on 2026-08-29 and approved as a set. Six are deliberate
+**leaves** — recorded with their reasoning so nobody "fixes" them later without knowing why they
+were left. Two are actions, both already taken.
+
+### 1. "Awaiting accommodation" appears in both List 1 and List 2 — LEAVE
+
+In List 1 the discharge is decided and there is nowhere to go; in List 2 the decision cannot be made
+until accommodation is sorted. Different situations, and the column a coordinator is reading
+disambiguates them. **A second phrase for the same real-world thing would be worse than the
+overlap.** No change.
+
+### 2. "Awaiting receiving-service acceptance" vs "Awaiting a community team to accept" — BOTH KEPT, SECOND RENAMED
+
+**Action taken.** List 2's entry is now `Awaiting community team acceptance`.
+
+**The reasoning, and its provenance.** The session's view — put to the owner and approved by him —
+is that these name **two different things**: a _receiving service_ is another inpatient unit taking
+the patient over; a _community team accepting them_ is follow-up after they leave. Both therefore
+belong, and matching the phrasing style removes the appearance of duplication without merging a real
+distinction.
+
+**Provenance, and it is stronger than the lists themselves.** Asked directly on 2026-08-29 whether
+the two name the same thing, the product owner — **a psychiatrist** — answered: _"they are different
+things. So separate them."_ This is therefore **his own clinical confirmation**, not the session's
+reasoning that he accepted, and it is the one entry in these lists that carries clinical authority
+rather than owner approval of a proposal.
+
+The two stay separate, and **neither may be merged into the other by a later reader who notices they
+look similar.** They look similar because both describe somebody accepting a patient; they differ in
+who, and in whether a bed is involved.
+
+### 3. List 1 mixes registers internally — LEAVE
+
+"Awaiting clean" beside "Awaiting family or carer arrangement" looks untidy. Each entry is clear on
+its own, and padding the short ones for symmetry makes them harder to read. **Tidiness is not a
+reason to touch clinical wording.** No change.
+
+### 4. The "beds being made ready" section has been seen at no breakpoint — CARRIED to Phase 8 Task 10
+
+Proven by jsdom and typecheck only. The visual pass must confirm a bed carrying a preparation note
+still reads as **offered**, not as unavailable — that misreading would contradict the owner's own
+ruling that the pull of the next patient takes hours anyway. Already written into the Phase 8 plan.
+
+### 5. Print ink on the new bed-model and list copy was never measured — CARRIED to Phase 8 Task 10
+
+The page _count_ was measured (one A4 page); the ink was not. Measure **every painted leaf of text**
+in both colour schemes — the method that found four defects where reading the selector list found
+one. Already written into the Phase 8 plan.
+
+### 6. The wrong-browser near miss — RECORDED, no further action
+
+A Chromium run reported `534 passed (18.9m)`, exit 0, containing **zero ward tests**, because the
+ward specs run under a different Playwright project. Caught by the agent itself and written down.
+**A green result from the wrong command is indistinguishable from a green result from the right
+one**, which is why the decisive line is quoted and never the exit code. The warning is in the
+Phase 8 handover prompt.
+
+### 7. A bed may be released straight from "predicted" without passing through "confirmed" — LEAVE
+
+Not a widening introduced by the rework: the old four-stage model already allowed the same thing by
+a different route (`predicted → blocked → released`). Forcing confirmation first would make a ward
+that discharges someone quickly record a stage that never happened. **Recording a fiction to satisfy
+a state machine is worse than the state machine being loose.** One line to narrow it if the owner
+ever wants it.
+
+### 8. The six morning-page figures do not sum to anything — LEAVE, and do not "fix" it
+
+`blockedToday` deliberately **overlaps** `confirmedToday` and `predictedToday`, because a stuck bed
+is still a confirmed bed. Nothing on screen adds them and every comment and test says so.
+
+**Forcing the six into disjoint buckets would reintroduce the exact defect the rework was built to
+remove** — a blocked bed vanishing from the confirmed count, so the ward's figures improve at the
+moment it is stuck. Recorded here because "make the numbers add up" is a plausible-sounding change
+that a future reader might make without knowing what it would undo.

@@ -5,6 +5,12 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  documentationCounts,
+  routesCounts,
+  testHealthCounts,
+} from "@/lib/developer-area/repo-awareness-snapshot-counts";
+
 import { appModeDefinitions } from "@/lib/app-modes";
 import { removePathSync } from "../scripts/retryable-fs.mjs";
 import {
@@ -35,7 +41,10 @@ const SITE_MAP: SiteMapInput = {
 describe("buildRoutesSection", () => {
   it("separates product pages from mockup pages", () => {
     const section = buildRoutesSection(SITE_MAP);
-    expect(section.pages).toEqual([
+    // Compared order-insensitively: pages are stored dispersed by a hash of the
+    // path, so array position is deliberately not alphabetical. What this test
+    // is about is the area classification, not the ordering.
+    expect([...section.pages].sort((left, right) => left.path.localeCompare(right.path))).toEqual([
       { path: "/dsm", file: "src/app/(search-app)/dsm/page.tsx", area: "product" },
       { path: "/mockups/development", file: "src/app/mockups/development/page.tsx", area: "mockup" },
     ]);
@@ -59,7 +68,7 @@ describe("buildRoutesSection", () => {
 
   it("computes counts from the arrays it emits, so a count cannot disagree with its list", () => {
     const section = buildRoutesSection(SITE_MAP);
-    expect(section.counts).toEqual({
+    expect(routesCounts(section)).toEqual({
       modes: section.modes.length,
       pages: 2,
       product_pages: 1,
@@ -69,15 +78,45 @@ describe("buildRoutesSection", () => {
     });
   });
 
-  it("sorts every array by path so filesystem ordering cannot make the gate fire", () => {
+  it("orders every array from its content, so filesystem ordering cannot make the gate fire", () => {
+    // The guarantee is DETERMINISM, not alphabetisation: whatever order the
+    // site map arrives in, the snapshot must come out the same, or the
+    // staleness gate flaps on an unchanged repository. Asserting a fixed
+    // alphabetical list also asserted the ordering strategy, which since v3 is
+    // dispersal by path hash. Comparing shuffled input against unshuffled input
+    // tests the property itself and survives a future change of strategy.
     const shuffled: SiteMapInput = {
       ...SITE_MAP,
       pageRoutes: [...SITE_MAP.pageRoutes].reverse(),
       apiRoutes: [{ route: "/api/zeta", file: "z.ts" }, ...SITE_MAP.apiRoutes],
     };
-    const section = buildRoutesSection(shuffled);
-    expect(section.pages.map((page) => page.path)).toEqual(["/dsm", "/mockups/development"]);
-    expect(section.api.map((route) => route.path)).toEqual(["/api/answer", "/api/zeta"]);
+    const unshuffled: SiteMapInput = {
+      ...SITE_MAP,
+      apiRoutes: [...SITE_MAP.apiRoutes, { route: "/api/zeta", file: "z.ts" }],
+    };
+    const fromShuffled = buildRoutesSection(shuffled);
+    const fromUnshuffled = buildRoutesSection(unshuffled);
+    expect(fromShuffled.pages).toEqual(fromUnshuffled.pages);
+    expect(fromShuffled.api).toEqual(fromUnshuffled.api);
+    // And the content is all there, whatever the order.
+    expect(fromShuffled.pages.map((page) => page.path).sort()).toEqual(["/dsm", "/mockups/development"]);
+    expect(fromShuffled.api.map((route) => route.path).sort()).toEqual(["/api/answer", "/api/zeta"]);
+  });
+
+  it("disperses alphabetically adjacent routes, so two branches adding one do not collide", () => {
+    // The property v3 exists for, on the shape that actually caused it: PR #2674
+    // conflicted because /mockups/source-rail-desktop-scroll and
+    // /mockups/specifier-record-directions both sort under /mockups/s and were
+    // therefore inserted on the same lines by two branches.
+    const adjacent = ["/mockups/sim-alpha", "/mockups/sim-alpha-two", "/mockups/sim-alpha-three"];
+    const section = buildRoutesSection({
+      ...SITE_MAP,
+      pageRoutes: [...SITE_MAP.pageRoutes, ...adjacent.map((route) => ({ route, file: `src/app${route}/page.tsx` }))],
+    });
+    const positions = adjacent.map((route) => section.pages.findIndex((page) => page.path === route));
+    expect(positions.every((index) => index >= 0)).toBe(true);
+    // Alphabetically these three are consecutive; dispersed they must not be.
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(positions.length - 1);
   });
 });
 
@@ -179,7 +218,7 @@ describe("buildDocumentationSection", () => {
     const readme = "See the source at https://github.com/BigSimmo/Database/blob/main/docs/only-external.md for detail.";
     const section = buildDocumentationSection(["docs/only-external.md"], readme);
     expect(section.documents[0].catalogued).toBe(false);
-    expect(section.counts.uncatalogued).toBe(1);
+    expect(documentationCounts(section).uncatalogued).toBe(1);
   });
 
   it("does not catalogue a full doc path inside an external Markdown link", () => {
@@ -207,12 +246,15 @@ describe("buildDocumentationSection", () => {
   it("summarises each section and computes counts from its own arrays", () => {
     const section = buildDocumentationSection(DOC_PATHS, README);
     expect(section.sections).toEqual([{ name: "design-system" }, { name: "rag-behaviour" }, { name: "root" }]);
-    expect(section.counts).toEqual({ documents: 5, catalogued: 3, uncatalogued: 2, sections: 3 });
+    expect(documentationCounts(section)).toEqual({ documents: 5, catalogued: 3, uncatalogued: 2, sections: 3 });
   });
 
-  it("sorts documents by path so listing order cannot make the gate fire", () => {
-    const section = buildDocumentationSection([...DOC_PATHS].reverse(), README);
-    expect(section.documents.map((document) => document.path)).toEqual([...DOC_PATHS].sort());
+  it("orders documents from their content, so listing order cannot make the gate fire", () => {
+    // Determinism, not alphabetisation — see the routes test of the same shape.
+    const fromReversed = buildDocumentationSection([...DOC_PATHS].reverse(), README);
+    const fromForward = buildDocumentationSection([...DOC_PATHS], README);
+    expect(fromReversed.documents).toEqual(fromForward.documents);
+    expect(fromReversed.documents.map((document) => document.path).sort()).toEqual([...DOC_PATHS].sort());
   });
 });
 
@@ -234,7 +276,7 @@ describe("buildTestHealthSection", () => {
     const section = buildTestHealthSection({ $comment: "intentionally empty", flakes: [] });
     expect(section.note).toBe("intentionally empty");
     expect(section.quarantined).toEqual([]);
-    expect(section.counts).toEqual({ quarantined: 0 });
+    expect(testHealthCounts(section)).toEqual({ quarantined: 0 });
   });
 
   it("uses a null note when the ledger carries no comment", () => {
@@ -257,7 +299,7 @@ describe("buildTestHealthSection", () => {
         tracking: "docs/process-hardening.md#known-flakes",
       },
     ]);
-    expect(section.counts.quarantined).toBe(1);
+    expect(testHealthCounts(section).quarantined).toBe(1);
   });
 
   it("emits exactly the ten mapped fields, so no time-derived flag can be added quietly", () => {
@@ -278,7 +320,7 @@ describe("buildTestHealthSection", () => {
       "title",
       "tracking",
     ]);
-    expect(Object.keys(section.counts)).toEqual(["quarantined"]);
+    expect(Object.keys(testHealthCounts(section))).toEqual(["quarantined"]);
   });
 
   it("fails loudly and names the entry when a required field is missing or blank", () => {
@@ -338,15 +380,25 @@ describe("buildReviewStateSection", () => {
     expect(section.records[0].checks).toBe("2 failed | 14 passed");
   });
 
-  it("orders newest first so the most recent review is the first thing read", () => {
+  // Do not "fix" this back to newest-first. The stored order is deliberately
+  // dispersing, not presentational: a commit sha is uniformly distributed, so
+  // two branches each appending one record insert hundreds of lines apart and
+  // git merges both hunks. Newest-first clustered every append into the same
+  // dense same-date block and produced the hard conflicts of `#EFETZT`, which
+  // set `mergeable_state=dirty` and suppressed CI entirely. Reading order is
+  // `reviewRecordsNewestFirst()`, applied by the page.
+  it("orders by head, so concurrent appends land far apart and merge cleanly", () => {
+    // ROW_A's head sorts before ROW_B's, which is the reverse of their dates —
+    // so this fails if the comparator is ever restored to date-descending.
     const section = buildReviewStateSection([ROW_A, ROW_B]);
-    expect(section.records.map((record) => record.ref)).toEqual(["claude/two", "claude/one"]);
+    expect(section.records.map((record) => record.ref)).toEqual(["claude/one", "claude/two"]);
   });
 
-  it("counts records and distinct refs", () => {
+  it("stores no aggregate count, because one cannot merge across concurrent appends", () => {
     const again = { file: "docs/branch-review-records/ccc.record.md", line: ROW_A.line };
     const section = buildReviewStateSection([ROW_A, ROW_B, again]);
-    expect(section.counts).toEqual({ records: 3, refs: 2 });
+    expect(section.records).toHaveLength(3);
+    expect(section).not.toHaveProperty("counts");
   });
 
   it("fails loudly and names the file when a row has the wrong number of columns", () => {
@@ -410,7 +462,7 @@ describe("the real review record corpus", () => {
     expect(rows.some((row) => row.file === "docs/branch-review-ledger.md")).toBe(true);
     expect(rows.some((row) => row.file.startsWith("docs/archive/branch-review-ledger-"))).toBe(true);
     expect(rows.some((row) => row.file.startsWith("docs/branch-review-records/"))).toBe(true);
-    expect(section.counts.records).toBeGreaterThan(2_500);
+    expect(section.records.length).toBeGreaterThan(2_500);
     expect(section.records.some((record) => record.ref === "claude/latency-findings-impl-s8g01v")).toBe(true);
     for (const record of section.records) {
       expect(record.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -430,27 +482,45 @@ describe("generate", () => {
   it("assembles all four sections under the declared version", () => {
     const snapshot = generate();
     expect(snapshot.version).toBe(SNAPSHOT_VERSION);
-    expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
-    expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
-    expect(snapshot.test_health.counts.quarantined).toBeGreaterThanOrEqual(0);
+    expect(routesCounts(snapshot.routes).pages).toBeGreaterThan(0);
+    expect(documentationCounts(snapshot.documentation).documents).toBeGreaterThan(0);
+    expect(snapshot.review_state.records.length).toBeGreaterThan(2_500);
+    expect(testHealthCounts(snapshot.test_health).quarantined).toBeGreaterThanOrEqual(0);
   });
 
   it("records the revision of the last commit that touched its own inputs", () => {
     const snapshot = generate();
-    expect(snapshot.captured_revision?.sha).toMatch(/^[0-9a-f]{40}$/);
+    // v3: a DATE, and no sha. The regex is what proves the coarsening happened —
+    // a full ISO instant would still parse as a date, so parsability alone could
+    // not catch a generator that quietly stopped narrowing.
+    expect(snapshot.captured_revision?.committed_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(Number.isNaN(new Date(snapshot.captured_revision!.committed_at).getTime())).toBe(false);
   });
 
+  const INPUT_COMMIT_DATE = "2026-01-02T10:00:00+00:00";
+  const HEAD_COMMIT_DATE = "2026-03-04T10:00:00+00:00";
+
   it("dates the revision by its own inputs, not by HEAD", () => {
-    // The shape assertion above (40-hex sha, parsable date) cannot distinguish
+    // The shape assertion above (a parsable date) cannot distinguish
     // "git log -- REVISION_INPUTS" from a bare "git rev-parse HEAD" — both
-    // produce an equally valid-looking sha and date. This builds a throwaway
-    // repo where the two diverge and proves readCapturedRevision picks the
-    // input-scoped commit, never HEAD.
+    // produce an equally valid-looking date. This builds a throwaway repo where
+    // the two diverge and proves readCapturedRevision picks the input-scoped
+    // commit, never HEAD.
+    //
+    // v3 dropped the sha, which is what this test used to compare, so the two
+    // commits are now dated DAYS APART with an explicit committer date. That is
+    // not a weaker discriminator here, it is the same one: the assertion still
+    // fails if the generator reads HEAD, because HEAD's date is the later one.
     const dir = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-revision-"));
     try {
-      const run = (args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8" }).trim();
+      const run = (args: string[], committerDate?: string) =>
+        execFileSync("git", args, {
+          cwd: dir,
+          encoding: "utf8",
+          env: committerDate
+            ? { ...process.env, GIT_COMMITTER_DATE: committerDate, GIT_AUTHOR_DATE: committerDate }
+            : process.env,
+        }).trim();
       run(["init", "-b", "main"]);
       run(["config", "user.email", "test@example.com"]);
       run(["config", "user.name", "Test"]);
@@ -460,21 +530,21 @@ describe("generate", () => {
       mkdirSync(path.join(dir, "docs"), { recursive: true });
       writeFileSync(path.join(dir, "docs", "a.md"), "a\n", "utf8");
       run(["add", "docs/a.md"]);
-      run(["commit", "-m", "touch an input path"]);
+      run(["commit", "-m", "touch an input path"], INPUT_COMMIT_DATE);
       const inputSha = run(["rev-parse", "HEAD"]);
 
       // Commit 2 touches a path outside every REVISION_INPUTS entry and becomes
       // HEAD, without being a real input to anything the snapshot emits.
       writeFileSync(path.join(dir, "unrelated.txt"), "b\n", "utf8");
       run(["add", "unrelated.txt"]);
-      run(["commit", "-m", "touch an unrelated path"]);
+      run(["commit", "-m", "touch an unrelated path"], HEAD_COMMIT_DATE);
       const headSha = run(["rev-parse", "HEAD"]);
 
       expect(headSha).not.toBe(inputSha);
 
       const revision = readCapturedRevision({ cwd: dir });
-      expect(revision?.sha).toBe(inputSha);
-      expect(revision?.sha).not.toBe(headSha);
+      expect(revision?.committed_at).toBe("2026-01-02");
+      expect(revision?.committed_at).not.toBe("2026-03-04");
     } finally {
       removePathSync(dir, { recursive: true });
     }
@@ -484,7 +554,7 @@ describe("generate", () => {
     const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
     try {
       mkdirSync(path.join(outside, "data"), { recursive: true });
-      const fakeRevision = { sha: "b".repeat(40), committed_at: "2026-08-28T00:00:00Z" };
+      const fakeRevision = { committed_at: "2026-08-28" };
       writeFileSync(
         path.join(outside, "data", "repo-awareness-snapshot.json"),
         JSON.stringify({ captured_revision: fakeRevision }),
@@ -510,7 +580,7 @@ describe("generate", () => {
     const outside = mkdtempSync(path.join(os.tmpdir(), "repo-awareness-no-git-"));
     try {
       const snap = path.join(outside, "snap.json");
-      writeFileSync(snap, JSON.stringify({ captured_revision: { sha: 123 } }), "utf8");
+      writeFileSync(snap, JSON.stringify({ captured_revision: { committed_at: 123 } }), "utf8");
       expect(readCommittedRevision(snap)).toBeNull();
     } finally {
       removePathSync(outside, { recursive: true });

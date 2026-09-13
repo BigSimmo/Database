@@ -61,7 +61,7 @@ function HeaderMockup({ expanded = false, compact = false }: { expanded?: boolea
           <button
             type="button"
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] lg:hidden"
-            aria-label="Open Clinical Guide menu"
+            aria-label="Open PsychSift menu"
           >
             <Menu className="h-5 w-5" />
           </button>

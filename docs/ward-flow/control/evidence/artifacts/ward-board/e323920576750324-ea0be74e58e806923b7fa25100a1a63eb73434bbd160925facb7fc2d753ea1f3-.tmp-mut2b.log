@@ -1,0 +1,31 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx (2 tests | 1 failed) 129ms
+     × never names a co-addressed ward, and provisionally does not reveal that one exists 89ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-screen-fd23-leaks.dom.test.tsx > FD-23 on the ward page > never names a co-addressed ward, and provisionally does not reveal that one exists
+Error: the parallel-referral badge is back. That may be correct now — check whether the owner ruled on the bare fact before treating this as a regression.: [2mexpect([22m[31melement[39m[2m).not.toHaveTextContent()[22m
+
+Expected element not to have text content:
+[32m  /parallel/i[39m
+Received:
+[31m  Parallel referralWF-013Older adult · Open · Male · Voluntary3h 20m waitingAccept in principleDecline[39m
+ ❯ tests/ward-screen-fd23-leaks.dom.test.tsx:89:11
+     87|       "the parallel-referral badge is back. That may be correct now — …
+     88|         "on the bare fact before treating this as a regression.",
+     89|     ).not.toHaveTextContent(/parallel/i);
+       |           ^
+     90|   });
+     91|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  22:43:49
+   Duration  1.70s (transform 420ms, setup 193ms, import 549ms, tests 129ms, environment 679ms)
+

@@ -1,0 +1,49 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/pressure-strip.dom.test.tsx (2 tests | 1 failed) 229ms
+     × reads the state it is handed, at a clock where the seed would answer differently 98ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/pressure-strip.dom.test.tsx > PressureStrip > reads the state it is handed, at a clock where the seed would answer differently
+AssertionError: moving the clock and the movements together changed the waits, so something in this chain is reading one of them and not the other: expected [ 3895, 757, 1915, 1127, 1090, …(3) ] to deeply equal [ Array(8) ]
+
+- Expected
++ Received
+
+  [
+-   3720,
+-   1740,
+-   952,
+-   915,
+-   841,
+-   804,
+-   730,
+-   582,
++   3895,
++   757,
++   1915,
++   1127,
++   1090,
++   1016,
++   979,
++   905,
+  ]
+
+ ❯ tests/pressure-strip.dom.test.tsx:72:7
+     70|       "moving the clock and the movements together changed the waits, …
+     71|         "is reading one of them and not the other",
+     72|     ).toEqual(baseline);
+       |       ^
+     73|
+     74|     // And the old shape really was wrong, rather than this test asser…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  14:01:34
+   Duration  4.07s (transform 987ms, setup 555ms, import 1.10s, tests 229ms, environment 1.81s)
+

@@ -152,7 +152,7 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
               {a && b ? (
                 <Link
                   href={pairCompareHref(COMPARE_PATH, b.slug, a.slug)}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold"
+                  className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
                 >
                   Swap
                 </Link>
@@ -160,7 +160,7 @@ export function DictionaryComparePage({ a, b }: { a: DictionaryEntry | null; b: 
               {a || b ? (
                 <Link
                   href={COMPARE_PATH}
-                  className="inline-flex min-h-10 items-center rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold"
+                  className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] px-3 text-sm font-semibold sm:min-h-10"
                 >
                   Clear
                 </Link>

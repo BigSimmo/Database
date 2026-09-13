@@ -195,6 +195,7 @@ const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
  * `tests/caring-contacts-team-page.dom.test.tsx`.
  */
 const TEAM_ROUTE = `${WORKSPACE_ROUTE}/team`;
+const INTAKE_ROUTE = `${WORKSPACE_ROUTE}/intake`;
 
 /**
  * Every production screen this workspace serves, with the `h1` it must render.
@@ -260,6 +261,7 @@ const WORKSPACE_SCREENS = [
   { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
   { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
   { name: "Team", route: TEAM_ROUTE, heading: "Team" },
+  { name: "Intake", route: INTAKE_ROUTE, heading: "Referral intake" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -325,7 +327,29 @@ async function openWorkspace(
   // early carries a second, inert copy of the whole shell. Settle on exactly one
   // before measuring anything — and assert it, because a shell that genuinely
   // mounted twice would double every landmark on the page.
-  await expect(page.getByTestId("caring-contacts-rail")).toHaveCount(1);
+  //
+  // Both navigation landmarks, not just the rail. The sentence above always said
+  // "every landmark", but the wait only ever covered `caring-contacts-rail`, and
+  // the two are reconciled on different ticks: `toHaveCount(1)` retries, so it
+  // can go green at a moment when the rail has settled and the dock is still
+  // doubled. The frozen-layout sweep then asserts on the dock a few lines later
+  // and trips Playwright strict mode on the second copy — observed on PR #2600,
+  // CI run 33868074584 shard 2, "Template detail at 390px: the phone dock does
+  // not own navigation", with `caring-contacts-phone-dock` resolving to 2
+  // elements despite this guard having passed on the same navigation.
+  //
+  // Both are `md:hidden`/`md:flex` siblings of one shell subtree, so exactly one
+  // of each exists at every width — the count is 1 whichever one is displayed,
+  // and this says nothing about which is *visible*. That remains the sweep's job.
+  await expect
+    .poll(
+      async () => [
+        await page.getByTestId("caring-contacts-rail").count(),
+        await page.getByTestId("caring-contacts-phone-dock").count(),
+      ],
+      { message: "caring-contacts navigation landmarks did not settle to one copy each" },
+    )
+    .toEqual([1, 1]);
   // `exact: true`, because Playwright's `name` is a case-insensitive SUBSTRING match by default,
   // and two of these headings are prefixes of each other: "Template" would be satisfied by the
   // templates library's "Templates" h1, so a regression serving the library at a detail URL would
@@ -1835,7 +1859,12 @@ function layoutOverflow(page: Page) {
  * `:focus-visible`, which a programmatic focus does not reliably raise.
  */
 async function tabToWorkspaceDestination(page: Page) {
-  const destination = page.getByRole("link", { name: "Today" });
+  // Scope to the rail / phone-dock nav. The Today front door also has an in-page
+  // "View today's schedule" link that Playwright's default substring name match
+  // would treat as a second "Today" and trip strict mode.
+  const destination = page
+    .locator('[data-testid="caring-contacts-rail"], [data-testid="caring-contacts-phone-dock"]')
+    .getByRole("link", { name: "Today", exact: true });
   for (let press = 0; press < 40; press += 1) {
     await page.keyboard.press("Tab");
     if (await destination.evaluate((node) => node === document.activeElement)) return destination;
@@ -2291,7 +2320,7 @@ test.describe("caring-contacts guidance, in the modes its own block proved on re
     // The panel says what it is with an information tint. Forced colours drops the
     // author's background, so the whole claim has to survive as words: what a
     // transport receipt is, and one of the three things it is not.
-    const guidance = page.getByTestId("caring-contacts-guidance");
+    const guidance = page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']");
     await expect(guidance).toContainText("One-way programme boundary");
     await expect(guidance).toContainText("transport receipt");
     await expect(guidance).toContainText("does not mean the message was read");
@@ -2666,7 +2695,7 @@ test.describe("caring-contacts guidance and reports", () => {
     expect(response?.status(), "the guidance route did not serve a page").toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: GUIDANCE_SCREEN.heading })).toBeVisible();
 
-    const guidance = page.getByTestId("caring-contacts-guidance");
+    const guidance = page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']");
     await expect(guidance).toBeVisible();
     await expect(guidance).toContainText("One-way programme boundary");
     await expect(guidance).toContainText("transport receipt");
@@ -2800,7 +2829,9 @@ test.describe("caring-contacts guidance and reports", () => {
     await expect(page.getByTestId("caring-contacts-synthetic-marker")).toBeVisible();
     // Printed guidance that has lost the boundary panel is guidance that no longer states the one
     // thing it exists to state.
-    await expect(page.getByTestId("caring-contacts-guidance")).toContainText("One-way programme boundary");
+    await expect(
+      page.getByRole("main").locator("section[aria-labelledby='caring-contacts-guidance-boundary']"),
+    ).toContainText("One-way programme boundary");
     expect(await documentOverflow(page), "horizontal overflow in print").toBeLessThanOrEqual(2);
     await page.emulateMedia({ media: "screen" });
   });

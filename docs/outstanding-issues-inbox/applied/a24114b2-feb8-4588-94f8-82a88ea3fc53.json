@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a24114b2-feb8-4588-94f8-82a88ea3fc53",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Developer-hub CODE still flips perf_changed, so an admin-only mockup route pulls a full Lighthouse run",
+    "detail": "Found while fixing #EFETZT on 2026-09-02 and deliberately NOT fixed in that PR, because it means editing a fail-closed CI classification surface. PR #2530 added data/repo-awareness-snapshot.json to perfExclusionPatterns in scripts/ci-change-scope.mjs, mirroring the carve-out data/outstanding-issues-snapshot.json already had for the same reason (PR #2302). That closes the common case - a handoff PR that only regenerates the snapshot no longer pays a ~7-minute Lighthouse budget run against a budget the change cannot move. It does NOT close the code case. src/components/developer-area/hub/** and src/lib/developer-area/** match the generic 'src' entry in perfPatterns (ci-change-scope.mjs:226) and are not excluded, because only the ROUTE WRAPPER lives under the excluded src/app/mockups prefix - the panel components live one directory hop away under src/components. So a PR touching the developer hub's own code still triggers lighthouse-budget for /mockups/development/**, which 404s for non-admins in production (src/app/mockups/layout.tsx and src/proxy.ts gate it behind DEVELOPER_AREA_HEADER) and cannot appear in either budgeted journey. WHY IT WAS LEFT: the exclusion list is a fail-closed safety surface, and widening it by directory prefix risks exempting a future component that IS reachable from a budgeted route. The safe shape is probably an explicit list of the developer-hub component and lib paths rather than a prefix, pinned by an assertScope self-test beside the two that already exist (ci-change-scope.mjs:1022), plus a test proving a non-hub file under src/components still flips perf_changed. Cost of leaving it is bounded and only paid by developer-hub PRs, which are rare.",
+    "source": "session 2026-09-02, PR #2530; verification-router review",
+    "issueUlid": "01M1G8RXVY9ZGNW7CR1YQ4SE5J"
+  }
+}

@@ -1,0 +1,186 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+ ❯ |jsdom| tests/ward-board-selection.dom.test.tsx (15 tests | 4 failed) 4530ms
+     × selects nobody on first render, and says so rather than showing an empty panel 460ms
+     × closes on Escape and hands focus back to the tile that opened it 403ms
+     × closes from the panel's own Close control, and hands focus back the same way 505ms
+     × deselects when the same tile is chosen again 350ms
+Not implemented: navigation to another Document
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-board-selection.dom.test.tsx > ward board selection — nothing is chosen for the reader > selects nobody on first render, and says so rather than showing an empty panel
+AssertionError: expected <aside …(5)>…(2)</aside> to be null
+
+- Expected:
+null
+
++ Received:
+<aside
+  aria-labelledby="ward-board-detail-heading"
+  class="_detail_76eb4c"
+  data-detail-kind="none"
+  data-testid="ward-board-detail"
+  id="ward-board-detail"
+>
+  <div
+    class="_detailBar_76eb4c"
+  >
+    <h2
+      class="_detailHeading_76eb4c"
+      id="ward-board-detail-heading"
+    >
+      Who is in a bed
+    </h2>
+  </div>
+  <p
+    class="_detailEmpty_76eb4c"
+    data-testid="ward-board-select-hint"
+  >
+    Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+  </p>
+</aside>
+
+ ❯ tests/ward-board-selection.dom.test.tsx:73:74
+     71|     expect(tileButtons(container).length).toBeGreaterThan(0);
+     72|
+     73|     expect(container.querySelector('[data-testid="ward-board-detail"]'…
+       |                                                                          ^
+     74|     expect(tileButtons(container).filter((button) => button.getAttribu…
+     75|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  |jsdom| tests/ward-board-selection.dom.test.tsx > ward board selection — the keyboard contract > closes on Escape and hands focus back to the tile that opened it
+AssertionError: expected <aside …(5)>…(2)</aside> to be null
+
+- Expected:
+null
+
++ Received:
+<aside
+  aria-labelledby="ward-board-detail-heading"
+  class="_detail_76eb4c"
+  data-detail-kind="none"
+  data-testid="ward-board-detail"
+  id="ward-board-detail"
+>
+  <div
+    class="_detailBar_76eb4c"
+  >
+    <h2
+      class="_detailHeading_76eb4c"
+      id="ward-board-detail-heading"
+    >
+      Who is in a bed
+    </h2>
+  </div>
+  <p
+    class="_detailEmpty_76eb4c"
+    data-testid="ward-board-select-hint"
+  >
+    Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+  </p>
+</aside>
+
+ ❯ tests/ward-board-selection.dom.test.tsx:199:74
+    197|     fireEvent.keyDown(screen.getByTestId("ward-board-detail"), { key: …
+    198|
+    199|     expect(container.querySelector('[data-testid="ward-board-detail"]'…
+       |                                                                          ^
+    200|     expect(document.activeElement).toBe(button);
+    201|     expect(button.getAttribute("aria-pressed")).toBe("false");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  |jsdom| tests/ward-board-selection.dom.test.tsx > ward board selection — the keyboard contract > closes from the panel's own Close control, and hands focus back the same way
+AssertionError: expected <aside …(5)>…(2)</aside> to be null
+
+- Expected:
+null
+
++ Received:
+<aside
+  aria-labelledby="ward-board-detail-heading"
+  class="_detail_76eb4c"
+  data-detail-kind="none"
+  data-testid="ward-board-detail"
+  id="ward-board-detail"
+>
+  <div
+    class="_detailBar_76eb4c"
+  >
+    <h2
+      class="_detailHeading_76eb4c"
+      id="ward-board-detail-heading"
+    >
+      Who is in a bed
+    </h2>
+  </div>
+  <p
+    class="_detailEmpty_76eb4c"
+    data-testid="ward-board-select-hint"
+  >
+    Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+  </p>
+</aside>
+
+ ❯ tests/ward-board-selection.dom.test.tsx:212:74
+    210|     await user.click(screen.getByTestId("ward-board-detail-close"));
+    211|
+    212|     expect(container.querySelector('[data-testid="ward-board-detail"]'…
+       |                                                                          ^
+    213|     expect(document.activeElement).toBe(button);
+    214|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  |jsdom| tests/ward-board-selection.dom.test.tsx > ward board selection — the keyboard contract > deselects when the same tile is chosen again
+AssertionError: expected <aside …(5)>…(2)</aside> to be null
+
+- Expected:
+null
+
++ Received:
+<aside
+  aria-labelledby="ward-board-detail-heading"
+  class="_detail_76eb4c"
+  data-detail-kind="none"
+  data-testid="ward-board-detail"
+  id="ward-board-detail"
+>
+  <div
+    class="_detailBar_76eb4c"
+  >
+    <h2
+      class="_detailHeading_76eb4c"
+      id="ward-board-detail-heading"
+    >
+      Who is in a bed
+    </h2>
+  </div>
+  <p
+    class="_detailEmpty_76eb4c"
+    data-testid="ward-board-select-hint"
+  >
+    Nothing is selected. Choose a bed to see who is in it — nobody is chosen for you.
+  </p>
+</aside>
+
+ ❯ tests/ward-board-selection.dom.test.tsx:246:74
+    244|
+    245|     expect(button.getAttribute("aria-pressed")).toBe("false");
+    246|     expect(container.querySelector('[data-testid="ward-board-detail"]'…
+       |                                                                          ^
+    247|     expect(screen.getByTestId("ward-board-select-hint")).toBeTruthy();
+    248|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed | 83 passed (84)
+      Tests  4 failed | 1245 passed (1249)
+   Start at  12:48:43
+   Duration  63.00s (transform 9.63s, setup 12.78s, import 25.37s, tests 121.88s, environment 52.94s)
+

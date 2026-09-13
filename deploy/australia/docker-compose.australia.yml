@@ -1,0 +1,84 @@
+name: caring-contacts-sovereign-australia
+
+# Caring Contacts Sovereign Australian Container Orchestration
+# Resolves Hazard H-36 (Issue #NCAWAF): In-country compute with isolated networking.
+# See docs/deployment/caring-contacts-sovereign-australia.md.
+
+services:
+  caring-contacts-app:
+    build:
+      context: ../..
+      dockerfile: deploy/australia/Dockerfile.australia
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://placeholder-sydney-ref.supabase.co}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-placeholder-build-publishable-key}
+        NEXT_PUBLIC_CARING_CONTACTS_TRAINING_MODE: ${NEXT_PUBLIC_CARING_CONTACTS_TRAINING_MODE:-false}
+        ALLOW_LOW_RAM_BUILD: ${ALLOW_LOW_RAM_BUILD:-1}
+    image: caring-contacts-app-australia:latest
+    container_name: caring-contacts-sovereign-app
+    restart: unless-stopped
+    env_file:
+      - path: ./env.australia
+        required: false
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - CARING_CONTACTS_REGION=ap-southeast-2
+      - ZERO_DATA_EGRESS_AUSTRALIA=true
+      - SENTRY_PII_SCRUBBING=true
+      - NEXT_PUBLIC_CARING_CONTACTS_TRAINING_MODE=false
+      - CARING_CONTACTS_DEMO_ENABLED=${CARING_CONTACTS_DEMO_ENABLED:-false}
+      - CARING_CONTACTS_SESSION_HMAC_SECRET=${CARING_CONTACTS_SESSION_HMAC_SECRET}
+      - SUPABASE_CARING_CONTACTS_PROJECT_REF=${SUPABASE_CARING_CONTACTS_PROJECT_REF}
+      - SUPABASE_CARING_CONTACTS_PROJECT_NAME=${SUPABASE_CARING_CONTACTS_PROJECT_NAME:-Caring Contacts Australia}
+      - SUPABASE_PROJECT_REF=${SUPABASE_PROJECT_REF}
+      - SUPABASE_PROJECT_NAME=${SUPABASE_PROJECT_NAME:-Caring Contacts Australia}
+      - CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON=${CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON:-}
+      - CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC=${CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC:-}
+      - CARING_CONTACTS_GOVERNANCE_HMAC_SECRET=${CARING_CONTACTS_GOVERNANCE_HMAC_SECRET:-}
+      - CARING_CONTACTS_DATABASE_URL=${CARING_CONTACTS_DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production-au-sovereign}
+      - TIMEZONE=Australia/Perth
+    ports:
+      # Bind exclusively to 127.0.0.1 to avoid exposing the unproxied service to the public host interface
+      - "127.0.0.1:3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/caring-contacts/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4096M
+        reservations:
+          cpus: "1.0"
+          memory: 2048M
+    networks:
+      - sovereign_isolated_net
+
+networks:
+  sovereign_isolated_net:
+    name: caring_contacts_sovereign_net
+    driver: bridge
+    labels:
+      sovereign.zone: "ap-southeast-2"
+      sovereign.data-residency: "Australia"
+      sovereign.hazard: "H-36"

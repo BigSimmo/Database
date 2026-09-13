@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
@@ -94,8 +95,11 @@ describe("CI cache safety", () => {
   });
 
   it("rejects a refreshed Lighthouse baseline that has zero or mixed browser identities", () => {
-    expect(workflow).toContain("versions.length!==1");
-    expect(workflow).toContain("Expected exactly one baseline Chrome version");
+    // Shared validator owns the single-Chrome-identity gate; keep the weaker
+    // ad-hoc inline node -e check out of ci.yml so refresh and grade use one path.
+    expect(workflow).toContain("node scripts/check-lighthouse-budget.mjs --validate-baseline");
+    expect(workflow).not.toContain("versions.length!==1");
+    expect(workflow).not.toContain("Expected exactly one baseline Chrome version");
   });
 
   it("exports the pinned browser through both Lighthouse environment contracts", () => {
@@ -140,9 +144,64 @@ describe("CI cache safety", () => {
     expect(workflow).toContain('require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"');
   });
 
+  /**
+   * `verify:pr-local` is documented as the risk-routed PR mirror, yet until audit M24
+   * its heavy plan selected only lint/typecheck/test: the migration-role,
+   * function-grant and owner-scope guards — the three built to stop the incident
+   * shapes that reach the live clinical database on merge — ran only in CI after
+   * push. Pin the mirror the other way round from `check:gate-manifest` (which
+   * holds CI to the local verify:cheap chain): every static-pr step gated on
+   * `static_heavy_changed` must also be in the local heavy plan.
+   */
+  it("mirrors every static-heavy static-pr step in the verify:pr-local heavy plan (M24)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr, "static-pr job not found in ci.yml").not.toBe("");
+    const heavySteps: string[] = [];
+    for (const step of staticPr.split(/\n\s+- name: /).slice(1)) {
+      const condition = /\n\s+if: ([^\n]+)/.exec(step)?.[1] ?? "";
+      const script = /\n\s+run: npm run ([\w:.-]+)\s*$/m.exec(step)?.[1];
+      if (script && condition.includes("static_heavy_changed == 'true'")) heavySteps.push(script);
+    }
+    expect(heavySteps).toEqual(
+      expect.arrayContaining(["check:migration-role", "check:function-grants", "check:owner-scope"]),
+    );
+
+    const heavyPlan = selectedScripts({ static_heavy_changed: true }, false) as string[];
+    const missing = heavySteps.filter((script) => !heavyPlan.includes(script));
+    expect(
+      missing,
+      `static-pr runs these for static_heavy scope but verify:pr-local does not: ${missing.join(", ")}`,
+    ).toEqual([]);
+
+    // Docs-only scope stays focused: the tenancy/database guards are heavy-scope steps.
+    const docsPlan = selectedScripts({ docs_changed: true }, false) as string[];
+    for (const guard of ["check:migration-role", "check:function-grants", "check:owner-scope"]) {
+      expect(docsPlan, `${guard} leaked into the docs-only plan`).not.toContain(guard);
+    }
+  });
+
   it("runs the generated medication lexicon freshness check through static-heavy scope", () => {
     expect(workflow).toMatch(
       /name: Medication lexicon report freshness\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-lexicon-report/,
+    );
+  });
+
+  // The interaction index is the artefact the UI reads to decide whether a drug can be
+  // shown as clear. Its freshness gate was local-only until audit M30, so a snapshot-only
+  // merge through the bare-PR route shipped a stale index with every check green.
+  it("runs the medication interaction index drift check through static-heavy scope (M30)", () => {
+    expect(workflow).toMatch(
+      /name: Medication interaction index drift\n\s+if: needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:medication-interactions/,
+    );
+  });
+
+  // The hazard register validator ran only in the provider-backed governance:release chain
+  // until audit M33; it needs the full-history checkout for its reviewedCommit checks.
+  it("runs the clinical hazard-controls register check in static-pr with full history (M33)", () => {
+    const staticPr = /\n  static-pr:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(staticPr).toContain("fetch-depth: 0");
+    expect(staticPr).toMatch(
+      /name: Clinical hazard-controls register\n\s+if: needs\.changes\.outputs\.docs_changed == 'true' \|\| needs\.changes\.outputs\.static_heavy_changed == 'true'\n\s+run: npm run check:clinical-hazard-controls/,
     );
   });
 
@@ -228,8 +287,21 @@ describe("CI cache safety", () => {
     });
     expect(releaseJob).not.toContain("path: .next/cache");
     expect(releaseJob).not.toContain("run: npm run build");
-    expect(releaseJob).toContain("npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit");
     expect(releaseJob).toContain("npm run test:e2e");
+
+    // Until 2026-09-07 this pinned the single-job command
+    // `npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit`.
+    // That job stopped finishing — 70m23s and 70m20s on two consecutive main
+    // runs, both exactly on the old 70-minute cap — so the engines now run as
+    // sibling matrix jobs and the flags are assembled per engine in the step.
+    // The property this case still owns is the one it always owned: the primary
+    // path does not re-run production Chromium that ui-critical already proved.
+    // Full engine/project coverage is proven in
+    // tests/ci-browser-matrix-coverage.test.ts, which fails closed when a
+    // playwright.config.ts project is not assigned to an engine.
+    expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
+    expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=webkit"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
@@ -367,6 +439,31 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     LIGHTHOUSE_RESULT: "skipped",
     DB_RESULT: "skipped",
     CARING_CONTACTS_DB_RESULT: "success",
+    /*
+     * 🔴 **THIS ENTRY AND `ci.yml` MOVE TOGETHER, AND ITS ABSENCE ONCE TURNED ALL TWELVE OF THIS
+     * BLOCK'S CASES RED.** The `ui-ward-journeys` job was added to `ci.yml` without this fixture
+     * gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script as an
+     * EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or `cancelled` as
+     * a failure, so every case — including "passes when every in-scope job succeeded" — recorded
+     * `ward-flow-journeys result was ` and exited 1.
+     *
+     * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
+     * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
+     * than as failing, and the first execution it ever gets is in CI. A fixture that must be
+     * edited alongside a workflow, guarded by a block that cannot run where the workflow is
+     * edited, is the shape to watch for here.
+     *
+     * `WARD_JOURNEYS_BLOCKING` was removed from both this fixture and `ci.yml` on 2026-09-06 when
+     * the lane was enabled; it no longer exists in the workflow, so binding it here would test a
+     * variable the script never reads.
+     *
+     * `"skipped"` is the faithful default for THIS fixture specifically, because it sets
+     * `UI_CHANGED: "false"` — the lane's `if:` is false, and GitHub reports a skipped job. It is
+     * NOT the default for a UI-changed pull request any more: there the lane runs and must
+     * succeed, which is why the `UI_CHANGED: "true"` cases below set it explicitly rather than
+     * inheriting this.
+     */
+    WARD_JOURNEYS_RESULT: "skipped",
   };
 
   function runAggregate(overrides: Record<string, string> = {}) {
@@ -531,6 +628,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_CHANGED: "true",
         UI_FAST_RESULT: "success",
         UI_RESULT: "cancelled",
+        // The ward lane runs on every UI pull request now, so it must be green here or this
+        // case would go red for two reasons and stop isolating the cancellation it is about.
+        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
     expect(
@@ -538,6 +638,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_CHANGED: "true",
         UI_FAST_RESULT: "cancelled",
         UI_RESULT: "success",
+        // The ward lane runs on every UI pull request now, so it must be green here or this
+        // case would go red for two reasons and stop isolating the cancellation it is about.
+        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
   });
@@ -546,6 +649,37 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // Guards the unsafe "fix": `if: !cancelled()` would skip this job on cancellation, and
     // GitHub treats a skipped required check as PASSING — mergeable with nothing verified.
     expect(workflow).toMatch(/pr-required:[\s\S]*?if: always\(\)/);
+  });
+
+  it("requires the Ward Flow journeys on a UI pull request, and only there", () => {
+    /*
+     * ENABLED 2026-09-06. Until then `ui-ward-journeys` was gated behind
+     * `vars.WARD_JOURNEYS_BLOCKING`, a repository variable nobody ever set, so the lane always
+     * skipped and this aggregate always took its `require_skipped_or_success` branch. Nothing
+     * could go red because of a broken ward journey — and on 2026-09-05 several did, unnoticed
+     * for a day.
+     *
+     * These four cases are the proof the lane is genuinely blocking now, which no case asserted
+     * before: the first two are the states that must FAIL, the last two the out-of-scope states
+     * that must still pass. Without the first case in particular, removing the job's `if:` and
+     * this aggregate's condition would look identical to leaving them in.
+     */
+    // `UI_CHANGED: "true"` also puts `production-ui-critical` and `production-ui` in scope, and
+    // the fixture leaves both skipped — so every in-scope case below carries them green. Without
+    // that the ward result is not the variable under test and the "in scope and green" case fails
+    // for an unrelated reason, which is exactly what this test caught while being written.
+    const uiPr = { UI_CHANGED: "true", UI_FAST_RESULT: "success", UI_RESULT: "success" } as const;
+
+    // In scope and red: the lane failed.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "failure" }).status).not.toBe(0);
+    // In scope and absent: a lane that did not run verified nothing, so it cannot pass the PR.
+    // This is the exact case that passed before the gate was removed.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "skipped" }).status).not.toBe(0);
+    // In scope and green — the ward result is the only thing that changed from the case above.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "success" }).status).toBe(0);
+    // Out of scope: no UI change, and drafts. Skipped is correct and must not fail the aggregate.
+    expect(runAggregate({ UI_CHANGED: "false", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ ...uiPr, PR_DRAFT: "true", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
   });
 
   it("never puts a status-check function anywhere but an `if:` condition", () => {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { ingestionJobRetryRejectionReason } from "@/lib/ingestion";
@@ -29,6 +30,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id } = parseRouteParams({ id: rawId }, ingestionRetryRouteParamsSchema, "Invalid ingestion job id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
+
+    // This is the only unlimited MUTATING admin ingestion endpoint before this
+    // fix — it re-enqueues a job. Same sibling gap as /api/ingestion/quality
+    // and /api/ingestion/jobs (#L43).
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "ingestion_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many ingestion administration requests. Retry shortly.", rateLimit);
+    }
 
     const staleThreshold = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
     const resetNextRunAt = ingestionRollbackFenceStamp();

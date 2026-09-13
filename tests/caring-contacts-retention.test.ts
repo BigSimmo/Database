@@ -10,10 +10,12 @@ import { actorId, idempotencyKey, pathwayVersionId, teamId } from "@/lib/caring-
 import {
   DEFAULT_RETENTION_POLICY,
   admitRetentionClearance,
+  archiveIncidentNotes,
   deidentifyAuditEvent,
   deidentifyEpisode,
   isDueForDeidentification,
   type Episode,
+  type IncidentCaseNote,
   type RetentionPolicy,
 } from "@/lib/caring-contacts/retention";
 
@@ -49,6 +51,7 @@ const RETENTION_WORD_ALLOWLIST: readonly string[] = Object.freeze([
   "repository.ts",
   "in-memory-repository.ts",
   "postgres-repository.ts",
+  "plans-store.ts",
 ]);
 
 function walk(dir: string): string[] {
@@ -72,6 +75,11 @@ function baseEpisode(overrides: Partial<Episode> = {}): Episode {
     // Free text a clinician wrote about this patient, so de-identification must drop it with the
     // other identifying fields rather than carry it into the reporting projection.
     firstContactReason: "Patient asked to wait until she is home from her sister's.",
+    // An episode that has ended but has NOT been cleared. `deidentifyEpisode` must drop this field
+    // like every other one it does not name, so the default here is the un-cleared value: were it
+    // pre-set to an instant, the assertion that a de-identified episode carries no clearance would
+    // be satisfied by a value that was never there.
+    patientDetailClearedAt: null,
     planDates: {
       dischargeAt: new Date("2019-08-05T02:00:00.000Z"),
       completedAt: new Date("2019-08-19T02:00:00.000Z"), // 2019-08-19 10:00 AWST
@@ -355,5 +363,183 @@ describe("rule 6: admitRetentionClearance", () => {
     admitted.value.setUTCFullYear(1970);
 
     expect(episode.planDates.completedAt?.getUTCFullYear()).toBe(2019);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 7 — Incident responder notes and governed archival (#JZ8B36)
+// ---------------------------------------------------------------------------
+
+describe("rule 7: incident responder notes and governed archival (#JZ8B36)", () => {
+  function baseIncidentNote(overrides: Partial<IncidentCaseNote> = {}): IncidentCaseNote {
+    return Object.freeze({
+      id: "NOTE-1",
+      episodeId: "EPISODE-1",
+      stopId: "STOP-1",
+      authorId: actorId("ACTOR-1"),
+      note: "Mid-incident note regarding wrong-recipient message dispatch.",
+      createdAt: "2019-08-19T10:00:00.000+08:00",
+      reason: "wrong-recipient",
+      restartedAt: null,
+      ...overrides,
+    });
+  }
+
+  describe("immutable note lifecycle", () => {
+    it("preserves note contents as immutable during episode lifecycle (assert_service_stop_immutable)", () => {
+      const note = baseIncidentNote();
+      expect(note.note).toContain("wrong-recipient");
+      expect(Object.isFrozen(note)).toBe(true);
+      expect(() => {
+        (note as { note: string }).note = "Tampered mid-incident content";
+      }).toThrow();
+    });
+
+    it("refuses archival for non-terminal episode states", () => {
+      const activeEpisode = baseEpisode({ state: "active" });
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const result = archiveIncidentNotes(
+        activeEpisode,
+        "governed-retention-archival",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("retention-episode-not-terminal");
+    });
+
+    it("refuses archival for draft and paused episodes", () => {
+      const draftEpisode = baseEpisode({ state: "draft" });
+      const pausedEpisode = baseEpisode({ state: "paused" });
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+
+      const draftResult = archiveIncidentNotes(draftEpisode, "archive", DEFAULT_RETENTION_POLICY, clock);
+      expect(draftResult.ok).toBe(false);
+      expect(draftResult.reason).toBe("retention-episode-not-terminal");
+
+      const pausedResult = archiveIncidentNotes(pausedEpisode, "archive", DEFAULT_RETENTION_POLICY, clock);
+      expect(pausedResult.ok).toBe(false);
+      expect(pausedResult.reason).toBe("retention-episode-not-terminal");
+    });
+
+    it("refuses archival for a terminal episode with missing completion instant", () => {
+      const episode = baseEpisode({
+        planDates: { dischargeAt: baseEpisode().planDates.dischargeAt, completedAt: null },
+      });
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const result = archiveIncidentNotes(episode, "archive", DEFAULT_RETENTION_POLICY, clock);
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe("retention-episode-not-terminal");
+    });
+  });
+
+  describe("governed archival retention boundaries", () => {
+    it("refuses archival one day before the clinical retention period elapses (AWST)", () => {
+      const episode = baseEpisode(); // completed 2019-08-19 (AWST)
+      const oneDayShort = fixedClock("2026-08-18T02:00:00.000Z"); // 2026-08-18 AWST
+      const result = archiveIncidentNotes(
+        episode,
+        "governed-retention-archival",
+        DEFAULT_RETENTION_POLICY,
+        oneDayShort,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("retention-period-not-elapsed");
+    });
+
+    it("passes eligibility at the seven-year boundary but does not claim persisted archival (AWST)", () => {
+      const episode = baseEpisode(); // completed 2019-08-19 (AWST)
+      const exactlySeven = fixedClock("2026-08-19T02:00:00.000Z"); // 2026-08-19 AWST
+      const result = archiveIncidentNotes(
+        episode,
+        "governed-retention-archival",
+        DEFAULT_RETENTION_POLICY,
+        exactlySeven,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("archival-not-persisted");
+    });
+
+    it("passes eligibility well past the boundary but does not claim persisted archival", () => {
+      const episode = baseEpisode();
+      const wellPast = fixedClock("2035-01-01T02:00:00.000Z");
+      const result = archiveIncidentNotes(episode, "governed-retention-archival", DEFAULT_RETENTION_POLICY, wellPast);
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("archival-not-persisted");
+    });
+
+    it("respects an overridden, shorter retention policy", () => {
+      const episode = baseEpisode();
+      const oneYearLater = fixedClock("2020-08-19T02:00:00.000Z");
+      const resultShorter = archiveIncidentNotes(episode, "archive", { years: 1 }, oneYearLater);
+      expect(resultShorter.ok).toBe(false);
+      expect(resultShorter.reason).toBe("archival-not-persisted");
+
+      const resultDefault = archiveIncidentNotes(episode, "archive", DEFAULT_RETENTION_POLICY, oneYearLater);
+      expect(resultDefault.ok).toBe(false);
+      expect(resultDefault.reason).toBe("retention-period-not-elapsed");
+    });
+
+    it("validates mandatory parameters: rejects empty episodeId or missing reason", () => {
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const emptyEpisodeResult = archiveIncidentNotes("", "reason", DEFAULT_RETENTION_POLICY, clock);
+      expect(emptyEpisodeResult.ok).toBe(false);
+      expect(emptyEpisodeResult.reason).toBe("missing-episode-id");
+
+      const emptyReasonResult = archiveIncidentNotes("EPISODE-1", "   ", DEFAULT_RETENTION_POLICY, clock);
+      expect(emptyReasonResult.ok).toBe(false);
+      expect(emptyReasonResult.reason).toBe("missing-reason");
+    });
+
+    it("rejects invalid retention policy values", () => {
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const invalidPolicyResult = archiveIncidentNotes("EPISODE-1", "reason", { years: 0 }, clock);
+      expect(invalidPolicyResult.ok).toBe(false);
+      expect(invalidPolicyResult.reason).toBe("invalid-retention-policy");
+    });
+
+    it("fails closed for string-only episodeId without Episode context", () => {
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const result = archiveIncidentNotes(
+        "EPISODE-99",
+        "clinical-record-retention-expired",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+      );
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.episodeId).toBe("EPISODE-99");
+      expect(result.reason).toBe("missing-episode-context");
+    });
+
+    it("string overload checks terminal/retention rules when Episode is supplied", () => {
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const active = baseEpisode({ state: "active" });
+      const refusedActive = archiveIncidentNotes(
+        "EPISODE-99",
+        "clinical-record-retention-expired",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+        active,
+      );
+      expect(refusedActive.ok).toBe(false);
+      expect(refusedActive.reason).toBe("retention-episode-not-terminal");
+
+      const due = baseEpisode();
+      const eligible = archiveIncidentNotes(
+        "EPISODE-99",
+        "clinical-record-retention-expired",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+        due,
+      );
+      expect(eligible.ok).toBe(false);
+      expect(eligible.archived).toBe(false);
+      expect(eligible.reason).toBe("archival-not-persisted");
+    });
   });
 });

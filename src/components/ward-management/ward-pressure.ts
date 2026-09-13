@@ -2,7 +2,6 @@
 import { clockState, minutesUntil, type Instant } from "@/components/ward-management/ward-clock";
 import { isOpen } from "@/components/ward-management/ward-derivations";
 import type { EmergencyDepartment, Movement } from "@/components/ward-management/ward-model";
-import { wardMovements } from "@/components/ward-management/ward-movements";
 import { allEmergencyDepartments } from "@/components/ward-management/ward-sites";
 
 export type EdPressure = {
@@ -15,14 +14,24 @@ export type EdPressure = {
 /**
  * Worst first: a passed legal deadline outranks a long wait, which outranks sheer volume.
  *
- * `movements` defaults to the live fixture but is deliberately injectable — this is the mirror
- * of `queueOrder(movements, now)` in `ward-priority.ts`, just with the parameter order kept as
- * `(now, movements)` because `now` is the argument every existing and planned call site passes
- * first. Without the injection point, every assertion about this function is forced to key off
- * the one fixture, which happens to have every department busy and every wait positive — that
- * is what let three false-positive tests through review the first time.
+ * MOVEMENTS ARE REQUIRED, and this parameter having a default is what the function was wrong for.
+ *
+ * It read `= wardMovements` — the seed module — so a caller who simply forgot to pass live state
+ * got a plausible answer built from the fixture, with nothing failing anywhere. Both home-page
+ * callers had forgotten: `FlowDiagram` called `edPressure(now)`, and `PressureStrip` declared its
+ * own `movements` optional and was rendered without it. So raising a referral incremented the
+ * queue while both ED panels beside it sat still — two panels on one screen disagreeing about one
+ * department, and no test could see it because they all passed movements explicitly.
+ *
+ * The injection point itself was never the problem and is kept: it is the mirror of
+ * `queueOrder(movements, now)` in `ward-priority.ts`, with the parameter order left as
+ * `(now, movements)` because `now` is what every call site passes first. Without it every
+ * assertion here would be forced to key off the one fixture, which happens to have every
+ * department busy and every wait positive — that is what let three false-positive tests through
+ * review the first time. What was wrong was making it OPTIONAL: an argument whose absence yields
+ * a plausible answer cannot be forgotten loudly. Now every caller must say which state it means.
  */
-export function edPressure(now: Instant, movements: Movement[] = wardMovements): EdPressure[] {
+export function edPressure(now: Instant, movements: Movement[]): EdPressure[] {
   return allEmergencyDepartments()
     .map((ed) => {
       const open = movements.filter((movement) => isOpen(movement) && movement.originEdId === ed.id);

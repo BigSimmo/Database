@@ -253,7 +253,7 @@ export function WarningLineMockupsPage() {
                 </Link>
               </p>
               <p className="mt-2 text-sm font-medium leading-5 text-[color:var(--clinical-accent)]">
-                ✓ Searches indexed clinical sources • Clinical Guide library
+                ✓ Searches indexed clinical sources • PsychSift library
               </p>
             </div>
           ) : null}

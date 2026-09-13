@@ -58,7 +58,7 @@ const SECTIONS: Section[] = [
   {
     heading: "Retention",
     short: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows. The operator verified the four expected schedules on production and staging and approved that evidence on 1 September 2026. Administrator-provided documents remain until removed under the applicable process. Safety-plan working content has no PsychSift retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
@@ -183,7 +183,7 @@ function DeviceChrome({
   children: React.ReactNode;
 }) {
   return (
-    <div className={cn("min-w-0", phone && "mx-auto w-full max-w-[24rem]")}>
+    <div className={cn("min-w-0", phone ? "mx-auto w-full max-w-[24rem]" : "overflow-x-auto")}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-3xs font-extrabold uppercase tracking-[0.14em] text-[color:var(--text-soft)]">
           {label}
@@ -193,7 +193,11 @@ function DeviceChrome({
       <div
         className={cn(
           "overflow-hidden border border-[color:var(--border)] bg-[color:var(--background)] shadow-[var(--shadow-lux)]",
-          phone ? "rounded-[1.85rem]" : "rounded-2xl",
+          // The desktop direction is a drawing of a wide page. It keeps its real
+          // proportions and scrolls sideways on a narrow viewport instead of
+          // reflowing — a 390px page previously crushed its columns to ~50px and
+          // clipped eighteen labels, including the page's own <h1>.
+          phone ? "rounded-[1.85rem]" : "min-w-[60rem] rounded-2xl",
         )}
       >
         {phone ? <StatusBar /> : null}

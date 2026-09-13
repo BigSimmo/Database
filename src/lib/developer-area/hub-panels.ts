@@ -57,18 +57,37 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/clinical-trust",
   },
+  // Named for its evidence, not for its subject. It reports open ledger items
+  // that name one of the repository's own clinical eval cases -- not "every
+  // clinical answer problem", which it has no way to know. A panel on a clinical
+  // system that implies coverage it does not have is worse than no panel, so the
+  // narrower name is deliberate and should not be "improved" into a broader one.
+  {
+    id: "clinical-answer-failures",
+    name: "Answer failures",
+    summary: "Open problems recorded against a named clinical question",
+    group: "clinical",
+    phase: 1,
+    href: "/mockups/development/clinical-answer-failures",
+  },
   // Kept, unlike the five removed above, and settled: the owner ruled on
   // 2026-08-26 that the hazard register belongs in the developer hub rather
   // than as a separate clinical-safety surface. It was never a removal
   // candidate on the Ruling R1 ground the five removed entries failed on --
   // it restates no fact an existing green gate already guarantees. Do not
   // drop it in a later placeholder sweep; it is unbuilt, not unwanted.
+  // Built 2026-09-08. The summary names what the page can actually show: the
+  // registers this repository holds and, for Ward Flow, the fact that it holds
+  // none. It deliberately does not say "every clinical risk" -- three of the
+  // four rows with no control are reviews nobody has convened, so a register
+  // claiming completeness would be the first thing on the hub that is untrue.
   {
     id: "hazard-register",
     name: "Hazard register",
-    summary: "Known clinical risks and their mitigations",
+    summary: "Known clinical risks, their controls, and the ones nothing controls yet",
     group: "clinical",
-    phase: 4,
+    phase: 1,
+    href: "/mockups/development/hazards",
   },
 
   // No `environment` card: the environment strip renders as its own section on
@@ -83,6 +102,20 @@ export const HUB_PANELS: readonly HubPanel[] = [
     group: "system",
     phase: 1,
     href: "/mockups/development/ingestion",
+  },
+  // Named for the question it answers -- which of my documents are broken -- and
+  // scoped to that. The ingestion card above shows documents *moving*; this one
+  // shows the library at rest, which is where a document that finished and
+  // produced nothing usable hides. It reports what indexing produced, never
+  // whether an answer drawn from those documents is any good, and the page says
+  // so; do not widen the summary into a claim about answer quality.
+  {
+    id: "corpus-health",
+    name: "Corpus health",
+    summary: "Documents that finished indexing and produced nothing usable",
+    group: "system",
+    phase: 1,
+    href: "/mockups/development/corpus-health",
   },
   {
     id: "test-health",
@@ -104,7 +137,10 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "routes",
     name: "Routes and modes",
-    summary: "Every page and all 15 modes",
+    // Audit L81: this summary used to state a mode count, which drifted every time
+    // a mode was added (the routes page below it renders the live count from the
+    // snapshot). Kept deliberately count-free — do not reintroduce a number here.
+    summary: "Every page and every app mode",
     group: "reference",
     phase: 1,
     href: "/mockups/development/routes",
@@ -139,8 +175,12 @@ export const HUB_PANELS: readonly HubPanel[] = [
   {
     id: "care-plan",
     name: "Care Plan",
+    // #L76: this described the August (pre-Task 10-11) state, before
+    // Reviews/Team/Governance (operations-pages.tsx: ReviewsSurface,
+    // TeamSurface, GovernanceSurface) and the Patient Plan route became
+    // functional. Kept accurate to what the prototype actually covers now.
     summary:
-      "Stage B prototype: Management Plan authoring, ED Presentation continuity, and Personal Safety Plan; later routes remain specimens",
+      "Synthetic, memory-only prototype: Management Plan, ED Presentations, Personal Safety Plan, Patient Plan, Reviews/Team/Governance",
     group: "reference",
     phase: 1,
     href: "/mockups/care-plan",

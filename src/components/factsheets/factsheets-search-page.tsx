@@ -6,6 +6,7 @@ import { Info, LayoutGrid, List, SearchX } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import {
   ResultFilterSheet,
   ResultFilterTrigger,
@@ -37,10 +38,12 @@ function searchHref(query: string, category?: string) {
 export function FactsheetsSearchPage({
   query,
   category,
+  expansions = [],
   results,
 }: {
   query: string;
   category?: string;
+  expansions?: readonly string[];
   results: Factsheet[];
 }) {
   const router = useRouter();
@@ -60,7 +63,7 @@ export function FactsheetsSearchPage({
   // unrelated zero-member categories do not exist. A selected category that the
   // query has narrowed to zero stays visible as a disabled, explained dead end
   // so URL state remains truthful and the available options provide an escape.
-  const queryMatches = useMemo(() => filterFactsheets(query), [query]);
+  const queryMatches = useMemo(() => filterFactsheets(query, undefined, expansions), [expansions, query]);
   const categoryOptions = useMemo<ReadonlyArray<ResultFilterOption<string>>>(() => {
     const categoryCounts = new Map<string, number>();
     for (const sheet of queryMatches) {
@@ -276,6 +279,8 @@ export function FactsheetsSearchPage({
           })}
         </section>
       )}
+
+      <UniversalSearchAlsoMatches modeId="factsheets" query={query} className="mt-5" />
 
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />

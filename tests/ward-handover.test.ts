@@ -10,8 +10,10 @@ const openMovements = movements.filter(isOpen);
 const snapshot = handoverSnapshot(movements, units, NOW_ANCHOR);
 
 describe("handoverSnapshot", () => {
-  it("freezes at exactly the now it was called with", () => {
-    expect(snapshot.frozenAt).toBe(NOW_ANCHOR);
+  // The derivation is a pure function of `now` and stamps it as `takenAt`. It never froze —
+  // the PAGE did, until OD-4 — and calling this "freezes" outlived that by one rename.
+  it("stamps exactly the now it was called with", () => {
+    expect(snapshot.takenAt).toBe(NOW_ANCHOR);
   });
 
   it("ranks every open movement by wait, strictly non-increasing, longest first", () => {
@@ -36,24 +38,24 @@ describe("handoverSnapshot", () => {
     expect(snapshot.longestWaits.length).toBeGreaterThan(30);
   });
 
-  it("heldBeds contains exactly the open movements carrying a bedHeldUntil, expired iff bedHeldUntil <= now", () => {
+  it("pulledBeds contains exactly the open movements carrying a pullExpiresAt, expired iff pullExpiresAt <= now", () => {
     const expectedIds = openMovements
-      .filter((movement) => movement.bedHeldUntil !== undefined)
+      .filter((movement) => movement.pullExpiresAt !== undefined)
       .map((movement) => movement.id)
       .sort();
-    expect(snapshot.heldBeds.map((entry) => entry.movement.id).sort()).toEqual(expectedIds);
+    expect(snapshot.pulledBeds.map((entry) => entry.movement.id).sort()).toEqual(expectedIds);
 
     // Measured against the real fixture at NOW_ANCHOR: 7 beds held, 1 already expired. Pinned
     // so a fixture change that silently drops a hold is caught here, not only on screen.
-    expect(snapshot.heldBeds).toHaveLength(7);
-    expect(snapshot.heldBeds.filter((entry) => entry.expired)).toHaveLength(1);
+    expect(snapshot.pulledBeds).toHaveLength(7);
+    expect(snapshot.pulledBeds.filter((entry) => entry.expired)).toHaveLength(1);
 
-    for (const entry of snapshot.heldBeds) {
-      const bedHeldUntil = entry.movement.bedHeldUntil;
-      if (bedHeldUntil === undefined) {
-        throw new Error(`${entry.movement.id} appears in heldBeds without a bedHeldUntil`);
+    for (const entry of snapshot.pulledBeds) {
+      const pullExpiresAt = entry.movement.pullExpiresAt;
+      if (pullExpiresAt === undefined) {
+        throw new Error(`${entry.movement.id} appears in pulledBeds without a pullExpiresAt`);
       }
-      expect(entry.expired).toBe(bedHeldUntil <= NOW_ANCHOR);
+      expect(entry.expired).toBe(pullExpiresAt <= NOW_ANCHOR);
     }
   });
 
@@ -96,7 +98,24 @@ describe("handoverSnapshot", () => {
   // the escalation, or adds a second stranded movement, is caught here rather than only in a
   // screenshot.
   it("matches the measured fixture: WF-009 escalated, nothing else stranded", () => {
-    expect(snapshot.placementGoneWrong.map((entry) => entry.movement.id)).toEqual(["WF-009"]);
-    expect(snapshot.placementGoneWrong[0]?.kind).toBe("escalated");
+    expect(
+      snapshot.placementGoneWrong.map((entry) => entry.movement.id),
+      "The handover's placement-gone-wrong list has changed. This is what one clinician hands the " +
+        "next at shift change: the patients whose placement failed. An ADDITION means a movement " +
+        "became stranded or lost its escalation record and fell through to declined-by-all - find " +
+        "which before editing this. An EMPTY list is the worse failure, because the handover would " +
+        "then look clean while a stranded patient exists, and nothing else in this file would be " +
+        "red. Note the comment above still carries a 2026-08-25 basis date; this assertion passing " +
+        "today confirms the claim, but the surrounding measurement has not been re-taken since.",
+    ).toEqual(["WF-009"]);
+    expect(
+      snapshot.placementGoneWrong[0]?.kind,
+      "WF-009 is still in the handover but for a different reason, and this is the assertion that " +
+        "notices. 'escalated' means somebody rang round and recorded which units they tried; " +
+        "'declined_by_all' means the network simply refused it and no one is recorded as having " +
+        "acted. Both put the patient on the list, so the id assertion above stays green while the " +
+        "clinical meaning changes underneath it - proven by mutation on 2026-08-30, where deleting " +
+        "the escalation record left the list identical and only this line went red.",
+    ).toBe("escalated");
   });
 });

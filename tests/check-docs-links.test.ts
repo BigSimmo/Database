@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { appliedInboxFallbackPath, markdownAnchorSlugs } from "../scripts/check-docs-links.mjs";
+import {
+  appliedInboxFallbackPath,
+  collectDocumentFailures,
+  markdownAnchorSlugs,
+} from "../scripts/check-docs-links.mjs";
 
 describe("appliedInboxFallbackPath", () => {
   it("maps a pending inbox UUID citation to the applied sibling", () => {
@@ -16,6 +20,45 @@ describe("appliedInboxFallbackPath", () => {
     expect(appliedInboxFallbackPath("docs/outstanding-issues-inbox/README.md")).toBeNull();
     expect(appliedInboxFallbackPath("docs/outstanding-issues.md")).toBeNull();
     expect(appliedInboxFallbackPath("docs/outstanding-issues-inbox/not-a-uuid.json")).toBeNull();
+  });
+});
+
+describe("collectDocumentFailures", () => {
+  // Same document shape as the #ZM8902 escape: a spec under docs/superpowers/specs/
+  // linking outside every ROOT_PREFIXES prefix via a relative "../../" path.
+  const target = "docs/superpowers/specs/2026-08-15-caring-contact-coordination-design.md";
+
+  it("reports a relative link, outside every ROOT_PREFIXES prefix, to a file that has never existed", () => {
+    // This is the exact link that escaped the gate before the fix: relative,
+    // not repo-root-relative, pointing at a file docs/caring-contacts/design-handoff.md
+    // that has never existed in this repo.
+    const markdown = "Binding: see the [design handoff](../../caring-contacts/design-handoff.md).";
+    const { failures, checked } = collectDocumentFailures({ target, markdown });
+    expect(checked).toBe(1);
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toContain("../../caring-contacts/design-handoff.md");
+    expect(failures[0]).toContain("docs/caring-contacts/design-handoff.md");
+  });
+
+  it("does not report the same relative-link shape when the target file exists", () => {
+    // Negative control using a real repo file, so the assertion proves resolution
+    // succeeded rather than merely that no logic ran.
+    const markdown = "Binding: see the [interaction matrix](../../caring-contacts/interaction-matrix.md).";
+    const { failures, checked } = collectDocumentFailures({ target, markdown });
+    expect(checked).toBe(1);
+    expect(failures).toHaveLength(0);
+  });
+
+  it("counts the relative-link reference rather than silently skipping it", () => {
+    // A "no failure" assertion alone cannot distinguish "resolved" from "never
+    // checked" — the precise bug #ZM8902 recorded. Assert the checked count itself.
+    const withLink = collectDocumentFailures({
+      target,
+      markdown: "[design handoff](../../caring-contacts/design-handoff.md)",
+    });
+    const withoutLink = collectDocumentFailures({ target, markdown: "No repo links in this document." });
+    expect(withoutLink.checked).toBe(0);
+    expect(withLink.checked).toBeGreaterThan(withoutLink.checked);
   });
 });
 

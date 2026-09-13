@@ -6,12 +6,14 @@ import {
   changeReasonLabels,
   ESCALATION_CONTACTS,
   LEGAL_STATUS_CHANGE_REASONS,
-  RELEASE_HOLD_REASONS,
+  RELEASE_PULL_REASONS,
   URGENCY_CHANGE_REASONS,
+  URGENT_MARK_REASONS,
   type CancelTransportReason,
   type LegalStatusChangeReason,
-  type ReleaseHoldReason,
+  type ReleasePullReason,
   type UrgencyChangeReason,
+  type UrgentMarkReason,
 } from "../src/components/ward-management/ward-change-reasons";
 
 describe("ward-change-reasons", () => {
@@ -25,11 +27,11 @@ describe("ward-change-reasons", () => {
 
   // Task 3: the undo the prototype has never had. Same discipline, same pinned order.
   it("holds exactly the four release-hold reasons, in this order", () => {
-    expect(RELEASE_HOLD_REASONS).toEqual([
+    expect(RELEASE_PULL_REASONS).toEqual([
       "patient_no_longer_coming",
       "bed_needed_for_another_patient",
       "ward_withdrew_the_bed",
-      "hold_made_in_error",
+      "pull_made_in_error",
     ]);
   });
 
@@ -57,7 +59,7 @@ describe("ward-change-reasons", () => {
   });
 
   it("labels every release-hold reason with real, non-empty text", () => {
-    for (const reason of RELEASE_HOLD_REASONS) {
+    for (const reason of RELEASE_PULL_REASONS) {
       expect(changeReasonLabels[reason]).toBeTruthy();
       expect(changeReasonLabels[reason].length).toBeGreaterThan(0);
     }
@@ -119,11 +121,14 @@ describe("ward-change-reasons", () => {
   });
 
   it("gives every union member a label and no label an orphan entry", () => {
-    const allReasons: (UrgencyChangeReason | LegalStatusChangeReason | ReleaseHoldReason | CancelTransportReason)[] = [
+    const allReasons: (
+      UrgencyChangeReason | LegalStatusChangeReason | ReleasePullReason | CancelTransportReason | UrgentMarkReason
+    )[] = [
       ...URGENCY_CHANGE_REASONS,
       ...LEGAL_STATUS_CHANGE_REASONS,
-      ...RELEASE_HOLD_REASONS,
+      ...RELEASE_PULL_REASONS,
       ...CANCEL_TRANSPORT_REASONS,
+      ...URGENT_MARK_REASONS,
     ];
     // Every reason in all four lists resolves to a label.
     for (const reason of allReasons) {
@@ -143,11 +148,36 @@ describe("ward-change-reasons", () => {
         "patient_no_longer_coming",
         "bed_needed_for_another_patient",
         "ward_withdrew_the_bed",
-        "hold_made_in_error",
+        "pull_made_in_error",
         "provider_unavailable",
         "patient_not_ready",
         "destination_changed",
         "job_created_in_error",
+        // The EIGHT urgent-mark reasons: cut from ten to six on 2026-08-31, then the catch-all
+        // reinstated by the owner on 2026-09-03, giving seven. ⚠️ The owner saw the ten,
+        // delegated the choice, and pre-accepted the result sight-unseen in his own words: "I
+        // accept that for now to be changed later." So the shape is his, the selection is a
+        // session's, and the acceptance is PROVISIONAL — see `URGENT_MARK_REASONS`' own docblock,
+        // which names the four that went and why each one went.
+        //
+        // Pinned here for the same reason as every other entry: an added, renamed or REINSTATED
+        // reason must turn this red rather than arrive quietly. ⚠️ And every one of the first seven
+        // describes what a SETTING cannot do rather than a fact about the person — the property
+        // that dissolved the who-may-see-a-reason question. A person-shaped reason added back here
+        // reopens it.
+        "cannot_be_observed_safely_here",
+        "no_psychiatric_cover_at_this_site",
+        "cannot_safely_prevent_leaving",
+        "needs_medical_care_unavailable_here",
+        "safety_of_others_in_this_setting",
+        "escort_in_place_and_unsustainable",
+        // ⚠️ REINSTATED 2026-09-03 on the owner's ruling, and this test did exactly what the
+        // comment above promised: it went red rather than letting the seventh arrive quietly.
+        "this_setting_cannot_continue_current_care",
+        // ⚠️ THE EIGHTH, added 2026-09-03 on the owner's ruling that the seventh is the broadest
+        // of the dropped options but not a true "none of these apply". PLACEHOLDER COPY — the
+        // shape is his, the words are not yet confirmed.
+        "another_reason_not_listed",
       ].sort(),
     );
   });

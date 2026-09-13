@@ -1,18 +1,13 @@
 "use client";
 
-import { Fragment, memo, useId, useState } from "react";
-import { CircleAlert, ChevronDown, Copy } from "lucide-react";
+import { primaryAnswerDisplayText as canonicalPrimaryAnswerDisplayText } from "@/lib/answer-display-text";
+
+import { Fragment, memo, type ReactNode } from "react";
+import { Copy } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
-import { chatActionRow, chatAnswerText, chatMicroAction, cn, textMuted } from "@/components/ui-primitives";
-import { compactVerificationWordingFor, type VerificationState } from "@/components/ui/verification-notice";
-import type { AnswerState } from "@/components/ui/answer-state";
-import { RetrievalStateBanner } from "@/components/ui/retrieval-state-banner";
-import {
-  cleanDisplayTitle,
-  comparableAnswerText,
-  sanitizeAnswerDisplayText,
-} from "@/components/clinical-dashboard/display-text";
+import { chatActionRow, chatAnswerText, chatMicroAction, cn } from "@/components/ui-primitives";
+import { cleanDisplayTitle, comparableAnswerText } from "@/components/clinical-dashboard/display-text";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { AnswerSourceRail } from "@/components/clinical-dashboard/answer-source-rail";
 import { AnswerSourceMark, AnswerSourceMarkOverflow } from "@/components/clinical-dashboard/answer-source-mark";
@@ -23,17 +18,10 @@ import {
 } from "@/components/clinical-dashboard/answer-source-rows";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
-import { type ClaimMarkCluster, resolveClaimMarks } from "@/lib/answer-claim-marks";
+import { type ClaimMarkCluster, type SupportedClaim, resolveClaimMarks } from "@/lib/answer-claim-marks";
 import { type SourceLink } from "@/lib/answer-render-policy";
-import type {
-  AnswerSection,
-  AnswerSectionKind,
-  BestSourceRecommendation,
-  RagAnswer,
-  SearchResult,
-  SupportedClaim,
-  VisualEvidenceCard,
-} from "@/lib/types";
+import type { AnswerSection, AnswerSectionKind, RagAnswer, VisualEvidenceCard } from "@/lib/types";
+import type { ClientBestSourceRecommendation, ClientSearchResult } from "@/lib/answer-client-payload";
 
 export const SourceImage = memo(function SourceImage({
   endpoint,
@@ -75,37 +63,12 @@ export function isPreformattedGroundedAnswer(answer: Pick<RagAnswer, "preformatt
   return Boolean(answer?.preformatted && answer?.grounded);
 }
 
-// Fragments carrying a safety-critical signal must never be dropped by the
-// compact 3-fragment / 85-word cap — a withhold/threshold/escalation caveat
-// hidden from the primary prose is a clinical-safety regression.
-// Covers the common withhold / withdrawal / contraindication / negation /
-// escalation directives so a short safety caveat is never dropped from the
-// compact primary answer. Kept deliberately broad (matching a non-safety
-// fragment only preserves it verbatim — the safe direction).
-const primaryAnswerSafetySignalPattern =
-  /\b(?:withhold|withheld|stop|cease|discontinue\w*|suspend\w*|hold|held|threshold|escalat\w*|urgent|immediately|never|avoid|contraindicat\w*|toxic|red\s*zone|amber|(?:do|must|should|will)\s+not|not\s+recommended)\b/i;
-
-// Test against a de-bolded copy so server bold markers inside a phrase
-// ("do **not** administer", "red **zone**") on the preserveBold path can never
-// defeat the safety match and let a caveat be dropped by the compact cap.
-function isPrimaryAnswerSafetyFragment(fragment: string) {
-  return primaryAnswerSafetySignalPattern.test(fragment.replace(/\*\*/g, ""));
-}
-
 // Shared tail of the sanitize path: run the display sanitizer, then strip the
 // synthetic-demo notice both plainAnswerText and primaryAnswerDisplayText need
 // removed before the text reaches the screen.
 function sanitizeAndStripSyntheticNotice(value: string, options: AnswerDisplayTextOptions) {
-  return sanitizeAnswerDisplayText(value, {
-    minLength: 8,
-    minTokens: 2,
-    preformatted: options.preformatted,
-    preserveBold: options.preserveBold,
-  })
-    .replace(/(?:\s*\n\s*)?Synthetic demo only:.*$/i, "")
-    .trim();
+  return canonicalPrimaryAnswerDisplayText(value, options);
 }
-
 /**
  * Produces sanitized, display-ready text for an answer.
  *
@@ -121,126 +84,27 @@ export function plainAnswerText(value: string, options: AnswerDisplayTextOptions
 }
 
 /**
- * Selects and compacts the primary answer text while preserving safety-critical guidance.
+ * Produces the complete, sanitized primary answer text.
  *
  * @param value - The answer text to prepare for display
  * @param options - Formatting options, including preformatted mode
  * @returns The display-ready answer text
  */
 export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTextOptions = {}) {
-  return primaryAnswerDisplayFragments(value, options)
-    .map((fragment) => fragment.display)
-    .join(" ");
+  return sanitizeAndStripSyntheticNotice(value, options);
 }
 
-/**
- * One displayed sentence of the primary answer.
- *
- * `raw` exists because the two texts a source mark has to reconcile took
- * different routes: the server split its claims from the answer *before* the
- * prose-usefulness pass rewrote a sentence for display. Matching on `raw` is
- * what lets a mark restate an attribution the pipeline already made, rather
- * than re-deriving one from the rewritten text.
- */
-export type AnswerDisplayFragment = {
-  /** What the reader sees. */
-  display: string;
-  /** The same sentence before the usefulness pass — the text `splitClaims` saw. */
-  raw: string;
-  /** True when the word budget cut this sentence short. A cut sentence is not the claim. */
-  truncated: boolean;
-};
+export type AnswerDisplayFragment = { display: string; raw: string; truncated: boolean };
 
-/**
- * Selects and compacts the primary answer, sentence by sentence, preserving
- * safety-critical guidance.
- *
- * `primaryAnswerDisplayText` is `fragments.map(display).join(" ")` and nothing
- * else, so splitting the prose for marks cannot change a single character of
- * what is displayed. `tests/answer-content.test.ts` pins that equivalence.
- *
- * @param value - The answer text to prepare for display
- * @param options - Formatting options, including preformatted mode
- * @returns The display-ready sentences, in order
- */
+/** Preserve every verified word; sentence boundaries only attach existing claim marks. */
 export function primaryAnswerDisplayFragments(
   value: string,
   options: AnswerDisplayTextOptions = {},
 ): AnswerDisplayFragment[] {
-  // Deterministic preformatted answers are already concise and display-ready;
-  // the fragment-level usefulness pass below would re-strip the very names/codes
-  // the preformatted path just preserved, so return them as-is — one fragment,
-  // whitespace and all, which is also why they carry no marks.
-  if (options.preformatted) {
-    const text = plainAnswerText(value, options);
-    return text ? [{ display: text, raw: text, truncated: false }] : [];
-  }
-  // Skip whole-text clinicalProseUsefulness: its 3-token floor drops short
-  // safety sentences ("Stop lithium.") before the fragment-level safety
-  // bypass below can rescue them.
-  const cleaned = sanitizeAndStripSyntheticNotice(value, { preformatted: false, preserveBold: options.preserveBold });
-  const prepared = cleaned
-    .split(/\r?\n+/)
-    .flatMap((line: string) =>
-      line.split(/(?<=[.!?])\s+(?=(?:[A-Z]|\*\*|If\b|When\b|Do\b|Use\b|Monitor\b|Escalate\b|Document\b))/),
-    )
-    .map((fragment: string) =>
-      fragment
-        .replace(/^(?:[-*•]|\d+[.)])\s+/, "")
-        .replace(
-          /^(?:\*\*)?(?:answer|summary|bottom line|direct answer|clinical point|key point|required actions?|monitoring(?:\/timing)?|thresholds?|dose detail|medication(?:\/dose details?)?|escalation(?:\/risk)?|risk|safety|documentation(?:\/forms)?|source gaps?)(?:\*\*)?:\s+/i,
-          "",
-        )
-        .trim(),
-    )
-    // Safety-bearing fragments pass through untouched and are never dropped by
-    // the usefulness/length gate — a short caveat like "Contraindicated in
-    // pregnancy" (under the 8-word floor) must still reach the display.
-    .map((raw: string) => ({
-      raw,
-      display: isPrimaryAnswerSafetyFragment(raw) ? raw : clinicalProseUsefulness(raw).text || raw,
-    }))
-    .filter(({ display }) => {
-      if (!display) return false;
-      if (isPrimaryAnswerSafetyFragment(display)) return true;
-      const useful = clinicalProseUsefulness(display);
-      return useful.useful || display.split(/\s+/).length >= 8;
-    });
-  const uniqueFragments: AnswerDisplayFragment[] = [];
-  const seenDisplay = new Set<string>();
-  for (const fragment of prepared) {
-    if (seenDisplay.has(fragment.display)) continue;
-    seenDisplay.add(fragment.display);
-    uniqueFragments.push({ ...fragment, truncated: false });
-  }
-  const selected: AnswerDisplayFragment[] = [];
-  let nonSafetyKept = 0;
-  let wordBudget = 85;
-  for (const fragment of uniqueFragments) {
-    if (isPrimaryAnswerSafetyFragment(fragment.display)) {
-      selected.push(fragment);
-      continue;
-    }
-    if (nonSafetyKept >= 3 || wordBudget <= 0) continue;
-    nonSafetyKept += 1;
-    const words = fragment.display.split(/\s+/).filter(Boolean);
-    if (words.length <= wordBudget) {
-      selected.push(fragment);
-      wordBudget -= words.length;
-    } else {
-      selected.push({
-        ...fragment,
-        display: `${words
-          .slice(0, wordBudget)
-          .join(" ")
-          .replace(/[;,:-]\s*$/, "")}...`,
-        truncated: true,
-      });
-      wordBudget = 0;
-    }
-  }
-  if (selected.length) return selected;
-  return cleaned ? [{ display: cleaned, raw: cleaned, truncated: false }] : [];
+  const cleaned = primaryAnswerDisplayText(value, options);
+  if (!cleaned) return [];
+  if (options.preformatted) return [{ display: cleaned, raw: cleaned, truncated: false }];
+  return cleaned.split(/(?<=[.!?])\s+(?=[A-Z*])/).map((text) => ({ display: text, raw: text, truncated: false }));
 }
 
 /**
@@ -369,8 +233,6 @@ export {
  * @param text - The raw answer text to display.
  * @param query - The user's query context for logging.
  * @param preformatted - Whether to preserve the supplied formatting during display processing.
- * @param sourceOnly - Whether to show a notice that the answer was assembled solely from source passages.
- * @param sourceOnlyVerificationState - The governed verification instruction folded into that notice.
  * @param bestSource - The highest-priority source recommendation, when available.
  * @param sources - Search results used to build the source preview.
  * @param sourceLinks - Source links and snippets associated with the answer.
@@ -384,10 +246,7 @@ export function NaturalLanguageAnswer({
   text,
   query,
   preformatted = false,
-  sourceOnly,
-  sourceOnlyVerificationState = "source_only",
-  answerState,
-  onOpenStateSource,
+  clinicalPoints,
   bestSource,
   sources,
   sourceLinks,
@@ -405,14 +264,11 @@ export function NaturalLanguageAnswer({
   text: string;
   query?: string;
   preformatted?: boolean;
-  sourceOnly: boolean;
-  sourceOnlyVerificationState?: VerificationState;
-  /** The answer-level state shown beside Source-only when source currency is degraded. */
-  answerState?: AnswerState;
-  /** Direct route used by expanded source-currency detail. */
-  onOpenStateSource?: (sourceId: string, locator?: string) => void;
-  bestSource: BestSourceRecommendation | null;
-  sources: SearchResult[];
+  sourceCount?: number;
+  sourceOnly?: boolean;
+  bestSource: ClientBestSourceRecommendation | null;
+  sources: ClientSearchResult[];
+  clinicalPoints?: ReactNode;
   sourceLinks: SourceLink[];
   /**
    * `answer.supportedClaims`. Absent on a historical turn and on any answer the
@@ -447,8 +303,6 @@ export function NaturalLanguageAnswer({
   /** Historical turns keep their local copy action; the live turn renders the combined utility row outside. */
   showCopyAction?: boolean;
 }) {
-  const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
-  const sourceOnlyDetailId = useId();
   const { preferences } = useAppPreferences();
   const fragments = primaryAnswerDisplayFragments(text, { preformatted, preserveBold: true });
   if (!fragments.length) return null;
@@ -508,69 +362,22 @@ export function NaturalLanguageAnswer({
             ))}
           </span>
         </p>
-        {/* No negative bottom margin. It pulled the rail up by 8px, and the rail
-            heading used to carry a top border — the two collided and drew a rule
-            straight through the Source-only pill. */}
-        {sourceOnly || (answerState?.kind === "stale_evidence" && onOpenStateSource) ? (
-          <div data-testid="answer-source-status-row" className="flex min-w-0 flex-wrap items-start gap-1 print:hidden">
-            {sourceOnly ? (
-              <section
-                data-testid="source-only-disclosure"
-                role="note"
-                className={cn(
-                  "w-fit max-w-full self-start overflow-hidden border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)]/40 text-2xs transition-[border-radius] duration-[var(--duration-quick)]",
-                  sourceOnlyNoticeOpen ? "rounded-lg" : "rounded-full",
-                  textMuted,
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => setSourceOnlyNoticeOpen((current) => !current)}
-                  // Compact-meta disclosure (not a primary CTA), TOKENS.md §2 "disclosure"
-                  // row: 40px `--spacing-compact-meta`, the floor the service owner ruled
-                  // acceptable for named compact roles on 2026-08-29. It was `min-h-7`
-                  // (28px), 12px under even that floor. The `::before` hit-expansion its
-                  // DocumentTagCloud siblings use is unavailable here: the wrapping
-                  // `<section>` is `overflow-hidden` (it clips the detail block to the
-                  // pill radius), and overflow clipping removes the expanded region from
-                  // hit testing as well as from paint — the classes would have read as
-                  // compliant while expanding nothing.
-                  className="inline-flex min-h-compact-meta w-full max-w-[68ch] items-center gap-1 px-2 py-0.5 text-left transition hover:bg-[color:var(--warning-soft)]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
-                  aria-expanded={sourceOnlyNoticeOpen}
-                  aria-controls={sourceOnlyDetailId}
-                >
-                  <CircleAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                  <span className="min-w-0 truncate font-semibold text-[color:var(--text-heading)]">Source-only</span>
-                  <span className="hidden shrink-0 text-[color:var(--text-muted)] min-[360px]:inline">
-                    · verify passages
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "ml-auto h-3 w-3 shrink-0 text-[color:var(--text-muted)] transition-transform",
-                      sourceOnlyNoticeOpen && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                </button>
-                {sourceOnlyNoticeOpen ? (
-                  <div
-                    id={sourceOnlyDetailId}
-                    className="border-t border-[color:var(--warning)]/15 px-2.5 py-1.5 leading-4 text-[color:var(--text-muted)] motion-safe:animate-fade-up"
-                  >
-                    <p>{compactVerificationWordingFor(sourceOnlyVerificationState, "extractive")}</p>
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-            {answerState?.kind === "stale_evidence" && onOpenStateSource ? (
-              <RetrievalStateBanner
-                state={answerState}
-                onOpenSource={onOpenStateSource}
-                className="w-fit min-w-0 max-w-full flex-none self-start"
-              />
-            ) : null}
-          </div>
-        ) : null}
+        {/* The Source-only pill is NOT here any more (owner decision,
+            2026-09-03). It sat below the prose, apart from the three status
+            chips above it and built from a third disclosure mechanism, so the
+            page carried four warning surfaces before the first cited passage.
+            Its governed wording now leads the Answer limitations disclosure in
+            `answer-result-surface.tsx`, which the chip row opens.
+
+            The stale-evidence banner moved into that same disclosure earlier
+            (2026-09-01) for the same reason: it names WHICH sources are overdue,
+            which is a statement about this answer's evidence.
+
+            Both facts still reach the default view. `VerificationNotice` stays
+            `hidden print:flex` on a source-only answer, so the limitations
+            chip's own label is what carries `Source-only` and `Review due`
+            there. Do not shorten that label to a bare count. */}
+        {clinicalPoints}
         <AnswerSourceRail
           sources={railSources}
           query={query}
@@ -637,7 +444,7 @@ function keyClinicalItemFromText(item: string): KeyClinicalItem | null {
 }
 
 export function keyClinicalItemsFromSections(
-  sections: Array<AnswerSection & { citationSources: SearchResult[] }>,
+  sections: Array<AnswerSection & { citationSources: ClientSearchResult[] }>,
 ): KeyClinicalItem[] {
   const usefulKinds = new Set<AnswerSectionKind | undefined>([
     "required_actions",

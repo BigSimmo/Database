@@ -15,6 +15,7 @@ function mockEnv() {
       OPENAI_PRICE_CACHED_INPUT_PER_MTOK: 0.125,
       OPENAI_PRICE_OUTPUT_PER_MTOK: 10,
       SPEND_ALERT_DAILY_USD: 25,
+      SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: "a".repeat(64),
     },
     isDemoMode: () => false,
   }));
@@ -24,6 +25,47 @@ function mockSupabase(healthy: boolean) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin-client" })) }));
   vi.doMock("@/lib/supabase/health", () => ({
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
+  }));
+  const current = new Date().toISOString();
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({
+    readSiteContentHealthEvidence: vi.fn(async () => ({
+      initialized: true,
+      bootstrapIntegrityState: "not_applicable",
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1",
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active",
+        activatedAt: current,
+      },
+      publicSiteChangeEpoch: "7",
+      outstandingHeadCount: 0,
+      populationComplete: true,
+      releaseDigestValid: true,
+      dynamicDigestValid: true,
+      administratorAttestationValid: true,
+      governanceValid: true,
+      pendingSetExact: true,
+      outstandingHeadCountAgrees: true,
+      pendingCount: 0,
+      retryPendingCount: 0,
+      processingCount: 0,
+      readyCount: 0,
+      quarantinedCount: 0,
+      oldestOutstandingOriginAgeMs: null,
+      countOverflow: false,
+      timeIntegrityValid: true,
+      expiredProcessingLeaseCount: 0,
+      synchronizerSeen: true,
+      lastInvocationAt: current,
+      lastSuccessfulInvocationAt: current,
+      latestInvocationSucceeded: true,
+      lastActivation: current,
+      rollbackAvailable: false,
+    })),
   }));
 }
 
@@ -56,7 +98,8 @@ describe("authorized deep health probe diagnostics", () => {
     const { response, body } = await deepProbe();
 
     expect(response.status).toBe(200);
-    expect(body.checks).toMatchObject({ supabase: "ok" });
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "ok" });
+    expect(body.siteContent).toMatchObject({ state: "current", releaseDigestPrefix: "cccccccccccc" });
     expect(body.slo).toMatchObject({ answers: 12 });
     expect(body.spend).toMatchObject({ totalUsd: 1.5 });
     expect(spendCalls[0]?.[1]).toMatchObject({
@@ -119,6 +162,39 @@ describe("authorized deep health probe diagnostics", () => {
     expect(body.checks).toMatchObject({ supabase: "error" });
     expect(JSON.stringify(body)).not.toContain("service role key rejected");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  it("omits slo for an unauthenticated deep probe even when includeSlo is not passed", async () => {
+    // `answer-slo`'s tenancy exemption (scripts/lib/tenancy-scan.mjs) states that this
+    // deliberate cross-tenant aggregate is reached "only from /api/health's deep probe behind
+    // HEALTH_DEEP_PROBE_SECRET". Until 2026-09-02 the SLO branch was gated on
+    // `health.ok && options.includeSlo !== false` with no `tokenAuthorized`, so it also ran for
+    // any caller passing `allowUnauthenticatedDeep`. The claim held only because the sole such
+    // caller (/api/health/ready) opts out with `includeSlo: false` — one flag at one caller,
+    // not a gate. This pins the gate itself, with the opt-out deliberately omitted.
+    mockEnv();
+    mockSupabase(true);
+    const answerSloSnapshot = vi.fn(async () => ({ windowMinutes: 60, answers: 12 }));
+    const spendSnapshot = vi.fn(async () => ({ totalUsd: 1 }));
+    vi.doMock("@/lib/observability/answer-slo", () => ({ answerSloSnapshot }));
+    vi.doMock("@/lib/observability/spend-metrics", () => ({ spendSnapshot }));
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(new Request("http://localhost/api/health/ready"), {
+      forceDeep: true,
+      allowUnauthenticatedDeep: true,
+    });
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok" });
+    expect(body.slo, "an unauthenticated deep probe must not receive the cross-tenant SLO aggregate").toBeUndefined();
+    expect(answerSloSnapshot).not.toHaveBeenCalled();
+    // The other operator-gated snapshots were already token-gated; assert they stay that way.
+    expect(body.spend).toBeUndefined();
+    expect(spendSnapshot).not.toHaveBeenCalled();
+    expect(body.cache).toBeUndefined();
+    expect(body.coalescing).toBeUndefined();
   });
 
   it("suppresses opted-out snapshots for an authorized caller", async () => {

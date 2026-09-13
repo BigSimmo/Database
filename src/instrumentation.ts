@@ -20,7 +20,16 @@ export async function register() {
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
-  if (process.env.NODE_ENV !== "production") return;
+
+  if (process.env.NODE_ENV !== "production") {
+    // Development and staging keep their fallbacks, but one of them is silent: without
+    // RAG_QUERY_HASH_SECRET answer feedback cannot work at all, and the UI's advice to
+    // "run the question again" can never fix it. Say so once, here, rather than leaving
+    // it to be discovered per rating (2026-09-02 audit, L44).
+    const { warnAnswerFeedbackDisabled } = await import("@/lib/env");
+    warnAnswerFeedbackDisabled();
+    return;
+  }
 
   // Playwright validates a real production build, but its runner must remain a
   // provider-free demo. Permit that otherwise-invalid combination only for the
@@ -68,6 +77,40 @@ export async function register() {
   // Runtime DSN consistency only. Sourcemap upload credentials are build-time
   // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
+
+  // Caring Contacts live (non-demo) sovereign mode: fail closed unless a MAC-authenticated
+  // CSO attestation is present and valid (H-00 / H-04 / H-05). Demo/staging mode skips this.
+  if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
+    if (!process.env.CARING_CONTACTS_DATABASE_URL?.trim()) {
+      throw new Error(
+        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL (no in-memory fallback for real-patient writes).",
+      );
+    }
+    const { createHmac, timingSafeEqual } = await import("node:crypto");
+    const { assertPilotGovernanceReady } = await import("@/lib/caring-contacts/pilot-governance");
+    const raw = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON?.trim();
+    const mac = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC?.trim();
+    const secret = process.env.CARING_CONTACTS_GOVERNANCE_HMAC_SECRET?.trim();
+    if (!raw || !mac || !secret) {
+      throw new Error(
+        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON, " +
+          "CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC, and CARING_CONTACTS_GOVERNANCE_HMAC_SECRET.",
+      );
+    }
+    const expectedMac = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+    const expectedBuf = Buffer.from(expectedMac, "utf8");
+    const providedBuf = Buffer.from(mac, "utf8");
+    if (expectedBuf.length !== providedBuf.length || !timingSafeEqual(expectedBuf, providedBuf)) {
+      throw new Error("Refusing to start: Caring Contacts governance attestation MAC failed authentication.");
+    }
+    let attestation: unknown;
+    try {
+      attestation = JSON.parse(raw);
+    } catch {
+      throw new Error("Refusing to start: Caring Contacts governance attestation JSON is not parseable.");
+    }
+    assertPilotGovernanceReady(false, attestation);
+  }
 
   // Warm rag_aliases so the first post-boot search skips the cold-cache DB RTT.
   // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.

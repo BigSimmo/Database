@@ -4,6 +4,7 @@ import {
   curatedEnrichmentFor,
   getSpecifierCatalogItem,
   popularCatalogSlugs,
+  publicSpecifierRecords,
   specifierCatalogItems,
   specifierSlug,
   specifiersStats,
@@ -24,6 +25,14 @@ describe("specifiers content catalog", () => {
     expect(slugs.size).toBe(items.length);
   });
 
+  it("exposes one curated-first canonical public projection", () => {
+    const records = publicSpecifierRecords();
+    const anxious = records.filter((entry) => entry.slug === "with-anxious-distress");
+    expect(anxious).toHaveLength(1);
+    expect(anxious[0]?.source).toBe("curated");
+    expect(new Set(records.map((entry) => entry.slug)).size).toBe(records.length);
+  });
+
   it("derives URL-safe slugs from the row key", () => {
     expect(specifierSlug("specifier:ndv:x:severity:mild")).toBe("specifier-ndv-x-severity-mild");
     expect(specifierCatalogItems().every((item) => /^[a-z0-9-]+$/.test(item.slug))).toBe(true);
@@ -39,6 +48,24 @@ describe("specifiers content catalog", () => {
     const catalogSlugs = new Set(specifierCatalogItems().map((item) => item.slug));
     expect(specifierIndexItems.length).toBe(catalogSlugs.size);
     expect(specifierIndexItems.every((item) => catalogSlugs.has(item.slug))).toBe(true);
+  });
+
+  it("preserves exact field parity between catalog items and search index items", () => {
+    const items = specifierCatalogItems();
+    expect(specifierIndexItems.length).toBe(items.length);
+    for (let i = 0; i < items.length; i++) {
+      const catalog = items[i];
+      const indexed = specifierIndexItems[i];
+      expect(indexed.slug).toBe(catalog.slug);
+      expect(indexed.label).toBe(catalog.label);
+      expect(indexed.disorder).toBe(catalog.disorderName);
+      expect(indexed.categoryId).toBe(catalog.categoryId);
+      expect(indexed.category).toBe(catalog.categoryName);
+      expect(indexed.group).toBe(catalog.groupLabel);
+      expect(indexed.src).toBe(catalog.review.sourceVerificationStatus);
+      expect(indexed.def).toBe(catalog.definitionStatus);
+      expect(indexed.meaning).toBe("");
+    }
   });
 
   it("never invents a definition for self-explanatory items", () => {

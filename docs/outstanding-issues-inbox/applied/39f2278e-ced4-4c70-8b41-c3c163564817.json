@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "39f2278e-ced4-4c70-8b41-c3c163564817",
+  "createdOn": "2026-09-02",
+  "action": "update",
+  "payload": {
+    "id": "#100",
+    "detail": "CORRECTION 2026-09-02 to the same day's earlier update, raised in review on PR #2545 and verified against the design doc and the test suite. That update said closing the danger-level source-governance suppression gap needs a real /api/answer stream over a danger-governed corpus and is therefore provider-backed. That is wrong, and wrong in the direction that matters: it would have parked an offline clinical-safety regression check behind approval and provider spend. docs/verified-answer-incremental-delivery-design.md Phase 0 lists 'a source-governance refusal fixture proving an outdated or poorly extracted danger-level source emits zero evidence previews and zero answer-section units' and states 'This phase is provider-free and must land before either visible phase.' The route is already reachable offline: tests/answer-stream-preview-order.test.ts drives the /api/answer stream route with @/lib/rag/rag, @/lib/public-api-access, @/lib/supabase/admin and the rest vi.mock'd, so a route-level suppression fixture needs no provider at all. RESTATED REMAINING SCOPE, both offline: (1) a mocked pipeline/route test asserting the danger-level governance suppression at src/lib/answer-preview.ts:40 emits zero preview units through the real route, not only through the unit-level buildEvidencePreviewUnit calls already at tests/answer-incremental-delivery.test.ts:187,194; (2) no browser assertion of the false rollback, which is inlined at build time per src/lib/client-env.ts:16 and is arguably right to leave at unit level. Provider-backed acceptance remains Phase 2 only. Everything else in the earlier update stands: both flags default ON, and the browser proof at tests/answer-progress-ui-smoke.spec.ts:623,685 exists and passed.",
+    "source": "review finding on PR #2545 verified against docs/verified-answer-incremental-delivery-design.md Phase 0 and tests/answer-stream-preview-order.test.ts, 2026-09-02",
+    "baseRowFingerprint": "ee2487840b41118fcb117e9799ac847a17319de6746af867806ff1f6556c96dd"
+  }
+}

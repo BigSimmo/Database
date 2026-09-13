@@ -29,12 +29,13 @@ const breakpoints = [
 // One surface per scroll-ownership model above the phone breakpoint, chosen for
 // having real scroll runway at both sizes (short pages legitimately never hide).
 // These result/detail pages own the generic page-flow slot on desktop.
-const surfaces = [
+const surfaces: Array<{ name: string; route: string; minimumRunway?: number }> = [
   { name: "shell results", route: "/forms?q=form%201A&run=1" },
-  // The dormant Clinical Ask deployment intentionally omits the old Smart-search
-  // promise, so this compact detail page has slightly less runway than the other
-  // surfaces while still leaving enough room to prove the mid-page reveal.
-  { name: "shell service detail", route: "/services/13yarn", minimumRunway: 650 },
+  // A long service record used to carry a fourth surface here, back when detail
+  // pages owned the page-flow composer. Information pages no longer render one
+  // in any mode, so a record page cannot satisfy this loop's slot assertions —
+  // its hide/reveal proof moved to the dedicated information-page test below,
+  // which keeps the same long record and drops only the composer expectations.
   { name: "dashboard results", route: "/?mode=prescribing&q=a&run=1" },
   // Therapy search carries the shared `ModeNav` inside the collapse row. The
   // phone case is covered by ui-phone-scroll; this is the tablet/desktop proof
@@ -276,6 +277,52 @@ for (const { name: sizeName, viewport } of breakpoints) {
       expect(scrolledDown.searchVisible, "page search scrolls away with page content").toBe(false);
     });
   }
+
+  /**
+   * Information pages own no composer in any mode, at any breakpoint. That is a
+   * different contract from the surfaces above, not a variant of it: there is no
+   * page slot to sit in and nothing to scroll away, so the loop's search
+   * assertions cannot express it. What still has to hold is the top bar's own
+   * hide-and-return, which is what the retired "shell service detail" surface
+   * was really proving. This record measures ~2000px of runway at 834x1112 and
+   * ~1300px at 1440x900, both clear of the 700px floor.
+   */
+  test(`${sizeName}: a record page hides the top bar on scroll and returns it mid-page with no composer`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/services/mother-and-baby-mental-health-unit-fiona-stanley-hospital", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await waitForRunway(page, requiredRunway);
+    await page.waitForTimeout(400);
+
+    await expect(page.getByTestId("global-search-input")).toHaveCount(0);
+    await expect(page.getByTestId("desktop-page-search-composer-slot")).toHaveCount(0);
+
+    const atTop = await readChromeState(page);
+    expect(atTop.hidden, "top bar visible at the top").toBe(false);
+    expect(atTop.headerTop, "top bar starts at the viewport top").toBeLessThanOrEqual(8);
+
+    await scrollBy(page, atTop.maxOffset + 320, 160);
+    await page.waitForTimeout(300);
+
+    const scrolledDown = await readChromeState(page);
+    expect(scrolledDown.offset, "descent moved the scroller").toBeGreaterThan(requiredRunway - 200);
+    expect(scrolledDown.hidden, "top bar hides on a deliberate scroll down").toBe(true);
+    expect(scrolledDown.headerBottom, "hidden top bar is off the top of the viewport").toBeLessThanOrEqual(0);
+
+    // Three deliberate upward steps — nowhere near the top of the page.
+    await scrollBy(page, -360, 120);
+    await page.waitForTimeout(300);
+
+    const scrolledUp = await readChromeState(page);
+    expect(scrolledUp.offset, "the reveal happens well short of the top").toBeGreaterThan(200);
+    expect(scrolledUp.hidden, "top bar returns on a deliberate scroll up").toBe(false);
+    expect(scrolledUp.headerTop, "returned top bar sits at the viewport top").toBeLessThanOrEqual(8);
+    expect(scrolledUp.searchVisible, "a record page never grows a composer on reveal").toBe(false);
+  });
 }
 
 /**
@@ -300,11 +347,29 @@ test.describe("pages that fit the window have no scroll range", () => {
     { name: "dashboard mode home", route: "/?mode=documents" },
     { name: "standalone mode home", route: "/medications" },
     { name: "addon nav row route", route: "/factsheets/topics" },
+    // #6KR6BR: the 2026-08-27 sweep after PR #2419 reported 2px of residual
+    // range here at 1280x1200 and nowhere else. Re-measured 2026-09-02 across
+    // 1024/1280/1440 x 800/1200 at deviceScaleFactor 1 and 2, in both page
+    // states, it is 0 — the catalogue's content is a fixed 1018px tall, so a
+    // 1200px window clears it by 182px. Both states are pinned at the exact
+    // reported viewport so a future content-driven regression is caught here
+    // rather than by another ad-hoc sweep. The catalogue is static module data,
+    // so its length does not vary with demo vs live mode.
+    {
+      name: "calculators catalogue",
+      route: "/calculators/search",
+      viewport: { width: 1280, height: 1200 },
+    },
+    {
+      name: "calculators submitted results",
+      route: "/calculators/search?q=depression&run=1",
+      viewport: { width: 1280, height: 1200 },
+    },
   ];
 
-  for (const { name, route } of fitsWithoutScrolling) {
+  for (const { name, route, viewport = { width: 1440, height: 1200 } } of fitsWithoutScrolling) {
     test(`desktop: ${name} has zero scroll range`, async ({ page }) => {
-      await page.setViewportSize({ width: 1440, height: 1200 });
+      await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
       // Late chrome (composer portal, nav row, notices) mounts after first paint
@@ -320,4 +385,33 @@ test.describe("pages that fit the window have no scroll range", () => {
       expect(stable.maxScrollTop, `${route} grew a scroll range after late chrome mounted`).toBe(0);
     });
   }
+
+  test("desktop: tall documents home centres its action cluster in the available canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 1720, height: 1350 });
+    await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+
+    const geometry = await page.evaluate(() => {
+      const home = document.querySelector<HTMLElement>('[data-testid="shared-home-empty-state"]');
+      const canvas = document.querySelector<HTMLElement>("[data-mode-home-canvas]");
+      const main = document.getElementById("main-content");
+      if (!home || !canvas || !main) return null;
+
+      const homeRect = home.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+      return {
+        homeMidY: homeRect.top + homeRect.height / 2,
+        canvasMidY: canvasRect.top + canvasRect.height / 2,
+        maxScrollTop: Math.max(0, main.scrollHeight - main.clientHeight),
+      };
+    });
+
+    expect(geometry).not.toBeNull();
+    expect(Math.abs(geometry!.homeMidY - geometry!.canvasMidY)).toBeLessThanOrEqual(1);
+    expect(geometry!.maxScrollTop).toBe(0);
+  });
 });

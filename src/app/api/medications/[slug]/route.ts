@@ -9,16 +9,13 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
-import { ensureMedicationsSeeded } from "@/lib/medication-seed";
-import { safeErrorLogDetails } from "@/lib/privacy";
-import {
-  deriveGovernanceFromSections,
-  normalizeMedicationSlug,
-  rowGovernance,
-  rowToMedicationRecord,
-  type MedicationRecordRow,
-} from "@/lib/medication-records";
+import { publicMedicationGovernance, normalizeMedicationSlug } from "@/lib/medication-records";
 import { publicAccessContext } from "@/lib/public-api-access";
+import {
+  canonicalSiteContentGovernance,
+  readCanonicalSiteContentRecords,
+} from "@/lib/site-content/site-content-publication";
+import type { MedicationRecord } from "@/lib/medications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -41,13 +38,9 @@ function notFoundResponse(slug: string) {
 function publicMedicationDetailPayload(slug: string) {
   const record = getMedicationRecord(slug);
   if (!record) return null;
-  const governance = deriveGovernanceFromSections(record);
   return {
     record,
-    governance: {
-      sourceStatus: governance.source_status,
-      validationStatus: governance.validation_status,
-    },
+    governance: publicMedicationGovernance(record),
   };
 }
 
@@ -84,54 +77,26 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return rateLimitJsonResponse("Medication requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    if (!access.ownerId) {
-      const payload = publicMedicationDetailPayload(normalizedSlug);
-      if (!payload) return notFoundResponse(normalizedSlug);
-      return medicationResponse(
-        {
-          ...payload,
-          publicAccess: true,
+    const seed = publicMedicationDetailPayload(normalizedSlug);
+    const canonical = await readCanonicalSiteContentRecords({
+      supabase,
+      kind: "medication",
+      slug: normalizedSlug,
+      seeds: seed ? [seed] : [],
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+        record: finalRenderPayload as unknown as MedicationRecord,
+        governance: {
+          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+          ...canonicalSiteContentGovernance(canonicalRecord),
         },
-        { request, fixture: true },
-      );
-    }
-
-    const fetchRecord = async () => {
-      const { data, error } = await supabase
-        .from("medication_records")
-        .select("*")
-        .eq("owner_id", access.ownerId)
-        .eq("slug", normalizedSlug)
-        .maybeSingle();
-      if (error) throw new Error(error.message);
-      return (data as MedicationRecordRow | null) ?? null;
-    };
-
-    let row = await fetchRecord();
-    if (!row) {
-      const { count, error: countError } = await supabase
-        .from("medication_records")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", access.ownerId);
-      if (countError) throw new Error(countError.message);
-      if ((count ?? 0) === 0) {
-        let seedError: unknown = null;
-        try {
-          await ensureMedicationsSeeded(supabase, access.ownerId);
-        } catch (error) {
-          seedError = error;
-          console.error("[medications] auto-seed failed", safeErrorLogDetails(error));
-        }
-        row = await fetchRecord();
-        if (!row && seedError) throw seedError;
-      }
-    }
-    if (!row) return notFoundResponse(normalizedSlug);
-
-    return medicationResponse({
-      record: rowToMedicationRecord(row),
-      governance: rowGovernance(row),
+      }),
     });
+    const payload = canonical.records[0];
+    if (!payload) return notFoundResponse(normalizedSlug);
+    return medicationResponse(
+      { ...payload, publicAccess: true },
+      { request, fixture: canonical.source === "seed_uninitialized" },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

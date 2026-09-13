@@ -1,22 +1,97 @@
 // src/components/ward-management/ward-priority.ts
 import { clockState, minutesUntil, splitDuration, type Instant } from "@/components/ward-management/ward-clock";
 import { isOpen } from "@/components/ward-management/ward-derivations";
-import type { Movement } from "@/components/ward-management/ward-model";
+import {
+  BLOCKERS_MEANING_NOTHING_IS_BLOCKING,
+  type Movement,
+  type UrgencyLevel,
+} from "@/components/ward-management/ward-model";
 
 export type ScoreFactor = { label: string; points: number; detail: string };
 
 /**
- * The fixture carries exactly two "nothing to see here" shapes for `movement.blocker`: the
- * literal `"No blocker"` on generated movements, and `"None — …"` (an em dash separator) on
- * three hand-authored ones. Matching any value that merely starts with "None" is too wide — it
- * would also swallow a real blocker like "None of the secure units can take him" — so this only
- * recognises the exact sentinel, or "None" followed by end-of-string or a dash/colon separator.
+ * Urgency tier text carries its own direction wherever a tier is shown OR CHOSEN (Task 5
+ * ruling 2). A bare "1", "2" or "3" tells a reader nothing about which end of the scale it is:
+ * tier 1 is the clinician's most urgent judgement, tier 3 the least, and neither the digit nor
+ * its ordering is self-evident to someone meeting the scale for the first time.
+ *
+ * This lives here, beside `queueOrder`, because `ward-priority.ts` already owns tier semantics
+ * and carries the product owner's 2026-08-24 provenance for the three tiers (see
+ * `operationalScore` below). It is deliberately NOT in `ward-model.ts`: an exported declaration
+ * writing a number down there must be entered on `MODEL_CONSTANT_PROVENANCE`
+ * (`tests/ward-legal-figure-guard.test.ts` Part 2), and these are display words for tiers that
+ * already have their provenance recorded, not a new figure.
+ *
+ * Phase 7 Task 8 found the third consumer disagreeing with the other two: `priority-queue.tsx`
+ * and `referral-board.tsx` each held their own identical copy and rendered "Tier 2 · urgent",
+ * while `referral-intake.tsx` — the ONE screen where a human picks the value, on a phone, from a
+ * source that may be a police car — rendered a bare "2". Two screens describing one field with
+ * different words is this project's most expensive defect class, so the copies were replaced by
+ * this single export rather than a third being added.
+ *
+ * These are TIER LABELS: three ordered categories, never a duration, quantity or statutory
+ * figure of any kind.
+ */
+const TIER_QUALIFIER: Record<UrgencyLevel, string> = {
+  1: "most urgent",
+  2: "urgent",
+  3: "least urgent",
+};
+
+/**
+ * The one spelling of a tier, for every REFERRAL screen that shows or offers one — the intake
+ * picker, the referral board and the match view.
+ *
+ * Narrowed from "every screen that shows or offers one" (review finding M4), which was not true.
+ *
+ * **The three deferred `<select>`s adopted this helper at `98a1a7c5f` — this paragraph used to say
+ * they rendered a bare `{option}`, and that is no longer the case.** They were the two urgency
+ * selects in `ed-screen.tsx` and the one in `shortlist-panel.tsx`: the exact case this export's own
+ * rationale singles out, **a screen where a human CHOOSES the value.** Deferring them was wrong for
+ * longer than it looked — a naked `1 2 3` says nothing about which end is urgent, the ED form
+ * defaults to `3`, and urgency now outranks everything in the queue, so a clinician reading a bigger
+ * number as more urgent filed the sickest patient last.
+ *
+ * ⚠️ **This paragraph also claimed all four surfaces "carry their own pinned tests". They did not.**
+ * No test anywhere referenced `ward-change-urgency`, so both change pickers had NO coverage at all —
+ * the deferral rested on a safety net that was never there, and nothing could have told anyone,
+ * because a control no test names cannot fail one.
+ *
+ * **What remains true: `shortlist-panel.tsx` renders `Tier {movement.urgency}` as a badge**, dropping
+ * the qualifier the boards show. It is now the only ward surface not reading this helper. Left
+ * deliberately — a badge has a width, so whether the qualifier fits is a display decision rather
+ * than a correctness one, and it is not the case this export's rationale singles out: **nobody
+ * chooses a value from a badge.**
+ */
+export function urgencyTierLabel(urgency: UrgencyLevel): string {
+  return `Tier ${urgency} · ${TIER_QUALIFIER[urgency]}`;
+}
+
+/**
+ * Whether `movement.blocker` names something actually holding the movement up.
+ *
+ * ⚠️ **THIS WAS A PATTERN AND IS NOW A CLOSED SET, AND THE CHANGE REPAIRS A REAL DEFECT.** It used
+ * to match the literal `"No blocker"` plus a regex for `"None"` followed by a dash or colon —
+ * both CASE-SENSITIVE. That held while the only writers were the fixture and the reducer, which
+ * write from a fixed vocabulary. `RECORD_MOVEMENT_BLOCKER` (2026-09-01) then let a person type any
+ * non-blank prose, and the halves stopped matching: `"none — resolved"`, `"no blocker"`,
+ * `"Nothing outstanding"`, `"N/A"` and `"Cleared"` all scored TEN POINTS as an active obstruction
+ * on a movement nobody was holding up, pushing it up the queue with nothing red anywhere.
+ *
+ * The remedy is not a wider pattern — chasing phrasings is unbounded, and `/^none/i` would swallow
+ * `"None of the secure units can take him"`, a REAL blocker this file's own test pins. Clearing has
+ * its own event instead (`CLEAR_MOVEMENT_BLOCKER`), so this only ever has to recognise the
+ * reducer's own sentinels plus the two legacy fixture values — see
+ * `BLOCKERS_MEANING_NOTHING_IS_BLOCKING` in ward-model.ts for the full account, including the
+ * consequence that typed prose is always treated as an obstruction.
+ *
+ * Trimmed before comparison for the same reason the reducer trims before storing: whitespace must
+ * never be the difference between blocked and not.
  */
 function hasActiveBlocker(blocker: string): boolean {
   const trimmed = blocker.trim();
-  if (trimmed === "No blocker") return false;
-  if (/^None(?:$|\s*[-–—:])/.test(trimmed)) return false;
-  return trimmed.length > 0;
+  if (trimmed.length === 0) return false;
+  return !BLOCKERS_MEANING_NOTHING_IS_BLOCKING.some((inactive) => inactive === trimmed);
 }
 
 /**
@@ -107,9 +182,39 @@ export function operationalScore(movement: Movement, now: Instant): { score: num
   return { score, factors };
 }
 
-/** Urgency tier leads; the operational score only orders movements inside a tier. */
+/**
+ * Whether this patient carries the URGENT FLAG — the one thing that outranks a tier and a wait.
+ *
+ * Owner, 2026-08-30: "in certain cases patients can be marked as urgent for many reasons which
+ * outranks everything." See `Movement.flaggedUrgent` for the full ruling and for what he
+ * deliberately deferred.
+ */
+export function isFlaggedUrgent(movement: Pick<Movement, "flaggedUrgent">): boolean {
+  return movement.flaggedUrgent;
+}
+
+/**
+ * The flag leads; beneath it, urgency tier, then the operational score inside a tier.
+ *
+ * ⚠️ **THREE RANKINGS ARE STACKED HERE AND THAT IS A STAGE, NOT A DESIGN.** The owner scoped this
+ * deliberately small — "For now just have a feature that flags the patient. I will build on it
+ * later" — so the flag is ADDITIVE and everything below it is exactly as it was: the three tiers,
+ * `operationalScore`, and its ten-hour wait ceiling.
+ *
+ * **The deferred decision, which a reader must not mistake for settled:** what becomes of
+ * `UrgencyLevel` 1/2/3 and of `operationalScore` once the flag is the ordering. His fuller ruling
+ * was "a long wait always is prioritised… otherwise go by time for the main level of urgency",
+ * which the tiers and the capped score cannot express — a ceiling cannot say "go by time" past ten
+ * hours. That change was scoped, costed and then held back by him, not overlooked.
+ * `tests/ward-priority.test.ts` names the open question so it cannot become the shape by default.
+ */
 export function queueOrder(movements: Movement[], now: Instant): Movement[] {
   return movements
     .filter(isOpen)
-    .sort((a, b) => a.urgency - b.urgency || operationalScore(b, now).score - operationalScore(a, now).score);
+    .sort(
+      (a, b) =>
+        Number(isFlaggedUrgent(b)) - Number(isFlaggedUrgent(a)) ||
+        a.urgency - b.urgency ||
+        operationalScore(b, now).score - operationalScore(a, now).score,
+    );
 }

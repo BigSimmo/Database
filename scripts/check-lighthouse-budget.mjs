@@ -29,8 +29,9 @@
  * baseline is being refreshed; treating them as incomplete evidence made the
  * documented remediation unreachable after a runner-image Chrome bump.
  *
- * Flags: --update, --json, --dir <path>, --require-reports (an empty directory is a
- * failure, not a no-op — used by run-lighthouse-budget.mjs, which owns the reports).
+ * Flags: --update, --validate-baseline, --json, --dir <path>, --require-reports
+ * (an empty directory is a failure, not a no-op — used by
+ * run-lighthouse-budget.mjs, which owns the reports).
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -58,6 +59,43 @@ export const DEFAULT_TOLERANCE = Object.freeze({
   cls: { absolute: 0.02 },
 });
 
+/**
+ * Runner tolerance floors for bimodal variance on high-variance routes.
+ * Scoped to exact intended run ids only: desktop root ("desktop-root") and the
+ * documents-search strategy runs ("mobile-documents-search", "desktop-documents-search").
+ * Do NOT match bare "documents" substrings — that would raise the LCP floor on
+ * unintended future /documents/* routes and false-green real regressions.
+ * Headless Chromium runner scheduling exhibits ~150-180ms LCP jitter between runs
+ * on identical code without application regression for these calibrated routes.
+ */
+export const BIMODAL_RUNNER_TOLERANCE_FLOORS = {
+  lcpMs: 200,
+};
+
+/** Exact run ids that receive BIMODAL_RUNNER_TOLERANCE_FLOORS — keep this set narrow. */
+const BIMODAL_RUNNER_VARIANCE_RUNS = new Set(["desktop-root", "mobile-documents-search", "desktop-documents-search"]);
+
+export function isBimodalRunnerVarianceRun(runName) {
+  if (!runName || typeof runName !== "string") return false;
+  return BIMODAL_RUNNER_VARIANCE_RUNS.has(runName);
+}
+
+const BASELINE_METRICS = Object.freeze(["lcpMs", "cls", "tbtMs", "fcpMs"]);
+const HEADLESS_CHROME_VERSION = /\bHeadlessChrome\/\d+(?:\.\d+){0,3}\b/;
+
+function requiredBudgetMetrics(budget) {
+  return new Set([...BASELINE_METRICS, ...Object.keys({ ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) })]);
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function recordedChromeVersion(row) {
+  const value = row?.chromeVersion;
+  return typeof value === "string" && HEADLESS_CHROME_VERSION.test(value) ? value : null;
+}
+
 /** Every `<strategy>-<slug>` run name the budget asks for. */
 export function expectedBudgetRuns(budget) {
   const strategies = budget?.strategies ?? ["mobile", "desktop"];
@@ -78,7 +116,6 @@ export function expectedBudgetRuns(budget) {
  * refuse the refresh. Measurement gaps still block.
  */
 export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false } = {}) {
-  const tolerance = { ...DEFAULT_TOLERANCE, ...(budget?.tolerance ?? {}) };
   const baseline = budget?.baseline ?? null;
   const hasBaseline = Boolean(baseline) && Object.keys(baseline).length > 0;
   // A slug collision means two routes write the same report filename, so the second
@@ -86,13 +123,40 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
   // for both. The filename scheme cannot represent both pages, so this is fatal
   // before anything is measured rather than a per-run problem.
   const problems = new Set(collidingRouteSlugs(budget?.routes ?? []).map((slug) => `route slug collision: ${slug}`));
-  const byRun = new Map(rows.map((row) => [row.run, row]));
+  const byRun = new Map(rows.filter(isRecord).map((row) => [row.run, row]));
   // Browser drift is collected separately from the other problems because it is ONE
   // fact about the baseline, not N independent per-route defects — see the collapse
   // below. The verdict is identical either way; only the message changes.
   const drift = new Map();
 
   const expectedRuns = expectedBudgetRuns(budget);
+  const expectedRunSet = new Set(expectedRuns);
+  const seenRuns = new Set();
+  const reportVersions = new Set();
+
+  for (const row of rows) {
+    if (!isRecord(row) || typeof row.run !== "string" || row.run.length === 0) {
+      problems.add("Lighthouse report has no valid run name");
+      continue;
+    }
+    if (seenRuns.has(row.run)) problems.add(`${row.run}: more than one Lighthouse report was supplied`);
+    seenRuns.add(row.run);
+    if (!expectedRunSet.has(row.run)) problems.add(`${row.run}: unexpected Lighthouse report`);
+
+    const version = recordedChromeVersion(row);
+    if (!version) problems.add(`${row.run}: report has no valid HeadlessChrome version`);
+    else reportVersions.add(version);
+  }
+  if (reportVersions.size > 1) {
+    problems.add(
+      `reports were measured by mixed Chrome versions (${[...reportVersions].sort().join(", ")}) — ` +
+        "discard this evidence and rerun the complete matrix on one pinned browser",
+    );
+  }
+
+  const baselineValidation = hasBaseline && !ignoreBaseline ? validateLighthouseBaseline(budget) : null;
+  for (const error of baselineValidation?.errors ?? []) problems.add(error);
+  const baselineComparable = !baselineValidation || baselineValidation.ok;
 
   for (const run of expectedRuns) {
     const row = byRun.get(run);
@@ -112,10 +176,12 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
     // `hasUsableMetrics` checks for ledger #017. This budget also grades TBT, so a
     // report missing it would otherwise pass completeness and then have TBT silently
     // skipped by gradeRun.
-    for (const metric of Object.keys(tolerance)) {
-      if (typeof row[metric] !== "number") problems.add(`${run}: report has no ${metric} number`);
+    for (const metric of requiredBudgetMetrics(budget)) {
+      if (!Number.isFinite(row[metric]) || row[metric] < 0) {
+        problems.add(`${run}: report has no valid ${metric} number`);
+      }
     }
-    if (ignoreBaseline || !hasBaseline) continue;
+    if (ignoreBaseline || !hasBaseline || !baselineComparable || reportVersions.size !== 1) continue;
     const before = baseline[run];
     // A route or strategy added after the baseline was recorded has nothing to
     // compare against, and gradeRun returns no breaches for a missing row — so an
@@ -158,6 +224,8 @@ export function incompleteBudgetEvidence(rows, budget, { ignoreBaseline = false 
 export function gradeRun(row, baselineRow, tolerance = DEFAULT_TOLERANCE) {
   if (!baselineRow) return [];
   const breaches = [];
+  const runName = row?.run ?? "";
+  const isBimodalRun = isBimodalRunnerVarianceRun(runName);
 
   for (const [metric, rule] of Object.entries(tolerance)) {
     const current = row?.[metric];
@@ -181,7 +249,10 @@ export function gradeRun(row, baselineRow, tolerance = DEFAULT_TOLERANCE) {
     }
 
     const pct = before === 0 ? Number.POSITIVE_INFINITY : (delta / before) * 100;
-    if (delta >= (rule.minAbsolute ?? 0) && pct > rule.pct) {
+    const runnerFloor = isBimodalRun ? (BIMODAL_RUNNER_TOLERANCE_FLOORS[metric] ?? 0) : 0;
+    const minAbsolute = Math.max(rule.minAbsolute ?? 0, runnerFloor);
+
+    if (delta >= minAbsolute && pct > rule.pct) {
       breaches.push({
         run: row.run,
         metric,
@@ -190,7 +261,7 @@ export function gradeRun(row, baselineRow, tolerance = DEFAULT_TOLERANCE) {
         delta,
         reason:
           `${metric} +${delta.toFixed(0)} (+${Number.isFinite(pct) ? pct.toFixed(1) : "inf"}%) vs baseline ` +
-          `(tolerance +${rule.pct}% and +${rule.minAbsolute ?? 0})`,
+          `(tolerance +${rule.pct}% and +${minAbsolute})`,
       });
     }
   }
@@ -262,7 +333,8 @@ export function majorityBreachDecision(samples) {
 }
 
 /** The baseline object to commit for a set of measured rows. */
-export function baselineFromRows(rows) {
+export function baselineFromRows(rows, budget) {
+  const metrics = requiredBudgetMetrics(budget);
   return Object.fromEntries(
     [...rows]
       .sort((a, b) => (a.run < b.run ? -1 : a.run > b.run ? 1 : 0))
@@ -271,10 +343,7 @@ export function baselineFromRows(rows) {
         // chromeVersion is stored so a later run can detect that the browser moved
         // underneath the baseline rather than the application regressing.
         {
-          lcpMs: row.lcpMs,
-          cls: row.cls,
-          tbtMs: row.tbtMs,
-          fcpMs: row.fcpMs,
+          ...Object.fromEntries([...metrics].map((metric) => [metric, row[metric]])),
           chromeVersion: row.chromeVersion ?? null,
         },
       ]),
@@ -341,16 +410,15 @@ export function readReports(directory) {
  * across all its recorded rows.
  */
 export function validateBaselineBrowserVersions(baseline) {
-  const rows = Object.values(baseline ?? {});
+  if (!isRecord(baseline)) return { ok: false, versions: [], error: "baseline is not an object" };
+  const rows = Object.values(baseline);
   if (rows.length === 0) return { ok: false, versions: [], error: "no baseline rows recorded" };
-  const versions = [
-    ...new Set(rows.map((row) => row.chromeVersion).filter((v) => typeof v === "string" && v.length > 0)),
-  ];
-  if (rows.some((row) => typeof row.chromeVersion !== "string" || !row.chromeVersion)) {
+  const versions = [...new Set(rows.map(recordedChromeVersion).filter(Boolean))];
+  if (rows.some((row) => !recordedChromeVersion(row))) {
     return {
       ok: false,
       versions,
-      error: `some rows are missing a recorded browser version; found ${versions.length} version(s)`,
+      error: `some rows are missing a valid HeadlessChrome version; found ${versions.length} version(s)`,
     };
   }
   if (versions.length !== 1) {
@@ -361,6 +429,59 @@ export function validateBaselineBrowserVersions(baseline) {
     };
   }
   return { ok: true, versions, error: null };
+}
+
+/**
+ * Validate the committed baseline before any relative comparison is attempted.
+ *
+ * This is deliberately stricter than `gradeRun`, whose tolerant helpers skip an
+ * absent value. Skipping is useful while rendering partial diagnostics, but it is
+ * unsafe for a committed baseline: a hand-transcribed string or omitted metric
+ * would silently remove that metric from the gate.
+ */
+export function validateLighthouseBaseline(budget) {
+  const baseline = budget?.baseline;
+  if (!isRecord(baseline)) {
+    return { ok: false, versions: [], errors: ["baseline is not an object"] };
+  }
+
+  const expectedRuns = expectedBudgetRuns(budget);
+  const expected = new Set(expectedRuns);
+  const actualRuns = Object.keys(baseline);
+  const errors = [];
+
+  for (const run of expectedRuns) {
+    if (!Object.hasOwn(baseline, run)) errors.push(`${run}: no baseline row recorded — refresh with --update`);
+  }
+  for (const run of actualRuns) {
+    if (!expected.has(run)) errors.push(`${run}: unexpected baseline row`);
+  }
+
+  for (const run of actualRuns.filter((candidate) => expected.has(candidate)).sort()) {
+    const row = baseline[run];
+    if (!isRecord(row)) {
+      errors.push(`${run}: baseline row is not an object`);
+      continue;
+    }
+    for (const metric of requiredBudgetMetrics(budget)) {
+      const value = row[metric];
+      if (!Number.isFinite(value) || value < 0) {
+        errors.push(`${run}: baseline ${metric} must be a finite non-negative number`);
+      }
+    }
+    if (!recordedChromeVersion(row)) errors.push(`${run}: baseline has no valid HeadlessChrome version`);
+  }
+
+  const browserValidation = validateBaselineBrowserVersions(baseline);
+  if (!browserValidation.ok && !browserValidation.error?.includes("missing a valid HeadlessChrome")) {
+    errors.push(`baseline browser identity invalid: ${browserValidation.error}`);
+  }
+
+  return {
+    ok: errors.length === 0,
+    versions: browserValidation.versions,
+    errors: [...new Set(errors)].sort(),
+  };
 }
 
 export function selfTest() {
@@ -401,9 +522,9 @@ export function selfTest() {
     [runs[0]]: { ...staleBaseline[runs[0]], chromeVersion: null },
   };
   const nonUniformDrift = incompleteBudgetEvidence(sampleRows, { ...sampleBudget, baseline: mixedBaseline });
-  if (nonUniformDrift.length !== 3) {
+  if (nonUniformDrift.length !== 1 || !nonUniformDrift[0].includes("baseline has no valid HeadlessChrome version")) {
     throw new Error(
-      `selfTest failed: non-uniform drift did not retain per-run diagnostics: ${nonUniformDrift.join(", ")}`,
+      `selfTest failed: invalid mixed baseline was not rejected before comparison: ${nonUniformDrift.join(", ")}`,
     );
   }
 
@@ -418,6 +539,33 @@ export function selfTest() {
 
   const gradeResult = gradeRun(sampleRows[0], { lcpMs: 500, cls: 0, tbtMs: 100 });
   if (gradeResult.length === 0) throw new Error("selfTest failed: gradeRun did not flag regression");
+
+  // Calibrated runner tolerance floor accommodates bimodal runner variance on intended runs only
+  const bimodalIgnored = gradeRun({ run: "desktop-root", lcpMs: 961 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
+  if (bimodalIgnored.length !== 0) throw new Error("selfTest failed: bimodal runner variance was not accommodated");
+
+  const bimodalDocsSearchIgnored = gradeRun(
+    { run: "desktop-documents-search", lcpMs: 961 },
+    { lcpMs: 786, cls: 0, tbtMs: 100 },
+  );
+  if (bimodalDocsSearchIgnored.length !== 0) {
+    throw new Error("selfTest failed: documents-search bimodal runner variance was not accommodated");
+  }
+
+  const bimodalBreached = gradeRun({ run: "desktop-root", lcpMs: 1050 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
+  if (bimodalBreached.length === 0) throw new Error("selfTest failed: real regression on bimodal route not flagged");
+
+  // Negative: bare "documents" substring must NOT raise the LCP floor (false-green risk)
+  if (isBimodalRunnerVarianceRun("desktop-documents") || isBimodalRunnerVarianceRun("mobile-documents-upload")) {
+    throw new Error("selfTest failed: bare documents substring incorrectly treated as bimodal");
+  }
+  const nonBimodalDocuments = gradeRun({ run: "desktop-documents", lcpMs: 961 }, { lcpMs: 786, cls: 0, tbtMs: 100 });
+  if (nonBimodalDocuments.length === 0) {
+    throw new Error("selfTest failed: unintended documents* run got bimodal LCP floor (false-green path)");
+  }
+  if (isBimodalRunnerVarianceRun("mobile-root")) {
+    throw new Error("selfTest failed: mobile-root incorrectly treated as bimodal");
+  }
 
   const comparison = compareToLighthouseBudget(sampleRows, { ...sampleBudget, baseline: staleBaseline });
   if (comparison.status !== "fail") throw new Error("selfTest failed: drifted baseline did not fail comparison");
@@ -441,6 +589,18 @@ function main() {
   const directory = path.resolve(root, dirIndex >= 0 ? (argv[dirIndex + 1] ?? "lighthouse") : "lighthouse");
 
   const budget = loadBudget();
+
+  if (argv.includes("--validate-baseline")) {
+    const validation = validateLighthouseBaseline(budget);
+    if (!validation.ok) {
+      console.error(`::error::invalid Lighthouse baseline: ${validation.errors.join("; ")}`);
+      process.exit(1);
+    }
+    console.log(`check:lighthouse-budget: baseline valid for ${expectedBudgetRuns(budget).length} run(s).`);
+    console.log(`check:lighthouse-budget: browser ${validation.versions[0]}.`);
+    return;
+  }
+
   const rows = readReports(directory);
 
   if (rows.length === 0) {
@@ -475,10 +635,10 @@ function main() {
       console.error(`::error::refusing to update the baseline from incomplete evidence: ${measurementGaps.join("; ")}`);
       process.exit(1);
     }
-    const nextBaseline = baselineFromRows(rows);
-    const validation = validateBaselineBrowserVersions(nextBaseline);
+    const nextBaseline = baselineFromRows(rows, budget);
+    const validation = validateLighthouseBaseline({ ...budget, baseline: nextBaseline });
     if (!validation.ok) {
-      console.error(`::error::refusing to update the baseline: ${validation.error}.`);
+      console.error(`::error::refusing to update the baseline: ${validation.errors.join("; ")}.`);
       process.exit(1);
     }
     const next = {

@@ -17,7 +17,13 @@ reviews:
   # This is the default, but we set it explicitly to document the intent.
   fail_commit_status: false
   # Lever 1 (#KZJD4Q): exclude documentation-only and bookkeeping paths from
-  # automated reviews to conserve included hourly review credits.
+  # automated reviews. These filters are kept because excluding prose from a
+  # code reviewer is right on its own merits — but note the stated rationale
+  # ("conserve included hourly review credits") is NOT why CodeRabbit is
+  # currently silent. Measured 2026-09-02: it reports "fewer than 10 stars"
+  # and reviews nothing here regardless of credits. See the 2026-09-02
+  # correction in docs/decisions/ccz4hb-review-coverage.md before changing
+  # these filters to chase review capacity.
   path_filters:
     - "!docs/**"
     - "!mockups/**"

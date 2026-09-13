@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "role": "lead",
+  "sessionLabel": "Ward Lead",
+  "reason": "context-reset",
+  "task": {
+    "id": "WF-EXAMPLE-001",
+    "status": "complete",
+    "objective": "Replace this example with the bounded task objective.",
+    "baseSha": "0000000000000000000000000000000000000000",
+    "ownedPaths": ["docs/ward-flow/control/"],
+    "completionCommit": "0000000000000000000000000000000000000000",
+    "assignmentPath": null,
+    "verificationTarget": null
+  },
+  "content": {
+    "summary": "Replace this with the state a fresh chat must know.",
+    "decisions": [],
+    "completedWork": [{ "summary": "Replace this with one completed, committed outcome." }],
+    "pendingWork": [],
+    "questions": [],
+    "evidence": [
+      {
+        "outcome": "passed",
+        "decisiveEvidence": "Replace this with the exact local result that proves the completed outcome."
+      }
+    ],
+    "risks": [],
+    "subagentDispatches": [],
+    "nextAction": "Replace this with one concrete next action."
+  },
+  "integration": {
+    "status": "not-required",
+    "commit": null,
+    "targetBranch": "codex/task-ward-flow-live-state-20260831",
+    "durableCheckpoint": null
+  },
+  "contentAudit": {
+    "decisionsCaptured": true,
+    "workCaptured": true,
+    "questionsCaptured": true,
+    "evidenceCaptured": true,
+    "uncommittedWorkCaptured": true,
+    "noUniqueChatContentRemaining": true
+  },
+  "privacyAudit": {
+    "syntheticOnly": true,
+    "noSecrets": true,
+    "noPatientData": true
+  }
+}

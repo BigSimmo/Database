@@ -1,0 +1,107 @@
+/*
+ * The override register's own module. Self-contained tokens on each root class, following the
+ * convention `ward-freshness.module.css` and `ward-role-switcher.module.css` document: this
+ * component is mounted inside both `coordinator.module.css`'s and `ward.module.css`'s scopes, and
+ * neither one's `--co-*`/`--wd-*` locals are visible from here, so nothing may be borrowed.
+ *
+ * Design tokens only — no literal colours. The palette entries below are the same ones
+ * `ward.module.css`'s `.card` uses, so a register row reads as a card on either screen.
+ */
+.list,
+.placeholder {
+  --or-space-4: 0.25rem;
+  --or-space-6: 0.375rem;
+  --or-space-8: 0.5rem;
+  --or-space-10: 0.625rem;
+  --or-leading-body: 1.4;
+}
+
+.placeholder {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--or-leading-body);
+}
+
+.list {
+  display: grid;
+  gap: var(--or-space-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry {
+  /* Declared HERE, not on a root class: this module has no wrapper — `.entry` is a SIBLING of
+     `.placeholder` and `.list`, so a token declared there would never reach it. A custom property
+     works perfectly well on the element that uses it. */
+  --wf-border: var(--neutral-500);
+  display: grid;
+  min-width: 0;
+  gap: var(--or-space-6);
+  border: 0.0625rem solid var(--wf-border, var(--neutral-500));
+  border-radius: var(--radius-md);
+  background: var(--surface-subtle);
+  padding: var(--or-space-10);
+}
+
+.entryHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--or-space-8);
+}
+
+.entryHeader strong {
+  color: var(--text-heading);
+  font-size: var(--text-2xs);
+}
+
+.entryReason {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--text-2xs);
+  line-height: var(--or-leading-body);
+}
+
+.entryMeta {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+  font-size: var(--text-3xs);
+  line-height: var(--or-leading-body);
+}
+
+/*
+ * ⚠️ FORCED COLOURS PUTS THE SYSTEM TOKENS BACK. The aliases above deliberately SEVER the chain to
+ * `--border`, which measures 1.21:1 against `--surface` in light mode and 1.42:1 in dark — far
+ * under the 3:1 a boundary needs. `--neutral-500` gives 4.88:1 and 4.98:1.
+ *
+ * But severing it would also cost a high-contrast user the system border colour, which globals.css
+ * maps to `ButtonBorder`/`CanvasText` under forced colours. A fix for one group of users that
+ * quietly breaks it for another is not a fix, so here the aliases point back at the global tokens.
+ */
+@media (forced-colors: active) {
+  .entry {
+    --wf-border: var(--border);
+  }
+}
+
+/*
+ * This module does not compose `wardTokens` from ward-tokens.module.css, so the central print
+ * reset that file carries never reaches these selectors. There is no wrapping root class to hang
+ * a wildcard reset on: `.placeholder` and `.list` are alternate top-level renders of this
+ * component (see the file comment above), so every themed-colour and themed-background selector
+ * is enumerated by hand instead of inventing a wrapper this module was never given. `.entry`'s
+ * background is reset alongside its descendants' text so a card never ends up black text on a
+ * still-dark card.
+ */
+@media print {
+  .placeholder,
+  .entry,
+  .entryHeader strong,
+  .entryReason,
+  .entryMeta {
+    color: CanvasText !important;
+    background-color: Canvas !important;
+  }
+}

@@ -2,10 +2,18 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
 import formsActSectionCues from "../data/forms-act-section-cues.json";
 import formsPdfManifest from "../data/forms-pdf-manifest.json";
+import {
+  buildManifest,
+  derivePdfEditingRestricted,
+  derivePdfPasswordProtection,
+  derivePdfPermissions,
+  parsePdfPermissions,
+} from "../scripts/build-forms-pdf-manifest.mjs";
 
 import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
@@ -157,19 +165,29 @@ describe("psychiatry form records", () => {
   });
 
   it("ships a stored PDF for every downloadable form", () => {
-    const manifestAssets = (formsPdfManifest as { assets: Array<{ code: unknown; passwordProtected: unknown }> })
-      .assets;
+    const manifestAssets = (
+      formsPdfManifest as {
+        assets: Array<{ code: unknown; passwordProtected: unknown; editingRestricted: unknown }>;
+      }
+    ).assets;
     for (const asset of manifestAssets) {
-      // A malformed manifest entry (missing `code`, or a non-boolean `passwordProtected`)
+      // A malformed manifest entry (missing `code`, or non-boolean flags)
       // must fail loudly here rather than silently comparing `undefined === undefined`
       // below once both sides of the manifest lookup resolve to nothing.
       expect(typeof asset.code, JSON.stringify(asset)).toBe("string");
       expect(typeof asset.passwordProtected, JSON.stringify(asset)).toBe("boolean");
+      expect(typeof asset.editingRestricted, JSON.stringify(asset)).toBe("boolean");
     }
-    const manifestMap = new Map(
+    const manifestPasswordMap = new Map(
       (manifestAssets as Array<{ code: string; passwordProtected: boolean }>).map((asset) => [
         asset.code.toUpperCase(),
         asset.passwordProtected,
+      ]),
+    );
+    const manifestEditingMap = new Map(
+      (manifestAssets as Array<{ code: string; editingRestricted: boolean }>).map((asset) => [
+        asset.code.toUpperCase(),
+        asset.editingRestricted,
       ]),
     );
     const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
@@ -183,12 +201,168 @@ describe("psychiatry form records", () => {
         details?.localPdfSha256,
       );
       expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
-      expect(details?.officialPdfPasswordProtected, details?.form).toBe(manifestMap.get(details!.form.toUpperCase()));
+      expect(details?.officialPdfPasswordProtected, details?.form).toBe(
+        manifestPasswordMap.get(details!.form.toUpperCase()),
+      );
+      expect(details?.officialPdfEditingRestricted, details?.form).toBe(
+        manifestEditingMap.get(details!.form.toUpperCase()),
+      );
     }
 
     const form12a = getFormRecord("form-12a");
     expect(form12a).toBeTruthy();
     expect(formCatalogDetails(form12a!)?.officialPdfPasswordProtected).toBe(false);
+    expect(formCatalogDetails(form12a!)?.officialPdfEditingRestricted).toBe(false);
+  });
+
+  // The manifest flags are what the Forms detail page turns into badges a psychiatrist
+  // reads before relying on the file at the bedside. The assertions above only compare
+  // the manifest against the catalogue that reads it, so a wrong flag would agree with
+  // itself. This pins every flag to the generated contract: the committed bytes.
+  it("derives every manifest passwordProtected and editingRestricted flag from the committed PDF bytes", async () => {
+    const assets = (
+      formsPdfManifest as {
+        assets: Array<{ code: string; localPath: string; passwordProtected: boolean; editingRestricted: boolean }>;
+      }
+    ).assets;
+    expect(assets).toHaveLength(51);
+    for (const asset of assets) {
+      const bytes = readFileSync(join(process.cwd(), "public", asset.localPath.replace(/^\//, "")));
+      // "Requires a user password to open", not "carries an /Encrypt dictionary": a PDF
+      // with an owner password and an empty user password is encrypted yet opens freely,
+      // and badging that file as protected teaches clinicians to ignore the warning on
+      // the files where it is true.
+      const derived = await derivePdfPasswordProtection(bytes, `Form ${asset.code}`);
+      expect(derived.failure, asset.code).toBeNull();
+      expect(derived.passwordProtected, asset.code).toBe(asset.passwordProtected);
+
+      // Derive permissions integer and editingRestricted flag from PDF bytes
+      const derivedPerms = derivePdfPermissions(bytes);
+      expect(derivedPerms.editingRestricted, asset.code).toBe(asset.editingRestricted);
+      expect(derivePdfEditingRestricted(bytes), asset.code).toBe(asset.editingRestricted);
+    }
+    // Form 12A is the one readable and unrestricted form on the register, and other assertions in this
+    // file extract its text. Keep that asymmetry visible rather than implied by a loop.
+    expect(assets.filter((asset) => !asset.passwordProtected).map((asset) => asset.code)).toEqual(["12A"]);
+    expect(assets.filter((asset) => !asset.editingRestricted).map((asset) => asset.code)).toEqual(["12A"]);
+    expect(assets.filter((asset) => asset.editingRestricted)).toHaveLength(50);
+  });
+
+  it("decodes PDF permission bits and handles negative permissions (/P -1084)", () => {
+    // 50 of 51 forms carry /P -1084 (0xFFFFFBC4) which restricts modify (bit 4 = 0) and assemble (bit 11 = 0)
+    const lockedBytes = readFileSync(join(process.cwd(), "public", "forms-pdf", "form-10a.pdf"));
+    expect(parsePdfPermissions(lockedBytes)).toBe(-1084);
+    expect(derivePdfPermissions(lockedBytes)).toEqual({
+      editingRestricted: true,
+      permissions: -1084,
+    });
+    expect(derivePdfEditingRestricted(lockedBytes)).toBe(true);
+
+    // Form 12A has no /P entry (unencrypted)
+    const form12aBytes = readFileSync(join(process.cwd(), "public", "forms-pdf", "form-12a.pdf"));
+    expect(parsePdfPermissions(form12aBytes)).toBeNull();
+    expect(derivePdfPermissions(form12aBytes)).toEqual({
+      editingRestricted: false,
+      permissions: null,
+    });
+    expect(derivePdfEditingRestricted(form12aBytes)).toBe(false);
+
+    // Synthetic permission integer tests
+    // Bit 4 = modify contents (bit index 3, 1 << 3 = 8)
+    // Bit 11 = assemble document (bit index 10, 1 << 10 = 1024)
+    // Both set and positive:
+    const unrestrictedPdf = Buffer.from("%PDF-1.7 ... /Encrypt << /P " + (8 | 1024) + " >> ...");
+    expect(derivePdfEditingRestricted(unrestrictedPdf)).toBe(false);
+
+    // Bit 4 missing:
+    const noModifyPdf = Buffer.from("%PDF-1.7 ... /Encrypt << /P " + 1024 + " >> ...");
+    expect(derivePdfEditingRestricted(noModifyPdf)).toBe(true);
+
+    // Bit 11 missing:
+    const noAssemblePdf = Buffer.from("%PDF-1.7 ... /Encrypt << /P " + 8 + " >> ...");
+    expect(derivePdfEditingRestricted(noAssemblePdf)).toBe(true);
+
+    // Negative /P:
+    const negativePdf = Buffer.from("%PDF-1.7 ... /Encrypt << /P -1084 >> ...");
+    expect(derivePdfEditingRestricted(negativePdf)).toBe(true);
+  });
+
+  it("fails closed to password protected when a form PDF cannot be classified", async () => {
+    // `false` asserts the clinician can open the file, so under-warning is the unsafe
+    // direction: planning a Form 10A and finding at the bedside that it will not open is
+    // a workflow failure at a time-critical statutory step. Every unclassifiable input
+    // must therefore report `true` AND surface a failure the generator turns into a hard
+    // exit — never a silent `false`.
+    const readable = readFileSync(join(process.cwd(), "public", "forms-pdf", "form-12a.pdf"));
+    expect(await derivePdfPasswordProtection(readable, "Form 12A")).toEqual({
+      passwordProtected: false,
+      failure: null,
+    });
+
+    for (const [label, corrupt] of [
+      ["truncated", readable.subarray(0, 2048)],
+      ["not a pdf", Buffer.from("%PDF-1.7 this is not a document")],
+      ["empty", Buffer.alloc(0)],
+    ] as Array<[string, Buffer | Uint8Array]>) {
+      const derived = await derivePdfPasswordProtection(corrupt, `corrupt fixture (${label})`);
+      expect(derived.passwordProtected, label).toBe(true);
+      expect(derived.failure, label).toContain("could not be opened or classified");
+    }
+  });
+
+  it("reports a PDF that carries /Encrypt but opens with an empty user password as not password protected", async () => {
+    // The whole reason this flag is derived by ATTEMPTING to open the file, rather than by
+    // looking for an /Encrypt marker, is that the two answers can differ: a PDF encrypted
+    // with an owner password but no user password carries /Encrypt and still opens freely.
+    //
+    // Every committed form happens to agree under both rules — 50 carry /Encrypt and refuse
+    // an empty user password, and form-12a.pdf carries neither — so nothing in this corpus
+    // would catch a future "simplification" of the deriver into a grep for /Encrypt. This
+    // synthetic fixture is the discriminating case, and it is the only test that fails if
+    // that shortcut is ever taken.
+    const ownerPasswordOnly = await new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ ownerPassword: "owner-only-secret", permissions: { printing: "highResolution" } });
+      const chunks: Buffer[] = [];
+      doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      doc.text("Owner password only; the user password is empty.");
+      doc.end();
+    });
+
+    // Precondition: the fixture really is the confusing shape, not merely an unencrypted file.
+    expect(ownerPasswordOnly.includes("/Encrypt")).toBe(true);
+
+    expect(await derivePdfPasswordProtection(ownerPasswordOnly, "owner-password-only fixture")).toEqual({
+      passwordProtected: false,
+      failure: null,
+    });
+  });
+
+  it("preserves manifest fields it does not derive when regenerating", async () => {
+    // The generator computes exactly four fields — sha256, bytes, passwordProtected and editingRestricted.
+    // Everything else is provenance it cannot recompute: `officialPdfUrl` is the link a
+    // reader follows to check the committed bytes against the publisher, and this script
+    // is offline by contract, so a dropped URL could never be restored from the PDFs.
+    //
+    // Enumerating known keys when rebuilding an asset would drop any other field silently,
+    // and the failure mode is quiet then destructive: `--check` reports drift, and the
+    // regeneration it instructs the operator to run erases the field permanently.
+    const existing = JSON.parse(readFileSync(join(process.cwd(), "data", "forms-pdf-manifest.json"), "utf8")) as {
+      assets: Array<Record<string, unknown>>;
+    };
+    const probe = { ...existing.assets[0], reviewedAt: "2026-09-02", customMetadata: "test-meta" };
+    const { manifest } = await buildManifest({ ...existing, assets: [probe, ...existing.assets.slice(1)] });
+    const rebuilt = manifest.assets[0] as Record<string, unknown>;
+
+    expect(rebuilt.reviewedAt).toBe("2026-09-02");
+    expect(rebuilt.customMetadata).toBe("test-meta");
+    // The derived fields are still authoritative — preservation must not shadow them.
+    expect(rebuilt.officialPdfUrl).toBe(existing.assets[0].officialPdfUrl);
+    expect(rebuilt.sha256).toBe(existing.assets[0].sha256);
+    expect(rebuilt.bytes).toBe(existing.assets[0].bytes);
+    expect(rebuilt.passwordProtected).toBe(existing.assets[0].passwordProtected);
+    expect(rebuilt.editingRestricted).toBe(existing.assets[0].editingRestricted);
   });
 
   it("populates Form 12A statutory Authority and Criteria priority facts from readable approved PDF", () => {

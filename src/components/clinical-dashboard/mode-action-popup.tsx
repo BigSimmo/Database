@@ -938,7 +938,7 @@ export function ModeActionPopup({
           aria-hidden="true"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         >
-          <TitleIcon className="h-5 w-5" />
+          <TitleIcon aria-hidden="true" className="h-5 w-5" />
         </span>
         <div className="min-w-0 flex-1">
           <button

@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page, type Route } from "playwright/test";
 import { demoAnswer } from "../src/lib/demo-data";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectSingleSettledOwner } from "./playwright-settlement";
 
@@ -330,14 +331,26 @@ test.describe("universal search typeahead", () => {
 
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
   });
-  test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
+  test("keeps submitted cross-mode matches collapsed on desktop until the header is clicked", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
     await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
     const alsoMatches = page.getByTestId("universal-also-matches");
     await expect(alsoMatches).toBeVisible();
-    await expect(alsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toBeVisible();
+    const trigger = alsoMatches.getByRole("button", { name: /Also matches in other modes/ });
+    await expect(trigger).toBeVisible();
+
+    // The tray is a real disclosure at every width now, matching the sibling
+    // "Also in your library" line. It must NOT open itself on desktop: that put
+    // a grid of cross-mode suggestions between the composer and the results the
+    // search asked for. The mode links stay in the DOM while shut, so assert on
+    // visibility and aria-expanded, not on presence.
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
     const accents = await alsoMatches
       .locator("div[data-category-accent]")
@@ -377,7 +390,7 @@ test.describe("universal search typeahead", () => {
     ).toBe(true);
   });
 
-  test("loads submitted cross-mode matches on phones only after expansion", async ({ page }) => {
+  test("states the phone cross-mode count on the closed header, before any expansion", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     const universalRequests: string[] = [];
     page.on("request", (request) => {
@@ -389,10 +402,18 @@ test.describe("universal search typeahead", () => {
     const alsoMatches = page.getByTestId("universal-also-matches");
     await expect(alsoMatches).toBeVisible();
     await expect(alsoMatches).toHaveCount(1);
-    expect(universalRequests).toHaveLength(0);
-
-    await alsoMatches.getByRole("button", { name: /Also matches in other modes/ }).click();
+    // Eager at phone width too. A closed row that says "Tap to open" is a blind
+    // door: it cannot promise the tray holds anything, and the empty tray was
+    // still rendered. The lookup runs on submit so the header states a count.
     await expect.poll(() => universalRequests.length).toBe(1);
+
+    const trigger = alsoMatches.getByRole("button", { name: /Also matches in other modes/ });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(alsoMatches).not.toContainText("Tap to open");
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeHidden();
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
@@ -436,7 +457,7 @@ const smartPayload = {
 };
 
 test.describe("universal search smart affordances", () => {
-  const syntheticAnswer = { ...demoAnswer("lithium dosing"), demoMode: true };
+  const syntheticAnswer = { ...toClientAnswerPayload(demoAnswer("lithium dosing")), demoMode: true };
 
   async function mockSmartSearch(page: Page) {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
@@ -482,6 +503,90 @@ test.describe("universal search smart affordances", () => {
     expect((await answerRequest).postDataJSON()).toMatchObject({ query: "acamprosat" });
     await expect(page.getByRole("main").getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/mode=answer/);
+  });
+
+  test("reaches a mode no local catalogue can resolve from the answer's library line", async ({ page }) => {
+    // The coverage this change exists for. The line used to resolve links from
+    // four catalogues in the browser (medications, services, forms,
+    // differentials), so an answer could never point at a DSM diagnosis however
+    // squarely the question named one. Everything below the mock is real: the
+    // request the surface makes, the title gate it applies, and the card.
+    const universalRequests: string[] = [];
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const requestUrl = new URL(route.request().url());
+      universalRequests.push(requestUrl.searchParams.get("domains") ?? "");
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: requestUrl.searchParams.get("q") ?? "",
+        contextMode: "answer",
+        preferredDomains: ["documents"],
+        domainOrder: ["dsm"],
+        groups: [
+          {
+            kind: "dsm",
+            total: 1,
+            latencyMs: 3,
+            items: [
+              {
+                id: "bipolar-i-disorder",
+                kind: "dsm",
+                title: "Bipolar I Disorder",
+                subtitle: "Manic episode required",
+                href: "/dsm/bipolar-i-disorder",
+                score: 18,
+              },
+            ],
+          },
+        ],
+      });
+    });
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      if (new URL(route.request().url()).pathname.endsWith("/stream")) {
+        await route.fulfill({
+          body: [
+            `event: progress\ndata: ${JSON.stringify({ stage: "complete", message: "Answer ready.", elapsedMs: 40 })}`,
+            `event: final\ndata: ${JSON.stringify(syntheticAnswer)}`,
+            "",
+          ].join("\n\n"),
+          contentType: "text/event-stream; charset=utf-8",
+        });
+        return;
+      }
+      await route.fulfill({ json: syntheticAnswer });
+    });
+
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("bipolar disorder criteria");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+
+    const line = page.getByTestId("cross-mode-links");
+    await expect(line).toBeVisible({ timeout: 15_000 });
+    // Still one panel on this surface, never both. The mode-level tray staying
+    // out is the other half of that contract and is asserted beside it.
+    await expect(line).toHaveCount(1);
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+
+    // Open on arrival: no tap needed to reach the widened half.
+    await expect(page.getByTestId("cross-mode-links-line-trigger")).toHaveAttribute("aria-expanded", "true");
+    const rail = page.getByTestId("cross-mode-links-rail");
+    await expect(rail.getByRole("link", { name: "Open Bipolar I Disorder" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: /Search Bipolar I Disorder in DSM-5 Diagnosis/ })).toBeVisible();
+
+    // The domains the catalogue half already resolves are absent from the request
+    // itself, so one record can never arrive down both paths and print twice on
+    // one line, and the answer's own documents are not re-listed under an answer
+    // that already cites them.
+    expect(universalRequests.length).toBeGreaterThan(0);
+    for (const domains of universalRequests) {
+      expect(domains.split(",").sort()).toEqual([
+        "dictionary",
+        "dsm",
+        "formulation",
+        "specifiers",
+        "therapies",
+        "tools",
+      ]);
+    }
   });
 
   test("keeps a completed Answer query eligible for submitted cross-mode matches", async ({ page }) => {
@@ -564,6 +669,34 @@ test.describe("universal search smart affordances", () => {
     await expect(page.getByTestId("cross-mode-links")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("cross-mode-links-line-trigger")).toBeVisible();
     await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+  });
+
+  test("clearing a pending Answer request stays on the shared home after the response settles", async ({ page }) => {
+    await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      try {
+        await route.fulfill({ json: syntheticAnswer });
+      } catch {
+        // Aborting the request is the expected clear-path outcome.
+      }
+    });
+
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("acamprosat");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
+    await expect(page.getByTestId("answer-progress")).toBeVisible();
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await page.waitForTimeout(1_250);
+    await expect(page).toHaveURL(/\/\?mode=answer&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.locator('[data-dashboard-stage="answer-surface"]')).toHaveCount(0);
   });
 
   test("keeps a saved exact match first in Favourites", async ({ page }) => {

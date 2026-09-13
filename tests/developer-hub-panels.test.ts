@@ -165,13 +165,21 @@ describe("placeholder pruning (2026-08-25)", () => {
     }
   });
 
-  it("keeps hazard-register, the one phase-4 clinical placeholder deliberately retained", () => {
+  it("kept hazard-register through the pruning, and built it rather than dropping it", () => {
     // Distinguishes "removed for restating an already-guaranteed fact" from
-    // "still a placeholder" — hazard-register is the latter, reconsidered as a
-    // clinical-safety surface rather than dropped.
+    // "still to build" — hazard-register was the latter, reconsidered as a
+    // clinical-safety surface rather than dropped, and built on 2026-09-08.
+    // The assertion moved from phase 4 to phase 1 with it; what it pins is
+    // unchanged, that this id is never quietly removed.
     const panel = HUB_PANELS.find((entry) => entry.id === "hazard-register");
     expect(panel).toBeDefined();
-    expect(panel!.phase).toBe(4);
+    expect(panel!.phase).toBe(1);
+    expect(panel!.href).toBe("/mockups/development/hazards");
+    // The one wording trap on this card: it must not claim to cover every
+    // clinical risk. Three of the four uncontrolled rows are reviews nobody has
+    // convened, so a completeness claim here would be the first untrue thing on
+    // the hub.
+    expect(panel!.summary).not.toMatch(/\ball\b|\bevery\b|complete/i);
   });
 
   it("leaves every remaining group non-empty, so the hub never has to hide a panel-less section", () => {

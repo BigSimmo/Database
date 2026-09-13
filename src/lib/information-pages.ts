@@ -19,7 +19,9 @@ export type InformationPageMode =
   | "therapy-compass"
   | "differentials"
   | "dsm"
-  | "documents";
+  | "documents"
+  | "sources"
+  | "on-call";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -46,18 +48,6 @@ export function isSlugDetail(pathname: string, home: string, extraExcluded: stri
 }
 
 /**
- * Record pages that keep a footer search composer. Catalog result docks
- * (`/services/search`, `/forms/search`) are not details — `isSlugDetail`
- * already excludes the reserved `search` suffix so Clinical Ask chrome
- * can stay on those submitted docks.
- */
-export function isToolDetailWithFooterSearch(pathname: string): boolean {
-  return (
-    isSlugDetail(pathname, "/services") || isSlugDetail(pathname, "/forms") || isSlugDetail(pathname, "/medications")
-  );
-}
-
-/**
  * True when `pathname` is a mode information (detail/record) page.
  * Keep in sync with adoption notes on `InformationPageShell`.
  */
@@ -69,6 +59,13 @@ export function isInformationPage(pathname: string): boolean {
   if (isSlugDetail(pathname, "/formulation")) return true;
   if (isSlugDetail(pathname, "/factsheets", ["search", "topics"])) return true;
   if (isSlugDetail(pathname, "/dictionary", ["search", "browse", "topics", "compare", "sources"])) return true;
+  if (isSlugDetail(pathname, "/sources", ["topics", "publishers", "method"])) return true;
+  // The six on-call section routes (contacts, playbook, referrals, orientation,
+  // education, logistics) each portal their own `InPageNavHeader` — unlike
+  // Sources' browse tabs, which keep the shared mode-nav bar instead. `search`
+  // is excluded by the shared `TOOL_SUFFIXES` set above, so this line alone
+  // covers exactly the six section routes and nothing else on `/on-call/*`.
+  if (isSlugDetail(pathname, "/on-call")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -105,6 +102,8 @@ export const informationPageShellModes = [
   "formulation",
   "factsheets",
   "dictionary",
+  "sources",
   "therapy-compass",
   "dsm",
+  "on-call",
 ] as const satisfies readonly InformationPageMode[];

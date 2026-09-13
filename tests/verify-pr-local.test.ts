@@ -32,6 +32,9 @@ describe("verify-pr-local CLI", () => {
     expect(output).toContain("- npm run check:runtime");
     expect(output).toContain("- npm run check:installed-lock-parity");
     expect(output).toContain("- npm run format:changed");
+    // Unconditional even for a docs-only change: a committed tool-truncation banner can
+    // land in any file, not only a spec (#Y30AXB).
+    expect(output).toContain("- npm run check:diff-integrity");
     expect(output).toContain("- build skipped");
     expect(output).not.toContain("\n> npm run ");
   });

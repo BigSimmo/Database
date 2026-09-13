@@ -200,6 +200,7 @@ describe("ClinicalAskWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Answer" }));
     fireEvent.click(screen.getByText("Evidence and sources"));
     expect(screen.getByText("Authority guidance")).toBeInTheDocument();
+    expect(screen.queryByText("Review extract")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("Report an issue"));
     for (const label of [
       "Wrong mode",

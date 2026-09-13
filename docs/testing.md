@@ -199,6 +199,47 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 Phone-chrome work uses `npm run verify:phone-chrome`. Inspect its classification with `-- --dry-run` or provide an explicit changed set with `-- --files pathA,pathB`. The default `--full=auto` escalates shared shell/header/footer, scroll-coordinator, reserve, or global-style changes to `verify:ui` only after focused ownership and journey checks pass. Page-local owners and test-helper changes remain focused; use `--full=always` for deliberate extra confidence or `--full=never` only when the dry run records why the recommended broad gate is unavailable. Physical Safari and cold-launch PWA paint still follow [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
+### Playwright project cadence, and why the two iPhone projects stay release-only
+
+`playwright.config.ts` defines seven projects. This is where each one actually runs, so a project
+can never again be defined without a reader being able to see its cadence (pinned by
+`tests/playwright-project-cadence.test.ts`, which fails closed on any project named by no script
+and recorded in no line here).
+
+| Project                           | Runs on                                                                   |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `chromium`                        | Blocking PR gate (sharded production journeys) and the release matrix     |
+| `chromium-mockups`                | Advisory PR invocation and the release matrix                             |
+| `chromium-caring-contacts-seeded` | Blocking PR gate, against the seeded server                               |
+| `firefox`, `webkit`               | Release matrix only (`main`, release branches, dispatch, Sunday schedule) |
+| `mobile-webkit`                   | Release matrix **full-suite path only** — see the decision below          |
+| `mobile-pwa-standalone`           | Release matrix **full-suite path only** — see the decision below          |
+
+**Decision (2026-09-04, L68): the two iPhone-14 projects stay release-only.** They execute when the
+release matrix runs the whole suite — that is, when UI did not change or in-run Chromium proof is
+missing — and not on the matrix's ordinary UI-change path, which names Chromium mockups plus
+Firefox and WebKit.
+
+The reason is runtime against the evidence in this repository. Each of these projects replays the
+**entire** production journey suite on an emulated iPhone 14, the same shape as the Firefox and
+WebKit suites. The last recorded complete matrix (run 4012) took **38 minutes** for three such
+suites, the job carries a **70-minute** timeout, and a ~70-minute matrix run holding
+`CI-refs/heads/main` is the incident recorded in [ci-operations.md](ci-operations.md). Two more
+full suites is roughly another 25 minutes on a job already sized to its ceiling — and on the
+blocking PR gate, which today runs sharded Chromium only, it would be the difference between a
+UI PR waiting minutes and waiting most of an hour. That cost is not repaid, because the phone
+behaviour these projects would prove already has a **focused** blocking owner:
+`npm run verify:phone-chrome` selects the affected phone owners and journeys on every phone-chrome
+change and escalates to `verify:ui` when a shared shell, header, footer, scroll-coordinator,
+reserve, or global-style file is touched.
+
+What is genuinely not covered is **cross-engine** phone rendering — the focused gate runs Chromium.
+That is the residual risk being accepted here, and it is bounded: WebKit itself is proven every
+release matrix on the desktop projects, so what goes unproven between full-suite runs is
+iPhone-viewport WebKit specifically. Revisit if a phone-only WebKit regression ever reaches
+`main`; the change would be to name the two projects in the matrix's ordinary-path project list in
+`.github/workflows/ci.yml`, not to add them to the blocking PR gate.
+
 ### Phone sticky-header settle timing (screenshots and DOM measurements)
 
 The phone header stack (`.phone-sticky-header-stack`) uses `position: fixed` in browser tabs and `position: absolute` within the phone viewport frame in installed standalone mode, and mounts collapsed. The top content reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` resolves to the full measured stack height only after mount via `usePhoneOverlayChromeReserve` across an 80ms quiet window (`phoneOverlayReserveGeometryQuietWindowMs`). Standalone tests must assert the absolute-positioning contract.
@@ -338,8 +379,11 @@ following the same shape as `check:bundle-budget`.
 ### Baseline browser pinning, and how to refresh
 
 The baseline is a **browser-specific** artefact. `check-lighthouse-budget.mjs` fails closed when a
-baseline row's `chromeVersion` differs from the measuring run's, because a browser bump is otherwise
-indistinguishable from an application regression. Both Lighthouse jobs therefore pin Playwright's
+baseline row's `chromeVersion` differs from the measuring run's, or when either the reports or the
+baseline mix browser versions, because a browser bump is otherwise indistinguishable from an
+application regression. It also validates the exact route/strategy row set and requires finite,
+non-negative numeric LCP, TBT, CLS and FCP values before comparing anything; a malformed or
+hand-transcribed field cannot silently drop a metric from the gate. Both Lighthouse jobs pin Playwright's
 managed Chromium through the shared `./.github/actions/setup-lighthouse-chromium` composite action —
 never the ambient runner-image Chrome, which is not pinned per commit (the fleet was observed serving
 HeadlessChrome/150 and /151 to jobs minutes apart on 2026-08-07). Drift is reported as one collapsed
@@ -350,11 +394,24 @@ unchanged: incomplete evidence still fails, independently of `enforce`.
 Because the numbers must come from that pinned browser, refresh the baseline **from a CI runner**,
 never a developer machine:
 
-1. Actions → CI → **Run workflow** → pick the branch → tick **refresh_lighthouse_baseline** → Run.
-2. Check the run's diff step prints exactly **one** distinct `chromeVersion`, and that it is the
-   pinned `HeadlessChrome/<major>`. More than one line means the refresh is not usable.
-3. Download the `lighthouse-baseline-refresh-<run_id>` artifact, review the per-route deltas, and
-   commit **only** `lighthouse-budget.json`.
+1. First establish a known-good source SHA: the complete required CI and release browser matrix for
+   that exact `main` commit must be green. A Lighthouse-only green run is not enough to bless an
+   otherwise red or unattributed source revision.
+2. Actions → CI → **Run workflow** at that exact SHA → tick **refresh_lighthouse_baseline** → Run.
+   Record the source SHA, workflow run URL/ID and artifact name.
+3. Require a successful measurement step and the complete raw report matrix: one JSON report for
+   every configured route × strategy, each for the requested page, each with usable LCP/TBT/CLS/FCP,
+   and every report naming the same pinned `HeadlessChrome/<version>` and configured Lighthouse
+   version. Any missing report, retry that never recovered, mixed browser identity, or runtime error
+   makes the refresh unusable.
+4. Require the shared `--validate-baseline` step to pass. It proves the generated file has the exact
+   expected row set, valid numeric fields and one browser identity; it does not prove the source SHA
+   is a good performance reference.
+5. Download `lighthouse-baseline-refresh-<run_id>`, inspect the authoritative raw reports and
+   per-route deltas for an understood application change, then copy the generated
+   `lighthouse-budget.json` byte-for-byte. Do not transcribe, round, selectively combine reports from
+   different runs, or hand-edit measurements. Commit only that file and cite the source SHA, run URL
+   and artifact in the change record.
 
 The refresh job is dispatch-only, is not `continue-on-error` (a refresh that measured nothing must go
 red), and deliberately cannot push — a workflow that can rewrite a gate's own baseline is a gate that

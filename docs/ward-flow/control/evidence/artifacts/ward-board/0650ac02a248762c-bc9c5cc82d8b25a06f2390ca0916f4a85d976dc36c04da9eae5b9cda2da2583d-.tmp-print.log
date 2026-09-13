@@ -1,0 +1,537 @@
+
+ RUN  v4.1.10 D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231
+
+Not implemented: navigation to another Document
+ ❯ |jsdom| tests/ward-board-selection.dom.test.tsx (15 tests | 1 failed) 3724ms
+     × prints its own ink on a light sheet whatever theme the screen was in 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |jsdom| tests/ward-board-selection.dom.test.tsx > ward board selection — what it looks like on paper > prints its own ink on a light sheet whatever theme the screen was in
+AssertionError: expected '@media print {\n  .screen {\n    min-…' to match /^\s*\.unitName,[\s\S]{0,400}?^\s*col…/m
+
+- Expected:
+/^\s*\.unitName,[\s\S]{0,400}?^\s*color:\s*CanvasText;\s*$/m
+
++ Received:
+"@media print {
+  .screen {
+    min-height: auto;
+    background: transparent;
+    /*
+     * **`color-scheme: light`, and it is what makes the `CanvasText` rules below actually work.**
+     * `CanvasText` is a SYSTEM colour: it resolves against the element's own colour scheme, and the
+     * app's `.dark` class sets that scheme to dark — so on a dark-themed sheet `CanvasText` resolved
+     * to WHITE and the first attempt at this fix left the ward name exactly as invisible as before.
+     * Measured, not assumed: `getComputedStyle(h1).color` came back `rgb(251, 252, 253)` on a white
+     * page both times. Paper is a light medium whatever the screen was set to, so the sheet declares
+     * itself light and every system colour under it resolves for paper.
+     */
+    color-scheme: light;
+  }
+
+  /*
+   * **The claim that used to sit here was WRONG and is corrected rather than deleted.** It read:
+   * \"the rail is a `<nav>`, already stripped by the global print reset (`header, nav, button {
+   * display: none !important }`), so its grid track collapses to zero width on its own\". Measured
+   * against the real printed sheet at 900px on 2026-08-29, `ClinicalRail` renders an `<aside>`
+   * (`ward-management.module.css`'s `.clinical`), which that reset does not touch: it prints as a
+   * 72px strip of navigation icons down the left of EVERY page, and the ward's content is inset by
+   * that much on all three. Left as found rather than fixed here, because the element belongs to
+   * another module and every Ward Flow screen that mounts the rail has the same sheet — a
+   * one-screen override in this file would fix the page in front of me and leave the other four,
+   * which is the mistake the previous print pass recorded making with `.regionHeader`. Flagged in
+   * this task's report.
+   *
+   * The content padding that used to live on `.screen` now lives on `.main` and is zeroed here in
+   * its place.
+   */
+  .main {
+    padding: 0;
+  }
+
+  /*
+   * THE DARK THEME'S PRINTED BOARD, and this is content loss rather than a contrast complaint.
+   *
+   * Measured on the real print-media render: in the dark theme the triage bar prints near-white ink
+   * (`rgb(244, 246, 248)`) on its own `--surface-chrome` fill (`rgb(14, 18, 22)`), and every tile's
+   * day count prints at `rgb(251, 252, 253)` on a band shade mixed into the DARK surface. A printer
+   * drops fills; what is left is white ink on white stock. The six capacity figures and the day
+   * count on every bed — the channel the whole colour-never-alone rule leans on — simply vanish.
+   *
+   * Two moves fix it, and both take the PAGE's own ink and ground rather than a theme token chosen
+   * for a screen:
+   *
+   *   1. `--wb-band-base` is the seam the band ramp was built with, documented at the top of this
+   *      file as \"the single seam where a future override would go\". Repointing it at `Canvas` for
+   *      print makes the four steps mix into the page instead of into a dark surface, so the ramp
+   *      stays four ordered steps of one hue and stays light enough to take black ink.
+   *   2. Everything that painted its own colour takes `CanvasText`.
+   *
+   * The light theme is unaffected: `--surface` is already near-white there, so `Canvas` is the same
+   * ground it was already mixing into, and every ink listed below already resolved to near-black.
+   */
+  .screen {
+    --wb-band-base: Canvas;
+    /*
+     * The two hatch/dot tokens go the same way, and for a defect seen on the same sheet: in the
+     * dark theme the out-of-service tile printed as a near-black square with its own \"Out of
+     * service\" label in dark ink on top of it — the words that are supposed to be what carries the
+     * fact once a printer drops a pattern. Grounded in the page and drawn in the page's ink, the
+     * hatch is black stripes on white and the words sit in the gaps, in both themes.
+     */
+    --wb-hatch-gap: Canvas;
+    --wb-hatch-line: CanvasText;
+  }
+
+  /*
+   * The legend's own swatches, third instance of the same measurement. `.legendSwatch` grounds
+   * itself in `--surface-subtle`, which is dark in the dark theme, so the two PATTERN swatches
+   * (out-of-service hatch, held dots) and the past-date outline printed as solid black squares —
+   * the index to the grid, unreadable, on a page whose grid it explains. The band swatches were
+   * already fine because they re-ground through `--wb-band-base` above; this puts the other three
+   * on the same footing. The past-date outline keeps its `--danger` colour, which is a second
+   * channel beside the words next to it, never the only one.
+   */
+  .legendSwatch {
+    border-color: CanvasText;
+  }
+
+  /*
+   * `background-color`, NEVER the `background` shorthand — a correction caught by cropping the
+   * printed legend and looking at it. The shorthand also resets `background-image`, which is the
+   * hatch and the dot pattern themselves, and it beat the four band fills on specificity: the first
+   * attempt printed all seven swatches as identical empty squares, turning the index to the grid
+   * into seven of the same box. The band swatches are deliberately NOT listed here — they re-ground
+   * through `--wb-band-base` above and keep their four ordered fills.
+   */
+  .legendSwatchBlocked,
+  .legendSwatchHeld,
+  .legendSwatchPast {
+    background-color: Canvas;
+  }
+
+  .triage {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  .triageHeading,
+  .triageLabel,
+  .triageValue,
+  .triageLedNote,
+  .days,
+  .daysUnit,
+  .waiting,
+  .blockedLabel,
+  .emptyLabel,
+  .heldLabel,
+  .selectedMark {
+    color: CanvasText;
+  }
+
+  .bed {
+    border: var(--wb-hairline) solid var(--border-strong);
+    break-inside: avoid;
+  }
+
+  .bedEmpty {
+    border-style: dashed;
+  }
+
+  /* Same reasoning as `.bedEmpty` just above: the dotted edge is a border style, not a
+     `background-image`, so it survives the print reset on its own — this line just makes that
+     explicit rather than leaving it implicit in the base rule. */
+  .bedHeld {
+    border-style: dotted;
+  }
+
+  /*
+   * The hatch is a `background-image` and the print reset may drop it, so on paper the words \"Out
+   * of service\" are what distinguish this tile — which is the arrangement the rule demands anyway
+   * (colour, and a pattern, never carry a fact alone). The plate behind those words is removed
+   * here: on a white sheet it is an invisible rectangle at best and a grey box at worst.
+   */
+  .blockedLabel {
+    background: transparent;
+    padding: 0;
+  }
+
+  /* Same reason as `.blockedLabel` just above: on a white sheet the plate is a grey box at best,
+     and the word \"Held\" is what carries the fact once the dot pattern may be gone. */
+  .heldLabel {
+    background: transparent;
+    padding: 0;
+  }
+
+  /*
+   * THE PAST-DATE BADGE, MEASURED OFF THE REAL SHEET RATHER THAN REASONED ABOUT.
+   *
+   * `.pastMark` is white ink (`--danger-solid-contrast`) on a `--danger-solid` fill, which is
+   * correct on both screen themes and wrong on paper: a printer drops the fill and leaves the white
+   * ink to be rendered at whatever the driver decides. Cropped out of the real PDF at 400 dpi, the
+   * words came back light grey on white — legible only if you already knew they were there, on the
+   * one mark on this board a coordinator most needs to notice. That is precisely the failure the
+   * colour-never-alone rule exists to prevent, and it was invisible in every check that reads
+   * computed styles: the computed `color` is `rgb(255,255,255)` in print media exactly as it is on
+   * screen, because the fill is dropped by the print PIPELINE and not by any CSS rule.
+   *
+   * The fix is the one `.blockedLabel` and `.heldLabel` above already carry — drop the plate and
+   * take the page's own ink — plus a hairline, so the words still read as a MARK rather than as
+   * another line of body text now that nothing encloses them. `CanvasText` follows the print
+   * medium's ink instead of resolving a theme token that may have been chosen for a dark screen,
+   * the same treatment `morning.module.css` documents on its own print block.
+   *
+   * This applies to the badge wherever it appears: the tiles carried it before this pass and the
+   * people panel carries it now, and the two must not diverge on paper.
+   */
+  /* `.awayMark` takes `.pastMark`'s treatment exactly — same shape on screen, same on paper, and
+     for the reason the comment above gives: the two badges must not diverge on paper. It sets its
+     own `--surface-inset` background and `--text-heading` ink, both of which are theme tokens
+     chosen for a screen. */
+  .awayMark,
+  .pastMark {
+    border: var(--wb-hairline) solid CanvasText;
+    /*
+     * `Canvas` — the page's own ground — rather than `transparent`, and this is a correction found
+     * by printing the DARK theme and looking at the sheet.
+     *
+     * `transparent` was right while the badge only ever sat on the page itself. It now also appears
+     * inside the printed occupant list, and in the dark theme that panel keeps its own dark
+     * `--surface-chrome` fill on paper — so a transparent badge with `CanvasText` ink (black, now
+     * that `.screen` declares `color-scheme: light` above) became black on a dark panel: invisible
+     * again, in the mirror image of the defect the ink rule just fixed. A `Canvas` plate makes the
+     * badge carry its own light ground wherever it lands, and it degrades correctly if a printer
+     * strips fills: everything around it loses its fill at the same time, leaving black on white.
+     */
+    background: Canvas;
+    color: CanvasText;
+  }
+
+  /* The panel is a long list and A4 is short: an entry split across a page break loses either its
+     day count or its expected date, and a reader has no way to tell which half they are looking
+     at. Kept whole, the same way `.bed` already is. */
+  .person {
+    break-inside: avoid;
+  }
+
+  /*
+   * THE PRINT RESTORE FOR THE TILE BUTTONS, and it is not optional.
+   *
+   * The global reset in `globals.css` carries `header, nav, button { display: none !important }`
+   * to strip workspace chrome off a sheet. The tiles became buttons when the board gained
+   * selection, so without this rule every tile vanishes and the printed board is an empty grid
+   * under a ward name — the exact defect this branch spent a day fixing on four other surfaces.
+   * A class selector (0,1,0) outranks the reset's bare element selector (0,0,1), so `!important`
+   * here wins against `!important` there without touching the global rule.
+   */
+  .bed {
+    display: flex !important;
+    border: var(--wb-hairline) solid var(--border-strong);
+    break-inside: avoid;
+    /* The tile's own inherited ink, for the same measured reason as the block above: in the dark
+       theme it is `--text-muted` at `rgb(168, 178, 189)`, which on white stock is a pale grey the
+       page ground nearly swallows. */
+    color: CanvasText;
+  }
+
+  /*
+   * THE DARK-THEME SHEET, and a defect found by printing this page with `.dark` set and LOOKING at
+   * it — not by any check that reads computed styles, because the computed colour is correct on
+   * screen and only wrong against paper.
+   *
+   * The global print reset forces `body { background: #fff; color: #000 }`, but every rule in this
+   * file that sets its own `color` overrides that inherited black. In the dark theme
+   * `--text-heading` resolves to a near-white (measured `rgb(251, 252, 253)`), so on a white sheet
+   * the WARD NAME, the headline figure and the footnote came out white on white — the printed board
+   * became a page of anonymous numbered boxes that could have come from any ward in the state,
+   * which is precisely the failure the `<div>`-instead-of-`<header>` note above already records
+   * fighting once.
+   *
+   * **This is not a regression from the three-zone rebuild — it is pre-existing.** The same capture
+   * taken against this branch's HEAD loses the ward name identically. It is repaired here because
+   * these are this file's own rules and a sheet that cannot say which ward it is is not a sheet.
+   *
+   * `CanvasText` follows the print medium's own ink rather than resolving a theme token chosen for
+   * a dark screen, which is the mechanism `.pastMark` below already uses and which was verified off
+   * a real 400dpi sheet. Only elements sitting on the PAGE GROUND are listed: everything inside a
+   * panel keeps its own painted background and the ink that goes with it.
+   */
+  .unitName,
+  .siteName,
+  .headlineValue,
+  .headlineLabel,
+  .constraint,
+  .asAtValue,
+  .asAtNote,
+  /* Sits on the page ground directly beneath `.asAtNote`, so it needs the same ink for the same
+     reason — and it is the sentence saying the board does not advance, which on paper is the only
+     way a reader can tell a fixed time from a stopped one. */
+  .asAtFixed,
+  .legend,
+  .occupancy,
+  .peopleAbsence,
+  .footnote {
+    color: CanvasText;
+  }
+
+  /*
+   * THE DAILY SHEET IS PAGE ONE, and the board's own flow panels come off the sheet with it.
+   *
+   * `break-after: page` puts the heading block — ward, hospital, headline figure, the sentence that
+   * qualifies it, and the \"as at\" stamp — together with D19's four groups on one A4 page. That page
+   * is the artefact: a charge nurse takes it into the morning meeting and reads it out.
+   *
+   * **`.flowColumn` and `.destinations` are hidden here because the sheet CARRIES them, not because
+   * they are unwanted on paper.** Coming in, going out today, since yesterday and where people are
+   * heading are all on the sheet above, arranged for reading aloud rather than for scanning beside a
+   * grid. Printing both put the same four facts on the sheet twice, in two different arrangements,
+   * on the one page whose whole job is to be quoted out loud — and two arrangements of one fact is
+   * how a meeting ends up arguing about which is current. Nothing is lost: every figure in those
+   * panels appears above, from the same values, because the board hands the sheet what it already
+   * computed rather than letting it derive anything.
+   *
+   * The bed grid stays on paper. It is the picture, not a list, and the sheet does not reproduce it.
+   */
+  /*
+   * **MEASURED OFF THE DARK-THEME SHEET, NOT REASONED ABOUT — and it would have lost the whole of
+   * page one.**
+   *
+   * On screen the sheet is near-white ink (`--text`, measured `rgb(244, 246, 248)` in dark) on the
+   * panel's own `--surface-chrome` fill (measured `rgb(14, 18, 22)`), which is correct on a dark
+   * screen and is a trap on paper: a printer drops fills, and what is left is white ink on white
+   * stock. That is not a contrast complaint, it is the entire handover sheet disappearing — the
+   * same failure the ward name already hit once on this page, one layer in.
+   *
+   * The fix is the one `.pastMark` and the heading block above already carry: take the PAGE's own
+   * ground and the PAGE's own ink, so the sheet is black on white whatever the screen was set to,
+   * and every hairline on it is drawn in ink rather than in a theme border colour that is pale by
+   * design. `Canvas`/`CanvasText` resolve against the print medium because `.screen` declares
+   * `color-scheme: light` at the top of this block.
+   */
+  /*
+   * THE SHEET IS ONE PAGE WHERE IT CAN BE, and the numbers below are measured, not reasoned.
+   *
+   * Success criterion 6 asks for one A4 sheet. Under print media at A4 width the heading block plus
+   * the sheet measured 1059px on the 17-bed `bty-adult-secure` against 1123px of page, and 1170px
+   * on the 20-bed `rph-adult-secure` — 47px, about three lines, over.
+   *
+   * **The obvious fix was tried and made it worse, which is why the column minimum is NOT touched
+   * here.** Narrowing it to get all five groups into one row instead of three-then-two looked
+   * right and measured wrong: narrower columns wrap the prose harder, and every group grows more
+   * than the saved row was worth. Swept across 10 / 13 / 16 / 20 / 24rem on three wards, the
+   * screen's own 13rem is the minimum at every one of them (bty 1051 / 1162 / 1365 against
+   * 1231 / 1447 / 1626 at 10rem and 1178 / 1358 / 1573 at 16rem). The sweep is recorded so nobody
+   * re-derives the plausible version of this and ships it.
+   *
+   * What is left is whitespace: tighter gutters between groups and tighter standing-note rules.
+   * **Nothing is removed to gain the space** — not a row, not a note, not a person. That matters:
+   * the occupant list carries a standing rule that it is never truncated, because a reader cannot
+   * tell a shortened list is short, and the same rule governs here.
+   *
+   * A ward with many people in the attention groups still runs to a second page, and that is
+   * correct rather than a defect: the alternative is a sheet that quietly leaves somebody off.
+   */
+  .sheetGroups {
+    gap: var(--wb-space-8);
+    margin-top: var(--wb-space-8);
+  }
+
+  .sheetNote {
+    margin-top: var(--wb-space-4);
+    padding-top: var(--wb-space-4);
+  }
+
+  /* The rows already divide on a hairline, so the screen's extra gap around it is doing the job
+     twice. Halved rather than removed: a rule with no air either side reads as a table border. */
+  .sheetList {
+    gap: var(--wb-space-4);
+  }
+
+  .sheetRow:not(:first-child) {
+    padding-top: var(--wb-space-4);
+  }
+
+  .sheet {
+    break-after: page;
+    background: Canvas;
+    border-color: CanvasText;
+    /* On the container as well as on every class inside it, so a line of text added later without a
+       class of its own inherits the page's ink rather than the dark theme's. */
+    color: CanvasText;
+  }
+
+  .sheetHeading,
+  .sheetIntro,
+  .sheetSince,
+  .sheetGroupHeading,
+  .sheetGroupCount,
+  .sheetRowLead,
+  .sheetRowBand,
+  .sheetRowLine,
+  /* Added 2026-08-30 WITH the element itself, not after somebody noticed a blank line on paper.
+     `.sheetRowAway` sets its own `--text-heading`, which resolves to a near-white in the dark
+     theme — so without this the one line saying a patient is not on the ward printed white on
+     white, on the sheet that is read aloud at handover. Exactly the defect this block already
+     exists to fix, reintroduced by a new rule that set a colour. */
+  .sheetRowAway,
+  .sheetNote {
+    color: CanvasText;
+  }
+
+  .sheetGroup {
+    border-left-color: CanvasText;
+  }
+
+  .sheetRow:not(:first-child),
+  .sheetNote {
+    border-top-color: CanvasText;
+  }
+
+  .flowColumn,
+  .destinations {
+    display: none !important;
+  }
+
+  /* A group split across a page break loses either its heading or its rows, and a reader has no way
+     to tell which half they are holding. Kept whole, the same way `.bed` and `.person` already are. */
+  .sheetGroup,
+  .sheetRow {
+    break-inside: avoid;
+  }
+
+  /*
+   * The rest of the board's buttons are genuinely chrome and stay hidden: the triage toggle and
+   * the slide-out's Close cannot be operated on paper, and the basis they select is printed in
+   * words on the \"Going out today\" panel instead, so nothing is lost by their absence.
+   *
+   * The slide-out itself goes too. It is one person chosen by an interaction that leaves no mark
+   * on the sheet, and the full list below carries that person along with everyone else — with the
+   * selected entry marked in words and weight, so a reader can still see which one was open.
+   *
+   * `.triageToggle` goes as a WHOLE GROUP, not just its buttons — found by printing the page and
+   * looking at it. The global reset removes the two buttons but not the `<span>` labelling them,
+   * so the sheet carried a heading reading \"GOING OUT SHOWS\" with nothing whatever underneath it:
+   * a label for a control the reader cannot see, which reads as content that failed to render. The
+   * basis it selects is printed in words on the \"Going out today\" panel instead, so nothing is
+   * lost by removing the group entirely.
+   */
+  .detail,
+  .selectHint,
+  .triageToggle {
+    display: none !important;
+  }
+
+  /*
+   * WHO IS IN THESE BEDS, restored: every occupant and their discharge plan. This is the deliverable
+   * from 281bdf83f, kept whole on paper after the screen moved to one-at-a-time selection.
+   */
+  /*
+   * Same measurement, same fix, one panel over. This aside carries the identical dark
+   * `--surface-chrome` fill and near-white ink, and it is pages three and four of the same printed
+   * document — so a sheet whose page one had been repaired while its occupant list still printed
+   * white on white would be a half-fixed defect, which is worse than an obvious one.
+   */
+  .people {
+    display: block;
+    break-before: page;
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+
+  /* The hairline between occupants is `--border`, which is pale by design in the dark theme and so
+     disappears on white stock along with the ink it separates. Drawn in the page's own ink instead,
+     the same treatment the sheet's own rules take a few lines up. */
+  .person:not(:first-child) {
+    border-top-color: CanvasText;
+  }
+
+  .peopleHeading,
+  .peopleIntro,
+  .personStay,
+  .personDays,
+  .personBand,
+  .personNoStay,
+  .personWho,
+  .personLine,
+  /* The fourth of the same defect, all introduced in one night by rules that each set a colour.
+     `.personAway` is the people panel's copy of the at-an-ED line; the sheet's copy is handled
+     with the sheet block above. Neither is optional on paper: a printed occupant list that cannot
+     say somebody is off the ward is the list a handover reads from. */
+  .personAway,
+  .personExpected,
+  .personBlocker,
+  .personSelectedMark {
+    color: CanvasText;
+  }
+
+  /* Selection on paper is WEIGHT and a word, never a fill — a filled entry on a sheet that has
+     recorded no decision reads as a decision made. */
+  .personSelected {
+    border-left: var(--wb-outline-heavy) solid CanvasText;
+    padding-left: var(--wb-space-8);
+  }
+
+  .personSelectedMark {
+    margin: 0 0 var(--wb-space-4);
+    font-size: var(--text-3xs);
+    font-weight: 700;
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+}
+
+/*
+ * Reserve the fixed phone bar's height, the same way every other Ward Flow shell does
+ * (`ward-management.module.css`, `ward-management-modes.module.css`, and the rest).
+ *
+ * Added at the ward board fold, 2026-08-29. This file and the phone contract that requires it were
+ * built on different branches and had never met: the board screen shipped with no phone media query
+ * at all, so on a phone its first row would have sat underneath the fixed bar. Nothing on the board
+ * branch could have caught it, because the contract lived on the other one — which is the fold
+ * doing its job rather than the fold breaking something.
+ */
+@media (max-width: 40rem) {
+  .screen {
+    /* Reserve the fixed phone bar (ward-sidebar.module.css). */
+    padding-top: var(--spacing-ward-phone-bar);
+  }
+}
+
+/* The printed list's \"Selected on screen\" marker. Defined on the base selector as well as in the
+   print block so the class is never defined only inside a media query — the same discipline the
+   band ramp holds to. The panel itself is `display: none` on screen, so these are only ever seen
+   on paper; they are declared here so nothing about them is conditional. */
+.personSelected {
+  border-left: var(--wb-outline-heavy) solid var(--text-heading);
+  padding-left: var(--wb-space-8);
+}
+
+.personSelectedMark {
+  margin: 0 0 var(--wb-space-4);
+  color: var(--text-heading);
+  font-size: var(--text-3xs);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+"
+
+ ❯ tests/ward-board-selection.dom.test.tsx:345:24
+    343|     // `*`, so a line-anchored declaration cannot be satisfied by one.
+    344|     expect(printBlock).toMatch(/^\s*color-scheme:\s*light;\s*$/m);
+    345|     expect(printBlock).toMatch(/^\s*\.unitName,[\s\S]{0,400}?^\s*color…
+       |                        ^
+    346|     // And the past-date badge carries its own light ground, so it sta…
+    347|     // occupant list — which keeps a dark panel fill when the screen t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 80 passed (81)
+      Tests  1 failed | 1212 passed (1213)
+   Start at  06:46:55
+   Duration  52.17s (transform 8.03s, setup 11.61s, import 21.56s, tests 100.22s, environment 47.11s)
+

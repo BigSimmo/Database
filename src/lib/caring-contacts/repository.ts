@@ -66,6 +66,7 @@ import type { Contact, Plan, PlanState, ProviderStatus, Referral, SendingPrefere
 import type { NotificationPreferences } from "./notification-preferences";
 import type { PathwayVersion, PathwayVersionAction } from "./pathway-versions";
 import type { CaringContactAction, CaringContactActor } from "./permissions";
+import type { ReferralIntakePayload } from "./referral-intake";
 import type { ReferralAction } from "./referrals";
 import type {
   ServiceRestartApprovalRole,
@@ -715,7 +716,22 @@ export type ContactProviderStatusInput = ContactStatusInput & { status: Provider
 
 export type RepositoryOptions = { auditSink?: AuditSink };
 
-export type CreateReferralInput = { referralId: ReferralId; patientId: PatientId };
+/**
+ * Clinical payload captured at hospital referral intake (Hazard H-44).
+ *
+ * Defined in ./referral-intake so the plan wizard (client) can name the persisted
+ * shape without importing this contract — this file imports `service-state`.
+ * Kept off the `Referral` identity record (identifiers + state only) but persisted
+ * beside it so success UX and the plan wizard can round-trip what was actually written.
+ */
+export type { ReferralIntakePayload };
+
+export type CreateReferralInput = {
+  referralId: ReferralId;
+  patientId: PatientId;
+  /** Optional H-44 intake clinical payload; omitted by non-intake referral creators. */
+  intakePayload?: ReferralIntakePayload | null;
+};
 export type ReferralTransitionInput = { referralId: ReferralId; action: ReferralAction };
 export type SavePathwayVersionInput = { version: PathwayVersion };
 export type PathwayVersionTransitionInput = { pathwayVersionId: PathwayVersionId; action: PathwayVersionAction };
@@ -811,6 +827,11 @@ export interface CaringContactRepository {
   createReferral(input: CreateReferralInput, context: WriteContext): Promise<TransitionResult<Referral>>;
   transitionReferral(input: ReferralTransitionInput, context: WriteContext): Promise<TransitionResult<Referral>>;
   listReferrals(context: ReadContext): Promise<Referral[]>;
+  /**
+   * The H-44 intake clinical payload stored with `createReferral`, or null when none was written
+   * or the referral is not visible to this actor. Never invents fields from an adapter echo.
+   */
+  getReferralIntakePayload(referralId: ReferralId, context: ReadContext): Promise<ReferralIntakePayload | null>;
 
   // Pathway versions
   savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext): Promise<TransitionResult<PathwayVersion>>;
@@ -889,10 +910,11 @@ export interface CaringContactRepository {
    * transaction (Ruling 64: a record named "cleared" must mean cleared).
    *
    * WHAT IT REACHES, which is wider than the plan row and was not always. The plan's patient
-   * columns (`CLEARED_PATIENT_DETAIL`) and the cultural-identity projection, plus the three stores
-   * of free text about the patient that live outside that row: the handover note on every
-   * reassignment of this plan, the discrepancy note on every dispatch of its contacts, and the
-   * stored answer of every replay record filed against it. See `CLEARED_PATIENT_FREE_TEXT` and
+   * columns (`CLEARED_PATIENT_DETAIL`) and the cultural-identity projection, plus the free-text
+   * stores about the patient that live outside that row: the handover note on every reassignment
+   * of this plan, the discrepancy note on every dispatch of its contacts, the stored answer of
+   * every replay record filed against it, and the H-44 `intake_payload` jsonb on the linked
+   * referral (name, mobile, clinicalSummary, safetyAlerts). See `CLEARED_PATIENT_FREE_TEXT` and
    * `RETENTION_CLEARED_REPLAY_ANSWER`; the replay record is redacted rather than deleted, and that
    * distinction is a guarantee rather than an implementation detail.
    *
@@ -917,7 +939,19 @@ export interface CaringContactRepository {
    */
   listPatientNames(context: ReadContext): Promise<PatientNameProjection[]>;
   listContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;
-  /** The contacts that may actually go out. Keyed off contact state, never off `sendAt`. */
+  /**
+   * The contacts that may actually go out.
+   *
+   * Keyed off the OWNING PLAN's state and then the contact's own, never off `sendAt`. The plan half
+   * arrived with #PAMATF: contacts are written `scheduled` at creation, while the plan is still a
+   * draft, and no plan lifecycle write touches them -- so a contract keyed on the contact alone
+   * promised a draft plan's messages, and a paused plan's, as work about to happen. Both stores
+   * consult `planSendingHold` in ./model, so neither can answer it its own way.
+   *
+   * Empty for a held plan, which is deliberately the same answer a plan with nothing left to send
+   * gives: this returns what may go out, and a caller that needs to know WHY nothing may has
+   * `planSendingHold` itself, which distinguishes not-started, paused and ended.
+   */
   listSendableContacts(planId: PlanId, context: ReadContext): Promise<StoredContact[]>;
   listAuditEvents(context: ReadContext): Promise<AuditEvent[]>;
   getEpisode(planId: PlanId, context: ReadContext): Promise<Episode | null>;

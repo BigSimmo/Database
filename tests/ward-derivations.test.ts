@@ -6,15 +6,17 @@ import {
   buildActionInbox,
   destinationNoLongerLawful,
   eligibleCandidatesAmong,
+  isOpen,
   restrictionNotice,
   transportLeg,
 } from "../src/components/ward-management/ward-derivations";
-import { eligibility } from "../src/components/ward-management/ward-eligibility";
+import { eligibility, requiresAuthorisedDestination } from "../src/components/ward-management/ward-eligibility";
 import {
   DECLINE_REASONS,
   PARALLEL_REFERRAL_CAP,
   type Decline,
   type Movement,
+  type MovementId,
   type TransportJob,
 } from "../src/components/ward-management/ward-model";
 import { wardMovements } from "../src/components/ward-management/ward-movements";
@@ -23,7 +25,7 @@ import { allUnits, NOW_ANCHOR } from "../src/components/ward-management/ward-sit
 function transportJob(overrides: Partial<TransportJob> = {}): TransportJob {
   return {
     id: "TR-TEST",
-    provider: "St John WA",
+    provider: "Patient transport service",
     escortRequired: true,
     ...overrides,
   };
@@ -93,15 +95,15 @@ describe("buildActionInbox", () => {
    */
   it("emits a legal-timing item for EVERY past-due movement, not just the first", () => {
     const first = movementFrom({
-      id: "TEST-legal-one",
+      id: "WF-TEST-legal-one",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 20 },
     });
     const second = movementFrom({
-      id: "TEST-legal-two",
+      id: "WF-TEST-legal-two",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR - 90 },
     });
     const notDue = movementFrom({
-      id: "TEST-legal-not-due",
+      id: "WF-TEST-legal-not-due",
       legalForm: { code: "4A", kind: "transport", dueAt: NOW_ANCHOR + 500 },
     });
 
@@ -112,7 +114,7 @@ describe("buildActionInbox", () => {
 
     // Both past-due movements, and only those two. `.slice(0, 1)` or a `.find()` yields one id
     // and fails; a filter that ignored `clockState` would also emit the not-due one and fail.
-    expect(items).toEqual(["legal-TEST-legal-one", "legal-TEST-legal-two"]);
+    expect(items).toEqual(["legal-WF-TEST-legal-one", "legal-WF-TEST-legal-two"]);
   });
 
   // Regression proof for the 2026-08-23 correction: WF-303 is the real fixture Form 1A that an
@@ -155,16 +157,16 @@ describe("buildActionInbox", () => {
   // involved here at all — this category counts declines.
   it("emits a declines item for EVERY capped movement, not just the first", () => {
     const decline = (unitId: string): Decline => ({ unitId, at: NOW_ANCHOR - 60, reason: DECLINE_REASONS[0] });
-    const capped = (id: string): Movement =>
+    const capped = (id: MovementId): Movement =>
       movementFrom({ id, declines: [decline("unit-a"), decline("unit-b"), decline("unit-c")] });
-    const underCap = movementFrom({ id: "TEST-declines-under", declines: [decline("unit-a")] });
+    const underCap = movementFrom({ id: "WF-TEST-declines-under", declines: [decline("unit-a")] });
 
-    expect(capped("TEST-declines-one").declines.length, "fixture assumption: three declines meets the cap").toBe(
+    expect(capped("WF-TEST-declines-one").declines.length, "fixture assumption: three declines meets the cap").toBe(
       PARALLEL_REFERRAL_CAP,
     );
 
     const items = buildActionInbox(
-      [capped("TEST-declines-one"), capped("TEST-declines-two"), underCap],
+      [capped("WF-TEST-declines-one"), capped("WF-TEST-declines-two"), underCap],
       NOW_ANCHOR,
       allUnits(),
     )
@@ -172,7 +174,7 @@ describe("buildActionInbox", () => {
       .map((item) => item.id)
       .sort();
 
-    expect(items).toEqual(["declines-TEST-declines-one", "declines-TEST-declines-two"]);
+    expect(items).toEqual(["declines-WF-TEST-declines-one", "declines-WF-TEST-declines-two"]);
   });
 
   // Fix wave 2, finding 3 — checked for the same shape as the declines category above. Two
@@ -204,20 +206,56 @@ describe("buildActionInbox", () => {
   // The drawer's toggle count and the drawer's own rendered rows must agree (Task 8 ruling 3).
   // This is the model-side half of that guarantee: the total item count really is the sum of
   // every category's own real count, never a number computed independently of the rows below it.
-  it("lists expired bed holds so a lapsed reservation cannot disappear silently", () => {
+  it("lists expired bed pulls so a lapsed reservation cannot disappear silently", () => {
     const expired = wardMovements.find((movement) => movement.id === "WF-004")!;
-    expect(expired.bedHeldUntil).toBeLessThan(NOW_ANCHOR);
+    expect(expired.pullExpiresAt).toBeLessThan(NOW_ANCHOR);
 
     expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toContainEqual(
       expect.objectContaining({
-        id: "bed-hold-WF-004",
-        title: "Bed hold expired",
+        id: "bed-pull-WF-004",
+        title: "Bed pull expired",
         movementId: "WF-004",
       }),
     );
   });
 
-  it("returns exactly as many items as the four categories combined — no more, no fewer", () => {
+  /**
+   * ⚠️ **THE COUNT TEST BELOW CANNOT PROVE THIS CATEGORY EXISTS, AND SINCE 2026-09-05 NOTHING ELSE
+   * COULD EITHER.** The fixture's one unlawful placement (WF-318) was a defect in the generated
+   * data and was fixed at its source, so the category's real population is now zero — which means
+   * the sum test agrees whether `buildActionInbox` emits these items or has the whole block
+   * deleted. `destinationNoLongerLawful` has its own suite further down; what had NO guard was the
+   * inbox actually surfacing what it returns. This is that guard, on an injected movement rather
+   * than on a fixture population that is allowed to be empty.
+   */
+  it("surfaces an accepted destination that is no longer lawful, on a movement built to be one", () => {
+    // A real fixture unit that is `authorised: false` — private, and never authorised to receive
+    // an involuntary admission under the Mental Health Act (see its own comment in ward-sites.ts).
+    const unlawful = movementFrom({ legalStatus: "Involuntary inpatient", acceptedUnitId: "sjgs-adult-open" });
+
+    expect(buildActionInbox([unlawful], NOW_ANCHOR, allUnits())).toContainEqual(
+      expect.objectContaining({
+        id: `destination-unlawful-${unlawful.id}`,
+        title: "Accepted destination no longer lawful",
+        movementId: unlawful.id,
+      }),
+    );
+  });
+
+  /**
+   * ⚠️ **THIS TEST WAS BLIND TO A WHOLE CATEGORY BY CONSTRUCTION, AND ITS OWN NAME SAID SO.**
+   *
+   * It counted FOUR categories against an inbox that builds FIVE — `destination-unlawful-` has
+   * been in `buildActionInbox` since it was written and was never in the sum. For a long time
+   * nothing showed it, because no movement in the fixture qualified; the day one did
+   * (`be5327210` moved the generated destination pool) this went red on "expected 4, got 5" and
+   * read as the derivation being broken when the derivation was right.
+   *
+   * Two things are asserted, because the count alone cannot notice a category it does not know
+   * about. The second is the one that matters: it fails on a SIXTH category being added without
+   * being counted here, which is the failure this test has already had once.
+   */
+  it("counts every inbox category, and goes red if a new one appears uncounted", () => {
     const legalCount = wardMovements.filter(
       (movement) =>
         movement.legalForm?.dueAt !== undefined && clockState(movement.legalForm.dueAt, NOW_ANCHOR) === "breached",
@@ -231,12 +269,56 @@ describe("buildActionInbox", () => {
     ).length;
     const expiredHoldCount = wardMovements.filter(
       (movement) =>
-        movement.stage === "bed_held" && movement.bedHeldUntil !== undefined && movement.bedHeldUntil < NOW_ANCHOR,
+        movement.stage === "pulled" && movement.pullExpiresAt !== undefined && movement.pullExpiresAt < NOW_ANCHOR,
     ).length;
+    // Re-expressed from the movement's own fields rather than by calling
+    // `destinationNoLongerLawful` — the function `buildActionInbox` itself calls. Counting a
+    // category with the very predicate that produced it is a tautology: it agrees by
+    // construction and can never report a disagreement. The other four terms here are
+    // independent re-expressions for the same reason.
+    /*
+     * 🔴 **THIS ASSERTION COUNTED FOUR CATEGORIES WHILE `buildActionInbox` BUILDS FIVE.** It passed
+     * for as long as the fifth — "Accepted destination no longer lawful" — happened to be empty,
+     * and it would have broken on any change that populated it. Which is exactly what happened on
+     * 2026-09-04: a fixture change re-pointed a generated acceptance onto an unauthorised ward, the
+     * fifth category fired for WF-318, and this test failed with "expected 4, got 5".
+     *
+     * ⚠️ **THE FAILURE WAS CORRECT AND THE OBVIOUS FIX WOULD HAVE BEEN WRONG.** Editing the four to
+     * a five would have made it green while leaving a generated patient accepted somewhere that
+     * could not lawfully hold them — and the fifth category is precisely the safety flag that
+     * noticed. The fixture was repaired instead; see `fallbackUnitId`.
+     *
+     * The fifth is counted now, so this can never again pass by a category being empty.
+     *
+     * ⚠️ **BOTH BRANCHES WROTE THIS COUNT INDEPENDENTLY AND ONE OF THEM OMITTED `isOpen`.**
+     * `destinationNoLongerLawful` gates on it first, so a CLOSED movement holding an unauthorised
+     * accepted unit is not emitted by the inbox — but a count without that line would still tally
+     * it, and the assertion would fail with the derivation innocent. It is invisible today only
+     * because the fixture now holds no unlawful placement at all, so both versions count nought.
+     * The line stays.
+     */
+    const unlawfulDestinationCount = wardMovements.filter((movement) => {
+      if (!isOpen(movement)) return false;
+      if (!requiresAuthorisedDestination(movement.legalStatus)) return false;
+      const unit = allUnits().find((candidate) => candidate.id === movement.acceptedUnitId);
+      return unit !== undefined && !unit.authorised;
+    }).length;
 
-    expect(buildActionInbox(wardMovements, NOW_ANCHOR, allUnits())).toHaveLength(
-      legalCount + declineCount + transportCount + expiredHoldCount,
+    const items = buildActionInbox(wardMovements, NOW_ANCHOR, allUnits());
+
+    expect(items).toHaveLength(
+      legalCount + declineCount + transportCount + expiredHoldCount + unlawfulDestinationCount,
     );
+
+    // The anti-blindness half. Every id prefix the inbox can emit, listed here so a new category
+    // cannot be added without this file being opened — the count above would happily stay right
+    // for the four it knows while a fifth went unnoticed, which is exactly what happened.
+    const KNOWN_CATEGORY_PREFIXES = ["legal-", "declines-", "transport-", "bed-pull-", "destination-unlawful-"];
+    const unrecognised = items.filter((item) => !KNOWN_CATEGORY_PREFIXES.some((prefix) => item.id.startsWith(prefix)));
+    expect(
+      unrecognised.map((item) => item.id),
+      "a category this test does not count is a category this test cannot guard",
+    ).toEqual([]);
   });
 
   it("gives every item a unique id even with several movements in the same category", () => {

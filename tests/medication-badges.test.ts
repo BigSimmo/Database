@@ -7,7 +7,12 @@ import {
   medicationRowBadges,
   medicationStatTone,
 } from "@/lib/medication-badges";
-import { deriveGovernanceFromSections, evaluateSourceStatus, parseSourceDate } from "@/lib/medication-records";
+import {
+  deriveGovernanceFromSections,
+  deriveMedicationSourceGovernance,
+  evaluateSourceStatus,
+  parseSourceDate,
+} from "@/lib/medication-records";
 import type { MedicationRecord } from "@/lib/medications";
 
 describe("medication badge mappers", () => {
@@ -210,6 +215,119 @@ describe("controlled-drug (S8) schedule badge", () => {
   });
 });
 
+describe("formulation strength badge", () => {
+  // The hero identity badge is the glanceable strength on a medication record,
+  // so a number here is one a clinician can act on. Three token shapes broke it:
+  // a decimal strength read from its fractional digits ("0.5 mg" -> "5 mg"), a
+  // per-volume concentration read as a unit strength ("5 mg/mL" -> "5 mg"), and
+  // a combination product read as one of its parts ("2/0.5 mg" -> "5 mg").
+  const baseRecord: MedicationRecord = {
+    slug: "test-formulation",
+    name: "Test Formulation",
+    class: "",
+    subclass: "",
+    category: "",
+    accent: "#0f766e",
+    tag: "",
+    schedule: "",
+    stats: [],
+    sections: [],
+    quick: [],
+  };
+
+  function formulationBadge(routeFormulation: string) {
+    const badges = medicationIdentityBadges({
+      ...baseRecord,
+      quick: [{ label: "Route / Formulation", value: routeFormulation }],
+    });
+    return badges.find((badge) => badge.id === "identity-formulation")?.label ?? null;
+  }
+
+  function accessFormulationBadge(oralRoutes: string) {
+    const badges = medicationAccessBadges({
+      ...baseRecord,
+      sections: [{ title: "Formulation", type: "form", rows: [{ key: "Oral Routes", val: oralRoutes }] }],
+    });
+    return badges.find((badge) => badge.id === "access-formulation")?.label ?? null;
+  }
+
+  it("keeps the decimal point of a sub-milligram strength", () => {
+    expect(formulationBadge("Tablets (0.5 mg, 1 mg). Take strictly after food.")).toBe("0.5 mg tablet");
+  });
+
+  it("keeps the decimal point of a fractional strength", () => {
+    expect(formulationBadge("Tablets (7.5 mg, 15 mg).")).toBe("7.5 mg tablet");
+  });
+
+  it("skips a per-millilitre concentration and reads the unit strength that follows", () => {
+    expect(formulationBadge("Oral liquid syrup (5 mg/mL). Tablets (10 mg).")).toBe("10 mg tablet");
+  });
+
+  it("shows no strength badge when the only number is a concentration", () => {
+    expect(formulationBadge("Ampoules (80 mg/2 mL) for IV infusion.")).toBeNull();
+    expect(formulationBadge("Oral viscous solution (20 mg/mL).")).toBeNull();
+  });
+
+  it("shows no strength badge for a combination product's paired strengths", () => {
+    // Neither number in "2/0.5 mg" is the product's strength, so no badge is the
+    // only honest answer; the full formulation text stays in the sections below.
+    expect(formulationBadge("Sublingual/buccal films (2/0.5 mg and 8/2 mg supplied in Australia).")).toBeNull();
+    expect(formulationBadge("Tablets (500/125 mg, 875/125 mg).")).toBeNull();
+  });
+
+  it("still reads a plain integer strength, enteric coating included", () => {
+    expect(formulationBadge("Enteric-coated tablets (333 mg).")).toBe("333 mg EC tablet");
+    expect(accessFormulationBadge("Enteric-coated tablets (333 mg).")).toBe("333 mg EC tablet");
+  });
+
+  it("applies the same rules to the access badge's Oral routes row", () => {
+    expect(accessFormulationBadge("Tablets (0.5 mg, 1 mg).")).toBe("0.5 mg tablet");
+    expect(accessFormulationBadge("Oral liquid drops (7.5 mg/mL). Oral powder sachets (bowel prep).")).toBeNull();
+  });
+
+  it("reproduces the committed records the misread strength was found on", () => {
+    for (const [slug, expected] of [
+      ["varenicline", "0.5 mg tablet"],
+      ["meloxicam", "7.5 mg tablet"],
+      ["methadone", "10 mg tablet"],
+      ["nicotine-lozenge", "1.5 mg"],
+      ["colchicine", "0.5 mg tablet"],
+    ] as const) {
+      const record = getMedicationRecord(slug);
+      expect(record, `${slug} fixture missing`).toBeTruthy();
+      const badge = medicationIdentityBadges(record!).find((item) => item.id === "identity-formulation");
+      expect(badge?.label, slug).toBe(expected);
+    }
+  });
+
+  it("never invents a strength the source text does not state, across the whole corpus", () => {
+    for (const record of loadMedicationSnapshot()) {
+      const sources = [
+        record.quick.find((row) => row.label.toLowerCase().includes("route / formulation"))?.value ?? "",
+        record.sections
+          .find((section) => section.type === "form")
+          ?.rows.find((row) => row.key.toLowerCase().includes("oral routes"))?.val ?? "",
+      ].join(" ");
+
+      const badges = [...medicationIdentityBadges(record), ...medicationAccessBadges(record)].filter(
+        (badge) => badge.id === "identity-formulation" || badge.id === "access-formulation",
+      );
+
+      for (const badge of badges) {
+        const strength = badge.label.match(/^(\d+(?:\.\d+)?)\s*mg\b/);
+        if (!strength) continue;
+        // The badged number must appear as a whole strength token in the source:
+        // not as the tail of a longer number ("0.5 mg" badged as "5 mg"), and not
+        // as a per-volume concentration ("5 mg/mL") or one half of a combination.
+        const token = new RegExp(String.raw`(?<![\d./])${strength[1].replace(".", String.raw`\.`)}\s*mg\b(?!\s*/)`);
+        expect(token.test(sources), `${record.slug}: badge "${badge.label}" is not a strength in "${sources}"`).toBe(
+          true,
+        );
+      }
+    }
+  });
+});
+
 describe("medication governance date evaluation", () => {
   it("parses valid ISO dates and rejects negative phrases", () => {
     expect(parseSourceDate("checked 2026-06-30 for this entry")).toEqual(new Date("2026-06-30T00:00:00.000Z"));
@@ -223,6 +341,50 @@ describe("medication governance date evaluation", () => {
     // to March 1 rather than throwing. parseSourceDate must reject this rather than reporting
     // a fabricated "checked" date one day off from what the source text actually said.
     expect(parseSourceDate("checked 2026-02-29 for this entry")).toBeNull();
+  });
+
+  it("reports the OLDEST date in a multi-source block, not the first one it finds", () => {
+    // A source section can cite several publications. Reporting the newest (or simply
+    // the first) lets one recently re-checked line vouch for every stale source beside
+    // it. No snapshot record carries two distinct dates today, so this pins intent.
+    expect(parseSourceDate("TGA PI 2026-05-14; RANZCP guideline 2021-03-02")).toEqual(
+      new Date("2021-03-02T00:00:00.000Z"),
+    );
+    expect(parseSourceDate("RANZCP guideline 2021-03-02; TGA PI 2026-05-14")).toEqual(
+      new Date("2021-03-02T00:00:00.000Z"),
+    );
+  });
+
+  it("rejects the whole block when any date in it is an impossible calendar date", () => {
+    // Reporting the surviving neighbour would present a date the source text does not
+    // say. An unreadable date anywhere makes the block untrustworthy.
+    expect(parseSourceDate("checked 2026-02-29 and 2020-01-01")).toBeNull();
+  });
+
+  it("treats a future source date as unknown rather than permanently current", () => {
+    const refDate = new Date("2026-08-26T00:00:00.000Z");
+    // A "2126" typo gives a large negative age, which passes the interval test and
+    // would read as freshly checked forever.
+    expect(evaluateSourceStatus(new Date("2126-05-14T00:00:00.000Z"), refDate, 365)).toBe("unknown");
+    expect(evaluateSourceStatus(new Date("2026-09-30T00:00:00.000Z"), refDate, 365)).toBe("unknown");
+    // One day of timezone slack (Perth is UTC+8) still counts as checked.
+    expect(evaluateSourceStatus(new Date("2026-08-26T18:00:00.000Z"), refDate, 365)).toBe("current");
+  });
+
+  it("withholds the checked-on date whenever the status is unknown", () => {
+    const refDate = new Date("2026-08-26T00:00:00.000Z");
+    const sections = [{ title: "Sources", type: "src", rows: [{ key: "Source Review", val: "checked 2126-05-14" }] }];
+    const derived = deriveMedicationSourceGovernance(sections, refDate);
+    expect(derived.sourceStatus).toBe("unknown");
+    expect(derived.sourceCheckedAt).toBeNull();
+  });
+
+  it("exposes the parsed check date as an ISO calendar day", () => {
+    const refDate = new Date("2026-08-26T00:00:00.000Z");
+    const sections = [{ title: "Sources", type: "src", rows: [{ key: "Source Review", val: "checked 2026-05-14" }] }];
+    const derived = deriveMedicationSourceGovernance(sections, refDate);
+    expect(derived.sourceStatus).toBe("current");
+    expect(derived.sourceCheckedAt).toBe("2026-05-14");
   });
 
   it("evaluates governance status based on review interval", () => {
@@ -258,5 +420,192 @@ describe("medication governance date evaluation", () => {
     };
     const governance = deriveGovernanceFromSections(record, refDate);
     expect(governance.source_status).toBe("review_due");
+  });
+});
+
+describe("medication source-freshness badges", () => {
+  const baseRecord: MedicationRecord = {
+    slug: "test-med",
+    name: "Test Med",
+    class: "",
+    subclass: "",
+    category: "",
+    accent: "#0f766e",
+    tag: "",
+    schedule: "",
+    stats: [],
+    sections: [],
+    quick: [],
+  };
+
+  // Every source-freshness badge shares the `identity-source-` id prefix, so a
+  // record either carries exactly one of them or carries none.
+  function sourceBadgeOf(record: MedicationRecord, governance: Parameters<typeof medicationIdentityBadges>[1]) {
+    const matches = medicationIdentityBadges(record, governance).filter((badge) =>
+      badge.id.startsWith("identity-source-"),
+    );
+    expect(matches.length).toBeLessThanOrEqual(1);
+    return matches[0];
+  }
+
+  function labelFor(governance: Parameters<typeof medicationIdentityBadges>[1]) {
+    return sourceBadgeOf(baseRecord, governance);
+  }
+
+  it("badges nothing at all when the sources are within the review interval", () => {
+    // The healthy case is the unremarkable one, and the cluster it would join is
+    // already full: badging it evicts a chip that carries prescribing information
+    // (see the eviction test below). The last-checked date still reads as text in
+    // the record's own Sources section, which is where a date belongs.
+    expect(labelFor({ sourceStatus: "current", validationStatus: "unverified", sourceCheckedAt: "2026-05-14" })).toBe(
+      undefined,
+    );
+    expect(labelFor({ sourceStatus: "current", validationStatus: "unverified", sourceCheckedAt: null })).toBe(
+      undefined,
+    );
+  });
+
+  it("names the last check date on a review-due record instead of saying it is out of date", () => {
+    const badge = labelFor({
+      sourceStatus: "review_due",
+      validationStatus: "unverified",
+      sourceCheckedAt: "2026-05-14",
+    });
+    // "Sources last checked" is a recency statement and nothing else. A bare
+    // "checked" reads as a claim that someone validated the entry — the exact
+    // conflation the `Reviewed` badge already had to be rescued from.
+    expect(badge?.label).toBe("Source check due — sources last checked May 2026");
+    expect(badge?.tone).toBe("warning");
+  });
+
+  it("renders an unreadable source date as a visible warning, never as silence", () => {
+    // The whole point of the status: a record whose freshness could not be read must
+    // not be visually identical to one checked last month.
+    const badge = labelFor({
+      sourceStatus: "unknown",
+      validationStatus: "unverified",
+      sourceCheckedAt: null,
+      sourcesRecorded: true,
+    });
+    expect(badge?.label).toBe("Source date unknown");
+    expect(badge?.tone).toBe("warning");
+  });
+
+  it("says so plainly when a record has no recorded sources at all", () => {
+    // A bigger deficiency than an unparseable date, and a different one: nothing was
+    // ever cited. Reporting it as "date unknown" would understate it.
+    const badge = labelFor({
+      sourceStatus: "unknown",
+      validationStatus: "unverified",
+      sourceCheckedAt: null,
+      sourcesRecorded: false,
+    });
+    expect(badge?.label).toBe("No sources recorded");
+    expect(badge?.tone).toBe("warning");
+  });
+
+  it("makes the weaker claim when the caller never derived whether sources exist", () => {
+    // Absent `sourcesRecorded` means nobody looked. Asserting "no sources recorded"
+    // from that would be a fabrication; "date unknown" is merely incomplete.
+    expect(labelFor({ sourceStatus: "unknown", validationStatus: "unverified" })?.label).toBe("Source date unknown");
+  });
+
+  it("degrades a missing or unrecognised source status to the unknown warning", () => {
+    expect(labelFor({ validationStatus: "unverified" })?.label).toBe("Source date unknown");
+    expect(labelFor({ sourceStatus: "not-a-status", validationStatus: "unverified" })?.label).toBe(
+      "Source date unknown",
+    );
+  });
+
+  it("keeps the dormant superseded badge reachable for a recorded supersession", () => {
+    // Nothing derives `outdated` from age — that is a clinical judgement nobody has
+    // made — but the branch stays wired for the future supersession flow.
+    const badge = labelFor({ sourceStatus: "outdated", validationStatus: "unverified", sourceCheckedAt: null });
+    expect(badge?.label).toBe("Source superseded");
+    expect(badge?.tone).toBe("danger");
+  });
+
+  it("falls back to an undated label when the status is known but the date is not", () => {
+    expect(labelFor({ sourceStatus: "review_due", validationStatus: "unverified" })?.label).toBe("Source check due");
+    expect(
+      labelFor({ sourceStatus: "review_due", validationStatus: "unverified", sourceCheckedAt: "not-a-date" })?.label,
+    ).toBe("Source check due");
+  });
+
+  it("adds no source badge when the caller supplies no governance at all", () => {
+    // Cross-mode link chips render badges without ever fetching governance; they must
+    // not sprout a warning for a status nobody asked about.
+    const badges = medicationIdentityBadges(baseRecord);
+    expect(badges.some((badge) => badge.id.startsWith("identity-source-"))).toBe(false);
+  });
+
+  it("badges every snapshot record that has a source deficiency, and only those", () => {
+    const records = loadMedicationSnapshot();
+    const refDate = new Date("2026-09-02T00:00:00.000Z");
+    const flagged: string[] = [];
+
+    for (const record of records) {
+      const derived = deriveMedicationSourceGovernance(record.sections, refDate);
+      const badge = sourceBadgeOf(record, {
+        sourceStatus: derived.sourceStatus,
+        validationStatus: "unverified",
+        sourceCheckedAt: derived.sourceCheckedAt,
+        sourcesRecorded: derived.sourcesRecorded,
+      });
+      if (derived.sourceStatus === "current") {
+        expect(badge, `${record.slug} is within the review interval and needs no chip`).toBeUndefined();
+      } else {
+        expect(badge, `${record.slug} has status ${derived.sourceStatus} and must be badged`).toBeTruthy();
+        expect(badge?.tone).toBe("warning");
+        flagged.push(record.slug);
+      }
+    }
+
+    // The three records carrying no `src` section at all. They must read as a
+    // recorded-sources deficiency, not as a date that would not parse.
+    expect(flagged.sort()).toEqual(["alimemazine", "edoxaban", "levomepromazine"]);
+    for (const slug of flagged) {
+      const record = getMedicationRecord(slug);
+      expect(record, `${slug} fixture missing`).toBeTruthy();
+      const derived = deriveMedicationSourceGovernance(record!.sections, refDate);
+      expect(derived.sourcesRecorded).toBe(false);
+      expect(
+        sourceBadgeOf(record!, {
+          sourceStatus: derived.sourceStatus,
+          validationStatus: "unverified",
+          sourceCheckedAt: derived.sourceCheckedAt,
+          sourcesRecorded: derived.sourcesRecorded,
+        })?.label,
+      ).toBe("No sources recorded");
+    }
+  });
+
+  it("never costs a healthy record one of its identity badges", () => {
+    // The regression this guards: an always-on freshness chip sorted ABOVE the
+    // Poisons Schedule (info) and the TGA/OFF indication tag (info), and every
+    // snapshot record already produces at least five badges against a hero cluster
+    // rendered at limit 5. Measured at this reference date, 201 of 330 records lost
+    // their schedule (122) or TGA tag (77) to a chip whose text was identical for
+    // 327 of them. `tests/medication-identity-badge-cluster.dom.test.tsx` proves the
+    // same thing through the real component; this pins it across the whole corpus.
+    const refDate = new Date("2026-09-02T00:00:00.000Z");
+    const displaced: string[] = [];
+
+    for (const record of loadMedicationSnapshot()) {
+      const derived = deriveMedicationSourceGovernance(record.sections, refDate);
+      if (derived.sourceStatus !== "current") continue;
+      const withGovernance = medicationIdentityBadges(record, {
+        sourceStatus: derived.sourceStatus,
+        validationStatus: "unverified",
+        sourceCheckedAt: derived.sourceCheckedAt,
+        sourcesRecorded: derived.sourcesRecorded,
+      });
+      const withoutGovernance = medicationIdentityBadges(record);
+      if (JSON.stringify(withGovernance) !== JSON.stringify(withoutGovernance)) {
+        displaced.push(record.slug);
+      }
+    }
+
+    expect(displaced).toEqual([]);
   });
 });

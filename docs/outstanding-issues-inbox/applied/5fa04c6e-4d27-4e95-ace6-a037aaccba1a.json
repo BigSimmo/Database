@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5fa04c6e-4d27-4e95-ace6-a037aaccba1a",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The scheduled bundle-budget refresh workflow is never parsed by GitHub until its first scheduled run, so a YAML fault would surface in a non-blocking run rather than at merge",
+    "detail": "Raised while landing PR #2527, which added .github/workflows/bundle-budget-refresh.yml for #QSHHGK. The workflow is schedule- plus workflow_dispatch-only, so no pull_request CI run ever invokes it. It is covered offline by tests/bundle-budget-refresh-workflow.test.ts (17 assertions on schedule, cold-build ordering, the refresh flag, permissions, and the absence of any push or branch mutation) and by check:github-actions for pins and runs-on. None of those is GitHub's own workflow-syntax parser, which runs only when a workflow first executes. The known failure shape is the one recorded in tests/ci-cache-safety.test.ts around line 551: a workflow that fails to parse is named after its file path, creates ZERO jobs, and reports a bare failure that nothing local catches. Here that would land in an isolated scheduled run that blocks nothing, so it could sit unnoticed until someone wondered why no baseline report had appeared. Cheap close: trigger it once by workflow_dispatch after merge and confirm it creates jobs and posts to the rolling issue. That single dispatch also produces the first measurement with a resolvable baselineSource that #QSHHGK is waiting on, so the two close together.",
+    "source": "session 2026-09-02, PR #2527",
+    "issueUlid": "01M1G9AQS08TKTV69DHJ1TAGY4"
+  }
+}

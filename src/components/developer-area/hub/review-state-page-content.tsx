@@ -1,7 +1,12 @@
 import { CountTile, META_CLASS, PanelSection } from "@/components/developer-area/hub/panel-primitives";
 import { PanelPageShell } from "@/components/developer-area/hub/panel-page-shell";
 import { REVIEW_STATE_PAGE_SIZE, ReviewStateTable } from "@/components/developer-area/hub/review-state-table";
-import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer-area/repo-awareness-snapshot";
+import {
+  loadRepoAwarenessSnapshot,
+  resolveRepoFreshness,
+  reviewRecordsNewestFirst,
+  reviewStateCounts,
+} from "@/lib/developer-area/repo-awareness-snapshot";
 
 /**
  * The synchronous, directly-testable half of the review-state route. This
@@ -15,7 +20,13 @@ import { loadRepoAwarenessSnapshot, resolveRepoFreshness } from "@/lib/developer
 export function ReviewStatePageContent({ requestedPage = 1 }: { requestedPage?: number }) {
   const snapshot = loadRepoAwarenessSnapshot();
   const freshness = resolveRepoFreshness(snapshot, new Date());
-  const { records, counts } = snapshot.review_state;
+  // Both derived here, not read from the snapshot. The stored order is by
+  // `head` so that concurrent appends merge cleanly, and the stored totals were
+  // removed for the same reason — see `ReviewStateSection` in
+  // `repo-awareness-types.ts`. Presentation order and totals are this page's
+  // job, and both come from the same array it renders.
+  const records = reviewRecordsNewestFirst(snapshot.review_state.records);
+  const counts = reviewStateCounts(records);
 
   const totalPages = Math.max(1, Math.ceil(records.length / REVIEW_STATE_PAGE_SIZE));
   const page = Math.min(Math.max(1, requestedPage), totalPages);
@@ -52,7 +63,9 @@ export function ReviewStatePageContent({ requestedPage = 1 }: { requestedPage?: 
         what the reviewer concluded. It does not show which pull requests are open, whether their checks are green, or
         whether a review is outstanding — none of that exists on disk, and reading it would need credentials this page
         deliberately does not have. A ref absent from this list has not been reviewed at any head; it does not mean
-        there is no pull request.
+        there is no pull request. Review records are refreshed only when the snapshot is regenerated (
+        <code>npm run docs:update</code>); the freshness stamp above does not move for them, because{" "}
+        <code>review_state</code> is deliberately outside the staleness comparison that stamp reports on.
       </p>
 
       <PanelSection headingId="developer-review-state-heading" heading={`Records · ${counts.records}`}>

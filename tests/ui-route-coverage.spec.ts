@@ -277,7 +277,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         // `/therapy-compass` redirects onto the shared home, whose per-mode title
-        // is a level-2 heading under the page's sr-only "Clinical Guide" h1.
+        // is a level-2 heading under the page's sr-only "PsychSift" h1.
         await expect(currentPage.getByRole("main")).toBeVisible();
         await expect(currentPage.getByRole("heading", { name: "Therapy", level: 2, exact: true })).toBeVisible({
           timeout: 30_000,
@@ -341,7 +341,7 @@ test.describe("previously uncovered production routes", () => {
         const copy = element.querySelector<HTMLElement>("[data-therapy-result-copy]")!.getBoundingClientRect();
         const evidence = element.querySelector<HTMLElement>("[data-therapy-result-evidence]")!.getBoundingClientRect();
         const actions = element.querySelector<HTMLElement>("[data-therapy-result-actions]")!;
-        const buttons = [...actions.querySelectorAll<HTMLButtonElement>("button")].map((button) => {
+        const buttons = [...actions.querySelectorAll<HTMLElement>("button, a")].map((button) => {
           const buttonBounds = button.getBoundingClientRect();
           return {
             left: buttonBounds.left,
@@ -386,7 +386,7 @@ test.describe("previously uncovered production routes", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
-    const compare = card.locator("[data-therapy-result-actions] button").nth(1);
+    const compare = card.locator("[data-therapy-result-actions] > a, [data-therapy-result-actions] > button").nth(1);
     await expect(compare).toHaveAccessibleName("Add to compare");
     await compare.focus();
     const focusStyle = await compare.evaluate((element) => {
@@ -402,7 +402,7 @@ test.describe("previously uncovered production routes", () => {
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expectNoHorizontalOverflow(page);
-    await expect(card.locator("[data-therapy-result-actions] button")).toHaveCount(3);
+    await expect(card.locator("[data-therapy-result-actions] button, [data-therapy-result-actions] a")).toHaveCount(3);
 
     // Adding deliberately keeps the reader where they are. The set moves into
     // the URL (so it is still shareable and survives a reload) and into the tray
@@ -411,6 +411,13 @@ test.describe("previously uncovered production routes", () => {
     await page.keyboard.press("Space");
     await expect(compare).toHaveAccessibleName("In compare tray");
     await expect(page).toHaveURL(/\/therapy-compass\/search/);
+    // The set commits to component state first and reaches the URL through a
+    // `router.replace` soft navigation, so the accessible name flips before
+    // `page.url()` carries `ids`. Reading the URL straight after that name
+    // assertion is a race — it lost once under full-suite load on 2026-09-01
+    // (`ids` read as null) and passes in isolation. Wait for the parameter
+    // itself rather than for the route it was already on.
+    await expect(page).toHaveURL(/[?&]ids=/);
     const stayedPut = new URL(page.url());
     expect(stayedPut.searchParams.get("q")).toBe("CBT");
     expect(stayedPut.searchParams.get("ids")).toBeTruthy();
@@ -703,14 +710,21 @@ test.describe("previously uncovered production routes", () => {
     await expect(page.getByRole("heading", { name: "Tools", level: 1 })).toBeVisible();
   });
 
-  test("Medications index serves the Medication mode home", async ({ page }) => {
-    // Previously a 307 to `/?mode=prescribing`. `/` is now the shared home for
-    // every mode, so Medication owns a real home here instead of aliasing to it.
+  test("Medications index redirects to the shared home with prescribing preselected", async ({ page }) => {
+    // Consolidated like most other modes (2026-09): `/medications` no longer
+    // renders its own idle-view content (the retired Dose/Safety/Monitoring/Access
+    // shortcut pills), it forwards to the shared home. This test previously
+    // asserted the opposite — that `/medications` stayed on `/medications` and
+    // rendered its own body — with a comment reading "Previously a 307 to
+    // /?mode=prescribing", proving this exact reversal happened once before with
+    // no reason recorded in this repo's (squash-merged) git history. Reversing it
+    // again is a deliberate, approved product decision, not a rediscovery of the
+    // same mistake.
     await gotoApp(page, "/medications");
-    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/medications");
+    await expect.poll(() => new URL(page.url()).pathname, { timeout: 30_000 }).toBe("/");
     const destination = new URL(page.url());
-    expect(destination.pathname).toBe("/medications");
-    expect(destination.searchParams.toString()).toBe("");
+    expect(destination.pathname).toBe("/");
+    expect(destination.searchParams.get("mode")).toBe("prescribing");
     await expect(page.getByRole("button", { name: "Mode Medication" })).toBeVisible({ timeout: 30_000 });
   });
 

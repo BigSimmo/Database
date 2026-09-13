@@ -1,7 +1,10 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
+import type { RagAnswer, SearchResult } from "../src/lib/types";
 import { PATIENT_PROFILE_STORAGE_KEY } from "../src/lib/patient-profile-storage";
 import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
@@ -42,7 +45,7 @@ function makeDocument(index: number) {
   };
 }
 
-function makeSource(index: number) {
+function makeSource(index: number): SearchResult {
   const document = makeDocument((index % 18) + 1);
   return {
     id: `20000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
@@ -73,7 +76,7 @@ function citationFromSource(source: ReturnType<typeof makeSource>) {
   };
 }
 
-function makeStressAnswer() {
+function makeStressAnswer(): RagAnswer {
   const sources = Array.from({ length: 20 }, (_, index) => makeSource(index + 1));
   const citations = sources.slice(0, 14).map(citationFromSource);
   const quoteCards = sources.slice(0, 10).map((source) => ({
@@ -82,7 +85,7 @@ function makeStressAnswer() {
       "This exact quote is intentionally long enough to test wrapping in quote cards and action rows without causing layout overflow.",
     section_heading: source.section_heading,
     source_strength: "strong",
-  }));
+  })) satisfies NonNullable<RagAnswer["quoteCards"]>;
 
   return {
     answer:
@@ -147,18 +150,19 @@ function answerStreamBody(payload: unknown) {
   ].join("\n\n");
 }
 
-async function fulfillAnswerResponse(route: Route, payload: unknown) {
+async function fulfillAnswerResponse(route: Route, payload: RagAnswer) {
+  const clientPayload = toClientAnswerPayload(payload);
   const pathname = new URL(route.request().url()).pathname;
   if (pathname.endsWith("/stream")) {
     await route.fulfill({
-      body: answerStreamBody(payload),
+      body: answerStreamBody(clientPayload),
       contentType: "text/event-stream; charset=utf-8",
       headers: { "Cache-Control": "no-cache, no-transform" },
     });
     return;
   }
 
-  await route.fulfill({ json: payload });
+  await route.fulfill({ json: clientPayload });
 }
 
 async function mockStressData(page: Page) {
@@ -273,15 +277,6 @@ async function mockMedicationStressData(page: Page) {
     }
     await route.fallback();
   });
-}
-
-async function expectNoPageHorizontalOverflow(page: Page) {
-  const overflow = await page.evaluate(() => {
-    const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
-    return documentWidth - document.documentElement.clientWidth;
-  });
-
-  expect(overflow).toBeLessThanOrEqual(2);
 }
 
 async function openDailyActions(page: Page) {
@@ -457,6 +452,47 @@ test.describe("Medication responsive stress coverage", () => {
       },
       { storageKey: PATIENT_PROFILE_STORAGE_KEY },
     );
+    // The cross-mode lookup is eager at phone width, and a tray with nothing
+    // behind it is now dropped rather than shown as a header that opens onto
+    // nothing. So the panel this test is about only exists if the endpoint
+    // returns a match outside Medication — mocked here rather than left to
+    // whatever the demo corpus happens to hold for this query.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+      const group = {
+        kind: "documents",
+        total: 1,
+        latencyMs: 2,
+        items: [
+          {
+            id: "acamprosate-guideline",
+            kind: "documents",
+            title: "Acamprosate prescribing guideline",
+            href: "/documents/acamprosate-guideline",
+            score: 0.86,
+          },
+        ],
+      };
+      const response = {
+        query,
+        tookMs: 8,
+        demoMode: true,
+        groups: [group],
+        contextMode: "prescribing",
+        preferredDomains: ["medications"],
+        domainOrder: ["medications", "documents"],
+      };
+      // The endpoint streams NDJSON, one event per line. A single JSON object
+      // parses to nothing and the panel then correctly drops itself.
+      const events = [
+        { type: "group", query, group },
+        { type: "complete", response },
+      ];
+      await route.fulfill({
+        body: `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+        contentType: "application/x-ndjson; charset=utf-8",
+      });
+    });
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/?mode=prescribing&q=acamprosate%20renal%20dose&run=1", { waitUntil: "domcontentloaded" });
 
@@ -466,7 +502,24 @@ test.describe("Medication responsive stress coverage", () => {
     await expect(phoneResult).toHaveAttribute("data-selected", "true");
     await expect(phoneResult).toHaveAttribute("data-verdict", "danger");
     await expect(phoneResult.getByRole("group", { name: /^Danger\. For this patient\./ })).toBeVisible();
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(0);
+    // Prescribing used to suppress the cross-mode panel outright, because it once
+    // sat ABOVE the medication results and displaced the count, patient strip and
+    // primary matches on a phone. The mount has since moved below the result list,
+    // so the panel is present here again — collapsed, after the results, and never
+    // between the reader and a dosing verdict.
+    const prescribingAlsoMatches = page.getByTestId("universal-also-matches");
+    await expect(prescribingAlsoMatches).toHaveCount(1);
+    await expect(prescribingAlsoMatches.getByRole("button", { name: /Also matches in other modes/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      await prescribingAlsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="medication-result-acamprosate-phone"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "the cross-mode panel must stay below the medication results on a phone",
+    ).toBe(true);
 
     const viewports = [
       { width: 320, height: 720 },

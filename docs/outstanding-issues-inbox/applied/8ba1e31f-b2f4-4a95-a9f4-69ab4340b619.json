@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8ba1e31f-b2f4-4a95-a9f4-69ab4340b619",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#XHADPV",
+    "outcome": "Resolved; verified against origin/main d1bb2c197 on 2026-09-02. The row asked for a deliberate choice between rendering the stored per-section counts and no longer emitting them, and the second option was taken. Reading the committed artifact rather than the generator: data/repo-awareness-snapshot.json now carries 21 entries under documentation.sections, and the union of every key across all of them is exactly {name}. The documents and uncatalogued fields the row counted as 30 dead numbers are gone from the snapshot entirely, so the generator no longer emits a count that could disagree with its own list, and the documentation page's habit of computing section.documents.length at render is now the only source of a count rather than an undocumented exception to the plan's rule. Section count has grown from the 15 the row recorded to 21, which is ordinary growth in the documentation set and not a change of contract.",
+    "baseRowFingerprint": "d9b8a1f9b84ed37199a791c475d0a1de46728c2ed1be697321c8d031c0d7b5d8"
+  }
+}

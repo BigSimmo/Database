@@ -8,16 +8,17 @@
  */
 export function TherapySaveNotice({ notice }: { notice: string | null }) {
   return (
-    <p
-      role="status"
-      aria-live="polite"
-      className={
-        notice
-          ? "m-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]"
-          : "sr-only"
-      }
-    >
-      {notice}
-    </p>
+    <>
+      {notice ? (
+        <p className="m-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
+          {notice}
+        </p>
+      ) : null}
+      {/* Always-hidden announcer: SPEC.md §9.2 forbids aria-live on the visible
+          box above, which used to carry it directly. */}
+      <span role="status" aria-live="polite" className="sr-only">
+        {notice}
+      </span>
+    </>
   );
 }

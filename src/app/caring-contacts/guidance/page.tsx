@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ProgrammeGuidance } from "@/components/caring-contacts/workspace/programme-guidance";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
@@ -49,8 +49,8 @@ const CaringContactsShell = dynamic(() =>
  * note by construction.
  */
 export default async function CaringContactsGuidancePage() {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
   // "service" names the one service-wide record, matching the object id the API route records

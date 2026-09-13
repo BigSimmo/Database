@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, HelpCircle } from "lucide-react";
 
-import { type CompareCatalogItem, type CompareStarterChip } from "@/components/compare";
+import {
+  type CompareCatalogItem,
+  type CompareStarterChip,
+  compareSlotBadgeBase,
+  compareSlotBadgeClass,
+} from "@/components/compare";
 import { DsmCompareChrome } from "@/components/dsm/dsm-compare-chrome";
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { cn, codeText, eyebrowText, pageContainer } from "@/components/ui-primitives";
@@ -136,7 +141,7 @@ export function DsmComparisonPage({
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-extrabold text-[color:var(--clinical-accent-contrast)]">
+                      <span className={cn(compareSlotBadgeBase, compareSlotBadgeClass(index), "h-7 w-7 text-xs")}>
                         {BADGE_LETTERS[index]}
                       </span>
                       <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{diagnosis.title}</h2>
@@ -172,7 +177,7 @@ export function DsmComparisonPage({
                           row.label === "ICD-10 code" && codeText,
                         )}
                       >
-                        <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)]">
+                        <span className={cn(compareSlotBadgeBase, compareSlotBadgeClass(index), "h-7 w-7 text-2xs")}>
                           {BADGE_LETTERS[index]}
                         </span>
                         <span className="line-clamp-4" title={value}>

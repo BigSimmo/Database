@@ -11,8 +11,10 @@ import {
   FileSignature,
   FileText,
   Heart,
+  LibraryBig,
   MessagesSquare,
   Network,
+  PhoneCall,
   Pill,
   Route,
   ScrollText,
@@ -53,6 +55,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   compass: Compass,
   bookOpenText: BookOpenText,
   bookMarked: BookMarked,
+  libraryBig: LibraryBig,
   search: Search,
   scrollText: ScrollText,
   shieldCheck: ShieldCheck,
@@ -63,6 +66,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   waves: Waves,
   star: Star,
   chat: MessagesSquare,
+  phoneCall: PhoneCall,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

@@ -43,6 +43,7 @@ import {
   StatusChip,
   VerifiedSummary,
   WorkflowStepper,
+  productSectionHeadingPad,
   productSurface,
 } from "./product-ui";
 
@@ -115,6 +116,7 @@ function AgreementStage({
           title="Required assurances"
           description="Confirm imported evidence and explicit ownership before choosing a pathway."
           action={<StatusChip tone="success">All assurances present</StatusChip>}
+          className={productSectionHeadingPad}
         />
         <div className="border-t border-[color:var(--border)]">
           <AssuranceRow
@@ -216,6 +218,7 @@ function PathwayStage({
             title="Choose a governed pathway"
             description="No clinical ranking or recommendation is applied."
             icon={CalendarDays}
+            className={productSectionHeadingPad}
           />
           <div className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
             <button
@@ -261,6 +264,7 @@ function PathwayStage({
             description={`Version ${pathway.version}`}
             icon={FileCheck2}
             action={<StatusChip tone="success">Two-person approved</StatusChip>}
+            className={productSectionHeadingPad}
           />
           <dl className="grid gap-px border-t border-[color:var(--border)] bg-[color:var(--border)] sm:grid-cols-2">
             {[
@@ -354,6 +358,7 @@ function PersonalisationStage({
             title="Governed personalisation"
             description="Only approved substitutions are available. Free text and generated authoring are absent."
             icon={MessageSquareText}
+            className={productSectionHeadingPad}
           />
           <dl className="divide-y divide-[color:var(--border)] border-t border-[color:var(--border)]">
             {[
@@ -489,6 +494,7 @@ function ReviewStage({
             title="10-contact schedule"
             description={ROWAN_SELECTED_SENDING_PREFERENCE.windowLabel}
             icon={CalendarDays}
+            className={productSectionHeadingPad}
           />
           <div className="border-t border-[color:var(--border)]">
             <ScheduleList />

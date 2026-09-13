@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a247a05f-1ce6-4d42-91d9-ae17b2b25dd4",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Two committed ED browser journeys have never once passed and are unverified on master",
+    "detail": "tests/ui-ward-roles.spec.ts carries two Emergency Department journeys added at 9af65681f and repaired at ed701752d, both now folded to master. Their first and only run failed for their own reasons: one used a test id missing its inbox- segment, the other clicked an aria-disabled control which Playwright refuses to click, so it timed out at 45s rather than failing. Both fixes are committed and NEITHER HAS BEEN RUN SINCE. Needs one Playwright window to confirm green or red.",
+    "source": "Ward Builder Three closing report, measured at adcd8bcb5",
+    "issueUlid": "01M1G4NP0Z5RWYHRMJFTFJWJ15"
+  }
+}

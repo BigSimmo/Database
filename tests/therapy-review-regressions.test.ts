@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -31,7 +31,7 @@ describe("Therapy review regression contracts", () => {
       );
     }
     expect(saveNotice).toContain('role="status"');
-    expect(saveNotice).toContain(': "sr-only"');
+    expect(saveNotice).toContain('className="sr-only"');
     expect(workspace).toContain('<InformationPageShell testId="therapy-information-loading">');
     expect(workspace.indexOf("if (b.error)")).toBeLessThan(
       workspace.indexOf("if (b.loading && b.therapies.length === 0)"),
@@ -56,19 +56,20 @@ describe("Therapy review regression contracts", () => {
     expect(therapies).toContain("export function therapyNeedsReview");
   });
 
-  it("keeps the catalogue-wide review notice on the Therapy library, above the search band", () => {
-    const notice = source("src/components/therapy-compass/therapy-review-notice.tsx");
+  // The catalogue-wide banner is gone. The owner's decision (2026-09-06) is
+  // that a caveat repeated above every search is read past, while the state
+  // that governs a decision is the state of the record in front of the reader.
+  // So the disclosure is not weakened, it is carried entirely by the per-record
+  // badge — which is what the next case pins across all six record surfaces.
+  // This one pins the other half: the banner cannot drift back in, and the row
+  // it used to sit above still states its own review status.
+  it("states Therapy's review status per record, with no catalogue-wide banner above the search band", () => {
     const search = source("src/components/therapy-compass/screens/search-screen.tsx");
+    const card = source("src/components/therapy-compass/therapy-card.tsx");
 
-    expect(notice).toContain('role="note"');
-    expect(notice).toContain("THERAPY_CATALOGUE_SUMMARY.needsReviewCount");
-    expect(notice).toContain("No therapy record in this library has completed clinician review yet.");
-    // Non-interactive: a caveat the reader can dismiss is not a caveat.
-    expect(notice).not.toContain("<button");
-    expect(notice).not.toContain("onClick");
-    // Live library surface is `/therapy-compass/search`, not a retired tile home.
-    expect(search).toContain("<TherapyReviewNotice");
-    expect(search.indexOf("<TherapyReviewNotice")).toBeLessThan(search.indexOf("<SearchResultsHeaderBand"));
+    expect(search).not.toContain("TherapyReviewNotice");
+    expect(existsSync(resolve(process.cwd(), "src/components/therapy-compass/therapy-review-notice.tsx"))).toBe(false);
+    expect(card).toContain("<StatusBadge status={therapy.reviewStatus} />");
   });
 
   it("keeps the per-record review badge on every Therapy surface that shows a record", () => {
@@ -79,6 +80,14 @@ describe("Therapy review regression contracts", () => {
       "src/components/therapy-compass/screens/sheets-screen.tsx",
       "src/components/therapy-compass/screens/compare-screen.tsx",
       "src/components/therapy-compass/screens/pathways-screen.tsx",
+      // The two secondary listings. Both quote another record's clinical prose
+      // (`bestUsedFor` / `clinicalSummary`) beside its name, and both shipped
+      // without its review state — the gap the 2026-09-02 audit recorded under
+      // L03c. Harmless while a catalogue-wide notice also stated the caveat;
+      // load-bearing once PR #2686 removed it and left the per-record badge as
+      // the whole disclosure.
+      "src/components/therapy-compass/record/related-therapies.tsx",
+      "src/components/therapy-compass/pathway-step-stack.tsx",
     ]) {
       expect(source(path), `${path} must still surface reviewStatus`).toContain("reviewStatus");
     }

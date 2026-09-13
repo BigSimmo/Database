@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "00e5a4b0-11fa-46c4-a101-e75d0ce3cc35",
+  "createdOn": "2026-09-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Caring Contacts createPlan accepts a blank patient name in both stores, so '' remains a legal stored value",
+    "issueUlid": "01M1HW3N65V6CDEVZETMC62AXS"
+  }
+}

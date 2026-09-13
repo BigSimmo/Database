@@ -12,12 +12,14 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, s
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { addIssue, resolveIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
+import { addIssue, resolveIssue, updateArchivedIssue, updateIssue, updateQueueRow } from "./outstanding-issues.mjs";
 import {
   ISSUES_PATH,
+  archiveRowFingerprint,
   checkIssues,
   issueRowFingerprint,
   isValidIssueRowFingerprint,
+  parseIssues,
   queueRowFingerprint,
 } from "./check-outstanding-issues.mjs";
 import {
@@ -31,7 +33,7 @@ import {
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const APPLIED_DIR = path.posix.join(INBOX_DIR, "applied");
-const ACTIONS = new Set(["add", "done", "update", "queue", "cancel"]);
+const ACTIONS = new Set(["add", "done", "update", "amend-outcome", "queue", "cancel"]);
 // Fields a `queue` request may carry, mirroring updateQueueRow's editable map.
 const QUEUE_FIELDS = ["acuity", "capability", "when", "estimate", "outcome"];
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -84,19 +86,27 @@ export function validateRequest(request) {
     )
       problems.push("done requires a valid baseRowFingerprint");
   }
-  if (request.action === "update") {
-    if (!isIssueDisplayId(request.payload?.id)) problems.push("update requires a canonical issue display id");
-    // `pri` counts as a mutation on its own: a re-prioritisation with no prose
-    // change is a legitimate and common triage edit, and leaving it out here
-    // made `--pri` unusable alone even once the CLI could emit it (ledger #313).
-    if (!["pri", "summary", "detail", "source"].some((field) => request.payload?.[field] !== undefined)) {
-      problems.push("update requires pri, summary, detail, or source");
+  if (request.action === "update" || request.action === "amend-outcome") {
+    if (!isIssueDisplayId(request.payload?.id))
+      problems.push(`${request.action} requires a canonical issue display id`);
+    if (request.action === "amend-outcome") {
+      if (!request.payload?.outcome) problems.push("amend-outcome requires outcome");
+    } else {
+      const openFields = ["pri", "summary", "detail", "source"].filter(
+        (field) => request.payload?.[field] !== undefined,
+      );
+      const hasOutcome = request.payload?.outcome !== undefined;
+      if (hasOutcome && openFields.length > 0) {
+        problems.push("update cannot mix outcome with pri, summary, detail, or source");
+      } else if (!hasOutcome && openFields.length === 0) {
+        problems.push("update requires pri, summary, detail, source, or outcome");
+      }
     }
     if (
       request.payload?.baseRowFingerprint !== undefined &&
       !isValidIssueRowFingerprint(request.payload.baseRowFingerprint)
     )
-      problems.push("update requires a valid baseRowFingerprint");
+      problems.push(`${request.action} requires a valid baseRowFingerprint`);
     if (request.payload?.pri !== undefined && !["P1", "P2", "P3"].includes(String(request.payload.pri))) {
       problems.push("update pri must be P1, P2, or P3");
     }
@@ -124,13 +134,24 @@ export function validateRequest(request) {
   return problems;
 }
 
-export function applyRequest(markdown, request) {
+export function applyRequest(markdown, request, options = {}) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   if (request.action === "cancel") {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
-  const options = { date: request.createdOn };
+  if (request.action === "amend-outcome" || (request.action === "update" && request.payload?.outcome)) {
+    const targetId = normalizeIssueDisplayId(request.payload.id);
+    const target = parseIssues(markdown).rows.find(
+      (row) => normalizeIssueDisplayId(row.id) === targetId && (row.table === "open" || row.table === "archive"),
+    );
+    if (target?.table === "open") {
+      throw new Error(
+        `${request.action} outcome amendments require an archived issue; ${request.payload.id} is still open`,
+      );
+    }
+  }
+  const dateOptions = { ...options, date: request.createdOn };
   if (request.action === "queue" && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
     const fingerprint = queueRowFingerprint(markdown, id);
@@ -145,13 +166,45 @@ export function applyRequest(markdown, request) {
       );
     }
   }
-  if ((request.action === "done" || request.action === "update") && request.payload?.baseRowFingerprint) {
-    const id = request.payload.id;
-    const fingerprint = issueRowFingerprint(markdown, id);
-    if (!fingerprint) {
-      throw new Error(`${id} is no longer open; reread and reissue this request from the latest ledger`);
+  const allowArchived = Boolean(options.allowArchived ?? request.payload?.allowArchived);
+  let autoAllowArchived = allowArchived;
+  // Do NOT auto-allow every done-against-archive: without explicit allowArchived
+  // (createRequest sets it) or a fingerprint race, archived targets must keep
+  // throwing (non-idempotent) or no-oping (idempotent) for ledger integrity.
+  if (options.idempotent && ["done", "update", "amend-outcome"].includes(request.action) && !autoAllowArchived) {
+    const id = request.payload?.id;
+    if (typeof id === "string") {
+      const parsed = parseIssues(markdown);
+      const targetId = normalizeIssueDisplayId(id);
+      const row = parsed.rows.find((r) => r.table === "archive" && normalizeIssueDisplayId(r.id) === targetId);
+      if (row) {
+        if ((request.action === "update" && !request.payload?.outcome) || request.action === "done") {
+          return markdown;
+        }
+      }
     }
-    if (fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
+  }
+  if (
+    (request.action === "done" || request.action === "update" || request.action === "amend-outcome") &&
+    request.payload?.baseRowFingerprint
+  ) {
+    const id = request.payload.id;
+    let fingerprint = issueRowFingerprint(markdown, id);
+    if (!fingerprint) {
+      const parsed = parseIssues(markdown);
+      const targetId = normalizeIssueDisplayId(id);
+      const isArchived = parsed.rows.some((r) => r.table === "archive" && normalizeIssueDisplayId(r.id) === targetId);
+      if (isArchived) {
+        if (request.action === "done") {
+          autoAllowArchived = true;
+        } else {
+          fingerprint = archiveRowFingerprint(markdown, id);
+        }
+      } else {
+        throw new Error(`${id} is no longer open; reread and reissue this request from the latest ledger`);
+      }
+    }
+    if (fingerprint && fingerprint !== String(request.payload.baseRowFingerprint).toLowerCase()) {
       throw new Error(
         `${id} is stale: the ledger row changed after this request was queued; reread and reissue from the latest ledger`,
       );
@@ -159,15 +212,33 @@ export function applyRequest(markdown, request) {
   }
   if (request.action === "add") {
     const durableId = request.payload.issueUlid ?? issueUlidFromRequest(request.createdOn, request.id);
-    return addIssue(markdown, request.payload, { ...options, issueUlid: durableId });
+    return addIssue(markdown, request.payload, { ...dateOptions, issueUlid: durableId });
   }
-  if (request.action === "done") return resolveIssue(markdown, request.payload.id, request.payload.outcome, options);
+  if (request.action === "done") {
+    return resolveIssue(markdown, request.payload.id, request.payload.outcome, {
+      ...dateOptions,
+      allowArchived: autoAllowArchived,
+      idempotent: Boolean(options.idempotent),
+    });
+  }
   if (request.action === "queue") return updateQueueRow(markdown, request.payload.id, request.payload);
+  if (request.action === "amend-outcome" || (request.action === "update" && request.payload?.outcome)) {
+    const parsed = parseIssues(markdown);
+    const targetId = normalizeIssueDisplayId(request.payload.id);
+    const isArchived = parsed.rows.some((r) => r.table === "archive" && normalizeIssueDisplayId(r.id) === targetId);
+    if (isArchived) {
+      return updateArchivedIssue(markdown, request.payload.id, request.payload.outcome, {
+        ...dateOptions,
+        replace: Boolean(options.replace ?? request.payload.replace),
+      });
+    }
+    throw new Error(`${request.payload.id} is not archived; outcome amendments require an archived issue`);
+  }
   return updateIssue(markdown, request.payload.id, request.payload);
 }
 
 function mutationConflicts(requests) {
-  const byIssue = new Map();
+  const byTarget = new Map();
   for (const request of requests) {
     if (request.action === "add" || request.action === "cancel") continue;
     const id = normalizeIssueDisplayId(request.payload.id);
@@ -177,12 +248,21 @@ function mutationConflicts(requests) {
     // citation, so it conflicts with either action on the same issue.
     const targets = request.action === "done" ? [id, `queue ${id}`] : [request.action === "queue" ? `queue ${id}` : id];
     for (const target of targets) {
-      const requestIds = byIssue.get(target) ?? [];
-      requestIds.push(request.id);
-      byIssue.set(target, requestIds);
+      const entries = byTarget.get(target) ?? [];
+      entries.push(request);
+      byTarget.set(target, entries);
     }
   }
-  return [...byIssue.entries()].filter(([, requestIds]) => requestIds.length > 1);
+  const conflicts = [];
+  for (const [target, targetRequests] of byTarget.entries()) {
+    if (targetRequests.length <= 1) continue;
+    // Duplicate closes are batch-aware: after the first archives the row, later
+    // closes append their outcomes. Archive amendments retain their original
+    // fingerprint, so concurrent amendments must instead require cancellation.
+    if (targetRequests.every((r) => r.action === "done")) continue;
+    conflicts.push([target, targetRequests.map((r) => r.id)]);
+  }
+  return conflicts;
 }
 
 /**
@@ -282,10 +362,25 @@ export function planRequestBatch(requests, options = {}) {
   return { active, cancellations, cancelledIds: [...cancelledIds], ineffectiveCancellations: ineffective };
 }
 
-export function applyRequestBatch(markdown, requests) {
-  const plan = planRequestBatch(requests);
+export function applyRequestBatch(markdown, requests, options = {}) {
+  const plan = planRequestBatch(requests, options);
   let next = markdown;
-  for (const request of plan.active) next = applyRequest(next, request);
+  const closedInBatch = new Set();
+  for (const request of plan.active) {
+    const id = normalizeIssueDisplayId(request.payload?.id);
+    const isDuplicateClose = request.action === "done" && id && closedInBatch.has(id);
+    // Honor payload.allowArchived from createRequest. Passing a literal false
+    // would shadow it via `options.allowArchived ?? payload.allowArchived` and
+    // reintroduce the silent idempotent omit for archive-aware closes.
+    next = applyRequest(next, request, {
+      ...options,
+      idempotent: true,
+      allowArchived: Boolean(options.allowArchived || isDuplicateClose || request.payload?.allowArchived),
+    });
+    if (request.action === "done" && id) {
+      closedInBatch.add(id);
+    }
+  }
   return { markdown: next, ...plan };
 }
 
@@ -676,7 +771,12 @@ export function assertSafeRemoteReconciliation(argv = [], options = {}) {
 
 function createRequest(action, argv) {
   const positionalId = argv[1]?.startsWith("--") ? undefined : argv[1];
-  const targetId = argValue(argv, "id") ?? positionalId;
+  const rawTargetId = argValue(argv, "id") ?? positionalId;
+  const targetId = rawTargetId
+    ? rawTargetId.startsWith("#") || rawTargetId.includes("-")
+      ? rawTargetId
+      : `#${rawTargetId}`
+    : undefined;
   const targetRequestId = argValue(argv, "requestId") ?? argValue(argv, "id") ?? positionalId;
   const payload =
     action === "add"
@@ -688,8 +788,8 @@ function createRequest(action, argv) {
           source: argValue(argv, "source"),
           issueUlid: issueUlid(),
         }
-      : action === "done"
-        ? { id: targetId, outcome: argValue(argv, "outcome") }
+      : action === "done" || action === "amend-outcome"
+        ? { id: targetId, outcome: argValue(argv, "outcome") ?? argValue(argv, "reason") }
         : action === "cancel"
           ? { requestId: targetRequestId, reason: argValue(argv, "reason") }
           : action === "queue"
@@ -699,7 +799,7 @@ function createRequest(action, argv) {
                 capability: argValue(argv, "capability"),
                 when: argValue(argv, "when"),
                 estimate: argValue(argv, "estimate"),
-                outcome: argValue(argv, "outcome"),
+                outcome: argValue(argv, "outcome") ?? argValue(argv, "reason"),
               }
             : {
                 // `pri` rides the same update request as the prose fields so a
@@ -713,13 +813,45 @@ function createRequest(action, argv) {
                 summary: argValue(argv, "summary"),
                 detail: argValue(argv, "detail"),
                 source: argValue(argv, "source"),
+                outcome: argValue(argv, "outcome") ?? argValue(argv, "reason"),
               };
-  if (["done", "update"].includes(action) && typeof payload.id === "string") {
-    const currentFingerprint = issueRowFingerprint(readOutstandingIssues(), payload.id);
+  if (["done", "update", "amend-outcome"].includes(action) && typeof payload.id === "string") {
+    const current = readOutstandingIssues();
+    const currentFingerprint = issueRowFingerprint(current, payload.id);
     if (currentFingerprint === null) {
-      throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+      const parsed = parseIssues(current);
+      const targetId = normalizeIssueDisplayId(payload.id);
+      const isArchived = parsed.rows.some(
+        (row) => row.table === "archive" && normalizeIssueDisplayId(row.id) === targetId,
+      );
+      if (action === "done") {
+        if (!isArchived) {
+          throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+        }
+        // Carry archive-aware intent so reconcile merges the outcome instead of
+        // no-oping via the idempotent archived fast-path.
+        payload.allowArchived = true;
+      } else if (action === "update" || action === "amend-outcome") {
+        if (!isArchived) {
+          throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+        }
+        const archiveFp = archiveRowFingerprint(current, payload.id);
+        if (archiveFp) {
+          payload.baseRowFingerprint = archiveFp;
+          payload.allowArchived = true;
+          payload.targetTable = "archive";
+        }
+      } else {
+        throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
+      }
+    } else {
+      if (action === "amend-outcome" || (action === "update" && payload.outcome !== undefined)) {
+        throw new Error(
+          `ledger request rejected: ${payload.id} is still open; outcome amendments require an archived issue`,
+        );
+      }
+      payload.baseRowFingerprint = currentFingerprint;
     }
-    payload.baseRowFingerprint = currentFingerprint;
   }
   if (action === "queue" && typeof payload.id === "string") {
     const currentFingerprint = queueRowFingerprint(readOutstandingIssues(), payload.id);
@@ -734,6 +866,11 @@ function createRequest(action, argv) {
   const problems = validateRequest(request);
   if (problems.length > 0) throw new Error(problems.join("; "));
   const relative = requestPath(request.id);
+  if (argv.includes("--dry-run")) {
+    console.log(JSON.stringify(request, null, 2));
+    console.log(`[dry-run] Planned ${action} request for ${relative} (no file written).`);
+    return;
+  }
   const target = path.join(ROOT, relative);
   mkdirSync(path.dirname(target), { recursive: true });
   writeFileSync(target, `${JSON.stringify(request, null, 2)}\n`, { encoding: "utf8", flag: "wx" });
@@ -1071,6 +1208,30 @@ function selfTest() {
   const resolved = applyRequest(base, done);
   if (resolved.includes("`#001`"))
     throw new Error("self-test failed: queued resolve did not preserve ledger invariants");
+  const idempDone = {
+    version: 1,
+    id: "99999999-1111-4111-8111-111111111111",
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: "#001", outcome: "idempotent note", baseRowFingerprint: issueRowFingerprint(base, "#001") },
+  };
+  const idempResult = applyRequest(resolved, idempDone);
+  if (!idempResult.includes("done \\| Note: idempotent note")) {
+    throw new Error("self-test failed: idempotent close did not merge outcome note into archive row");
+  }
+  // One-request batch with createRequest-style allowArchived must merge the
+  // outcome — reproduces archive-aware close surviving reconcile (idempotent).
+  const archivedClose = {
+    version: 1,
+    id: "99999999-4444-4444-8444-444444444444",
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: "#000", outcome: "post-archive close note", allowArchived: true },
+  };
+  const archivedBatch = applyRequestBatch(base, [archivedClose]);
+  if (!archivedBatch.markdown.includes("done \\| Note: post-archive close note")) {
+    throw new Error("self-test failed: one-request archived done batch did not merge outcome");
+  }
   if (validateRequest({ ...add, payload: {} }).length === 0)
     throw new Error("self-test failed: invalid request accepted");
 
@@ -1097,6 +1258,27 @@ function selfTest() {
     conflictRejected = /explicit cancellation decision/.test(String(error));
   }
   if (!conflictRejected) throw new Error("self-test failed: colliding mutations were not rejected");
+  const dupDone1 = {
+    version: 1,
+    id: "99999999-2222-4222-8222-222222222222",
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: "#001", outcome: "batch close 1" },
+  };
+  const dupDone2 = {
+    version: 1,
+    id: "99999999-3333-4333-8333-333333333333",
+    createdOn: "2026-08-14",
+    action: "done",
+    payload: { id: "#001", outcome: "batch close 2" },
+  };
+  if (mutationConflicts([dupDone1, dupDone2]).length > 0) {
+    throw new Error("self-test failed: duplicate done requests in batch were flagged as conflict");
+  }
+  const dupBatchResult = applyRequestBatch(base, [dupDone1, dupDone2]);
+  if (!dupBatchResult.markdown.includes("batch close 1 \\| Note: batch close 2")) {
+    throw new Error("self-test failed: duplicate done requests in batch did not merge outcome notes");
+  }
   const planned = applyRequestBatch(base, [done, update, cancel]);
   if (!planned.markdown.includes("updated") || planned.cancelledIds[0] !== done.id) {
     throw new Error("self-test failed: cancellation did not select the intended mutation");
@@ -1173,14 +1355,39 @@ function selfTest() {
     throw new Error("self-test failed: --allow-concurrent must warn loudly rather than throw");
   }
 
+  const parsedEnqueue = parseInboxCommand(["enqueue", "--action", "done", "--id", "#001", "--reason", "tested"]);
+  if (parsedEnqueue.action !== "done" || !parsedEnqueue.argv.includes("--reason")) {
+    throw new Error("self-test failed: parseInboxCommand did not properly parse enqueue alias");
+  }
+
   console.log("ledger inbox self-test passed.");
 }
 
-function main() {
-  const argv = process.argv.slice(2);
-  if (argv.includes("--self-test")) return selfTest();
+export function parseInboxCommand(argv) {
   const action = argv[0];
+  if (action === "enqueue") {
+    const explicitAction = argValue(argv, "action");
+    if (!explicitAction || !ACTIONS.has(explicitAction)) {
+      throw new Error(`enqueue requires --action <${[...ACTIONS].join("|")}>`);
+    }
+    const filteredArgv = [];
+    for (let i = 1; i < argv.length; i++) {
+      if (argv[i] === "--action") {
+        i++;
+        continue;
+      }
+      filteredArgv.push(argv[i]);
+    }
+    return { action: explicitAction, argv: [explicitAction, ...filteredArgv] };
+  }
+  return { action, argv };
+}
+
+function main() {
+  const rawArgv = process.argv.slice(2);
+  if (rawArgv.includes("--self-test")) return selfTest();
   try {
+    const { action, argv } = parseInboxCommand(rawArgv);
     if (ACTIONS.has(action)) return createRequest(action, argv);
     if (action === "reconcile") return reconcile(argv.slice(1));
     if (action === "check") {
@@ -1204,7 +1411,9 @@ function main() {
       );
       return;
     }
-    throw new Error("usage: ledger-inbox.mjs <add|done|update|queue|cancel|reconcile|check> [args]");
+    throw new Error(
+      "usage: ledger-inbox.mjs <add|done|update|amend-outcome|queue|cancel|enqueue|reconcile|check> [args]",
+    );
   } catch (error) {
     console.error(`ledger inbox: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

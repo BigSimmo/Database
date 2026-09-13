@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c772a1b8-a7c7-4719-9885-2ab3651f3e0e",
+  "createdOn": "2026-09-01",
+  "action": "done",
+  "payload": {
+    "id": "#PM9SP1",
+    "outcome": "Resolved 2026-09-01 by PRs #2497 and #2499. The row named therapy-compass/workspace.tsx:18, screens/detail-screen.tsx:285 and recommend-screen.tsx:203; Therapy Compass had already been corrected before this session (workspace.tsx now renders 'Source-grounded therapy reference'), and a repo-wide sweep for the whole over-claim class - not just the literal phrase - found seven live sites, all now fixed: differential-presentation-workflow-page.tsx (x2), differential-detail-page.tsx, specifier-ui.tsx, lib/differential-detail.ts (the copied/exported summary text, which carried the claim outside the app), clinical-dashboard/patient-profile-panel.tsx and clinical-dashboard/medication-record-page.tsx. The last two were the worst and were NOT in this row: the patient-profile panel (rendered by the prescribing workspace, the medication record page and the patient-details dock) asserted the feature IS 'Decision support, not medical advice' on the surface that computes per-patient interaction verdicts, and the medication footer claimed PsychSift 'provides evidence summaries'. All now read the agreed wording 'Clinical reference - not validated decision support'. Production verified clean: the only remaining 'decision support' strings under src/ are the document-intent taxonomy (which classifies uploaded guideline documents, not the app's own voice) and the privacy page's own boundary statement. The row's second FIX clause - 'mount the footer on the other mode homes' - is NOT done and is deliberately not carried here: it contradicts a recorded design decision in mode-home-template.tsx:216-219 and is filed as its own row for an owner ruling.",
+    "baseRowFingerprint": "755b6dd3772b192d15dd0aef89149aba50ae3b105fa627c9313388d4dce0dc86"
+  }
+}

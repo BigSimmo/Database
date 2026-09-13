@@ -14,6 +14,7 @@ import {
 import { AutomatedState } from "./automated-state";
 import { ListEmptyState } from "./list-empty-state";
 import type { PatientsDirectoryRow } from "./patients-directory-row";
+import { workspacePanelPadded } from "./surfaces";
 
 /**
  * The team's caseload -- the CLIENT half, and the reason the boundary exists.
@@ -153,7 +154,7 @@ const searchInputId = "caring-contacts-patients-search";
 const searchScopeNoteId = "caring-contacts-patients-search-scope";
 
 const filterChipClass =
-  "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:text-[color:var(--text-heading)] forced-colors:border-[CanvasText]";
+  "inline-flex min-h-tap min-w-0 items-center justify-center rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 text-sm font-medium text-[color:var(--text-muted)] transition-colors hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none aria-[current]:border-[color:var(--clinical-accent)] aria-[current]:bg-[color:var(--clinical-accent-soft)] aria-[current]:font-semibold aria-[current]:text-[color:var(--clinical-accent)] aria-[current]:shadow-[var(--shadow-inset)] forced-colors:border-[CanvasText]";
 
 const fieldClass =
   "min-h-tap w-full min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] pl-10 pr-3 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -185,6 +186,8 @@ export type PatientsDirectoryClientProps = {
    * itself never crosses this boundary, and neither does its name or its length.
    */
   savedSearchNotApplied: boolean;
+  /** Optional initial search query safely resolved from an obfuscated session filter token (#HDCF2B). */
+  initialSearchQuery?: string;
 };
 
 export function PatientsDirectoryClient({
@@ -194,10 +197,11 @@ export function PatientsDirectoryClient({
   mayViewPlans,
   mayViewPatientNames,
   savedSearchNotApplied,
+  initialSearchQuery,
 }: PatientsDirectoryClientProps) {
   // The one place the typed name lives. It is read by `matchesQuery` and rendered back into the
   // input and the empty state, and it reaches nothing else -- no href, no form, no fetch.
-  const [rawQuery, setRawQuery] = useState("");
+  const [rawQuery, setRawQuery] = useState(initialSearchQuery ?? "");
   const query = rawQuery.trim();
   const visible = rows.filter((row) => matchesQuery(row, query));
   const filtering = filter.state !== "all" || query !== "";
@@ -518,13 +522,13 @@ function PatientRow({ row }: { row: PatientsDirectoryRow }) {
   const explanation = suppressionExplanation(row.absorbedContactCount, row.otherSuppressedContactCount);
 
   return (
-    <li className="min-w-0 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-4 forced-colors:border-[CanvasText]">
+    <li className={workspacePanelPadded}>
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-[color:var(--text-muted)]">
             {row.patientName === null ? "Synthetic patient identifier" : "Patient"}
           </p>
-          <h3 className="mt-0.5 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+          <h3 className="mt-0.5 break-words text-sm font-semibold text-[color:var(--text-heading)]">
             {row.patientName ?? row.patientId}
           </h3>
           {/*
@@ -533,7 +537,7 @@ function PatientRow({ row }: { row: PatientsDirectoryRow }) {
             when asking about a record.
           */}
           {row.patientName === null ? null : (
-            <p className="mt-0.5 truncate text-xs text-[color:var(--text-muted)]">
+            <p className="mt-0.5 break-words text-xs text-[color:var(--text-muted)]">
               Synthetic identifier: {row.patientId}
             </p>
           )}

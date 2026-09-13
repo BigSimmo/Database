@@ -6,6 +6,8 @@ import {
   isQuarantineExpired,
   loadRepoAwarenessSnapshot,
   resolveRepoFreshness,
+  reviewRecordsNewestFirst,
+  reviewStateCounts,
 } from "@/lib/developer-area/repo-awareness-snapshot";
 import { REPO_AWARENESS_SNAPSHOT_VERSION } from "@/lib/developer-area/repo-awareness-types";
 
@@ -27,17 +29,80 @@ describe("loadRepoAwarenessSnapshot", () => {
   it("returns the committed snapshot with all four sections populated", () => {
     const snapshot = loadRepoAwarenessSnapshot();
     expect(snapshot.version).toBe(REPO_AWARENESS_SNAPSHOT_VERSION);
-    expect(snapshot.routes.counts.pages).toBeGreaterThan(0);
-    expect(snapshot.documentation.counts.documents).toBeGreaterThan(0);
-    expect(snapshot.review_state.counts.records).toBeGreaterThan(2_500);
+    expect(snapshot.routes.pages.length).toBeGreaterThan(0);
+    expect(snapshot.documentation.documents.length).toBeGreaterThan(0);
+    expect(snapshot.review_state.records.length).toBeGreaterThan(2_500);
   });
 
-  it("keeps each section's count equal to the length of its own list", () => {
+  /**
+   * v3's whole point, asserted against the COMMITTED file rather than a fixture.
+   *
+   * The old test here checked that each stored count equalled its own list's
+   * length. Deriving makes that tautological — the derivation IS the length —
+   * so it is replaced by the property that can actually regress: that no stored
+   * aggregate came back. A stored total is a line two branches rewrite on the
+   * same merge, which is what conflicted twice in an hour on PR #2674.
+   */
+  it("stores no aggregate totals, so two branches cannot collide on one", () => {
     const snapshot = loadRepoAwarenessSnapshot();
-    expect(snapshot.routes.counts.pages).toBe(snapshot.routes.pages.length);
-    expect(snapshot.documentation.counts.documents).toBe(snapshot.documentation.documents.length);
-    expect(snapshot.test_health.counts.quarantined).toBe(snapshot.test_health.quarantined.length);
-    expect(snapshot.review_state.counts.records).toBe(snapshot.review_state.records.length);
+    const sections: Record<string, object> = {
+      routes: snapshot.routes,
+      documentation: snapshot.documentation,
+      test_health: snapshot.test_health,
+      review_state: snapshot.review_state,
+    };
+    for (const [name, section] of Object.entries(sections)) {
+      expect(`${name}: ${Object.keys(section).join(",")}`).not.toContain("counts");
+    }
+  });
+
+  /**
+   * The second half of the same property. A full ISO instant is unique to the
+   * second, so every pair of branches would disagree on this line; a date means
+   * two branches merging on the same day write identical bytes and git resolves
+   * it without asking.
+   */
+  it("dates captured_revision to the day, so same-day branches write identical bytes", () => {
+    const snapshot = loadRepoAwarenessSnapshot();
+    expect(snapshot.captured_revision?.committed_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(snapshot.captured_revision).not.toHaveProperty("sha");
+  });
+
+  it("stores review records ordered by head, so concurrent appends merge cleanly", () => {
+    // The committed corpus itself, not a fixture: this is the property that
+    // stops a `ledger:append` on two branches conflicting on the same lines
+    // (`#EFETZT`). A regenerated snapshot that clusters appends again fails here.
+    const heads = loadRepoAwarenessSnapshot().review_state.records.map((record) => record.head);
+    expect([...heads].sort((left, right) => left.localeCompare(right))).toEqual(heads);
+  });
+
+  it("carries no stored review-state aggregate, which could not merge", () => {
+    expect(loadRepoAwarenessSnapshot().review_state).not.toHaveProperty("counts");
+  });
+});
+
+describe("reviewStateCounts", () => {
+  it("counts records and distinct refs from the list the page renders", () => {
+    const records = loadRepoAwarenessSnapshot().review_state.records;
+    const counts = reviewStateCounts(records);
+    expect(counts.records).toBe(records.length);
+    expect(counts.refs).toBe(new Set(records.map((record) => record.ref)).size);
+    // One ref reviewed at several heads is one ref and several records, which
+    // is exactly what the panel's two tiles exist to tell apart.
+    expect(counts.refs).toBeLessThan(counts.records);
+  });
+});
+
+describe("reviewRecordsNewestFirst", () => {
+  it("puts the newest record first without mutating the shared snapshot", () => {
+    const stored = loadRepoAwarenessSnapshot().review_state.records;
+    const storedOrder = stored.map((record) => record.head);
+    const sorted = reviewRecordsNewestFirst(stored);
+    const dates = sorted.map((record) => record.date);
+    expect([...dates].sort((left, right) => right.localeCompare(left))).toEqual(dates);
+    // The snapshot is a module-level import shared by every request, so sorting
+    // it in place would reorder it for every later reader.
+    expect(stored.map((record) => record.head)).toEqual(storedOrder);
   });
 });
 
@@ -88,7 +153,7 @@ describe("documentsBySection", () => {
     const snapshot = loadRepoAwarenessSnapshot();
     const grouped = documentsBySection(snapshot);
     const total = grouped.reduce((sum, section) => sum + section.documents.length, 0);
-    expect(total).toBe(snapshot.documentation.counts.documents);
+    expect(total).toBe(snapshot.documentation.documents.length);
     expect(grouped.map((section) => section.name)).toEqual(snapshot.documentation.sections.map((s) => s.name));
   });
 });

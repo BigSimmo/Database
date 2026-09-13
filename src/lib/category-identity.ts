@@ -85,6 +85,7 @@ export const CATEGORY_ICON_KEYS = [
   "compass",
   "bookOpenText",
   "bookMarked",
+  "libraryBig",
   "search",
   "scrollText",
   "shieldCheck",
@@ -95,6 +96,7 @@ export const CATEGORY_ICON_KEYS = [
   "waves",
   "star",
   "chat",
+  "phoneCall",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -120,6 +122,8 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   "therapy-compass": "compass",
   factsheets: "bookOpenText",
   dictionary: "bookMarked",
+  sources: "libraryBig",
+  "on-call": "phoneCall",
 };
 
 /**
@@ -137,6 +141,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   documents: "document",
   factsheets: "document",
   dictionary: "source",
+  sources: "source",
   differentials: "indigo",
   "therapy-compass": "indigo",
   specifiers: "table",
@@ -145,6 +150,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   tools: "slate",
   favourites: "search",
   answer: "clinical",
+  "on-call": "purple",
 };
 
 /**
@@ -162,6 +168,7 @@ export const TOOL_ICON: Record<ToolCatalogId, CategoryIconKey> = {
   differentials: "brainCircuit",
   documents: "fileText",
   "clinical-dictionary": "bookMarked",
+  "source-catalogue": "libraryBig",
   guidelines: "scrollText",
   "risk-safety": "shieldCheck",
   "medication-prescribing": "pill",

@@ -8,7 +8,7 @@ import {
   type PersistedAnswerThread,
   type StoredAnswerTurn,
 } from "@/lib/answer-thread-storage";
-import type { RagAnswer, SearchResult } from "@/lib/types";
+import type { ClientRagAnswerPayload, ClientSearchResult } from "@/lib/answer-client-payload";
 
 import type { AnswerThreadSnapshotMetadata } from "@/components/clinical-dashboard/use-persisted-answer-thread";
 
@@ -75,9 +75,10 @@ export function useAnswerThreadBootstrap({
   setLatestAnswerQuery: Dispatch<SetStateAction<string | null>>;
   setCollapsedTurnIds: Dispatch<SetStateAction<Set<string>>>;
   setShowEarlierTurns: Dispatch<SetStateAction<boolean>>;
-  setAnswer: Dispatch<SetStateAction<RagAnswer | null>>;
-  setSources: Dispatch<SetStateAction<SearchResult[]>>;
-  setModeSearchSubmitted: Dispatch<SetStateAction<boolean>>;
+  setAnswer: Dispatch<SetStateAction<ClientRagAnswerPayload | null>>;
+  setSources: Dispatch<SetStateAction<ClientSearchResult[]>>;
+  /** Also records the submitted query, so a later composer edit cannot pass for a submission. */
+  setModeSearchSubmitted: (submitted: boolean, submittedText?: string) => void;
   setQuery: Dispatch<SetStateAction<string>>;
   setAnswerThreadBootstrapped: Dispatch<SetStateAction<boolean>>;
 }) {
@@ -131,7 +132,9 @@ export function useAnswerThreadBootstrap({
           latestAnswerTurnRef.current = persisted.latestTurn;
           setAnswer(persisted.latestTurn.answer);
           setSources(persisted.latestTurn.sources);
-          setModeSearchSubmitted(true);
+          // Restoring a persisted thread is a submission of that turn's query, not of
+          // whatever happens to be in the composer.
+          setModeSearchSubmitted(true, persisted.latestTurn.query);
           setQuery("");
           autoRunSearchSignatureRef.current = persisted.latestSubmissionSignature;
         }

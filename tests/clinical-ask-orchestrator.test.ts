@@ -101,6 +101,22 @@ describe("runClinicalAsk", () => {
     expect(dependencies.retrieveCatalogue).toHaveBeenCalledOnce();
   });
 
+  it("reports an evidence gap without synthesis when no tier returns evidence", async () => {
+    const dependencies = fakes([]);
+    const response = await runClinicalAsk(
+      request({ allowExternalFallback: false }),
+      scope,
+      dependencies,
+      new AbortController().signal,
+      () => {},
+    );
+    expect(response.state).toBe("evidence_gap");
+    if (response.state === "evidence_gap") expect(response.evidence).toEqual([]);
+    expect(dependencies.retrieveCatalogue).toHaveBeenCalledOnce();
+    expect(dependencies.retrieveIndexed).toHaveBeenCalledOnce();
+    expect(dependencies.synthesize).not.toHaveBeenCalled();
+  });
+
   it("skips external retrieval when local evidence is sufficient", async () => {
     const dependencies = fakes();
     const response = await runClinicalAsk(request(), scope, dependencies, new AbortController().signal, vi.fn());

@@ -1,5 +1,7 @@
 # Governed ingestion audit and reversible targeted re-index — Implementation Plan
 
+**2026-09-07 binding amendment:** Read the package execution-order.md section “Answer-quality amendment — 2026-09-07” (editable owner: docs/superpowers/rag-upgrade/canonical/execution-order.md). It contains the single F01–F21/M01–M07 disposition map and M1–M3 acceptance policy. The task-local amendments below take precedence over superseded examples; unchanged accepted task evidence remains valid. Product implementation is paused pending separate authorization.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Use one implementer at a time. Each task requires a task-reviewer verdict for specification compliance and code quality before continuing. The existing three-PR edge-ingestion plan is itself executed sequentially, never by concurrent implementers. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Determine which documents genuinely need repair, acquire only allowlisted public Australian versions into a governed shadow state, correct the ingestion pipeline, evaluate targeted candidate generations against the active index, and provide reusable atomic promotion plus real prior-generation rollback primitives for both documents and first-party site-content releases.
@@ -98,6 +100,8 @@ Report separately:
 ---
 
 ### Task 1: Build the read-only ingestion integrity audit
+
+**Amended acceptance (2026-09-07):** F18: extend the accepted read-only audit with a reference-part-to-eligible-passage coverage inventory: exact current accessible source role, passage and extraction/index availability, declared fixture versus actual corpus, and unresolved gaps. Publisher/catalogue counts cannot establish coverage. Prepare offline; actual source access remains separately authorized.
 
 **Files:**
 
@@ -524,6 +528,8 @@ Tasks 4–6 are three separate SDD phases and review ranges. Never combine them 
 
 ### Task 7: Build exact-generation shadow evaluation and driver
 
+**Amended acceptance (2026-09-07):** F18: shadow evaluation must demonstrate eligible passage coverage for targeted answer parts, not just successful jobs or catalogue entries. Distinguish Australian/public/international activation policy from P16 uploaded admission; keep link-only restrictions and exact generation evidence.
+
 **Files:**
 
 - Reuse: `src/lib/recovery-readiness-evidence.ts`
@@ -734,6 +740,8 @@ git commit -m "feat(reindex): retain rollback generations"
 ---
 
 ### Task 9: Write the operator runbook and define targeted production waves
+
+**Amended acceptance (2026-09-07):** F17–F18: runbook joins source-governance review/expiry, active-generation passage readiness, distinct uploaded and international activation prerequisites and L01–L06 authority. Keep currentness/rights/admission/recovery gates; a corpus gap does not authorize bulk reindex or weaker evidence.
 
 **Files:**
 

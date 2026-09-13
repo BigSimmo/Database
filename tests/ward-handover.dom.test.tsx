@@ -1,6 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
+import { expectSays } from "./helpers/ward-caption";
 
 // Same reason as every sibling dom suite (ward-screen.dom.test.tsx, ward-ed-screen.dom.test.tsx,
 // ward-flow-clock-consistency.dom.test.tsx): `ClinicalRail` renders next/link anchors and this
@@ -17,7 +18,7 @@ import { formatInstant } from "@/components/ward-management/ward-clock";
 import type { HandoverSnapshot } from "@/components/ward-management/ward-derivations";
 import {
   HandoverPage,
-  HeldBedsSection,
+  PulledBedsSection,
   InTransitSection,
   LongestWaitsSection,
   PlacementGoneWrongSection,
@@ -54,7 +55,7 @@ describe("HandoverPage", () => {
 
     const order = [
       "ward-handover-longest-waits",
-      "ward-handover-held-beds",
+      "ward-handover-pulled-beds",
       "ward-handover-in-transit",
       "ward-handover-placement-gone-wrong",
     ];
@@ -78,50 +79,65 @@ describe("HandoverPage", () => {
     // constructed empty snapshot, because the live seed can never produce one (see that test's
     // own comment).
     expect(screen.queryByTestId("ward-handover-longest-waits-empty")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("ward-handover-held-beds-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("ward-handover-pulled-beds-empty")).not.toBeInTheDocument();
     expect(screen.queryByTestId("ward-handover-in-transit-empty")).not.toBeInTheDocument();
     expect(screen.queryByTestId("ward-handover-placement-gone-wrong-empty")).not.toBeInTheDocument();
   });
 
   /**
-   * THE FREEZE MUST BE REAL. `handoverSnapshot` is a pure function of `now`, so if
-   * `HandoverPage` ever re-derived it on the provider's live clock tick — instead of freezing it
-   * once at mount — this test would catch it two different ways:
+   * THE PAGE MUST READ LIVE (owner decision OD-4, 2026-08-30). This test is the exact inverse of
+   * the one it replaces, deliberately: until that day this suite asserted the page froze at mount
+   * and proved it two ways, and both of those ways now prove the opposite.
    *
-   * 1. The freeze-time label itself would move.
-   * 2. WF-016's held bed (`bedHeldUntil = NOW_ANCHOR + 45`, fixture-authored, see
-   *    ward-movements.ts) reads "Expires in 45m" at mount. Advancing the clock 100 minutes takes
-   *    the LIVE `now` past that bed's hold time — if this page recomputed on that live clock, the
-   *    same row would flip to "Expired", a categorical change, not just a shifted number. A
-   *    frozen page must still show "Expires in 45m" after the advance.
+   * Rewritten rather than removed, because "the freeze test went away" and "the page went live"
+   * look identical afterwards, and only one of them is what was decided.
    *
-   * The whole page's rendered text is also compared before and after, so any other section
-   * quietly drifting (a wait label ticking up, a new "Expired" row) fails this test too, not just
-   * the two named checks above.
+   *   1. The taken-at label must MOVE. It was pinned to be unchanged.
+   *   2. WF-016's held bed (`pullExpiresAt = NOW_ANCHOR + 45`, fixture-authored, see
+   *      ward-movements.ts) reads "Expires in 45m" at mount. Advancing 100 minutes takes the live
+   *      clock past that hold, so a live page must now show "Expired" — a CATEGORICAL change, not
+   *      a shifted number, which is what makes this stronger than comparing two timestamps.
+   *   3. The whole page's rendered text must differ, so a section that somehow stayed frozen while
+   *      the two named checks moved is still caught.
+   *
+   * The reasoning for the reversal is on `HandoverPage` itself and in OD-4: the freeze was
+   * protecting something real — a room discussing the same numbers — but paper already holds
+   * still, and a frozen screen beside a live printed sheet is two numbers for one thing in one
+   * room.
    */
-  it("freezes at open and does not change when the shared clock advances", () => {
+  it("reads live: the moment, an expiring hold, and the page as a whole all move with the clock", () => {
     renderHandover();
 
-    const frozenAtBefore = screen.getByTestId("ward-handover-frozen-at").textContent;
-    expect(frozenAtBefore).toBe(`Frozen at ${formatInstant(NOW_ANCHOR)}`);
+    const takenAtBefore = screen.getByTestId("ward-handover-taken-at").textContent;
+    expect(takenAtBefore, "the sheet states its moment in full, because paper outlives the day").toContain(
+      formatInstant(NOW_ANCHOR),
+    );
 
-    const heldBedsBefore = screen.getByTestId("ward-handover-held-beds").textContent;
-    expect(heldBedsBefore).toContain("WF-016");
-    expect(heldBedsBefore).toContain("Expires in 45m");
+    const pulledBedsBefore = screen.getByTestId("ward-handover-pulled-beds").textContent;
+    expect(pulledBedsBefore).toContain("WF-016");
+    expect(pulledBedsBefore, "precondition: this pull has not expired yet at mount").toContain("Expires in 45m");
 
     const pageBefore = screen.getByTestId("ward-handover-page").textContent;
 
     fireEvent.click(screen.getByRole("button", { name: "advance clock" }));
 
-    const frozenAtAfter = screen.getByTestId("ward-handover-frozen-at").textContent;
-    expect(frozenAtAfter).toBe(frozenAtBefore);
+    expect(
+      screen.getByTestId("ward-handover-taken-at").textContent,
+      "the moment on the sheet must follow the clock — a page that still shows the old one is frozen",
+    ).not.toBe(takenAtBefore);
 
-    const heldBedsAfter = screen.getByTestId("ward-handover-held-beds").textContent;
-    expect(heldBedsAfter).toBe(heldBedsBefore);
-    expect(heldBedsAfter).toContain("Expires in 45m");
+    const pulledBedsAfter = screen.getByTestId("ward-handover-pulled-beds").textContent;
+    expect(
+      pulledBedsAfter,
+      "the clock has passed WF-016's hold, so a live page says Expired. Still reading 'Expires in 45m' " +
+        "is the freeze, and it is the categorical version of the failure rather than a drifted number.",
+    ).toContain("Expired");
+    expect(pulledBedsAfter).not.toContain("Expires in 45m");
 
-    const pageAfter = screen.getByTestId("ward-handover-page").textContent;
-    expect(pageAfter).toBe(pageBefore);
+    expect(
+      screen.getByTestId("ward-handover-page").textContent,
+      "some section is still frozen even though the two named checks moved",
+    ).not.toBe(pageBefore);
   });
 
   // Every section must state plainly when it is empty (spec's conservative-failure rule) — but
@@ -134,24 +150,62 @@ describe("HandoverPage", () => {
   // about "zero open movements" is fabricated clinical data, it is simply an empty array), and
   // each section component takes that snapshot as a plain prop, with no dependency on the
   // provider or the freeze. Rendering each one directly proves the empty-note branch for real.
+  /**
+   * Spec D9: this page and the board answering "what can I fill right now" must each carry a
+   * one-line link to the other, naming the question each answers, so the two are never confused.
+   *
+   * 🔴 **THE DESTINATION CHANGED ON 2026-09-06 AND THIS TEST HAD PINNED THE OLD ONE.** It required
+   * the link to be named "morning bed state" and to point at `/mockups/ward-flow/morning`. MERGE 02
+   * folded that board into `CapacityScreen` the day before, owner-approved, leaving the old route as
+   * a redirect stub kept only so bookmarks do not 404 — `ward-nav.ts` calls it "not a destination in
+   * its own right". So this test was requiring the page to link somewhere it must not link, and it
+   * was GREEN, because the link resolved.
+   *
+   * ⚠️ **It now asserts the SPEC'S REQUIREMENT rather than the destination's name**: a cross-link
+   * exists, it names the question the other screen answers, and it points at a real screen rather
+   * than a redirect stub. Rename the board again and this survives;
+   * `tests/ward-links-never-point-at-redirect-stubs.test.ts` holds the stub half for every screen.
+   *
+   * ⚠️ **AND THE RECIPROCAL HALF OF D9 IS NOW UNSATISFIABLE, WHICH IS REPORTED AND NOT FIXED HERE.**
+   * `morning-page.tsx` is rendered by no route at all, so the "each links to the other" requirement
+   * has one end that no reader can reach. That needs a ruling, not a test edit.
+   */
+  it("carries a one-line cross-link to the board answering the other question, at a real destination", () => {
+    renderHandover();
+
+    // Scoped to the cross-link paragraph, not the page: the nav rail carries its own Capacity
+    // link, so a page-wide role query matches two and fails for a reason unrelated to the claim.
+    const paragraph = screen.getByText(/fill right now/iu).closest("p");
+    expect(paragraph, "the handover cross-link paragraph is gone entirely").not.toBeNull();
+    const link = within(paragraph as HTMLElement).getByRole("link");
+    const href = link.getAttribute("href") ?? "";
+    expect(
+      href,
+      `the handover cross-link points at ${href}, which is a redirect stub kept only so old bookmarks ` +
+        "do not 404. It will not 404 — it will land a reader on a differently-named screen.",
+    ).not.toBe("/mockups/ward-flow/morning");
+    expect(href).toMatch(/^\/mockups\/ward-flow\//u);
+    expectSays(link.closest("p")?.textContent ?? "", "the handover framing question", ["fill right now"]);
+  });
+
   describe("renders the explicit empty note for every section, given an empty snapshot", () => {
     const emptySnapshot: HandoverSnapshot = {
-      frozenAt: NOW_ANCHOR,
+      takenAt: NOW_ANCHOR,
       longestWaits: [],
-      heldBeds: [],
+      pulledBeds: [],
       inTransit: [],
       placementGoneWrong: [],
     };
 
     it("longest waits", () => {
-      render(<LongestWaitsSection snapshot={emptySnapshot} />);
+      render(<LongestWaitsSection snapshot={emptySnapshot} units={[]} />);
       expect(screen.getByTestId("ward-handover-longest-waits-empty")).toHaveTextContent("None");
       expect(screen.queryByRole("table")).not.toBeInTheDocument();
     });
 
     it("held beds", () => {
-      render(<HeldBedsSection snapshot={emptySnapshot} />);
-      expect(screen.getByTestId("ward-handover-held-beds-empty")).toHaveTextContent("None");
+      render(<PulledBedsSection snapshot={emptySnapshot} />);
+      expect(screen.getByTestId("ward-handover-pulled-beds-empty")).toHaveTextContent("None");
       expect(screen.queryByRole("table")).not.toBeInTheDocument();
     });
 

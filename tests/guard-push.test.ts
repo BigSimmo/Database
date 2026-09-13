@@ -28,6 +28,7 @@ import {
   HEAVY_RUN_ADMISSION_BUSY_EXIT,
   HEAVY_RUN_ADMISSION_BUSY_MARKER,
   inFlightCiGuard,
+  isNeverLaunchedFailure,
   inFlightCiVerdict,
   isCoordinatorBusyOutput,
   isCoordinatorBusyResult,
@@ -788,5 +789,40 @@ describe("format-checkout cleanup never deletes through the linked dependency tr
       log: () => {},
     });
     expect(order).toEqual(["unlink", "removeWorktree", "removeDir"]);
+  });
+});
+
+/**
+ * The static guard used to say `lint failed` when eslint had never been spawned. On 2026-09-02 a
+ * 992-commit push built a 56,570-byte argument vector against Windows' 32,767-byte limit, the
+ * process was refused, and the only output was "The command line is too long." Both natural
+ * readings of that message are wrong: the code was not proven broken, and the guard was not noise.
+ *
+ * These cases pin the distinction in BOTH directions. The two controls are the point — a detector
+ * that answered "never launched" to a genuine lint error would be worse than the bug it replaced,
+ * because it would talk somebody past a real defect.
+ */
+describe("never-launched versus failed", () => {
+  it("recognises a process that was refused before it could start", () => {
+    expect(isNeverLaunchedFailure({ code: "ENAMETOOLONG" }, "")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: "E2BIG" }, "")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: 1 }, "The command line is too long.")).toBe(true);
+    expect(isNeverLaunchedFailure({ code: 1 }, "/bin/sh: argument list too long")).toBe(true);
+  });
+
+  it("does NOT mistake a real failure for one that never ran", () => {
+    expect(
+      isNeverLaunchedFailure(
+        { code: 1, status: 1 },
+        "/src/a.tsx  12:3  error  Unexpected any  @typescript-eslint/no-explicit-any  (1 problem)",
+      ),
+    ).toBe(false);
+    expect(
+      isNeverLaunchedFailure(
+        { code: 2, status: 2 },
+        "src/b.ts(4,1): error TS2353: Object literal may only specify known properties",
+      ),
+    ).toBe(false);
+    expect(isNeverLaunchedFailure(undefined, "")).toBe(false);
   });
 });

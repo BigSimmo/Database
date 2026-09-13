@@ -3,9 +3,20 @@
 **Plan:** `docs/superpowers/plans/2026-08-20-care-plan-implementation.md`
 **Spec (binding):** `docs/superpowers/specs/2026-08-20-care-plan-design.md`
 **Glossary (binding):** `docs/care-plan-context.md`
-**Branch:** `claude/ed-care-plans-impl-7f44cd`
-**Worktree:** `D:\Worktrees\Database\care-plan-impl` (relocated again 22 Aug 2026 — see Environment hazard)
+**Branch:** superseded — see the landing note below
+**Worktree:** superseded — see the landing note below
 **Tasks:** 11. Stage A = 1–5 then a mandatory user checkpoint; Stage B = 6–11.
+
+> **LANDED, 26 August 2026.** All eleven tasks merged to `main` as squash commit `e15b250cf` via
+> pull request [#2383](https://github.com/BigSimmo/Database/pull/2383). The two branch names
+> appearing throughout this file — `claude/ed-care-plans-impl-7f44cd` and
+> `claude/care-plan-stage-b-9-11` — are **history**. Their remotes were deleted on merge; the
+> second still exists locally, holds the 209-commit build history the squash flattened, and must
+> not be deleted. Build from a worktree cut off current `origin/main`.
+>
+> **This file remains the decision record and is still authoritative for every ruling in it.** Only
+> the branch, worktree and progress lines are out of date. Current state, the outstanding items and
+> what to do next: **[`HANDOFF-START-HERE.md`](./HANDOFF-START-HERE.md)**, rewritten 1 September 2026.
 
 > **Why this file is tracked rather than git-ignored scratch.** The
 > `superpowers:subagent-driven-development` skill puts its ledger at

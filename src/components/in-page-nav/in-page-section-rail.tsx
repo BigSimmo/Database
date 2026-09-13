@@ -18,6 +18,11 @@ const focusRing =
  * the four-slot band. Below the minimum bar width, the header's existing title
  * disclosure remains the safe non-overflow fallback.
  *
+ * Defaults to `extended-counted`, not `extended` — the two happen to share a
+ * label family, but `extended` is Therapy's mode-nav profile and free to
+ * change for Therapy's own reasons. Coupling this rail to it by relying on a
+ * shared name is the mistake `extended-counted` exists to rule out.
+ *
  * This is deliberately not a tablist. The panel is a plain region and all
  * sections are also reachable from the sheet, so ordinary buttons keep every
  * visible destination in the normal Tab order.
@@ -30,7 +35,7 @@ export function InPageSectionRail({
   sectionSheetOpen,
   label,
   testIdPrefix,
-  density = "extended",
+  density,
   countedLabels = false,
 }: {
   sections: readonly PageSection[];
@@ -45,8 +50,20 @@ export function InPageSectionRail({
    * Which calibrated label family this rail's labels belong to. It only moves
    * the container width at which each band becomes active — never the order,
    * and never which item folds first.
+   *
+   * Required, with no default, and that is the point. It used to default to
+   * `extended`, so medication's rail inherited Therapy's profile without ever
+   * naming it — invisible to `registryModeNavDensityProfiles`, which lists only
+   * the modes that render the top bar. Retuning `extended` for Therapy in
+   * PR #2686 therefore silently unfolded medication's counted labels early, and
+   * `ui-smoke`'s prescribing journey was the only thing that caught it.
+   *
+   * A default cannot be safe here: the value is a calibration against one
+   * label family's measured widths, so inheriting someone else's is always a
+   * guess. Making it required costs each call site one line and makes the
+   * consumer set answerable by `git grep "density:"`.
    */
-  density?: ModeNavDensityProfile;
+  density: ModeNavDensityProfile;
   /**
    * `true` when every slot carries a count badge beside its label, which needs
    * roughly a third more width per slot.

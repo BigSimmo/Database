@@ -71,7 +71,11 @@ describe("privacy UI", () => {
 
     // Added sections. Each of these is a claim about configured behaviour that a
     // reader can check against the repository, so the wording is pinned too.
-    expect(markup).toContain("database row-level security restricts reads to that owner");
+    expect(markup).toContain("the server scopes every read to that owner");
+    expect(markup).toContain("row-level security stands behind it");
+    expect(markup).toContain("Uploading documents is an administrator action");
+    expect(markup).toContain("publish the corpus as a whole rather than document by document");
+    expect(markup).toContain("intended to hold guideline and reference material, not patient data");
     expect(markup).toContain("those links expire after ten minutes by default");
     expect(markup).toContain("append-only audit record");
     expect(markup).toContain("Recent searches use per-tab session storage");
@@ -91,6 +95,8 @@ describe("privacy UI", () => {
     expect(markup).toContain("retains attributable citations and retrieval dates");
     expect(markup).toContain("not a zero-retention promise");
     expect(markup).toContain("production readiness must each be verified");
+    expect(markup).toContain("verified the four expected schedules on production and staging");
+    expect(markup).not.toContain("staging evidence, clinical evaluation");
 
     // The provider section states only what the application itself does. A
     // zero-retention or no-training claim is an operator/contractual matter the

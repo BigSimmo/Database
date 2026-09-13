@@ -95,9 +95,11 @@ export const PRIORITY_FACT_CARD_LABELS = {
 } as const;
 
 /**
- * Act-section chips rendered before collapsing the remainder behind a "+n" control.
- * Form 5A cites 11 sections and 4A cites 9; rendering all of them as 48px tap targets
- * inside one quarter of the 2x2 grid destroys the layout.
+ * Tiles the Act-section block may show: two full rows of three. Form 5A cites 11 sections
+ * and 4A cites 9; rendering all of them as 48px tap targets inside one quarter of the 2x2
+ * grid destroys the layout. Where the sections do not fit, the last tile becomes the "+n"
+ * control, so the block is always two rows and never a ragged third — that third row set
+ * the height of every other priority-facts card in the row.
  */
 export const ACT_SECTION_CHIP_LIMIT = 6;
 
@@ -253,6 +255,7 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     localPdfSha256: pdfAsset?.sha256,
     localPdfBytes: pdfAsset?.bytes,
     officialPdfPasswordProtected: pdfAsset?.passwordProtected,
+    officialPdfEditingRestricted: pdfAsset?.editingRestricted,
     officialTitleCheckedAt: officialFormsReviewedDate,
     archiveGeneratedAt: archiveGeneratedAt || undefined,
   };

@@ -4,20 +4,31 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state                                                   | Composer placement                                                                                            | Reserve owner                                                                  |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                                        | Page content; no fixed phone dock reserve                                      |
-| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls                     | Idle shell padding only                                                        |
-| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                                         | Idle shell padding only                                                        |
-| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                                    | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop |
-| Answer result view                                           | Overlaid glass header plus answer composer dock                                                               | Dashboard `#main-content` top/bottom reserves                                  |
-| Document detail/source routes                                | `DocumentViewer` floating composer                                                                            | `DocumentViewer` content padding                                               |
-| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                                                 | None — adds no chrome and no reserve                                           |
-| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`                                   | None — portals into the phone collapse row, sticky at `sm+`                    |
-| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock on `/calculators/search` (browse or submitted)             | Page content at home; shell reserve for the catalogue and submitted results    |
-| Dictionary catalogue (`/dictionary/search`)                  | Compact bottom dock on phones; in-flow shared composer from `sm` up, under mode nav and above the Filter band | Shell `--mobile-composer-reserve` on phones; page content on desktop           |
-| Info/detail pages with no composer                           | No fixed composer                                                                                             | Idle shell padding only                                                        |
-| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`                           | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)            |
+| Page state                                                   | Composer placement                                                                                                                                | Reserve owner                                                                               |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Shared home (`/`, any mode) / standalone mode homes          | In-flow hero composer on phones and larger breakpoints                                                                                            | Page content; no fixed phone dock reserve                                                   |
+| Tools directory (`/tools`) and legacy alias (`/?mode=tools`) | No shared composer or phone dock; browse and filter through page-local catalogue controls                                                         | Idle shell padding only                                                                     |
+| Therapy Recommend (`/therapy-compass/recommend`)             | In-flow clinical-situation composer; no shared composer or phone dock                                                                             | Idle shell padding only                                                                     |
+| Submitted/search-result views                                | Compact bottom dock on phones; in normal page flow on tablets and desktops                                                                        | Shell/dashboard `--mobile-composer-reserve` on phones; page content on desktop              |
+| Answer result view                                           | Overlaid glass header plus answer composer dock                                                                                                   | Dashboard `#main-content` top/bottom reserves                                               |
+| Document detail/source routes                                | `DocumentViewer` floating composer                                                                                                                | `DocumentViewer` content padding                                                            |
+| Document section navigation                                  | Header row disclosure (phone sheet) + rail index card at `lg`                                                                                     | None — adds no chrome and no reserve                                                        |
+| Record page breadcrumb header                                | Same header row without the disclosure or track; view mode inline from `sm`                                                                       | None — portals into the phone collapse row, sticky at `sm+`                                 |
+| Calculators (`/calculators`)                                 | In-flow hero composer at home; shared compact dock on `/calculators/search` (browse or submitted)                                                 | Page content at home; shell reserve for the catalogue and submitted results                 |
+| Dictionary catalogue (`/dictionary/search`)                  | A result view: compact bottom dock on phones; the page composer slot from `sm` up, page-owned so it sits under mode nav and above the Filter band | Shell `--mobile-composer-reserve` on phones; `desktop-page-composer-slot` (5rem) on desktop |
+| Information/detail (record) pages, every mode                | No composer at any breakpoint                                                                                                                     | Idle shell padding only                                                                     |
+| Guide Centre dialog (`GuideDialog`)                          | No composer — tour-action dock inside the Sheet footer; Sheet footer band from `sm`                                                               | `[data-guide-content]` bottom pad (`guide-tour-dock` reserve owner)                         |
+
+The information-page row has **no per-mode exception**. `GlobalSearchShell` derives it from
+`isInformationPage` alone (`src/lib/information-pages.ts`): if a route is a mode's record page, it
+renders no composer on phone, tablet or desktop, and its phone clearance collapses to
+`mobileComposerIdleReserve`. Services, Forms and Medication record pages used to opt back in through
+an `isToolDetailWithFooterSearch` allowlist; that allowlist is gone, and a route must not be
+re-added to bring a composer back. Catalogue result docks (`/services/search`, `/forms/search`) keep
+theirs because `isSlugDetail` excludes the reserved `search` suffix, not because they are named
+anywhere. Coverage: `tests/information-pages.test.ts`,
+`tests/search-route-ownership.test.ts` ("does not treat catalogue search docks as information
+pages"), and the record-page cases in `tests/ui-tools.spec.ts` and `tests/ui-chrome-scroll.spec.ts`.
 
 The Tools row is scoped to the **mounted Tools directory**, not to `resultKind: "tools"`. Factsheets,
 Dictionary and Therapy Compass borrow that result kind purely as a benign search kind, and on the
@@ -471,7 +482,11 @@ in-page navigation work defaults to the DocumentViewer template above.
     content had already ended carried 8-273px of scroll range as a result — a scrollbar on a page
     that fits, and a wheel notch that jolts into the bottom stop. Phone floors are unaffected:
     below `sm` the document owns scrolling and there is no bounded box to fill. Guarded by the
-    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`.
+    "pages that fit the window have no scroll range" cases in `tests/ui-chrome-scroll.spec.ts`, and
+    repo-wide by `tests/viewport-fill-contract.test.ts`, which scans all of `src/**` for any
+    `(min-)h-[calc(100dvh - …)]` class or `(min-)height: calc(100dvh - …)` declaration rather than
+    checking a list of named files, and carries the exempt phone floors in one exact-count allowlist
+    that fails closed when an entry goes stale.
 
 The PWA notice rules that use `:has(#main-content ...)` are a deliberately
 bounded post-hydration exception. `#main-content` can disappear briefly while
@@ -800,8 +815,9 @@ Rules:
   peeping at the viewport edge.
 - **Only claim the addon where the pill actually mounts.** The reserve inflates on
   the claim, not on the render, so claiming a route whose component never mounts
-  opens a blank band at the bottom. `/medications` is a standalone mode home with
-  the composer in the hero and no dock at all; `/medications/[slug]` already opens
+  opens a blank band at the bottom. `/medications` renders nothing at all — its bare
+  path redirects on both branches (`medicationsHomeTarget()` in `src/proxy.ts`, with
+  `medications/page.tsx` as the backstop) — and `/medications/[slug]` already opens
   the patient sheet from its own nav header, so neither claims the addon.
 - **An addon that can be empty must gate its claim on being non-empty.** The
   therapy compare tray renders nothing until something is in the comparison, so
@@ -847,10 +863,15 @@ The motion preference contract in `src/components/clinical-dashboard/answer-stat
 
 Smart search is provider-free interpretation of the selected catalogue. It is
 available in Services, Forms, Differentials, Formulation, DSM-5 Diagnosis,
-Specifiers, and Therapy and does not depend on `CLINICAL_ASK_ENABLED`, a hosted
-provider, Supabase, or a server capability endpoint. The original query remains
-the visible composer value and URL value; controlled mode-specific aliases add
-only low-weight catalogue vocabulary to deterministic ranking.
+Specifiers, Therapy, Medication, Tools, Calculators, Factsheets, and Dictionary
+and does not depend on `CLINICAL_ASK_ENABLED`, a hosted provider, Supabase, or a
+server capability endpoint. The original query remains the visible composer value
+and URL value; controlled mode-specific aliases add only low-weight catalogue
+vocabulary to deterministic ranking. Medication, Tools, Calculators, Factsheets,
+and Dictionary are local-only Smart matchers: natural-language interpretation in
+those states suppresses universal-search requests and Document, Answer, and
+Favourites cross-mode actions, while literal searches retain their configured
+cross-mode behaviour.
 
 Enter always opens the selected mode's normal results surface. A question mark,
 question wording, or developed natural-language phrase never diverts the reader
@@ -866,9 +887,43 @@ ticker ("Try this … Tap to search") is the only worked example a phone home
 page carries, and it offers an ordinary search in every mode — governed or
 dormant. It shows on every phone home composer (`showPhoneSuggestionTickerOnHome`)
 and nowhere else: a submitted result view, an answer thread, and a phone bottom
-dock all stay clear of it. The desktop `Smart search · Try "…"` line appears in
-the seven supported catalogue modes; the intent cue appears only while the
-current query is being interpreted as natural language.
+dock all stay clear of it.
+
+Tablet and desktop mode homes all share one composer stack in every mode: the
+rotating `Try "…" in <Mode>.` example ticker line above the pill, the pill, the
+`Prompts` chip rail, and the single APP-5 privacy line. The line used to read
+`Smart search · Try "…"` and render only in the eleven catalogue modes, which
+made a Forms home taller than the Documents or Answer home; it now carries no
+Smart wording, so the dormant modes can share it without a Smart promise. Both
+helpers are gated by placement rather than by mode: `MasterSearchHeader` passes
+`showHomeSuggestions={isDesktopHomeComposer}`, so only the mode-home hero
+composer renders them. Every submitted result view and page slot renders the
+compact pill alone at every width (no ticker, prompt rail, or privacy line),
+matching the phone result dock; the answer dock is its own composer type and
+keeps its privacy line. Phones already had this shape: every result view is the
+compact bottom dock and every mode home is the same phone ticker + pill +
+privacy stack, so the phone contract is pinned rather than changed. The
+result-view page slots (`GlobalSearchShell`,
+`DashboardDesktopResultComposerSlot`, and the one `DictionaryCataloguePage`
+renders itself) carry `desktop-page-composer-slot`, which overrides the shared
+reserve token to the compact composer's exact 80px settled height at every sm+
+width; the mode-home token stays sized for the hero stack.
+
+**A page that owns its slot element still takes the page placement.** The
+dictionary catalogue renders the `desktopPageComposerSlotId` slot itself, purely
+so the composer lands under its mode nav rather than above it, and the shell
+suppresses its own copy for that route so exactly one element carries the id.
+Until 2026-09-06 that page borrowed `modeHomeDesktopComposerSlotId` instead —
+harmless while the two slots were one, but once the helpers were gated on
+`placement === "desktop-home"` it was the only reason a results catalogue still
+carried the hero ticker, Prompts rail and privacy line. Slot id chooses
+placement: a result view must never be wired to the home slot to move a
+composer.
+Tools is the standalone-owner exception: its accessible `Search tools` control
+does not render the shared prompt rail or intent cue, while its deterministic
+local matching and ordinary `q`/`run=1` route remain the same. The intent cue
+appears only while a shared-composer query is being interpreted as natural
+language.
 
 There is still exactly one composer. No Ask rail, microphone control, duplicate
 input, or extra phone-dock reserve is mounted. Crossing from literal Search to
@@ -877,8 +932,9 @@ update the live region. The send control retains the mode's ordinary Search
 name and action throughout.
 
 Coverage: `tests/master-search-header.dom.test.tsx`,
-`tests/smart-search-intent.test.ts`, the seven mode ranker suites, and
-`tests/ui-clinical-ask.spec.ts` for the one-composer routing boundary.
+`tests/smart-search-intent.test.ts`, the mode ranker suites, and
+`tests/ui-clinical-ask.spec.ts` for the one-composer routing and five-mode
+local-only request boundary.
 
 ## Change checklist
 

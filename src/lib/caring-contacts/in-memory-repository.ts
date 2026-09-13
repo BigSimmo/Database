@@ -24,8 +24,8 @@ import { changeContactDate, moveContactWithinDay } from "./contact-rescheduling"
 import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
 import { contactId } from "./ids";
-import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
-import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition } from "./model";
+import type { ActorId, ContactId, PathwayVersionId, PlanId, ReferralId, TeamId } from "./ids";
+import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition, planSendingHold } from "./model";
 import type { Contact, ContactAction, ContactState, Plan, Referral, TransitionResult } from "./model";
 import { defaultNotificationPreferences, type NotificationPreferences } from "./notification-preferences";
 import { applyPathwayVersionTransition, type PathwayVersion } from "./pathway-versions";
@@ -70,6 +70,7 @@ import {
   type CreatePlanInput,
   type CreateReferralInput,
   type DispatchRecord,
+  type ReferralIntakePayload,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
   type PathwayVersionTransitionInput,
@@ -86,7 +87,7 @@ import {
   type WriteContext,
 } from "./repository";
 import type { PlanAssuranceAttestation } from "./assurances";
-import type { Episode } from "./episode";
+import { ValidationError, type Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
 type StagedWrite<T> = {
@@ -258,6 +259,8 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   // 1-9 built, and delegates every transition to the module that owns the rule; nothing here
   // re-derives a decision one of those modules already makes.
   const referrals = new Map<string, Referral>();
+  /** H-44 intake clinical payload keyed by referral id; absent when createReferral omitted it. */
+  const referralIntakePayloads = new Map<string, ReferralIntakePayload>();
   const pathwayVersions = new Map<string, PathwayVersion>();
   const assignments = new Map<string, PlanAssignment>();
   const dispatches = new Map<string, DispatchRecord>();
@@ -532,6 +535,13 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
 
   return {
     async createPlan(input: CreatePlanInput, context: WriteContext) {
+      const name =
+        input?.patientDetail?.patientName ?? (input as unknown as { patientName?: string })?.patientName ?? "";
+      if (typeof name !== "string" || name.trim().length === 0) {
+        throw new ValidationError(
+          "Validation error: patient name must not be blank: Patient name cannot be blank or whitespace",
+        );
+      }
       return runWrite<PlanRecord>({
         method: "createPlan",
         input,
@@ -859,9 +869,21 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             state: "awaitingHandover",
             pathwayVersionId: null,
           };
+          const intakePayload = input.intakePayload ?? null;
           return {
             ok: true,
-            value: { value: { ...referral }, commit: () => referrals.set(input.referralId, referral) },
+            value: {
+              value: { ...referral },
+              commit: () => {
+                referrals.set(input.referralId, referral);
+                if (intakePayload) {
+                  referralIntakePayloads.set(input.referralId, {
+                    ...intakePayload,
+                    safetyAlerts: [...intakePayload.safetyAlerts],
+                  });
+                }
+              },
+            },
           };
         },
       });
@@ -906,6 +928,16 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       return [...referrals.values()]
         .filter((referral) => mayRead(context.actor, READ_ACTIONS.referral, referral.teamId))
         .map((referral) => ({ ...referral }));
+    },
+
+    async getReferralIntakePayload(referralId: ReferralId, context: ReadContext) {
+      const referral = referrals.get(referralId);
+      if (!referral || !mayRead(context.actor, READ_ACTIONS.referral, referral.teamId)) {
+        return null;
+      }
+      const payload = referralIntakePayloads.get(referralId);
+      if (!payload) return null;
+      return { ...payload, safetyAlerts: [...payload.safetyAlerts] };
     },
 
     // ---------------------------------------------------------------------
@@ -1384,6 +1416,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
                   const record = idempotency.get(key);
                   if (record) idempotency.set(key, { ...record, result: RETENTION_CLEARED_REPLAY_ANSWER });
                 }
+                // H-44 intake sidecar: name/mobile/clinicalSummary/safetyAlerts live on the referral
+                // outside the plan row. A clearance that left them would report the episode de-identified
+                // while getReferralIntakePayload still released full clinical PHI.
+                referralIntakePayloads.delete(stored.referralId);
                 retentionCleared.set(input.planId, { terminalAt: admitted.value, clearedAt });
               },
             },
@@ -1425,8 +1461,14 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
     async listSendableContacts(planId: PlanId, context: ReadContext) {
       const stored = visiblePlan(planId, context, READ_ACTIONS.contacts);
       if (!stored) return [];
-      // Keyed off the stored contact state, which was set from `sendableContacts` at creation and
-      // then only ever moved by the lifecycle. Nothing here looks at `sendAt`.
+      // THE PLAN IS ASKED FIRST (#PAMATF). Contacts are written `scheduled` at CREATION, while the
+      // plan is still a draft, and no plan lifecycle write touches them -- so a filter on the
+      // contact alone announced a plan nobody had started, and a plan a coordinator had paused, as
+      // messages about to go out. The rule is `planSendingHold`'s, in ./model, so this store and
+      // the Postgres one cannot answer it differently.
+      if (planSendingHold(stored.plan.state) !== null) return [];
+      // Then the contact's own state, as before: set from `sendableContacts` at creation and then
+      // only ever moved by the lifecycle. Nothing here looks at `sendAt`.
       return stored.contacts.filter((entry) => entry.contact.state === "scheduled").map(cloneStoredContact);
     },
 
@@ -1449,6 +1491,14 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
         culturalIdentity: stored.patientDetail.culturalIdentity,
         preferredName: stored.patientDetail.preferredName,
         firstContactReason: stored.patientDetail.firstContactReason,
+        // #J7PZQP: the clearance instant, carried rather than inferred from a blank name. The map
+        // already held it; nothing read it back until now.
+        // Copied, like every other Date this projection hands out, so a caller cannot mutate the
+        // store's own record of when the clearance happened.
+        patientDetailClearedAt: (() => {
+          const cleared = retentionCleared.get(planId)?.clearedAt;
+          return cleared === undefined ? null : new Date(cleared.getTime());
+        })(),
         planDates: {
           dischargeAt: new Date(stored.dischargeAt.getTime()),
           completedAt: stored.completedAt === null ? null : new Date(stored.completedAt.getTime()),

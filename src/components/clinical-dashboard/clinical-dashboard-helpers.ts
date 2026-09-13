@@ -1,3 +1,4 @@
+import type { SearchResultModePayload } from "@/components/clinical-dashboard/clinical-dashboard-payloads";
 // Pure domain helpers extracted from ClinicalDashboard.tsx (#51 — centralise
 // domain logic into a reusable, unit-tested module). These are verbatim moves:
 // behaviour is unchanged, and the module is framework-free (no React) so each
@@ -6,8 +7,9 @@
 
 import type { SetupCheck } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { navigationHashes } from "@/components/clinical-dashboard/dashboard-contracts";
-import { makeSearchError } from "@/components/clinical-dashboard/search-utils";
-import type { ClinicalDocument, ImportBatch, IngestionJob, RagAnswer, RelatedDocument } from "@/lib/types";
+import { answerPayloadIsUsable, makeSearchError } from "@/components/clinical-dashboard/search-utils";
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import type { ClinicalDocument, ImportBatch, IngestionJob } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 
@@ -15,7 +17,7 @@ import type { ClinicalQueryMode } from "@/lib/clinical-query-mode";
 // `normalizedPollDelay`. Shared with the dashboard's polling loop.
 export const setupRecheckPollMs = 60_000;
 
-/** Keep the retained `/?mode=tools` launcher separate from every other idle mode home. */
+/** Keep the tools result kind separate from every other idle mode home. */
 export function shouldShowSharedHome({
   pathname,
   mode,
@@ -164,10 +166,10 @@ export function answerTimedOutError() {
   return makeSearchError("Answer generation timed out. Please try again.", 408, false);
 }
 
-export function answerReferencesDocument(answer: RagAnswer | null, documentId: string) {
+export function answerReferencesDocument(answer: ClientRagAnswerPayload | null, documentId: string) {
   if (!answer) return false;
   // Detection must cover every field applyRenamedDocumentToAnswer rewrites
-  // (incl. quoteCards and the nested smartPanel), otherwise a document referenced
+  // (including quote cards and related documents), otherwise a document referenced
   // only there is guarded out and keeps its stale title after a rename.
   return (
     answer.citations.some((citation) => citation.document_id === documentId) ||
@@ -175,17 +177,13 @@ export function answerReferencesDocument(answer: RagAnswer | null, documentId: s
     Boolean(answer.quoteCards?.some((card) => card.document_id === documentId)) ||
     Boolean(answer.bestSource?.document_id === documentId) ||
     Boolean(answer.relatedDocuments?.some((document) => document.document_id === documentId)) ||
-    Boolean(answer.visualEvidence?.some((image) => image.document_id === documentId)) ||
-    Boolean(answer.smartPanel?.bestSource?.document_id === documentId) ||
-    Boolean(answer.smartPanel?.relatedDocuments?.some((document) => document.document_id === documentId))
+    Boolean(answer.visualEvidence?.some((image) => image.document_id === documentId))
   );
 }
 
-export function applyRenamedDocumentToAnswer(answer: RagAnswer | null, document: ClinicalDocument) {
+export function applyRenamedDocumentToAnswer(answer: ClientRagAnswerPayload | null, document: ClinicalDocument) {
   if (!answer || !answerReferencesDocument(answer, document.id)) return answer;
   const renameCitation = <T extends { document_id: string; title: string }>(item: T): T =>
-    item.document_id === document.id ? { ...item, title: document.title } : item;
-  const renameRelated = (item: RelatedDocument): RelatedDocument =>
     item.document_id === document.id ? { ...item, title: document.title } : item;
 
   return {
@@ -195,17 +193,8 @@ export function applyRenamedDocumentToAnswer(answer: RagAnswer | null, document:
     sources: answer.sources.map(renameCitation),
     visualEvidence: answer.visualEvidence?.map(renameCitation),
     bestSource: answer.bestSource ? renameCitation(answer.bestSource) : answer.bestSource,
-    relatedDocuments: answer.relatedDocuments?.map(renameRelated),
-    smartPanel: answer.smartPanel
-      ? {
-          ...answer.smartPanel,
-          bestSource: answer.smartPanel.bestSource
-            ? renameCitation(answer.smartPanel.bestSource)
-            : answer.smartPanel.bestSource,
-          relatedDocuments: answer.smartPanel.relatedDocuments?.map(renameRelated),
-        }
-      : answer.smartPanel,
-  } satisfies RagAnswer;
+    relatedDocuments: answer.relatedDocuments?.map(renameCitation),
+  } satisfies ClientRagAnswerPayload;
 }
 
 export function normalizedPollDelay(value: unknown) {
@@ -250,4 +239,11 @@ export function mergeDocumentRefresh(current: ClinicalDocument[], updates: Clini
       summary: document.summary ?? existing.summary,
     };
   });
+}
+
+export function resultUsable(payload: SearchResultModePayload) {
+  if (payload.kind === "documents") {
+    return payload.sources.length > 0 || payload.documentMatches.length > 0;
+  }
+  return answerPayloadIsUsable(payload.payload);
 }

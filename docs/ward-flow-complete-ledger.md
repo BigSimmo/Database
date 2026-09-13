@@ -29,12 +29,12 @@ That last rule is the one this project has repeatedly had to enforce against its
 
 ## 2. Where the work lives
 
-| What         | Where                                                             |
-| ------------ | ----------------------------------------------------------------- |
-| Worktree     | `C:\Users\joshs\.codex\worktrees\ward-management-design\Database` |
-| Branch       | `codex/ward-management-design`                                    |
-| Commits      | 72 ahead of `origin/main`, **pushed** to `origin` 2026-08-22      |
-| **Not** here | `D:\Repos\Database` contains none of this work                    |
+| What         | Where                                                                              |
+| ------------ | ---------------------------------------------------------------------------------- |
+| Worktree     | a local Codex worktree named `ward-management-design` (machine-local path omitted) |
+| Branch       | `codex/ward-management-design`                                                     |
+| Commits      | 72 ahead of `origin/main`, **pushed** to `origin` 2026-08-22                       |
+| **Not** here | `D:\Repos\Database` contains none of this work                                     |
 
 ## 3. The three phases
 

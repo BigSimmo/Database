@@ -701,6 +701,94 @@ describe("caring-contact migrations", () => {
       );
       expect(Number(rows[0].count)).toBe(2);
     });
+
+    // Migration 0009 extends the same guard to the two governance tables that were listed in no
+    // `attach_audit_guard` call before it, and so carried no `require_audit` trigger at all:
+    // `pathway_versions`, whose state decides which message content a patient actually receives,
+    // and `retention_state`, the record that a patient's identifying detail was cleared. The
+    // assertions run against the RUNNING database as `caring_contacts_app`, so they prove the
+    // database refuses the write -- not that 0009 contains a string. A later migration that
+    // detached either trigger would turn them red.
+    it("REFUSES an unaudited pathway version state change (0009)", async () => {
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
+          client.query(
+            "update caring_contacts.pathway_versions set state = 'retired', retired_at = now() where id = 'PLAN-N-PATHWAY'",
+          ),
+        ),
+      ).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ state: string; retired_at: Date | null }>(
+        "select state, retired_at from caring_contacts.pathway_versions where id = 'PLAN-N-PATHWAY'",
+      );
+      expect(rows[0].state).toBe("approved");
+      expect(rows[0].retired_at).toBeNull();
+    });
+
+    it("REFUSES an unaudited retention clearance record (0009)", async () => {
+      // A retention record belongs to an episode that has ENDED, so it is written against a
+      // completed plan rather than the active PLAN-N the neighbouring cases depend on.
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-N-DONE",
+        patientId: "PATIENT-N-DONE",
+        state: "completed",
+      });
+
+      await expect(
+        runInTeamSession(pool, { teamId: TEAM_NORTH }, (client) =>
+          client.query(
+            `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
+             values ('PLAN-N-DONE', $1, now(), now())`,
+            [TEAM_NORTH],
+          ),
+        ),
+      ).rejects.toThrow(/caring-contacts-audit-required/);
+
+      const { rows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N-DONE'",
+      );
+      expect(Number(rows[0].count)).toBe(0);
+    });
+
+    it("still accepts the audited writes the repository makes to both governance tables (0009)", async () => {
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-N-DONE",
+        patientId: "PATIENT-N-DONE",
+        state: "completed",
+      });
+
+      await runInTeamSession(pool, { teamId: TEAM_NORTH, auditToken: nextAuditToken() }, async (client) => {
+        await insertAuditEvent(client, {
+          teamId: TEAM_NORTH,
+          actorId: "ACTOR-1",
+          actorRoles: ["clinicalProgrammeLead"],
+          action: "retirePathwayVersion",
+          objectType: "pathwayVersion",
+          objectId: "PLAN-N-PATHWAY",
+          outcome: "allowed",
+          idempotencyKey: "audited-retire",
+        });
+        await client.query(
+          "update caring_contacts.pathway_versions set state = 'retired', retired_at = now() where id = 'PLAN-N-PATHWAY'",
+        );
+        await client.query(
+          `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at, cleared_at)
+             values ('PLAN-N-DONE', $1, now(), now())`,
+          [TEAM_NORTH],
+        );
+      });
+
+      const { rows: pathwayRows } = await pool.query<{ state: string }>(
+        "select state from caring_contacts.pathway_versions where id = 'PLAN-N-PATHWAY'",
+      );
+      expect(pathwayRows[0].state).toBe("retired");
+      const { rows: retentionRows } = await pool.query<{ count: string }>(
+        "select count(*)::text as count from caring_contacts.retention_state where plan_id = 'PLAN-N-DONE'",
+      );
+      expect(Number(retentionRows[0].count)).toBe(1);
+    });
   });
 });
 
@@ -1637,6 +1725,49 @@ describe("the workspace schema", () => {
         "select count(*)::text as count from caring_contacts.audit_events",
       );
       expect(rows[0].count).toBe("0");
+    });
+  });
+
+  describe("composite foreign keys enforce multi-tenant isolation (#4VKAA1)", () => {
+    it("refuses cross-team foreign key references onto plans and contacts", async () => {
+      // Seed TEAM_NORTH's plan with no contacts: default seedPlan inserts sequences 1..2, and
+      // contacts_unique_sequence is (plan_id, sequence). A cross-team insert reusing sequence 1
+      // would trip the unique gate first and never exercise contacts_team_plan_fk.
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-NORTH-FK",
+        patientId: "PATIENT-NORTH-FK",
+        contactCount: 0,
+      });
+      // TEAM_SOUTH must exist so the failure is the composite plan FK (isolation), not teams_fkey.
+      await registerTeam(TEAM_SOUTH);
+
+      // 1. A contact for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected by foreign key constraint
+      await expect(
+        pool.query(
+          `insert into caring_contacts.contacts (id, plan_id, team_id, sequence, state, version, cadence_label, calendar_day, send_at, message_type)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9)`,
+          ["CONTACT-SOUTH-FK", "PLAN-NORTH-FK", TEAM_SOUTH, 1, "scheduled", 1, "Day 1", "2026-03-03", "standard"],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
+
+      // 2. A retention_state for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected
+      await expect(
+        pool.query(
+          `insert into caring_contacts.retention_state (plan_id, team_id, terminal_at)
+           values ($1, $2, now())`,
+          ["PLAN-NORTH-FK", TEAM_SOUTH],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
+
+      // 3. A cultural_identity_reports for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected
+      await expect(
+        pool.query(
+          `insert into caring_contacts.cultural_identity_reports (plan_id, team_id, cultural_identity)
+           values ($1, $2, $3)`,
+          ["PLAN-NORTH-FK", TEAM_SOUTH, "Aboriginal"],
+        ),
+      ).rejects.toThrow(/foreign key constraint/i);
     });
   });
 });

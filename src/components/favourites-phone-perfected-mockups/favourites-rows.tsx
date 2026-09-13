@@ -120,7 +120,7 @@ export function FavouriteListRow({
           aria-haspopup="dialog"
           onClick={() => onOpenActions(row)}
           className={cn(
-            "pointer-events-auto relative z-10 inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-muted)]",
+            "pointer-events-auto relative z-10 inline-flex size-12 shrink-0 items-center justify-center rounded-lg text-[color:var(--text-soft)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-muted)]",
             focusRing,
           )}
         >

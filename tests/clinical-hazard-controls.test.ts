@@ -1,12 +1,19 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validateClinicalHazardControls } from "../scripts/check-clinical-hazard-controls.mjs";
+import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(readFileSync(new URL("../docs/clinical-hazard-controls.json", import.meta.url), "utf8"));
 
 describe("clinical hazard controls contract", () => {
   it("validates paths, tests, dates, required hazards, and open assurance boundaries", () => {
-    expect(validateClinicalHazardControls(manifest)).toEqual([]);
+    // The shallow-checkout decision moved to a shared helper on 2026-09-07. The guard this
+    // replaces asked only whether the commit OBJECT was present, so a session holding that
+    // object while unable to walk to it failed the ancestry check and reported eight hazard
+    // sign-off records as broken. They were not. See the helper for the full incident.
+    const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
+    if (skipReason) warnReviewedCommitSkipped("clinical hazard controls", skipReason);
+    expect(validateClinicalHazardControls(manifest, { checkGit })).toEqual([]);
   });
 
   it("does not allow static evidence to close clinical truth or external risk acceptance", () => {
@@ -25,6 +32,52 @@ describe("clinical hazard controls contract", () => {
     expect(validateClinicalHazardControls(changed, { checkFiles: false })).toContain(
       "H1: partial state requires controlSymbols, controlPaths, and tests",
     );
+  });
+
+  /**
+   * Existence is not evidence. Until audit M33 the validator only checked that each
+   * listed test file existed and matched `tests/*.test.ts`, so a hazard's named proofs
+   * could be emptied of the relevant case — or the control symbol renamed and re-added
+   * as a comment — while CLINICAL_HAZARD_CONTROLS_PASS kept printing.
+   */
+  it("requires at least one listed test to reference a control symbol or control path", () => {
+    const changed = structuredClone(manifest);
+    // A real, existing test file that names none of H1's controls.
+    changed.hazards[0].tests = ["tests/clinical-hazard-controls.test.ts"];
+    const errors = validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false });
+    expect(errors).toContain(
+      "H1: no listed test references a control symbol or imports a control path (tests/clinical-hazard-controls.test.ts)",
+    );
+    // The committed manifest satisfies the rule for every hazard.
+    expect(validateClinicalHazardControls(manifest, { checkFiles: true, checkGit: false })).toEqual([]);
+  });
+
+  /**
+   * The symbol-presence check escapes regex metacharacters before wrapping the symbol in
+   * word boundaries. Until audit L22 the escape class was mis-written so nothing was
+   * escaped: a dotted symbol acted as a wildcard (fail-open) and a bracket symbol threw.
+   * The sentinels below live in this file, which the fixture names as its control path:
+   * `fooxbar` and `sentinel(x)` — the dotted symbol itself is assembled at runtime so it
+   * never appears here literally.
+   */
+  it("escapes regex metacharacters in control symbols instead of treating them as wildcards", () => {
+    const self = "tests/clinical-hazard-controls.test.ts";
+    const dotted = ["foo", "bar"].join(".");
+    const changed = structuredClone(manifest);
+    changed.hazards[0].controlPaths = [self];
+    changed.hazards[0].tests = [self];
+    changed.hazards[0].controlSymbols = [dotted];
+    expect(validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false })).toContain(
+      `H1: control symbol ${dotted} not found in controlPaths`,
+    );
+
+    const bracketed = ["sentinel", "("].join("");
+    changed.hazards[0].controlSymbols = [bracketed];
+    let errors: string[] = [];
+    expect(() => {
+      errors = validateClinicalHazardControls(changed, { checkFiles: true, checkGit: false });
+    }).not.toThrow();
+    expect(errors).not.toContain(`H1: control symbol ${bracketed} not found in controlPaths`);
   });
 
   it("rejects stale or impossible dates, fake commits, and escaped evidence paths", () => {

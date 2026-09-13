@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "4cbb8c96-77da-46bf-8257-6732f713ad40",
+  "createdOn": "2026-09-02",
+  "action": "cancel",
+  "payload": {
+    "requestId": "f7c91807-82d3-494e-a1b0-c28f3dd10667",
+    "reason": "Replaced by a stronger version of the same request, not withdrawn. The original was written one commit before its own hypothetical came true and so understated its case: it listed 'relaxing the lead lookbehind' among the changes that would slip past the gate, and the very next commit on the same branch, 33e1ffd, did exactly that -- it loosened a clinical-copy guard, was classified clinicalRisk:false by classifyPullRequestFiles, and required no Clinical Governance Preflight. The replacement records that as a demonstration rather than a scenario, which is the difference between a row someone reads and a row someone acts on. No content is dropped."
+  }
+}

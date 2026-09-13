@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "aca45e2f-97b7-48d3-a4c9-25d17f1d08b5",
+  "createdOn": "2026-09-06",
+  "action": "cancel",
+  "payload": {
+    "requestId": "39f1a54f-686c-4e4d-af0d-ad02e8be5e9a",
+    "reason": "Superseded by resolution of #1M0J6D in Package 4"
+  }
+}

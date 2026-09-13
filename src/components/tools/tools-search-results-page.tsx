@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, ChevronRight, ClipboardList, Search, ShieldCheck, Waves, type LucideIcon } from "lucide-react";
 import {
   type MutableRefObject,
@@ -22,7 +23,9 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
-import { cardPadding, cardSelected, cardSurface, focusRing } from "@/components/card-recipes";
+import { ToolLocalSearch } from "@/components/tools/tool-local-search";
+import { ToolQuickActions } from "@/components/tools/tool-quick-actions";
+import { cardPadding, cardSelected, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeComposerReservePendingValue } from "@/lib/mode-home-composer";
@@ -31,13 +34,15 @@ import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
-import { normalizeSearchText } from "@/lib/catalog-search";
 import { toolIdentity } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
+import { interpretSmartSearch, smartSearchExpansions } from "@/lib/smart-search-intent";
 import { useAuthSession } from "@/lib/supabase/client";
 import {
+  rankToolRecords,
+  localSmartExcludedToolIds,
   toolCatalogRecordsForSession,
-  toolSearchText,
+  type ToolCatalogId,
   type ToolCatalogArea,
   type ToolCatalogRecord,
 } from "@/lib/tools-catalog";
@@ -148,7 +153,14 @@ function ToolResultCard({
           aria-label={`Open ${tool.title}`}
           target={tool.external ? "_blank" : undefined}
           rel={tool.external ? "noreferrer" : undefined}
-          className={cn(primaryControl, "w-full min-w-0 px-3 text-xs")}
+          className={cn(
+            primaryControl,
+            "w-full min-w-0 px-3 text-xs",
+            // The whole row opens the tool. Deliberately not for an external
+            // tool: the row gives no hint that a tap would leave the app, so
+            // the new tab stays behind the explicit Open button.
+            !tool.external && stretchedRowLinkClass,
+          )}
         >
           Open
         </Link>
@@ -160,6 +172,7 @@ function ToolResultCard({
           variant="secondary"
           size="sm"
           block
+          className="relative z-10"
           aria-label={`View details for ${tool.title}`}
           trailingIcon={ChevronRight}
           onClick={(event) => onOpenDetails(tool, event.currentTarget)}
@@ -331,10 +344,13 @@ export function ToolsSearchResultsPage({
     () => true,
     () => false,
   );
-  // The route passes its submitted query so hard loads server-render the exact
-  // result set. After hydration the shared composer owns the draft, including
-  // an intentionally cleared value, until the next submitted navigation.
-  const query = hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery;
+  const router = useRouter();
+  // A draft typed into this page's own filter box wins over everything else, the way
+  // it did on the retired hub. Below that: the route's submitted query so hard loads
+  // server-render the exact result set, and after hydration the shared command draft,
+  // including an intentionally cleared value, until the next submitted navigation.
+  const [localQuery, setLocalQuery] = useState<string | null>(null);
+  const query = localQuery ?? (hydrated ? (searchCommand?.query ?? initialQuery) : initialQuery);
   const filterPanelId = useId();
   const [activeFilter, setActiveFilter] = useState<FilterId>("all");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -370,11 +386,21 @@ export function ToolsSearchResultsPage({
     [canAccessFavourites],
   );
   const effectiveActiveFilter: FilterId = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
+  const naturalSmartSearch = useMemo(() => interpretSmartSearch("tools", query).naturalLanguage, [query]);
+  const smartExpansions = useMemo(() => smartSearchExpansions("tools", query), [query]);
 
-  const queryMatchedTools = useMemo(() => {
-    const normalized = normalizeSearchText(query);
-    return accessibleTools.filter((tool) => !normalized || toolSearchText(tool).includes(normalized));
-  }, [accessibleTools, query]);
+  const queryMatchedTools = useMemo(
+    () =>
+      query.trim()
+        ? rankToolRecords(query, undefined, smartExpansions, {
+            authenticated: canAccessFavourites,
+            demoMode: false,
+          })
+            .map((match) => match.tool)
+            .filter((tool) => !naturalSmartSearch || !localSmartExcludedToolIds.has(tool.id))
+        : accessibleTools,
+    [accessibleTools, canAccessFavourites, naturalSmartSearch, query, smartExpansions],
+  );
 
   const filterCounts = useMemo<Record<FilterId, number>>(
     () => ({
@@ -413,6 +439,26 @@ export function ToolsSearchResultsPage({
     setOpenSection((current) => (current === section ? null : section));
   }
 
+  // The quick-action row selects by id; `openTool` wants the record. Resolved against
+  // `accessibleTools` rather than `filteredTools` so a shortcut still opens its tool
+  // when a category filter has excluded it from the visible list.
+  function openToolById(id: ToolCatalogId) {
+    const tool = accessibleTools.find((candidate) => candidate.id === id);
+    if (tool) openTool(tool);
+  }
+
+  // Submitting is a navigation, not a local state change, so the result set is
+  // shareable and survives reload. An empty box opens the first visible tool
+  // instead, which is what the hub's submit control did.
+  function submitLocalSearch() {
+    const submittedQuery = query.trim();
+    if (submittedQuery) {
+      router.push(`/tools?q=${encodeURIComponent(submittedQuery)}&run=1`);
+      return;
+    }
+    if (filteredTools[0]) openTool(filteredTools[0]);
+  }
+
   function openTool(tool: ToolCatalogRecord, opener?: HTMLElement | null) {
     setSelectedId(tool.id);
     setOpenSection(null);
@@ -444,6 +490,38 @@ export function ToolsSearchResultsPage({
         )}
       >
         <div className="min-w-0">
+          {/* The verb shortcut row carried over from the retired `/?mode=tools` hub.
+              Sourced from `accessibleTools`, not `filteredTools`: the shortcuts are a
+              fixed way in, so a query or category filter must not empty the row. Hidden
+              once a query is running, where the ranked results are the answer and a
+              static row above them is just noise. */}
+          <ToolLocalSearch
+            value={query}
+            onChange={setLocalQuery}
+            onSubmit={submitLocalSearch}
+            className="mb-4 w-full"
+          />
+          {query.trim() ? null : (
+            <div className="mb-4" data-testid="tools-shortcuts">
+              <div className="hidden sm:block">
+                <ToolQuickActions
+                  onSelect={openToolById}
+                  tools={accessibleTools}
+                  canAccessFavourites={canAccessFavourites}
+                  naturalSmartSearch={naturalSmartSearch}
+                />
+              </div>
+              <div className="sm:hidden">
+                <ToolQuickActions
+                  onSelect={openToolById}
+                  tools={accessibleTools}
+                  canAccessFavourites={canAccessFavourites}
+                  naturalSmartSearch={naturalSmartSearch}
+                  mobile
+                />
+              </div>
+            </div>
+          )}
           <SearchResultsHeaderBand
             modeId="tools"
             query={query.trim() || "All tools"}

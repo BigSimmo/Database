@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-31T13:31:23+08:00",
+  "scope": "Local Ward Flow reconciliation only. No provider, GitHub, hosted CI, database, or deployment state was queried.",
+  "chatControlSystem": {
+    "contract": "docs/ward-flow/control/roles.json",
+    "state": "docs/ward-flow/control/system-state.json",
+    "instructions": "docs/ward-flow/control/README.md",
+    "launcher": "docs/ward-flow/START-LOCAL-CHAT.md",
+    "tool": "scripts/ward-flow/chat-control.mjs",
+    "mode": "recovery",
+    "activeRoles": ["lead", "verifier"],
+    "maximumPersistentChats": 3,
+    "liveCustody": "one atomic lease per active role under the shared Git common directory",
+    "durableContinuity": "committed content-addressed handover plus committed reset certificate",
+    "builderCustody": "committed Lead-issued content-addressed assignment",
+    "builderActivationBlockers": [
+      "The six legacy chat logs do not yet have owner-confirmed session provenance, runner-produced committed export envelopes and independent raw-log archives.",
+      "The two dirty working-line files do not yet have a mechanically captured artifact manifest and byte copies verified against the source checkout.",
+      "The Ward Board's 139 untracked files do not yet have a mechanically captured artifact manifest and byte copies verified against the source checkout.",
+      "No self-contained recovery bundle, source-disposition manifest or exact-tree control-plane receipt is committed."
+    ]
+  },
+  "repository": {
+    "anchorCheckout": "D:/Repos/Database",
+    "controlBranch": "codex/task-ward-flow-live-state-20260831",
+    "controlBase": "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7"
+  },
+  "workingLine": {
+    "checkout": "D:/Worktrees/Database/pr-2390-fix",
+    "branch": "claude/ward-flow-phases-6-7-design",
+    "head": "5db2f02fc6f0d04eed3425bc74b0adad438b7ea7",
+    "wardDocumentCount": 139,
+    "artifactManifestPath": "docs/ward-flow/control/evidence/artifact-manifests/working-line-a7edcf954667c1c0d15cd0ef59f5d491d1a6b8a2f634e723a5d7979a5ed60174.json",
+    "artifactManifestSha256": "a7edcf954667c1c0d15cd0ef59f5d491d1a6b8a2f634e723a5d7979a5ed60174",
+    "status": {
+      "tracked": [" M src/components/ward-management/ward-change-reasons.ts", " M tests/ward-change-reasons.test.ts"],
+      "untrackedCount": 0
+    },
+    "originWorkingBranchRelation": {
+      "leftOnly": 0,
+      "rightOnly": 1
+    }
+  },
+  "checkouts": [
+    {
+      "id": "ward-decisions",
+      "chat": "Ward Decisions",
+      "checkout": "D:/Repos/Database/.claude/worktrees/lucid-dewdney-ee093b",
+      "branch": "claude/Ward-design",
+      "head": "623c0c6a5a5bb5b2c3b38926cef91473ef38ce30",
+      "relationFromWorkingLine": {
+        "workingOnly": 300,
+        "checkoutOnly": 227
+      },
+      "trackedStatus": [],
+      "untrackedCount": 0,
+      "integrationPolicy": "Never merge this branch. Transfer reviewed named documents only."
+    },
+    {
+      "id": "ward-verifier",
+      "chat": "Ward Verifier",
+      "checkout": "D:/Repos/Database/.claude/worktrees/ward-flow-setup-967aa0",
+      "branch": "claude/ward-flow-setup-967aa0-wf",
+      "head": "0c94814a6dcb7da90699f438799938ea92a8349a",
+      "relationFromWorkingLine": {
+        "workingOnly": 0,
+        "checkoutOnly": 1
+      },
+      "trackedStatus": [],
+      "untrackedCount": 0,
+      "integrationPolicy": "One documentation commit is ahead. Transfer the named ruling document only after reconciling its later urgency supersession."
+    },
+    {
+      "id": "ward-orchestrator",
+      "chat": "Ward Orchestrator",
+      "checkout": "D:/Repos/Database/.claude/worktrees/ward-flow-prototype-design-bca00c",
+      "branch": "claude/Wardquestions",
+      "head": "023f8e9f9b485cfc30f83d938f812c9ab2375b9c",
+      "relationFromWorkingLine": {
+        "workingOnly": 300,
+        "checkoutOnly": 331
+      },
+      "trackedStatus": [],
+      "untrackedCount": 0,
+      "integrationPolicy": "Never merge this branch. Transfer reviewed named documents only."
+    },
+    {
+      "id": "ward-board",
+      "chat": "Ward Board",
+      "checkout": "D:/Repos/Database/.claude/worktrees/nostalgic-vaughan-7ee231",
+      "branch": "claude/ward-flow-print-fixes",
+      "head": "68e501e5fc725542e090a0698a87519ac242804b",
+      "relationFromWorkingLine": {
+        "workingOnly": 25,
+        "checkoutOnly": 0
+      },
+      "trackedStatus": [],
+      "untrackedCount": 139,
+      "artifactManifestPath": "docs/ward-flow/control/evidence/artifact-manifests/ward-board-fbdf963ca7e66a7461e463a7ba3d009c36e768eb65f22e97ab30e45b7fe19826.json",
+      "artifactManifestSha256": "fbdf963ca7e66a7461e463a7ba3d009c36e768eb65f22e97ab30e45b7fe19826",
+      "integrationPolicy": "Tracked work is fully contained in the working line. Preserve the untracked temporary evidence; do not clean it."
+    },
+    {
+      "id": "ward-referrals-wip",
+      "chat": "Ward Referrals",
+      "checkout": "D:/Repos/Database/.claude/worktrees/ward-flow-untangle-72b296",
+      "branch": "claude/ward-flow-wave1-referral-corrections",
+      "head": "2e9499fb20da030b8ec2d7e3d8711286e33742eb",
+      "relationFromWorkingLine": {
+        "workingOnly": 0,
+        "checkoutOnly": 1
+      },
+      "trackedStatus": [],
+      "untrackedCount": 0,
+      "integrationPolicy": "Do not merge as written. The community-team association is based on a ruling the owner later reversed."
+    }
+  ],
+  "chatDirectories": [
+    {
+      "chat": "Ward Referrals",
+      "path": "D:/Repos/Database/.claude/worktrees/test-chat-4-a72f65",
+      "expectedGitMetadata": false,
+      "expectedEntryCount": 0,
+      "note": "The chat has a Claude JSONL log, but no Git checkout at this path. Its WIP commit is in ward-flow-untangle-72b296."
+    }
+  ],
+  "chatLogs": [
+    {
+      "chat": "Ward Decisions",
+      "sessionId": "a4cba676-33d6-41bc-b103-192a7416261b",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-001",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-001.json",
+      "ownerDecisionSha256": "3fc774b3eecd5671e470320d545bfa27ee767d27caf2eb57c325ebed85a66144",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/a4cba676-33d6-41bc-b103-192a7416261b-b4de5a327e153dad6287df88a766afdc4f5836f8350be065463c19a5fc50c48f.json",
+      "exportSha256": "b4de5a327e153dad6287df88a766afdc4f5836f8350be065463c19a5fc50c48f"
+    },
+    {
+      "chat": "Ward Verifier",
+      "sessionId": "96a0e846-6d39-4836-9fa0-0c3fe3e41b92",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-002",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-002.json",
+      "ownerDecisionSha256": "997ab4a196f2aef8774c27dac5e11c8c5ed7319fa423f79ae875de5a9649ba8d",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/96a0e846-6d39-4836-9fa0-0c3fe3e41b92-5fd8787afaa332fa5a1434585e4e6e16f846ff3dd24b8742e519858e202efaa0.json",
+      "exportSha256": "5fd8787afaa332fa5a1434585e4e6e16f846ff3dd24b8742e519858e202efaa0"
+    },
+    {
+      "chat": "Ward Orchestrator",
+      "sessionId": "9e69b934-3b65-4d9c-b7db-667ef076f769",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-003",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-003.json",
+      "ownerDecisionSha256": "80d0f2c43e7d1967a8093b720665ca0844acb16204c4d9d492adddb07b0fed4b",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/9e69b934-3b65-4d9c-b7db-667ef076f769-011f9a123ad49cbb1352aeae0a591b4ce7406f4b55b5cebc2703070565293a71.json",
+      "exportSha256": "011f9a123ad49cbb1352aeae0a591b4ce7406f4b55b5cebc2703070565293a71"
+    },
+    {
+      "chat": "Ward Board",
+      "sessionId": "db884133-9f0b-4227-abb1-8e177a1270e4",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-004",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-004.json",
+      "ownerDecisionSha256": "0a31b0027ace0bf0e81ede2b03e1e54c75c6ff0c303c0b2a13fb0f3d6444c963",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/db884133-9f0b-4227-abb1-8e177a1270e4-9e17a43fc7004e2ad74bab354c0eb2616154fa60711846e0b04502032b48fbe4.json",
+      "exportSha256": "9e17a43fc7004e2ad74bab354c0eb2616154fa60711846e0b04502032b48fbe4"
+    },
+    {
+      "chat": "Ward Referrals",
+      "sessionId": "2a7fcecc-a0db-4c8c-aa17-566081b0898b",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-005",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-005.json",
+      "ownerDecisionSha256": "7d186cf89e315b64248f31528ec7169e43def24fbc6b8316c182fe4a80617e22",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/2a7fcecc-a0db-4c8c-aa17-566081b0898b-bd16aa542a89e4d92a01d475df437328218f92068fd8839071c8dda7c6677476.json",
+      "exportSha256": "bd16aa542a89e4d92a01d475df437328218f92068fd8839071c8dda7c6677476"
+    },
+    {
+      "chat": "Ward Core",
+      "sessionId": "23c91695-f037-49fb-ac67-80b7c640afa0",
+      "provenanceDecision": "owner-confirmed",
+      "ownerDecisionId": "owner-confirmation-20260831-006",
+      "ownerDecisionPath": "docs/ward-flow/control/evidence/owner-decisions/owner-confirmation-20260831-006.json",
+      "ownerDecisionSha256": "6c5337b80276f0cb5613571320c56ffe78f7981ca0c413c3a306a5f4d3afd615",
+      "exportPath": "docs/ward-flow/control/evidence/chat-exports/23c91695-f037-49fb-ac67-80b7c640afa0-64dfc3d3cacef8790ff1f995ba21aa9b440440ea721eea954008a147f751c505.json",
+      "exportSha256": "64dfc3d3cacef8790ff1f995ba21aa9b440440ea721eea954008a147f751c505"
+    }
+  ],
+  "sourceDocuments": [
+    {
+      "purpose": "latest decision ledger",
+      "ref": "623c0c6a5a5bb5b2c3b38926cef91473ef38ce30",
+      "path": "docs/ward-flow-ledger.md",
+      "blob": "aca5d506656de2d64462661d040c84d0e254eadc"
+    },
+    {
+      "purpose": "five owner rulings, with urgency later superseded",
+      "ref": "0c94814a6dcb7da90699f438799938ea92a8349a",
+      "path": "docs/ward-flow-owner-rulings-2026-08-31.md",
+      "blob": "c4ff019653fe40dba79e09ff56511307c3313b5a"
+    },
+    {
+      "purpose": "later community and six-urgency owner rulings",
+      "ref": "023f8e9f9b485cfc30f83d938f812c9ab2375b9c",
+      "path": "docs/ward-flow-owner-rulings-2026-08-31-community.md",
+      "blob": "3709d344499d3063c0675d03cac0b488e656d7fc"
+    },
+    {
+      "purpose": "latest orchestrator snapshot, retained as evidence rather than live authority",
+      "ref": "023f8e9f9b485cfc30f83d938f812c9ab2375b9c",
+      "path": "docs/ward-flow-orchestrator-handover.md",
+      "blob": "42bae2ac9622f8b7c6cae3acccb3c31a73c79ddb"
+    }
+  ],
+  "localRemoteEvidence": {
+    "checkedHostedState": false,
+    "originWorkingBranchRef": "1888ad197a6b86924333fb96a763ece56bde493e",
+    "workingLineAheadOfLocalOriginRef": 1,
+    "note": "These are local tracking refs only. They do not prove current GitHub visibility, pull-request state, or hosted CI."
+  },
+  "priorProcessAudit": {
+    "path": "docs/ward-flow/evidence/ward-flow-process-audit-ai-handover.txt",
+    "bytes": 37727,
+    "sha256": "765E35439C15E89EF797B3E55E46E58949B08E9B879739367011428125E176C0",
+    "note": "Recovered byte-for-byte from the prior local audit session after the untracked shared-checkout copy disappeared; now tracked inside Ward Flow."
+  }
+}

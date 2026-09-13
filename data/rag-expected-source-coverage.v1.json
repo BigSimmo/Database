@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "records": [
+    {
+      "key": "act-health",
+      "owner": "source_governance:act-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "acsqhc",
+      "owner": "source_governance:acsqhc",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "australian-health-disability-ageing",
+      "owner": "source_governance:australian-health-disability-ageing",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "australian-medicines-handbook",
+      "owner": "source_governance:australian-medicines-handbook",
+      "reviewStatus": "not_approved",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "australian-prescriber",
+      "owner": "source_governance:australian-prescriber",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "etg-complete",
+      "owner": "source_governance:etg-complete",
+      "reviewStatus": "not_approved",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "nhmrc",
+      "owner": "source_governance:nhmrc",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "nps-medicinewise",
+      "owner": "source_governance:nps-medicinewise",
+      "reviewStatus": "retired",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "nsw-health",
+      "owner": "source_governance:nsw-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "nt-health",
+      "owner": "source_governance:nt-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "pbs",
+      "owner": "source_governance:pbs",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "queensland-health",
+      "owner": "source_governance:queensland-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "racgp",
+      "owner": "source_governance:racgp",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "ranzcp",
+      "owner": "source_governance:ranzcp",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "sa-health",
+      "owner": "source_governance:sa-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "tasmania-health",
+      "owner": "source_governance:tasmania-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "tga",
+      "owner": "source_governance:tga",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "victoria-health",
+      "owner": "source_governance:victoria-health",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    },
+    {
+      "key": "wa-chief-psychiatrist",
+      "owner": "source_governance:wa-chief-psychiatrist",
+      "reviewStatus": "active",
+      "expectedDocumentIds": ["fixture-australian-conflict-guideline"],
+      "mustPassCaseIds": ["uploaded-public-conflict"]
+    },
+    {
+      "key": "wa-health",
+      "owner": "source_governance:wa-health",
+      "reviewStatus": "active",
+      "expectedDocumentIds": ["fixture-australian-guideline"],
+      "mustPassCaseIds": ["site-sync-unavailable", "uploaded-australian-augmentation"]
+    },
+    {
+      "key": "wa-legislation",
+      "owner": "source_governance:wa-legislation",
+      "reviewStatus": "absent",
+      "expectedDocumentIds": [],
+      "mustPassCaseIds": []
+    }
+  ]
+}

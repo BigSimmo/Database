@@ -1,27 +1,44 @@
+import { resolveAnswerRequestContext, renderAnswerRequestContext } from "@/lib/answer-request-context";
 import { buildRelatedInformationMenu, type RelatedInformationMenuKey } from "@/lib/rag/answer-composition";
-import type { AnswerSectionKind, RagAnswer } from "@/lib/types";
-
-// Client-side follow-up context for the single-query answer API.
-// The /api/answer/stream schema accepts one query string (max 2000 chars), so
-// a short conversational follow-up ("what about renal impairment?") loses the
-// topic established by the previous turn. Rather than extending the API with a
-// messages/history payload, the client wraps ambiguous follow-ups with the
-// prior question so retrieval still sees the topic terms.
-
-/** Matches the z.string().max(2000) limit in src/app/api/answer/stream/route.ts. */
-const answerQueryMaxLength = 2000;
-
-/**
- * A follow-up at or above this length is treated as self-contained: users who
- * type a full clinical question almost always restate the topic, and wrapping
- * long questions dilutes retrieval with the previous query's terms.
- */
-const selfContainedFollowUpLength = 80;
-
-const followUpCuePattern =
-  /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
+import type { ClientRagAnswerPayload } from "@/lib/answer-client-payload";
+import type { AnswerSectionKind } from "@/lib/types";
 
 const questionLeadPattern = /^(what|how|when|where|which|who|why|can|should|does|do|is|are)\b/i;
+
+const followUpTopicNoise = new Set([
+  "what",
+  "how",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "can",
+  "should",
+  "does",
+  "are",
+  "required",
+  "requirements",
+  "action",
+  "actions",
+  "dosing",
+  "dose",
+  "drug",
+  "for",
+  "guidance",
+  "guideline",
+  "management",
+  "medication",
+  "monitoring",
+  "policy",
+  "protocol",
+  "summarise",
+  "summary",
+  "the",
+  "this",
+  "toxicity",
+  "with",
+]);
 
 function significantTokens(text: string): string[] {
   return (text.toLowerCase().match(/[a-z][a-z-]{3,}/g) ?? []).filter(
@@ -29,40 +46,10 @@ function significantTokens(text: string): string[] {
   );
 }
 
-/**
- * True when the follow-up already names the prior topic (shares a significant
- * token with the previous question), so no wrapping is needed.
- */
-function followUpRestatesTopic(priorQuery: string, followUp: string): boolean {
-  const priorTokens = new Set(significantTokens(priorQuery));
-  if (priorTokens.size === 0) return false;
-  return significantTokens(followUp).some((token) => priorTokens.has(token));
-}
-
-/**
- * Build the query text sent to the answer API for a follow-up turn.
- *
- * Returns the follow-up unchanged when there is no prior question, when the
- * follow-up is long enough to be self-contained, or when it already restates
- * the prior topic. Otherwise prepends the prior question so single-query
- * retrieval keeps the conversation's subject.
- */
+/** Build one bounded resolved user request for the strict query-only API. */
 export function buildAnswerFollowUpQuery(priorQuery: string | undefined, followUp: string): string {
-  const trimmedFollowUp = followUp.trim();
-  const trimmedPrior = priorQuery?.trim();
-  if (!trimmedPrior || !trimmedFollowUp) return trimmedFollowUp;
-  if (trimmedFollowUp.length >= selfContainedFollowUpLength) return trimmedFollowUp;
-  if (followUpRestatesTopic(trimmedPrior, trimmedFollowUp)) return trimmedFollowUp;
-  // Only wrap when the follow-up reads like a continuation; a short but
-  // complete question on a new topic should be searched as-is.
-  if (!followUpCuePattern.test(trimmedFollowUp)) return trimmedFollowUp;
-
-  const wrapped = `Follow-up to "${trimmedPrior}": ${trimmedFollowUp}`;
-  if (wrapped.length <= answerQueryMaxLength) return wrapped;
-  // Keep the follow-up intact and truncate the prior-question context instead.
-  const budget = answerQueryMaxLength - `Follow-up to "": ${trimmedFollowUp}`.length;
-  if (budget <= 0) return trimmedFollowUp.slice(0, answerQueryMaxLength);
-  return `Follow-up to "${trimmedPrior.slice(0, budget)}": ${trimmedFollowUp}`;
+  if (!followUp.trim()) return "";
+  return renderAnswerRequestContext(resolveAnswerRequestContext(priorQuery, followUp));
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +78,10 @@ export function buildAnswerFollowUpQuery(priorQuery: string | undefined, followU
 // and no chip row renders; that is the intended conservative outcome, not a bug.
 // ---------------------------------------------------------------------------
 
+// Suggestion anchoring retains its existing short-continuation heuristic.
+const selfContainedFollowUpLength = 80;
+const followUpCuePattern =
+  /\b(what about|how about|and (?:for|in|with|the)|also|too\??$|same (?:for|with)|instead|as well|it\b|they\b|them\b|this\b|that\b|those\b|these\b)\b/i;
 const maxFollowUpSuggestions = 4;
 
 /** Bounded evidence scan: chips must cost nothing measurable inside the render memo. */
@@ -102,10 +93,47 @@ function normalizeSuggestionKey(value: string) {
   return value.trim().toLowerCase();
 }
 
+function normalizedEvidenceTokens(value: string): string[] {
+  return value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+// Only these menu concepts accept the listed inflections. Query subjects are
+// always exact tokens; a clinical acronym cannot license an unrelated prefix.
+const menuInflections: Record<string, readonly string[]> = {
+  monitor: ["monitors", "monitored", "monitoring"],
+  contraindicat: ["contraindicate", "contraindicated", "contraindication", "contraindications"],
+  discontinu: ["discontinue", "discontinued", "discontinuing", "discontinuation"],
+  escalat: ["escalate", "escalated", "escalating", "escalation"],
+  refer: ["refers", "referred", "referring", "referral", "referrals"],
+  manage: ["managed", "managing", "management"],
+  treat: ["treated", "treating", "treatment", "treatments"],
+  differ: ["differs", "differing", "difference", "differences", "different"],
+  require: ["requires", "required", "requiring", "requirement", "requirements"],
+};
+
+/** Match adjacent normalized tokens, with optional bounded menu inflections. */
+function evidenceIncludesTerm(haystack: string, term: string, menuConcept = false): boolean {
+  const haystackTokens = normalizedEvidenceTokens(haystack);
+  const termTokens = normalizedEvidenceTokens(term);
+  if (termTokens.length === 0 || termTokens.length > haystackTokens.length) return false;
+  return haystackTokens.some((_, start) =>
+    termTokens.every((termToken, offset) => {
+      const actual = haystackTokens[start + offset];
+      return (
+        actual === termToken ||
+        (menuConcept &&
+          actual !== undefined &&
+          (menuInflections[termToken]?.includes(actual) ||
+            (termToken.length > 3 && ["s", "ed", "ing"].some((suffix) => actual === `${termToken}${suffix}`))))
+      );
+    }),
+  );
+}
+
 /**
  * One deterministic follow-up candidate.
  *
- * `evidenceTerms` are lowercase substrings; at least one must appear in the
+ * `evidenceTerms` are lowercase token/phrase stems; at least one must appear in the
  * retrieved evidence for the candidate to be offered. `answeredTerms` are the
  * narrow concept words that mark the question as already answered by the answer
  * body — deliberately a subset of `evidenceTerms`, so a passing mention in a
@@ -124,6 +152,18 @@ type FollowUpTemplate = {
  * is asserted over all 48 class×intent cells in tests/answer-follow-up.test.ts, so
  * a future menu edit fails loudly instead of silently dropping a chip.
  */
+/**
+ * The one authored way to ask about a gap the answer reported.
+ *
+ * It lives outside the menus because the builder offers it for every menu key,
+ * not only `management` — the menu that happens to list it. A reported gap is a
+ * statement about this answer's evidence, so it is worth asking about whatever
+ * shape the question had; and the `dosing`, `escalation`, `threshold` and
+ * `comparison` menus have no gap item of their own, so without this a gap on
+ * those queries would go unmentioned.
+ */
+const reportedGapQuestion = (topic: string) => `What does the indexed guidance not cover for ${topic}?`;
+
 const menuFollowUpTemplates: Record<Exclude<RelatedInformationMenuKey, "none">, readonly FollowUpTemplate[]> = {
   dosing: [
     {
@@ -232,7 +272,7 @@ const menuFollowUpTemplates: Record<Exclude<RelatedInformationMenuKey, "none">, 
     },
     {
       kind: "source_gap",
-      question: (topic) => `What does the indexed guidance not cover for ${topic}?`,
+      question: reportedGapQuestion,
       // Only offered when the answer itself reported a gap or conflict; the
       // haystack check below is satisfied by that report, not by source prose.
       evidenceTerms: ["reported_gap"],
@@ -326,35 +366,31 @@ function bounded(value: string | null | undefined): string {
  * server-derived safety findings add the passages the UI already shows. Query
  * analysis is deliberately excluded — canonical terms are query-derived, so
  * counting them here would let a query term vouch for corpus coverage it does
- * not have. They vouch for the SUBJECT only (see `buildSubjectHaystack`).
+ * not have. The bounded query subject must match an adjacent whole phrase
+ * in this haystack before it can license a suggestion.
  */
-function buildEvidenceHaystack(answer: RagAnswer): string {
+function buildEvidenceHaystack(answer: ClientRagAnswerPayload): string {
   const parts: string[] = [];
   for (const source of (answer.sources ?? []).slice(0, maxEvidenceSources)) {
     parts.push(source.title ?? "", source.section_heading ?? "", bounded(source.retrieval_synopsis ?? source.content));
   }
-  const quotes = [...(answer.quoteCards ?? []), ...(answer.smartPanel?.quotes ?? [])].slice(0, maxEvidenceQuotes);
+  const quotes = (answer.quoteCards ?? []).slice(0, maxEvidenceQuotes);
   for (const quote of quotes) parts.push(bounded(quote.quote));
   for (const warning of answer.safetyWarnings ?? []) parts.push(warning.kind, warning.label, bounded(warning.text));
   return parts.join(" \n").toLowerCase();
 }
 
-/** Where a suggested subject may legitimately come from: evidence, or the resolved query analysis. */
-function buildSubjectHaystack(answer: RagAnswer, evidenceHaystack: string): string {
-  const analysis = answer.queryAnalysis;
-  const terms = [...(analysis?.medications ?? []), ...(analysis?.canonicalTerms ?? [])];
-  return `${evidenceHaystack} \n${terms.join(" \n").toLowerCase()}`;
-}
-
-function topicLabel(priorQuery: string, answer: RagAnswer) {
-  const canonical = answer.queryAnalysis?.canonicalTerms?.filter((term) => term.trim()) ?? [];
-  if (canonical.length > 0) {
-    const label = canonical.slice(0, 3).join(" ");
-    return label.length > 48 ? `${label.slice(0, 45).trimEnd()}…` : label;
-  }
-
+function topicLabel(priorQuery: string) {
   const trimmed = priorQuery.trim();
   if (!trimmed) return "this topic";
+
+  const candidateTopic = (trimmed.match(/[A-Za-z][A-Za-z-]{2,}/g) ?? [])
+    .filter((token) => !followUpTopicNoise.has(token.toLowerCase()))
+    .slice(0, 3)
+    .join(" ");
+  if (candidateTopic) {
+    return candidateTopic.length > 48 ? `${candidateTopic.slice(0, 45).trimEnd()}…` : candidateTopic;
+  }
 
   // Long or interrogative queries: use a short topic phrase instead of the full question.
   if (trimmed.length > 48 || questionLeadPattern.test(trimmed)) {
@@ -386,60 +422,56 @@ function resolveAnchorQuery(latestQuery: string, priorQueries: string[]) {
 }
 
 /**
- * Prefer a subject the clinician actually named. Medications on the analysis can
- * be answer-derived rather than asked-for — an agitation question whose answer
- * lists olanzapine must not produce "…for olanzapine?" chips — so a term that
- * appears in the anchor question wins, and a bare medication is only the
- * fallback.
- */
-function subjectFromAnalysis(anchorQuery: string, answer: RagAnswer): string | null {
-  const normalizedAnchor = anchorQuery.toLowerCase();
-  const medications = (answer.queryAnalysis?.medications ?? []).map((term) => term.trim()).filter(Boolean);
-  const canonical = (answer.queryAnalysis?.canonicalTerms ?? []).map((term) => term.trim()).filter(Boolean);
-  for (const term of [...medications, ...canonical]) {
-    const at = normalizedAnchor.indexOf(term.toLowerCase());
-    if (at < 0) continue;
-    // Read the subject back out of the question so the chip keeps the
-    // clinician's own casing ("ADHD", not the normalised "adhd").
-    return anchorQuery.slice(at, at + term.length);
-  }
-  return medications[0] ?? null;
-}
-
-/**
  * Which composition menu applies. Class-carrying answers use the S2 menu
- * verbatim; the query-shape fallbacks only cover answers that reached the client
- * without a query analysis (cached or degraded payloads).
+ * verbatim; query-shape fallbacks cover cached or degraded payloads without a
+ * query class.
  */
-function resolveMenuKey(anchorQuery: string, answer: RagAnswer): RelatedInformationMenuKey {
-  const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
+function resolveMenuKey(anchorQuery: string, answer: ClientRagAnswerPayload): RelatedInformationMenuKey {
+  const queryClass = answer.queryClass;
   if (queryClass) {
-    return buildRelatedInformationMenu(queryClass, answer.queryAnalysis?.intent ?? "general").key;
+    const intent =
+      (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+      /\b(?:toxicity|overdose|urgent|emergency|escalat(?:e|ion|ing)?)\b/i.test(anchorQuery)
+        ? "escalation_risk"
+        : "general";
+    return buildRelatedInformationMenu(queryClass, intent).key;
   }
-  if (answer.queryAnalysis?.comparisonIntent) return "comparison";
-  if (answer.queryAnalysis?.documentTitleIntent) return "none";
   if (/\b(dose|dosing|mg|monitor|medication|drug)\b/i.test(anchorQuery)) return "dosing";
   if (/\b(threshold|level|cut[- ]?off|range)\b/i.test(anchorQuery)) return "threshold";
   return "none";
 }
 
-function templatesForMenuKey(menuKey: RelatedInformationMenuKey, answer: RagAnswer): readonly FollowUpTemplate[] {
+function templatesForMenuKey(
+  menuKey: RelatedInformationMenuKey,
+  answer: ClientRagAnswerPayload,
+): readonly FollowUpTemplate[] {
   if (menuKey !== "none") return menuFollowUpTemplates[menuKey];
-  const queryClass = answer.queryClass ?? answer.queryAnalysis?.queryClass;
-  if (queryClass === "document_lookup" || answer.queryAnalysis?.documentTitleIntent) return documentLookupTemplates;
+  if (answer.queryClass === "document_lookup") return documentLookupTemplates;
   return generalTemplates;
 }
 
-function gapFollowUpTemplates(answer: RagAnswer) {
-  const gaps = answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? [];
+/**
+ * Follow-up questions taken verbatim from the answer's own reported gaps.
+ *
+ * Only a gap that is ALREADY a question is offered. This used to wrap any gap
+ * in `What does the source say about <message lowercased>?`, which cannot
+ * produce English: every message `detectConflictsOrGaps` writes is a full
+ * advisory sentence, not a noun phrase. On the live answer page that rendered
+ * as "What does the source say about current evidence comes from one document;
+ * broaden document scope if you need cross-document comparison?" — and the
+ * threshold-conflict message, being two sentences, came out worse still, with a
+ * lowercased "confirm the correct cut-off..." stranded mid-question.
+ *
+ * Nothing is lost by declining: the `source_gap` template below is authored for
+ * exactly this case, is gated on the same `reported_gap` evidence, and asks the
+ * question in words a clinician can read.
+ */
+function gapFollowUpTemplates(answer: ClientRagAnswerPayload) {
+  const gaps = answer.conflictsOrGaps ?? [];
   return gaps
     .map((gap) => gap.message.trim())
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((message) => {
-      const cleaned = message.replace(/\.$/, "");
-      return cleaned.endsWith("?") ? cleaned : `What does the source say about ${cleaned.toLowerCase()}?`;
-    });
+    .filter((message) => message.endsWith("?"))
+    .slice(0, 2);
 }
 
 /**
@@ -453,7 +485,7 @@ function gapFollowUpTemplates(answer: RagAnswer) {
  */
 export function buildAnswerFollowUpSuggestions(
   priorQuery: string,
-  answer: RagAnswer,
+  answer: ClientRagAnswerPayload,
   priorQueries: string[] = [],
 ): string[] {
   const trimmedPrior = priorQuery.trim();
@@ -461,10 +493,10 @@ export function buildAnswerFollowUpSuggestions(
 
   const anchorQuery = resolveAnchorQuery(trimmedPrior, priorQueries);
   const evidenceHaystack = buildEvidenceHaystack(answer);
-  const subjectHaystack = buildSubjectHaystack(answer, evidenceHaystack);
+  const subjectHaystack = evidenceHaystack;
 
-  const topic = subjectFromAnalysis(anchorQuery, answer) ?? topicLabel(anchorQuery, answer);
-  const topicSupported = significantTokens(topic).some((token) => subjectHaystack.includes(token));
+  const topic = topicLabel(anchorQuery);
+  const topicSupported = evidenceIncludesTerm(subjectHaystack, topic);
 
   const seen = new Set(priorQueries.map(normalizeSuggestionKey));
   seen.add(normalizeSuggestionKey(trimmedPrior));
@@ -483,7 +515,23 @@ export function buildAnswerFollowUpSuggestions(
     if (suggestions.length >= maxFollowUpSuggestions) break;
     push(gap);
   }
-  const hasReportedGap = (answer.conflictsOrGaps ?? answer.smartPanel?.conflictsOrGaps ?? []).length > 0;
+  // Whether a gap supplied its own question, which is what the `source_gap`
+  // suppression below actually means. Reading it off `suggestions.length` was
+  // safe only while gaps were the sole thing that could have run by then; now
+  // that a gap has to already be a question to qualify, that test would suppress
+  // the authored `source_gap` item whenever any earlier menu template matched.
+  const gapAskedItself = suggestions.length > 0;
+  const reportedGapsOrConflicts = answer.conflictsOrGaps ?? [];
+  const hasReportedGap = reportedGapsOrConflicts.length > 0;
+  /**
+   * A conflict is not a gap, and the authored gap question says the wrong thing
+   * about one. `detectConflictsOrGaps` writes `type: "conflict"` when sources
+   * disagree on a withholding threshold — that answer HAS coverage, from several
+   * sources; the problem is that they contradict each other. Offering "What does
+   * the indexed guidance not cover for X?" there misstates the evidence and
+   * points the clinician at the wrong follow-up.
+   */
+  const hasMissingCoverage = reportedGapsOrConflicts.some((item) => item.type === "gap");
   const answerText = (answer.answer ?? "").toLowerCase();
   const emittedSectionKinds = new Set(
     (answer.answerSections ?? []).map((section) => section.kind).filter((kind): kind is AnswerSectionKind => !!kind),
@@ -496,16 +544,42 @@ export function buildAnswerFollowUpSuggestions(
     if (suggestions.length >= maxFollowUpSuggestions) break;
     // (2) evidence gate.
     const supported = template.evidenceTerms.some((term) =>
-      term === "reported_gap" ? hasReportedGap : evidenceHaystack.includes(term),
+      term === "reported_gap" ? hasReportedGap : evidenceIncludesTerm(evidenceHaystack, term, true),
     );
     if (!supported) continue;
     // (3) already-answered suppression: an emitted section of this kind, the
     // answer body's own words, or — for the source-gap item — a gap chip that is
     // already asking the specific question.
     if (emittedSectionKinds.has(template.kind)) continue;
-    if (template.kind === "source_gap" && suggestions.length > 0) continue;
-    if (template.answeredTerms.some((term) => answerText.includes(term))) continue;
+    if (template.kind === "source_gap" && gapAskedItself) continue;
+    if (template.answeredTerms.some((term) => evidenceIncludesTerm(answerText, term, true))) continue;
     push(template.question(topic));
+  }
+
+  /**
+   * The authored gap question, for the menus that carry no `source_gap` item of
+   * their own — only `management` does, so before this a reported gap on a
+   * dosing, escalation, threshold or comparison query went unmentioned.
+   *
+   * Offered LAST, and only into a spare slot. A question about what the evidence
+   * does not cover is worth less than a concrete evidence-backed one when the
+   * four slots are contested: put it first and a gapped `medication_dose_risk`
+   * answer trades "How is lithium dosed in renal or hepatic impairment?" for a
+   * meta-question. It also costs the reader little to lose, because the gap's
+   * own words are already on screen as a caveat (`answer-render-policy.ts`).
+   *
+   * The `emittedSectionKinds` check is the menu loop's rule 3 applied here:
+   * `source_gap` is a real emitted section kind (`rag.ts` maps gap/unsupported
+   * headings onto it), so without this the chip could ask what the guidance does
+   * not cover directly beneath a Source gap section that just said.
+   */
+  if (
+    hasMissingCoverage &&
+    !gapAskedItself &&
+    !emittedSectionKinds.has("source_gap") &&
+    suggestions.length < maxFollowUpSuggestions
+  ) {
+    push(reportedGapQuestion(topic));
   }
 
   return suggestions;

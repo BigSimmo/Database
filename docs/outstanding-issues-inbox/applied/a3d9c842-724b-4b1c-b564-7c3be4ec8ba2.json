@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a3d9c842-724b-4b1c-b564-7c3be4ec8ba2",
+  "createdOn": "2026-09-02",
+  "action": "done",
+  "payload": {
+    "id": "#PAMATF",
+    "outcome": "FIXED AND MERGED to main in 2631782a3 (PR #2534), 2026-09-02. listSendableContacts now gates on the owning plan before the contact, in BOTH stores, so a draft plan nobody has started and a plan a coordinator has paused no longer present their contacts as work about to go out. planSendingHold moved from schedule-view.ts to model.ts beside contactSendability and is re-exported so existing imports still resolve; no second predicate was written. Evidence read off origin/main: planSendingHold appears 2x in src/lib/caring-contacts/model.ts at 2631782a3. validateGovernedMessage also gained a plan-not-dispatchable issue covering the draft and paused plans that previously passed the chokepoint, and a load-time invariant ties planSendingHold to TERMINAL_PLAN_STATES beside the two that already guard contactSendability. Neither store needed a query or a join, and a read racing an activation resolves fail-closed. THIS OVERTURNS RULING 129, which considered exactly this change and declined it on the grounds that it would duplicate an existing gate. Every fact in that ruling was re-verified and still holds; what changed is the weighing of the residual it named itself — a rename or a sibling leaves the misleading behaviour reachable and merely relabelled, which is the same shape as #59JT7W. Recorded as Ruling 129A in docs/caring-contacts/phase-2b-build-record.md with the HANDOVER entry closed, taken as an explicit owner decision rather than a drive-by consequence. The duplication cost Ruling 129 predicted is now pinned rather than accepted: the shared contract asserts the read gate and the write gate (requiresActivePlan) agree for every plan state where the plan is what decides. Two pinned assertions changed deliberately and are documented in the PR body. NOTE: this was never a live send hole — there is no dispatcher or SMS provider in the tree.",
+    "baseRowFingerprint": "d05c5812c06f1cb856402507488d12b896b150385ae41fbb6cbeccfc3190732b"
+  }
+}

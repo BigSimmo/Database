@@ -15,7 +15,8 @@ import {
   resultFilterFacetGroup,
 } from "@/components/clinical-dashboard/result-filter-control";
 import { mobileComposerVisibleReserve } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { cardPadding, cardSurface, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
 import { cn, codeText, EmptyState, metadataPill, pageContainer } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
@@ -61,7 +62,7 @@ function DsmSearchResultCard({
         aria-pressed={isSelected}
         aria-label={`${isSelected ? "Remove" : "Add"} ${result.title} ${isSelected ? "from" : "to"} comparison`}
         className={cn(
-          "grid h-12 w-12 shrink-0 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          "relative z-10 grid h-12 w-12 shrink-0 place-items-center rounded-lg border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           isSelected
             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
             : "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--decoration-soft)] hover:border-[color:var(--clinical-accent)]",
@@ -72,7 +73,7 @@ function DsmSearchResultCard({
       <Link
         href={`/dsm/diagnoses/${result.slug}`}
         aria-label={`Open ${result.title}`}
-        className={cn("group min-w-0 rounded-md", focusRing)}
+        className={cn("group min-w-0 rounded-md", focusRing, stretchedRowLinkClass)}
       >
         <div className="flex min-w-0 items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -392,6 +393,7 @@ export function DsmSearchPage({
             }
           />
         )}
+        <UniversalSearchAlsoMatches modeId="dsm" query={query} />
       </div>
 
       <DsmMobileCompareStrip selected={selected} />

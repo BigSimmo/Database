@@ -81,12 +81,14 @@ import {
   setModeHomeComposerReservePending,
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
+import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
 import { useCommandDropdownDisplayableByPlacement } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
+import { standaloneModeHomeHref } from "@/lib/search-route-ownership";
 
 // Shared between the composer input's aria-describedby and the rendered
 // PrivacyInputNotice id/testId so the wiring cannot drift apart.
@@ -97,32 +99,6 @@ const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopPageComposerMediaQuery = "(min-width: 640px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
-
-const phoneModeGroups = [
-  {
-    id: "find",
-    label: "Find",
-    hint: "Answers, sources, services",
-    modeIds: ["answer", "documents", "services", "forms", "favourites"],
-  },
-  {
-    id: "diagnose",
-    label: "Diagnose",
-    hint: "Criteria, clues, formulation",
-    modeIds: ["differentials", "dsm", "specifiers", "formulation"],
-  },
-  {
-    id: "care",
-    label: "Care",
-    hint: "Medication, calculators, reference, therapy",
-    modeIds: ["prescribing", "calculators", "tools", "therapy-compass", "factsheets", "dictionary"],
-  },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  label: string;
-  hint: string;
-  modeIds: readonly AppModeId[];
-}>;
 
 function splitFilterText(value: string) {
   return value
@@ -409,6 +385,7 @@ export function MasterSearchHeader({
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
   const commandDropdownDisplayableByPlacement = useCommandDropdownDisplayableByPlacement();
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [modeMenuQuery, setModeMenuQuery] = useState("");
   // Which menuitemradio should receive initial focus when the mode menu opens
   // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
   // popover and the phone bottom sheet.
@@ -418,6 +395,11 @@ export function MasterSearchHeader({
   // unavailable on the server). Sync from matchMedia after mount; Mode open
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
+  const normalizedModeMenuQuery = modeMenuQuery.trim().toLowerCase();
+  const desktopModeMenuOptions = normalizedModeMenuQuery
+    ? visibleAppModeOptions.filter((mode) => mode.label.toLowerCase().includes(normalizedModeMenuQuery))
+    : visibleAppModeOptions;
+  const activeModeMenuOptions = usesPhoneSearchLayout ? visibleAppModeOptions : desktopModeMenuOptions;
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
   const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
   // SSR and first paint assume a declared home slot is media-eligible so the
@@ -537,6 +519,8 @@ export function MasterSearchHeader({
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const phoneModeMenuListRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopModeMenuSearchRef = useRef<HTMLInputElement | null>(null);
+  const modeMenuFocusRafRef = useRef<number | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
   const prefetchedModeHrefsRef = useRef(new Set<string>());
@@ -640,16 +624,12 @@ export function MasterSearchHeader({
   // not swap to brand copy that hides what the input actually does.
   const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
-  const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
-    () =>
-      visibleAppModeOptions.map((mode) => ({
-        id: mode.id,
-        label: mode.label,
-        description: mode.id === "answer" ? "Source-backed mode" : mode.description,
-        icon: appModeIcons[mode.id],
-      })),
-    [visibleAppModeOptions],
-  );
+  const actionMenuModeOptions: ModeActionModeOption[] = visibleAppModeOptions.map((mode) => ({
+    id: mode.id,
+    label: mode.label,
+    description: mode.id === "answer" ? "Source-backed mode" : mode.description,
+    icon: appModeIcons[mode.id],
+  }));
   const actionMenuSetId: ModeActionSetId =
     searchMode === "prescribing"
       ? "prescribing"
@@ -921,14 +901,16 @@ export function MasterSearchHeader({
 
   function selectAppMode(mode: (typeof appModeDefinitions)[number]) {
     setModeMenuOpen(false);
-    if (mode.id === "tools" && "href" in mode && mode.href) {
-      // Tools is a browse-first directory: selecting it opens the canonical
-      // all-tools page instead of retargeting the shared-home composer.
+    setModeMenuQuery("");
+    const standaloneHref = standaloneModeHomeHref(mode.id as AppModeId);
+    if (standaloneHref) {
+      // Dedicated modes navigate to their canonical standalone homes
+      // instead of retargeting the shared-home composer.
       // Persist the selection here rather than via onSearchModeChange: that
       // callback owns shared-home navigation and would race this canonical push.
-      setLastAppMode(mode.id);
+      setLastAppMode(mode.id as AppModeId);
       pendingModeSelectionFocusRef.current = mode.id;
-      router.push(mode.href);
+      router.push(standaloneHref);
       if (mode.id === searchMode) {
         const restoreSameModeFocus = () => {
           if (pendingModeSelectionFocusRef.current !== mode.id) return;
@@ -1033,7 +1015,8 @@ export function MasterSearchHeader({
   );
 
   function focusModeOption(index: number) {
-    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    if (activeModeMenuOptions.length === 0) return;
+    const nextIndex = (index + activeModeMenuOptions.length) % activeModeMenuOptions.length;
     setModeMenuFocusIndex(nextIndex);
     modeOptionRefs.current[nextIndex]?.focus();
   }
@@ -1049,11 +1032,11 @@ export function MasterSearchHeader({
   // Prefetch only the mode the user is about to choose — the highlighted option
   // on open, then whichever option receives focus/pointer while scanning.
   //
-  // Most picks return to the shared home. Tools is browse-first and opens its
-  // canonical all-results directory, so warm that route instead.
+  // Most picks return to the shared home. Dedicated modes open their
+  // canonical standalone directory/home, so warm that route instead.
   function prefetchModeSelection(modeId: AppModeId) {
     if (modeId === searchMode) return;
-    const href = modeId === "tools" ? "/tools" : appModeSelectionHref(modeId);
+    const href = standaloneModeHomeHref(modeId) ?? appModeSelectionHref(modeId);
     if (prefetchedModeHrefsRef.current.has(href)) return;
     prefetchedModeHrefsRef.current.add(href);
     router.prefetch(href, {
@@ -1077,27 +1060,72 @@ export function MasterSearchHeader({
     const highlighted = visibleAppModeOptions[nextIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
     const phoneLayout = currentUsesPhoneSearchLayout();
+    setModeMenuQuery("");
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
     setModeMenuOpen(true);
     // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
     // needs an rAF focus into the absolute menu after it mounts.
+    //
+    // Deliberately not `focusModeOption(nextIndex)` here: that helper
+    // re-derives its own bounds from `activeModeMenuOptions`, which is a
+    // value closed over from *this* render — before the `setModeMenuQuery("")`
+    // above has taken effect. If the menu was last dismissed while filtered
+    // to zero or one match, that stale, filtered length either divides by
+    // zero (leaving focus stuck on the trigger) or wraps every index to 0
+    // (focusing whatever renders first in the *next* render's full list,
+    // not the mode this call actually targets). `nextIndex` above is already
+    // a valid position in the unfiltered `visibleAppModeOptions`, which is
+    // exactly what the query reset guarantees `activeModeMenuOptions` will
+    // equal once React commits it — so focus directly by that index instead
+    // of re-deriving it against a list that hasn't caught up yet.
     if (!phoneLayout) {
-      window.requestAnimationFrame(() => focusModeOption(nextIndex));
+      if (modeMenuFocusRafRef.current !== null) {
+        window.cancelAnimationFrame(modeMenuFocusRafRef.current);
+        modeMenuFocusRafRef.current = null;
+      }
+      modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {
+        modeMenuFocusRafRef.current = null;
+        setModeMenuFocusIndex(nextIndex);
+        modeOptionRefs.current[nextIndex]?.focus();
+      });
     }
   }
+
+  const cancelModeMenuFocus = useCallback(() => {
+    if (modeMenuFocusRafRef.current !== null) {
+      window.cancelAnimationFrame(modeMenuFocusRafRef.current);
+      modeMenuFocusRafRef.current = null;
+    }
+  }, []);
+
+  const closeModeMenu = useCallback(() => {
+    cancelModeMenuFocus();
+    setModeMenuOpen(false);
+  }, [cancelModeMenuFocus]);
 
   function toggleModeMenu() {
     closeModeSurfaces();
     if (modeMenuOpen) {
-      setModeMenuOpen(false);
+      closeModeMenu();
       return;
     }
     const highlighted = visibleAppModeOptions[selectedModeIndex];
     if (highlighted) prefetchModeSelection(highlighted.id);
-    setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
+    const phoneLayout = currentUsesPhoneSearchLayout();
+    setModeMenuQuery("");
+    setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
+    if (!phoneLayout) {
+      cancelModeMenuFocus();
+      modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {
+        modeMenuFocusRafRef.current = null;
+        if (modeMenuRef.current?.contains(document.activeElement)) {
+          desktopModeMenuSearchRef.current?.focus();
+        }
+      });
+    }
   }
 
   function handleModeTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -1114,7 +1142,7 @@ export function MasterSearchHeader({
       // (links are excluded from its Tab order, and backward navigation can wrap
       // into the open menu), so keydown is the reliable dismiss signal; the wrapper
       // onBlur remains the net for pointer and programmatic focus moves.
-      setModeMenuOpen(false);
+      closeModeMenu();
     }
   }
 
@@ -1130,19 +1158,34 @@ export function MasterSearchHeader({
       focusModeOption(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      focusModeOption(visibleAppModeOptions.length - 1);
+      focusModeOption(activeModeMenuOptions.length - 1);
     } else if (event.key === "Escape") {
       // Phone Sheet owns Escape + return-focus; handling here races its cleanup.
       if (usesPhoneSearchLayout) return;
       event.preventDefault();
-      setModeMenuOpen(false);
+      closeModeMenu();
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     } else if (event.key === "Tab") {
       // Desktop: let focus leave the absolute menu and close it. Phone sheet
       // traps Tab itself — closing here would fight the dialog focus cycle.
       if (!usesPhoneSearchLayout) {
-        setModeMenuOpen(false);
+        closeModeMenu();
       }
+    }
+  }
+
+  function handleModeMenuSearchKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusModeOption(0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusModeOption(activeModeMenuOptions.length - 1);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeModeMenu();
+      setModeMenuQuery("");
+      window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     }
   }
 
@@ -1169,7 +1212,7 @@ export function MasterSearchHeader({
           "relative grid w-full items-center text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
           usesPhoneSearchLayout
             ? "min-h-14 grid-cols-[2.5rem_minmax(0,1fr)_1.5rem] gap-2.5 rounded-xl px-2 py-2"
-            : "min-h-[3.25rem] grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-2",
+            : "min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-1.5",
           active
             ? usesPhoneSearchLayout
               ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)]"
@@ -1227,7 +1270,36 @@ export function MasterSearchHeader({
   }
 
   function renderModeMenuOptions() {
-    return visibleAppModeOptions.map((mode, index) => renderModeMenuOption(mode, index));
+    return activeModeMenuOptions.map((mode, index) => renderModeMenuOption(mode, index));
+  }
+
+  function renderGroupedDesktopModeMenuOptions() {
+    return phoneModeGroups.map((group) => {
+      const groupModes = group.modeIds.flatMap((modeId) => {
+        const mode = desktopModeMenuOptions.find((candidate) => candidate.id === modeId);
+        return mode ? [mode] : [];
+      });
+      if (groupModes.length === 0) return null;
+      const headingId = `desktop-app-mode-group-${group.id}`;
+      return (
+        <section key={group.id} role="group" aria-labelledby={headingId} className="pt-2 first:pt-0">
+          <h3
+            id={headingId}
+            className="sticky top-0 z-[5] border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-2 py-1.5 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)] backdrop-blur-md"
+          >
+            {group.label}
+          </h3>
+          <div className="grid gap-0.5 pt-1">
+            {groupModes.map((mode) =>
+              renderModeMenuOption(
+                mode,
+                desktopModeMenuOptions.findIndex((candidate) => candidate.id === mode.id),
+              ),
+            )}
+          </div>
+        </section>
+      );
+    });
   }
 
   const restoreActionMenuFocusRef = useRef(false);
@@ -1439,7 +1511,19 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       if (composerSlotId) {
-        setModeHomeComposerReservePending(document.getElementById(composerSlotId), false);
+        // Ready-gate, same as adoption: only a slot whose own segment has
+        // hydrated is ours to clear. This cleanup also runs on an ordinary
+        // dependency re-run, and stripping the SSR marker there leaves a window
+        // in which the DOM lacks an attribute the page's client render still
+        // produces — a page segment hydrating inside it logs a
+        // `data-composer-reserve` mismatch (client "pending" vs server null).
+        // Nothing is stranded by skipping: the effect body re-establishes the
+        // reserve on the very next tick, and a real unmount takes the slot
+        // element with it. Invariant 15's three required clears (media query
+        // mismatch, suppressed composer, portal fallback) live in `syncTarget`
+        // and the suppression branch above, and are untouched.
+        const slot = document.getElementById(composerSlotId);
+        if (isDesktopComposerSlotReady(slot)) setModeHomeComposerReservePending(slot, false);
       }
       setDesktopComposerPortalActive(false);
       setDesktopComposerPortalHost(null);
@@ -1447,7 +1531,7 @@ export function MasterSearchHeader({
     };
   }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint, searchComposerVisible]);
 
-  const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
+  const dismissModeMenu = useCallback(() => closeModeMenu(), [closeModeMenu]);
   function dismissScope(reason: "outside" | "escape") {
     closeScope(reason === "escape");
   }
@@ -1837,10 +1921,12 @@ export function MasterSearchHeader({
     // `mobileHomeComposerPlacement === "footer"` alone is not enough: it is set
     // for every /tools-prefixed route, so the home slot must also be present to
     // distinguish the tools home from a tools result dock.
-    // Tablet/desktop composers keep the site-wide notice everywhere.
+    // Tablet/desktop show it on the mode-home hero and the answer dock (its
+    // own composer type). Submitted result views and page slots render the
+    // compact pill alone, like the phone result dock.
     const showsComposerPrivacyNotice = usesPhoneSearchLayout
       ? isDesktopHomeComposer || (mobileHomeComposerPlacement === "footer" && Boolean(desktopHomeComposerSlotId))
-      : true;
+      : isDesktopHomeComposer || usesAnswerFooterStyle;
 
     const commandSurfacePlacement: CommandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
     const commandDropdownDisplayable = commandDropdownDisplayableByPlacement[commandSurfacePlacement];
@@ -1991,6 +2077,10 @@ export function MasterSearchHeader({
           onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={handleFocusSearchInput}
           showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}
+          // Only the mode-home hero keeps the "Try …" line and prompt rail.
+          // Result views, page slots, and the answer dock render the pill
+          // alone in every mode.
+          showHomeSuggestions={isDesktopHomeComposer}
         >
           <div
             data-menu-placement={actionMenuOpen ? actionMenuPlacement : undefined}
@@ -2112,7 +2202,7 @@ export function MasterSearchHeader({
               ) : usesSendAffordance ? (
                 <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (
-                <ModeIdentityIcon className="size-icon-lg" />
+                <ModeIdentityIcon aria-hidden="true" className="size-icon-lg" />
               ) : (
                 <Search aria-hidden="true" className="size-icon-lg" />
               )}
@@ -2120,10 +2210,10 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {/* Single site-wide APP-5 privacy line: every tablet/desktop composer
-            variant renders exactly one compact notice below the pill; no other
-            surface may duplicate it. Phones show it only on the home hero —
-            see showsComposerPrivacyNotice. */}
+        {/* Single site-wide APP-5 privacy line: the mode-home hero and the
+            answer dock render exactly one compact notice below the pill; no
+            other surface may duplicate it. Result composers omit it at every
+            width — see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
           <div role="group" aria-label="Search privacy notice">
             <PrivacyInputNotice
@@ -2273,7 +2363,7 @@ export function MasterSearchHeader({
             type="button"
             onClick={onOpenMobileSidebar}
             className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] md:hidden"
-            aria-label="Open Clinical Guide menu"
+            aria-label="Open PsychSift menu"
           >
             <Menu aria-hidden="true" className="size-icon-lg" />
           </button>
@@ -2325,7 +2415,7 @@ export function MasterSearchHeader({
             if (usesPhoneSearchLayout) return;
             const nextFocusedElement = event.relatedTarget;
             if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-            setModeMenuOpen(false);
+            closeModeMenu();
           }}
           className="relative z-[60] min-w-0 justify-self-center"
         >
@@ -2337,7 +2427,7 @@ export function MasterSearchHeader({
             className={cn(
               "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-9rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
             )}
-            aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
+            aria-haspopup="dialog"
             aria-expanded={modeMenuOpen}
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
             aria-label={`Mode ${selectedAppMode.label}`}
@@ -2368,14 +2458,81 @@ export function MasterSearchHeader({
           {!usesPhoneSearchLayout && modeMenuOpen ? (
             <div
               id="app-mode-menu"
-              role="menu"
+              role="dialog"
               aria-label="Choose app mode"
               className={cn(
                 glassOverlaySurface,
-                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-[60] max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
+                "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]",
               )}
             >
-              {renderModeMenuOptions()}
+              <div className="border-b border-[color:var(--border)] p-3 pb-2.5">
+                <div className="search-shell grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow]">
+                  <Search aria-hidden="true" className="size-icon-md text-[color:var(--text-muted)]" strokeWidth={2} />
+                  <input
+                    ref={desktopModeMenuSearchRef}
+                    type="text"
+                    value={modeMenuQuery}
+                    onChange={(event) => {
+                      setModeMenuQuery(event.target.value);
+                      setModeMenuFocusIndex(0);
+                    }}
+                    onKeyDown={handleModeMenuSearchKeyDown}
+                    placeholder="Find a mode"
+                    aria-label="Find a mode"
+                    aria-controls="app-mode-options"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="search-shell-input min-w-0 bg-transparent text-sm font-semibold text-[color:var(--text-heading)] outline-none placeholder:font-medium placeholder:text-[color:var(--text-muted)]"
+                  />
+                  {modeMenuQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setModeMenuQuery("");
+                        setModeMenuFocusIndex(selectedModeIndex);
+                        desktopModeMenuSearchRef.current?.focus();
+                      }}
+                      aria-label="Clear mode search"
+                      className="grid size-8 place-items-center rounded-md text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+                    >
+                      <X aria-hidden="true" className="size-icon-md" />
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" className="size-8" />
+                  )}
+                </div>
+                <p
+                  role="status"
+                  className="nums mt-2 px-1 text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]"
+                >
+                  {normalizedModeMenuQuery
+                    ? `${desktopModeMenuOptions.length} ${desktopModeMenuOptions.length === 1 ? "match" : "matches"}`
+                    : `${desktopModeMenuOptions.length} modes`}
+                </p>
+              </div>
+
+              <div className="polished-scroll max-h-[min(34rem,calc(100dvh-13rem))] overflow-y-auto p-1.5">
+                <div id="app-mode-options" role="menu" aria-label="Choose app mode">
+                  {desktopModeMenuOptions.length === 0 ? (
+                    <p className="px-3 py-8 text-center text-sm font-medium text-[color:var(--text-muted)]">
+                      No modes match that search.
+                    </p>
+                  ) : normalizedModeMenuQuery ? (
+                    <div className="grid gap-0.5">{renderModeMenuOptions()}</div>
+                  ) : (
+                    renderGroupedDesktopModeMenuOptions()
+                  )}
+                </div>
+              </div>
+
+              <div
+                aria-hidden="true"
+                className="flex items-center justify-center gap-3 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/70 px-3 py-2 text-2xs font-medium text-[color:var(--text-muted)]"
+              >
+                <span>↑↓ Navigate</span>
+                <span>Enter Select</span>
+                <span>Esc Close</span>
+              </div>
             </div>
           ) : null}
         </div>

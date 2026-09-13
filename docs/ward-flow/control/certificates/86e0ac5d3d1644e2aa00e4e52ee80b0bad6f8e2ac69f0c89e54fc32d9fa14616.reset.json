@@ -1,0 +1,19 @@
+{
+  "certificationHead": "b09f16e4203e0db0720995c7d90da664c635b387",
+  "certifiedAt": "2026-08-31T07:49:39.997Z",
+  "checks": [
+    "handover-committed",
+    "handover-current",
+    "worktree-clean",
+    "source-retained",
+    "role-lease-matched",
+    "disposition-proven"
+  ],
+  "handoverPath": "docs/ward-flow/control/handovers/0301fef18e60cfddf67d62a6da5ca17ce35392f13f2c82e1b62817ffb3ac7458.handover.json",
+  "handoverSha256": "0301fef18e60cfddf67d62a6da5ca17ce35392f13f2c82e1b62817ffb3ac7458",
+  "instanceId": "ward-lead-20260831-claude-b",
+  "kind": "ward-flow-reset-certificate",
+  "role": "lead",
+  "roleGeneration": 1,
+  "schemaVersion": 1
+}

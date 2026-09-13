@@ -78,9 +78,15 @@ describe("Ward Flow phone drawer", () => {
     for (const item of WARD_NAV) {
       expect(drawerHrefs, `${item.label} is missing from the drawer`).toContain(item.href);
     }
-    // The two entries that name one arbitrary synthetic instance rather than a section of the app
-    // say so in words here. The icon rail can only say it in an aria-label nobody reads.
-    expect(within(drawer).getAllByText("example")).toHaveLength(2);
+    // The entries that name one arbitrary synthetic instance rather than a section of the app say
+    // so in words here. The icon rail can only say it in an aria-label nobody reads.
+    //
+    // THREE at the fold, not two: the ward board (`board/[unitId]`) joined `ward/[unitId]` and
+    // `ed/[edId]` as a dynamic route the rail can only ever link one concrete instance of. Moved
+    // after confirming the third is the board's rail entry and belongs — not to reach green. The
+    // hrefs themselves are pinned as a set in tests/ward-nav.test.ts, which is where a fourth
+    // arriving by accident would be caught by name rather than by arithmetic.
+    expect(within(drawer).getAllByText("example")).toHaveLength(3);
     // The one legitimate way out of the sandbox.
     expect(within(drawer).getByRole("link", { name: "Back to the developer hub" })).toHaveAttribute(
       "href",
@@ -100,7 +106,10 @@ describe("Ward Flow phone drawer", () => {
     renderRail();
     fireEvent.click(screen.getByRole("button", { name: "Open Ward Flow menu" }));
     const drawer = screen.getByRole("dialog");
-    expect(within(drawer).getByRole("link", { name: "Priority queue" })).toHaveAttribute("aria-current", "page");
+    // MERGE 01 (2026-09-05): the fold at e31c9c462 renamed this view's label from "Priority
+    // queue" to "Delays" (its id is still `queue`, which is why `activeMode="queue"` above is
+    // untouched — only the accessible name changed, so only the query here does too).
+    expect(within(drawer).getByRole("link", { name: "Delays" })).toHaveAttribute("aria-current", "page");
     expect(within(drawer).getByRole("link", { name: "Capacity" })).not.toHaveAttribute("aria-current");
   });
 });
@@ -121,7 +130,9 @@ describe("Ward Flow desktop sidebar collapse", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
 
     const panel = screen.getByRole("complementary", { name: "Ward Flow sidebar" });
-    expect(within(panel).getByRole("link", { name: "Priority queue" })).toHaveAttribute("aria-current", "page");
+    // MERGE 01 (2026-09-05): same rename as the drawer test above — the label is "Delays" now,
+    // while `activeMode="queue"` in `renderRail()` is deliberately unchanged (the id did not move).
+    expect(within(panel).getByRole("link", { name: "Delays" })).toHaveAttribute("aria-current", "page");
     expect(window.localStorage.getItem(WARD_SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe("0");
 
     fireEvent.click(within(panel).getByRole("button", { name: "Collapse sidebar" }));
