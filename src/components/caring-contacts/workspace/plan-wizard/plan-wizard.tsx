@@ -528,9 +528,7 @@ export function PlanWizard({
   // paths intentionally retain the draft, and dropping the beforeunload prompt
   // would silently discard patient details on reload (review on #2789).
   const isDirty =
-    !discarded &&
-    submissionState.status !== "created" &&
-    isPlanDraftDirty(draft, referralId, referralPathwayVersionId);
+    !discarded && submissionState.status !== "created" && isPlanDraftDirty(draft, referralId, referralPathwayVersionId);
 
   useDirtyStateGuard(isDirty);
 

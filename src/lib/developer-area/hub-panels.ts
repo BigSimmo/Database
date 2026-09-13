@@ -222,10 +222,7 @@ export function panelsInGroup(
     if (panel.group !== group) return false;
     // Production hubs must not advertise /caring-contacts when the workspace
     // is locked off (every caring-contacts page calls notFound() then).
-    if (
-      panel.id === "caring-contacts-workspace" &&
-      !isCaringContactsWorkspaceEnabled(environment, runtime)
-    ) {
+    if (panel.id === "caring-contacts-workspace" && !isCaringContactsWorkspaceEnabled(environment, runtime)) {
       return false;
     }
     return true;

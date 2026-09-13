@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SETTINGS_SECTIONS } from "@/components/clinical-dashboard/settings-sections";
 import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
-import { isCaringContactsWorkspaceEnabled } from "@/lib/caring-contacts-server/session";
 import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
 import { toolCatalogRecords } from "@/lib/tools-catalog";
 // Test files live outside `src/**`, so unlike `hub-panels.ts` itself they are
@@ -220,5 +219,4 @@ describe("the brand sheet the hub links to", () => {
     const enabled = panelsInGroup("reference", "development", {});
     expect(enabled.some((panel) => panel.id === "caring-contacts-workspace")).toBe(true);
   });
-
 });
