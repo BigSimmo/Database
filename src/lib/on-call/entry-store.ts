@@ -164,8 +164,11 @@ export function useOnCallEntries(): OnCallEntriesState {
       if (peekOnCallEntrySessionEpoch() === sessionEpoch) return;
       // The persisted key is gone. Drop the in-memory fallback immediately —
       // `cached?.entries ?? fetched` would otherwise keep rendering account A's
-      // personal rows once `cached` is null.
+      // personal rows once `cached` is null. Loading goes true here rather
+      // than inside the fetch effect: that effect cannot call setState
+      // synchronously (react-hooks/set-state-in-effect).
       setFetched(null);
+      setLoading(true);
       setSessionEpoch(peekOnCallEntrySessionEpoch());
     }
     window.addEventListener(onCallEntryCacheChangedEvent, onCacheChanged);
@@ -176,7 +179,6 @@ export function useOnCallEntries(): OnCallEntriesState {
     const epochAtStart = peekOnCallEntrySessionEpoch();
     let cancelled = false;
     const controller = new AbortController();
-    setLoading(true);
 
     (async () => {
       try {
