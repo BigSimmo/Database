@@ -57,6 +57,15 @@ describe("caringContactsStore", () => {
     expect(mocks.createPostgresRepository).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses durable DATABASE_URL while demo mode is explicitly enabled", async () => {
+    vi.stubEnv("CARING_CONTACTS_DEMO_ENABLED", "true");
+    vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "postgres://demo@example.invalid:5432/postgres");
+
+    await expect(caringContactsStore()).rejects.toThrow(/refuses CARING_CONTACTS_DATABASE_URL/i);
+    expect(mocks.createCaringContactsPool).not.toHaveBeenCalled();
+    expect(mocks.createPostgresRepository).not.toHaveBeenCalled();
+  });
+
   it("shares the in-memory store across separate module evaluations so a stop is visible to a later import", async () => {
     vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "");
 

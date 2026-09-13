@@ -151,7 +151,7 @@ describe("buildHazardSnapshot against the real repository documents", () => {
     expect(psychsift.authority).toContain("Static evidence register only");
   });
 
-  it("reads the Caring Contacts log as an unsigned draft with its four uncontrolled rows", () => {
+  it("reads the Caring Contacts log as an unsigned draft whose Part A controls are governance-gated", () => {
     const caringContacts = snapshot.registers[1];
     expect(caringContacts.signedOff).toBe(false);
     expect(caringContacts.authority).toContain("requires clinical sign-off by the owner before any real-patient use");
@@ -160,8 +160,13 @@ describe("buildHazardSnapshot against the real repository documents", () => {
       "No row below has been reviewed, accepted, or signed off by a clinician",
     );
     const uncontrolled = caringContacts.hazards.filter((hazard) => hazard.status === "unmitigated");
-    expect(uncontrolled.map((hazard) => hazard.id)).toEqual(["H-00", "H-04", "H-05", "H-44"]);
-    expect(uncontrolled.every((hazard) => hazard.hasControl === false)).toBe(true);
+    expect(uncontrolled).toEqual([]);
+    const partA = caringContacts.hazards.filter((hazard) =>
+      ["H-00", "H-04", "H-05", "H-36", "H-44"].includes(hazard.id),
+    );
+    expect(partA.map((hazard) => hazard.id)).toEqual(["H-00", "H-04", "H-05", "H-36", "H-44"]);
+    expect(partA.every((hazard) => hazard.hasControl === true)).toBe(true);
+    expect(partA.every((hazard) => hazard.status === "controlled-unreviewed")).toBe(true);
   });
 
   it("records Ward Flow's missing register as a finding, with only its blocking ledger rows beside it", () => {
@@ -178,7 +183,7 @@ describe("buildHazardSnapshot against the real repository documents", () => {
   it("counts what is NOT controlled, and counts every row exactly once", () => {
     const counted = snapshot.registers.reduce((total, register) => total + register.hazards.length, 0);
     expect(snapshot.counts.hazards).toBe(counted);
-    expect(snapshot.counts.unmitigated).toBe(4);
+    expect(snapshot.counts.unmitigated).toBe(0);
     expect(snapshot.counts.registersMissing).toBe(1);
     expect(snapshot.counts.registersUnsigned).toBe(2);
   });
