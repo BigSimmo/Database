@@ -1,4 +1,4 @@
-<title>On Call — second-level navigation, five options</title>
+<title>On Call — the second row, as in-page navigation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
@@ -1717,17 +1717,20 @@
   }
 
   /* ============================================================
-     Added for the navigation options. Everything above is lifted
-     from the app; everything here is new chrome being proposed,
-     so it is kept separate and labelled.
+     Added for these options. Everything above is lifted from the
+     app; everything here is chrome being proposed, so it is kept
+     separate and labelled.
      ============================================================ */
   .pagehdr {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 14px 8px;
-    border-bottom: 1px solid var(--border);
+    padding: 6px 14px 4px;
     background: var(--surface);
+  }
+  .pagehdr.solo {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
   }
   .pagehdr .ttl {
     display: flex;
@@ -1752,9 +1755,12 @@
     letter-spacing: -0.01em;
   }
   .pagehdr .ttl .ts {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: 11.5px;
-    color: var(--text-muted);
+    color: var(--mode);
+    font-weight: 600;
     margin-top: 1px;
   }
   .pagehdr .iconbtn {
@@ -1767,31 +1773,33 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
   }
-  .pagehdr.with-track {
-    border-bottom: 0;
-    padding-bottom: 4px;
-  }
   .track i {
     height: 3px;
     border-radius: 999px;
     background: var(--border-strong);
-    flex: 1;
   }
   .track i.on {
     background: var(--mode);
-    flex: 2.2;
   }
-  .wrapchips {
+  .spy {
     display: flex;
-    flex-wrap: wrap;
     gap: 6px;
-    padding: 10px 14px 12px;
+    overflow-x: auto;
+    padding: 8px 14px 10px;
     border-bottom: 1px solid var(--border);
     background: var(--surface);
+    scrollbar-width: none;
   }
-  .wrapchips button {
-    min-height: 34px;
-    padding: 0 11px;
+  .spy::-webkit-scrollbar {
+    display: none;
+  }
+  .spy button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    min-height: var(--tap);
+    padding: 0 12px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface-raised);
@@ -1800,110 +1808,28 @@
     font-size: 12.5px;
     font-weight: 600;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
   }
-  .wrapchips button.on {
+  .spy button.on {
     border-color: var(--mode);
     background: var(--mode-soft);
     color: var(--mode);
   }
-  .wrapchips button .n {
+  .spy button .n {
     font-family: var(--mono);
     font-size: 10.5px;
     opacity: 0.75;
   }
-  .pager {
-    display: flex;
-    align-items: stretch;
-    gap: 6px;
-    padding: 8px 14px 10px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
+  .stickyhdr {
+    position: relative;
   }
-  .pager .side {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    min-height: var(--tap);
-    padding: 0 8px;
-    border-radius: var(--r-md);
-    border: 1px solid var(--border);
-    background: var(--surface-raised);
-    color: var(--text-muted);
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-    max-width: 33%;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-  .pager .mid {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: var(--tap);
-    border-radius: var(--r-md);
-    border: 1px solid var(--mode);
-    background: var(--mode-soft);
-    color: var(--mode);
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .botbar {
+  .stickyhdr::after {
+    content: "";
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    border-top: 1px solid var(--border);
-    background: var(--surface);
-    padding: 6px 4px calc(6px + 18px);
-  }
-  .botbar button {
-    display: grid;
-    justify-items: center;
-    gap: 3px;
-    min-height: var(--tap);
-    background: none;
-    border: 0;
-    color: var(--text-muted);
-    font: inherit;
-    font-size: 10.5px;
-    font-weight: 600;
-    cursor: pointer;
-    padding: 4px 0;
-  }
-  .botbar button.on {
-    color: var(--mode);
-  }
-  .hubback {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-  }
-  .hubback .lnk {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: var(--tap);
-    padding: 0 10px 0 6px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--surface-raised);
-    color: var(--text-muted);
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
+    left: -14px;
+    right: -14px;
+    bottom: -5px;
+    height: 1px;
+    background: var(--border);
   }
   .verdict {
     display: grid;
@@ -1942,6 +1868,16 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     vertical-align: middle;
+  }
+  .callout {
+    margin: 0 0 22px;
+    padding: 14px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--mode-border);
+    background: var(--mode-soft);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text);
   }
 </style>
 
@@ -2341,21 +2277,27 @@
 
 <div class="wrap">
   <header class="intro">
-    <h1>On Call — the second row of navigation, five ways</h1>
+    <h1>On Call — what the second row should actually be</h1>
     <p class="lede">
-      Every board is the Contacts page at 390&nbsp;px, changing one thing: how you get to the other eight sections. The
-      list underneath each is the same page it is today, so the only difference on screen is the navigation itself.
-      Tokens are lifted from the app, so these are its real palette rather than a lookalike.
+      The rail under the header lists Tonight, Contacts, Playbook and More. The mode pill above it opens the same nine
+      destinations. Two controls, one job, stacked on top of each other — that is the fault, not the rail's styling.
     </p>
+    <div class="callout">
+      <b>The division of labour these boards assume.</b> The <b>pill</b> moves you between On Call's pages, which it
+      already does. The <b>second row</b> moves you around the page you are on — the groups inside it — which nothing
+      does today. Every board below is Contacts at 390&nbsp;px; only that second row changes.
+    </div>
   </header>
 
-  <!-- ============ 00 TODAY ============ -->
+  <!-- ============ 00 ============ -->
   <article class="board">
     <div class="board-head">
       <span class="board-no">00</span>
-      <h2 class="board-title">Today — the sliding rail</h2>
+      <h2 class="board-title">Today — the same job twice</h2>
     </div>
-    <p class="board-sub">What is on the branch now, for comparison. Four slots fit; the other five hide behind More.</p>
+    <p class="board-sub">
+      The pill opens the nine sections. So does the rail. Neither helps with the page in front of you.
+    </p>
     <div class="frame">
       <div class="screen">
         <div class="statusbar">
@@ -2367,9 +2309,8 @@
           </button>
           <button class="modepill" aria-label="Mode On Call">
             <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+            ><span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
           </button>
           <button class="hdrbtn ringed" aria-label="Open page actions">
             <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
@@ -2396,6 +2337,24 @@
             <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
             ><span class="chip">Services</span>
           </div>
+          <div class="grouphdr">Needs checking <span class="ct">3</span></div>
+          <div class="card">
+            <div class="row">
+              <span class="leadicon"
+                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+              ><span class="grow"
+                ><span class="t">Bed management</span
+                ><span class="s"
+                  ><span class="flag warn"
+                    ><svg width="11" height="11"><use href="#i-warn" /></svg>Checked 14 months ago</span
+                  ></span
+                ></span
+              ><span class="num">5290</span
+              ><span class="callbtn"
+                ><svg width="18" height="18"><use href="#i-phone" /></svg
+              ></span>
+            </div>
+          </div>
           <div class="grouphdr">Tonight <span class="ct">4</span></div>
           <div class="card">
             <div class="row">
@@ -2407,15 +2366,6 @@
                 ><svg width="18" height="18"><use href="#i-phone" /></svg
               ></span>
             </div>
-            <div class="row">
-              <span class="leadicon acc"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span
-              ><span class="num">5107</span
-              ><span class="callbtn"
-                ><svg width="18" height="18"><use href="#i-phone" /></svg
-              ></span>
-            </div>
           </div>
         </div>
         <div class="homebar"><i></i></div>
@@ -2423,12 +2373,12 @@
     </div>
     <ul class="notes">
       <li>
-        Five of the nine destinations are never on screen. Which four survive depends on the width, so the bar changes
-        shape between phones.
+        Contacts has six groups on it — Needs checking, Tonight, Emergency, Services, Wards, Admin — and roughly four
+        screens of scrolling. Nothing on this page tells you they exist or takes you to one.
       </li>
       <li>
-        It is a second horizontal band of chrome directly under the first, and the two look alike without behaving
-        alike.
+        Meanwhile the rail spends 48&nbsp;px repeating what the pill above it already offers, and hides five of the nine
+        while doing it.
       </li>
     </ul>
   </article>
@@ -2437,9 +2387,11 @@
   <article class="board">
     <div class="board-head">
       <span class="board-no">A</span>
-      <h2 class="board-title">The page title is the switcher<span class="pick">Recommended</span></h2>
+      <h2 class="board-title">The title names where you are in the page<span class="pick">Recommended</span></h2>
     </div>
-    <p class="board-sub">No rail at all. The page names itself, and tapping that name opens every section.</p>
+    <p class="board-sub">
+      Line one is the page. Line two is the group you are looking at, and tapping it lists them all.
+    </p>
     <div class="frame">
       <div class="screen">
         <div class="statusbar">
@@ -2451,9 +2403,8 @@
           </button>
           <button class="modepill" aria-label="Mode On Call">
             <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+            ><span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
           </button>
           <button class="hdrbtn ringed" aria-label="Open page actions">
             <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
@@ -2466,12 +2417,16 @@
           <button class="ttl" aria-haspopup="dialog">
             <span style="min-width: 0">
               <span class="tt">Contacts</span>
-              <span class="ts">42 entries · 3 need checking</span>
+              <span class="ts"
+                >Tonight<svg width="13" height="13"><use href="#i-chevd" /></svg
+              ></span>
             </span>
-            <svg width="16" height="16" style="flex: none; color: var(--text-muted)"><use href="#i-chevd" /></svg>
           </button>
         </div>
-        <div class="track" aria-hidden="true"><i></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="track" aria-hidden="true">
+          <i style="flex: 0.6"></i><i class="on" style="flex: 1"></i><i style="flex: 1.1"></i><i style="flex: 1.7"></i
+          ><i style="flex: 1.2"></i><i style="flex: 0.8"></i>
+        </div>
         <div class="body">
           <div class="filters">
             <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
@@ -2524,22 +2479,23 @@
     </div>
     <ul class="notes">
       <li>
-        This is the shape the rest of PsychSift already uses for in-page navigation — the document viewer's header,
-        which <b>AGENTS.md names as the template</b> for exactly this. Nothing new is invented.
+        This is <b>exactly the component PsychSift already ships</b> for this job — the document viewer's header, which
+        <code>AGENTS.md</code> names as the template and which the specifiers, formulation and DSM pages already use. It
+        would be adopted, not designed.
       </li>
       <li>
-        Measured, it adds <b>12&nbsp;px</b> of navigation. The 65&nbsp;px header row is not a cost: it holds the page
-        title, which the body carries today and would stop carrying. Against the rail's 48&nbsp;px of pure chrome, this
-        page is about a third of a contact row taller.
+        The second line does something the old rail never could: it says <em>where in this page you are</em>, and it
+        changes as you scroll.
       </li>
       <li>
-        The thin bar underneath is position, not navigation: eight marks, the wide one is where you are. It answers "how
-        much of this mode am I seeing" without a word.
+        The bar underneath is a map of the page, weighted by how long each group is — the wide segment is the one you
+        are in. Six groups, six marks.
       </li>
       <li>
-        Costs a tap to reach another section. That is the trade — and the sheet lists all nine with their counts, so it
-        is one tap to <em>any</em> of them rather than one tap to four of them.
+        17&nbsp;px of chrome on top of a title row the page needs anyway, against 48&nbsp;px for a rail that duplicated
+        the pill.
       </li>
+      <li>The nine sections keep their one home: the pill. Nothing lists them twice any more.</li>
     </ul>
   </article>
 
@@ -2547,9 +2503,11 @@
   <article class="board">
     <div class="board-head">
       <span class="board-no">A·2</span>
-      <h2 class="board-title">…and what the title opens</h2>
+      <h2 class="board-title">…and what the second line opens</h2>
     </div>
-    <p class="board-sub">Every section, with its count and a line saying what it is. Nothing hidden behind "More".</p>
+    <p class="board-sub">
+      This page's own groups, with their counts. Not the nine sections — those are the pill's job.
+    </p>
     <div class="frame">
       <div class="screen">
         <div class="statusbar">
@@ -2561,25 +2519,24 @@
           </button>
           <button class="modepill" aria-label="Mode On Call">
             <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+            ><span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
           </button>
           <button class="hdrbtn ringed" aria-label="Open page actions">
             <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
           </button>
         </div>
-        <div class="pagehdr">
+        <div class="pagehdr solo">
           <button class="iconbtn" aria-label="Back to On Call">
             <svg width="20" height="20"><use href="#i-back" /></svg>
           </button>
           <button class="ttl" aria-haspopup="dialog" aria-expanded="true">
             <span style="min-width: 0"
-              ><span class="tt">Contacts</span><span class="ts">42 entries · 3 need checking</span></span
-            >
-            <svg width="16" height="16" style="flex: none; color: var(--text-muted); transform: rotate(180deg)">
-              <use href="#i-chevd" />
-            </svg>
+              ><span class="tt">Contacts</span
+              ><span class="ts"
+                >Tonight<svg width="13" height="13" style="transform: rotate(180deg)">
+                  <use href="#i-chevd" /></svg></span
+            ></span>
           </button>
         </div>
         <div class="body" style="opacity: 0.35">
@@ -2593,8 +2550,8 @@
           <div class="sheet-grab"><i></i></div>
           <div class="sheet-hdr">
             <div class="sheet-ttl">
-              <div class="st">On Call sections</div>
-              <div class="ss">Nine places · Northside</div>
+              <div class="st">Jump to</div>
+              <div class="ss">Six groups on this page · 42 contacts</div>
             </div>
             <button class="iconbtn" aria-label="Close">
               <svg width="20" height="20"><use href="#i-x" /></svg>
@@ -2602,76 +2559,59 @@
           </div>
           <div class="sheet-body">
             <button class="sheetrow">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-sun" /></svg></span
+              <span
+                class="leadicon"
+                style="background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning)"
+                ><svg width="17" height="17"><use href="#i-warn" /></svg></span
               ><span class="grow"
-                ><span class="sl">Tonight</span><span class="sd">The dashboard for this shift</span></span
-              ><svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+                ><span class="sl">Needs checking</span><span class="sd">Overdue for confirmation</span></span
+              ><span class="sc">3</span>
             </button>
             <button class="sheetrow on">
               <span class="leadicon mod"
                 ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="sl">Contacts</span><span class="sd">Numbers, by role</span></span
-              ><span class="sc">42</span>
+              ><span class="grow"><span class="sl">Tonight</span><span class="sd">On this shift</span></span
+              ><span class="sc">4</span>
             </button>
             <button class="sheetrow">
               <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-shield" /></svg></span
-              ><span class="grow"><span class="sl">Playbook</span><span class="sd">Who to ring, in order</span></span
-              ><span class="sc">9</span>
-            </button>
-            <button class="sheetrow">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-route" /></svg></span
-              ><span class="grow"><span class="sl">Referrals</span><span class="sd">Who takes whom</span></span
-              ><span class="sc">17</span>
-            </button>
-            <button class="sheetrow">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-file" /></svg></span
-              ><span class="grow"><span class="sl">Orientation</span><span class="sd">Starting and leaving</span></span
-              ><span class="sc">11</span>
-            </button>
-            <button class="sheetrow">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-cap" /></svg></span
-              ><span class="grow"><span class="sl">Teaching</span><span class="sd">What's on this term</span></span
-              ><span class="sc">6</span>
-            </button>
-            <button class="sheetrow">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-pin" /></svg></span
-              ><span class="grow"><span class="sl">Logistics</span><span class="sd">Rooms, food, access</span></span
-              ><span class="sc">19</span>
+                ><svg width="17" height="17"><use href="#i-warn" /></svg></span
+              ><span class="grow"><span class="sl">Emergency</span><span class="sd">Codes and security</span></span
+              ><span class="sc">5</span>
             </button>
             <button class="sheetrow">
               <span class="leadicon"
                 ><svg width="17" height="17"><use href="#i-users" /></svg></span
-              ><span class="grow"><span class="sl">Who's who</span><span class="sd">Roles, and who to ask</span></span
-              ><svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
+              ><span class="grow"><span class="sl">Services</span><span class="sd">Interpreters, liaison</span></span
+              ><span class="sc">9</span>
             </button>
-            <div class="sheet-foot">
-              <button class="sheetrow">
-                <span class="leadicon"
-                  ><svg width="17" height="17"><use href="#i-print" /></svg></span
-                ><span class="grow"
-                  ><span class="sl">Pocket card</span><span class="sd">One page, for printing</span></span
-                ><svg width="17" height="17" class="chev"><use href="#i-chevr" /></svg>
-              </button>
-            </div>
+            <button class="sheetrow">
+              <span class="leadicon"
+                ><svg width="17" height="17"><use href="#i-pin" /></svg></span
+              ><span class="grow"><span class="sl">Wards</span><span class="sd">Nurses' stations</span></span
+              ><span class="sc">6</span>
+            </button>
+            <button class="sheetrow">
+              <span class="leadicon"
+                ><svg width="17" height="17"><use href="#i-file" /></svg></span
+              ><span class="grow"><span class="sl">Admin</span><span class="sd">Bed management, rostering</span></span
+              ><span class="sc">15</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
     <ul class="notes">
       <li>
-        Nine rows is a short list. It fits without scrolling, so "everything this mode holds" is one glance rather than
-        a hunt.
+        The groups are the page's own — Contacts is filed by area, so these are its areas. Playbook would list its
+        scenarios; Logistics its categories; Orientation its checklists.
       </li>
       <li>
-        Counts sit where they mean something. The rail could only carry them for the four slots that happened to fit.
+        A group with nothing in it never appears, because the list is built from what actually rendered. No dead jumps.
       </li>
-      <li>The pocket card sits below a rule: it is an output, not a section.</li>
+      <li>
+        "Needs checking" first, as it is on the page. The sheet is a map of the page, so it keeps the page's order.
+      </li>
     </ul>
   </article>
 
@@ -2679,9 +2619,9 @@
   <article class="board">
     <div class="board-head">
       <span class="board-no">B</span>
-      <h2 class="board-title">All nine, wrapped under the title</h2>
+      <h2 class="board-title">A row of the page's own groups</h2>
     </div>
-    <p class="board-sub">Nothing slides and nothing hides. Two lines of chips, every destination visible.</p>
+    <p class="board-sub">Same information as A, always visible instead of one tap away. It highlights as you scroll.</p>
     <div class="frame">
       <div class="screen">
         <div class="statusbar">
@@ -2693,34 +2633,39 @@
           </button>
           <button class="modepill" aria-label="Mode On Call">
             <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+            ><span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
           </button>
           <button class="hdrbtn ringed" aria-label="Open page actions">
             <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
           </button>
         </div>
-        <div class="pagehdr">
+        <div class="pagehdr solo">
           <button class="iconbtn" aria-label="Back to On Call">
             <svg width="20" height="20"><use href="#i-back" /></svg>
           </button>
           <span class="ttl" style="cursor: default"
-            ><span><span class="tt">Contacts</span><span class="ts">42 entries · 3 need checking</span></span></span
+            ><span
+              ><span class="tt">Contacts</span
+              ><span class="ts" style="color: var(--text-muted); font-weight: 500"
+                >42 entries · 3 need checking</span
+              ></span
+            ></span
           >
         </div>
-        <div class="wrapchips">
-          <button>Tonight</button>
-          <button class="on">Contacts <span class="n">42</span></button>
-          <button>Playbook <span class="n">9</span></button>
-          <button>Referrals <span class="n">17</span></button>
-          <button>Forms <span class="n">23</span></button>
-          <button>Orientation <span class="n">11</span></button>
-          <button>Teaching <span class="n">6</span></button>
-          <button>Logistics <span class="n">19</span></button>
-          <button>Who's who</button>
-        </div>
+        <nav class="spy" aria-label="Jump to a group">
+          <button>Needs checking <span class="n">3</span></button>
+          <button class="on" aria-current="true">Tonight <span class="n">4</span></button>
+          <button>Emergency <span class="n">5</span></button>
+          <button>Services <span class="n">9</span></button>
+          <button>Wards <span class="n">6</span></button>
+          <button>Admin <span class="n">15</span></button>
+        </nav>
         <div class="body">
+          <div class="filters">
+            <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
+            ><span class="chip">Services</span>
+          </div>
           <div class="grouphdr">Tonight <span class="ct">4</span></div>
           <div class="card">
             <div class="row">
@@ -2747,21 +2692,15 @@
       </div>
     </div>
     <ul class="notes">
+      <li>Full-height targets at 67&nbsp;px, and you can see the shape of the page without tapping anything.</li>
       <li>
-        Every destination is on screen and reachable in one tap. No overflow, no "More", nothing that changes shape
-        between phones.
+        But it scrolls sideways — the same objection as the rail it replaces — and the six group names are longer than
+        the four section names were, so more of it is off-screen.
       </li>
       <li>
-        Measured at this width it is <b>137&nbsp;px on three lines</b>, on every section page, before the page's own
-        filter row. That is the price of showing all nine.
-      </li>
-      <li>
-        The chips are 34&nbsp;px tall, under the 48&nbsp;px target the rest of the app holds itself to. That is the
-        honest objection to this one, and it is not a small one on a page read one-handed at 3am.
-      </li>
-      <li>
-        It also puts a chip row directly above the section's own filter chips, which filter rather than navigate. Two
-        rows of pills doing different jobs is the thing most likely to be misread.
+        <b>The real problem is directly underneath.</b> A row of pills that jumps sits immediately above a row of pills
+        that filters, and they look identical. Tap "Wards" in the top row and the page scrolls; tap "Wards" in the
+        bottom row and the list shortens. That is the kind of thing that gets mis-tapped at 3am.
       </li>
     </ul>
   </article>
@@ -2770,9 +2709,9 @@
   <article class="board">
     <div class="board-head">
       <span class="board-no">C</span>
-      <h2 class="board-title">Neighbours either side</h2>
+      <h2 class="board-title">No second row — the headings do it</h2>
     </div>
-    <p class="board-sub">The two sections next to this one are named; the middle opens the full list.</p>
+    <p class="board-sub">The group heading already sticks to the top as you scroll. Make that the whole answer.</p>
     <div class="frame">
       <div class="screen">
         <div class="statusbar">
@@ -2784,224 +2723,35 @@
           </button>
           <button class="modepill" aria-label="Mode On Call">
             <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+            ><span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
           </button>
           <button class="hdrbtn ringed" aria-label="Open page actions">
             <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
           </button>
         </div>
-        <div class="pagehdr">
+        <div class="pagehdr solo">
           <button class="iconbtn" aria-label="Back to On Call">
             <svg width="20" height="20"><use href="#i-back" /></svg>
           </button>
           <span class="ttl" style="cursor: default"
-            ><span><span class="tt">Contacts</span><span class="ts">42 entries · 3 need checking</span></span></span
+            ><span
+              ><span class="tt">Contacts</span
+              ><span class="ts" style="color: var(--text-muted); font-weight: 500"
+                >42 entries · 3 need checking</span
+              ></span
+            ></span
           >
-        </div>
-        <div class="pager">
-          <button class="side" aria-label="Previous section: Tonight">
-            <svg width="14" height="14" style="transform: rotate(180deg)"><use href="#i-chevr" /></svg>Tonight
-          </button>
-          <button class="mid" aria-haspopup="dialog">
-            All 9 sections<svg width="15" height="15"><use href="#i-chevd" /></svg>
-          </button>
-          <button class="side" aria-label="Next section: Playbook">
-            Playbook<svg width="14" height="14"><use href="#i-chevr" /></svg>
-          </button>
         </div>
         <div class="body">
           <div class="filters">
             <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
             ><span class="chip">Services</span>
           </div>
-          <div class="grouphdr">Tonight <span class="ct">4</span></div>
-          <div class="card">
-            <div class="row">
-              <span class="leadicon acc"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always on</span></span
-              ><span class="num">5544</span
-              ><span class="callbtn"
-                ><svg width="18" height="18"><use href="#i-phone" /></svg
-              ></span>
-            </div>
-            <div class="row">
-              <span class="leadicon acc"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span
-              ><span class="num">5107</span
-              ><span class="callbtn"
-                ><svg width="18" height="18"><use href="#i-phone" /></svg
-              ></span>
-            </div>
+          <div class="grouphdr stickyhdr" style="background: var(--surface); margin: 0 -14px; padding: 8px 14px 6px">
+            Tonight <span class="ct">4</span>
           </div>
-        </div>
-        <div class="homebar"><i></i></div>
-      </div>
-    </div>
-    <ul class="notes">
-      <li>Everything is a full-height target, and the centre control is the widest thing on the row. 67&nbsp;px.</li>
-      <li>
-        It suits reading a mode in order, which is not how a hub is used. Getting from Contacts to Logistics is still
-        the sheet, and the two named neighbours are an accident of list order rather than a route anyone wants.
-      </li>
-      <li>Worth including because it is cheap, but it solves a problem this mode does not have.</li>
-    </ul>
-  </article>
-
-  <!-- ============ D ============ -->
-  <article class="board">
-    <div class="board-head">
-      <span class="board-no">D</span>
-      <h2 class="board-title">A bar at the bottom, where your thumb is</h2>
-    </div>
-    <p class="board-sub">
-      A different system entirely. This mode has no search box, so the bottom of the screen is free.
-    </p>
-    <div class="frame">
-      <div class="screen">
-        <div class="statusbar">
-          <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
-        </div>
-        <div class="apphdr">
-          <button class="hdrbtn" aria-label="Open PsychSift menu">
-            <svg width="22" height="22"><use href="#i-menu" /></svg>
-          </button>
-          <button class="modepill" aria-label="Mode On Call">
-            <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
-          </button>
-          <button class="hdrbtn ringed" aria-label="Open page actions">
-            <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
-          </button>
-        </div>
-        <div class="pagehdr" style="border-bottom: 1px solid var(--border)">
-          <button class="iconbtn" aria-label="Back to On Call">
-            <svg width="20" height="20"><use href="#i-back" /></svg>
-          </button>
-          <span class="ttl" style="cursor: default"
-            ><span><span class="tt">Contacts</span><span class="ts">42 entries · 3 need checking</span></span></span
-          >
-        </div>
-        <div class="body" style="padding-bottom: 96px">
-          <div class="filters">
-            <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
-            ><span class="chip">Services</span>
-          </div>
-          <div class="grouphdr">Tonight <span class="ct">4</span></div>
-          <div class="card">
-            <div class="row">
-              <span class="leadicon acc"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always on</span></span
-              ><span class="num">5544</span
-              ><span class="callbtn"
-                ><svg width="18" height="18"><use href="#i-phone" /></svg
-              ></span>
-            </div>
-            <div class="row">
-              <span class="leadicon acc"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span
-              ><span class="num">5107</span
-              ><span class="callbtn"
-                ><svg width="18" height="18"><use href="#i-phone" /></svg
-              ></span>
-            </div>
-            <div class="row">
-              <span class="leadicon"
-                ><svg width="17" height="17"><use href="#i-phone" /></svg></span
-              ><span class="grow"><span class="t">Consultant on call</span><span class="s">Via switchboard</span></span
-              ><svg width="16" height="16" class="chev"><use href="#i-chevr" /></svg>
-            </div>
-          </div>
-        </div>
-        <nav class="botbar" aria-label="On Call sections">
-          <button>
-            <svg width="19" height="19"><use href="#i-sun" /></svg>Tonight
-          </button>
-          <button class="on" aria-current="page">
-            <svg width="19" height="19"><use href="#i-phone" /></svg>Contacts
-          </button>
-          <button>
-            <svg width="19" height="19"><use href="#i-shield" /></svg>Playbook
-          </button>
-          <button>
-            <svg width="19" height="19"><use href="#i-route" /></svg>Referrals
-          </button>
-          <button>
-            <svg width="19" height="19"><use href="#i-grid" /></svg>More
-          </button>
-        </nav>
-      </div>
-    </div>
-    <ul class="notes">
-      <li>
-        Best thumb reach of anything here, and that genuinely matters on a night shift with a phone in one hand.
-        79&nbsp;px, at the end of the screen where nothing else competes for it.
-      </li>
-      <li>
-        But it is a shape PsychSift uses nowhere else. One mode with a bottom bar and sixteen without teaches the wrong
-        thing about the app.
-      </li>
-      <li>
-        It still hides five of the nine behind More, which is the objection to the current rail — moved to the other end
-        of the screen.
-      </li>
-      <li>
-        And it reserves the bottom band permanently, which is where the search composer lives in every other mode. If On
-        Call ever gains one, the two collide.
-      </li>
-    </ul>
-  </article>
-
-  <!-- ============ E ============ -->
-  <article class="board">
-    <div class="board-head">
-      <span class="board-no">E</span>
-      <h2 class="board-title">No section navigation at all</h2>
-    </div>
-    <p class="board-sub">The hub is the only navigator. Every page has one way out: back to it.</p>
-    <div class="frame">
-      <div class="screen">
-        <div class="statusbar">
-          <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
-        </div>
-        <div class="apphdr">
-          <button class="hdrbtn" aria-label="Open PsychSift menu">
-            <svg width="22" height="22"><use href="#i-menu" /></svg>
-          </button>
-          <button class="modepill" aria-label="Mode On Call">
-            <span class="mi"
-              ><svg width="16" height="16"><use href="#i-phone" /></svg
-            ></span>
-            <span class="ml">On Call</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
-          </button>
-          <button class="hdrbtn ringed" aria-label="Open page actions">
-            <svg width="20" height="20"><use href="#i-ellipsis" /></svg>
-          </button>
-        </div>
-        <div class="hubback">
-          <button class="lnk">
-            <svg width="15" height="15" style="transform: rotate(180deg)"><use href="#i-chevr" /></svg>All sections
-          </button>
-          <span style="font-size: 12px; color: var(--text-muted)">Contacts · 42</span>
-        </div>
-        <div class="body">
-          <h2 style="margin: 4px 0 2px; font-size: 21px; font-weight: 700; color: var(--text-heading)">Contacts</h2>
-          <p style="margin: 0 0 4px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5">
-            Filed by role first, so an entry survives a rotation.
-          </p>
-          <div class="filters">
-            <span class="chip on">All</span><span class="chip">Tonight</span><span class="chip">Wards</span
-            ><span class="chip">Services</span>
-          </div>
-          <div class="grouphdr">Tonight <span class="ct">4</span></div>
-          <div class="card">
+          <div class="card" style="margin-top: 10px">
             <div class="row">
               <span class="leadicon acc"
                 ><svg width="17" height="17"><use href="#i-phone" /></svg></span
@@ -3040,49 +2790,75 @@
                 ><svg width="18" height="18"><use href="#i-phone" /></svg
               ></span>
             </div>
+            <div class="row">
+              <span class="leadicon"
+                ><svg width="17" height="17"><use href="#i-shield" /></svg></span
+              ><span class="grow"
+                ><span class="t">Security — urgent</span><span class="s">Escorts use the routine line</span></span
+              ><span class="num">5333</span
+              ><span class="callbtn"
+                ><svg width="18" height="18"><use href="#i-phone" /></svg
+              ></span>
+            </div>
+          </div>
+          <div class="grouphdr">Services <span class="ct">9</span></div>
+          <div class="card">
+            <div class="row">
+              <span class="leadicon"
+                ><svg width="17" height="17"><use href="#i-users" /></svg></span
+              ><span class="grow"><span class="t">Interpreter — TIS National</span><span class="s">24 hours</span></span
+              ><span class="num">131 450</span
+              ><span class="callbtn"
+                ><svg width="18" height="18"><use href="#i-phone" /></svg
+              ></span>
+            </div>
           </div>
         </div>
         <div class="homebar"><i></i></div>
       </div>
     </div>
     <ul class="notes">
+      <li>Zero chrome. The most contacts on screen of anything here — a whole extra row and a half.</li>
+      <li>The sticky heading tells you which group you are in, which is half of what A's second line does.</li>
       <li>
-        The most content on screen of any option, and the least to learn. 65&nbsp;px, doubling as the page's own title
-        line.
+        What it cannot do is take you somewhere. Getting from Needs checking to Admin is a long scroll, every time, and
+        Contacts is the longest page in the mode.
       </li>
       <li>
-        Every section-to-section move is two taps, through a screen you did not want. On a shift that is the move you
-        make most.
+        Honest floor: if the second row is not earning its 17&nbsp;px, this is what should replace it — not a redesigned
+        rail.
       </li>
-      <li>Included as the floor: if none of the others earn their space, this is what is left, and it is not bad.</li>
     </ul>
   </article>
 
   <article class="board" style="max-width: 560px">
     <div class="board-head">
       <span class="board-no">→</span>
-      <h2 class="board-title">What I would pick, and why</h2>
+      <h2 class="board-title">What I would do</h2>
     </div>
     <dl class="verdict">
+      <dt>The correction that matters</dt>
+      <dd>
+        Whatever shape wins, <b>the nine sections stop being listed twice</b>. They live in the pill, which already
+        opens them. That alone removes the second grey band and the "More" overflow.
+      </dd>
       <dt>Recommendation</dt>
       <dd>
-        <b>A — the page title is the switcher.</b> It removes the second band of chrome rather than redesigning it, it
-        is the shape this app already uses for in-page navigation everywhere else, and it is the only option where all
-        nine sections are equally reachable with their counts visible. The cost is one tap, paid only when you actually
-        change section.
+        <b>A.</b> It is a component the app already ships and three other modes already use, so it is adoption rather
+        than new design. It answers a question nothing currently answers — where am I in this page — and it costs
+        17&nbsp;px on a title row the page needs regardless.
       </dd>
-      <dt>If you want everything visible</dt>
+      <dt>If you want it always visible</dt>
       <dd>
-        <b>B</b>, with one change I would insist on: the chips go to full height, which makes it about 95&nbsp;px rather
-        than 70&nbsp;px. Below that they are too small to hit reliably one-handed, and this is a page read at 3am.
+        <b>B</b>, but I would then move the section's filter chips into the page menu. Two pill rows one above the
+        other, one jumping and one filtering, is a mis-tap waiting to happen on the page that matters most.
       </dd>
-      <dt>If thumb reach beats consistency</dt>
+      <dt>If you would rather have the space</dt>
       <dd>
-        <b>D</b>. I would not choose it — one mode in seventeen with a bottom bar teaches the wrong thing, and it still
-        hides five sections behind More — but the ergonomics are real and the choice is yours.
+        <b>C.</b> Perfectly defensible on the short pages — Teaching, Orientation, Who's who — and it is genuinely the
+        most content on screen. It is only Contacts and Logistics that are long enough to want a jump. A and C could
+        even coexist: the header appears only where the page has more than three groups.
       </dd>
-      <dt>Not recommended</dt>
-      <dd><b>C</b> solves sequential reading, which is not how a hub is used. <b>E</b> is the floor, not a design.</dd>
     </dl>
   </article>
 </div>
