@@ -13,6 +13,13 @@ Code and ground truth whose edits change (or re-measure) retrieval/ranking behav
   `src/lib/released-search-order.ts`, `src/lib/ranking-config.ts`, `src/lib/evidence.ts`,
   `src/lib/result-sort.ts`, `src/lib/answer-ranking.ts`, `src/lib/evidence-relevance.ts`,
   `src/lib/semantic-rerank.ts`, `src/lib/eval-document-matching.ts`
+- `src/lib/source-authority-registry.ts`, `src/lib/australian-source-priority.ts` — one step
+  further back, but still ordering: `classifySourceAuthority` assigns a result's tier,
+  `australianSourceTier` reads it, and `selectAustralianClinicalContext` orders and trims the
+  model's context by it. Registering or re-scoping a publisher moves that ordering without
+  touching a score. Added 2026-09-07 (PR #2711 declared its RAG impact voluntarily because the
+  gate did not yet ask). Note this is authority _classification_, not a governance ranking
+  penalty or boost — the latter stays refuted, see `refuted-approaches.md` § Refutation 3.
 - `scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`,
   `scripts/lib/ranking-tuning.ts`, `scripts/lib/ranking-snapshot-builder.ts`,
   `scripts/build-ranking-snapshot.ts`, `scripts/tune-search-weights.ts`
