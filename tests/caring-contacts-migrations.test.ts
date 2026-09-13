@@ -1730,8 +1730,17 @@ describe("the workspace schema", () => {
 
   describe("composite foreign keys enforce multi-tenant isolation (#4VKAA1)", () => {
     it("refuses cross-team foreign key references onto plans and contacts", async () => {
-      // Seed a plan for TEAM_NORTH
-      await seedPlan(pool, { teamId: TEAM_NORTH, planId: "PLAN-NORTH-FK", patientId: "PATIENT-NORTH-FK" });
+      // Seed TEAM_NORTH's plan with no contacts: default seedPlan inserts sequences 1..2, and
+      // contacts_unique_sequence is (plan_id, sequence). A cross-team insert reusing sequence 1
+      // would trip the unique gate first and never exercise contacts_team_plan_fk.
+      await seedPlan(pool, {
+        teamId: TEAM_NORTH,
+        planId: "PLAN-NORTH-FK",
+        patientId: "PATIENT-NORTH-FK",
+        contactCount: 0,
+      });
+      // TEAM_SOUTH must exist so the failure is the composite plan FK (isolation), not teams_fkey.
+      await registerTeam(TEAM_SOUTH);
 
       // 1. A contact for TEAM_SOUTH referencing TEAM_NORTH's plan must be rejected by foreign key constraint
       await expect(
