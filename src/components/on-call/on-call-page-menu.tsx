@@ -172,11 +172,19 @@ export function OnCallPageMenu({
   addLabel,
   onVerifyAll,
   staleCount = 0,
+  summary,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
   /** How many entries the page is showing, for the sheet's one-line summary. */
   entryCount?: number;
+  /**
+   * Overrides that one-liner. The section pages append the sentence explaining
+   * how the page is filed — it used to sit in a hero above the list, and a
+   * thing you read once belongs where you go looking for it rather than in
+   * permanent chrome.
+   */
+  summary?: string;
   /** Contacts only: the order control the drawing puts at the top of the sheet. */
   order?: OnCallContactsOrder;
   onOrderChange?: (next: OnCallContactsOrder) => void;
@@ -191,10 +199,11 @@ export function OnCallPageMenu({
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const title = view === "home" ? "On Call" : ON_CALL_VIEW_TITLES[view];
-  const summary =
-    typeof entryCount === "number"
+  const description =
+    summary ??
+    (typeof entryCount === "number"
       ? `${entryCount} ${entryCount === 1 ? "entry" : "entries"}`
-      : "Everything this shift needs, in one place.";
+      : "Everything this shift needs, in one place.");
 
   return (
     <>
@@ -222,7 +231,7 @@ export function OnCallPageMenu({
         open={open}
         onClose={() => setOpen(false)}
         title={title}
-        description={summary}
+        description={description}
         closeLabel="Close actions"
         returnFocusRef={triggerRef}
         portal

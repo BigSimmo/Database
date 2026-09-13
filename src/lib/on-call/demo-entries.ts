@@ -416,6 +416,14 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
   }),
 
   // ---- Logistics: an ordinary group, and a wholly private one ----
+  //
+  // `category` is the group heading AND a slot in the page's navigation bar,
+  // which is bare words at 48px. "Getting in" and "What you can authorise"
+  // measured 80px and 165px, so three groups needed 372px on a 288px phone and
+  // every one of them truncated. The demo corpus models the convention the bar
+  // is calibrated for: one word per category. An owner who types a longer one
+  // still gets a working page — the word truncates, it does not break — but the
+  // sample data should show what good looks like.
   entry({
     id: id(60),
     section: "logistics",
@@ -471,7 +479,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     // The whole group is private, so board 11's in-card explanation renders.
     // No credential is stated: the point of the entry is that the answer is
     // withheld, which is exactly what the section is allowed to hold.
-    details: { category: "Getting in" },
+    details: { category: "Access" },
     linkedDocumentIds: [],
     tags: [],
     isPersonal: true,
@@ -486,7 +494,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     title: "Demo locked wards",
     subtitle: "And who can let you through",
     body: null,
-    details: { category: "Getting in" },
+    details: { category: "Access" },
     linkedDocumentIds: [],
     tags: [],
     isPersonal: true,
@@ -501,7 +509,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     title: "A taxi home after a night shift",
     subtitle: "Yours to authorise in this demo",
     body: null,
-    details: { category: "What you can authorise" },
+    details: { category: "Authorise" },
     linkedDocumentIds: [],
     tags: [],
     isPersonal: false,

@@ -1,7 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
-
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
@@ -22,9 +20,13 @@ import { BrowserPrintButton } from "@/components/ui/print-output";
  * out what it was doing: the mode pill already opens On Call's nine pages, and
  * the rail listed the same nine underneath it. Two controls, one job, and
  * nothing at all helping a reader move around the page in front of them —
- * Contacts runs to six groups and several screens. So the rail is gone and this
- * template takes the row, listing the CURRENT PAGE's groups. Cross-page
- * navigation keeps its one home in the pill.
+ * Contacts runs to six groups and several screens.
+ *
+ * The bar is back, but pointed the other way: it lists the CURRENT PAGE's
+ * groups, and cross-page navigation keeps its one home in the mode pill. Same
+ * component, opposite job — which is the distinction
+ * `tests/on-call-section-page-wiring.dom.test.tsx` pins, because "On Call has a
+ * rail again" is the sentence that would quietly undo the whole correction.
  *
  * `back` targets `/on-call`, the mode's dashboard. It used to target
  * `consolidatedModeSearchPath("on-call")` because `/on-call` was a redirect stub
@@ -73,19 +75,30 @@ export const ON_CALL_SECTION_HEADER_TEST_IDS = {
 } as const;
 
 /**
- * The section pages' header.
+ * The section pages' header: the page's own groups, as a bar, and nothing else.
  *
- * `sections` are the page's own groups, declared by `onCallPageSections` and
- * narrowed by `useInPageSectionNav` to the ones actually rendered — so a page
- * with nothing to group by (Teaching) resolves to none and the header is just
- * the page's name and its actions. That is the behaviour, not a special case.
+ * `sections` are the page's groups, declared by `onCallPageSections` and
+ * narrowed by `useInPageSectionNav` to the ones actually rendered. Two is the
+ * floor — one group is a heading, not navigation — so a page with nothing to
+ * group by (Teaching) renders NO header at all rather than an empty band.
  *
- * NO BACK CONTROL, deliberately. Every page in this mode is a destination in
- * the mode pill's own list — the hub included, as "Tonight" — so an arrow
+ * NO TITLE, deliberately. The mode pill directly above names the current page
+ * on its main line, with a small teal "On Call" beneath it, and on a phone this
+ * bar is portaled into that same pill's collapse row. Painting "Contacts" here
+ * put the word twice in one 96px block — the duplication the owner flagged
+ * three times across this redesign.
+ *
+ * NO ACTIONS EITHER. They moved back to `OnCallPageMenu`, which portals an
+ * ellipsis into the universal header's trailing slot beside the pill. With the
+ * title gone there was nothing left for a header row to hold, and a row drawn
+ * for one ellipsis costs the 48px this redesign spent three passes recovering.
+ *
+ * NO BACK CONTROL, also deliberately. Every page in this mode is a destination
+ * in the mode pill's own list — the hub included, as "Tonight" — so an arrow
  * pointing at the hub described a parent-child hierarchy that does not exist.
  * It also put a control that leaves the page at the head of a row whose entire
- * job is moving around INSIDE the page, which is the confusion this row was
- * built to end. The way out is the pill that got you here.
+ * job is moving around INSIDE the page. The way out is the pill that got you
+ * here.
  *
  * `OnCallCardNavHeader` above keeps its arrow: the pocket card is reached by
  * an action ("Print the pocket card") as well as by the pill, and backing out
@@ -94,56 +107,46 @@ export const ON_CALL_SECTION_HEADER_TEST_IDS = {
 export function OnCallSectionNavHeader({
   title,
   sections,
-  actions,
-  actionsDescription,
 }: {
   title: string;
   sections: readonly PageSection[];
-  actions?: ReactNode;
-  actionsDescription?: string;
 }) {
   const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);
 
-  if (resolved.length === 0) {
-    return (
-      <InPageNavHeader
-        title={title}
-        // Phone only: this bar is portaled INTO the universal header's own
-        // collapse slot, so its solid surface painted a second panel inside a
-        // glass one and the two rows read as two objects with a seam between
-        // them. Transparent lets one material carry both. It keeps its bottom
-        // rule here — with no groups there is no track to draw the edge — and
-        // from `sm` it is a standalone sticky bar with content scrolling
-        // under it, so it keeps the opaque background too.
-        className="max-sm:bg-transparent"
-        testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
-        actionsTitle={`${title} actions`}
-        actionsDescription={actionsDescription}
-        actionsNoun="page"
-        actions={actions}
-      />
-    );
-  }
+  if (resolved.length === 0) return null;
 
   return (
     <InPageNavHeader
       title={title}
+      titleHidden
       sections={resolved}
       activeId={activeId}
       onSelectSection={selectSection}
-      // One line, not two. The mode pill directly above already switches this
-      // mode's pages; a second stacked line of small text under the page name
-      // read as more description rather than as the control it is.
-      sectionLabelPlacement="inline"
-      // Same material as the flat variant above, and no bottom rule on the
-      // phone: the weighted track is the block's edge, and a hairline directly
-      // above it drew the seam back in.
+      // The bar Therapy already ships, pointed at THIS PAGE's groups instead of
+      // the mode's routes. It replaced a bordered pill that named the current
+      // group and hid the others behind a tap: the pill answered "where am I",
+      // which the page's own sticky headings already answered, and answered
+      // nothing about where else you could go. The bar answers both at a
+      // glance, which is the whole reason a 3am hub has navigation at all.
+      rail={{
+        label: "Sections of this page",
+        // Bare single words, no glyph, no badge — see the profile's own note in
+        // `mode-nav-bands.ts` for the measurements the bands are cut from. It
+        // is NOT `extended`: sharing Therapy's profile is exactly how a retune
+        // for one surface silently moved another's bands (PR #2686).
+        density: "wordmark-five",
+        // On Call's teal, on the bar's active underline. The same attribute is
+        // on the mode pill directly above it, and both read one token, so the
+        // two cannot end up different greens.
+        modeIdentity: "on-call",
+      }}
+      // Phone only: this bar is portaled INTO the universal header's own
+      // collapse slot, so a solid surface painted a second panel inside a glass
+      // one and the two rows read as two objects with a seam between them.
+      // Transparent lets one material carry both, and the bar's own top rule is
+      // the only edge the block needs.
       className="max-sm:border-b-0 max-sm:bg-transparent"
       testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
-      actionsTitle={`${title} actions`}
-      actionsDescription={actionsDescription}
-      actionsNoun="page"
-      actions={actions}
     />
   );
 }

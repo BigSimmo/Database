@@ -248,7 +248,29 @@ export function OnCallPlaybookSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
-      {linked.length > 0 ? <div className="grid gap-3">{linked.map(card)}</div> : null}
+      {/* Anchored and headed, the same as the group below it. It used to be a
+          bare `<div>`, so the header declared a "Scenarios" jump whose target
+          did not exist — a dead row that resolution silently dropped, leaving
+          Playbook with a one-item jump list. */}
+      {linked.length > 0 ? (
+        <section
+          id={onCallGroupAnchorId("scenarios")}
+          aria-labelledby="on-call-playbook-scenarios-heading"
+          className={cn(inPageAnchor, "grid gap-2")}
+        >
+          <div className="flex items-center gap-1.5">
+            <h3 id="on-call-playbook-scenarios-heading" className={eyebrowText}>
+              Scenarios
+            </h3>
+            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+              {linked.length}
+            </span>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="on-call-playbook-group-scenarios">
+            {linked.map(card)}
+          </div>
+        </section>
+      ) : null}
 
       {unlinked.length > 0 ? (
         <section
@@ -257,8 +279,13 @@ export function OnCallPlaybookSection({
           className={cn(inPageAnchor, "grid gap-2")}
         >
           <div className="flex items-center gap-1.5">
+            {/* "Unlinked", matching the word the header's bar shows. The full
+                sentence lived here while the bar did not exist; with a bar
+                above naming this group in one word, two different names for
+                one destination is the confusion, not the brevity. The cards
+                themselves still say what is missing. */}
             <h3 id="on-call-playbook-no-guideline-heading" className={eyebrowText}>
-              No guideline linked yet
+              Unlinked
             </h3>
             {/* Outside the heading and hidden: the count is a glance, not part
                 of the group's name. */}

@@ -1043,6 +1043,76 @@ body {
   --cat-border: var(--clinical-accent-border);
 }
 
+/* Mode identity accent.
+   ------------------------------------------------------------------
+   A mode may carry its own hue on its OWN CHROME — the switcher pill and its
+   in-page bar — so that being in it is legible at a glance without reading the
+   word. Owner decision, 2026-09-13, recorded in `docs/design-system/TOKENS.md`
+   §7 and `docs/search-chrome-behaviour.md`.
+
+   Deliberately NOT `data-category-accent`. That channel names what a CARD holds
+   and TOKENS.md §7 forbids it for mode identity; `APP_MODE_ACCENT`'s triads
+   also have no contrast partner, so a filled circle in one of them has no
+   defined glyph colour. This family carries the fourth token, which is what
+   makes it safe on a fill.
+
+   The `:root` values are pure aliases, so:
+     - every mode that names no identity renders exactly as it does today; and
+     - light, dark, forced-colors and the v2 layer all come free, because
+       `.ckb-v2`, `.dark` and the forced-colors block all land on <html> — the
+       same element as `:root` — so the alias resolves against whichever
+       `--clinical-accent` that element ended up with.
+   Only a mode that names an identity below needs per-theme values. */
+:root {
+  --mode-identity: var(--clinical-accent);
+  --mode-identity-soft: var(--clinical-accent-soft);
+  --mode-identity-border: var(--clinical-accent-border);
+  --mode-identity-contrast: var(--clinical-accent-contrast);
+}
+
+/* On Call: teal. Light 7.4:1 against its own contrast token, dark 8.2:1 —
+   both cleared as a FILL (the pill's circle) as well as as text, which is why
+   the contrast partner is declared rather than assumed white. Pinned by
+   `tests/design-token-contract.test.ts`. */
+[data-mode-identity="on-call"] {
+  --mode-identity: #175f63;
+  --mode-identity-soft: #eef7f6;
+  --mode-identity-border: #cfe6e4;
+  --mode-identity-contrast: #ffffff;
+
+  /* The local remap is the whole delivery mechanism. Everything already
+     painting this chrome reads `var(--clinical-accent)` — the pill's filled
+     circle, the bar's active underline — so one attribute repaints them
+     together and they cannot drift apart. It is scoped to the two elements
+     that carry the attribute, so nothing else in the app changes colour.
+     Rewriting those call sites to a new token name instead would have left two
+     colour channels to keep in step, and a dynamic class
+     (`bg-[color:var(--x-${mode})]`) produces no CSS at all — Tailwind's scanner
+     only sees literal strings. */
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="on-call"] {
+  --mode-identity: #8fc9c5;
+  --mode-identity-soft: #12302f;
+  --mode-identity-border: #22474a;
+  --mode-identity-contrast: #062b2c;
+}
+
+@media (forced-colors: active) {
+  /* Identity is a decorative distinction, and high contrast has no room for
+     one: the same system pairing the accent flattens to. */
+  [data-mode-identity="on-call"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
 @layer base {
   /* Interactive element defaults */
   button,
@@ -3843,6 +3913,14 @@ td,
   display: none;
 }
 
+/* `wordmark-five` never wears one, at any width — and unlike `extended` above
+   there is no restore band. The family is calibrated word-only: a wide
+   container showing icons would be a different label family needing different
+   numbers, so the glyph does not come back at 42rem or anywhere else. */
+.mode-nav[data-density-profile="wordmark-five"] .mode-nav__icon {
+  display: none;
+}
+
 /* Which page you are on, when its own slot is not on screen.
    ------------------------------------------------------------------------
    `data-active-from` is the band at which the current page's slot appears, or
@@ -3891,6 +3969,19 @@ td,
   }
 
   .mode-nav[data-density-profile="two-item"] .mode-nav__bar {
+    display: flex;
+  }
+
+  /* `wordmark-five` shares this threshold rather than declaring a duplicate of
+     it — retuning this block retunes both. Two bare words plus More measure
+     ~230px, so 16rem (256px) keeps the headroom the other profiles ship with,
+     and a 320px phone (an ~18rem container) still gets a bar rather than the
+     collapsed control. */
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__control {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__bar {
     display: flex;
   }
 }
@@ -3983,6 +4074,29 @@ td,
   .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
+
+  /* `wordmark-five` shares it too. A fourth bare word costs ~90px on top of the
+     three-slot 230px, so 23rem (368px) carries it with the same headroom.
+     Retuning this block now retunes THREE profiles. */
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 /* All five Therapy destinations, still without icons. Five wordmarks plus the
@@ -4007,6 +4121,34 @@ td,
   }
 
   .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
+    background-color: transparent;
+  }
+}
+
+/* All five bare words, More gone. They measure ~426px with the bar's own
+   padding, so 30rem (480px) keeps the ~1.13 headroom the other top bands ship
+   with — 26rem would have been BELOW the content and clipped the last word.
+   Its own block rather than sharing `extended`'s 28rem: these labels are 6%
+   wider than Therapy's, and sharing would tie two calibrations that measured
+   differently. */
+@container mode-nav (min-width: 30rem) {
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-band="5"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-until="4"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="5"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="5"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="5"] .mode-nav__rule {
     background-color: transparent;
   }
 }

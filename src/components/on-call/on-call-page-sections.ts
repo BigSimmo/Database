@@ -1,9 +1,10 @@
-import { AlertTriangle, BookOpen, FileText, MapPin, Phone, Repeat, Shield, Users, type LucideIcon } from "lucide-react";
+import { BookOpen, FileText, MapPin, Phone, Repeat, Shield, Users, type LucideIcon } from "lucide-react";
 
 import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
 import { onCallGroupAnchorId, onCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
 import type { OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
+import { MODE_NAV_MIN_ITEMS } from "@/components/mode-nav/mode-nav-bands";
 import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
@@ -30,7 +31,10 @@ function toSection(group: Group): PageSection {
     id: onCallGroupAnchorId(group.slug),
     label: group.label,
     icon: group.icon,
-    count: group.count,
+    // No `count`, deliberately: `count` is the ONLY thing that draws the rail's
+    // badge, and the bar this mode now renders is bare words. `detail` is the
+    // sheet's right-hand column, which has the room, so the number is still one
+    // tap away — it is only the 48px-tall row of five words that does without.
     detail: `${group.count}`,
   };
 }
@@ -39,11 +43,12 @@ function toSection(group: Group): PageSection {
 function contactGroups(entries: readonly OnCallEntry[], now: Date): Group[] {
   const { contacts } = partitionContactsEntries(entries);
   const groups: Group[] = [];
-  const stale = contacts.filter((entry) => onCallEntryFreshness(entry, now).state === "stale");
-  if (stale.length > 0) {
-    groups.push({ slug: "needs-checking", label: "Needs checking", count: stale.length, icon: AlertTriangle });
-  }
 
+  // "Needs checking" is a HEADING on the page but not a slot in the bar. The
+  // page hoists every overdue row to the top, so it is the first thing under
+  // the header whichever group you were heading for — a bar slot spent on it
+  // navigates to where you already are. Removing it is also what frees the
+  // width for the areas, which are the reason anyone opens this page at 3am.
   const byArea = new Map<string, number>();
   for (const entry of contacts) {
     if (onCallEntryFreshness(entry, now).state === "stale") continue;
@@ -96,7 +101,7 @@ function playbookGroups(entries: readonly OnCallEntry[], linkedIds: ReadonlySet<
   if (unlinked.length > 0) {
     groups.push({
       slug: "no-guideline",
-      label: "No guideline linked yet",
+      label: "Unlinked",
       count: unlinked.length,
       icon: FileText,
     });
@@ -140,6 +145,20 @@ function tagGroups(
   }));
 }
 
+/**
+ * One group is not navigation.
+ *
+ * `MODE_NAV_MIN_ITEMS` is the shared bar's own floor and says the same thing:
+ * below two destinations a bar is a label. The page keeps its heading either
+ * way — this only decides whether the header offers a way to move between
+ * headings — and `onCallEntryGroups` already applies the identical rule to the
+ * two pages that group by tag, so putting it here makes it one rule for all
+ * seven rather than a habit three of them happen to share.
+ */
+function navigable(sections: PageSection[]): PageSection[] {
+  return sections.length >= MODE_NAV_MIN_ITEMS ? sections : [];
+}
+
 export function onCallPageSections({
   view,
   entries,
@@ -150,6 +169,20 @@ export function onCallPageSections({
   entries: readonly OnCallEntry[];
   now?: Date;
   linkedDocumentIds?: ReadonlySet<string>;
+}): PageSection[] {
+  return navigable(pageGroups({ view, entries, now, linkedDocumentIds }));
+}
+
+function pageGroups({
+  view,
+  entries,
+  now,
+  linkedDocumentIds,
+}: {
+  view: OnCallPageView;
+  entries: readonly OnCallEntry[];
+  now: Date;
+  linkedDocumentIds: ReadonlySet<string>;
 }): PageSection[] {
   switch (view) {
     case "contacts":

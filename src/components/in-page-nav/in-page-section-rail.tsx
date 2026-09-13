@@ -37,6 +37,7 @@ export function InPageSectionRail({
   testIdPrefix,
   density,
   countedLabels = false,
+  modeIdentity,
 }: {
   sections: readonly PageSection[];
   activeId: string | null;
@@ -69,6 +70,14 @@ export function InPageSectionRail({
    * roughly a third more width per slot.
    */
   countedLabels?: boolean;
+  /**
+   * An app-mode id, when this bar should carry that mode's identity hue rather
+   * than the product accent. Stamped as `data-mode-identity`, which remaps
+   * `--clinical-accent` inside this `<nav>` only — see the `--mode-identity`
+   * block in `globals.css`. A mode that declares no identity resolves to the
+   * product accent, so passing one is never a change on its own.
+   */
+  modeIdentity?: string;
 }) {
   const plan = useMemo(() => {
     const sharedPlan = planModeNavBands(sections.length);
@@ -104,6 +113,7 @@ export function InPageSectionRail({
     <nav
       aria-label={label}
       data-testid={`${testIdPrefix}-section-rail`}
+      data-mode-identity={modeIdentity}
       className="mt-2 border-t border-[color:var(--border)] sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
     >
       <div className="mode-nav" data-density-profile={density}>

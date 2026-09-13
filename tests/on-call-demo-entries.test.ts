@@ -94,7 +94,7 @@ describe("the On Call demo corpus", () => {
     expect(DEMO_ON_CALL_ENTRIES.some((entry) => entry.section === "contacts" && entry.isPersonal)).toBe(true);
 
     const gettingIn = DEMO_ON_CALL_ENTRIES.filter(
-      (entry) => entry.section === "logistics" && (entry.details as { category?: string }).category === "Getting in",
+      (entry) => entry.section === "logistics" && (entry.details as { category?: string }).category === "Access",
     );
     expect(gettingIn.length).toBeGreaterThan(0);
     expect(gettingIn.every((entry) => entry.isPersonal)).toBe(true);

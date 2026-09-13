@@ -18,6 +18,14 @@ export const MODE_NAV_DENSITY_PROFILES = [
   "balanced-four",
   "extended",
   "extended-counted",
+  // Five bare single words — no glyph, no count badge. On Call's in-page rail
+  // is the family: "Tonight", "Wards", "Services", "Admin", "Emergency".
+  // Measured at 14px semibold with the slot's own `px-3`, they are 76/76/90/74/
+  // 102px, plus a ~70px More slot and the bar's 8px padding. So the bands are
+  // the narrowest this bar has ever carried, and that is only safe because
+  // nothing decorative is competing for the width — which is why the profile
+  // also drops the icon at every band rather than restoring it when wide.
+  "wordmark-five",
 ] as const;
 
 export type ModeNavDensityProfile = (typeof MODE_NAV_DENSITY_PROFILES)[number];

@@ -46,20 +46,22 @@ type InPageNavHeaderSharedProps = {
    */
   titleAs?: "span" | "h1";
   /**
-   * Where the current section's name goes on the title row.
+   * `true` when chrome DIRECTLY ABOVE this header already names the page, so
+   * painting the name again stacks two copies of one word.
    *
-   * `"under-title"` (the default, and every existing caller) stacks it as a
-   * second line under the title, which reads as a subtitle and makes the row
-   * two lines tall.
+   * On Call is the case it exists for: its mode pill names the current page,
+   * with the mode itself as a small line beneath, and this header sits in that
+   * same pill's collapse row on a phone. The title is still required and still
+   * reaches assistive technology — it names the section sheet and the actions
+   * sheet — it simply is not drawn on the row.
    *
-   * `"inline"` puts it beside the title as a pill. It costs one line instead
-   * of two, and — the reason On Call asked for it — the section then reads as
-   * something you can CHANGE rather than as a label describing the page. That
-   * matters where the pill above the header already switches pages: two
-   * stacked lines of grey-on-white text invited the reader to treat the second
-   * one as more description.
+   * With nothing else claiming the row (no back, no promoted action, no view
+   * mode, no actions sheet), the row is omitted rather than drawn empty, and a
+   * rail becomes the whole header. That combination is only safe alongside a
+   * rail, whose More slot is then the page's overflow: without one, hiding the
+   * title would also hide the section disclosure and strand every section.
    */
-  sectionLabelPlacement?: "under-title" | "inline";
+  titleHidden?: boolean;
   /**
    * The one page action worth reaching at any scroll position. It is
    * deliberately singular: a second promoted control is what turns a header row
@@ -173,6 +175,8 @@ export type InPageNavHeaderProps =
         density: ModeNavDensityProfile;
         /** `true` when every slot carries a count badge beside its label. */
         countedLabels?: boolean;
+        /** An app-mode id when the bar should carry that mode's identity hue. */
+        modeIdentity?: string;
       };
     });
 
@@ -218,7 +222,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
     showBackLabel = true,
     title,
     titleAs = "span",
-    sectionLabelPlacement = "under-title",
+    titleHidden = false,
     primaryAction,
     primaryActionIconOnly = false,
     mode,
@@ -308,6 +312,10 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
   const activeSection = documentSections[activeIndex] ?? documentSections[0];
   const ActiveIcon = activeSection?.icon;
   const TitleTag = titleAs;
+  // With the title unpainted and nothing else claiming the row, drawing it
+  // would cost 48px of empty band directly under the pill that already names
+  // the page — which is the height this whole redesign went looking for.
+  const rowHasContent = !titleHidden || Boolean(back || primaryAction || actions || mode);
 
   return (
     <>
@@ -329,6 +337,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               that can claim a full row, and it does so only below `sm`. The
               title is `min-w-0 flex-1`, so every other child shrinks rather than
               wrapping. */}
+          {rowHasContent ? (
           <div
             className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
           >
@@ -350,7 +359,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
               </ContextualBackLink>
             ) : null}
-            {rail ? (
+            {rail && !titleHidden ? (
               // With a rail, every section is already named in the row below, so
               // from `sm` — where the whole rail fits — the disclosure would open
               // a list of the same destinations. The title goes back to being a
@@ -360,60 +369,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                 {title}
               </TitleTag>
             ) : null}
-            {documentSections.length > 0 && sectionLabelPlacement === "inline" ? (
-              // The title is a title, and the section is a pill beside it that
-              // opens the same list. One line instead of two, and the section
-              // is plainly a control.
-              //
-              // The pill keeps the full `min-h-tap` box even though it paints
-              // shorter than the row: 48px is this repository's production tap
-              // floor, and shrinking the hit area to match the ink is exactly
-              // the "fix" that reintroduced a known smoke flake elsewhere.
-              <>
-                <TitleTag className="min-w-0 shrink truncate text-sm font-semibold text-[color:var(--text-heading)] sm:text-base">
-                  {title}
-                </TitleTag>
-                {activeSection ? (
-                  // Drawn as a control and named as one. Three cues, because
-                  // any one alone reads as a label: it is a bordered pill on a
-                  // row of plain text, it carries "n of m" so it is plainly
-                  // about position IN this page rather than a filter over it,
-                  // and its accessible name says what tapping it does. The
-                  // weighted track directly beneath is the fourth.
-                  <button
-                    type="button"
-                    ref={sectionTitleTriggerRef}
-                    onClick={(event) => openSectionSheet(event.currentTarget)}
-                    aria-expanded={sectionSheetOpen}
-                    aria-haspopup="dialog"
-                    aria-label={`${activeSection.label} — section ${activeIndex + 1} of ${documentSections.length}. Jump to another part of this page.`}
-                    data-testid={`${testIdPrefix}-section-trigger`}
-                    className="focus-ring-tab group/section inline-flex min-h-tap min-w-0 shrink items-center rounded-full text-left"
-                  >
-                    {/* The hit area is the 48px button; the PAINTED pill is
-                        this inner span at 32px. Filling the whole tap target
-                        with ink made the control louder than the page's own
-                        name — and shrinking the button to match the ink is the
-                        "fix" that costs the production tap floor. */}
-                    <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-bold text-[color:var(--clinical-accent)] transition group-hover/section:border-[color:var(--clinical-accent)]">
-                      {ActiveIcon ? <ActiveIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-                      <span className="min-w-0 truncate">{activeSection.label}</span>
-                      <span aria-hidden className="nums shrink-0 font-semibold opacity-70">
-                        {activeIndex + 1}/{documentSections.length}
-                      </span>
-                      <ChevronDown
-                        aria-hidden
-                        className={cn(
-                          "h-3.5 w-3.5 shrink-0 transition motion-reduce:transition-none",
-                          sectionSheetOpen && "rotate-180",
-                        )}
-                      />
-                    </span>
-                  </button>
-                ) : null}
-                <span aria-hidden className="min-w-0 flex-1" />
-              </>
-            ) : documentSections.length > 0 ? (
+            {titleHidden ? null : documentSections.length > 0 ? (
               // The title is the section-list disclosure. Line two names where
               // you are, which the track can place but never label.
               <button
@@ -537,6 +493,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               />
             ) : null}
           </div>
+          ) : null}
           {rail ? (
             <InPageSectionRail
               sections={sections}
@@ -547,6 +504,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               label={rail.label}
               density={rail.density}
               countedLabels={rail.countedLabels}
+              modeIdentity={rail.modeIdentity}
               testIdPrefix={testIdPrefix}
             />
           ) : documentSections.length > 0 ? (
@@ -562,6 +520,29 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           open={sectionSheetOpen}
           onClose={() => setSectionSheetOpen(false)}
           title={sectionSheetTitle ?? title}
+          headerLeading={
+            rail ? (
+              // A return, at the leading edge, only where the sheet is an
+              // OVERFLOW of a visible bar. Reached from More, this list is the
+              // tail of a row the reader can still see the head of, and the
+              // owner's word for what they wanted back was "return": a way out
+              // that reads as going back to the page rather than as dismissing
+              // a dialog. The trailing X still closes; this one is named for
+              // where it lands you, which is the difference.
+              //
+              // Not rendered for the title-disclosure shape, where the sheet IS
+              // the navigation and a second dismissal would be furniture.
+              <button
+                type="button"
+                onClick={() => setSectionSheetOpen(false)}
+                aria-label={`Back to ${title}`}
+                data-testid={`${testIdPrefix}-section-sheet-back`}
+                className="focus-ring-tab grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden />
+              </button>
+            ) : undefined
+          }
           description={
             activeSection
               ? `${activeSection.label} · ${Math.max(activeIndex + 1, 1)} of ${documentSections.length}`

@@ -87,7 +87,7 @@ import {
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
 import { modeSectionIcon } from "@/components/mode-nav/mode-nav-icons";
-import { modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
+import { activeModeSecondaryNavigationId, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -558,6 +558,25 @@ export function MasterSearchHeader({
   const modeOwnPages =
     selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
+  /**
+   * Which of this mode's pages the reader is on, when the pill lists pages.
+   *
+   * The pill then NAMES THAT PAGE rather than the mode. In a mode whose pages
+   * are the whole product — On Call's nine — the mode's name was the one thing
+   * on the screen the reader never needed: they know they are on call. Where
+   * they are inside it is what the row above the page should say, and the pill
+   * is the control that changes it, so the two belong in the same place.
+   *
+   * `null` on an unmatched path (a record route, a page with no registry entry)
+   * and the pill falls back to naming the mode, which is the honest answer when
+   * no registered page is current.
+   */
+  const activeModePageId = modeOwnPagesAvailable
+    ? activeModeSecondaryNavigationId(selectedAppMode.id, currentPathname ?? "")
+    : null;
+  const activeModePage = activeModePageId
+    ? (modeOwnPages.find((page) => page.id === activeModePageId) ?? null)
+    : null;
   /** A mode that shows no results has nowhere for a new conversation to land. */
   const modeHasConversation = selectedAppMode.search.resultsSurface !== "none";
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
@@ -2581,7 +2600,21 @@ export function MasterSearchHeader({
             aria-haspopup="dialog"
             aria-expanded={modeMenuOpen}
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
-            aria-label={`Mode ${selectedAppMode.label}`}
+            // Still prefixed `Mode …`, and that is load-bearing: twelve test
+            // files and the shared `tests/playwright-app-mode.ts` helper find
+            // this control by that exact opening. The page is appended rather
+            // than substituted, so the name gains information without any of
+            // them going looking for a control that no longer answers.
+            aria-label={
+              activeModePage
+                ? `Mode ${selectedAppMode.label}, page ${activeModePage.label}`
+                : `Mode ${selectedAppMode.label}`
+            }
+            // The mode's own hue, on the mode's own control. Resolves to the
+            // product accent for every mode that names no identity, so this is
+            // inert everywhere but On Call — see the `--mode-identity` block in
+            // `globals.css`.
+            data-mode-identity={selectedAppMode.id}
           >
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               {/* 16px in the 32px pill, not the 14px metadata step: this is a
@@ -2590,12 +2623,35 @@ export function MasterSearchHeader({
               <SelectedAppModeIcon aria-hidden="true" className="size-icon-md" strokeWidth={2.25} />
             </span>
             <span className="min-w-0">
-              <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
-                Mode
-              </span>
-              <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
-                {selectedAppMode.label}
-              </span>
+              {activeModePage ? (
+                // Page first, mode underneath. The order is the point: the big
+                // line answers "where am I", which changes, and the small
+                // coloured line answers "which mode", which does not. Reversing
+                // them puts the constant in the loud slot.
+                //
+                // The mode line shows at EVERY width, unlike the "Mode" eyebrow
+                // it replaces. That eyebrow was a word for the control's kind
+                // and could be dropped on a phone without losing anything; this
+                // one is the only place the mode is named once the big line
+                // stops naming it.
+                <>
+                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                    {activeModePage.label}
+                  </span>
+                  <span className="block truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
+                    {selectedAppMode.label}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
+                    Mode
+                  </span>
+                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                    {selectedAppMode.label}
+                  </span>
+                </>
+              )}
             </span>
             <ChevronDown
               aria-hidden="true"

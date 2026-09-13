@@ -22,7 +22,7 @@ import {
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
-import { OnCallPageMenuActions } from "@/components/on-call/on-call-page-menu";
+import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
 import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -247,25 +247,26 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
 
   return (
     <>
-      {/* One header row, not two. The mode pill above already opens On Call's
-          nine pages; this names the page and moves the reader around IT. The
-          page's actions ride the same header rather than a second portal into
-          the universal header's trailing slot. */}
-      <OnCallSectionNavHeader
-        title={title}
-        sections={pageSections}
-        actionsDescription={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
-        actions={
-          <OnCallPageMenuActions
-            order={view === "contacts" ? contactsOrder : undefined}
-            onOrderChange={view === "contacts" ? setContactsOrder : undefined}
-            onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
-            addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
-            onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
-            staleCount={staleEntries.length}
-          />
-        }
+      {/* Two controls, each in the one place the whole mode keeps it.
+          -----------------------------------------------------------------
+          The universal header above names this page in its pill and carries
+          the page's actions in its trailing slot — the same slot, the same
+          menu and the same trigger the mode home uses, so the two surfaces
+          cannot drift into different menus. This header is then only the bar
+          of the page's own groups, and renders nothing at all on a page that
+          has none. */}
+      <OnCallPageMenu
+        view={view}
+        entryCount={visibleCount}
+        summary={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
+        order={view === "contacts" ? contactsOrder : undefined}
+        onOrderChange={view === "contacts" ? setContactsOrder : undefined}
+        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+        addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
+        onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
+        staleCount={staleEntries.length}
       />
+      <OnCallSectionNavHeader title={title} sections={pageSections} />
       <InformationPageShell testId={`on-call-${view}-main`}>
         {/* No hero above the list.
             ---------------------------------------------------------------
