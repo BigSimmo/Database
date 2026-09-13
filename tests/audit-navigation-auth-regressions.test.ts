@@ -192,7 +192,10 @@ describe("audit navigation and auth regressions", () => {
     expect(focusLeaveContract).toContain("if (usesPhoneSearchLayout) return;");
     expect(focusLeaveContract).toContain("const nextFocusedElement = event.relatedTarget;");
     expect(focusLeaveContract).toContain("event.currentTarget.contains(nextFocusedElement)");
-    expect(focusLeaveContract).toContain("setModeMenuOpen(false);");
+    expect(focusLeaveContract).toContain("closeModeMenu();");
+    // Shared close helper must cancel the pending mode-menu focus rAF (ArrowDown open path).
+    expect(masterSearchHeaderSource).toContain("cancelModeMenuFocus();");
+    expect(masterSearchHeaderSource).toContain("modeMenuFocusRafRef.current = window.requestAnimationFrame(() => {");
   });
 
   it("opens the master mode menu as a phone bottom sheet below the phone layout gate", () => {

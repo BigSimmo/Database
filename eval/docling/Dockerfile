@@ -40,7 +40,8 @@ RUN python3 -m venv /opt/docling-venv \
   && rm /tmp/docling-requirements.txt
 
 # Prefetch docling's models now: the egress-blocked run cannot reach HuggingFace,
-# so a missing model at run time would fail every docling conversion.
+# so a missing model at run time would fail every docling conversion. Model weights
+# are pinned via the exact hash-locked docling==2.120.2 requirement.
 RUN /opt/docling-venv/bin/docling-tools models download --output-dir /opt/docling-models \
   && chmod -R a+rX /opt/docling-models
 

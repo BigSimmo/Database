@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6065c254-0845-4a9e-96b2-ea2df30377bf",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#AY4KKK",
+    "outcome": "Hardened mode menu focusout dismiss test in tests/ui-accessibility.spec.ts by asserting aria-expanded false prior to hidden settlement, verified passing in 1.7s on Chromium",
+    "baseRowFingerprint": "e73e00dfa6315a675c5390e9d032cec83bacdef9847db9db300c198e9a22660c"
+  }
+}

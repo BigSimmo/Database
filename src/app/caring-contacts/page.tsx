@@ -1,9 +1,18 @@
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CalendarDays, FileText, Plus, Users } from "lucide-react";
 
+import { ListEmptyState } from "@/components/caring-contacts/workspace/list-empty-state";
+import { workspacePanelPadded } from "@/components/caring-contacts/workspace/surfaces";
+import { CARING_CONTACTS_ROUTES, scheduleDayRoute } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
+import { awstCalendarDay, systemClock } from "@/lib/caring-contacts/clock";
+import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
+import { READ_ACTIONS, type PlanRecord } from "@/lib/caring-contacts/repository";
+import { buildScheduleRange } from "@/lib/caring-contacts/schedule-view";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
 /**
@@ -95,21 +104,148 @@ export default async function CaringContactsTodayPage() {
   if (released === null) throw new Error("caring-contacts service state read returned no record.");
   const serviceState = released;
 
+  const todayCalendarDay = awstCalendarDay(systemClock().now());
+  const scheduleRead = await auditedRead<PlanRecord[]>(
+    store,
+    actor,
+    { kind: "search", objectType: "contactSchedule", objectId: `${todayCalendarDay}:${todayCalendarDay}` },
+    () => store.listPlans({ actor }),
+  );
+  if (scheduleRead.outcome === "failed") {
+    throw scheduleRead.error instanceof Error ? scheduleRead.error : new Error("Failed to read this team's schedule.");
+  }
+  if (!scheduleRead.recorded) {
+    throw new Error("Caring Contacts access trail is unavailable; nothing was rendered.");
+  }
+  if (scheduleRead.released == null) {
+    throw new Error("caring-contacts schedule read returned no list.");
+  }
+  const plans = scheduleRead.released;
+  const range = buildScheduleRange(plans, todayCalendarDay, todayCalendarDay);
+  if (!range.ok) {
+    throw new Error(`caring-contacts schedule read refused: ${range.reason}`);
+  }
+  const todaySchedule = range.view.days[0];
+  const contactsDueToday = todaySchedule?.counts.due ?? 0;
+  const activePlansCount = plans.filter((p) => p.plan.state === "active").length;
+  // `listPlans` answers a role without READ_ACTIONS.plan with `[]`, same as a team holding none.
+  // Publishing those zeros as "Contacts Due Today" / "Active Caseload" would turn a denied read
+  // into an authoritative empty caseload. The schedule page asks the same question and withholds
+  // the view; this front door does the same rather than inventing a second empty-state spelling.
+  const mayViewPlans = canPerformCaringContactAction(actor, READ_ACTIONS.plan, { teamId: actor.teamId }).allowed;
+
   return (
     <CaringContactsShell
       title="Today"
       description="The day's caring-contact work for this team. Every patient, number and message in this workspace is invented; nothing here is ever sent to a real number."
       serviceState={serviceState}
     >
-      <section aria-labelledby="caring-contacts-today-intro" className="min-w-0">
-        <h2 id="caring-contacts-today-intro" className="text-base font-semibold text-[color:var(--text-heading)]">
-          What this screen will show
+      <section aria-labelledby="caring-contacts-today-overview" className="min-w-0 space-y-6">
+        <h2 id="caring-contacts-today-overview" className="sr-only">
+          Today&apos;s Overview
         </h2>
-        <p className="mt-2 max-w-[var(--measure)] text-sm leading-6 text-[color:var(--text-muted)]">
-          The contacts due today, the ones that did not go out, and the patients whose plans need a decision. The
-          workspace is being built one screen at a time; the More destinations panel lists what is still to come and
-          what each destination will hold.
-        </p>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {!mayViewPlans ? (
+            <div className="min-w-0 sm:col-span-2">
+              <ListEmptyState
+                kind="not-permitted"
+                heading="Today's workload is not visible in this role"
+                because="Viewing plans is not part of the role you are acting in, and both Contacts Due Today and Active Caseload are built entirely from this team's plans. This says nothing about how many contacts fall today or how many plans are active: a read you may not make and an empty caseload look identical on purpose, so that nobody can find out a record exists by being refused it."
+                changedBy="Nothing on this screen changes it, and there is no control for it anywhere in this workspace yet. The role this demonstration acts in is set outside the interface; a coordinator sees today's figures."
+              />
+            </div>
+          ) : (
+            <>
+              <div className={workspacePanelPadded}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+                    Contacts Due Today
+                  </span>
+                  <CalendarDays className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+                </div>
+                <div className="mt-3">
+                  <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+                    {contactsDueToday}
+                  </span>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {contactsDueToday === 1
+                      ? "1 message scheduled for delivery today"
+                      : `${contactsDueToday} messages scheduled for delivery today`}
+                  </p>
+                </div>
+                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                  <Link
+                    href={scheduleDayRoute(todayCalendarDay)}
+                    className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    View today&apos;s schedule &rarr;
+                  </Link>
+                </div>
+              </div>
+
+              <div className={workspacePanelPadded}>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+                    Active Caseload
+                  </span>
+                  <Users className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+                </div>
+                <div className="mt-3">
+                  <span className="text-3xl font-bold tracking-tight text-[color:var(--text-heading)]">
+                    {activePlansCount}
+                  </span>
+                  <p className="mt-1 text-xs text-[color:var(--text-muted)]">
+                    {activePlansCount === 1
+                      ? "1 active caring-contact plan"
+                      : `${activePlansCount} active caring-contact plans`}
+                  </p>
+                </div>
+                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                  <Link
+                    href={CARING_CONTACTS_ROUTES.patients}
+                    className="text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    View patient directory &rarr;
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className={workspacePanelPadded}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium uppercase tracking-wider text-[color:var(--text-muted)]">
+                Quick Actions
+              </span>
+              <Plus className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden="true" />
+            </div>
+            <div className="mt-3 space-y-2">
+              <Link
+                href={CARING_CONTACTS_ROUTES.newPlan}
+                className="flex items-center gap-2 text-xs font-medium text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Activate new plan</span>
+              </Link>
+              <Link
+                href={CARING_CONTACTS_ROUTES.templates}
+                className="flex items-center gap-2 text-xs font-medium text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Browse template library</span>
+              </Link>
+            </div>
+            <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+              <Link
+                href={CARING_CONTACTS_ROUTES.team}
+                className="text-xs font-medium text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                View team workload &rarr;
+              </Link>
+            </div>
+          </div>
+        </div>
       </section>
     </CaringContactsShell>
   );

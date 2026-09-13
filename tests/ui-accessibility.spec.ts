@@ -259,8 +259,9 @@ test.describe("PsychSift accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "true");
 
     await modeButton.press("Shift+Tab");
-    await expect(modeMenu).toBeHidden();
+    await expect(modeButton).not.toBeFocused();
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
+    await expect(modeMenu).toBeHidden();
   });
 
   test("shared-home mode changes keep the document title aligned with visible copy", async ({ page }) => {

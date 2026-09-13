@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6169df22-6f81-4458-8c58-3b6391eaf2df",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "14dc72a9-b55d-4aae-94c5-1cea392310a2",
+    "reason": "Codex P2: retract false #9Z197J done. Duplicate stubZeroTouchPoints hooks do not change the suite environment; Firefox/WebKit matrix verdict still missing. Keep issue open."
+  }
+}
