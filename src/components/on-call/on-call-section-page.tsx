@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallContactsSection, type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
 import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
@@ -254,11 +254,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
       <OnCallSectionNavHeader
         title={title}
         sections={pageSections}
-        actionsDescription={
-          typeof visibleCount === "number"
-            ? `${visibleCount} ${visibleCount === 1 ? "entry" : "entries"} on this page.`
-            : undefined
-        }
+        actionsDescription={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
         actions={
           <OnCallPageMenuActions
             order={view === "contacts" ? contactsOrder : undefined}
@@ -271,17 +267,19 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         }
       />
       <InformationPageShell testId={`on-call-${view}-main`}>
-        <section
-          id={`on-call-${view}-overview`}
-          className={cn(inPageAnchor, "grid gap-2 border-b border-[color:var(--border)] pb-5")}
-        >
-          <InformationPageHeader
-            eyebrow="On Call"
-            title={title}
-            subtitle={ON_CALL_VIEW_DESCRIPTIONS[view]}
-            icon={Icon}
-          />
-        </section>
+        {/* No hero above the list.
+            ---------------------------------------------------------------
+            This page used to open with an eyebrow reading "On Call", a
+            display-size "Contacts", and three lines explaining how the section
+            is filed — under a sticky header already saying "Contacts", under a
+            mode pill already saying "On Call". On a 390px screen that was most
+            of the first view spent on words the reader had just read twice.
+
+            So the name is carried by the header alone and the explanation
+            moved into the actions sheet, where a thing you read once belongs.
+            The `<h1>` stays for the document outline and for a screen reader;
+            it simply is not painted. */}
+        <h1 className="sr-only">{title}</h1>
 
         <section
           id={`on-call-${view}-entries`}

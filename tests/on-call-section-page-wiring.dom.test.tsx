@@ -150,18 +150,22 @@ describe("the second header row is about THIS page", () => {
     expect(screen.queryByTestId("on-call-section-section-trigger")).toBeNull();
   });
 
-  it("says the page's name once on screen, and once more only for a screen reader", () => {
-    // The sticky header, the hero and the entries heading all rendered the word
-    // "Contacts", one under the other, on a 390px screen. The entries heading
-    // still exists — it labels the region and holds the heading outline
-    // together — but it is no longer painted.
+  it("names the page for a screen reader without painting it a second time", () => {
+    // An eyebrow reading "On Call", a display-size "Contacts" and a list
+    // heading reading "Contacts" all sat under a sticky header already saying
+    // "Contacts". Both headings survive — the `<h1>` for the document outline,
+    // the `<h2>` to label the list region — and neither is painted.
     storeState.entries = [];
     const { container } = render(<OnCallSectionPage view="contacts" />);
 
-    const painted = Array.from(container.querySelectorAll("h1, h2, h3")).filter(
-      (node) => node.textContent?.trim() === "Contacts" && !node.className.includes("sr-only"),
+    const headings = Array.from(container.querySelectorAll("h1, h2, h3")).filter(
+      (node) => node.textContent?.trim() === "Contacts",
     );
-    expect(painted.map((node) => node.tagName)).toEqual(["H1"]);
+    expect(headings.map((node) => node.tagName)).toEqual(["H1", "H2"]);
+    for (const heading of headings) {
+      expect(heading.className, `${heading.tagName} is painted`).toContain("sr-only");
+    }
+    expect(container.textContent).not.toContain("Filed by role first");
 
     const region = container.querySelector("#on-call-contacts-entries");
     const labelId = region?.getAttribute("aria-labelledby");

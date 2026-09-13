@@ -293,18 +293,38 @@ test.describe("02 More — the second row is about the page you are on", () => {
   test("says the page's name once, and still offers no chat", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
     // The header, the hero and the entries heading all painted "Contacts", one
-    // under the other, on a 390px screen. The entries heading is now named for
+    // under the other, on a 390px screen — and both headings are now named for
     // a screen reader only.
-    // Measured, not counted by role: the entries heading is still in the
-    // accessibility tree (it labels the region), it is simply clipped to a
-    // pixel. So the question is how many are actually painted.
-    const paintedTitles = await page.evaluate(
-      () =>
-        Array.from(document.querySelectorAll("h1, h2, h3"))
-          .filter((node) => node.textContent?.trim() === "Contacts")
-          .filter((node) => node.getBoundingClientRect().height > 16).length,
-    );
-    expect(paintedTitles, "Contacts is painted more than once").toBe(1);
+    //
+    // Measured, not counted by role: the `<h1>` names the page and the `<h2>`
+    // labels the list region, so both are still in the accessibility tree; each
+    // is clipped to a pixel. The name is painted once, by the sticky header,
+    // which is a navigation control rather than a heading.
+    const titles = await page.evaluate(() => {
+      const headings = Array.from(document.querySelectorAll("h1, h2, h3")).filter(
+        (node) => node.textContent?.trim() === "Contacts",
+      );
+      return {
+        headings: headings.length,
+        painted: headings.filter((node) => node.getBoundingClientRect().height > 16).length,
+      };
+    });
+    expect(titles.headings, "the page must still be named for a screen reader").toBeGreaterThanOrEqual(1);
+    expect(titles.painted, "a heading repeats the name the header already shows").toBe(0);
+    await expect(page.getByTestId("on-call-section-detail-header")).toContainText("Contacts");
+
+    // And the header is the only thing above the list: no eyebrow repeating
+    // the mode, no display-size title, no paragraph explaining how the section
+    // is filed. The first thing under the header is the page's own content.
+    await expect(page.getByText("ON CALL", { exact: true })).toHaveCount(0);
+    await expect(page.getByText(/Filed by role first/)).toHaveCount(0);
+    const chips = page.getByTestId("on-call-contacts-filters");
+    const header = page.getByTestId("on-call-section-detail-header");
+    const [chipsBox, headerBox] = [await chips.boundingBox(), await header.boundingBox()];
+    expect(
+      chipsBox!.y - (headerBox!.y + headerBox!.height),
+      "more than a gap's worth of chrome between the header and the list",
+    ).toBeLessThan(48);
     await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
   });
 
@@ -453,6 +473,20 @@ test.describe("08 Referrals", () => {
     const panel = page.getByTestId("on-call-referral-panel-demo-community-team");
     await expect(panel).toContainText("Accepts");
     await expect(panel).toContainText("Does not accept");
+  });
+});
+
+test.describe("08 Referrals — freshness says something or says nothing", () => {
+  test("keeps a current service's checked date out of the collapsed row", async ({ page }) => {
+    await openBoard(page, ROUTES.referrals);
+    const row = page.getByRole("button", { name: /Demo community/ }).first();
+    await expect(row).toBeVisible();
+    // "Checked <date>" on a row where nothing is wrong is a pill wider than
+    // the service's own name; the name truncated to make room for it.
+    await expect(row.getByTestId("on-call-freshness-badge")).toHaveCount(0);
+
+    await row.click();
+    await expect(page.getByTestId("on-call-freshness-badge").first()).toBeVisible();
   });
 });
 

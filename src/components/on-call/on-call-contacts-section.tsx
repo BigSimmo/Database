@@ -340,11 +340,11 @@ export function OnCallContactsSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {cardLink}
-        {addButton}
-      </div>
-
+      {/* No toolbar row above the chips. "Printable card" and "Add contact"
+          are both already rows in this page's actions sheet (board 05), so a
+          second copy of each, painted across the top of the list, cost a band
+          of the first screen to offer nothing new. The empty state below keeps
+          them, because there it is the only thing on the page. */}
       <OnCallFilterChips
         options={filterOptions}
         active={activeFilter}

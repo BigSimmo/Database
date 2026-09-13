@@ -161,17 +161,29 @@ export function OnCallReferralsSection({
             key={entry.id}
             title={entry.title}
             description={entry.subtitle ?? undefined}
-            // The badge belongs in the collapsed header, not the panel. It sat
-            // inside the body, so a referral nobody had confirmed in over a
-            // year looked current until someone expanded it — the one surface
-            // in the mode where staleness was hidden by default.
-            meta={<OnCallFreshnessBadge freshness={freshness} />}
+            // A WARNING belongs in the collapsed header; a reassurance does
+            // not. The badge started inside the panel, so a referral nobody
+            // had confirmed in over a year looked current until someone
+            // expanded it — the one surface in the mode where staleness was
+            // hidden by default. Hoisting it fixed that and introduced the
+            // opposite fault: "Checked 14/08/2026" on every current row, a
+            // pill wider than the service's own name, so the name truncated at
+            // 390px to make room for the news that nothing is wrong.
+            //
+            // So the collapsed row carries it only when it is stale. The date
+            // a current service was last confirmed is still on the page, in
+            // the panel, where a reader who wants it goes looking.
+            meta={freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : undefined}
           >
             <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
               {/* Sibling to the panel content, never inside the disclosure's
                   own trigger `<button>` above: a button nested inside another
                   button is invalid, duplicate-interactive markup. */}
-              <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                {/* The reassuring half of the freshness pair. It reads "Checked
+                    <date>" and lives here rather than on the collapsed row, so
+                    it cannot crowd out the service's own name. */}
+                {freshness.state === "fresh" ? <OnCallFreshnessBadge freshness={freshness} /> : <span />}
                 {showVerify || onEditEntry ? (
                   <div className="flex shrink-0 items-center gap-1.5">
                     {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
