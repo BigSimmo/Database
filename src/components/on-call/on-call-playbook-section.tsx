@@ -2,6 +2,7 @@
 
 import { FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
@@ -248,57 +249,86 @@ export function OnCallPlaybookSection({
 
   return (
     <div data-testid={testId} className="grid gap-5">
-      {/* Anchored and headed, the same as the group below it. It used to be a
-          bare `<div>`, so the header declared a "Scenarios" jump whose target
-          did not exist — a dead row that resolution silently dropped, leaving
-          Playbook with a one-item jump list. */}
+      {/* Two groups or one flat list, and the headings only exist in the first
+          case. A single heading over the whole page is furniture — the same
+          rule `onCallEntryGroups` applies everywhere else in this mode, and the
+          same one that decides whether the header shows a bar at all. Demo mode
+          is exactly that case: with no linked guidelines, "Unlinked 2" over
+          everything said less than each card's own empty state already does.
+
+          The anchors and testids survive either way: they are what the header's
+          jump list targets and what the board ledger cites as proof. */}
       {linked.length > 0 ? (
-        <section
-          id={onCallGroupAnchorId("scenarios")}
-          aria-labelledby="on-call-playbook-scenarios-heading"
-          className={cn(inPageAnchor, "grid gap-2")}
-        >
-          <div className="flex items-center gap-1.5">
-            <h3 id="on-call-playbook-scenarios-heading" className={eyebrowText}>
-              Scenarios
-            </h3>
-            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
-              {linked.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="on-call-playbook-group-scenarios">
-            {linked.map(card)}
-          </div>
-        </section>
+        <PlaybookGroup slug="scenarios" label="Scenarios" count={linked.length}>
+          {linked.map(card)}
+        </PlaybookGroup>
       ) : null}
 
       {unlinked.length > 0 ? (
-        <section
-          id={onCallGroupAnchorId("no-guideline")}
-          aria-labelledby="on-call-playbook-no-guideline-heading"
-          className={cn(inPageAnchor, "grid gap-2")}
+        <PlaybookGroup
+          slug="no-guideline"
+          // "Unlinked", matching the word the header's bar shows. The full
+          // sentence lived here while there was no bar; with one above naming
+          // this group in one word, two names for one destination is the
+          // confusion, not the brevity. Each card still says what is missing.
+          label="Unlinked"
+          count={unlinked.length}
+          headed={linked.length > 0}
         >
-          <div className="flex items-center gap-1.5">
-            {/* "Unlinked", matching the word the header's bar shows. The full
-                sentence lived here while the bar did not exist; with a bar
-                above naming this group in one word, two different names for
-                one destination is the confusion, not the brevity. The cards
-                themselves still say what is missing. */}
-            <h3 id="on-call-playbook-no-guideline-heading" className={eyebrowText}>
-              Unlinked
-            </h3>
-            {/* Outside the heading and hidden: the count is a glance, not part
-                of the group's name. */}
-            <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
-              {unlinked.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid="on-call-playbook-group-no-guideline">
-            {unlinked.map(card)}
-          </div>
-        </section>
+          {unlinked.map(card)}
+        </PlaybookGroup>
       ) : null}
     </div>
+  );
+}
+
+
+/**
+ * One playbook group: the cards, with a heading only when there is another
+ * group to tell it apart from.
+ *
+ * The anchor and the testid are unconditional. The anchor is what the header's
+ * jump list targets, and `docs/on-call/design/mockup-conformance.md` cites the
+ * testid as proof board 07's group is built — neither may come and go with the
+ * data.
+ */
+function PlaybookGroup({
+  slug,
+  label,
+  count,
+  headed = true,
+  children,
+}: {
+  slug: string;
+  label: string;
+  count: number;
+  headed?: boolean;
+  children: ReactNode;
+}) {
+  const headingId = `on-call-playbook-${slug}-heading`;
+  return (
+    <section
+      id={onCallGroupAnchorId(slug)}
+      aria-labelledby={headed ? headingId : undefined}
+      aria-label={headed ? undefined : label}
+      className={cn(inPageAnchor, "grid gap-2")}
+    >
+      {headed ? (
+        <div className="flex items-center gap-1.5">
+          <h3 id={headingId} className={eyebrowText}>
+            {label}
+          </h3>
+          {/* Outside the heading and hidden: the count is a glance, not part
+              of the group's name. */}
+          <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+            {count}
+          </span>
+        </div>
+      ) : null}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3" data-testid={`on-call-playbook-group-${slug}`}>
+        {children}
+      </div>
+    </section>
   );
 }
 

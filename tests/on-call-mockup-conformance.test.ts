@@ -247,13 +247,16 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-playbook-group-no-guideline",
       "on-call-logistics-private-note",
       "on-call-orientation-checklist-",
-      // The second header row, which replaced the shared rail. `mode-nav-sheet`
-      // stood here while On Call mounted that rail; it does not any more, and a
-      // load-bearing entry for a component this mode never renders would have
-      // gone on passing forever.
+      // The second header row. It replaced the shared rail, then came back AS a
+      // bar — pointed at this page's groups rather than at the mode's routes.
+      // `mode-nav-sheet` stood here while On Call mounted the mode's own rail;
+      // a load-bearing entry for a component this mode never renders would have
+      // gone on passing forever, which is why these are the mode's own testids.
       "on-call-section-detail-header",
-      "on-call-section-section-trigger",
-      "on-call-section-actions-trigger",
+      "on-call-section-section-rail",
+      // The page's actions moved to the universal header's trailing slot when
+      // the pill took over naming the page, so there is no second ellipsis to
+      // assert — `on-call-page-menu-trigger` above is now the only one.
     ];
     for (const testId of loadBearing) {
       expect(spec.includes(testId), `${BOARD_SPEC_PATH} never asserts "${testId}" on a rendered page`).toBe(true);

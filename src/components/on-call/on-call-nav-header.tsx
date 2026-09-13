@@ -71,7 +71,9 @@ export const ON_CALL_SECTION_HEADER_PREFIX = "on-call-section";
 export const ON_CALL_SECTION_HEADER_TEST_IDS = {
   header: "on-call-section-detail-header",
   sectionTrigger: "on-call-section-section-trigger",
-  actionsTrigger: "on-call-section-actions-trigger",
+  sectionRail: "on-call-section-section-rail",
+  sectionOverflow: "on-call-section-section-overflow",
+  sectionSheetBack: "on-call-section-section-sheet-back",
 } as const;
 
 /**

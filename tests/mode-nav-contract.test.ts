@@ -78,7 +78,18 @@ describe("ModeNav band planning", () => {
 describe("ModeNav density contract", () => {
   it("chooses density by container width in rem, never px", () => {
     const thresholds = [...modeNavCss.matchAll(/@container mode-nav \(min-width: ([^)]+)\)/g)].map((m) => m[1].trim());
-    expect(thresholds).toEqual(["16rem", "17rem", "20rem", "22rem", "23rem", "28rem", "31rem", "33rem", "42rem"]);
+    expect(thresholds).toEqual([
+      "16rem",
+      "17rem",
+      "20rem",
+      "22rem",
+      "23rem",
+      "28rem",
+      "30rem",
+      "31rem",
+      "33rem",
+      "42rem",
+    ]);
 
     // The unit is the mechanism: raising the browser or OS text size grows the
     // root font, so a phone crosses a threshold exactly when its labels would
@@ -227,6 +238,7 @@ describe("ModeNav density is chosen, never inherited", () => {
     for (const path of [
       "src/components/clinical-dashboard/medication-nav-header.tsx",
       "src/components/therapy-compass/therapy-record-nav-header.tsx",
+      "src/components/on-call/on-call-nav-header.tsx",
     ]) {
       expect(read(path), `${path} must name its density profile`).toMatch(/density: "/);
     }
@@ -274,6 +286,11 @@ describe("ModeNav overflow slot", () => {
       ["compact-four", "23rem"],
       ["balanced-four", "31rem"],
       ["extended", "23rem"],
+      // 22rem, one band below the other four-slot profiles, and the reason is
+      // one measured width: a 390px phone gives this container 358px, and
+      // 23rem (368px) sat just above it. Four bare words measure ~294px there.
+      // Its FIVE-slot band is its own (30rem), asserted below.
+      ["wordmark-five", "22rem"],
     ] as const) {
       const block = sourceSegment(modeNavCss, `@container mode-nav (min-width: ${threshold})`, "@container mode-nav", {
         label: `mode-nav threshold ${threshold} block`,
@@ -289,6 +306,16 @@ describe("ModeNav overflow slot", () => {
     });
     expect(at28).toContain('data-density-profile="extended"');
     expect(at28).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
+
+    // `wordmark-five`'s own five-slot band. 2rem above `extended`'s because its
+    // labels measured ~6% wider (~426px against ~394px), and sharing the block
+    // would tie two calibrations that were measured separately — the coupling
+    // the profile itself exists to rule out.
+    const at30 = sourceSegment(modeNavCss, "@container mode-nav (min-width: 30rem)", "@container mode-nav", {
+      label: "mode-nav threshold 30rem block",
+    });
+    expect(at30).toContain('data-density-profile="wordmark-five"');
+    expect(at30).toContain('.mode-nav__more[data-active-from="5"] .mode-nav__rule');
   });
 
   it("drops the slot ICON, never the label, when the extended profile is short of width", () => {
@@ -306,6 +333,21 @@ describe("ModeNav overflow slot", () => {
     });
     expect(at42).toContain('.mode-nav[data-density-profile="extended"] .mode-nav__icon');
     expect(at42).toContain("display: block");
+
+    // The class has to reach the RAILS too, or a profile can only drop the
+    // glyph on the top bar. It did not until 2026-09-13, so this rule was
+    // silently inert on `InPageSectionRail` — a latent trap for the next
+    // profile that tried to use it, which is what `wordmark-five` would have
+    // walked into.
+    expect(read("src/components/mode-nav/nav-slot-ink.tsx")).toContain("mode-nav__icon");
+
+    // `wordmark-five` hides the glyph at EVERY width, with no restore band. The
+    // family is calibrated word-only: a wide container showing icons would be a
+    // different label family needing different numbers.
+    expect(modeNavCss).toMatch(
+      /\.mode-nav\[data-density-profile="wordmark-five"\] \.mode-nav__icon \{\s*display: none/,
+    );
+    expect(at42).not.toContain('.mode-nav[data-density-profile="wordmark-five"] .mode-nav__icon');
 
     // The collapsed control keeps its icon at every width. It is the fallback
     // that must never be ambiguous about which page you are on, and it has the

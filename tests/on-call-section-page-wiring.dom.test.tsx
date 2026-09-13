@@ -1,11 +1,12 @@
 /** @vitest-environment jsdom */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallSectionPage } from "@/components/on-call/on-call-section-page";
 import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { universalHeaderTrailingSlotId } from "@/lib/mode-home-composer";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/contacts",
@@ -68,8 +69,18 @@ function entryFor(section: OnCallSection): OnCallEntry {
   };
 }
 
+// The page menu portals into the universal header's trailing slot and renders
+// NOTHING when that host is absent — deliberately, per the portal's own note —
+// so a standalone render needs the slot to exist before it can be found.
+beforeEach(() => {
+  const slot = document.createElement("div");
+  slot.id = universalHeaderTrailingSlotId;
+  document.body.append(slot);
+});
+
 afterEach(() => {
   cleanup();
+  document.getElementById(universalHeaderTrailingSlotId)?.remove();
   Object.assign(storeState, { entries: [], loading: false, isOffline: false, signedOut: false, cachedAt: null });
 });
 
@@ -116,43 +127,64 @@ function contact(id: string, slug: string, title: string, tags: string[]): OnCal
   } as unknown as OnCallEntry;
 }
 
+/** Two areas, which is the floor at which a page has navigation rather than a heading. */
+const ROUTED_CONTACTS = [
+  contact("aaaa1111-1111-4111-8111-111111111111", "ward-a", "Ward A", ["Wards"]),
+  contact("aaaa2222-2222-4222-8222-222222222222", "service-a", "Service A", ["Services"]),
+];
+
 describe("the second header row is about THIS page", () => {
   // The mode pill opens On Call's nine pages. The section pages briefly carried
   // the shared `ModeNav` rail listing the same nine underneath it — two
   // controls doing one job, while nothing at all helped a reader move around
   // the page in front of them. Contacts runs to six groups and several screens.
   //
-  // So the rail is gone and the page mounts the in-page header instead, whose
-  // list is the CURRENT PAGE's groups. These tests pin that division: no rail,
-  // and the header names the page's own anchors.
-  it("mounts no section rail", () => {
-    storeState.entries = [];
+  // The bar is back, but pointed the other way: it lists the CURRENT PAGE's
+  // groups. These tests pin the direction, which is the whole correction — the
+  // component being shared is not the thing that went wrong.
+  it("mounts no bar of the mode's own routes", () => {
+    storeState.entries = ROUTED_CONTACTS;
     render(<OnCallSectionPage view="contacts" />);
     expect(screen.queryAllByTestId("mode-nav")).toHaveLength(0);
     expect(screen.queryAllByRole("navigation", { name: "On Call pages" })).toHaveLength(0);
   });
 
-  it("names the page, and carries no back arrow", () => {
-    // Every page in this mode is a destination in the mode pill's own list —
-    // the hub included, as "Tonight" — so an arrow pointing at the hub
-    // described a parent-child hierarchy that does not exist. It also put a
-    // control that LEAVES the page at the head of a row whose whole job is
-    // moving around inside it, which is the confusion this row exists to end.
-    storeState.entries = [];
-    const { container } = render(<OnCallSectionPage view="contacts" />);
-    const header = screen.getByTestId("on-call-section-detail-header");
-    expect(header).toBeTruthy();
-    expect(within(header).queryByRole("link", { name: /back to on call/i })).toBeNull();
-    expect(container.textContent).toContain("Contacts");
+  it("puts the page's actions in the universal header, not in a row of their own", () => {
+    // The same trigger and the same menu the mode home already portals there,
+    // so the two surfaces cannot drift into different menus — and a header row
+    // drawn to hold one ellipsis costs the 48px this redesign recovered.
+    storeState.entries = ROUTED_CONTACTS;
+    render(<OnCallSectionPage view="contacts" />);
+    expect(screen.getByTestId("on-call-page-menu-trigger")).toBeTruthy();
+    expect(screen.queryByTestId("on-call-section-actions-trigger")).toBeNull();
   });
 
-  it("drops back to a plain title on a page with no groups", () => {
-    // Referrals is a flat list. A jump list of one row is furniture, so the
-    // disclosure is simply absent rather than opening an empty sheet.
+  it("renders no header at all on a page with nothing to group by", () => {
+    // Referrals with no entries has one group at most, and one group is a
+    // heading rather than navigation. With the title and the actions both gone
+    // there is nothing left for a header to hold, so it is absent rather than
+    // drawn as an empty 48px band under the pill.
+    //
+    // jsdom resolves no section either way (see above), so this case cannot
+    // tell "no groups" from "jsdom": it pins the DECLARATION, which is the half
+    // that is decidable here, and the browser spec pins the other half.
     storeState.entries = [];
     render(<OnCallSectionPage view="referrals" />);
-    expect(screen.getByTestId("on-call-section-detail-header")).toBeTruthy();
+    expect(onCallPageSections({ view: "referrals", entries: [] })).toEqual([]);
+    expect(screen.queryByTestId("on-call-section-detail-header")).toBeNull();
     expect(screen.queryByTestId("on-call-section-section-trigger")).toBeNull();
+  });
+
+  it("declares no jump list for a page with a single group", () => {
+    // One heading is a heading, not navigation, and the shared bar says the
+    // same thing with `MODE_NAV_MIN_ITEMS`. Contacts filed entirely under one
+    // area used to declare a one-slot bar.
+    const oneArea = [
+      contact("bbbb1111-1111-4111-8111-111111111111", "ward-a", "Ward A", ["Wards"]),
+      contact("bbbb2222-2222-4222-8222-222222222222", "ward-b", "Ward B", ["Wards"]),
+    ];
+    expect(onCallPageSections({ view: "contacts", entries: oneArea })).toEqual([]);
+    expect(onCallPageSections({ view: "contacts", entries: ROUTED_CONTACTS }).length).toBeGreaterThanOrEqual(2);
   });
 
   it("names the page for a screen reader without painting it a second time", () => {

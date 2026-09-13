@@ -67,10 +67,10 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  // The section header portals into the phone collapse host and falls back to
-  // rendering in flow when that host is absent, so a standalone render needs
-  // nothing — but the home's page menu still uses the universal header's
-  // trailing slot, and providing it keeps both paths exercisable here.
+  // Every On Call surface — the home and the seven section pages — reaches its
+  // page menu through the universal header's trailing slot, and that portal
+  // renders NOTHING when the host is absent. So the slot has to exist before a
+  // standalone render can open the menu at all.
   const slot = document.createElement("div");
   slot.id = universalHeaderTrailingSlotId;
   document.body.append(slot);
@@ -89,8 +89,17 @@ beforeEach(() => {
   );
 });
 
+/**
+ * The page menu, from the universal header's trailing slot.
+ *
+ * It used to open from the in-page header's own ellipsis. That row is gone —
+ * the mode pill above names the page and carries its actions, so a header row
+ * holding one ellipsis was 48px spent on a duplicate — and the section pages
+ * now portal the SAME menu the mode home already uses. Same rows, same testids,
+ * one trigger.
+ */
 async function openMenuAndVerifyAll() {
-  fireEvent.click(screen.getByTestId("on-call-section-actions-trigger"));
+  fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
   fireEvent.click(screen.getByTestId("on-call-page-menu-verify-all"));
 }
 
@@ -151,7 +160,7 @@ describe("Mark all as still correct", () => {
   it("offers nothing to confirm when nothing is overdue", () => {
     storeState.entries = THREE_STALE.map((entry) => ({ ...entry, lastVerifiedAt: "2026-09-01T00:00:00.000Z" }));
     render(<OnCallSectionPage view="contacts" />);
-    fireEvent.click(screen.getByTestId("on-call-section-actions-trigger"));
+    fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
     expect(screen.queryByTestId("on-call-page-menu-verify-all")).not.toBeInTheDocument();
   });
 });

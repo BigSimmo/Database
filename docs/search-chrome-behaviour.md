@@ -340,9 +340,38 @@ to something real, which is what the panel-swap half of
 **The two-rail variant (`rail`).** A panel-swap route with few enough sections to name in a
 row may pass `rail={{ label }}` and get `InPageSectionRail` in place of the weighted track:
 icon, label and a `count` badge per section, active one underlined. `/medications/[slug]` is
-the only adopter, and the prop exists so it stays the only one by choice rather than by
+the panel-swap adopter, and the prop exists so it stays the only one by choice rather than by
 drift — `/factsheets/[slug]`'s eight anchored sections would overflow the row this is meant
 to simplify, and a scrolling route already has a spy moving the active state continuously.
+
+**On Call's section pages are a recorded exception to that last clause (owner decision,
+2026-09-13).** They are scrolling routes with a spy, which the paragraph above excludes, and
+they take the rail anyway. What changed the answer is that On Call's alternative was tried and
+rejected three times in one session: the weighted track plus a title disclosure named the
+current group and hid that any other existed, so the reader had to tap a control to learn
+there was somewhere to tap. The groups are few (two to six), single-word, and the whole page is
+read standing up at 3am — the case the bar is for. What still holds unchanged: a route with
+eight-plus sections, or with prose labels, still takes the track; and the two-slot floor
+(`MODE_NAV_MIN_ITEMS`) means a page with one group renders no bar rather than a one-slot one.
+
+On Call goes two steps further than the other adopters, and both are scoped to it:
+
+- **`titleHidden`, and with nothing else on the row, no row at all.** The mode pill directly
+  above names the current page on its main line, and on a phone this header is portaled into
+  that same pill's collapse slot — so a title here printed the word twice in one 96px block.
+  The page's actions moved to the universal header's trailing slot for the same reason, which
+  left the row empty, so it is omitted rather than drawn. Only safe alongside a rail: without
+  one, hiding the title also hides the section disclosure and strands every section. The bar's
+  More slot is the overflow instead.
+- **A return control in the section sheet** (`headerLeading`), where the sheet is a visible
+  bar's overflow rather than the navigation itself. Reached from More, the list is the tail of
+  a row whose head is still on screen, and the way out reads as going back to the page rather
+  than as dismissing a dialog.
+
+Guarded by `tests/on-call-section-header-testids.test.ts` (the wiring, on source — jsdom
+resolves no section, see below), `tests/on-call-section-page-wiring.dom.test.tsx` (the
+division of labour between the pill and this row) and `tests/ui-on-call-boards.spec.ts` (the
+bar itself, in a browser, at 320/390/430px).
 
 The rail changes three things about the row above it:
 
@@ -371,6 +400,17 @@ A rail whose labels carry no badge should pass a `density` from its own label fa
 leave `countedLabels` off — measured against its own labels, not assumed. Therapy's four
 render without truncation from 500px and clip at 430px, which is `balanced-four` (31rem);
 `compact-four` (23rem) does fit four slots on a large phone but clips every one of them.
+
+On Call's `wordmark-five` is the narrowest family the bar has carried — bar from 16rem, four
+slots from 23rem, five from 30rem — and it is only safe because nothing decorative competes
+for the width. It drops the glyph at every band with no restore, sets no `count` so no badge
+is drawn, and its labels are single words: measured at 14px semibold with the slot's `px-3`,
+three need ~242px, four ~316px and five ~418px, plus a ~70px More slot. That is 3 slots on a
+320px phone, 4 at 390px and all 5 from about 480px. Two consequences worth knowing before
+reusing it: a multi-word label in this family truncates rather than folding (the demo corpus
+models one-word categories for that reason), and `mode-nav__icon` had to start reaching the
+rails at all — it was emitted only by the top bar, so `extended`'s icon rule had been silently
+inert on every rail.
 
 **Route rails: the sections may be other pages (`/therapy-compass/[slug]`).** Therapy's record
 header declares its sections as that therapy's own routes — the record, its patient sheet, its

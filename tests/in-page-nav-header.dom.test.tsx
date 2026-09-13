@@ -429,3 +429,89 @@ describe("InPageNavHeader", () => {
     expect(slot.querySelector('[data-testid="service-detail-header"]')).toBeNull();
   });
 });
+
+/**
+ * The shape On Call takes: a bar, and nothing else.
+ *
+ * These render `InPageNavHeader` directly with explicit sections, which is the
+ * only way to exercise a rail in jsdom — `useResolvedPageSections` decides what
+ * is on screen with `getClientRects()`, and jsdom reports that empty for every
+ * element, so a mode's own header never reaches its rail here. The mode's
+ * wiring is pinned on source by `tests/on-call-section-header-testids.test.ts`,
+ * and the rendered bar by `tests/ui-on-call-boards.spec.ts` in a browser.
+ */
+describe("InPageNavHeader with titleHidden", () => {
+  const railProps = {
+    titleHidden: true,
+    rail: { label: "Sections of this page", density: "wordmark-five" as const, modeIdentity: "on-call" },
+    back: undefined,
+    actions: undefined,
+  };
+
+  /**
+   * Four sections, because More exists only when the bar cannot show them all.
+   * `planModeNavBands` fits three at every band, so a three-section bar has no
+   * overflow slot and therefore no sheet to reach — which is correct, and also
+   * why the sheet cases below need a fourth.
+   */
+  const overflowingRailProps = {
+    ...railProps,
+    sections: [...sections, { id: "service-contact", label: "Contact", icon: Compass }],
+  };
+
+  it("draws no row at all when nothing but the bar claims it", () => {
+    // The 48px this costs is the whole reason the option exists: with the page
+    // named by chrome directly above, a row holding a repeat of that name was
+    // the duplication, and an empty row would have been worse.
+    renderHeader(railProps);
+    const header = screen.getByTestId("service-detail-header");
+    expect(header.textContent).not.toContain("Community Alcohol");
+    expect(screen.queryByTestId("service-section-trigger")).toBeNull();
+    expect(screen.queryByTestId("service-action-group")).toBeNull();
+    expect(screen.getByTestId("service-section-rail")).toBeInTheDocument();
+  });
+
+  it("still names the page where a screen reader will meet it", async () => {
+    // `title` is required either way, and the section sheet is where it lands:
+    // unpainted is not unnamed.
+    const user = userEvent.setup();
+    renderHeader(overflowingRailProps);
+    await user.click(screen.getByTestId("service-section-overflow"));
+    expect(screen.getByTestId("service-section-sheet").textContent).toContain("Community Alcohol");
+  });
+
+  it("keeps the row when something else is still on it", () => {
+    // The guard is "nothing else claims the row", not "titleHidden". A page
+    // that hides its title but keeps a promoted action must still get a row to
+    // put it in.
+    renderHeader({ ...railProps, actions: <button type="button">Print</button> });
+    expect(screen.getByTestId("service-action-group")).toBeInTheDocument();
+    expect(screen.getByTestId("service-detail-header").textContent).not.toContain("Community Alcohol");
+  });
+
+  it("carries the mode's identity attribute on the bar, never a dynamic class", () => {
+    // `bg-[color:var(--x-${mode})]` produces no CSS at all — Tailwind's scanner
+    // only sees literal strings — and an inline style is ceilinged by
+    // `check:design-drift-ratchet`. So the hue arrives as an attribute that
+    // remaps `--clinical-accent` inside this `<nav>` alone.
+    renderHeader(railProps);
+    expect(screen.getByTestId("service-section-rail")).toHaveAttribute("data-mode-identity", "on-call");
+  });
+
+  it("offers a return out of the section sheet, and only where the bar is its overflow", async () => {
+    const user = userEvent.setup();
+    renderHeader(overflowingRailProps);
+    await user.click(screen.getByTestId("service-section-overflow"));
+    const back = screen.getByTestId("service-section-sheet-back");
+    expect(back).toHaveAccessibleName(/Back to Community Alcohol/);
+    await user.click(back);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("renders no return control on the title-disclosure shape, where the sheet IS the navigation", () => {
+    // A second dismissal there is furniture: nothing is still on screen to go
+    // back to, which is exactly what the word "return" would be promising.
+    renderHeader();
+    expect(screen.queryByTestId("service-section-sheet-back")).toBeNull();
+  });
+});

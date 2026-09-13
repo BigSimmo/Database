@@ -3973,10 +3973,11 @@ td,
   }
 
   /* `wordmark-five` shares this threshold rather than declaring a duplicate of
-     it — retuning this block retunes both. Two bare words plus More measure
-     ~230px, so 16rem (256px) keeps the headroom the other profiles ship with,
-     and a 320px phone (an ~18rem container) still gets a bar rather than the
-     collapsed control. */
+     it — retuning this block retunes both. Measured: a 320px phone gives this
+     container 288px (18rem), and the three widest words On Call's data
+     produces come to ~223px there, so the bar is the right answer well below
+     the narrowest phone the site supports. 16rem is the floor at which two
+     words plus More still fit. */
   .mode-nav[data-density-profile="wordmark-five"] .mode-nav__control {
     display: none;
   }
@@ -4027,6 +4028,35 @@ td,
   .mode-nav[data-density-profile="extended-counted"] .mode-nav__bar {
     display: flex;
   }
+
+  /* `wordmark-five`'s FOUR-slot band, measured rather than estimated.
+     ------------------------------------------------------------------
+     22rem (352px) is chosen for one width in particular: a 390px phone gives
+     this container 358px, and 23rem (368px) sat just above it — so the most
+     common phone in the world would have shown three slots and More where four
+     bare words fit with room to spare. Four measured labels (Tonight 73,
+     Wards 66, Services 81, Admin ~74) come to ~294px against that 358px, a
+     1.22 headroom; at 320px the container is 288px and this band correctly
+     does not fire. */
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-band="4"] {
+    display: flex;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-until="3"] {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
+    display: none;
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
+    color: var(--text-muted);
+  }
+
+  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
+    background-color: transparent;
+  }
 }
 
 @container mode-nav (min-width: 23rem) {
@@ -4074,29 +4104,6 @@ td,
   .mode-nav[data-density-profile="extended"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
     background-color: transparent;
   }
-
-  /* `wordmark-five` shares it too. A fourth bare word costs ~90px on top of the
-     three-slot 230px, so 23rem (368px) carries it with the same headroom.
-     Retuning this block now retunes THREE profiles. */
-  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-band="4"] {
-    display: flex;
-  }
-
-  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-until="3"] {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__more-name {
-    display: none;
-  }
-
-  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__ink {
-    color: var(--text-muted);
-  }
-
-  .mode-nav[data-density-profile="wordmark-five"] .mode-nav__more[data-active-from="4"] .mode-nav__rule {
-    background-color: transparent;
-  }
 }
 
 /* All five Therapy destinations, still without icons. Five wordmarks plus the
@@ -4125,12 +4132,15 @@ td,
   }
 }
 
-/* All five bare words, More gone. They measure ~426px with the bar's own
-   padding, so 30rem (480px) keeps the ~1.13 headroom the other top bands ship
-   with — 26rem would have been BELOW the content and clipped the last word.
-   Its own block rather than sharing `extended`'s 28rem: these labels are 6%
-   wider than Therapy's, and sharing would tie two calibrations that measured
-   differently. */
+/* All five bare words, More gone.
+   ------------------------------------------------------------------
+   Measured against the WIDEST words this mode's data produces, not the average
+   ones: Community 97, Authorise 87, Services 81, Starting 79 and one more come
+   to ~427px with the bar's own padding. 30rem (480px) carries that with 1.12
+   headroom; 26rem (416px) would have been below it and clipped the last word,
+   which nothing offline would have caught. Its own block rather than sharing
+   `extended`'s 28rem: sharing would tie two calibrations that were measured
+   separately, which is the coupling this profile exists to avoid. */
 @container mode-nav (min-width: 30rem) {
   .mode-nav[data-density-profile="wordmark-five"] .mode-nav__slot[data-band="5"] {
     display: flex;

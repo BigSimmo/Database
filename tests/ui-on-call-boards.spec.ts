@@ -73,17 +73,37 @@ async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
     await expect(page.getByTestId("on-call-home-sections")).toBeVisible({ timeout: 20_000 });
     return;
   }
-  // `.first()`, and a settle on the count, because a client-side route change
-  // keeps the outgoing page's tree mounted until the incoming one is ready —
-  // so for a moment two headers exist and a strict locator fails on the pair
-  // rather than on anything being wrong.
-  await expect(page.getByTestId("on-call-section-detail-header").first()).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(1, { timeout: 20_000 });
-  // The header renders before the fetch resolves, so waiting on it alone would
-  // measure the loading state. The list component mounts only once entries have
-  // arrived, which is the signal that the page is actually the page.
+  // The list, not the header: a section page renders a header only when it has
+  // two or more groups to move between, and Playbook, Who's who and Teaching
+  // have one or none in the demo corpus. The list is also the better signal
+  // either way — the header used to render before the fetch resolved, so
+  // waiting on it measured the loading state.
   const listTestId = SECTION_LIST_TEST_IDS[route];
   if (listTestId) await expect(page.getByTestId(listTestId)).toBeVisible({ timeout: 20_000 });
+}
+
+/**
+ * The bar of this page's own groups, once it has settled to exactly one.
+ *
+ * `.first()` and a count settle, because a client-side route change keeps the
+ * outgoing page's tree mounted until the incoming one is ready — so for a
+ * moment two headers exist and a strict locator fails on the pair rather than
+ * on anything being wrong.
+ */
+async function sectionBar(page: Page) {
+  await expect(page.getByTestId("on-call-section-detail-header").first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(1, { timeout: 20_000 });
+  return page.getByTestId("on-call-section-section-rail");
+}
+
+/** The words the bar is currently showing, in order, excluding More. */
+async function barWords(page: Page) {
+  const bar = await sectionBar(page);
+  return bar.evaluate((nav) =>
+    Array.from(nav.querySelectorAll("li"))
+      .filter((slot) => getComputedStyle(slot).display !== "none" && !slot.classList.contains("mode-nav__more"))
+      .map((slot) => slot.textContent?.trim() ?? ""),
+  );
 }
 
 /**
@@ -262,58 +282,50 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
 });
 
 test.describe("02 More — the second row is about the page you are on", () => {
-  test("names the page and the group you are in, and offers no way out of it", async ({ page }) => {
+  test("is a bar of this page's own groups, with the current one marked", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    const header = page.getByTestId("on-call-section-detail-header").first();
-    await expect(header).toBeVisible();
-    await expect(header).toContainText("Contacts");
+    const bar = await sectionBar(page);
+    await expect(bar).toBeVisible();
+    await expect(bar).toHaveAttribute("aria-label", "Sections of this page");
 
-    // No back arrow. Every page here is a destination in the pill's own list,
-    // so an arrow to the hub claimed a hierarchy that does not exist — and put
-    // a control that leaves the page at the head of the row that moves around
-    // inside it. The pill is the way out.
+    // The areas Contacts files its rows under, as plain words. This is the
+    // assertion jsdom cannot make: section resolution tests visibility with
+    // getClientRects, which jsdom reports empty for everything.
+    expect(await barWords(page)).toEqual(["Services", "Tonight", "Wards"]);
+
+    // Not the mode's routes — those belong to the pill above.
+    await expect(bar.getByRole("button", { name: /^Playbook$/ })).toHaveCount(0);
+
+    // Exactly one slot is current, and it is marked by more than colour: the
+    // rule under it is drawn, and `aria-current` names it.
+    await expect(bar.locator('button[aria-current="true"]')).toHaveCount(1);
+  });
+
+  test("carries no title, no back arrow and no actions of its own", async ({ page }) => {
+    // Everything this row used to hold moved up one level, to the pill and the
+    // universal header's trailing slot. What is left is navigation inside the
+    // page, which is the only thing this row was ever meant to be.
+    await openBoard(page, ROUTES.contacts);
+    const header = page.getByTestId("on-call-section-detail-header");
+    await expect(header).not.toContainText("Contacts");
     await expect(header.getByRole("link", { name: /back to on call/i })).toHaveCount(0);
-
-    // What the row does say: which part of the page you are in, and how many
-    // parts there are — so it reads as position, not as a filter.
-    await expect(page.getByTestId("on-call-section-section-trigger")).toContainText(/1\/\d/);
+    await expect(page.getByTestId("on-call-section-actions-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("on-call-section-section-trigger")).toHaveCount(0);
   });
 
-  test("opens this page's own groups, not the mode's nine sections", async ({ page }) => {
+  test("names the page once, in the pill, with the mode beneath it", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    await page.getByTestId("on-call-section-section-trigger").click();
+    // The pill's accessible name still opens `Mode …` — twelve test files and
+    // the shared helper find this control by that prefix — and now says the
+    // page as well.
+    const pill = page.getByRole("button", { name: "Mode On Call, page Contacts" });
+    await expect(pill).toBeVisible();
+    await expect(pill).toContainText("Contacts");
+    await expect(pill).toContainText("On Call");
 
-    // The areas Contacts files its rows under. This is the assertion jsdom
-    // cannot make: section resolution tests visibility with getClientRects,
-    // which jsdom reports empty for everything.
-    const sheet = page.getByRole("dialog");
-    await expect(sheet.getByRole("button", { name: /Wards/ })).toBeVisible();
-    await expect(sheet.getByRole("button", { name: /Services/ })).toBeVisible();
-    // Not the routes — those belong to the pill.
-    await expect(sheet.getByRole("button", { name: /^Playbook/ })).toHaveCount(0);
-  });
-
-  test("jumps to a group and says so afterwards", async ({ page }) => {
-    await openBoard(page, ROUTES.contacts);
-    await page.getByTestId("on-call-section-section-trigger").click();
-    await page.getByRole("dialog").getByRole("button", { name: /Wards/ }).click();
-
-    const wards = page.locator("#on-call-group-wards");
-    await expect(wards).toBeInViewport({ timeout: 5_000 });
-    // The header's second line follows the reader down the page.
-    await expect(page.getByTestId("on-call-section-section-trigger")).toContainText("Wards");
-  });
-
-  test("says the page's name once, and still offers no chat", async ({ page }) => {
-    await openBoard(page, ROUTES.contacts);
-    // The header, the hero and the entries heading all painted "Contacts", one
-    // under the other, on a 390px screen — and both headings are now named for
-    // a screen reader only.
-    //
-    // Measured, not counted by role: the `<h1>` names the page and the `<h2>`
-    // labels the list region, so both are still in the accessibility tree; each
-    // is clipped to a pixel. The name is painted once, by the sticky header,
-    // which is a navigation control rather than a heading.
+    // And nothing else on the page paints the name. Measured, not counted by
+    // role: the `<h1>` names the page and the `<h2>` labels the list region, so
+    // both are still in the accessibility tree; each is clipped to a pixel.
     const titles = await page.evaluate(() => {
       const headings = Array.from(document.querySelectorAll("h1, h2, h3")).filter(
         (node) => node.textContent?.trim() === "Contacts",
@@ -324,16 +336,76 @@ test.describe("02 More — the second row is about the page you are on", () => {
       };
     });
     expect(titles.headings, "the page must still be named for a screen reader").toBeGreaterThanOrEqual(1);
-    expect(titles.painted, "a heading repeats the name the header already shows").toBe(0);
-    await expect(page.getByTestId("on-call-section-detail-header")).toContainText("Contacts");
+    expect(titles.painted, "a heading repeats the name the pill already shows").toBe(0);
+  });
 
-    // And the header is the only thing above the list: no eyebrow repeating
-    // the mode, no display-size title, no paragraph explaining how the section
-    // is filed. The first thing under the header is the page's own content.
-    await expect(page.getByText("ON CALL", { exact: true })).toHaveCount(0);
+  test("carries the mode's own colour on the pill and the bar, and only there", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    const identity = await page.evaluate(() => {
+      const read = (selector: string) => {
+        const element = document.querySelector(selector);
+        return element ? getComputedStyle(element).getPropertyValue("--clinical-accent").trim() : null;
+      };
+      return {
+        pill: read('[data-mode-identity="on-call"].universal-header-mode-button'),
+        bar: read('[data-testid="on-call-section-section-rail"]'),
+        page: getComputedStyle(document.body).getPropertyValue("--clinical-accent").trim(),
+      };
+    });
+    // One token, two elements, so the filled circle and the active underline
+    // cannot end up different greens.
+    expect(identity.pill).toBe(identity.bar);
+    expect(identity.pill).toBeTruthy();
+    // And the rest of the page keeps the product accent: the hue is scoped to
+    // the mode's own chrome, not sprayed over its content.
+    expect(identity.page).not.toBe(identity.pill);
+  });
+
+  test("fits its words without truncating at the site's narrow width", async ({ page }) => {
+    // The failure this profile exists to prevent, and the one a screenshot
+    // catches only if someone looks: "Servi…" in a 48px bar. Measured on the
+    // rendered label box rather than inferred from the band.
+    for (const width of [NARROW, BOARD_WIDTH]) {
+      await openBoard(page, ROUTES.contacts, width);
+      const clipped = await (await sectionBar(page)).evaluate((nav) =>
+        Array.from(nav.querySelectorAll("li"))
+          .filter((slot) => getComputedStyle(slot).display !== "none")
+          .flatMap((slot) => Array.from(slot.querySelectorAll("span")))
+          .filter((span) => span.scrollWidth > span.clientWidth + 1)
+          .map((span) => span.textContent ?? ""),
+      );
+      expect(clipped, `a label is truncated at ${width}px`).toEqual([]);
+    }
+  });
+
+  test("keeps every slot on the production tap floor", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    const bar = await sectionBar(page);
+    const slots = bar.getByRole("button");
+    for (let index = 0; index < (await slots.count()); index += 1) {
+      await expectTapFloor(slots.nth(index), `bar slot ${index}`);
+    }
+  });
+
+  test("jumps to a group and follows the reader back down the page", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    const bar = await sectionBar(page);
+    await bar.getByRole("button", { name: /^Wards$/ }).click();
+
+    const wards = page.locator("#on-call-group-wards");
+    await expect(wards).toBeInViewport({ timeout: 5_000 });
+    // Still on the page, which is the whole difference from the chip row this
+    // replaced: tapping "Wards" used to DELETE Tonight and Services.
+    await expect(page.getByTestId("on-call-contact-row-demo-interpreter-line")).toHaveCount(1);
+    await expect(bar.locator('button[aria-current="true"]')).toContainText("Wards");
+  });
+
+  test("says nothing else above the list", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    // No eyebrow repeating the mode, no display-size title, no paragraph
+    // explaining how the section is filed, and no chip row naming the same
+    // groups the bar names.
     await expect(page.getByText(/Filed by role first/)).toHaveCount(0);
-    // Nor a chip row, which named the same groups the header's jump list
-    // names. The first thing under the header is the first group.
     await expect(page.getByTestId("on-call-contacts-filters")).toHaveCount(0);
     const firstGroup = page.getByTestId("on-call-contacts-group-needs-checking");
     const header = page.getByTestId("on-call-section-detail-header");
@@ -349,17 +421,16 @@ test.describe("02 More — the second row is about the page you are on", () => {
     await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
   });
 
-  test("drops back to a plain title on a page with nothing to jump between", async ({ page }) => {
-    // Teaching is the one page with no facet to file by — its sessions are
-    // dated, not tagged — so it stays one flat list. A jump list of one row is
-    // furniture, and the header is simply a title.
-    //
-    // Referrals used to be this test's subject. It gained groups when its chip
-    // row went, which is the point: removing the chips would otherwise have
-    // left that page with no way to move around it at all.
+  test("renders no header at all on a page with nothing to move between", async ({ page }) => {
+    // Teaching has no facet to file by — its sessions are dated, not tagged —
+    // so it is one flat list. One group is a heading, not navigation, and with
+    // the title and the actions both gone there is nothing left for a header
+    // to hold. It is absent rather than drawn as an empty 48px band.
     await openBoard(page, ROUTES.teaching);
-    await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible();
-    await expect(page.getByTestId("on-call-section-section-trigger")).toHaveCount(0);
+    await expect(page.getByTestId("on-call-section-detail-header")).toHaveCount(0);
+    // The page is still named, and still has its actions — both one level up.
+    await expect(page.getByRole("button", { name: "Mode On Call, page Teaching" })).toBeVisible();
+    await expect(page.getByTestId("on-call-page-menu-trigger")).toBeVisible();
   });
 
   test("gives a page that lost its chips real groups instead", async ({ page }) => {
@@ -368,9 +439,8 @@ test.describe("02 More — the second row is about the page you are on", () => {
     const groups = page.locator('[data-testid^="on-call-referrals-group-"]');
     expect(await groups.count()).toBeGreaterThan(1);
 
-    // And the header can now move between them, which the flat list could not.
-    await page.getByTestId("on-call-section-section-trigger").click();
-    await expect(page.getByRole("dialog").getByRole("button", { name: /Community/ })).toBeVisible();
+    // And the bar can now move between them, which the flat list could not.
+    expect(await barWords(page)).toContain("Community");
   });
 
   test("gives the orientation shelf its groups too", async ({ page }) => {
@@ -381,34 +451,33 @@ test.describe("02 More — the second row is about the page you are on", () => {
 
   test("declares no anchor the page does not render", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
-    await page.getByTestId("on-call-section-section-trigger").click();
-    const labels = await page.getByRole("dialog").getByRole("button").allInnerTexts();
-    for (const label of labels) {
+    for (const label of await barWords(page)) {
       const slug = label
-        .split("\n")[0]!
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
-      if (!slug || slug === "close") continue;
+      if (!slug) continue;
       await expect(page.locator(`#on-call-group-${slug}`), `${label} is offered but absent`).toHaveCount(1);
     }
   });
 });
 
 test.describe("05 Page menu", () => {
-  test("opens from the header's own control, not from the page body", async ({ page }) => {
+  test("opens from the universal header, the same control the mode home uses", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    const trigger = page.getByTestId("on-call-section-actions-trigger");
+    const trigger = page.getByTestId("on-call-page-menu-trigger");
     await expect(trigger).toBeVisible();
     await expectTapFloor(trigger, "page menu trigger");
-    // The actions live on the page's own header now, not in a second portal
-    // into the universal header — one header row owns the whole page.
+    // One menu for the whole mode, in the slot the new-chat button would
+    // otherwise hold — a mode with no results surface has nowhere for a new
+    // conversation to land. A second ellipsis on the page's own row would have
+    // cost 48px to duplicate this one.
   });
 
   test("carries the order control, the pocket card, and the privacy explanation", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    await page.getByTestId("on-call-section-actions-trigger").click();
+    await page.getByTestId("on-call-page-menu-trigger").click();
     const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible();
     await expect(page.getByTestId("on-call-page-menu-order")).toBeVisible();
@@ -424,7 +493,7 @@ test.describe("05 Page menu", () => {
   test("reorders the list from the sheet", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
     await expect(page.getByTestId("on-call-contacts-group-tonight")).toBeVisible();
-    await page.getByTestId("on-call-section-actions-trigger").click();
+    await page.getByTestId("on-call-page-menu-trigger").click();
     await page.getByRole("radio", { name: "By role" }).click();
     await expect(page.getByTestId("on-call-contacts-group-role")).toBeVisible();
     await expect(page.getByTestId("on-call-contacts-group-tonight")).toHaveCount(0);
@@ -448,12 +517,10 @@ test.describe("06 Contacts", () => {
   test("reaches a group without hiding the others", async ({ page }) => {
     // What the chip row used to do, and the reason it went: tapping "Wards"
     // REMOVED Tonight and Services from the page, so a mistap cost the reader
-    // the list rather than their place. The jump list moves them instead.
+    // the list rather than their place. The bar moves them instead.
     await openBoard(page, ROUTES.contacts);
-    const trigger = page.getByTestId("on-call-section-section-trigger");
-    await expectTapFloor(trigger, "section pill");
-    await trigger.click();
-    await page.getByRole("dialog").getByRole("button", { name: /Wards/ }).click();
+    const bar = await sectionBar(page);
+    await bar.getByRole("button", { name: /^Wards$/ }).click();
 
     await expect(page.locator("#on-call-group-wards")).toBeInViewport({ timeout: 5_000 });
     await expect(page.getByTestId("on-call-contact-row-demo-ward-one")).toBeVisible();
@@ -579,7 +646,11 @@ test.describe("11 Logistics", () => {
   test("groups the plain rows and keeps the authorise group", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
     await expect(page.getByTestId("on-call-logistics-group-where")).toBeVisible();
-    await expect(page.getByTestId("on-call-logistics-group-what-you-can-authorise")).toBeVisible();
+    // "Authorise", not "What you can authorise": `category` is both the page's
+    // heading and a slot in a 48px bar of bare words, and the long form
+    // measured 165px against a 288px phone. The demo corpus models the
+    // convention the bar is calibrated for — one word per category.
+    await expect(page.getByTestId("on-call-logistics-group-authorise")).toBeVisible();
   });
 });
 
@@ -598,6 +669,10 @@ test.describe("The mode's own chrome, across the site's widths", () => {
   test("keeps the page header intact at the tablet width the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.contacts, TABLET);
     await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible();
+    // From `sm` the bar is a bordered card rather than a rule under the phone
+    // header, and every group still fits: no overflow slot at any width the
+    // demo corpus produces.
+    expect(await barWords(page)).toEqual(["Services", "Tonight", "Wards"]);
     await expectNoHorizontalOverflow(page, "contacts at 768px");
   });
 

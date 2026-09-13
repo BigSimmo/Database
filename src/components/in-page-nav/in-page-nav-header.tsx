@@ -329,7 +329,12 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
             // safe-area). The collapse addon is a sibling of `.edge-glass-header`,
             // so this bar cannot inherit that inset — a literal `px-3` sat 4px
             // closer to the bezel than the hamburger / chat+ chrome above it.
-            "inpage-nav-header relative z-20 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-2 sm:sticky sm:top-0 sm:px-6 lg:px-8",
+            "inpage-nav-header relative z-20 border-b border-[color:var(--border)] bg-[color:var(--surface)] sm:sticky sm:top-0 sm:px-6 lg:px-8",
+            // With no row, the top padding is padding above a hairline, which
+            // read as a divider floating loose under the chrome above. The bar
+            // hangs off its own rule instead. From `sm` the bar is a bordered
+            // card rather than a rule, so it keeps the breathing room.
+            rowHasContent ? "py-2" : "pb-2 sm:pt-2",
             className,
           )}
         >
@@ -505,6 +510,7 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
               density={rail.density}
               countedLabels={rail.countedLabels}
               modeIdentity={rail.modeIdentity}
+              flush={!rowHasContent}
               testIdPrefix={testIdPrefix}
             />
           ) : documentSections.length > 0 ? (

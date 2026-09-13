@@ -135,11 +135,19 @@ async function openOverlay(page, kind) {
       .catch(() => {});
   }
   if (kind === "page-menu") {
-    await page.getByTestId("on-call-section-actions-trigger").click();
+    // The universal header's trailing slot, which is where every On Call
+    // surface keeps its page menu now — the section pages stopped carrying an
+    // ellipsis of their own when the mode pill took over naming the page.
+    await page.getByTestId("on-call-page-menu-trigger").click();
     await page.getByRole("dialog").waitFor({ state: "visible" });
   }
   if (kind === "jump-to") {
-    await page.getByTestId("on-call-section-section-trigger").click();
+    // The bar's More slot. It exists only when the page has more groups than
+    // the current width can show; when every group is on the bar there is
+    // nothing to open, and the board is captured as the bar itself.
+    const overflow = page.getByTestId("on-call-section-section-overflow");
+    if ((await overflow.count()) === 0) return;
+    await overflow.click();
     await page.getByRole("dialog").waitFor({ state: "visible" });
   }
   // Sheets animate in; the capture should not catch one mid-slide.
@@ -161,9 +169,18 @@ async function captureBuilt(browser, baseUrl, board, dark) {
     if (board.route === "/on-call") {
       await page.getByTestId("on-call-home-sections").waitFor({ state: "visible", timeout: 20_000 });
     } else {
-      await page.getByTestId("on-call-section-detail-header").waitFor({ state: "visible", timeout: 20_000 });
+      // A section page renders its header ONLY when it has two or more groups
+      // to move between — one group is a heading, not navigation — so the list
+      // is what every page has in common and the header is waited for
+      // optimistically. Playbook, Who's who and Teaching have no bar in the
+      // demo corpus, and a page with no bar is a legitimate capture rather
+      // than a broken one.
       const list = SECTION_LISTS[board.route];
       if (list) await page.getByTestId(list).waitFor({ state: "visible", timeout: 20_000 });
+      await page
+        .getByTestId("on-call-section-detail-header")
+        .waitFor({ state: "visible", timeout: 3_000 })
+        .catch(() => {});
     }
     await page.waitForTimeout(600);
     if (board.open) await openOverlay(page, board.open);
