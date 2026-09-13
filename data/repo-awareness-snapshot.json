@@ -1467,6 +1467,10 @@
         "file": "src/app/api/search/universal/route.ts"
       },
       {
+        "path": "/api/caring-contacts/ready",
+        "file": "src/app/api/caring-contacts/ready/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/pathway-versions",
         "file": "src/app/api/caring-contacts/pathway-versions/route.ts"
       },
