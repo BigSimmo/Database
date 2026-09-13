@@ -537,6 +537,8 @@ export function PlanWizard({
     // hand one patient two plan identities from one effect firing.
     const submission = mintPlanSubmissionIdentity();
     writeDraftWithRetry(draft, (current) => ({ ...current, submission }));
+    // writeDraftWithRetry is recreated each render; listing it would re-fire this mint effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mint once per draft identity, not per helper identity
   }, [draft]);
 
   /** Every change goes through here, so nothing can update the screen without updating the draft. */
