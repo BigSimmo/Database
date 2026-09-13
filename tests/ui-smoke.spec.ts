@@ -53,8 +53,6 @@ const demoAnswerThreadOwnerId = "local-demo-session";
 const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
 const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
 
-test.beforeEach(stubZeroTouchPoints);
-
 async function expectDocumentOwnerFillsFrame(page: Page, owner: Locator) {
   // Next streaming can leave a hidden DocumentFrame clone (#093); bare getByTestId
   // then trips strict mode with 2 matches (seen under mobile-composer-reserve-pad).
