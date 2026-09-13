@@ -160,16 +160,6 @@
     {
       "category": "migration_history",
       "kind": "no_statements",
-      "key": "20260702170000",
-      "reason": "2026-07-02 neutralized match_document_chunks_text rewrite; kept inert purely to preserve migration ordering without regressing live dual-path title boost",
-      "guard": {
-        "class": "no_ddl",
-        "migration": "20260702170000_fix_match_chunks_text_n1.sql"
-      }
-    },
-    {
-      "category": "migration_history",
-      "kind": "no_statements",
       "key": "20260702180000",
       "reason": "2026-07-02 promotion of index_generation_id to typed uuid columns on six artifact tables with six partial indexes and three functions (commit_document_index_generation / cleanup_abandoned_document_index_generations were later re-created with statements, is_committed_artifact_generation(uuid,jsonb) was not), hand-applied and mark-applied in the 2026-07 history-repair cluster (forensics section 1.1; live probe section 3.7 / Phase 4 step 7); the guard proves every column type, every index shape, and the three current def_hashes",
       "guard": {

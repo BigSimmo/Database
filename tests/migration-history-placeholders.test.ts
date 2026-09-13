@@ -37,11 +37,6 @@ const KNOWN_ORPHAN_VERSIONS: Record<string, string> = {
   "20260713122000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260717133000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260718223000": "Renumbered away; placeholder holds the remote-history slot.",
-  // Four no-DDL migrations tracked for history guard completeness (#DW3XK8):
-  "20260629100000": "Duplicate retention migration; kept inert to preserve remote history ordering.",
-  "20260702170000": "Neutralized match_document_chunks_text rewrite; kept inert purely to preserve migration ordering.",
-  "20260708160000": "Preview branch stem; kept inert so branches keep monotonic history.",
-  "20260709150000": "Duplicate ACL reconciliation stem; kept inert to preserve monotonic history.",
 };
 
 /**
