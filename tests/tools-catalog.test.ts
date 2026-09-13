@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   rankToolRecords,
   toolCatalogRecordById,
@@ -10,12 +8,6 @@ import {
 import { appModeHomeHref, type AppModeId } from "../src/lib/app-modes";
 import { smartSearchExpansions } from "../src/lib/smart-search-intent";
 import { tools as mockupToolFixtures } from "../src/components/tools-page-mockups/tool-fixtures";
-
-// `session.ts` is server-only and reads the demo role cookie; the catalogue test only needs
-// its production-lock predicate, so the cookie store is stubbed the way its own suite does.
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(async () => ({ get: () => undefined, set: () => undefined })),
-}));
 
 describe("tools catalog", () => {
   it("has unique ids and the launcher staples", () => {
