@@ -919,10 +919,11 @@ export interface CaringContactRepository {
    * transaction (Ruling 64: a record named "cleared" must mean cleared).
    *
    * WHAT IT REACHES, which is wider than the plan row and was not always. The plan's patient
-   * columns (`CLEARED_PATIENT_DETAIL`) and the cultural-identity projection, plus the three stores
-   * of free text about the patient that live outside that row: the handover note on every
-   * reassignment of this plan, the discrepancy note on every dispatch of its contacts, and the
-   * stored answer of every replay record filed against it. See `CLEARED_PATIENT_FREE_TEXT` and
+   * columns (`CLEARED_PATIENT_DETAIL`) and the cultural-identity projection, plus the free-text
+   * stores about the patient that live outside that row: the handover note on every reassignment
+   * of this plan, the discrepancy note on every dispatch of its contacts, the stored answer of
+   * every replay record filed against it, and the H-44 `intake_payload` jsonb on the linked
+   * referral (name, mobile, clinicalSummary, safetyAlerts). See `CLEARED_PATIENT_FREE_TEXT` and
    * `RETENTION_CLEARED_REPLAY_ANSWER`; the replay record is redacted rather than deleted, and that
    * distinction is a guarantee rather than an implementation detail.
    *

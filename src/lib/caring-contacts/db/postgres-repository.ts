@@ -2405,6 +2405,18 @@ export function createPostgresRepository(
             [input.planId, team, JSON.stringify(encodeStoredValue(RETENTION_CLEARED_REPLAY_ANSWER))],
           );
 
+          // 4. H-44 intake clinical sidecar on the linked referral (migration 0010). Same class as
+          //    the free-text stores above: name, mobile, clinicalSummary and safetyAlerts are patient
+          //    content held outside the plan row. Null the jsonb in this transaction so a clearance
+          //    record cannot coexist with a readable intake payload.
+          await connection.query(
+            `update caring_contacts.referrals
+                set intake_payload = null
+              where id = $1 and team_id = $2
+                and intake_payload is not null`,
+            [textOf(planRow.referral_id), team],
+          );
+
           return { ok: true, value: undefined };
         },
       });

@@ -2,7 +2,7 @@
 
 import { AlertCircle, CheckCircle2, FilePlus, RefreshCw, Send } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, newPlanRoute } from "@/lib/caring-contacts-routes";
@@ -83,6 +83,8 @@ export function ManualIntakeForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verifiedReferral, setVerifiedReferral] = useState<PatientReferral | null>(null);
   const [stagedReferralId, setStagedReferralId] = useState<string | null>(null);
+  // Retain across retries of the same form attempt so a lost response cannot mint a second referral.
+  const intakeIdempotencyKeyRef = useRef<string | null>(null);
 
   const handlePrefill = (targetFacility: WAHealthFacility) => {
     const payload = adapter.createSyntheticPayload(targetFacility);
@@ -101,6 +103,7 @@ export function ManualIntakeForm() {
     setSafetyAlerts(Array.isArray(ep.safetyAlerts) ? ep.safetyAlerts.join(", ") : "");
     setErrorMessage(null);
     setVerifiedReferral(null);
+    intakeIdempotencyKeyRef.current = null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -146,7 +149,8 @@ export function ManualIntakeForm() {
     }
 
     try {
-      const idempotencyKey = `intake-${crypto.randomUUID()}`;
+      const idempotencyKey = intakeIdempotencyKeyRef.current ?? `intake-${crypto.randomUUID()}`;
+      intakeIdempotencyKeyRef.current = idempotencyKey;
       const response = await fetch("/api/caring-contacts/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -161,6 +165,7 @@ export function ManualIntakeForm() {
         setIsSubmitting(false);
         return;
       }
+      intakeIdempotencyKeyRef.current = null;
       setVerifiedReferral(body.value.referral ?? validated.value);
       setStagedReferralId(body.value.referralId);
     } catch {
@@ -173,6 +178,7 @@ export function ManualIntakeForm() {
   const handleReset = () => {
     setVerifiedReferral(null);
     setStagedReferralId(null);
+    intakeIdempotencyKeyRef.current = null;
     setErrorMessage(null);
     setPatientIdentifier("");
     setGivenName("");

@@ -1414,6 +1414,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
                   const record = idempotency.get(key);
                   if (record) idempotency.set(key, { ...record, result: RETENTION_CLEARED_REPLAY_ANSWER });
                 }
+                // H-44 intake sidecar: name/mobile/clinicalSummary/safetyAlerts live on the referral
+                // outside the plan row. A clearance that left them would report the episode de-identified
+                // while getReferralIntakePayload still released full clinical PHI.
+                referralIntakePayloads.delete(stored.referralId);
                 retentionCleared.set(input.planId, { terminalAt: admitted.value, clearedAt });
               },
             },
