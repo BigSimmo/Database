@@ -1494,6 +1494,24 @@ function baselineMonitoringFactFromResult(
   intent: AnswerIntent,
 ): ExtractedClinicalFact | null {
   if (intent !== "monitoring_schedule") return null;
+  // A medication in the document title cannot override a differently scoped
+  // treatment section, even when its baseline bullets contain no drug names.
+  const queryMedications = new Set(medicationSafetyEntitiesInText(query));
+  const treatmentScope = [
+    result.section_heading,
+    result.parent_heading,
+    ...(result.section_path ?? []),
+    result.index_unit?.title,
+    ...(result.index_unit?.heading_path ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (
+    queryMedications.size > 0 &&
+    medicationSafetyEntitiesInText(treatmentScope).some((medication) => !queryMedications.has(medication))
+  ) {
+    return null;
+  }
   const lines = sourceTextForClinicalProsePreservingBreaks(result.content ?? "").split(/\r?\n/);
   const headingIndex = lines.findIndex((line) => baselineMonitoringHeadingPattern.test(line));
   if (headingIndex < 0) return null;

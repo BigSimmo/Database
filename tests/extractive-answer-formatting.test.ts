@@ -2741,6 +2741,26 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
     expect(visible).toMatch(/stable-treatment monitoring/i);
   });
 
+  it.each([
+    { section_heading: "Valproate" },
+    { parent_heading: "Valproate", section_heading: "Monitoring" },
+    { section_path: ["Valproate", "Monitoring"], section_heading: "Monitoring" },
+  ])("rejects a baseline list scoped to a different medication: %j", (scope) => {
+    const answer = extractiveAnswerFor("What monitoring is required for lithium?", [
+      figureChunk({
+        title: "Lithium guideline",
+        file_name: "Lithium guideline.pdf",
+        section_heading: null,
+        parent_heading: null,
+        section_path: [],
+        ...scope,
+        content: "Baseline Tests\n• Pregnancy test\n• Full blood count",
+      }),
+    ]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].join(" ");
+    expect(delivered).not.toMatch(/baseline tests include/i);
+  });
+
   it("keeps a standalone toxicity-action request on the result-action path", () => {
     const query = "What action is required if lithium toxicity is suspected?";
     const queryClass = classifyRagQuery(query).queryClass;
