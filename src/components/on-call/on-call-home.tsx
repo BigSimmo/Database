@@ -148,6 +148,7 @@ function SwitchboardRow({ entry }: { entry: OnCallEntry }) {
         {entry.subtitle ? <span className={cn(textMuted, "text-xs")}>{entry.subtitle}</span> : null}
       </span>
       {number ? <span className="nums shrink-0 text-sm font-bold">{number.value}</span> : null}
+      <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
     </>
   );
   const className = cn(
@@ -240,7 +241,10 @@ function UpcomingRow({ session }: { session: OnCallUpcomingSession }) {
     >
       {/* A date, not a countdown: "Tue 16 Sep" is checkable against a roster in
           a way "in 4 days" is not. */}
-      <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
+      <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)] py-1">
+        <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
+          {weekdayLabel(session.date)}
+        </span>
         <span className="nums text-sm font-bold leading-none text-[color:var(--text-heading)]">{day}</span>
         <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
           {monthLabel(month, year)}
@@ -264,6 +268,22 @@ function monthLabel(month: string | undefined, year: string | undefined): string
   return MONTH_LABELS[index] ?? year ?? "";
 }
 
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Weekday for a `YYYY-MM-DD` key.
+ *
+ * Built at UTC noon and read in UTC, which is the one way to turn a bare date
+ * into a weekday without a zone shifting it a day either way — the reader is
+ * in Perth and the row is checked against a roster, so "Tue" being "Mon" is
+ * the whole failure.
+ */
+function weekdayLabel(date: string): string {
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return WEEKDAY_LABELS[parsed.getUTCDay()] ?? "";
+}
+
 /** A short local time for a recorded moment, e.g. "21:58". */
 function timeLabel(iso: string): string {
   const parsed = new Date(iso);
@@ -282,7 +302,7 @@ export function OnCallHome() {
   const wards = useMemo(() => selectWardContacts(entries), [entries]);
   const pinned = useMemo(() => selectPinnedPlaybookEntry(entries), [entries]);
   const upcoming = useMemo(() => selectUpcomingSessions(entries, today), [entries, today]);
-  const { counts, roleExplainers } = useMemo(() => countOnCallEntriesBySection(entries), [entries]);
+  const { counts } = useMemo(() => countOnCallEntriesBySection(entries), [entries]);
 
   // A Recent row names an entry the reader could see when they opened it. If
   // that entry is gone — deleted, or withheld because the session ended — the
@@ -311,7 +331,10 @@ export function OnCallHome() {
       title: "Who's who",
       description: "Roles, and who to ask",
       icon: Users,
-      count: roleExplainers,
+      // Drawn without a count, and correctly so: the other tiles count things
+      // you might go and read, while these are an explanation of the ladder.
+      // A number on it invites the reader to treat it as a list.
+      count: null,
     },
   ];
 
@@ -391,6 +414,7 @@ export function OnCallHome() {
                 const href = onCallTelHref(number?.value);
                 const target = href ?? ON_CALL_SECTION_HREFS[entry.section];
                 const at = timeLabel(item.at);
+                const RecentIcon = ON_CALL_SECTION_ICONS[entry.section];
                 return (
                   <a
                     key={item.id}
@@ -403,6 +427,12 @@ export function OnCallHome() {
                       focusRing,
                     )}
                   >
+                    {/* The section's own glyph, so a row is recognisable as a
+                        contact, a service or a scenario before the title is
+                        read — the drawing's leading icon. */}
+                    <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
+                      <RecentIcon aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
+                    </span>
                     <span className="min-w-0 flex-1 grid gap-0.5">
                       <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
                         {entry.title}
@@ -410,7 +440,21 @@ export function OnCallHome() {
                       {at ? <span className={cn(textMuted, "nums text-xs")}>{at}</span> : null}
                     </span>
                     {number ? <span className="nums shrink-0 text-sm font-bold">{number.value}</span> : null}
-                    <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+                    {/* A call affordance, not a control: the whole row already
+                        dials, and a real button inside a link is invalid
+                        markup that hands a screen reader two targets for one
+                        action. The drawing's own `role="button"` here is a
+                        drawing, not a contract. */}
+                    {href ? (
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[color:var(--command)] text-[color:var(--command-contrast)]">
+                        <Phone aria-hidden="true" className="size-icon-sm" />
+                      </span>
+                    ) : (
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="size-icon-sm shrink-0 text-[color:var(--text-muted)]"
+                      />
+                    )}
                   </a>
                 );
               })}
@@ -458,7 +502,9 @@ export function OnCallHome() {
                       {/* A count, in ordinary ink. `Status never by colour alone`
                           cuts both ways: a number is not a status and must not be
                           painted like one. */}
-                      <span className="nums text-xs font-bold text-[color:var(--text-muted)]">{tile.count}</span>
+                      {tile.count === null ? null : (
+                        <span className="nums text-xs font-bold text-[color:var(--text-muted)]">{tile.count}</span>
+                      )}
                     </span>
                     <span className="grid gap-0.5">
                       <span className="text-sm font-semibold text-[color:var(--text-heading)]">{tile.title}</span>
