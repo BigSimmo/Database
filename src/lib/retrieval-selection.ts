@@ -516,8 +516,11 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     /\b(?:image|figure|visual)\b.*\b(?:source|table|chart|matrix)\b/.test(normalizedQuery);
   const asksExactVisualTable =
     asksSourceImage && /\b(?:table|chart|matrix|anc|fbc|monitoring|threshold|row)\b/.test(normalizedQuery);
+  // A dose mentioned only as the monitoring clock must not request a dosing
+  // chart. Keep established ranking for other monitoring and chart queries.
+  const monitoringDoseTimingOnly = asksMedicationMonitoring && !asksDoseRoute && /\bdose\b/.test(normalizedQuery);
   const asksMedicationChart =
-    queryClass === "medication_dose_risk" ||
+    (queryClass === "medication_dose_risk" && !monitoringDoseTimingOnly) ||
     /\b(?:medication chart|dose chart|dosing chart|pharmacological management|agitation|arousal)\b/.test(
       normalizedQuery,
     );

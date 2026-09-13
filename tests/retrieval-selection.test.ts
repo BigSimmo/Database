@@ -25,6 +25,27 @@ function source(overrides: Partial<SearchResult> = {}): SearchResult {
   };
 }
 
+describe("monitoring intent selection", () => {
+  it("does not require dose amounts or boost medication charts for a monitoring schedule", () => {
+    const intent = buildRetrievalIntent(
+      "Give a detailed lithium monitoring schedule, including baseline tests and levels after dose changes.",
+      "medication_dose_risk",
+    );
+    expect(intent.needsMedicationChart).toBe(false);
+    expect(intent.needsDoseRouteFrequency).toBe(false);
+    expect(intent.requiredTermSignals).toEqual(["clinical_subject"]);
+  });
+
+  it("retains chart preference when monitoring accompanies an explicit prescribed dose request", () => {
+    const intent = buildRetrievalIntent(
+      "What lithium dose should be prescribed and what monitoring is needed after dose changes?",
+      "medication_dose_risk",
+    );
+    expect(intent.needsMedicationChart).toBe(true);
+    expect(intent.requiredTermSignals).toContain("dose_amount");
+  });
+});
+
 function sourceMetadata(
   overrides: Partial<NonNullable<SearchResult["source_metadata"]>> = {},
 ): NonNullable<SearchResult["source_metadata"]> {

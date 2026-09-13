@@ -46,6 +46,7 @@ export type RagProgrammeRolloutInput = {
   publicSiteContentReleaseDigest: string | null;
   publicSiteContentChangeEpoch: string | null;
   publicSiteContentState: SiteContentPartitionState;
+  governedRetrievalEnabled: boolean;
   siteContentEnabled: boolean;
   australianAugmentationEnabled: boolean;
   adaptiveAnswerEnabled: boolean;
@@ -54,6 +55,7 @@ export type RagProgrammeRolloutInput = {
 export type RagProgrammeRolloutDecision = Readonly<{
   configuredMode: RagProgrammeMode;
   servedMode: "legacy" | "candidate";
+  retrievalMode: RagProgrammeMode;
   runShadowRetrieval: boolean;
   components: Readonly<{
     siteContent: boolean;
@@ -65,6 +67,45 @@ export type RagProgrammeRolloutDecision = Readonly<{
   cacheNamespace: string;
 }>;
 
+function fullRolloutAvailability(
+  args: Pick<
+    RagProgrammeRolloutInput,
+    "configuredMode" | "canaryBasisPoints" | "adaptiveAnswerEnabled" | "adaptiveRenderEnabled"
+  >,
+  producerAvailable: boolean,
+  rendererAvailable: boolean,
+  generationProviderAvailable: boolean,
+  coverageContractAvailable: boolean,
+) {
+  const eligible = args.configuredMode === "canary" && args.canaryBasisPoints === 10000;
+  const adaptiveAnswer =
+    eligible &&
+    args.adaptiveAnswerEnabled === true &&
+    producerAvailable === true &&
+    generationProviderAvailable &&
+    coverageContractAvailable;
+  const adaptiveRender = adaptiveAnswer && args.adaptiveRenderEnabled === true && rendererAvailable === true;
+  const reason =
+    args.configuredMode !== "canary"
+      ? "programme_not_canary"
+      : args.canaryBasisPoints !== 10000
+        ? "full_rollout_not_enabled"
+        : args.adaptiveAnswerEnabled !== true
+          ? "adaptive_answer_disabled"
+          : args.adaptiveRenderEnabled !== true
+            ? "adaptive_render_disabled"
+            : producerAvailable !== true
+              ? "adaptive_producer_unavailable"
+              : rendererAvailable !== true
+                ? "adaptive_renderer_unavailable"
+                : !generationProviderAvailable
+                  ? "generation_provider_unavailable"
+                  : !coverageContractAvailable
+                    ? "governed_coverage_contract_unavailable"
+                    : "enabled";
+  return { eligible, adaptiveAnswer, adaptiveRender, generationProviderAvailable, coverageContractAvailable, reason };
+}
+
 export function decideRagProgrammeRollout(
   args: RagProgrammeRolloutInput,
   producerAvailable: boolean = ragProgrammeVersions.adaptiveProducerAvailable,
@@ -75,7 +116,10 @@ export function decideRagProgrammeRollout(
     Number.isInteger(args.canaryBasisPoints) &&
     args.canaryBasisPoints >= 0 &&
     args.canaryBasisPoints <= 10000 &&
+    (args.serverSalt === undefined ||
+      (typeof args.serverSalt === "string" && (!args.serverSalt.trim() || args.serverSalt.trim().length >= 32))) &&
     [
+      args.governedRetrievalEnabled,
       args.siteContentEnabled,
       args.australianAugmentationEnabled,
       args.adaptiveAnswerEnabled,
@@ -92,9 +136,18 @@ export function decideRagProgrammeRollout(
     args.serverSalt.length >= 32
       ? createHmac("sha256", args.serverSalt).update(args.ownerId).digest().readUInt32BE(0) % 10000
       : null;
-  const servedMode = cohortBucket !== null && cohortBucket < args.canaryBasisPoints ? "candidate" : "legacy";
-  const runShadowRetrieval = valid && configuredMode === "shadow";
-  const enabled = servedMode === "candidate" || runShadowRetrieval;
+  // Full releases apply to every reader. Partial releases retain owner HMAC cohorts;
+  // an anonymous request has no invented owner or tracking identity.
+  const fullRollout = valid && configuredMode === "canary" && args.canaryBasisPoints === 10000;
+  const servedMode =
+    fullRollout || (cohortBucket !== null && cohortBucket < args.canaryBasisPoints) ? "candidate" : "legacy";
+  const runShadowRetrieval = valid && args.governedRetrievalEnabled && configuredMode === "shadow";
+  const retrievalMode = runShadowRetrieval
+    ? "shadow"
+    : servedMode === "candidate" && args.governedRetrievalEnabled
+      ? "canary"
+      : "legacy";
+  const enabled = retrievalMode !== "legacy";
   const siteValid =
     ["current", "updating"].includes(args.publicSiteContentState) &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
@@ -123,10 +176,12 @@ export function decideRagProgrammeRollout(
             JSON.stringify([
               ragProgrammeVersions,
               servedMode,
+              retrievalMode,
               components,
               args.queryPlanVersion,
               args.sourcePolicyVersion,
               args.indexGeneration,
+              args.governedRetrievalEnabled,
               args.siteContentEnabled,
               args.australianAugmentationEnabled,
               args.adaptiveAnswerEnabled,
@@ -143,7 +198,15 @@ export function decideRagProgrammeRollout(
             ]),
           )
           .digest("hex");
-  return Object.freeze({ configuredMode, servedMode, runShadowRetrieval, components, cohortBucket, cacheNamespace });
+  return Object.freeze({
+    configuredMode,
+    servedMode,
+    retrievalMode,
+    runShadowRetrieval,
+    components,
+    cohortBucket,
+    cacheNamespace,
+  });
 }
 
 export function adaptiveAnswerRenderAllowed(
@@ -227,6 +290,7 @@ export function withRagProgrammeRollout<T extends SearchChunksArgs & { observati
         publicSiteContentReleaseDigest: site.releaseDigest,
         publicSiteContentChangeEpoch: site.changeEpoch,
         publicSiteContentState: site.state,
+        governedRetrievalEnabled: env.RAG_GOVERNED_RETRIEVAL_ENABLED ?? false,
         siteContentEnabled: env.RAG_SITE_CONTENT_ENABLED ?? false,
         australianAugmentationEnabled: env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED ?? false,
         adaptiveAnswerEnabled: env.RAG_ADAPTIVE_ANSWER_ENABLED ?? false,
@@ -241,16 +305,19 @@ export function withRagProgrammeRollout<T extends SearchChunksArgs & { observati
       requestIdentity: requestIdentity(args),
       australianCurrent,
     });
-  const mode = decision.runShadowRetrieval ? "shadow" : decision.servedMode === "candidate" ? "canary" : "legacy";
+  const mode = decision.retrievalMode;
+  const observationMode = decision.servedMode === "candidate" ? "canary" : mode;
   return {
     ...args,
     ragProgrammeRollout: decision,
     ragQueryPlanVersion,
     answerSourcePolicy: args.answerSourcePolicy ?? resolveAnswerSourcePolicy(args.query),
-    ...(args.observationContext ? { observationContext: { ...args.observationContext, rolloutMode: mode } } : {}),
+    ...(args.observationContext
+      ? { observationContext: { ...args.observationContext, rolloutMode: observationMode } }
+      : {}),
     ragQueryPlanMode: mode,
     governedCorpusComponents:
-      decision.servedMode === "candidate" || decision.runShadowRetrieval
+      mode !== "legacy"
         ? Object.freeze({
             siteContent: decision.components.siteContent,
             australianAugmentation: decision.components.australianAugmentation,
@@ -262,16 +329,38 @@ export function withRagProgrammeRollout<T extends SearchChunksArgs & { observati
 
 /** Content-free operator projection; no cohort inputs or bucket. */
 export function ragProgrammeHealth() {
+  const configuredMode = env.RAG_PROGRAMME_MODE ?? "legacy";
+  const governedRetrievalEnabled = env.RAG_GOVERNED_RETRIEVAL_ENABLED ?? false;
+  const retrievalMode =
+    governedRetrievalEnabled &&
+    (configuredMode === "shadow" || (configuredMode === "canary" && (env.RAG_PROGRAMME_CANARY_BASIS_POINTS ?? 0) > 0))
+      ? configuredMode
+      : "legacy";
   return {
-    configuredMode: env.RAG_PROGRAMME_MODE ?? "legacy",
+    configuredMode,
+    retrieval: { governedRetrievalEnabled, mode: retrievalMode },
     candidatePercentage: (env.RAG_PROGRAMME_CANARY_BASIS_POINTS ?? 0) / 100,
+    audiences: { guests: "full-rollout", authenticated: "owner-cohort-or-full-rollout" },
+    fullRollout: fullRolloutAvailability(
+      {
+        configuredMode: env.RAG_PROGRAMME_MODE ?? "legacy",
+        canaryBasisPoints: env.RAG_PROGRAMME_CANARY_BASIS_POINTS ?? 0,
+        adaptiveAnswerEnabled: env.RAG_ADAPTIVE_ANSWER_ENABLED ?? false,
+        adaptiveRenderEnabled: env.RAG_ADAPTIVE_ANSWER_RENDER_ENABLED ?? false,
+      },
+      ragAdaptiveAnswerProducerAvailable,
+      ragAdaptiveAnswerRenderAvailable,
+      env.RAG_PROVIDER_MODE !== "offline" && Boolean(env.OPENAI_API_KEY),
+      retrievalMode === "canary",
+    ),
     components: {
-      siteContent: env.RAG_SITE_CONTENT_ENABLED ?? false,
-      australianAugmentation: env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED ?? false,
+      siteContent: retrievalMode !== "legacy" && (env.RAG_SITE_CONTENT_ENABLED ?? false),
+      australianAugmentation: retrievalMode !== "legacy" && (env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED ?? false),
       adaptiveAnswer: env.RAG_ADAPTIVE_ANSWER_ENABLED ?? false,
       adaptiveRender: env.RAG_ADAPTIVE_ANSWER_RENDER_ENABLED ?? false,
     },
-    augmentationHealth: env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED ? "unavailable" : "disabled",
+    augmentationHealth:
+      retrievalMode !== "legacy" && env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED ? "unavailable" : "disabled",
     versions: ragProgrammeVersions,
   };
 }

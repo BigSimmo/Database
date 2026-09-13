@@ -133,19 +133,15 @@ export function createAnswerRouteDeadline(args: {
       return Math.max(1, Math.min(maximumMs, remainingMs() - generationRecoveryReserveMs));
     },
     race<T>(promise: Promise<T>) {
-      try {
-        throwIfAborted();
-      } catch (error) {
-        return Promise.reject(error);
-      }
-
       return new Promise<T>((resolve, reject) => {
         const cleanup = () => controller.signal.removeEventListener("abort", onAbort);
         const onAbort = () => {
           cleanup();
           reject(abortReason(controller.signal));
         };
-        controller.signal.addEventListener("abort", onAbort, { once: true });
+        // Own the supplied promise even when its synchronous setup aborted the
+        // caller before race was entered. Its eventual rejection must stay on
+        // this race's error path rather than becoming an unhandled rejection.
         promise.then(
           (value) => {
             cleanup();
@@ -156,6 +152,13 @@ export function createAnswerRouteDeadline(args: {
             reject(error);
           },
         );
+        try {
+          throwIfAborted();
+        } catch (error) {
+          reject(error);
+          return;
+        }
+        controller.signal.addEventListener("abort", onAbort, { once: true });
       });
     },
     dispose() {

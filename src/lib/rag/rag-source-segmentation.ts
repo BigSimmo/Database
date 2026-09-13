@@ -1,4 +1,7 @@
 const numberedSourceHeadingPattern = /^(?:\d+(?:\.\d+)+\.?|\d{1,2}\.)\s+[A-Z]/;
+const numberedSourceItemPattern = /^\d{1,2}\.\s+/;
+const numberedClinicalActionPattern =
+  /^\d{1,2}\.\s+(?:(?:MO|nurse|pharmacist|medical\s+officer|doctor|clinician|prescriber)\b[^.!?\n]{0,120}?\bto\s+)?(?:withhold|cease|stop|check|assess|contact|notify|seek|repeat)\b/i;
 const sourceBulletLinePattern = /^[•*\-–—]\s+/;
 const wrappedEscalationActionLinePattern =
   /\b(?:must|should|needs?\s+to|is\s+to|are\s+to|required\s+to)\s+(?:(?:promptly|urgently|immediately|directly|also|then)\s+){0,2}(?:be\s+)?escalat(?:e|ed)\s*$/i;
@@ -128,9 +131,13 @@ export function reflowBoundedSourceLines(value: string, options?: { requireConti
       flush();
       continue;
     }
-    if (numberedSourceHeadingPattern.test(line)) {
+    if (numberedSourceHeadingPattern.test(line) || numberedSourceItemPattern.test(line)) {
       flush();
-      blocks.push(line);
+      // A numbered procedure item can itself wrap mid-sentence. Keep its
+      // visible continuation in the same evidence passage; the next heading,
+      // bullet, blank line or terminator still closes that passage.
+      if (numberedClinicalActionPattern.test(line) && !/[.!?:]\s*$/.test(line)) wrappedLines.push(line);
+      else blocks.push(line);
       continue;
     }
     if (sourceBulletLinePattern.test(line)) flush();

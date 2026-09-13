@@ -479,3 +479,41 @@ commented entry so `npm run check:env-parity` knows the name.
   `railway metrics`) cover CPU/memory/HTTP; the app additionally emits
   `Server-Timing` and `latencyTimings` (including `supabase_rpc_latency_ms`,
   the cross-region signal from §2.1) on the answer path.
+
+### Adaptive answer release activation proof
+
+An adaptive release uses the existing server controls: `RAG_PROGRAMME_MODE=canary`,
+`RAG_PROGRAMME_CANARY_BASIS_POINTS=10000`, `RAG_ADAPTIVE_ANSWER_ENABLED=true`, and
+`RAG_ADAPTIVE_ANSWER_RENDER_ENABLED=true`. At 100%, guests and authenticated readers
+receive the same configured capabilities without a cohort identity. Partial rollouts
+retain authenticated HMAC cohorts and leave guests on legacy. Public/private access
+scope is unchanged. Site content and Australian augmentation remain independently
+controlled; an answer release does not turn them on. Keep
+`RAG_GOVERNED_RETRIEVAL_ENABLED=false` while using the existing library: this uses the
+existing document retrieval path. Sources without governed coverage retain the
+verified legacy answer contract and must never be reported as adaptive answers.
+Enable the governed corpus path only after its
+publications and retrieval acceptance have been verified. An empty governed result
+never silently falls back to another corpus. `legacy` remains the answer rollback.
+
+After an authorized deployment, supply `DEPLOY_ACTIVATION_URL` (the HTTPS origin),
+`DEPLOY_EXPECTED_SHA` (the full 40-character release commit), and the existing operator
+`HEALTH_DEEP_PROBE_SECRET` through the secret store, then run:
+
+```bash
+npm run check:deployment-readiness -- --activation
+```
+
+This performs one authenticated deep-health request, which includes read-only hosted
+health probes and therefore requires provider authorization. It emits bounded JSON and
+exits nonzero on SHA, readiness, audience, producer, renderer, effective generation
+provider, or full-rollout mismatch. A configured key in offline mode cannot pass.
+It also requires the governed coverage contract. A legacy-format library can receive
+shared answer fixes, but cannot pass adaptive activation merely by enabling flags.
+It never prints the token or health payload. Without `--activation`, the existing local
+boot smoke is unchanged. Health's `ragProgramme.fullRollout` projection shows effective
+eligibility, generation/render availability, and a reason when disabled. This proves
+release activation; answer quality and per-request evidence failures still require their
+own acceptance evidence. Do not declare a guest release enabled from boot success alone.
+The shared `/api/health/ready` cache excludes operator diagnostics even when a caller
+sends a valid token; activation uses the uncached `/api/health?deep=1` endpoint.

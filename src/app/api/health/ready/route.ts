@@ -31,6 +31,8 @@ export async function GET(request: Request) {
     includeSlo: false,
     includeCache: false,
     includeCoalescing: false,
+    includeSpend: false,
+    includeOperatorDiagnostics: false,
   });
   const body = (await response.clone().json()) as unknown;
   cachedReady = { expiresAt: now + READY_CACHE_TTL_MS, body, status: response.status };

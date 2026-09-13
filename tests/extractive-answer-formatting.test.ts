@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import lithiumLiveExcerpts from "./fixtures/lithium-monitoring-live-excerpts.json";
 import { citationFromResult } from "../src/lib/citations";
 import {
   adjacentLabelledNumericBandConflicts,
@@ -6,6 +7,7 @@ import {
 } from "../src/lib/answer-verification";
 import {
   buildExtractiveAnswer,
+  classifyAnswerIntent,
   documentSupportListIntent,
   finalizeRagAnswerQuality,
   generatedAnswerQualityFailureReason,
@@ -59,6 +61,21 @@ function figureChunk(overrides: Partial<SearchResult>): SearchResult {
     images: [],
     ...overrides,
   } as unknown as SearchResult;
+}
+
+function capturedLithiumSource(caseId: "literal" | "timing" | "detailed", sourceIndex = 0) {
+  const captured = lithiumLiveExcerpts.cases.find((entry) => entry.id === caseId);
+  const entry = captured?.sources[sourceIndex];
+  if (!captured || !entry) throw new Error(`Missing captured lithium source: ${caseId}/${sourceIndex}`);
+  return {
+    query: captured.query,
+    source: figureChunk({
+      ...entry,
+      file_name: `${entry.title}.pdf`,
+      section_heading: null,
+      source_metadata: entry.source_metadata as SearchResult["source_metadata"],
+    }),
+  };
 }
 
 describe("source-bound clozapine red-range extraction", () => {
@@ -2576,6 +2593,204 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
 // "annually", "monitored", bare durations, and the level-range/metabolic-panel
 // vocabulary were all rejected. These pin the widened shared vocabulary.
 describe("monitoring evidence gate parity (run-#60 miss class)", () => {
+  it("binds source-scoped steady-state timing to its immediate qualifier", () => {
+    const { query, source } = capturedLithiumSource("timing");
+    const queryClass = classifyRagQuery(query).queryClass;
+    const raw = extractiveAnswerFor(query, [source]);
+    const answer = finalizeRagAnswerQuality(
+      { ...raw, routingReason: `${raw.routingReason}; source_backed_extractive_fallback` },
+      query,
+      queryClass,
+      [source],
+    );
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(delivered).toMatch(/12 hours after the last dose/i);
+    expect(delivered).toMatch(/steady state concentration is achieved after 5-7 days/i);
+    expect(delivered).toMatch(/5-7 days\. This may be longer \(between 7-10 days\)/i);
+    expect(delivered).toMatch(/elderly|renal impairment/i);
+    expect(delivered).not.toMatch(/For lithium, this may be longer/i);
+  });
+
+  it("does not borrow a foreign analyte interval from a lithium-titled source", () => {
+    const answer = extractiveAnswerFor("What monitoring is required for lithium?", [
+      figureChunk({
+        id: "lithium-title-foreign-analyte-timing",
+        title: "Lithium monitoring guideline",
+        content: "For lithium, TSH levels should be sampled 12 hours after the last dose.",
+      }),
+    ]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+
+    expect(delivered).not.toMatch(/TSH levels should be sampled 12 hours/i);
+  });
+
+  it("retains distinct supported cadences within the same monitoring facet", () => {
+    const answer = extractiveAnswerFor("What monitoring and risks apply to lithium?", [
+      figureChunk({
+        id: "lithium-multiple-ongoing-cadences",
+        title: "Australian lithium monitoring guideline",
+        content:
+          "Lithium monitoring includes renal function every six months. Check lithium levels every three months.",
+      }),
+    ]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(delivered).toContain("renal function every six months");
+    expect(delivered).toContain("lithium levels every three months");
+  });
+
+  it("retains source-supported facets from an OCR baseline monitoring block", () => {
+    const { query, source } = capturedLithiumSource("literal");
+    const raw = extractiveAnswerFor(query, [source]);
+    const rawVisible = [raw.answer, ...(raw.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+    expect(rawVisible, JSON.stringify(raw.answerSections)).toMatch(/every 3–6 months/i);
+    const answer = finalizeRagAnswerQuality(raw, query, classifyRagQuery(query).queryClass, [source]);
+    expect(splitClinicalEvidenceSentences(source.content).join(" ")).toMatch(
+      /Serum lithium concentrations tend to fluctuate for 6–10 hours after dosing, so the 12-hour post-dose serum concentration is used for monitoring purposes/i,
+    );
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+
+    expect(answer.grounded).toBe(true);
+    expect(delivered).toMatch(/In Lithium\s*\(CAMHS\), baseline tests include Full Blood Picture/i);
+    expect(delivered).toMatch(/Renal function/i);
+    expect(delivered).toMatch(/Calcium levels/i);
+    expect(delivered).toMatch(/Thyroid Function Test/i);
+    expect(delivered).toMatch(/TSH and T4/i);
+    expect(delivered).toMatch(/12-hour post-dose/i);
+    expect(delivered).toMatch(/5–7 days after starting treatment/i);
+    expect(delivered).toMatch(/dose change until stabilised/i);
+    expect(delivered).toMatch(/once every three months/i);
+    expect(delivered).toMatch(/every 3–6 months/i);
+    expect(answer.answerSections?.every((section) => section.citation_chunk_ids.every((id) => id === source.id))).toBe(
+      true,
+    );
+    expect(answer.answerSections?.every((section) => !section.body.includes(answer.answer))).toBe(true);
+  });
+
+  it("does not present an appendix form heading as clinical monitoring guidance", () => {
+    const captured = lithiumLiveExcerpts.cases.find((entry) => entry.id === "literal");
+    const appendix = captured?.sources.find((entry) => /^Appendix I: Lithium Monitoring Form/m.test(entry.content));
+    if (!captured || !appendix) throw new Error("Missing captured lithium appendix source");
+    const source = figureChunk({
+      ...appendix,
+      file_name: `${appendix.title}.pdf`,
+      section_heading: null,
+      source_metadata: appendix.source_metadata as SearchResult["source_metadata"],
+    });
+    const answer = extractiveAnswerFor(captured.query, [source]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].join(" ");
+
+    expect(delivered).not.toMatch(/Appendix I:\s*Lithium Monitoring Form/i);
+  });
+
+  it("keeps a multi-facet monitoring schedule primary while retaining an atomic toxicity action", () => {
+    const captured = lithiumLiveExcerpts.cases.find((entry) => entry.id === "detailed");
+    if (!captured) throw new Error("Missing captured detailed lithium case");
+    const sources = captured.sources.map((entry) =>
+      figureChunk({
+        ...entry,
+        file_name: `${entry.title}.pdf`,
+        section_heading: null,
+        source_metadata: entry.source_metadata as SearchResult["source_metadata"],
+      }),
+    );
+    const queryClass = classifyRagQuery(captured.query).queryClass;
+    expect(classifyAnswerIntent(captured.query, queryClass)).toBe("monitoring_schedule");
+
+    const raw = extractiveAnswerFor(captured.query, sources, queryClass);
+    const rawToxicity = raw.answerSections?.find((section) => section.heading === "Suspected toxicity");
+    expect(rawToxicity?.body, JSON.stringify(raw.answerSections)).toMatch(
+      /check the serum lithium level.*renal function/i,
+    );
+    expect([raw.answer, ...(raw.answerSections ?? []).map((section) => section.body)].join(" ")).toMatch(
+      /For (?:acute mania|BPAD prophylaxis|older adult), the target serum level is/i,
+    );
+    const answer = finalizeRagAnswerQuality(
+      { ...raw, routingReason: `${raw.routingReason}; source_backed_extractive_fallback` },
+      captured.query,
+      queryClass,
+      sources,
+    );
+    const visible = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+    const toxicitySource = captured.sources.find((entry) => /withhold lithium/i.test(entry.content));
+    const toxicitySection = answer.answerSections?.find((section) => section.heading === "Suspected toxicity");
+
+    expect(answer.grounded).toBe(true);
+    expect(visible).toMatch(/12 hours after the last dose/i);
+    expect(visible).toMatch(/For (?:acute mania|BPAD prophylaxis|older adult), the target serum level is/i);
+    expect(visible).toMatch(/withhold lithium/i);
+    expect(visible).toMatch(/check the serum lithium level.*renal function/i);
+    expect(toxicitySection?.kind).toBe("required_actions");
+    expect(toxicitySection?.citation_chunk_ids).toEqual([toxicitySource?.id]);
+    expect(visible).toMatch(/This answer does not establish: baseline tests/i);
+    expect(visible).toMatch(/stable-treatment monitoring/i);
+  });
+
+  it.each([
+    { section_heading: "Valproate" },
+    { parent_heading: "Valproate", section_heading: "Monitoring" },
+    { section_path: ["Valproate", "Monitoring"], section_heading: "Monitoring" },
+  ])("rejects a baseline list scoped to a different medication: %j", (scope) => {
+    const answer = extractiveAnswerFor("What monitoring is required for lithium?", [
+      figureChunk({
+        title: "Lithium guideline",
+        file_name: "Lithium guideline.pdf",
+        parent_heading: null,
+        section_path: [],
+        ...scope,
+        content: "Baseline Tests\n• Pregnancy test\n• Full blood count",
+      }),
+    ]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)].join(" ");
+    expect(delivered).not.toMatch(/baseline tests include/i);
+  });
+
+  it("keeps a standalone toxicity-action request on the result-action path", () => {
+    const query = "What action is required if lithium toxicity is suspected?";
+    const queryClass = classifyRagQuery(query).queryClass;
+    expect(classifyAnswerIntent(query, queryClass)).toBe("red_result_action");
+  });
+
+  it.each([
+    "After changing the dose, check serum lithium levels after 5 days.",
+    "Check serum lithium levels every 7 days after a dose change.",
+  ])("keeps baseline population scope and uses evidence-specific change headings: %s", (changeInstruction) => {
+    const answer = extractiveAnswerFor("What monitoring is required for lithium?", [
+      figureChunk({
+        id: "population-scoped-lithium-monitoring",
+        title: "Lithium guideline",
+        file_name: "Lithium guideline.pdf",
+        section_heading: "Monitoring",
+        parent_heading: "Children and adolescents",
+        section_path: ["Children and adolescents", "Monitoring"],
+        content: ["Baseline Tests1", "• Full Blood Picture", "• Renal function", changeInstruction].join("\n"),
+      }),
+    ]);
+    const delivered = [answer.answer, ...(answer.answerSections ?? []).map((section) => section.body)]
+      .join(" ")
+      .replace(/\*\*/g, "");
+
+    expect(delivered).toMatch(/In Lithium guideline, Children and adolescents, baseline tests include/i);
+    expect(answer.answerSections?.some((section) => section.heading === "Dose changes")).toBe(true);
+    expect(answer.answerSections?.some((section) => section.heading === "Starting and dose changes")).toBe(false);
+    expect(answer.answerSections?.every((section) => section.body.length <= 600)).toBe(true);
+  });
+
   it("carries a lithium range heading across flattened cohort bullets and selects maintenance", () => {
     const content =
       "• Baseline weight (desirable) All patients commenced on lithium must be provided with written information. 4.4 Dosing and Therapeutic Drug Monitoring Lithium dose is titrated according to patient response and plasma levels. Consider all interacting medication when prescribing lithium and if necessary adjust dose and/or monitoring. The recommended therapeutic serum lithium range for:\n• ACUTE mania is between 0.5 -1.2 mmol/L.\n• MAINTENANCE treatment is between 0.5 -1.0 mmol/L.\n• In the elderly (>65 years) is between 0.4 -0.7 mmol/L.";
