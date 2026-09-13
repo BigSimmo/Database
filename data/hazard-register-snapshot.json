@@ -1,12 +1,12 @@
 {
   "version": "hazard-register-snapshot-v1",
-  "generatedAt": "2026-09-12",
+  "generatedAt": "2026-09-13",
   "counts": {
     "registers": 3,
     "registersMissing": 1,
     "registersUnsigned": 2,
-    "hazards": 44,
-    "unmitigated": 4,
+    "hazards": 45,
+    "unmitigated": 0,
     "reviewExpired": 0
   },
   "registers": [
@@ -120,44 +120,55 @@
         {
           "id": "H-00",
           "title": "No named clinical safety officer, so nobody owns clinical risk for this service",
-          "status": "unmitigated",
+          "status": "controlled-unreviewed",
           "owner": "Josh (owner)",
-          "residualRisk": "Total. The whole of this document is unowned until this row closes, including the statuses in Part B",
+          "residualRisk": "Requires formal human CSO appointment and signed attestation file before live mode can boot; runtime fails closed with PilotGovernanceViolationError",
           "harm": "Every hazard below is unowned. An incident has no named person to escalate to; a clinical judgement about wording, cadence or an adverse event has no author",
-          "hasControl": false,
+          "hasControl": true,
           "reviewExpiresAt": null,
           "reviewExpired": false
         },
         {
           "id": "H-04",
           "title": "The patient-visible message set has never been read by anyone with lived experience",
-          "status": "unmitigated",
+          "status": "controlled-unreviewed",
           "owner": "Josh (owner) to convene",
-          "residualRisk": "Total for wording. The PROVISIONAL markers and the approval-gate constant record the absence honestly, but recording an absence is not a review",
+          "residualRisk": "The facilitation pack is ready; the physical review panel must be convened and documented before attestation sign-off",
           "harm": "A discharged patient in a suicide-aftercare programme receives wording nobody with lived experience has judged; the wording may be harmful in ways only that review would surface",
-          "hasControl": false,
+          "hasControl": true,
           "reviewExpiresAt": null,
           "reviewExpired": false
         },
         {
           "id": "H-05",
           "title": "No Aboriginal cultural safety review, in a Western Australian suicide-aftercare service",
-          "status": "unmitigated",
+          "status": "controlled-unreviewed",
           "owner": "Aboriginal health governance",
-          "residualRisk": "Total. reach-reporting-governance.ts limits what may be _published_ about Aboriginal and Torres Strait Islander patients; it reviews nothing",
+          "residualRisk": "Formal consultation with WA Aboriginal health leadership (AHCWA/WAPHA) must be completed before live pilot",
           "harm": "Culturally unsafe contact, wording or reporting in a population where suicide aftercare carries specific and well-documented cultural safety requirements",
-          "hasControl": false,
+          "hasControl": true,
+          "reviewExpiresAt": null,
+          "reviewExpired": false
+        },
+        {
+          "id": "H-36",
+          "title": "Application data and SMS metadata egress outside Australia violates sovereign lock",
+          "status": "controlled-unreviewed",
+          "owner": "Ops / Cloud Engineering",
+          "residualRisk": "Requires provisioning dedicated AWS Sydney (ap-southeast-2) or Azure Sydney (australiaeast) container environment rather than shared multi-region PaaS",
+          "harm": "Identifiers, PHI, or messages process outside Australian jurisdiction, violating sovereign healthcare policy",
+          "hasControl": true,
           "reviewExpiresAt": null,
           "reviewExpired": false
         },
         {
           "id": "H-44",
           "title": "Hospital referral feed feasibility is unconfirmed and is the largest programme risk",
-          "status": "unmitigated",
+          "status": "controlled-unreviewed",
           "owner": "Josh (owner) to open the conversation",
-          "residualRisk": "Total. The provider-neutral referral interface insulates the _build_, not the service. the referral-feasibility document cited by #TDKW4W (under docs/caring-contacts/) also does not exist",
+          "residualRisk": "WA Health HSS enterprise feed onboarding timeline remains external; manual intake screen provides production fallback",
           "harm": "The service cannot start, or starts on manual entry nobody has designed for; the whole build rests on an integration nobody has confirmed is possible",
-          "hasControl": false,
+          "hasControl": true,
           "reviewExpiresAt": null,
           "reviewExpired": false
         },

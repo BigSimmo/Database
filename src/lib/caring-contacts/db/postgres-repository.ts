@@ -18,7 +18,7 @@ import type { Clock } from "../clock";
 import type { ContactDateChangeRequest, ContactMoveRequest } from "../contact-rescheduling";
 import type { Episode } from "../episode";
 import { fingerprintOf } from "../fingerprint";
-import type { ContactId, PathwayVersionId, PlanId, TeamId } from "../ids";
+import type { ContactId, PathwayVersionId, PlanId, ReferralId, TeamId } from "../ids";
 import type { Referral, TransitionResult } from "../model";
 import type { NotificationPreferences } from "../notification-preferences";
 import type { PathwayVersion } from "../pathway-versions";
@@ -40,6 +40,7 @@ import {
   type PlanLifecycleInput,
   type PlanRecord,
   type ReadContext,
+  type ReferralIntakePayload,
   type ReferralTransitionInput,
   type RepositoryOptions,
   type ResolveDiscrepancyInput,
@@ -345,6 +346,13 @@ export class PostgresCaringContactsRepository implements CaringContactRepository
 
   listReferrals(context: ReadContext): Promise<Referral[]> {
     return this.plansStore.listReferrals(context);
+  }
+
+  getReferralIntakePayload(
+    referralId: ReferralId,
+    context: ReadContext,
+  ): Promise<ReferralIntakePayload | null> {
+    return this.plansStore.getReferralIntakePayload(referralId, context);
   }
 
   savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext): Promise<TransitionResult<PathwayVersion>> {

@@ -51,6 +51,7 @@ import {
   type CreatePlanInput,
   type CreateReferralInput,
   type HospitalStatusInput,
+  type ReferralIntakePayload,
   type HospitalStatusOutcome,
   type PathwayVersionTransitionInput,
   type PatientNameProjection,
@@ -554,12 +555,21 @@ export class PlansStore {
           state: "awaitingHandover",
           pathwayVersionId: null,
         };
+        const intakePayload = input.intakePayload ?? null;
 
+        // intake_payload is the H-44 clinical sidecar (migration 0010_referral_intake_payload);
+        // omitted createReferral callers leave it null so identifier-only referrals stay valid.
         const inserted = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
           connection.query(
-            `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
-             values ($1, $2, $3, $4, null)`,
-            [referral.id, referral.teamId, referral.patientId, referral.state],
+            `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id, intake_payload)
+             values ($1, $2, $3, $4, null, $5::jsonb)`,
+            [
+              referral.id,
+              referral.teamId,
+              referral.patientId,
+              referral.state,
+              intakePayload ? JSON.stringify(intakePayload) : null,
+            ],
           ),
         );
         if (!inserted.ok) {
@@ -618,6 +628,21 @@ export class PlansStore {
     return this.ctx.runRead(context, async (connection) => {
       const result = await connection.query(`select ${REFERRAL_COLUMNS} from caring_contacts.referrals order by id`);
       return result.rows.map(toReferral);
+    });
+  }
+
+  async getReferralIntakePayload(
+    referralId: ReferralId,
+    context: ReadContext,
+  ): Promise<ReferralIntakePayload | null> {
+    if (!mayReadOwnTeam(context, READ_ACTIONS.referral)) return null;
+    return this.ctx.runRead(context, async (connection) => {
+      const result = await connection.query(`select intake_payload from caring_contacts.referrals where id = $1`, [
+        referralId,
+      ]);
+      const row = result.rows[0];
+      if (!row || isAbsent(row.intake_payload)) return null;
+      return parseReferralIntakePayload(row.intake_payload);
     });
   }
 
@@ -821,6 +846,16 @@ export class PlansStore {
           ],
         );
 
+        // H-44 intake clinical sidecar on the linked referral (migration 0010_referral_intake_payload).
+        // Null the jsonb in this transaction so a clearance record cannot coexist with a readable intake payload.
+        await connection.query(
+          `update caring_contacts.referrals
+              set intake_payload = null
+            where id = $1 and team_id = $2
+              and intake_payload is not null`,
+          [textOf(planRow.referral_id), team],
+        );
+
         return { ok: true, value: undefined };
       },
     });
@@ -939,6 +974,43 @@ export class PlansStore {
       };
     });
   }
+}
+
+
+function parseReferralIntakePayload(raw: unknown): ReferralIntakePayload | null {
+  const value = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const safetyAlerts = record.safetyAlerts;
+  if (!Array.isArray(safetyAlerts) || !safetyAlerts.every((entry) => typeof entry === "string")) {
+    return null;
+  }
+  const required = [
+    "patientIdentifier",
+    "givenName",
+    "familyName",
+    "mobileNumber",
+    "dischargeDate",
+    "hospitalFacility",
+    "cohort",
+    "admittingWard",
+    "clinicalSummary",
+  ] as const;
+  for (const key of required) {
+    if (typeof record[key] !== "string") return null;
+  }
+  return {
+    patientIdentifier: record.patientIdentifier as string,
+    givenName: record.givenName as string,
+    familyName: record.familyName as string,
+    mobileNumber: record.mobileNumber as string,
+    dischargeDate: record.dischargeDate as string,
+    hospitalFacility: record.hospitalFacility as string,
+    cohort: record.cohort as string,
+    admittingWard: record.admittingWard as string,
+    clinicalSummary: record.clinicalSummary as string,
+    safetyAlerts: safetyAlerts.map(String),
+  };
 }
 
 export function createPlansStore(
