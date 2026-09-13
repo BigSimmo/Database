@@ -57,7 +57,14 @@ export function InformationPageShell({
 
   return (
     <Tag data-testid={testId} className={cn(padded, className)}>
-      <div className={cn(container, gap && "grid gap-5 sm:gap-6")}>{children}</div>
+      {/* `grid-cols-[minmax(0,1fr)]`, not a bare `grid`. A single-column grid
+          leaves its items at `min-width: auto`, so one child that cannot shrink
+          — a row with a number it will not wrap, a list of escalation steps —
+          widens the column past the viewport. Nothing scrolls, because the
+          shell clips: the page simply loses the right-hand edge of every
+          heading and paragraph on it, silently. `minmax(0,1fr)` lets the column
+          shrink and hands the overflow back to the child that owns it. */}
+      <div className={cn(container, gap && "grid grid-cols-[minmax(0,1fr)] gap-5 sm:gap-6")}>{children}</div>
     </Tag>
   );
 }

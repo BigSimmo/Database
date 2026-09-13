@@ -8,7 +8,7 @@ import type { AppModeId } from "@/lib/app-modes";
  * bookmarks, the sitemap and external deep links keep resolving; they forward
  * to that shared home instead of rendering a second one.
  *
- * Four modes are deliberately absent, because none of them is a duplicate of the
+ * Five modes are deliberately absent, because none of them is a duplicate of the
  * shared home — each is its mode's only functional surface, so folding it in
  * would delete a feature rather than de-duplicate a page:
  *   /tools        the launcher (categories, filters, saved)
@@ -16,6 +16,11 @@ import type { AppModeId } from "@/lib/app-modes";
  *   /medications  the prescribing workspace (dose/safety/monitoring checks) —
  *                 consolidated separately, outside this map (see its own
  *                 redirect wiring); it stays absent here regardless.
+ *   /on-call      the shift dashboard (shift progress, the calls that come
+ *                 first, tonight's wards, recent numbers, the section grid).
+ *                 It was in this map, as a redirect onto a shared home carrying
+ *                 a composer; the mode declares no search surface, so that home
+ *                 was the one place a composer reached it.
  *   /            the shared home itself
  *
  * `/sources` used to be absent too, and rendered a four-card home of its own. That
@@ -40,7 +45,6 @@ const consolidatedModeHomePaths = {
   "/formulation": "formulation",
   "/differentials": "differentials",
   "/therapy-compass": "therapy-compass",
-  "/on-call": "on-call",
   "/sources": "sources",
 } as const satisfies Record<string, AppModeId>;
 

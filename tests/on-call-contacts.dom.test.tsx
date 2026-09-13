@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
@@ -8,6 +9,7 @@ import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { clearOnCallRecent, readOnCallRecent } from "@/lib/on-call/recent-storage";
 
 afterEach(cleanup);
 
@@ -194,6 +196,16 @@ describe("OnCallContactsSection", () => {
 
     // A stale entry is not double-counted in its area group as well.
     expect(screen.queryByTestId("on-call-contacts-group-theatre")).toBeNull();
+  });
+
+  it("records the contact when the row is dialled so Recent is not permanently empty", async () => {
+    clearOnCallRecent();
+    const user = userEvent.setup();
+    render(<OnCallContactsSection entries={[FRESH_ED_REGISTRAR]} now={NOW} />);
+    await user.click(screen.getByTestId("on-call-contact-row-ed-registrar"));
+    expect(readOnCallRecent().map((item) => item.id)).toEqual([FRESH_ED_REGISTRAR.id]);
+    expect(readOnCallRecent()[0]?.title).toBe("ED registrar");
+    clearOnCallRecent();
   });
 
   it("renders a real empty state, and no groups at all, when there are no contact entries", () => {

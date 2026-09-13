@@ -50,6 +50,13 @@ const contactsDetails = z
     pager: trimmed.optional(),
     contactName: trimmed.optional(),
     availability: trimmed.optional(),
+    // Who's who lives in this section rather than a seventh one, because
+    // `section` is a database CHECK constraint and a role explainer is a contact
+    // whose point is the role rather than the number. An enum, not a free
+    // string: an unrecognised value must fail validation rather than fall back
+    // to "ordinary contact", which would put an explainer in the dialling list.
+    // See src/lib/on-call/who-is-who.ts.
+    kind: z.literal("role-explainer").optional(),
   })
   .strict();
 
@@ -84,12 +91,56 @@ const referralsDetails = z
   })
   .strict();
 
-const orientationDetails = z.object({ pinnedSummaryIsOwnerNote: z.literal(true) }).strict();
+const orientationDetails = z
+  .object({
+    pinnedSummaryIsOwnerNote: z.literal(true),
+    /**
+     * A checklist for this manual — the drawing's "your first fifteen minutes"
+     * and "before you leave".
+     *
+     * `details` is JSONB, so this needs no migration, the same route
+     * `nextOccurrenceDate` took. Optional throughout: an orientation entry is
+     * still a document shelf with an owner's note, and most will carry no
+     * checklist at all.
+     *
+     * Administrative steps only — collect the phone, hand back the keycard.
+     * Nothing here is clinical, and the section's own boundary already forbids
+     * it.
+     */
+    checklist: z
+      .array(
+        z
+          .object({
+            text: trimmed,
+            note: trimmed.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
+  })
+  .strict();
 
 const educationDetails = z
   .object({
     recurrence: trimmed.optional(),
     nextOccurrence: trimmed.optional(),
+    /**
+     * The same occurrence as `nextOccurrence`, as a date the app can order on.
+     *
+     * `nextOccurrence` is free text ("Thursday 1pm", "first Tuesday of term")
+     * and always will be, because that is how a teaching calendar is actually
+     * described. The home's "Coming up" module has to pick the NEXT session out
+     * of several, which free text cannot answer, so an owner who wants a session
+     * to appear there gives it a date as well. Optional on purpose: an undated
+     * session still lists on the Teaching page, it simply cannot be ranked.
+     *
+     * `YYYY-MM-DD`, matched rather than parsed — `new Date("Thursday")` is
+     * `Invalid Date` on some engines and a real date on others.
+     */
+    nextOccurrenceDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
     presenter: trimmed.optional(),
     location: trimmed.optional(),
     recordingUrl: z.string().url().optional(),

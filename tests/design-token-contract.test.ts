@@ -388,6 +388,81 @@ describe("accent ramp", () => {
   });
 });
 
+describe("mode identity accent", () => {
+  /**
+   * A mode may carry its own hue on its own chrome — On Call's switcher pill
+   * and its in-page bar. Owner decision, 2026-09-13; `docs/design-system/
+   * TOKENS.md` §7 records it and says what still holds.
+   *
+   * The risk this pins is the one that made the category channel the wrong
+   * home for it: those triads have no contrast partner, so a filled circle in
+   * one has no defined glyph colour and a white glyph on the dark-theme mauve
+   * fails 4.5:1 badly. This family carries the fourth token, and these cases
+   * are what keep it honest.
+   */
+  const identityBlock = (selector: string) =>
+    declarations(sourceSegment(globals, `\n${selector} {`, "\n}", { label: `${selector} block` }));
+  const identityThemes = [
+    { name: "light", tokens: identityBlock('[data-mode-identity="on-call"]') },
+    { name: "dark", tokens: identityBlock('.dark [data-mode-identity="on-call"]') },
+  ] as const;
+
+  it.each(identityThemes)("clears 4.5:1 as a fill against its own label colour in $name", ({ tokens, name }) => {
+    // A fill, not only text: the pill's 32px circle is painted in this colour
+    // with the mode's glyph on top of it.
+    expect(
+      contrastRatio(tokens.get("--mode-identity")!, tokens.get("--mode-identity-contrast")!),
+      `${name} mode identity fill vs its own label colour`,
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(identityThemes)("clears 4.5:1 as text on the page surface in $name", ({ tokens, name }) => {
+    // The other half of its job: the small "On Call" line under the page name
+    // in the pill is this colour on the pill's own surface.
+    const surface = name === "light" ? colourOf(light, "--surface") : colourOf(dark, "--surface");
+    expect(
+      contrastRatio(tokens.get("--mode-identity")!, surface),
+      `${name} mode identity as text`,
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("defaults every mode to the product accent, so naming an identity is opt-in", () => {
+    // The `:root` values are pure aliases. That is what makes this safe to
+    // stamp on every mode's pill: seventeen modes render exactly as they did,
+    // and light, dark and forced-colors come free because `.ckb-v2`, `.dark`
+    // and the forced-colors block all land on <html> — the same element as
+    // `:root` — so the alias resolves against whatever accent that element got.
+    // Every `:root` block, not the first: these live beside the category
+    // delivery channel they are deliberately not part of, several hundred
+    // lines below the accent roles.
+    const roots = declarations(allThemeBlocks(globals, ":root"));
+    for (const role of ["", "-soft", "-border", "-contrast"] as const) {
+      expect(roots.get(`--mode-identity${role}`)).toBe(`var(--clinical-accent${role})`);
+    }
+  });
+
+  it("flattens to the same system pairing the accent does under forced colors", () => {
+    // Identity is a decorative distinction and high contrast has no room for
+    // one. Asserted because a raw teal surviving here would be invisible.
+    const forced = sourceSegment(globals, '  [data-mode-identity="on-call"] {', "\n  }", {
+      label: "forced-colors mode identity block",
+    });
+    expect(forced).toContain("--mode-identity: LinkText;");
+    expect(forced).toContain("--mode-identity-contrast: ButtonText;");
+  });
+
+  it("delivers the hue by remapping the accent locally, never by a dynamic class", () => {
+    // One attribute repaints the pill's filled circle and the bar's active
+    // underline together, because both already read `--clinical-accent`; they
+    // cannot end up different greens. A dynamic Tailwind class
+    // (`bg-[color:var(--x-${mode})]`) produces no CSS at all, and an inline
+    // style is ceilinged by `check:design-drift-ratchet`.
+    const local = identityBlock('[data-mode-identity="on-call"]');
+    expect(local.get("--clinical-accent")).toBe("var(--mode-identity)");
+    expect(local.get("--clinical-accent-contrast")).toBe("var(--mode-identity-contrast)");
+  });
+});
+
 describe("disabled and pre-paint values", () => {
   it.each(themes)("keeps disabled text readable in $name", ({ tokens, name }) => {
     // WCAG exempts disabled controls, but a clinician still has to read WHICH

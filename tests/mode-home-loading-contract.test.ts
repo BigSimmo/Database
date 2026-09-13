@@ -23,6 +23,10 @@ const MODE_HOME_LOADING_ROUTES = [
   "calculators",
   "dictionary",
   "sources",
+  // On Call's dashboard, which replaced its redirect stub. It joined
+  // `standaloneModeHomePaths` at the same time, and the assertion below requires
+  // every standalone home to appear here.
+  "on-call",
 ] as const;
 
 describe("mode-home loading contract", () => {

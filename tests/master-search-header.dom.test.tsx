@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +21,10 @@ const router = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  // The header reads the pathname to mark the current page in the mode sheet's
+  // in-mode section level. `/` is the shared home, which owns no section list —
+  // the level these tests exercise is the mode list.
+  usePathname: () => "/",
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -168,6 +172,25 @@ describe("MasterSearchHeader DOM", () => {
     // The answer dock is its own composer type and keeps the APP-5 line.
     render(<MasterSearchHeader {...defaultHeaderProps()} searchMode="answer" />);
     expect(screen.getByRole("group", { name: "Search privacy notice" })).toBeInTheDocument();
+  });
+
+  it("offers a new chat only in a mode that has somewhere for the answer to land", () => {
+    // The header's trailing region held the new-chat button for every mode,
+    // stood down by a `:has()` rule only while a page occupied the trailing
+    // slot. On Call's section pages then moved their page menu into their own
+    // in-page header, the slot emptied, and a mode that has never had a chat
+    // grew a "Start a new chat" button in its top-right corner.
+    //
+    // Gated on the mode declaring no results surface, so the check is the same
+    // fact that removes the results page — not a mode id this file has to
+    // remember.
+    const props = defaultHeaderProps();
+    render(<MasterSearchHeader {...props} searchMode="answer" />);
+    expect(screen.getByRole("button", { name: "Start a new chat" })).toBeInTheDocument();
+
+    cleanup();
+    render(<MasterSearchHeader {...props} searchMode="on-call" />);
+    expect(screen.queryByRole("button", { name: "Start a new chat" })).not.toBeInTheDocument();
   });
 
   it("routes Factsheets Browse all sheets to the Topics page", async () => {

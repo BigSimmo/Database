@@ -40,6 +40,12 @@ export const standaloneModeHomePaths = [
   // on both branches since its own consolidation, as this file already says below.
   "/favourites",
   "/tools",
+  // On Call's dashboard, which replaced its redirect stub. It qualifies on the
+  // same test as the two above and the one the comment below states: its path
+  // renders a body. It matters more here than for either of them, because this
+  // mode declares no search surface — without it the mode pill would retarget a
+  // composer On Call has nowhere to send.
+  "/on-call",
 ] as const;
 
 /**
@@ -80,6 +86,12 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
       return "/tools";
     case "favourites":
       return "/favourites";
+    // The dashboard at `/on-call`. Selecting this mode navigates there rather
+    // than pointing the shared home's composer at it: the mode has no results
+    // surface to submit into, so a retargeted composer would accept a query and
+    // land the reader on a page that ignores it.
+    case "on-call":
+      return "/on-call";
     default:
       return null;
   }

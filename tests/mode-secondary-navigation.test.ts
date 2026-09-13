@@ -29,7 +29,19 @@ const expectedLabels: Record<AppModeId, string[]> = {
   factsheets: ["Search", "Topics"],
   dictionary: ["Terms", "Topics", "Compare", "Sources"],
   sources: ["Catalogue", "Topics", "Publishers", "Method"],
-  "on-call": [],
+  "on-call": [
+    "Tonight",
+    "Contacts",
+    "Playbook",
+    "Referrals",
+    "Orientation",
+    // "Teaching" is the label; the id, route segment and check constraint all
+    // stay "education".
+    "Teaching",
+    "Logistics",
+    "Who's who",
+    "Pocket card",
+  ],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -53,19 +65,20 @@ const cleanLandingPath: Record<AppModeId, string> = {
 };
 
 /**
- * The nine modes that register nothing.
+ * The eight modes that register nothing.
  *
- * Eight of them each used to carry one `action: "search"` entry rendering a
- * lone <button> inside its own <nav> landmark, whose only effect was focusing a
- * composer already on screen. Every one is genuinely single-surface, so the
- * control was deleted rather than ported to the shared bar.
+ * Each used to carry one `action: "search"` entry rendering a lone <button>
+ * inside its own <nav> landmark, whose only effect was focusing a composer
+ * already on screen. Every one is genuinely single-surface, so the control was
+ * deleted rather than ported to the shared bar.
  *
- * On Call is the ninth, and it is here for a different reason: all six of its
- * section routes are information pages, so `PageSecondaryNavigation` returns
- * null on every one of them and the shared bar can never render. It briefly
- * registered six destinations anyway, which `tests/ui-mode-nav-density.spec.ts`
- * caught — the bar was missing at every width because nothing drew it. The mode
- * navigates with `OnCallNavHeader` plus an in-flow section strip instead.
+ * On Call was briefly a ninth, for a different reason: all of its routes are
+ * information pages, so `PageSecondaryNavigation` returns null on every one of
+ * them and the SHELL can never render this mode's bar. The conclusion drawn then
+ * was that the bar could not work here and the destinations were deleted. It was
+ * the wrong conclusion — a page that owns its header navigation mounts the bar
+ * itself, which is what `OnCallSectionPage` and `OnCallHome` now do — so the
+ * mode has left this list.
  */
 const emptyRegistryModes = [
   "answer",
@@ -76,7 +89,6 @@ const emptyRegistryModes = [
   "prescribing",
   "tools",
   "calculators",
-  "on-call",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
@@ -424,6 +436,22 @@ describe("mode secondary navigation registry", () => {
         expect(MODE_NAV_ADOPTED_MODES).not.toContain(modeId);
       }
     }
+  });
+
+  it("keeps On Call registered but unadopted, because its second row is about the page", () => {
+    // The one mode that qualifies for the rail on the criterion above and
+    // deliberately does not take it. Its nine pages are still registered —
+    // that registry is what the mode pill's section sheet reads — but the pill
+    // is the only thing that opens them. A rail underneath repeating the same
+    // nine was two controls doing one job, while nothing helped a reader move
+    // around the long page in front of them; the second row now navigates
+    // WITHIN the current page (`OnCallSectionNavHeader`).
+    //
+    // Written as its own case rather than left to the loop above, which only
+    // inspects modes with fewer than two destinations and would therefore
+    // never notice On Call quietly rejoining the rail.
+    expect(routedModeSecondaryNavigationCount("on-call")).toBeGreaterThanOrEqual(2);
+    expect(MODE_NAV_ADOPTED_MODES).not.toContain("on-call");
   });
 
   it("does not mark Find/Search current on record routes that match no destination", () => {

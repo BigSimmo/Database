@@ -58,17 +58,24 @@ describe("header addon slot ownership", () => {
     expect(isHeaderAddonSlotOwnedRoute("/formulation/rumination")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/dsm/diagnoses/major-depressive-disorder/differentials")).toBe(true);
-    // The six on-call section routes, converted onto `InPageNavHeader` from the
-    // start rather than the shared mode-nav bar Sources' browse tabs keep.
+    // Every On Call route claims the slot: the section pages and the dashboard
+    // mount `RegistryModeNav` themselves, and `/on-call/card` mounts the mode's
+    // one remaining `InPageNavHeader`. They have to mount it themselves — all of
+    // them are information pages, so `PageSecondaryNavigation` returns null
+    // before the mode branch and the shell cannot draw this mode's bar.
     expect(isHeaderAddonSlotOwnedRoute("/on-call/contacts")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/playbook")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/referrals")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/orientation")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/education")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/on-call/logistics")).toBe(true);
-    // The mode home redirect stub and the search route keep the shared mode-nav
-    // bar instead — `search` is excluded by the shared `TOOL_SUFFIXES` set.
-    expect(isHeaderAddonSlotOwnedRoute("/on-call")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/who-is-who")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/on-call/card")).toBe(true);
+    // The mode home is a dashboard now, not a redirect stub, and it mounts the
+    // rail like every other page in the mode.
+    expect(isHeaderAddonSlotOwnedRoute("/on-call")).toBe(true);
+    // `/on-call/search` no longer exists — the mode declares no search surface —
+    // so nothing claims it.
     expect(isHeaderAddonSlotOwnedRoute("/on-call/search")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
@@ -292,6 +299,16 @@ describe("header addon slot ownership", () => {
       "src/components/factsheets/factsheet-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
+      // On Call now follows the sibling convention exactly: both its headers —
+      // the essentials card's and the section pages' — live in
+      // `on-call-nav-header.tsx`, and nothing else in the mode claims the slot.
+      //
+      // Two files came off this list when the shared rail did. The section page
+      // mounted `RegistryModeNav` until that bar turned out to be listing the
+      // same nine destinations the mode pill already opens; the home mounted it
+      // too, on a page whose tile grid IS the section list. The home's page
+      // menu goes to the universal header's TRAILING slot, which is a different
+      // host and not this one.
       "src/components/on-call/on-call-nav-header.tsx",
       "src/components/services/service-detail-page.tsx",
       // The source record has no section index, so it renders the header's

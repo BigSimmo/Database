@@ -459,11 +459,17 @@ describe("app mode search contract", () => {
       "therapy-compass": "/therapy-compass/search?q=clozapine&run=1",
       calculators: "/calculators/search?q=clozapine&run=1",
       sources: "/sources/search?q=clozapine&run=1",
-      "on-call": "/on-call/search?q=clozapine&run=1",
       // Same route, submitted branch: these still own a home of their own.
       favourites: "/favourites?q=clozapine&run=1",
       // Tools has no search route by design: it filters its launcher in place.
       tools: "/tools?q=clozapine&run=1",
+      // On Call has no search route and no composer either — `resultsSurface`
+      // is "none". The href is here for completeness rather than as a journey:
+      // the mode pill navigates to `/on-call` through `standaloneModeHomeHref`
+      // long before a query can be typed against this mode, so nothing in the
+      // app submits one. The dashboard ignores `q`, which is the honest
+      // behaviour for a mode with nothing to search.
+      "on-call": "/on-call?q=clozapine&run=1",
     });
   });
 

@@ -4,12 +4,16 @@ import { BookOpen, FileText, Pencil, User } from "lucide-react";
 import Link from "next/link";
 
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import type { OnCallLinkedDocument } from "@/components/on-call/on-call-playbook-section";
+import { OnCallChecklist, type OnCallChecklistItem } from "@/components/on-call/on-call-checklist";
+import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
+import { OnCallGroupSection } from "@/components/on-call/on-call-group-section";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { onCallTagFacet } from "@/lib/on-call/entry-filters";
+import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallOrientationSectionProps {
@@ -45,13 +49,17 @@ function OrientationCard({
     .map((id) => documents[id])
     .filter((doc): doc is OnCallLinkedDocument => Boolean(doc));
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
+  const parsedDetails = onCallDetailsSchemaFor("orientation").safeParse(entry.details);
+  const checklist: OnCallChecklistItem[] = parsedDetails.success
+    ? ((parsedDetails.data as { checklist?: OnCallChecklistItem[] }).checklist ?? [])
+    : [];
 
   return (
     <article
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
-      className={cn(cardSurface, "grid gap-3 p-4")}
+      className={cn(cardSurface, "grid grid-cols-[minmax(0,1fr)] gap-3 p-4")}
       data-testid={`on-call-orientation-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -63,7 +71,7 @@ function OrientationCard({
             link below is its own `<a>`, and a `<button>` inside an `<a>` is
             invalid, duplicate-interactive markup. */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <OnCallFreshnessBadge freshness={freshness} />
+          <OnCallStaleFlag freshness={freshness} />
           {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
           {onEditEntry ? (
             <button
@@ -97,8 +105,12 @@ function OrientationCard({
         </div>
       ) : null}
 
+      {checklist.length > 0 ? (
+        <OnCallChecklist entryId={entry.id} slug={entry.slug} items={checklist} label={`${entry.title} checklist`} />
+      ) : null}
+
       {linkedDocs.length > 0 ? (
-        <div className="grid gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {linkedDocs.map((doc) => (
             <Link key={doc.id} href={`/documents/${doc.id}`} className={documentLinkRow}>
               <FileText className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -131,9 +143,9 @@ export function OnCallOrientationSection({
   onEditEntry,
   onVerified,
 }: OnCallOrientationSectionProps) {
-  const orientationEntries = entries.filter((entry) => entry.section === "orientation");
+  const allOrientation = entries.filter((entry) => entry.section === "orientation");
 
-  if (orientationEntries.length === 0) {
+  if (allOrientation.length === 0) {
     return (
       <EmptyState
         icon={BookOpen}
@@ -144,20 +156,39 @@ export function OnCallOrientationSection({
     );
   }
 
-  const sorted = [...orientationEntries].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  const sorted = [...allOrientation].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
+  // "Starting", "Finishing", "This rotation" are tags the owner puts on a
+  // manual. They were a chip row; they are headings now, so the header's jump
+  // list can move between them without the chips hiding the rest of the shelf.
+  const groups = onCallEntryGroups(sorted, onCallTagFacet, "Other material");
+
+  const cardFor = (entry: OnCallEntry) => (
+    <OrientationCard
+      key={entry.id}
+      entry={entry}
+      documents={documents}
+      now={now}
+      onEditEntry={onEditEntry}
+      onVerified={onVerified}
+    />
+  );
 
   return (
-    <div data-testid={testId} className="grid gap-3">
-      {sorted.map((entry) => (
-        <OrientationCard
-          key={entry.id}
-          entry={entry}
-          documents={documents}
-          now={now}
-          onEditEntry={onEditEntry}
-          onVerified={onVerified}
-        />
-      ))}
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      {groups.length === 0
+        ? sorted.map(cardFor)
+        : groups.map((group) => (
+            <OnCallGroupSection
+              key={group.slug}
+              label={group.label}
+              slug={group.slug}
+              count={group.entries.length}
+              headingId={`on-call-orientation-${group.slug}-heading`}
+              testId={`on-call-orientation-group-${group.slug}`}
+            >
+              {group.entries.map(cardFor)}
+            </OnCallGroupSection>
+          ))}
     </div>
   );
 }

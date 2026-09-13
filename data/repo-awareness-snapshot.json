@@ -68,7 +68,7 @@
       {
         "id": "on-call",
         "label": "On Call",
-        "home": "/?mode=on-call",
+        "home": "/on-call",
         "dev_only": false
       },
       {
@@ -185,6 +185,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call",
+        "file": "src/app/(search-app)/on-call/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/dictionary-browse-header-compact",
         "file": "src/app/mockups/dictionary-browse-header-compact/page.tsx",
         "area": "mockup"
@@ -298,6 +303,11 @@
         "path": "/mockups/settings-search-privacy",
         "file": "src/app/mockups/settings-search-privacy/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/who-is-who",
+        "file": "src/app/(search-app)/on-call/who-is-who/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/tools-split-clinical-brief",
@@ -1000,11 +1010,6 @@
         "area": "product"
       },
       {
-        "path": "/on-call/search",
-        "file": "src/app/(search-app)/on-call/search/page.tsx",
-        "area": "product"
-      },
-      {
         "path": "/mockups/dictionary-control-row",
         "file": "src/app/mockups/dictionary-control-row/page.tsx",
         "area": "mockup"
@@ -1260,11 +1265,6 @@
         "path": "/factsheets",
         "file": "src/app/(search-app)/factsheets/page.tsx",
         "target": "/?mode=factsheets"
-      },
-      {
-        "path": "/on-call",
-        "file": "src/app/(search-app)/on-call/page.tsx",
-        "target": "/?mode=on-call"
       },
       {
         "path": "/mockups/medication-prescribing",
@@ -2607,6 +2607,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/on-call/design/mockup-conformance.md",
+        "section": "on-call",
+        "catalogued": false
+      },
+      {
         "path": "docs/mockup-retirement-policy.md",
         "section": "root",
         "catalogued": true
@@ -3544,6 +3549,11 @@
       {
         "path": "docs/ward-flow/builder-one-handback-2026-09-05.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/on-call/design/on-call-hub-build-prompt.md",
+        "section": "on-call",
         "catalogued": false
       },
       {
@@ -6306,6 +6316,9 @@
       },
       {
         "name": "governance"
+      },
+      {
+        "name": "on-call"
       },
       {
         "name": "plans"

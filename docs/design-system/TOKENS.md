@@ -170,6 +170,36 @@ they will diverge when the legacy notches retire. **Do not mix `text-sm` and
 | Space/type/radius                                                             | Semantic tokens in markup                                                               | Raw scale values or literals in components; `--measure` on non-prose                                        |
 | Quantity/spine/status-mark                                                    | Their named components only                                                             | Reuse as generic decoration                                                                                 |
 | Ward-scoped (`--ward-*`, `--net-*`, `--co-*`)                                 | Inside `src/components/ward-management/**`                                              | Any use outside that directory; adding a name without a §9 row                                              |
+| Mode identity (`--mode-identity*`)                                            | A mode's OWN chrome — its switcher pill, its in-page bar — via `data-mode-identity`     | Page content; clinical state; a semantic hue; a mode without a §7.1 row                                     |
+
+### 7.1 · Mode identity — the owner decision, 2026-09-13
+
+The Category row above forbids `--tone-*` for mode identity, and it still does. Mode identity
+has its own family instead, for two reasons that are not preference: the category triads carry
+no contrast partner, so a filled shape in one has no defined glyph colour (a white glyph on the
+dark-theme mauve fails 4.5:1 badly), and `APP_MODE_ACCENT` was written for a different job —
+extending it would drag in tests that mean something else.
+
+| Mode    | Light     | Dark      | Ratio against its own contrast token |
+| ------- | --------- | --------- | ------------------------------------ |
+| On Call | `#175f63` | `#8fc9c5` | 7.4:1 light, 8.2:1 dark              |
+
+Rules, all enforced by `tests/design-token-contract.test.ts`:
+
+- **Every mode defaults to the product accent.** The `:root` values alias `--clinical-accent*`,
+  so stamping `data-mode-identity` on every mode's pill changes nothing until a mode declares a
+  hue. Light, dark and forced-colors come free, because `.ckb-v2`, `.dark` and the forced-colors
+  block all land on `<html>` — the same element as `:root`.
+- **Four tokens or none.** Accent, soft, border and a contrast partner. The partner is what
+  makes the hue safe on a fill rather than only as text, and both ratios are computed and pinned.
+- **It flattens under forced colors** to `LinkText`/`Canvas`/`ButtonBorder`/`ButtonText`, the
+  same pairing the accent uses. Identity is a decorative distinction; high contrast has no room.
+- **Delivery is the attribute, on the narrowest wrapper that needs it.** The attribute remaps
+  `--clinical-accent*` locally, so everything already painting that chrome repaints together and
+  cannot drift. Today that is exactly two elements — the mode pill's `<button>` and the in-page
+  bar's `<nav>`. Tinting a whole mode is a separate, deliberate decision.
+- **Nothing semantic, ever.** A mode's hue must not repaint clinical state, source state, or a
+  category chip. It says which mode you are in and nothing else.
 
 ## 8 · Naming rules going forward
 

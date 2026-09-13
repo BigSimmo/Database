@@ -30,13 +30,31 @@ describe("the On Call domain model stays out of every page's bundle", () => {
     expect(source).not.toContain('from "@/lib/on-call/entry-store"');
   });
 
+  it("clears Recent through its own import-free module, not the recent store", () => {
+    // Recent joined the sign-out path after the cache did, and it is the exact
+    // shape that regressed once: a one-line import of a module that pulls in Zod
+    // and the entry schema, for the sake of removing one localStorage key.
+    const source = read(authProvider);
+    expect(source).toContain('from "@/lib/on-call/recent-storage-keys"');
+    expect(source).not.toContain('from "@/lib/on-call/recent-storage"');
+  });
+
+  it("clears the orientation ticks through its own import-free module", () => {
+    // Third store on the sign-out path, same trap as the first two: one line,
+    // it typechecks, every unit test passes, and `/` grows by the whole On
+    // Call domain model.
+    const source = read(authProvider);
+    expect(source).toContain('from "@/lib/on-call/checklist-storage-keys"');
+    expect(source).not.toContain('from "@/lib/on-call/checklist-storage"');
+  });
+
   it("never reaches the domain model or the store from the auth provider", () => {
     const source = read(authProvider);
     for (const forbidden of [
       "@/lib/on-call/entry-model",
       "@/lib/on-call/entry-store",
       "@/lib/on-call/repository",
-      "@/lib/on-call/search",
+      "@/lib/on-call/entry-chips",
       "@/lib/on-call/card-selection",
       "@/lib/on-call/linked-documents",
       "@/components/on-call/",
@@ -45,14 +63,38 @@ describe("the On Call domain model stays out of every page's bundle", () => {
     }
   });
 
-  it("keeps the cache-keys module free of imports, since it loads everywhere", () => {
-    const source = read("src/lib/on-call/entry-cache-keys.ts");
+  it.each([
+    "src/lib/on-call/entry-cache-keys.ts",
+    "src/lib/on-call/recent-storage-keys.ts",
+    "src/lib/on-call/checklist-storage-keys.ts",
+  ])("keeps %s free of imports, since it loads everywhere", (modulePath) => {
+    const source = read(modulePath);
     const imports = source.match(/^\s*import\s/gm) ?? [];
-    expect(imports, "entry-cache-keys.ts must import nothing — it is in every page's bundle").toEqual([]);
+    expect(imports, `${modulePath} must import nothing — it is in every page's bundle`).toEqual([]);
   });
 
   it("still exposes the storage key and clear function from the store, for existing callers", () => {
     const store = read("src/lib/on-call/entry-store.ts");
     expect(store).toContain("export { clearOnCallEntryCache");
+  });
+
+  it("re-exports Recent's key and clear from its store too, so callers have one import", () => {
+    const store = read("src/lib/on-call/recent-storage.ts");
+    expect(store).toContain("export { clearOnCallRecent");
+  });
+
+  it("re-exports the checklist key and clear from its store as well", () => {
+    const store = read("src/lib/on-call/checklist-storage.ts");
+    expect(store).toContain("export { clearOnCallChecklists");
+  });
+
+  it("wires all three On Call stores into the one sign-out path", () => {
+    // A store added to the mode but not to `clearAccountScopedBrowserState`
+    // survives an account switch on a shared ward computer, which is the whole
+    // hazard this list exists for.
+    const source = read(authProvider);
+    for (const call of ["clearOnCallEntryCache()", "clearOnCallRecent()", "clearOnCallChecklists()"]) {
+      expect(source, `sign-out must call ${call}`).toContain(call);
+    }
   });
 });

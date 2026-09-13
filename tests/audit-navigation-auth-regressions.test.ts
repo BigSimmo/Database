@@ -201,7 +201,21 @@ describe("audit navigation and auth regressions", () => {
   it("opens the master mode menu as a phone bottom sheet below the phone layout gate", () => {
     expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
     expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
-    expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
+    // The desktop popover now has two levels — the mode list and, one step in,
+    // the current mode's own sections — so the single desktop branch became two,
+    // each still behind the same phone-layout gate. What this line pins is the
+    // gate, not the arity: a desktop popover that renders below the gate is the
+    // regression, and both branches must carry it.
+    const desktopPopoverBranches = [
+      ...masterSearchHeaderSource.matchAll(/\{!usesPhoneSearchLayout && modeMenuOpen[^?]*\? \(/g),
+    ];
+    expect(desktopPopoverBranches).toHaveLength(2);
+    expect(masterSearchHeaderSource).toContain(
+      '{!usesPhoneSearchLayout && modeMenuOpen && modeSheetView === "sections" ? (',
+    );
+    expect(masterSearchHeaderSource).toContain(
+      '{!usesPhoneSearchLayout && modeMenuOpen && modeSheetView === "modes" ? (',
+    );
     // The desktop trigger now opens a searchable grouped dialog (not a plain
     // menu), so it always announces `dialog` regardless of phone layout.
     expect(masterSearchHeaderSource).toContain('aria-haspopup="dialog"');

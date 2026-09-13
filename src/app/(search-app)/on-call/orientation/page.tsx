@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallOrientationRoute() {
-  return <OnCallSectionPage section="orientation" />;
+  return <OnCallSectionPage view="orientation" />;
 }

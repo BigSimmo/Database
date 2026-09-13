@@ -12,7 +12,8 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   Check,
@@ -28,6 +29,9 @@ import {
   Send,
   ShieldCheck,
   X,
+  ArrowLeft,
+  LayoutGrid,
+  type LucideIcon,
 } from "lucide-react";
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
@@ -79,8 +83,11 @@ import {
   isDesktopComposerSlotReady,
   phoneHeaderCollapseAddonSlotId,
   setModeHomeComposerReservePending,
+  universalHeaderTrailingSlotId,
   type PhoneDockAddonKind,
 } from "@/lib/mode-home-composer";
+import { modeSectionIcon } from "@/components/mode-nav/mode-nav-icons";
+import { activeModeSecondaryNavigationId, modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 import { phoneModeGroups } from "@/lib/phone-mode-groups";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { CommandSurfacePlacement } from "@/lib/search-command-surface";
@@ -338,6 +345,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const currentPathname = usePathname();
   const [, setLastAppMode] = useLastAppMode();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
@@ -522,6 +530,53 @@ export function MasterSearchHeader({
   const desktopModeMenuSearchRef = useRef<HTMLInputElement | null>(null);
   const modeMenuFocusRafRef = useRef<number | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  /**
+   * Which level of the mode sheet is showing.
+   *
+   * The pill opens the mode list everywhere except in a mode that owns its own
+   * pages and has no other place to list them. On Call is that mode: it has no
+   * search surface, so the pill is the control a reader reaches for, and landing
+   * on seventeen app modes when you wanted the Playbook is the wrong first
+   * screen. The mode list is one tap away from here, never removed.
+   *
+   * Kept deliberately outside the roving-tabindex machinery below. The section
+   * level is a list of ordinary links in ordinary tab order; wiring it through
+   * `modeOptionRefs`, `activeModeMenuOptions` and the arrow-key handlers would
+   * put a second row kind into focus code every one of the seventeen modes
+   * shares, to no benefit — a link list needs no roving tabindex.
+   */
+  const [modeSheetView, setModeSheetView] = useState<"modes" | "sections">("modes");
+
+  /**
+   * This mode's own pages, when the pill should open them first.
+   *
+   * Gated on the mode declaring NO results surface, not on a hand-written mode
+   * id: a mode with a search surface already has somewhere its pages are listed
+   * and a composer the pill must keep pointing at.
+   */
+  const modeOwnPages =
+    selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
+  const modeOwnPagesAvailable = modeOwnPages.length > 0;
+  /**
+   * Which of this mode's pages the reader is on, when the pill lists pages.
+   *
+   * The pill then NAMES THAT PAGE rather than the mode. In a mode whose pages
+   * are the whole product — On Call's nine — the mode's name was the one thing
+   * on the screen the reader never needed: they know they are on call. Where
+   * they are inside it is what the row above the page should say, and the pill
+   * is the control that changes it, so the two belong in the same place.
+   *
+   * `null` on an unmatched path (a record route, a page with no registry entry)
+   * and the pill falls back to naming the mode, which is the honest answer when
+   * no registered page is current.
+   */
+  const activeModePageId = modeOwnPagesAvailable
+    ? activeModeSecondaryNavigationId(selectedAppMode.id, currentPathname ?? "")
+    : null;
+  const activeModePage = activeModePageId ? (modeOwnPages.find((page) => page.id === activeModePageId) ?? null) : null;
+  /** A mode that shows no results has nowhere for a new conversation to land. */
+  const modeHasConversation = selectedAppMode.search.resultsSurface !== "none";
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
@@ -1063,6 +1118,9 @@ export function MasterSearchHeader({
     setModeMenuQuery("");
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
+    // Keyboard entry (Arrow Down / Up on the pill) is a request to move through
+    // the MODE list, so it opens at that level whatever the mode.
+    setModeSheetView("modes");
     setModeMenuOpen(true);
     // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
     // needs an rAF focus into the absolute menu after it mounts.
@@ -1116,6 +1174,7 @@ export function MasterSearchHeader({
     setModeMenuQuery("");
     setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(selectedModeIndex);
+    setModeSheetView(modeOwnPagesAvailable ? "sections" : "modes");
     setModeMenuOpen(true);
     if (!phoneLayout) {
       cancelModeMenuFocus();
@@ -1189,8 +1248,106 @@ export function MasterSearchHeader({
     }
   }
 
+  /**
+   * The desktop mode popover's shell, shared by both of its levels.
+   *
+   * Two copies of this expression is how the section level quietly stops
+   * looking like the mode level after the next tweak to one of them — the same
+   * reason `modeMenuRowClass` below exists. It also kept a second legacy
+   * shadow alias alive in this file for no design reason.
+   */
+  const modeMenuPopoverShell =
+    "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]";
+
+  /**
+   * The row treatment the mode menu uses, shared by the mode options and the
+   * in-mode section rows below them.
+   *
+   * Extracted rather than copied: the section list is meant to be indistinguishable
+   * from the mode list — same tile, same weight, same check disc — and two copies
+   * of this expression is how "designed like everywhere else" quietly stops being
+   * true after the next tweak to one of them.
+   */
+  function modeMenuRowClass(active: boolean) {
+    return cn(
+      "relative grid w-full items-center text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
+      usesPhoneSearchLayout
+        ? "min-h-14 grid-cols-[2.5rem_minmax(0,1fr)_1.5rem] gap-2.5 rounded-xl px-2 py-2"
+        : "min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-1.5",
+      active
+        ? usesPhoneSearchLayout
+          ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)]"
+          : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
+        : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+    );
+  }
+
+  function renderModeMenuRowContent({
+    icon: Icon,
+    label,
+    description,
+    active,
+    modeIconId,
+  }: {
+    icon: LucideIcon;
+    label: string;
+    description?: string;
+    active: boolean;
+    /** Only the mode list stamps this; the section list has no per-mode hook to offer. */
+    modeIconId?: string;
+  }) {
+    return (
+      <>
+        {active && !usesPhoneSearchLayout ? (
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
+          />
+        ) : null}
+        <span
+          data-mode-icon={modeIconId}
+          className={cn(
+            "grid place-items-center border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
+            usesPhoneSearchLayout ? "h-10 w-10 rounded-xl" : "h-8 w-8 rounded-lg",
+            active
+              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
+              : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
+          )}
+        >
+          <Icon
+            aria-hidden="true"
+            className={usesPhoneSearchLayout ? "size-icon-lg" : "size-icon-md"}
+            strokeWidth={usesPhoneSearchLayout ? 1.8 : 2}
+          />
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+            {label}
+          </span>
+          {usesPhoneSearchLayout && description ? (
+            <span className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+              {description}
+            </span>
+          ) : null}
+        </span>
+        {active && usesPhoneSearchLayout ? (
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)] shadow-[var(--e2)]">
+            <Check aria-hidden="true" className="size-icon-sm" strokeWidth={2.5} />
+          </span>
+        ) : active ? (
+          <Check
+            aria-hidden="true"
+            className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]"
+            strokeWidth={2.5}
+          />
+        ) : (
+          <span aria-hidden="true" className={usesPhoneSearchLayout ? "h-6 w-6" : "size-icon-md"} />
+        )}
+      </>
+    );
+  }
+
   function renderModeMenuOption(mode: (typeof visibleAppModeOptions)[number], index: number) {
-    const Icon = appModeIcons[mode.id];
     const active = mode.id === searchMode;
     return (
       <button
@@ -1208,64 +1365,75 @@ export function MasterSearchHeader({
         onPointerEnter={() => prefetchModeSelection(mode.id)}
         onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
         onClick={() => selectAppMode(mode)}
-        className={cn(
-          "relative grid w-full items-center text-left transition-[background-color,color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none",
-          usesPhoneSearchLayout
-            ? "min-h-14 grid-cols-[2.5rem_minmax(0,1fr)_1.5rem] gap-2.5 rounded-xl px-2 py-2"
-            : "min-h-12 grid-cols-[2rem_minmax(0,1fr)_auto] gap-2 rounded-md px-2.5 py-1.5",
-          active
-            ? usesPhoneSearchLayout
-              ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)] shadow-[var(--shadow-inset)] ring-1 ring-inset ring-[color:var(--clinical-accent-border)]"
-              : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--text)]"
-            : "text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
-        )}
+        className={modeMenuRowClass(active)}
       >
-        {active && !usesPhoneSearchLayout ? (
-          <span
-            aria-hidden="true"
-            className="absolute inset-y-1 left-0 w-0.5 rounded-r-full bg-[color:var(--clinical-accent)]"
-          />
-        ) : null}
-        <span
-          data-mode-icon={usesPhoneSearchLayout ? mode.id : undefined}
-          className={cn(
-            "grid place-items-center border transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none",
-            usesPhoneSearchLayout ? "h-10 w-10 rounded-xl" : "h-8 w-8 rounded-lg",
-            active
-              ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)]"
-              : "border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <Icon
-            aria-hidden="true"
-            className={usesPhoneSearchLayout ? "size-icon-lg" : "size-icon-md"}
-            strokeWidth={usesPhoneSearchLayout ? 1.8 : 2}
-          />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
-            {mode.label}
-          </span>
-          {usesPhoneSearchLayout ? (
-            <span className="mt-0.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
-              {mode.description}
-            </span>
-          ) : null}
-        </span>
-        {active && usesPhoneSearchLayout ? (
-          <span className="grid h-6 w-6 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--surface)] shadow-[var(--e2)]">
-            <Check aria-hidden="true" className="size-icon-sm" strokeWidth={2.5} />
-          </span>
-        ) : active ? (
-          <Check
-            aria-hidden="true"
-            className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]"
-            strokeWidth={2.5}
-          />
-        ) : (
-          <span aria-hidden="true" className={usesPhoneSearchLayout ? "h-6 w-6" : "size-icon-md"} />
-        )}
+        {renderModeMenuRowContent({
+          icon: appModeIcons[mode.id],
+          label: mode.label,
+          description: mode.description,
+          active,
+          modeIconId: usesPhoneSearchLayout ? mode.id : undefined,
+        })}
       </button>
+    );
+  }
+
+  /**
+   * One of this mode's own pages, drawn exactly like a mode row above it.
+   *
+   * A `<Link>`, not a `menuitemradio`: these navigate rather than switch a
+   * setting, and they live outside the roving-tabindex list for the reason given
+   * on `modeSheetView`. `aria-current="page"` marks the one you are on, which is
+   * the link equivalent of the check disc the mode rows carry.
+   */
+  function renderModeSectionOption(entry: { readonly id: string; readonly label: string; readonly href?: string }) {
+    if (!entry.href) return null;
+    const active = currentPathname === entry.href;
+    const Icon = modeSectionIcon(entry.id);
+    if (!Icon) return null;
+    return (
+      <Link
+        key={entry.id}
+        href={entry.href}
+        onClick={dismissModeMenu}
+        aria-current={active ? "page" : undefined}
+        data-testid={`app-mode-section-${entry.id}`}
+        className={cn(modeMenuRowClass(active), "no-underline")}
+      >
+        {renderModeMenuRowContent({ icon: Icon, label: entry.label, active })}
+      </Link>
+    );
+  }
+
+  /**
+   * The section level's body: this mode's pages, then the one row that reaches
+   * everything else.
+   *
+   * "All modes" sits below a rule at the foot rather than in the list, because it
+   * is not a peer of the pages above it — it is the way out of this mode. The
+   * sheet header also carries a back control, so the level is reversible in two
+   * places, which is what stops it feeling like a dead end.
+   */
+  function renderModeSectionLevel() {
+    return (
+      <div data-testid="app-mode-section-list" className="grid gap-1 pt-1">
+        {modeOwnPages.map((entry) => renderModeSectionOption(entry))}
+        <div className="mt-1.5 border-t border-[color:var(--border)] pt-1.5">
+          <button
+            type="button"
+            onClick={() => setModeSheetView("modes")}
+            data-testid="app-mode-section-all-modes"
+            className={cn(modeMenuRowClass(false), "text-left")}
+          >
+            {renderModeMenuRowContent({
+              icon: LayoutGrid,
+              label: "All modes",
+              description: "Answer, Documents, Services and the rest of PsychSift.",
+              active: false,
+            })}
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -2430,7 +2598,21 @@ export function MasterSearchHeader({
             aria-haspopup="dialog"
             aria-expanded={modeMenuOpen}
             aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
-            aria-label={`Mode ${selectedAppMode.label}`}
+            // Still prefixed `Mode …`, and that is load-bearing: twelve test
+            // files and the shared `tests/playwright-app-mode.ts` helper find
+            // this control by that exact opening. The page is appended rather
+            // than substituted, so the name gains information without any of
+            // them going looking for a control that no longer answers.
+            aria-label={
+              activeModePage
+                ? `Mode ${selectedAppMode.label}, page ${activeModePage.label}`
+                : `Mode ${selectedAppMode.label}`
+            }
+            // The mode's own hue, on the mode's own control. Resolves to the
+            // product accent for every mode that names no identity, so this is
+            // inert everywhere but On Call — see the `--mode-identity` block in
+            // `globals.css`.
+            data-mode-identity={selectedAppMode.id}
           >
             <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)]">
               {/* 16px in the 32px pill, not the 14px metadata step: this is a
@@ -2439,12 +2621,35 @@ export function MasterSearchHeader({
               <SelectedAppModeIcon aria-hidden="true" className="size-icon-md" strokeWidth={2.25} />
             </span>
             <span className="min-w-0">
-              <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
-                Mode
-              </span>
-              <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
-                {selectedAppMode.label}
-              </span>
+              {activeModePage ? (
+                // Page first, mode underneath. The order is the point: the big
+                // line answers "where am I", which changes, and the small
+                // coloured line answers "which mode", which does not. Reversing
+                // them puts the constant in the loud slot.
+                //
+                // The mode line shows at EVERY width, unlike the "Mode" eyebrow
+                // it replaces. That eyebrow was a word for the control's kind
+                // and could be dropped on a phone without losing anything; this
+                // one is the only place the mode is named once the big line
+                // stops naming it.
+                <>
+                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                    {activeModePage.label}
+                  </span>
+                  <span className="block truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--clinical-accent)]">
+                    {selectedAppMode.label}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-eyebrow text-[color:var(--text-muted)] sm:block">
+                    Mode
+                  </span>
+                  <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                    {selectedAppMode.label}
+                  </span>
+                </>
+              )}
             </span>
             <ChevronDown
               aria-hidden="true"
@@ -2455,15 +2660,39 @@ export function MasterSearchHeader({
             />
           </button>
 
-          {!usesPhoneSearchLayout && modeMenuOpen ? (
+          {!usesPhoneSearchLayout && modeMenuOpen && modeSheetView === "sections" ? (
+            // The same popover, one level in. No "Find a mode" field here: this
+            // list is nine rows at most, and a filter over nine rows is furniture.
+            <div
+              id="app-mode-menu"
+              role="dialog"
+              aria-label={`${selectedAppMode.label} pages`}
+              className={cn(glassOverlaySurface, modeMenuPopoverShell)}
+            >
+              <div className="flex items-center gap-1.5 border-b border-[color:var(--border)] px-2 py-2">
+                <button
+                  type="button"
+                  onClick={() => setModeSheetView("modes")}
+                  aria-label="Back to all modes"
+                  data-testid="app-mode-popover-back"
+                  className="grid size-8 shrink-0 place-items-center rounded-md text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]"
+                >
+                  <ArrowLeft aria-hidden="true" className="size-icon-md" />
+                </button>
+                <h2 className="min-w-0 truncate text-sm font-semibold tracking-[var(--tracking-display)] text-[color:var(--text-heading)]">
+                  {`${selectedAppMode.label} pages`}
+                </h2>
+              </div>
+              <div className="p-2">{renderModeSectionLevel()}</div>
+            </div>
+          ) : null}
+
+          {!usesPhoneSearchLayout && modeMenuOpen && modeSheetView === "modes" ? (
             <div
               id="app-mode-menu"
               role="dialog"
               aria-label="Choose app mode"
-              className={cn(
-                glassOverlaySurface,
-                "absolute left-0 top-[calc(100%+0.5rem)] z-[60] w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-xl bg-[color:var(--surface-lux)] text-[color:var(--text)] shadow-[var(--shadow-lux)]",
-              )}
+              className={cn(glassOverlaySurface, modeMenuPopoverShell)}
             >
               <div className="border-b border-[color:var(--border)] p-3 pb-2.5">
                 <div className="search-shell grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 shadow-[var(--shadow-inset)] transition-[border-color,box-shadow]">
@@ -2537,20 +2766,47 @@ export function MasterSearchHeader({
           ) : null}
         </div>
 
-        <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-          <button
-            type="button"
-            onClick={onNewChat}
-            className={cn(
-              "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
-              !showDesktopNewChat && "md:hidden",
-            )}
-            aria-label="Start a new chat"
-            title="New chat"
-          >
-            <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
-            <span className="hidden whitespace-nowrap xl:inline">New chat</span>
-          </button>
+        <div className="universal-header-trailing relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          {/* The one extension point in this row.
+              A page that owns a control belonging in the header portals it here
+              through `UniversalHeaderTrailingPortal`; CSS then hides the new-chat
+              button beside it, so the region still holds exactly one control and
+              the row reads as one system rather than sixteen variants.
+
+              A DOM slot rather than a React prop, and rather than a
+              `searchMode === "…"` branch: the shell sits ABOVE the page in the
+              tree, so a page cannot hand it a prop, and a branch here is how this
+              row grows a second grammar. `PhoneHeaderCollapsePortal` uses the same
+              mechanism for the collapse row directly below.
+
+              On Call is the first and only occupant: it has no "new chat" to
+              start, and its page menu is the control a shift actually needs. */}
+          <div id={universalHeaderTrailingSlotId} className="contents" />
+          {/* A mode with no results surface has no conversation to start, so the
+              button would open nothing. Gated on that declaration rather than on
+              a mode id, for the same reason `modeOwnPages` above is: the next
+              chat-less mode inherits the behaviour without editing this file.
+
+              The `:has()` rule in `globals.css` still stands the button down
+              whenever a page occupies the trailing slot; this covers the pages of
+              a chat-less mode that own their control somewhere else — On Call's
+              section pages moved the page menu into their own in-page header, and
+              the button reappeared in a mode that has never had a chat. */}
+          {modeHasConversation ? (
+            <button
+              type="button"
+              onClick={onNewChat}
+              className={cn(
+                "universal-header-new-chat universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+                !showDesktopNewChat && "md:hidden",
+              )}
+              aria-label="Start a new chat"
+              title="New chat"
+            >
+              <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
+              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -2560,7 +2816,23 @@ export function MasterSearchHeader({
         <Sheet
           open={modeMenuOpen}
           onClose={dismissModeMenu}
-          title="Choose mode"
+          title={modeSheetView === "sections" ? `${selectedAppMode.label} pages` : "Choose mode"}
+          headerLeading={
+            // Only at the section level, and it goes UP a level rather than
+            // closing: the sheet must not dismiss and drop the reader back on the
+            // page they were already looking at.
+            modeSheetView === "sections" ? (
+              <button
+                type="button"
+                onClick={() => setModeSheetView("modes")}
+                aria-label="Back to all modes"
+                data-testid="app-mode-sheet-back"
+                className="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] motion-reduce:transition-none"
+              >
+                <ArrowLeft aria-hidden="true" className="size-icon-lg" />
+              </button>
+            ) : undefined
+          }
           descriptionContent={
             <span className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs leading-5 text-[color:var(--text-muted)]">
               <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
@@ -2585,47 +2857,51 @@ export function MasterSearchHeader({
           titleClassName="tracking-[var(--tracking-display)]"
           closeButtonClassName="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition-colors duration-[var(--duration-fast)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] forced-colors:border motion-reduce:transition-none"
         >
-          <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
-            {phoneModeGroups.map((group) => {
-              const groupModes = group.modeIds.flatMap((modeId) => {
-                const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
-                return mode ? [mode] : [];
-              });
-              if (groupModes.length === 0) return null;
-              const headingId = `app-mode-group-${group.id}`;
-              return (
-                <section
-                  key={group.id}
-                  role="group"
-                  aria-labelledby={headingId}
-                  data-mode-group={group.id}
-                  className="pt-3 first:pt-1"
-                >
-                  <div className="sticky top-0 z-[5] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-3 py-1.5 backdrop-blur-md">
-                    <div className="flex min-w-0 items-baseline gap-2">
-                      <h3
-                        id={headingId}
-                        className="shrink-0 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)]"
-                      >
-                        {group.label}
-                      </h3>
-                      <p className="min-w-0 truncate text-2xs font-medium text-[color:var(--text-muted)]">
-                        {group.hint}
-                      </p>
+          {modeSheetView === "sections" ? (
+            renderModeSectionLevel()
+          ) : (
+            <div ref={phoneModeMenuListRef} id="app-mode-menu" role="menu" aria-label="Choose app mode">
+              {phoneModeGroups.map((group) => {
+                const groupModes = group.modeIds.flatMap((modeId) => {
+                  const mode = visibleAppModeOptions.find((candidate) => candidate.id === modeId);
+                  return mode ? [mode] : [];
+                });
+                if (groupModes.length === 0) return null;
+                const headingId = `app-mode-group-${group.id}`;
+                return (
+                  <section
+                    key={group.id}
+                    role="group"
+                    aria-labelledby={headingId}
+                    data-mode-group={group.id}
+                    className="pt-3 first:pt-1"
+                  >
+                    <div className="sticky top-0 z-[5] -mx-2.5 border-b border-[color:var(--border)] bg-[color:var(--surface-lux)]/96 px-3 py-1.5 backdrop-blur-md">
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <h3
+                          id={headingId}
+                          className="shrink-0 text-2xs font-black uppercase tracking-kicker text-[color:var(--text-muted)]"
+                        >
+                          {group.label}
+                        </h3>
+                        <p className="min-w-0 truncate text-2xs font-medium text-[color:var(--text-muted)]">
+                          {group.hint}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-1.5 grid gap-1">
-                    {groupModes.map((mode) =>
-                      renderModeMenuOption(
-                        mode,
-                        visibleAppModeOptions.findIndex((candidate) => candidate.id === mode.id),
-                      ),
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+                    <div className="mt-1.5 grid gap-1">
+                      {groupModes.map((mode) =>
+                        renderModeMenuOption(
+                          mode,
+                          visibleAppModeOptions.findIndex((candidate) => candidate.id === mode.id),
+                        ),
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
         </Sheet>
       ) : null}
     </header>

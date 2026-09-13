@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { appModeIds, type AppModeId } from "../src/lib/app-modes";
+import { appModeDefinition, appModeIds, type AppModeId } from "../src/lib/app-modes";
 
 /**
  * Every mode's submitted-search surface carries the cross-mode panel.
@@ -16,8 +16,25 @@ import { appModeIds, type AppModeId } from "../src/lib/app-modes";
  *
  * The map below is the register. A mode either names the file that mounts the
  * panel, or names the surface that answers the same question differently and
- * says why. There is no third state.
+ * says why.
+ *
+ * There is one further state, and it is derived rather than declared: a mode
+ * whose `resultsSurface` is `"none"` has no submitted-search surface for the
+ * panel to sit on. That is read off the mode registry below, not asserted by
+ * hand, so a mode cannot claim the exemption without the type system agreeing
+ * that it presents no result list.
  */
+/**
+ * The reason string for a mode with no results surface. Shared so the exemption
+ * reads identically wherever it applies, and long enough to satisfy the
+ * exemption-must-carry-a-reason assertion below.
+ */
+const NO_RESULTS_SURFACE =
+  'This mode declares resultsSurface: "none" — it has no composer on any route and no results page, so ' +
+  "there is no submitted-search surface for the cross-mode panel to sit on. Cross-mode discovery reaches it " +
+  "the same way every other mode is reached from here: the universal search tray and the mode switcher. " +
+  "Putting the panel on its dashboard would answer a question the reader never asked there.";
+
 const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string; mounts: false; because: string }> = {
   answer: {
     file: "src/components/clinical-dashboard/answer-result-surface.tsx",
@@ -46,8 +63,16 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   factsheets: { file: "src/components/factsheets/factsheets-search-page.tsx", mounts: true },
   dictionary: { file: "src/components/dictionary/dictionary-catalogue-pages.tsx", mounts: true },
   sources: { file: "src/components/sources/sources-catalogue-client.tsx", mounts: true },
-  "on-call": { file: "src/components/on-call/on-call-search-page.tsx", mounts: true },
+  // On Call presents no result list at all (`resultsSurface: "none"`), so the
+  // loop below skips it before either branch. The file named here is its home,
+  // which is what the reader actually lands on; the assertion that it mounts
+  // nothing lives in its own test.
+  "on-call": { file: "src/components/on-call/on-call-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
 };
+
+function hasNoResultsSurface(modeId: AppModeId) {
+  return appModeDefinition(modeId).search.resultsSurface === "none";
+}
 
 function read(file: string) {
   return readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -60,6 +85,16 @@ describe("cross-mode also-matches coverage", () => {
 
   for (const modeId of appModeIds) {
     const entry = MOUNTS[modeId];
+
+    if (hasNoResultsSurface(modeId)) {
+      it(`records that ${modeId} has no result surface for the panel to sit on`, () => {
+        expect(entry.mounts, `${modeId} declares no results surface, so it must not claim to mount the panel`).toBe(
+          false,
+        );
+        expect(read(entry.file)).not.toContain("UniversalSearchAlsoMatches");
+      });
+      continue;
+    }
 
     if (entry.mounts) {
       it(`mounts the cross-mode panel on ${modeId}`, () => {

@@ -41,7 +41,13 @@ export function ModeNavSlotInk({
         <Icon
           aria-hidden="true"
           className={cn(
-            "size-icon-md shrink-0",
+            // `mode-nav__icon` is how a density profile drops the glyph when
+            // its label family cannot pay for it. `mode-nav.tsx` has always
+            // emitted it and the rails never did, so `extended`'s icon rule
+            // silently did nothing on a rail — this makes the class mean the
+            // same thing wherever the ink is drawn. Inert for both existing
+            // rails: neither uses a profile that hides icons.
+            "mode-nav__icon size-icon-md shrink-0",
             state === "on"
               ? "text-[color:var(--clinical-accent)]"
               : state === "trail"

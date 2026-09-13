@@ -18,6 +18,22 @@ export const MODE_NAV_DENSITY_PROFILES = [
   "balanced-four",
   "extended",
   "extended-counted",
+  // Five bare single words — no glyph, no count badge. On Call's in-page bar is
+  // the family: its groups are the owner's own tags, categories and areas.
+  //
+  // Measured in a browser at 14px semibold with the slot's own `px-3`:
+  // Wards 66, Tonight 73, Services 81, Where 65, Access 71, Starting 79,
+  // Authorise 87, Community 97. So three typical words are ~220px, four ~294px
+  // and five ~427px at the widest. The bands (16 / 22 / 30rem) are cut from
+  // those numbers against the containers the site actually gives this bar —
+  // 288px at 320px, 358px at 390px, 398px at 430px.
+  //
+  // These are the narrowest bands this bar has ever carried, and that is only
+  // safe because nothing decorative competes for the width: the profile drops
+  // the icon at every band with no restore, and sets no `count` so no badge is
+  // drawn. A multi-word label in this family truncates rather than folding,
+  // which is why the demo corpus models one-word categories.
+  "wordmark-five",
 ] as const;
 
 export type ModeNavDensityProfile = (typeof MODE_NAV_DENSITY_PROFILES)[number];
