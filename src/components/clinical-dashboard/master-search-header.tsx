@@ -558,6 +558,8 @@ export function MasterSearchHeader({
   const modeOwnPages =
     selectedAppMode.search.resultsSurface === "none" ? modeSecondaryNavigationEntries(selectedAppMode.id) : [];
   const modeOwnPagesAvailable = modeOwnPages.length > 0;
+  /** A mode that shows no results has nowhere for a new conversation to land. */
+  const modeHasConversation = selectedAppMode.search.resultsSurface !== "none";
   const pendingModeSelectionFocusRef = useRef<AppModeId | null>(null);
   const prefetchedModeHrefsRef = useRef(new Set<string>());
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
@@ -2726,19 +2728,31 @@ export function MasterSearchHeader({
               On Call is the first and only occupant: it has no "new chat" to
               start, and its page menu is the control a shift actually needs. */}
           <div id={universalHeaderTrailingSlotId} className="contents" />
-          <button
-            type="button"
-            onClick={onNewChat}
-            className={cn(
-              "universal-header-new-chat universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
-              !showDesktopNewChat && "md:hidden",
-            )}
-            aria-label="Start a new chat"
-            title="New chat"
-          >
-            <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
-            <span className="hidden whitespace-nowrap xl:inline">New chat</span>
-          </button>
+          {/* A mode with no results surface has no conversation to start, so the
+              button would open nothing. Gated on that declaration rather than on
+              a mode id, for the same reason `modeOwnPages` above is: the next
+              chat-less mode inherits the behaviour without editing this file.
+
+              The `:has()` rule in `globals.css` still stands the button down
+              whenever a page occupies the trailing slot; this covers the pages of
+              a chat-less mode that own their control somewhere else — On Call's
+              section pages moved the page menu into their own in-page header, and
+              the button reappeared in a mode that has never had a chat. */}
+          {modeHasConversation ? (
+            <button
+              type="button"
+              onClick={onNewChat}
+              className={cn(
+                "universal-header-new-chat universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]",
+                !showDesktopNewChat && "md:hidden",
+              )}
+              aria-label="Start a new chat"
+              title="New chat"
+            >
+              <MessageSquarePlus aria-hidden="true" className="size-icon-lg xl:size-icon-md" />
+              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+            </button>
+          ) : null}
         </div>
       </div>
 

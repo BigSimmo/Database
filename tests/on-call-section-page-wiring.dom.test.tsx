@@ -1,11 +1,11 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallSectionPage } from "@/components/on-call/on-call-section-page";
+import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
-import { modeSecondaryNavigationEntries } from "@/lib/mode-secondary-navigation";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/on-call/contacts",
@@ -97,41 +97,102 @@ describe("every section renders its own entries", () => {
   }
 });
 
-describe("the sections can reach each other", () => {
-  // Before the mode had a rail, five of the six pages were orphans: the mode
-  // registered destinations in the shared header bar, but every section route is
-  // an information page, so `PageSecondaryNavigation` returned null and the bar
-  // was never drawn. A reader could open Contacts and have no way to reach
-  // Playbook. The page now mounts `RegistryModeNav` itself, which is what makes
-  // the registry's destinations actually reachable.
-  it("mounts the shared rail, carrying every registered destination", () => {
+/** One contact, filed under a single area tag — the page's grouping key. */
+function contact(id: string, slug: string, title: string, tags: string[]): OnCallEntry {
+  return {
+    id,
+    slug,
+    section: "contacts",
+    title,
+    subtitle: null,
+    body: null,
+    details: { role: title, phone: "0000 000 001" },
+    linkedDocumentIds: [],
+    tags,
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 0,
+    lastVerifiedAt: new Date().toISOString(),
+  } as unknown as OnCallEntry;
+}
+
+describe("the second header row is about THIS page", () => {
+  // The mode pill opens On Call's nine pages. The section pages briefly carried
+  // the shared `ModeNav` rail listing the same nine underneath it — two
+  // controls doing one job, while nothing at all helped a reader move around
+  // the page in front of them. Contacts runs to six groups and several screens.
+  //
+  // So the rail is gone and the page mounts the in-page header instead, whose
+  // list is the CURRENT PAGE's groups. These tests pin that division: no rail,
+  // and the header names the page's own anchors.
+  it("mounts no section rail", () => {
     storeState.entries = [];
     render(<OnCallSectionPage view="contacts" />);
+    expect(screen.queryAllByTestId("mode-nav")).toHaveLength(0);
+    expect(screen.queryAllByRole("navigation", { name: "On Call pages" })).toHaveLength(0);
+  });
 
-    const rail = screen.getAllByTestId("mode-nav")[0];
-    expect(rail).toBeTruthy();
-    const hrefs = [...rail!.querySelectorAll("a[href]")].map((link) => link.getAttribute("href"));
-    for (const entry of modeSecondaryNavigationEntries("on-call")) {
-      expect(hrefs, `the rail does not link ${entry.label}`).toContain(entry.href);
+  it("names the page, with a way back to the hub", () => {
+    storeState.entries = [];
+    render(<OnCallSectionPage view="contacts" />);
+    const header = screen.getByTestId("on-call-section-detail-header");
+    expect(header).toBeTruthy();
+    const back = within(header).getByRole("link", { name: /back to on call/i });
+    expect(back.getAttribute("href")).toBe("/on-call");
+  });
+
+  it("drops back to a plain title on a page with no groups", () => {
+    // Referrals is a flat list. A jump list of one row is furniture, so the
+    // disclosure is simply absent rather than opening an empty sheet.
+    storeState.entries = [];
+    render(<OnCallSectionPage view="referrals" />);
+    expect(screen.getByTestId("on-call-section-detail-header")).toBeTruthy();
+    expect(screen.queryByTestId("on-call-section-section-trigger")).toBeNull();
+  });
+
+  it("says the page's name once on screen, and once more only for a screen reader", () => {
+    // The sticky header, the hero and the entries heading all rendered the word
+    // "Contacts", one under the other, on a 390px screen. The entries heading
+    // still exists — it labels the region and holds the heading outline
+    // together — but it is no longer painted.
+    storeState.entries = [];
+    const { container } = render(<OnCallSectionPage view="contacts" />);
+
+    const painted = Array.from(container.querySelectorAll("h1, h2, h3")).filter(
+      (node) => node.textContent?.trim() === "Contacts" && !node.className.includes("sr-only"),
+    );
+    expect(painted.map((node) => node.tagName)).toEqual(["H1"]);
+
+    const region = container.querySelector("#on-call-contacts-entries");
+    const labelId = region?.getAttribute("aria-labelledby");
+    expect(labelId).toBe("on-call-contacts-entries-heading");
+    expect(container.querySelector(`#${labelId}`)?.textContent).toBe("Contacts");
+  });
+
+  it("declares only anchors the page actually renders", () => {
+    // A declared section whose anchor is not on the page is a dead jump. The
+    // declaration and the rendering are two files, so this asserts them against
+    // each other on real DOM — never by grepping for `id=`.
+    //
+    // Resolution itself cannot be asserted here: `useResolvedPageSections`
+    // tests visibility with `getClientRects()`, which jsdom reports empty for
+    // everything, so no section ever resolves in this environment. That the
+    // header then OPENS with those groups is proven in
+    // `tests/ui-on-call-boards.spec.ts`, in a browser.
+    const entries = [
+      contact("aaaa1111-1111-4111-8111-111111111111", "ward-a", "Ward A", ["Wards"]),
+      contact("aaaa2222-2222-4222-8222-222222222222", "service-a", "Service A", ["Services"]),
+    ];
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="contacts" />);
+
+    const declared = onCallPageSections({ view: "contacts", entries });
+    expect(declared.length).toBeGreaterThan(0);
+    for (const section of declared) {
+      expect(
+        container.querySelector(`#${section.id}`),
+        `${section.label} declares #${section.id}, which is absent`,
+      ).not.toBeNull();
     }
-  });
-
-  it("marks the page you are on, and only that one", () => {
-    // The rail reads the pathname, not the view prop — in production the two are
-    // the same fact, and deriving from the URL is what keeps a deep link marked
-    // correctly. `usePathname` is mocked to /on-call/contacts at the top of this
-    // file, so that is the page under test here.
-    storeState.entries = [];
-    render(<OnCallSectionPage view="contacts" />);
-
-    const rail = screen.getAllByTestId("mode-nav")[0];
-    const current = [...rail!.querySelectorAll("a[aria-current='page']")].map((link) => link.getAttribute("href"));
-    expect(current).toEqual(["/on-call/contacts"]);
-  });
-
-  it("gives the rail its own landmark so it is not read as page content", () => {
-    storeState.entries = [];
-    render(<OnCallSectionPage view="contacts" />);
-    expect(screen.getAllByRole("navigation", { name: "On Call pages" }).length).toBeGreaterThan(0);
   });
 });

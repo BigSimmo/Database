@@ -1,14 +1,12 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { usePathname } from "next/navigation";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
-import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { OnCallContactsSection, type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
 import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
@@ -24,11 +22,12 @@ import {
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
-import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
+import { OnCallPageMenuActions } from "@/components/on-call/on-call-page-menu";
+import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
+import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
-import { activeModeSecondaryNavigationId } from "@/lib/mode-secondary-navigation";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -88,7 +87,6 @@ const ON_CALL_ADD_NOUN: Record<OnCallPageView, string> = {
  */
 export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   const { isAuthenticated } = useAccountData();
-  const pathname = usePathname();
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
     open: false,
     entry: null,
@@ -112,6 +110,13 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // and returns an empty map on any failure, so it runs unconditionally rather
   // than behind a check that would break the rules of hooks.
   const linkedDocuments = useOnCallLinkedDocuments();
+  // The page's own groups, for the header's jump list. Declared from the same
+  // entries the list below renders, then narrowed to whichever anchors actually
+  // appear — so a flat page resolves to none and the header is just a title.
+  const pageSections = useMemo(
+    () => onCallPageSections({ view, entries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
+    [view, entries, linkedDocuments],
+  );
   // What this page is showing, for the menu's one-line summary. Each list
   // component narrows `entries` itself, and Who's who splits the contacts
   // section in two, so the count is derived the same way rather than guessed
@@ -242,16 +247,28 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
 
   return (
     <>
-      <RegistryModeNav modeId="on-call" activeId={activeModeSecondaryNavigationId("on-call", pathname)} />
-      <OnCallPageMenu
-        view={view}
-        entryCount={visibleCount}
-        order={view === "contacts" ? contactsOrder : undefined}
-        onOrderChange={view === "contacts" ? setContactsOrder : undefined}
-        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
-        addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
-        onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
-        staleCount={staleEntries.length}
+      {/* One header row, not two. The mode pill above already opens On Call's
+          nine pages; this names the page and moves the reader around IT. The
+          page's actions ride the same header rather than a second portal into
+          the universal header's trailing slot. */}
+      <OnCallSectionNavHeader
+        title={title}
+        sections={pageSections}
+        actionsDescription={
+          typeof visibleCount === "number"
+            ? `${visibleCount} ${visibleCount === 1 ? "entry" : "entries"} on this page.`
+            : undefined
+        }
+        actions={
+          <OnCallPageMenuActions
+            order={view === "contacts" ? contactsOrder : undefined}
+            onOrderChange={view === "contacts" ? setContactsOrder : undefined}
+            onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+            addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
+            onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
+            staleCount={staleEntries.length}
+          />
+        }
       />
       <InformationPageShell testId={`on-call-${view}-main`}>
         <section
@@ -271,10 +288,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
           className={cn(inPageAnchor, "grid grid-cols-[minmax(0,1fr)] gap-3")}
           aria-labelledby={`on-call-${view}-entries-heading`}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id={`on-call-${view}-entries-heading`} className="text-xl font-semibold">
-              {title}
-            </h2>
+          {/* Named for a screen reader, not painted a third time. The sticky
+              header above says "Contacts" and the hero says it again with the
+              eyebrow and the description; a third visible copy immediately below
+              them was just noise on a 390px screen. The heading still exists and
+              still labels this region, so the landmark and the heading outline
+              are unchanged. */}
+          <h2 id={`on-call-${view}-entries-heading`} className="sr-only">
+            {title}
+          </h2>
+          <div className="flex flex-wrap items-center justify-end gap-2 empty:hidden">
             {/* Contacts carries its own add button inside its list component
                 (it also appears in that section's empty state). The others get
                 it here, because without one an owner can reach an empty
