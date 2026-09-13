@@ -34,7 +34,6 @@ const LEDGER_PATH = "docs/on-call/design/mockup-conformance.md";
  * written, and it must name the plan step that will close it.
  */
 const DISPOSITIONS = ["built", "open", "deviation", "change-b"] as const;
-type Disposition = (typeof DISPOSITIONS)[number];
 
 /** Boards as the drawing itself names them: "01 Home" … "11 Logistics". */
 function boardsFromMockup(html: string): string[] {
