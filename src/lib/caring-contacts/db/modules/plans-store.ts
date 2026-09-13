@@ -631,10 +631,7 @@ export class PlansStore {
     });
   }
 
-  async getReferralIntakePayload(
-    referralId: ReferralId,
-    context: ReadContext,
-  ): Promise<ReferralIntakePayload | null> {
+  async getReferralIntakePayload(referralId: ReferralId, context: ReadContext): Promise<ReferralIntakePayload | null> {
     if (!mayReadOwnTeam(context, READ_ACTIONS.referral)) return null;
     return this.ctx.runRead(context, async (connection) => {
       const result = await connection.query(`select intake_payload from caring_contacts.referrals where id = $1`, [
@@ -975,7 +972,6 @@ export class PlansStore {
     });
   }
 }
-
 
 function parseReferralIntakePayload(raw: unknown): ReferralIntakePayload | null {
   const value = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;

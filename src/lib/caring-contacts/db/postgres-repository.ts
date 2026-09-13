@@ -348,10 +348,7 @@ export class PostgresCaringContactsRepository implements CaringContactRepository
     return this.plansStore.listReferrals(context);
   }
 
-  getReferralIntakePayload(
-    referralId: ReferralId,
-    context: ReadContext,
-  ): Promise<ReferralIntakePayload | null> {
+  getReferralIntakePayload(referralId: ReferralId, context: ReadContext): Promise<ReferralIntakePayload | null> {
     return this.plansStore.getReferralIntakePayload(referralId, context);
   }
 
