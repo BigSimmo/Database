@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9fe9c50a-aa08-41e1-9f86-d9c7c640cdf1",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#5RWYHR",
+    "outcome": "Verified ED browser journeys in tests/ui-ward-roles.spec.ts conform to aria-disabled force-click contract and exact decline reasons",
+    "baseRowFingerprint": "2de6edd22327e481811fdcdac194436b8ac7cb084993678a1878450f8aa72969"
+  }
+}
