@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8c6954c8-a035-43de-999e-2be139c3060b",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Documents/guidelines search can stall; Tools Guidelines deep link omits run=1; no document-search stall watchdog",
+    "detail": "Live QA: documents mode searching \"guideline\" previously appeared to hang on Finding matching documents; re-verification later resolved in ~20s with 20 results (flaky latency, not confirmed indefinite hang). tools-catalog guidelines href is /?mode=documents&q=guideline&focus=1 without run=1. /api/search has no document stall watchdog comparable to answer streams. /documents/search page is a stub; dashboard mount depends on run=1 off /. Next: add run=1 to Guidelines tool href; add stall/timeout UX for document search LoadingPanel; assert Tools→Guidelines reaches results or a clear error under N seconds. Stop: do not treat RANZCP empty results as a defect unless corpus expects hits.",
+    "source": "session 2026-09-13 live QA; tools-catalog.ts; document-search LoadingPanel",
+    "issueUlid": "01M2CF38K8X42YJ1X3GEYRG919"
+  }
+}

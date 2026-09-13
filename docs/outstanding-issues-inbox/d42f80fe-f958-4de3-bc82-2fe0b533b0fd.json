@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d42f80fe-f958-4de3-bc82-2fe0b533b0fd",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Suspected CrCl/QTc NumberField value corruption on patient profile (intermittent; not reproduced on retest)",
+    "detail": "Earlier live desktop pass on psychiatry.tools prescribing mode: CrCl typed as 95 briefly displayed 42095; QTc showed unexpected 420. Suspected race in clinical-dashboard patient-profile NumberField (type=number + render sync) with writePatientProfile on every keystroke (patient-profile-panel.tsx / patient-profile-storage.ts / patient-profile-context.tsx). 2026-09-13 re-verification could NOT reproduce (CrCl 95 and QTc 450 displayed correctly under slow type, replace, backspace). Keep OPEN as clinical-safety/SaMD-adjacent until Playwright digit-by-digit asserts values never gain foreign prefixes and out-of-range QTc does not clear sibling fields. Next: add focused UI test; fix controlled number sync if race confirmed. Stop: do not close from a single non-repro session alone.",
+    "source": "session 2026-09-13 live QA; DEEP-ANALYSIS-MEMO NumberField; docs/samd-classification-medication-considerations.md OPEN",
+    "issueUlid": "01M2CF389BWFARS34GS9BCK4WG"
+  }
+}
