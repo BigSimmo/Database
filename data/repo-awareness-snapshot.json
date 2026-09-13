@@ -2957,6 +2957,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/specs/2026-09-08-on-call-hub-expansion-brainstorm.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-15-brief.md",
         "section": "caring-contacts",
         "catalogued": true
