@@ -1,0 +1,2997 @@
+<title>On Call — the page sections as a tab row</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"
+/>
+<style>
+  /* ============================================================
+   Tokens lifted verbatim from src/app/globals.css, so these
+   artboards are the app's real palette rather than a lookalike.
+   ============================================================ */
+  :root {
+    --n0: #ffffff;
+    --n50: #f7f8fa;
+    --n100: #f1f4f6;
+    --n200: #e5e7eb;
+    --n300: #cdd5df;
+    --n400: #98a2b3;
+    --n500: #667085;
+    --n600: #475467;
+    --n700: #344054;
+    --n800: #1d2939;
+    --n900: #101418;
+    --n950: #080b0f;
+
+    --background: #f1f4f8;
+    --surface: #fcfdfe;
+    --surface-raised: #ffffff;
+    --surface-chrome: #f7f9fc;
+    --surface-inset: #eaeef4;
+    --border: #e3e8ef;
+    --border-strong: #c8d2de;
+
+    --text: var(--n900);
+    --text-heading: #080b0f;
+    --text-muted: var(--n600);
+    --text-soft: var(--n500);
+
+    --accent: #1d6fb8;
+    --accent-strong: #185c99;
+    --accent-soft: #eff5fc;
+    --accent-border: #c6dcf2;
+    --accent-contrast: #ffffff;
+
+    --command: #111827;
+    --command-contrast: #ffffff;
+
+    --mode: #634f8f;
+    --mode-soft: #f4f1fa;
+    --mode-border: #ded6ee;
+
+    --warning: #8a4d05;
+    --warning-bg: #fffcf6;
+    --warning-border: #f5d9a8;
+    --danger: #a3190f;
+    --danger-bg: #fef3f2;
+    --danger-border: #fda29b;
+    --success: #0c6b41;
+    --success-bg: #ecfdf3;
+    --success-border: #abefc6;
+    --info: #1c4fbf;
+    --info-bg: #eff4ff;
+    --info-border: #b2ccff;
+
+    --r-xs: 0.25rem;
+    --r-sm: 0.375rem;
+    --r-md: 0.625rem;
+    --r-lg: 0.75rem;
+    --r-xl: 1rem;
+    --r-2xl: 1.25rem;
+    --r-pill: 9999px;
+    --r-frame: 1.85rem;
+
+    --tap: 3rem; /* 48px — the app's one tap knob */
+    --compact: 2.5rem; /* 40px metadata rung only */
+    --phone: 24.375rem; /* 390px */
+
+    --scrim: rgb(8 11 15 / 46%);
+    --lift: 0 1px 2px rgb(8 11 15 / 5%);
+    --lift-sheet: 0 -10px 34px -12px rgb(8 11 15 / 34%);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --n0: #060708;
+      --n50: #0b0d0f;
+      --n100: #101214;
+      --n200: #171a1d;
+      --n300: #23282c;
+      --n400: #3b454b;
+      --n500: #7c858f;
+      --n600: #a4adb7;
+      --n700: #cbd1d8;
+      --n800: #e5e8ec;
+      --n900: #f4f6f8;
+      --n950: #fbfcfd;
+      --background: #060708;
+      --surface: #101315;
+      --surface-raised: #171b1e;
+      --surface-chrome: #0b0d0f;
+      --surface-inset: #08090b;
+      --border: #2b3136;
+      --border-strong: #3b444b;
+      --text: var(--n900);
+      --text-heading: var(--n950);
+      --text-muted: var(--n600);
+      --text-soft: var(--n500);
+      --accent: #74bdf0;
+      --accent-strong: #a9d8f8;
+      --accent-soft: #123556;
+      --accent-border: #235a7d;
+      --accent-contrast: #08203a;
+      --command: #f5f7f7;
+      --command-contrast: #060708;
+      --mode: #b0a0d8;
+      --mode-soft: #2a2540;
+      --mode-border: #3d3557;
+      --warning: #f2c45a;
+      --warning-bg: #3d2f14;
+      --warning-border: #725e23;
+      --danger: #ff9ca4;
+      --danger-bg: #401c24;
+      --danger-border: #7f2e36;
+      --success: #7de0a3;
+      --success-bg: #153f2a;
+      --success-border: #24794f;
+      --info: #89c0f0;
+      --info-bg: #122c4c;
+      --info-border: #2c537f;
+      --scrim: rgb(0 0 0 / 62%);
+      --lift: 0 1px 2px rgb(0 0 0 / 40%);
+      --lift-sheet: 0 -10px 34px -10px rgb(0 0 0 / 62%);
+    }
+  }
+  :root[data-theme="dark"] {
+    --n0: #060708;
+    --n50: #0b0d0f;
+    --n100: #101214;
+    --n200: #171a1d;
+    --n300: #23282c;
+    --n400: #3b454b;
+    --n500: #7c858f;
+    --n600: #a4adb7;
+    --n700: #cbd1d8;
+    --n800: #e5e8ec;
+    --n900: #f4f6f8;
+    --n950: #fbfcfd;
+    --background: #060708;
+    --surface: #101315;
+    --surface-raised: #171b1e;
+    --surface-chrome: #0b0d0f;
+    --surface-inset: #08090b;
+    --border: #2b3136;
+    --border-strong: #3b444b;
+    --text: var(--n900);
+    --text-heading: var(--n950);
+    --text-muted: var(--n600);
+    --text-soft: var(--n500);
+    --accent: #74bdf0;
+    --accent-strong: #a9d8f8;
+    --accent-soft: #123556;
+    --accent-border: #235a7d;
+    --accent-contrast: #08203a;
+    --command: #f5f7f7;
+    --command-contrast: #060708;
+    --mode: #b0a0d8;
+    --mode-soft: #2a2540;
+    --mode-border: #3d3557;
+    --warning: #f2c45a;
+    --warning-bg: #3d2f14;
+    --warning-border: #725e23;
+    --danger: #ff9ca4;
+    --danger-bg: #401c24;
+    --danger-border: #7f2e36;
+    --success: #7de0a3;
+    --success-bg: #153f2a;
+    --success-border: #24794f;
+    --info: #89c0f0;
+    --info-bg: #122c4c;
+    --info-border: #2c537f;
+    --scrim: rgb(0 0 0 / 62%);
+    --lift: 0 1px 2px rgb(0 0 0 / 40%);
+    --lift-sheet: 0 -10px 34px -10px rgb(0 0 0 / 62%);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    background: var(--background);
+    color: var(--text);
+    font-family:
+      "Geist",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 96rem;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 72px;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--r-xs);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation: none !important;
+      transition: none !important;
+    }
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    max-width: 64ch;
+  }
+  .kicker {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mode);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kicker .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: var(--r-pill);
+    background: var(--mode);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 4.4vw, 40px);
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+    font-weight: 700;
+    color: var(--text-heading);
+    text-wrap: balance;
+  }
+  .lede {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 16px;
+  }
+  .lede code {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 14px;
+    background: var(--surface-inset);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xs);
+    padding: 1px 5px;
+  }
+  .notice {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--info-bg);
+    border: 1px solid var(--info-border);
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+    color: var(--info);
+    font-size: 13.5px;
+    max-width: 74ch;
+  }
+  .notice svg {
+    flex: none;
+    margin-top: 1px;
+  }
+
+  /* ---------- changes strip ---------- */
+  .changes {
+    margin-top: 30px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .changes-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-chrome);
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+  }
+  .changes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  }
+  .changes-cell {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+  }
+  .changes-cell:not(:last-child) {
+    border-right: 1px solid var(--border);
+  }
+  .changes-k {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-heading);
+    margin-bottom: 6px;
+  }
+  .changes-k svg {
+    color: var(--mode);
+    flex: none;
+  }
+  .changes-v {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ---------- gallery ---------- */
+  .gallery {
+    margin-top: 44px;
+    display: grid;
+    gap: 44px 32px;
+    grid-template-columns: repeat(auto-fill, minmax(390px, 390px));
+    justify-content: center;
+  }
+  @media (max-width: 439px) {
+    .wrap {
+      padding-inline: 14px;
+    }
+    .gallery {
+      grid-template-columns: 1fr;
+      gap: 36px;
+    }
+  }
+  .board {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+  }
+  .board-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .board-no {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--mode);
+    background: var(--mode-soft);
+    border: 1px solid var(--mode-border);
+    border-radius: var(--r-sm);
+    padding: 1px 7px;
+    flex: none;
+  }
+  .board-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    color: var(--text-heading);
+  }
+  .board-sub {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-muted);
+  }
+  .notes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .notes li {
+    position: relative;
+    padding-left: 15px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .notes li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 5px;
+    height: 5px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+  }
+
+  /* ---------- phone frame ---------- */
+  .frame {
+    width: 100%;
+    max-width: var(--phone);
+    border-radius: var(--r-frame);
+    background: var(--surface-chrome);
+    border: 1px solid var(--border-strong);
+    box-shadow:
+      var(--lift),
+      0 18px 40px -22px rgb(8 11 15 / 26%);
+    overflow: hidden;
+    position: relative;
+  }
+  .screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 748px;
+    background: var(--background);
+    font-size: 14px;
+  }
+
+  /* status bar */
+  .statusbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 20px 4px;
+    background: var(--surface-chrome);
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .bars i {
+    display: block;
+    width: 3px;
+    background: var(--text-muted);
+    border-radius: 1px;
+  }
+  .bars i:nth-child(1) {
+    height: 4px;
+  }
+  .bars i:nth-child(2) {
+    height: 6px;
+  }
+  .bars i:nth-child(3) {
+    height: 8px;
+  }
+  .bars i:nth-child(4) {
+    height: 10px;
+    background: var(--border-strong);
+  }
+
+  /* ===== 1. UNIVERSAL HEADER — the app's own, unchanged in this mode =====
+   min-h-14 · grid [auto | 1fr | auto] · hamburger left, mode pill centred,
+   header control right. The pill is h-12 rounded-full with a 32px filled
+   clinical-accent circle; the "Mode" eyebrow is hidden below sm, so a phone
+   shows the label alone. Mirrors master-search-header.tsx. */
+  .apphdr {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    min-height: 3.5rem;
+    padding: 0 8px;
+    background: var(--surface-glass);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .hdrbtn {
+    width: var(--tap);
+    height: var(--tap);
+    flex: none;
+    border: 0;
+    background: transparent;
+    border-radius: var(--r-pill);
+    display: grid;
+    place-items: center;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  /* the mode's own control on the right sits in a bordered round button */
+  .hdrbtn.ringed {
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .modepill {
+    justify-self: center;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    height: var(--tap);
+    width: min(13rem, calc(100% - 1rem));
+    min-width: 0;
+    padding: 0 10px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    text-align: left;
+  }
+  .modepill .mi {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border-radius: var(--r-pill);
+    display: grid;
+    place-items: center;
+    background: var(--clinical-accent, var(--accent));
+    color: var(--accent-contrast);
+    box-shadow: var(--lift);
+  }
+  .modepill .ml {
+    font-weight: 800;
+    font-size: 15px;
+    line-height: 1.25;
+    color: var(--text-heading);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .modepill > svg:last-child {
+    color: var(--text-soft);
+    flex: none;
+  }
+  .modepill[aria-expanded="true"] > svg:last-child {
+    transform: rotate(180deg);
+  }
+
+  /* ===== 3. MODE NAV RAIL — the Therapy-style priority navigation =====
+   Reproduced from mode-nav.tsx + nav-slot-ink.tsx. 48px bar on --surface with
+   a bottom hairline. Every slot keeps ONE weight in every state — bolding the
+   active label would change its width and shift the rule under it. The rule
+   hangs off the ink, so it is exactly as wide as the word, never the slot. */
+  .modenav {
+    display: flex;
+    align-items: stretch;
+    height: 3rem;
+    padding: 0 4px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3rem;
+    min-width: 0;
+    padding: 0 12px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  .ink {
+    position: relative;
+    display: flex;
+    height: 1.25rem;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .slot.on .ink {
+    color: var(--text-heading);
+  }
+  .ink > span.lbl {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ink > svg.tr {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    opacity: 0.55;
+  }
+  .ink .ct {
+    display: grid;
+    place-items: center;
+    height: 1.125rem;
+    min-width: 1.125rem;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--border-strong);
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-muted);
+    flex: none;
+  }
+  .slot.on .ink .ct {
+    border-color: var(--accent-border);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+  /* the rule: 2px under the ink, accent when current, a hairline for a trail */
+  .rule {
+    position: absolute;
+    inset-inline: 0;
+    bottom: -0.8125rem;
+    height: 2px;
+    border-top-left-radius: var(--r-xs);
+    border-top-right-radius: var(--r-xs);
+    background: transparent;
+  }
+  .slot.on .rule {
+    background: var(--accent);
+  }
+  .slot.trail .rule {
+    height: 1px;
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+
+  /* body */
+  .body {
+    flex: 1;
+    overflow: hidden;
+    padding: 12px 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .homebar {
+    padding: 7px 0 9px;
+    background: var(--background);
+    display: grid;
+    place-items: center;
+  }
+  .homebar i {
+    display: block;
+    width: 124px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+    opacity: 0.7;
+  }
+
+  /* site switcher control */
+  .sitepick {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 7px 12px;
+    border-radius: var(--r-md);
+    background: var(--mode-soft);
+    border: 1px solid var(--mode-border);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+  .sitepick .lab {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--mode);
+    display: block;
+  }
+  .sitepick .val {
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--text-heading);
+    display: block;
+    letter-spacing: -0.01em;
+  }
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* group heading */
+  .grouphdr {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    padding: 5px 2px 1px;
+  }
+  .grouphdr .ct {
+    font-size: 10px;
+    color: var(--text-soft);
+    background: var(--surface-inset);
+    border-radius: var(--r-sm);
+    padding: 0 5px;
+  }
+
+  /* cards + rows */
+  .card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--lift);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 9px 12px;
+    background: transparent;
+    border: 0;
+    border-top: 1px solid var(--border);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .row:first-child {
+    border-top: 0;
+  }
+  .row .t {
+    font-weight: 500;
+    font-size: 14.5px;
+    color: var(--text-heading);
+    letter-spacing: -0.008em;
+    display: block;
+  }
+  .row .s {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    display: block;
+    line-height: 1.4;
+  }
+  .num {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 13.5px;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .leadicon {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--r-md);
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--surface-inset);
+    color: var(--text-muted);
+  }
+  .leadicon.acc {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+  }
+  .leadicon.mod {
+    background: var(--mode-soft);
+    border: 1px solid var(--mode-border);
+    color: var(--mode);
+  }
+  .callbtn {
+    width: var(--tap);
+    height: var(--tap);
+    flex: none;
+    border-radius: var(--r-md);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+  }
+  .chev {
+    color: var(--text-soft);
+    flex: none;
+  }
+
+  /* chips */
+  .chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 9px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .chip.on {
+    background: var(--mode-soft);
+    border-color: var(--mode-border);
+    color: var(--mode);
+    font-weight: 500;
+  }
+  .chip.mono {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px;
+  }
+  .filters {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* status — icon + words, never colour alone */
+  .flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: var(--r-sm);
+    padding: 3px 8px;
+    border: 1px solid;
+  }
+  .flag.warn {
+    color: var(--warning);
+    background: var(--warning-bg);
+    border-color: var(--warning-border);
+  }
+  .flag.priv {
+    color: var(--text-muted);
+    background: var(--surface-inset);
+    border-color: var(--border-strong);
+  }
+  .banner {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: var(--r-lg);
+    border: 1px solid;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .banner.warn {
+    color: var(--warning);
+    background: var(--warning-bg);
+    border-color: var(--warning-border);
+  }
+  .banner.priv {
+    color: var(--text-muted);
+    background: var(--surface-inset);
+    border-color: var(--border-strong);
+  }
+  .banner svg {
+    flex: none;
+    margin-top: 1px;
+  }
+  .banner b {
+    font-weight: 600;
+  }
+  .stamp {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--text-soft);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ---------- modular dashboard ---------- */
+  .mod {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .mod-h {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 2px;
+  }
+  .mod-h h3 {
+    margin: 0;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    font-weight: 500;
+  }
+  .mod-h .act {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 32px;
+    padding: 0 8px;
+    border: 0;
+    background: transparent;
+    border-radius: var(--r-sm);
+    color: var(--accent);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* shift module — the dashboard's context header */
+  .shift {
+    border-radius: var(--r-lg);
+    border: 1px solid var(--mode-border);
+    background: var(--mode-soft);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+  }
+  .shift-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .shift-lab {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--mode);
+    display: block;
+  }
+  .shift-site {
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+    color: var(--text-heading);
+    display: block;
+    margin-top: 1px;
+  }
+  .shift-when {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 3px;
+  }
+  .shift-sw {
+    display: grid;
+    place-items: center;
+    width: var(--tap);
+    height: var(--tap);
+    flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+    border: 1px solid var(--mode-border);
+    color: var(--mode);
+    cursor: pointer;
+  }
+  .prog {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .prog-bar {
+    height: 5px;
+    border-radius: var(--r-pill);
+    background: var(--surface-raised);
+    overflow: hidden;
+    border: 1px solid var(--mode-border);
+  }
+  .prog-bar i {
+    display: block;
+    height: 100%;
+    width: 57%;
+    background: var(--accent);
+    border-radius: var(--r-pill);
+  }
+  .prog-lab {
+    display: flex;
+    justify-content: space-between;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+  .prog-lab b {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+
+  /* ward strip */
+  .wards {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .wards::-webkit-scrollbar {
+    display: none;
+  }
+  .ward {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: none;
+    min-height: var(--tap);
+    padding: 7px 12px;
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--lift);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+  }
+  .ward .wn {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-heading);
+    letter-spacing: -0.01em;
+  }
+  .ward .wx {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .ward.locked .wn::after {
+    content: " ·";
+    color: var(--text-soft);
+  }
+
+  /* quick actions */
+  .quick {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .qa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 72px;
+    padding: 9px 6px;
+    border-radius: var(--r-lg);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--lift);
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+  .qa svg {
+    color: var(--accent);
+  }
+  .qa span {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-heading);
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  /* pinned reminder card */
+  .pinned {
+    border-radius: var(--r-lg);
+    border: 1px solid var(--accent-border);
+    background: var(--accent-soft);
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .pinned svg {
+    flex: none;
+    color: var(--accent);
+    margin-top: 1px;
+  }
+  .pinned .pt {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-heading);
+    line-height: 1.4;
+    display: block;
+  }
+  .pinned .ps {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    display: block;
+    line-height: 1.45;
+  }
+
+  /* recent list */
+  .recent .row .s {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-soft);
+  }
+
+  /* HOME — primary call actions */
+  .calls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+  .callcard {
+    display: flex;
+    flex-direction: column;
+    min-height: 102px;
+    padding: 12px;
+    border-radius: var(--r-lg);
+    background: var(--command);
+    color: var(--command-contrast);
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+  .callcard .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: auto;
+  }
+  .callcard .top svg {
+    opacity: 0.92;
+  }
+  .callcard .avail {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.66;
+  }
+  .callcard .role {
+    font-size: 12.5px;
+    opacity: 0.85;
+    line-height: 1.3;
+  }
+  .callcard .digits {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    margin-top: 3px;
+  }
+  .callthird {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 8px 12px;
+    border-radius: var(--r-md);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--lift);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* HOME — section tiles */
+  .tiles {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .tile {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 12px 11px;
+    border-radius: var(--r-lg);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    box-shadow: var(--lift);
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    min-height: 78px;
+  }
+  .tile .tt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tile .tt svg {
+    color: var(--mode);
+  }
+  .tile .tc {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .tile .tl {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text-heading);
+    letter-spacing: -0.008em;
+  }
+  .tile .td {
+    font-size: 11.5px;
+    color: var(--text-soft);
+    margin-top: 2px;
+    line-height: 1.35;
+  }
+  .tile.card-alt {
+    background: var(--mode-soft);
+    border-color: var(--mode-border);
+  }
+  .tile.card-alt .tl {
+    color: var(--mode);
+  }
+
+  /* SHEET — the section switcher */
+  .sheetwrap {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: var(--scrim);
+  }
+  .sheet {
+    position: relative;
+    background: var(--surface-raised);
+    border-top-left-radius: var(--r-xl);
+    border-top-right-radius: var(--r-xl);
+    box-shadow: var(--lift-sheet);
+    border-top: 1px solid var(--border);
+    padding-bottom: 10px;
+    max-height: 86%;
+    display: flex;
+    flex-direction: column;
+  }
+  .sheet-grab {
+    display: grid;
+    place-items: center;
+    padding: 8px 0 2px;
+  }
+  .sheet-grab i {
+    display: block;
+    width: 38px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--border-strong);
+  }
+  .sheet-hdr {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-ttl {
+    flex: 1;
+    min-width: 0;
+    padding: 0 4px;
+  }
+  .sheet-ttl .st {
+    font-weight: 600;
+    font-size: 15.5px;
+    color: var(--text-heading);
+    letter-spacing: -0.012em;
+  }
+  .sheet-ttl .ss {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  .sheet-body {
+    overflow: hidden;
+    padding: 4px 0 0;
+  }
+  .sheetrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 8px 14px;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sheetrow.on {
+    background: var(--mode-soft);
+  }
+  .sheetrow.on .sl {
+    color: var(--mode);
+    font-weight: 600;
+  }
+  .sheetrow .sl {
+    font-weight: 500;
+    font-size: 15px;
+    color: var(--text-heading);
+    display: block;
+    letter-spacing: -0.01em;
+  }
+  .sheetrow .sd {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    display: block;
+  }
+  .sheetrow .sc {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+  .sheet-foot {
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+    padding-top: 4px;
+  }
+
+  /* page-menu extras: the segmented control the shared header moves into the
+   actions sheet below sm, and plain action rows */
+  .segctl {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    margin: 8px 14px 4px;
+    border-radius: var(--r-md);
+    background: var(--surface-inset);
+    border: 1px solid var(--border);
+  }
+  .segctl button {
+    flex: 1;
+    min-height: 40px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .segctl button[aria-pressed="true"] {
+    background: var(--surface-raised);
+    color: var(--text-heading);
+    font-weight: 600;
+    box-shadow: var(--lift);
+  }
+  .actrow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 8px 14px;
+    background: transparent;
+    border: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .actrow .al {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-heading);
+    display: block;
+    letter-spacing: -0.01em;
+  }
+  .actrow .ad {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    display: block;
+  }
+  .actrow svg:first-child {
+    color: var(--text-muted);
+    flex: none;
+  }
+  .sheet-kicker {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    padding: 10px 14px 2px;
+  }
+
+  /* ladder */
+  .ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ladder li {
+    display: flex;
+    gap: 11px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .step {
+    width: 24px;
+    height: 24px;
+    flex: none;
+    border-radius: var(--r-pill);
+    background: var(--mode-soft);
+    border: 1px solid var(--mode-border);
+    color: var(--mode);
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 12px;
+    display: grid;
+    place-items: center;
+    margin-top: 2px;
+  }
+  .ladder .who {
+    font-weight: 500;
+    font-size: 14px;
+    color: var(--text-heading);
+    display: block;
+  }
+  .ladder .when {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 1px;
+    display: block;
+    line-height: 1.42;
+  }
+  .minicall {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 11px;
+    margin-top: 7px;
+    border-radius: var(--r-md);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+  .doclink {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .doclink .dt {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1.35;
+    display: block;
+  }
+  .doclink .dd {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    color: var(--text-soft);
+    margin-top: 3px;
+    display: block;
+  }
+
+  /* detail */
+  .detail {
+    padding: 0 12px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .dl {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+  }
+  .dl .k {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 3px;
+  }
+  .dl .v {
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.45;
+  }
+  .taglist {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .taglist li {
+    display: flex;
+    gap: 7px;
+    font-size: 13.5px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+  .taglist svg {
+    flex: none;
+    margin-top: 3px;
+  }
+  .taglist.yes svg {
+    color: var(--success);
+  }
+  .taglist.no svg {
+    color: var(--danger);
+  }
+
+  /* checklist */
+  .check {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .check li {
+    display: flex;
+    gap: 11px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .check li:first-child {
+    border-top: 0;
+  }
+  .box {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    border-radius: var(--r-xs);
+    margin-top: 1px;
+    border: 1.5px solid var(--border-strong);
+    background: var(--surface);
+    display: grid;
+    place-items: center;
+    color: var(--surface);
+  }
+  .box.done {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .check .ct {
+    font-size: 14px;
+    color: var(--text-heading);
+    line-height: 1.4;
+    display: block;
+  }
+  .check .cs {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    display: block;
+  }
+  .check li.done .ct {
+    color: var(--text-muted);
+    text-decoration: line-through;
+    text-decoration-color: var(--border-strong);
+  }
+
+  /* date badge */
+  .datebadge {
+    width: 44px;
+    flex: none;
+    border-radius: var(--r-md);
+    background: var(--surface-inset);
+    border: 1px solid var(--border);
+    padding: 5px 0;
+    text-align: center;
+  }
+  .datebadge .dow {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mode);
+    display: block;
+  }
+  .datebadge .dnum {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text-heading);
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+  .datebadge .mon {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    display: block;
+  }
+
+  /* owner note */
+  .ownernote {
+    margin: 10px 12px 0;
+    padding: 10px 11px;
+    border-radius: var(--r-md);
+    background: var(--surface-inset);
+    border: 1px solid var(--border-strong);
+    border-left: 3px solid var(--mode);
+  }
+  .ownernote .attrib {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mode);
+    margin-bottom: 5px;
+  }
+  .ownernote p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  /* empty state */
+  .empty {
+    padding: 16px 12px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  .empty .et {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-heading);
+  }
+  .empty .es {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    margin: 4px 0 10px;
+  }
+  .ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: var(--tap);
+    padding: 0 14px;
+    border-radius: var(--r-md);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .hidesvg {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
+  /* ============================================================
+     Added for these options. Everything above is lifted from the
+     app; everything here is chrome being proposed, so it is kept
+     separate and labelled.
+     ============================================================ */
+  .pagehdr {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 4px;
+    background: var(--surface);
+  }
+  .pagehdr.solo {
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pagehdr .ttl {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 0;
+    padding: 4px 4px 4px 0;
+    min-height: var(--tap);
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+  }
+  .pagehdr .ttl .tt {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-heading);
+    letter-spacing: -0.01em;
+  }
+  .pagehdr .ttl .ts {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    color: var(--mode);
+    font-weight: 600;
+    margin-top: 1px;
+  }
+  .pagehdr .iconbtn {
+    flex: none;
+  }
+  .track {
+    display: flex;
+    gap: 3px;
+    padding: 3px 14px 10px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .track i {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--border-strong);
+  }
+  .track i.on {
+    background: var(--mode);
+  }
+  .spy {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    scrollbar-width: none;
+  }
+  .spy::-webkit-scrollbar {
+    display: none;
+  }
+  .spy button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    min-height: var(--tap);
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .spy button.on {
+    border-color: var(--mode);
+    background: var(--mode-soft);
+    color: var(--mode);
+  }
+  .spy button .n {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    opacity: 0.75;
+  }
+  .stickyhdr {
+    position: relative;
+  }
+  .stickyhdr::after {
+    content: "";
+    position: absolute;
+    left: -14px;
+    right: -14px;
+    bottom: -5px;
+    height: 1px;
+    background: var(--border);
+  }
+  .verdict {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--border);
+    background: var(--surface-chrome);
+  }
+  .verdict dt {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .verdict dd {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .pick {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 8px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    color: var(--success);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .callout {
+    margin: 0 0 22px;
+    padding: 14px 16px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--mode-border);
+    background: var(--mode-soft);
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+</style>
+
+<svg class="hidesvg" aria-hidden="true">
+  <symbol
+    id="i-phone"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M14.05 2a9 9 0 0 1 8 7.94M14.05 6A5 5 0 0 1 18 10" />
+    <path
+      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+    />
+  </symbol>
+  <symbol
+    id="i-chevr"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m9 18 6-6-6-6" />
+  </symbol>
+  <symbol
+    id="i-chevd"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m6 9 6 6 6-6" />
+  </symbol>
+  <symbol
+    id="i-back"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m12 19-7-7 7-7" />
+    <path d="M19 12H5" />
+  </symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
+  </symbol>
+  <symbol
+    id="i-search"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </symbol>
+  <symbol
+    id="i-lock"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect width="18" height="11" x="3" y="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </symbol>
+  <symbol
+    id="i-warn"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z" />
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+  </symbol>
+  <symbol
+    id="i-clock"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </symbol>
+  <symbol
+    id="i-pin"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+    <circle cx="12" cy="10" r="3" />
+  </symbol>
+  <symbol
+    id="i-file"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v5h6" />
+  </symbol>
+  <symbol
+    id="i-sign"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M20 20a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2" />
+    <path d="M4 15V4a2 2 0 0 1 2-2h8l4 4v9" />
+    <path d="m9 12 2 2 4-4" />
+  </symbol>
+  <symbol
+    id="i-users"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+  </symbol>
+  <symbol
+    id="i-route"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="6" cy="19" r="3" />
+    <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+    <circle cx="18" cy="5" r="3" />
+  </symbol>
+  <symbol
+    id="i-cap"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M22 10 12 5 2 10l10 5 10-5Z" />
+    <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+  </symbol>
+  <symbol
+    id="i-wrench"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path
+      d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8Z"
+    />
+  </symbol>
+  <symbol
+    id="i-shield"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path
+      d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"
+    />
+  </symbol>
+  <symbol
+    id="i-cal"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M8 2v4M16 2v4" />
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18" />
+  </symbol>
+  <symbol
+    id="i-check"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </symbol>
+  <symbol
+    id="i-x"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M18 6 6 18M6 6l12 12" />
+  </symbol>
+  <symbol
+    id="i-ext"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M15 3h6v6" />
+    <path d="M10 14 21 3" />
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+  </symbol>
+  <symbol
+    id="i-bldg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect width="16" height="20" x="4" y="2" rx="2" />
+    <path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01" />
+  </symbol>
+  <symbol
+    id="i-info"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4M12 8h.01" />
+  </symbol>
+  <symbol
+    id="i-wifi"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M12 20h.01" />
+    <path d="M5 12.9a10 10 0 0 1 14 0" />
+    <path d="M8.5 16.4a5 5 0 0 1 7 0" />
+    <path d="M2 8.8a15 15 0 0 1 20 0" />
+  </symbol>
+  <symbol
+    id="i-key"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m15.5 7.5 3 3L22 7l-3-3" />
+    <path d="m9.5 13.5 6-6" />
+    <circle cx="7" cy="16" r="4" />
+  </symbol>
+  <symbol
+    id="i-print"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M6 9V2h12v7" />
+    <rect width="12" height="8" x="6" y="14" />
+    <path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" />
+  </symbol>
+  <symbol
+    id="i-grid"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <rect width="7" height="7" x="3" y="3" rx="1" />
+    <rect width="7" height="7" x="14" y="3" rx="1" />
+    <rect width="7" height="7" x="14" y="14" rx="1" />
+    <rect width="7" height="7" x="3" y="14" rx="1" />
+  </symbol>
+  <symbol
+    id="i-ellipsis"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.25"
+    stroke-linecap="round"
+  >
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="19" cy="12" r="1" />
+    <circle cx="5" cy="12" r="1" />
+  </symbol>
+  <symbol
+    id="i-star"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path
+      d="M11.5 3.3a.6.6 0 0 1 1 0l2.3 4.7 5.2.7a.6.6 0 0 1 .3 1l-3.7 3.6.9 5.1a.6.6 0 0 1-.9.6L12 16.6l-4.6 2.4a.6.6 0 0 1-.9-.6l.9-5.1L3.7 9.7a.6.6 0 0 1 .3-1l5.2-.7Z"
+    />
+  </symbol>
+  <symbol
+    id="i-menu"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M4 6h16M4 12h16M4 18h16" />
+  </symbol>
+  <symbol
+    id="i-pin2"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M12 17v5" />
+    <path
+      d="M9 10.8V4h6v6.8a2 2 0 0 0 .6 1.4l1.9 1.9a1 1 0 0 1-.7 1.7H7.2a1 1 0 0 1-.7-1.7l1.9-1.9a2 2 0 0 0 .6-1.4Z"
+    />
+  </symbol>
+  <symbol
+    id="i-sun"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.9"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
+  </symbol>
+</svg>
+
+<style>
+  /* ============================================================
+   Added for this file only. Everything else — tokens, phone frame,
+   the tab rail's own ink/rule treatment — is the shared prototype
+   stylesheet above.
+   ============================================================ */
+
+  /* The pill, when it names the PAGE rather than the mode (option A). */
+  .modepill.pagepill {
+    width: min(15.5rem, calc(100% - 0.5rem));
+  }
+
+  /* One header block: the pill row and the in-page row share a surface. */
+  .chrome {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .chrome .apphdr {
+    border-bottom: 0;
+    background: transparent;
+    backdrop-filter: none;
+  }
+
+  /* THE IN-PAGE TAB ROW.
+     Same ink-and-rule treatment as the mode rail this repository already
+     ships, so it is the site's existing pattern rather than a new one — but
+     transparent, sitting inside the header block, and listing THIS PAGE's
+     groups instead of the mode's routes. */
+  .inpagetabs {
+    display: flex;
+    align-items: stretch;
+    height: 2.75rem;
+    padding: 0 2px;
+    background: transparent;
+    border-bottom: 0;
+    min-width: 0;
+  }
+  .tabscroll {
+    display: flex;
+    align-items: stretch;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  }
+  .inpagetabs .slot {
+    min-height: 2.75rem;
+    padding: 0 10px;
+    flex: none; /* tabs keep their natural width; the ROW scrolls, not the word */
+  }
+  .inpagetabs .ink > span.lbl {
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .inpagetabs .ink {
+    font-size: 0.8125rem;
+  }
+  .inpagetabs .rule {
+    bottom: -0.6875rem;
+  }
+
+  /* The "open the whole list" control, pinned at the end of the tab row.
+     Bordered and separated by a hairline, so it reads as a control rather
+     than as one more tab that happens to be an arrow. */
+  .tabmore {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    align-self: center;
+    height: 2rem;
+    margin-left: 6px;
+    padding: 0 8px 0 9px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-pill);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 11.5px;
+    font-weight: 650;
+    cursor: pointer;
+  }
+  .tabmore .n {
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    opacity: 0.8;
+  }
+  .tabmore svg {
+    flex: none;
+  }
+  .tabhint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    flex: none;
+    align-self: center;
+    padding: 0 8px 0 4px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    white-space: nowrap;
+  }
+
+  .measure {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "Geist Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--text-soft);
+  }
+  .measure b {
+    color: var(--text-heading);
+    font-weight: 600;
+  }
+  .strike {
+    text-decoration: line-through;
+    text-decoration-color: var(--danger);
+    text-decoration-thickness: 2px;
+    opacity: 0.55;
+  }
+  .decision {
+    margin-top: 44px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    padding: 20px 22px 22px;
+  }
+  .decision h2 {
+    margin: 0 0 4px;
+    font-size: 19px;
+    letter-spacing: -0.014em;
+    color: var(--text-heading);
+  }
+  .decision > p {
+    margin: 0 0 16px;
+    color: var(--text-muted);
+    font-size: 14px;
+  }
+  .decision dl {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+  }
+  .decision dt {
+    font-size: 13.5px;
+    font-weight: 650;
+    color: var(--text-heading);
+  }
+  .decision dd {
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <h1>On Call — option A, with the page's sections along the second row</h1>
+    <p class="lede">
+      The top pill names the page, as in option A. The row underneath stops being a single rounded chip and becomes the
+      ordinary tab row this site already uses — the page's own sections, side by side, the current one underlined — with
+      a clearly separate control at the end for opening the full list.
+    </p>
+    <div class="callout">
+      <b>Same division of labour, drawn plainly.</b> The <b>pill</b> moves you between On Call's pages. The
+      <b>tabs</b> move you around the page you are on. Nothing else navigates. Every board is Contacts at 390&nbsp;px.
+    </div>
+  </header>
+
+  <div class="gallery">
+    <!-- ============ 00 ============ -->
+    <article class="board">
+      <div class="board-head">
+        <span class="board-no">00</span>
+        <h2 class="board-title">What is there now — one chip</h2>
+      </div>
+      <p class="board-sub">
+        It names where you are and opens the rest behind a tap. Nothing on screen says the rest exists.
+      </p>
+      <div class="frame">
+        <div class="screen">
+          <div class="statusbar">
+            <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="chrome">
+            <div class="apphdr">
+              <button class="hdrbtn" aria-label="Open PsychSift menu">
+                <svg width="22" height="22"><use href="#i-menu" /></svg>
+              </button>
+              <button class="modepill pagepill" aria-label="Contacts — On Call">
+                <span class="mi"
+                  ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+                ><span class="ml">Contacts</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              </button>
+              <button class="iconbtn ringed" aria-label="Page actions">
+                <svg width="19" height="19"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; padding: 0 10px 8px">
+              <span
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  min-height: 32px;
+                  padding: 0 10px;
+                  border-radius: 9999px;
+                  border: 1px solid var(--accent-border);
+                  background: var(--accent-soft);
+                  color: var(--accent);
+                  font-size: 12.5px;
+                  font-weight: 650;
+                "
+                >Needs checking <span style="opacity: 0.7">1/4</span
+                ><svg width="12" height="12"><use href="#i-chevd" /></svg
+              ></span>
+            </div>
+            <div class="track" aria-hidden="true">
+              <i class="on" style="flex: 0.6"></i><i style="flex: 1"></i><i style="flex: 1.1"></i
+              ><i style="flex: 1.7"></i>
+            </div>
+          </div>
+          <div class="body">
+            <div class="grouphdr">Needs checking <span class="ct">1</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">Bed management, after hours</span></span
+                ><span class="num">5290</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grouphdr">Tonight <span class="ct">4</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always</span></span
+                ><span class="num">5544</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="homebar"><i></i></div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>
+          A reader who never taps it never learns that Contacts has four groups, or that there is a way to reach the
+          wards without scrolling past everything else.
+        </li>
+        <li>The rounded, filled shape also reads as a status badge — the same shape the freshness flags use.</li>
+      </ul>
+    </article>
+
+    <!-- ============ A ============ -->
+    <article class="board">
+      <div class="board-head">
+        <span class="board-no">A</span>
+        <h2 class="board-title">
+          The sections as tabs, with a list control at the end<span class="pick">Recommended</span>
+        </h2>
+      </div>
+      <p class="board-sub">
+        Ordinary tabs, underlined where you are. The bordered control at the right opens all four, and says how many.
+      </p>
+      <div class="frame">
+        <div class="screen">
+          <div class="statusbar">
+            <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="chrome">
+            <div class="apphdr">
+              <button class="hdrbtn" aria-label="Open PsychSift menu">
+                <svg width="22" height="22"><use href="#i-menu" /></svg>
+              </button>
+              <button class="modepill pagepill" aria-label="Contacts — On Call. Choose another page.">
+                <span class="mi"
+                  ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+                ><span class="ml">Contacts</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              </button>
+              <button class="iconbtn ringed" aria-label="Page actions">
+                <svg width="19" height="19"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <nav class="inpagetabs" aria-label="Sections of this page">
+              <div class="tabscroll">
+                <button class="slot on" aria-current="true">
+                  <span class="ink"
+                    ><span class="lbl">Needs checking</span><span class="ct">1</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Tonight</span><span class="ct">4</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Wards</span><span class="ct">3</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Services</span><span class="ct">1</span><span class="rule"></span
+                  ></span>
+                </button>
+              </div>
+              <button class="tabmore" aria-haspopup="dialog" aria-label="All 4 sections of this page">
+                <span class="n">4</span><svg width="13" height="13"><use href="#i-chevd" /></svg>
+              </button>
+            </nav>
+          </div>
+          <div class="body">
+            <div class="grouphdr">Needs checking <span class="ct">1</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">Bed management, after hours</span></span
+                ><span class="num">5290</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grouphdr">Tonight <span class="ct">4</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always</span></span
+                ><span class="num">5544</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">Registrar on call</span><span class="s">From 17:00</span></span
+                ><span class="num">5107</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"
+                  ><span class="t">Hospital switchboard</span><span class="s">Anyone off this list</span></span
+                ><span class="num">5009</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="homebar"><i></i></div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>
+          <b>The sections are visible, so a reader learns the page has them</b> without tapping anything — and reaching
+          the wards is one tap rather than four screens of scrolling.
+        </li>
+        <li>
+          <b>This is the site's existing tab treatment,</b> ink and 2&nbsp;px rule, not a new shape: the same one the
+          mode rail uses everywhere else. Each tab carries its count, so the row also says how big each group is.
+        </li>
+        <li>
+          The row fades at its right edge, which is how a reader knows it scrolls. The bordered control after it is
+          separated by that fade so it reads as a control and not as one more tab — and its chevron plus its "4" say
+          what it does before you tap it.
+        </li>
+        <li>
+          The old chip's job — naming where you are — is done by the underline, which is also the only cue that keeps
+          working while you scroll.
+        </li>
+        <li><b>Cost:</b> 44&nbsp;px, against 38&nbsp;px for the chip row it replaces. Six pixels for a visible map.</li>
+      </ul>
+    </article>
+
+    <!-- ============ A·2 ============ -->
+    <article class="board">
+      <div class="board-head">
+        <span class="board-no">A·2</span>
+        <h2 class="board-title">…and what the control at the end opens</h2>
+      </div>
+      <p class="board-sub">All of the page's sections at once, in the page's own order, with their counts.</p>
+      <div class="frame">
+        <div class="screen">
+          <div class="statusbar">
+            <span>22:44</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="chrome">
+            <div class="apphdr">
+              <button class="hdrbtn" aria-label="Open PsychSift menu">
+                <svg width="22" height="22"><use href="#i-menu" /></svg>
+              </button>
+              <button class="modepill pagepill" aria-label="Contacts — On Call">
+                <span class="mi"
+                  ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+                ><span class="ml">Contacts</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              </button>
+              <button class="iconbtn ringed" aria-label="Page actions">
+                <svg width="19" height="19"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <nav class="inpagetabs" aria-label="Sections of this page">
+              <div class="tabscroll">
+                <button class="slot on" aria-current="true">
+                  <span class="ink"
+                    ><span class="lbl">Needs checking</span><span class="ct">1</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Tonight</span><span class="ct">4</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Wards</span><span class="ct">3</span><span class="rule"></span
+                  ></span>
+                </button>
+              </div>
+              <button class="tabmore" aria-expanded="true">
+                <span class="n">4</span
+                ><svg width="13" height="13" style="transform: rotate(180deg)"><use href="#i-chevd" /></svg>
+              </button>
+            </nav>
+          </div>
+          <div class="body" style="opacity: 0.3">
+            <div class="grouphdr">Needs checking <span class="ct">1</span></div>
+          </div>
+          <div class="homebar"><i></i></div>
+        </div>
+        <div class="sheetwrap">
+          <div class="scrim"></div>
+          <div class="sheet">
+            <div class="sheet-grab"><i></i></div>
+            <div class="sheet-hdr">
+              <div class="sheet-ttl">
+                <div class="st">Sections of this page</div>
+                <div class="ss">Contacts · 9 entries in 4 groups</div>
+              </div>
+              <button class="iconbtn" aria-label="Close">
+                <svg width="20" height="20"><use href="#i-x" /></svg>
+              </button>
+            </div>
+            <div class="sheet-body">
+              <button class="sheetrow on">
+                <span
+                  class="leadicon"
+                  style="background: var(--warning-bg); border: 1px solid var(--warning-border); color: var(--warning)"
+                  ><svg width="17" height="17"><use href="#i-warn" /></svg></span
+                ><span class="grow"
+                  ><span class="sl">Needs checking</span><span class="sd">Overdue for confirmation</span></span
+                ><span class="sc">1</span>
+              </button>
+              <button class="sheetrow">
+                <span class="leadicon mod"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="sl">Tonight</span><span class="sd">On this shift</span></span
+                ><span class="sc">4</span>
+              </button>
+              <button class="sheetrow">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-pin" /></svg></span
+                ><span class="grow"><span class="sl">Wards</span><span class="sd">Nurses' stations</span></span
+                ><span class="sc">3</span>
+              </button>
+              <button class="sheetrow">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-users" /></svg></span
+                ><span class="grow"><span class="sl">Services</span><span class="sd">Interpreters, liaison</span></span
+                ><span class="sc">1</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>
+          Needed because the tab row scrolls: on Logistics, with seven groups, the last three are off the right edge and
+          this is how you see them all at once.
+        </li>
+        <li>
+          A group with nothing in it never appears in either place — both are built from the headings that actually
+          rendered, so no tap lands nowhere.
+        </li>
+      </ul>
+    </article>
+
+    <!-- ============ B ============ -->
+    <article class="board">
+      <div class="board-head">
+        <span class="board-no">B</span>
+        <h2 class="board-title">The same tabs, labelled "On this page"</h2>
+      </div>
+      <p class="board-sub">A quiet kicker in front of the tabs, saying in words what the row is for.</p>
+      <div class="frame">
+        <div class="screen">
+          <div class="statusbar">
+            <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="chrome">
+            <div class="apphdr">
+              <button class="hdrbtn" aria-label="Open PsychSift menu">
+                <svg width="22" height="22"><use href="#i-menu" /></svg>
+              </button>
+              <button class="modepill pagepill" aria-label="Contacts — On Call">
+                <span class="mi"
+                  ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+                ><span class="ml">Contacts</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              </button>
+              <button class="iconbtn ringed" aria-label="Page actions">
+                <svg width="19" height="19"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <nav class="inpagetabs" aria-label="Sections of this page">
+              <span class="tabhint"
+                ><svg width="12" height="12"><use href="#i-route" /></svg>On this page</span
+              >
+              <div class="tabscroll">
+                <button class="slot on" aria-current="true">
+                  <span class="ink"><span class="lbl">Needs checking</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Tonight</span><span class="rule"></span></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"><span class="lbl">Wards</span><span class="rule"></span></span>
+                </button>
+              </div>
+              <button class="tabmore" aria-haspopup="dialog" aria-label="All 4 sections of this page">
+                <span class="n">4</span><svg width="13" height="13"><use href="#i-chevd" /></svg>
+              </button>
+            </nav>
+          </div>
+          <div class="body">
+            <div class="grouphdr">Needs checking <span class="ct">1</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">Bed management, after hours</span></span
+                ><span class="num">5290</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grouphdr">Tonight <span class="ct">4</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always</span></span
+                ><span class="num">5544</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="homebar"><i></i></div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>
+          The words remove any doubt about what the row navigates — worth considering, since that ambiguity is the whole
+          reason we are here.
+        </li>
+        <li>
+          <b>The cost is the space they take.</b> "On this page" eats about 90&nbsp;px of a 390&nbsp;px row, so only two
+          sections fit before the fade instead of four, and the counts had to come off the tabs to make room.
+        </li>
+        <li>A label that never changes is also the first thing a daily reader stops seeing.</li>
+      </ul>
+    </article>
+
+    <!-- ============ C ============ -->
+    <article class="board">
+      <div class="board-head">
+        <span class="board-no">C</span>
+        <h2 class="board-title">Tabs alone, no list control</h2>
+      </div>
+      <p class="board-sub">Just the row, scrolling sideways when it has to.</p>
+      <div class="frame">
+        <div class="screen">
+          <div class="statusbar">
+            <span>22:43</span><span class="bars"><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="chrome">
+            <div class="apphdr">
+              <button class="hdrbtn" aria-label="Open PsychSift menu">
+                <svg width="22" height="22"><use href="#i-menu" /></svg>
+              </button>
+              <button class="modepill pagepill" aria-label="Contacts — On Call">
+                <span class="mi"
+                  ><svg width="16" height="16"><use href="#i-phone" /></svg></span
+                ><span class="ml">Contacts</span><svg width="16" height="16"><use href="#i-chevd" /></svg>
+              </button>
+              <button class="iconbtn ringed" aria-label="Page actions">
+                <svg width="19" height="19"><use href="#i-ellipsis" /></svg>
+              </button>
+            </div>
+            <nav class="inpagetabs" aria-label="Sections of this page">
+              <div class="tabscroll" style="mask-image: linear-gradient(to right, #000 92%, transparent 100%)">
+                <button class="slot on" aria-current="true">
+                  <span class="ink"
+                    ><span class="lbl">Needs checking</span><span class="ct">1</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Tonight</span><span class="ct">4</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Wards</span><span class="ct">3</span><span class="rule"></span
+                  ></span>
+                </button>
+                <button class="slot">
+                  <span class="ink"
+                    ><span class="lbl">Services</span><span class="ct">1</span><span class="rule"></span
+                  ></span>
+                </button>
+              </div>
+            </nav>
+          </div>
+          <div class="body">
+            <div class="grouphdr">Needs checking <span class="ct">1</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">Bed management, after hours</span></span
+                ><span class="num">5290</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+            <div class="grouphdr">Tonight <span class="ct">4</span></div>
+            <div class="card">
+              <div class="row">
+                <span class="leadicon acc"
+                  ><svg width="17" height="17"><use href="#i-phone" /></svg></span
+                ><span class="grow"><span class="t">After-hours nurse manager</span><span class="s">Always</span></span
+                ><span class="num">5544</span
+                ><span class="callbtn"
+                  ><svg width="18" height="18"><use href="#i-phone" /></svg
+                ></span>
+              </div>
+            </div>
+          </div>
+          <div class="homebar"><i></i></div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li>The cleanest row of the three, and fine on Contacts, where four groups nearly fit.</li>
+        <li>
+          <b>It breaks on the long pages.</b> Logistics has seven groups; the last three are only reachable by dragging
+          a row most people will not think to drag, and nothing tells you they are there.
+        </li>
+        <li>
+          The site's own rail hit exactly this and answered it with an overflow control. Leaving it out here would be
+          repeating a solved mistake.
+        </li>
+      </ul>
+    </article>
+  </div>
+
+  <article class="board" style="max-width: 62rem">
+    <div class="decision">
+      <h2>My recommendation</h2>
+      <p>A — tabs with the list control at the end.</p>
+      <dl>
+        <dt>Why the tabs at all, over the chip that is there now</dt>
+        <dd>
+          The chip answers "where am I" and hides "where else could I be". On a page that runs to four screens, the
+          second question is the one worth answering on screen. Tabs answer both, in the site's existing treatment, for
+          six more pixels.
+        </dd>
+        <dt>Why the control at the end</dt>
+        <dd>
+          Because the row scrolls. Contacts nearly fits; Logistics does not, and a section you cannot see is a section
+          that does not exist. The control is bordered, carries the number of sections, and turns its chevron over when
+          open — three signals that it is a button before anybody taps it.
+        </dd>
+        <dt>Why not B's "On this page" label</dt>
+        <dd>
+          It costs about 90&nbsp;px of a 390&nbsp;px row — two visible tabs instead of four, and the counts off the tabs
+          to make room. The row's job is legible from the underline and from the fact that the words in it are the
+          headings you can see below. If it turns out not to be, B is a small change from A.
+        </dd>
+        <dt>What it changes in the code</dt>
+        <dd>
+          The section rail this repository already ships (<code>InPageSectionRail</code>, the document viewer's own) is
+          this row; On Call would mount it at phone width instead of the single chip, and the chip's sheet becomes the
+          control's sheet. The weighted progress track is then redundant — the tabs are a better map — so it goes.
+        </dd>
+      </dl>
+    </div>
+  </article>
+</div>
