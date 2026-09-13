@@ -60,6 +60,7 @@ import {
   type ReadContext,
   type ReferralTransitionInput,
   type SavePathwayVersionInput,
+  type StoredContact,
   type StoredPatientDetail,
   type WithdrawPlanInput,
   type WriteContext,
@@ -116,7 +117,7 @@ export function toPlanRecord(
   planRow: SqlRow,
   contactRows: readonly SqlRow[],
   assuranceRows: readonly SqlRow[],
-  toStoredContactFn: (row: SqlRow) => { contact: any; planned: any },
+  toStoredContactFn: (row: SqlRow) => StoredContact,
 ): PlanRecord {
   return {
     plan: toPlan(planRow),
@@ -261,7 +262,7 @@ export async function readAllPathwayVersions(connection: SqlConnection): Promise
 export class PlansStore {
   constructor(
     private readonly ctx: RepositoryContext,
-    private readonly toStoredContactFn: (row: SqlRow) => any,
+    private readonly toStoredContactFn: (row: SqlRow) => StoredContact,
   ) {}
 
   selectPlanForUpdate(connection: SqlConnection, planId: PlanId, teamId?: TeamId): Promise<SqlRow | null> {
@@ -939,6 +940,9 @@ export class PlansStore {
   }
 }
 
-export function createPlansStore(ctx: RepositoryContext, toStoredContactFn: (row: SqlRow) => any): PlansStore {
+export function createPlansStore(
+  ctx: RepositoryContext,
+  toStoredContactFn: (row: SqlRow) => StoredContact,
+): PlansStore {
   return new PlansStore(ctx, toStoredContactFn);
 }

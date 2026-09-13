@@ -14,15 +14,7 @@ import {
 import { canPerformCaringContactAction, type CaringContactAction } from "../../permissions";
 import { READ_ACTIONS, REPOSITORY_REFUSALS, type ReadContext, type WriteContext } from "../../repository";
 import { emptyTrainingRecord, recordCompetency, type TrainingCompetency, type TrainingRecord } from "../../training";
-import {
-  instantOf,
-  isAbsent,
-  mayReadOwnTeam,
-  textOf,
-  type RepositoryContext,
-  type SqlConnection,
-  type SqlRow,
-} from "../shared";
+import { instantOf, isAbsent, mayReadOwnTeam, textOf, type RepositoryContext, type SqlConnection } from "../shared";
 
 export async function readAssignment(
   connection: SqlConnection,

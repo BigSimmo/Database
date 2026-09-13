@@ -14,7 +14,7 @@ import {
   teamId,
 } from "@/lib/caring-contacts/ids";
 import { createInMemoryRepository } from "@/lib/caring-contacts/in-memory-repository";
-import { createPlan, createPlanStore, type PlanCreationInput } from "@/lib/caring-contacts/plan-store";
+import { createPlan, createPlanStore } from "@/lib/caring-contacts/plan-store";
 import type { CreatePlanInput, WriteContext } from "@/lib/caring-contacts/repository";
 
 describe("caring-contacts plans: patient name validation and retention clearance sentinel (#V6CDEV)", () => {

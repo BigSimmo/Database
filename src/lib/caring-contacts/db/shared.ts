@@ -6,8 +6,7 @@
 import { buildAuditEvent, type AuditEvent, type AuditOutcome } from "../audit";
 import type { Clock } from "../clock";
 import { fingerprintOf } from "../fingerprint";
-import { actorId as toActorId, idempotencyKey as toIdempotencyKey, teamId as toTeamId } from "../ids";
-import type { ContactId, PathwayVersionId, PatientId, PlanId, TeamId } from "../ids";
+import type { PlanId, TeamId } from "../ids";
 import type { Contact, Plan, TransitionResult } from "../model";
 import {
   actorRoleNames,

@@ -10,7 +10,6 @@ import {
 } from "../../contact-rescheduling";
 import { contactId, teamId as toTeamId, type ContactId, type PlanId, type TeamId } from "../../ids";
 import {
-  DISPATCHED_CONTACT_STATES,
   applyContactTransition,
   planSendingHold,
   type Contact,

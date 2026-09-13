@@ -24,7 +24,7 @@ import type { Clock } from "./clock";
 import type { DeidentifiedEpisode, Episode, EpisodeState } from "./episode";
 import type { ActorId } from "./ids";
 import type { TransitionResult } from "./model";
-import type { IncidentCaseNote, IncidentNoteArchiveResult } from "./types";
+import type { IncidentNoteArchiveResult } from "./types";
 
 export type { IncidentCaseNote, IncidentNoteArchiveResult } from "./types";
 

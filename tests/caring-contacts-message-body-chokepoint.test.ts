@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  prepareContactForDispatch,
-  type PlannedContact,
-  type ValidatedGovernedBody,
-} from "@/lib/caring-contacts/schedule";
+import { prepareContactForDispatch, type PlannedContact } from "@/lib/caring-contacts/schedule";
 import { validateGovernedMessage } from "@/lib/caring-contacts/message-policy";
 import { PROVISIONAL_MESSAGE_RULES } from "@/lib/caring-contacts/message-rules";
 import type { DispatchRecord } from "@/lib/caring-contacts/repository";
