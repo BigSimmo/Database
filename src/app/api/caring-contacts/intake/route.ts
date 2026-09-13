@@ -6,12 +6,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
-import {
-  auditableIdentifier,
-  auditedRead,
-  writeContextFor,
-  writeHandler,
-} from "@/lib/caring-contacts-server/handler";
+import { auditableIdentifier, auditedRead, writeContextFor, writeHandler } from "@/lib/caring-contacts-server/handler";
 import { isAccessObjectIdShape } from "@/lib/caring-contacts/access-audit";
 import { patientId, pathwayVersionId, referralId } from "@/lib/caring-contacts/ids";
 import { SyntheticHospitalReferralAdapter } from "@/lib/caring-contacts/referral";
@@ -104,9 +99,7 @@ export const POST = writeHandler({
 
     let requested: ReturnType<typeof pathwayVersionId> | null = null;
     if (body.pathwayVersionId) {
-      const explicit = versions.find(
-        (version) => version.id === body.pathwayVersionId && version.state === "approved",
-      );
+      const explicit = versions.find((version) => version.id === body.pathwayVersionId && version.state === "approved");
       if (!explicit) {
         return {
           ok: false,
