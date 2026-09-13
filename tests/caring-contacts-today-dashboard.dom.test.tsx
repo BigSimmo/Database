@@ -272,4 +272,55 @@ describe("TodayDashboard — Active Caseload", () => {
     expect(screen.getByTestId("caring-contacts-team-caseload")).toBeInTheDocument();
     expect(screen.getByText("coordinator-sarah")).toBeInTheDocument();
   });
+
+  it("shows a service-wide stop instead of claiming dispatches are ready or running", () => {
+    render(
+      <TodayDashboard
+        scheduleDay={activeScheduleDay}
+        teamWorkload={activeTeamWorkload}
+        serviceState={{
+          stopped: true,
+          reportedByTeamId: teamId("team-test"),
+          reason: "audit-integrity-loss",
+          stoppedBy: actorId("incident-lead"),
+          stoppedAt: "2026-09-12T12:00:00+08:00",
+          note: "Test-only incident",
+          restartApprovals: [],
+        }}
+        todayCalendarDay="2026-09-12"
+      />,
+    );
+
+    expect(screen.getByText("Dispatch stopped")).toBeInTheDocument();
+    expect(screen.getByText("All dispatches held by emergency stop")).toBeInTheDocument();
+    expect(screen.queryByText("Dispatch ready")).toBeNull();
+    expect(screen.queryByText("Dispatches running")).toBeNull();
+  });
+
+  it("includes due contacts outside approved windows in the action queue", () => {
+    const outsideEntry = {
+      ...activeScheduleDay.windows[0].entries[0],
+      contactId: contactId("ct-outside"),
+      patientId: patientId("pt-outside"),
+      planId: planId("plan-outside"),
+    };
+    render(
+      <TodayDashboard
+        scheduleDay={{
+          ...activeScheduleDay,
+          windows: emptyScheduleDay.windows,
+          outsideApprovedWindows: {
+            entries: [outsideEntry],
+            counts: { ...emptyScheduleDay.outsideApprovedWindows.counts, total: 1, stillToSend: 1, due: 1 },
+          },
+        }}
+        teamWorkload={activeTeamWorkload}
+        serviceState={dummyServiceState}
+        todayCalendarDay="2026-09-12"
+      />,
+    );
+
+    expect(screen.getByText("pt-outside")).toBeInTheDocument();
+    expect(screen.getByText("Due outside approved window")).toBeInTheDocument();
+  });
 });

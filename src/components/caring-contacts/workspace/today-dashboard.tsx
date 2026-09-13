@@ -40,7 +40,7 @@ export function TodayDashboard({
   todayCalendarDay,
   mayViewPlans = true,
 }: TodayDashboardProps) {
-  const { counts, exceptions, windows } = scheduleDay;
+  const { counts, exceptions, outsideApprovedWindows, windows } = scheduleDay;
   const { unclaimed, coordinators, thresholdMinutes } = teamWorkload;
 
   const totalActivePlans = coordinators.reduce((sum, c) => sum + c.activePlans, 0);
@@ -50,6 +50,13 @@ export function TodayDashboard({
   for (const window of windows) {
     for (const entry of window.entries) {
       if (entry.isDue) dueEntries.push(entry);
+    }
+  }
+  const outsideWindowDueIds = new Set<string>();
+  for (const entry of outsideApprovedWindows.entries) {
+    if (entry.isDue) {
+      dueEntries.push(entry);
+      outsideWindowDueIds.add(entry.contactId);
     }
   }
 
@@ -124,7 +131,7 @@ export function TodayDashboard({
                 }`}
               >
                 <Clock aria-hidden="true" className="size-3.5" />
-                {counts.due > 0 ? "Dispatch ready" : "None due"}
+                {serviceState.stopped ? "Dispatch stopped" : counts.due > 0 ? "Dispatch ready" : "None due"}
               </span>
             </div>
             <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
@@ -225,7 +232,13 @@ export function TodayDashboard({
               </span>
             </div>
             <div className="mt-4 border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
-              <span>{counts.held > 0 ? `${counts.held} contacts held by plan` : "Dispatches running"}</span>
+              <span>
+                {serviceState.stopped
+                  ? "All dispatches held by emergency stop"
+                  : counts.held > 0
+                    ? `${counts.held} contacts held by plan`
+                    : "Dispatches running"}
+              </span>
             </div>
           </div>
         </div>
@@ -315,7 +328,9 @@ export function TodayDashboard({
                           className={`${badgeClass} bg-[color:var(--clinical-accent-subtle)] text-[color:var(--clinical-accent)]`}
                         >
                           <Clock aria-hidden="true" className="size-3" />
-                          Due for dispatch
+                          {outsideWindowDueIds.has(entry.contactId)
+                            ? "Due outside approved window"
+                            : "Due for dispatch"}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">

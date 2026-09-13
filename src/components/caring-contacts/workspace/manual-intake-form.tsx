@@ -15,6 +15,20 @@ import {
 
 import { workspacePanelPadded } from "./surfaces";
 
+export function formatAwstDateTimeLocal(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: "Australia/Perth",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}`;
+}
+
 export function ManualIntakeForm() {
   const [adapter] = useState(() => new SyntheticHospitalReferralAdapter());
 
@@ -25,7 +39,7 @@ export function ManualIntakeForm() {
   const [familyName, setFamilyName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
   const [admittingWard, setAdmittingWard] = useState("Ward 4A Acute Mental Health");
-  const [dischargeDate, setDischargeDate] = useState(() => new Date().toISOString().slice(0, 16));
+  const [dischargeDate, setDischargeDate] = useState(() => formatAwstDateTimeLocal(new Date()));
   const [cohort, setCohort] = useState("adult_crisis");
   const [clinicalSummary, setClinicalSummary] = useState("");
   const [safetyAlerts, setSafetyAlerts] = useState("Acute distress, Aftercare support required");
@@ -46,7 +60,7 @@ export function ManualIntakeForm() {
     setFamilyName(pat.familyName ?? "");
     setMobileNumber(pat.mobile ?? "");
     setAdmittingWard(typeof ep.admittingWard === "string" ? ep.admittingWard : "Acute Unit");
-    setDischargeDate(new Date().toISOString().slice(0, 16));
+    setDischargeDate(formatAwstDateTimeLocal(new Date()));
     setCohort(typeof ep.cohort === "string" ? ep.cohort : "adult_crisis");
     setClinicalSummary(typeof ep.clinicalSummary === "string" ? ep.clinicalSummary : "");
     setSafetyAlerts(Array.isArray(ep.safetyAlerts) ? ep.safetyAlerts.join(", ") : "");
