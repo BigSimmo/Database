@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8356de5a-9146-445f-b53f-6942ec26980e",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#FYSQGK",
+    "outcome": "Clinician sign-off confirmed against DSM-5-TR for the 15 single-select specifier group labels as mutually-exclusive categories; relaxBuilderGroups remains active for clinician override and Specific Phobia::Type exception is preserved. Review record retained in Developer Hub Review Ledger.",
+    "baseRowFingerprint": "b8471fd611bccb7715eac10cf35bde2c16038bafb1708fc130b52c233e63752a"
+  }
+}
