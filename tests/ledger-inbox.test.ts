@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { applyRequest, applyRequestBatch, planRequestBatch } from "../scripts/ledger-inbox.mjs";
-import { mergeArchiveOutcome, pruneResolvedIdFromQueue, resolveIssue } from "../scripts/outstanding-issues.mjs";
-import { checkIssues, parseIssues, issueRowFingerprint } from "../scripts/check-outstanding-issues.mjs";
+import { applyRequest, applyRequestBatch, planRequestBatch, validateRequest } from "../scripts/ledger-inbox.mjs";
+import {
+  mergeArchiveOutcome,
+  pruneResolvedIdFromQueue,
+  resolveIssue,
+  updateArchivedIssue,
+} from "../scripts/outstanding-issues.mjs";
+import {
+  archiveRowFingerprint,
+  checkIssues,
+  parseIssues,
+  issueRowFingerprint,
+} from "../scripts/check-outstanding-issues.mjs";
 
 const BASE_LEDGER = [
   "<!-- issues:next-id=10 -->",
@@ -423,6 +433,157 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
       expect(() => applyRequestBatch(BASE_LEDGER, [doneReq, queueReq])).toThrow(
         /multiple pending mutations require an explicit cancellation decision/,
       );
+    });
+  });
+
+  describe("archived ledger row outcome correction (#1BKK79)", () => {
+    const ARCHIVE_LEDGER = [
+      "<!-- issues:next-id=10 -->",
+      "",
+      "## Recommended execution queue",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| Order | ID(s) | Acuity | Capability | When | Estimate | Outcome |",
+      "| ----: | -------------- | -------- | --- | --- | --- | --- |",
+      "| 1 | `#001` | A2 | High | now | 1h | solo |",
+      "",
+      "## Open items",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Pri | Type | Summary | Detail / next action | Source | Added |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| #001 | P2 | issue | First open issue | detail one | src | 2026-01-01 |",
+      "",
+      "## Resolved / archive",
+      "",
+      "<!-- prettier-ignore -->",
+      "",
+      "| ID | Type | Summary | Outcome | Resolved |",
+      "| ---- | ---- | ---- | ---- | ---- |",
+      "| #000 | task | Initial task | Closed in bootstrap | 2025-12-01 |",
+      "| #005 | issue | Prior resolved issue | Original outcome text from PR #10 | 2026-01-01 |",
+      "| #041061 <!-- issue-ulid:01M00000000410610000000000 --> | task | Crockford archive row | Completed task | 2026-02-01 |",
+      "",
+    ].join("\n");
+
+    it("validates amend-outcome and update requests with outcome", () => {
+      const amendValid = {
+        version: 1,
+        id: "aaaaaaaa-1111-4111-8111-111111111111",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: { id: "#005", outcome: "Updated note" },
+      };
+      expect(validateRequest(amendValid)).toEqual([]);
+
+      const amendInvalid = {
+        ...amendValid,
+        payload: { id: "#005" },
+      };
+      expect(validateRequest(amendInvalid)).toContain("amend-outcome requires outcome");
+
+      const updateWithOutcome = {
+        version: 1,
+        id: "aaaaaaaa-2222-4222-8222-222222222222",
+        createdOn: "2026-08-15",
+        action: "update",
+        payload: { id: "#005", outcome: "Updated note" },
+      };
+      expect(validateRequest(updateWithOutcome)).toEqual([]);
+    });
+
+    it("archiveRowFingerprint computes sha256 hash for archived rows and handles display locators", () => {
+      const fpNumeric = archiveRowFingerprint(ARCHIVE_LEDGER, "#005");
+      expect(fpNumeric).toMatch(/^[0-9a-f]{64}$/);
+
+      const fpCrockford = archiveRowFingerprint(ARCHIVE_LEDGER, "#041061");
+      expect(fpCrockford).toMatch(/^[0-9a-f]{64}$/);
+
+      // Open item has no archive fingerprint
+      expect(archiveRowFingerprint(ARCHIVE_LEDGER, "#001")).toBeNull();
+
+      // Unknown ID returns null
+      expect(archiveRowFingerprint(ARCHIVE_LEDGER, "#999")).toBeNull();
+    });
+
+    it("applies amend-outcome request to an archived row and preserves table structure", () => {
+      const fp = archiveRowFingerprint(ARCHIVE_LEDGER, "#005");
+      const req = {
+        version: 1,
+        id: "bbbb1111-1111-4111-8111-111111111111",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: {
+          id: "#005",
+          outcome: "Amended resolution rationale from review",
+          baseRowFingerprint: fp,
+        },
+      };
+
+      const result = applyRequest(ARCHIVE_LEDGER, req);
+      expect(checkIssues(result, { prettierIgnored: true })).toEqual([]);
+
+      const parsed = parseIssues(result);
+      const row = parsed.rows.find((r) => r.id === "#005");
+      expect(row?.table).toBe("archive");
+      expect(row?.cellCount).toBe(5);
+      expect(row?.raw).toContain(
+        "Original outcome text from PR #10 \\| Note: Amended resolution rationale from review",
+      );
+    });
+
+    it("applies update request with outcome targeting an archived row", () => {
+      const fp = archiveRowFingerprint(ARCHIVE_LEDGER, "#041061");
+      const req = {
+        version: 1,
+        id: "bbbb2222-2222-4222-8222-222222222222",
+        createdOn: "2026-08-15",
+        action: "update",
+        payload: {
+          id: "#041061",
+          outcome: "Additional verification details",
+          baseRowFingerprint: fp,
+        },
+      };
+
+      const result = applyRequest(ARCHIVE_LEDGER, req);
+      expect(checkIssues(result, { prettierIgnored: true })).toEqual([]);
+
+      const parsed = parseIssues(result);
+      const row = parsed.rows.find((r) => r.id === "#041061");
+      expect(row?.table).toBe("archive");
+      expect(row?.cellCount).toBe(5);
+      expect(row?.raw).toContain("Completed task \\| Note: Additional verification details");
+    });
+
+    it("rejects amend-outcome request with stale baseRowFingerprint", () => {
+      const req = {
+        version: 1,
+        id: "bbbb3333-3333-4333-8333-333333333333",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: {
+          id: "#005",
+          outcome: "Stale amendment",
+          baseRowFingerprint: "0000000000000000000000000000000000000000000000000000000000000000",
+        },
+      };
+
+      expect(() => applyRequest(ARCHIVE_LEDGER, req)).toThrow(/stale/);
+    });
+
+    it("updateArchivedIssue correctly updates outcome and is idempotent", () => {
+      const once = updateArchivedIssue(ARCHIVE_LEDGER, "#005", "Direct amendment");
+      expect(checkIssues(once, { prettierIgnored: true })).toEqual([]);
+
+      const parsedOnce = parseIssues(once);
+      const rowOnce = parsedOnce.rows.find((r) => r.id === "#005");
+      expect(rowOnce?.raw).toContain("Original outcome text from PR #10 \\| Note: Direct amendment");
+
+      const twice = updateArchivedIssue(once, "#005", "Direct amendment");
+      expect(twice).toBe(once);
     });
   });
 });

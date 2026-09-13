@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "1538ed82-514c-4c2e-9447-3ab04e7188bb",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#DW3XK8",
+    "outcome": "Added four missing no-DDL migrations to KNOWN_ORPHAN_VERSIONS in migration-history-placeholders test and reconciled 20260702170000 in supabase/drift-allowlist.json",
+    "baseRowFingerprint": "82fbc105d79de3d16375e5cc92d8c869660bdc46cfb4255afe7304219bec5759"
+  }
+}

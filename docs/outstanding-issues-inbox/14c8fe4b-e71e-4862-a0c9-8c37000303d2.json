@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "14c8fe4b-e71e-4862-a0c9-8c37000303d2",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#1BKK79",
+    "outcome": "Extended ledger-inbox CLI, applyRequest, and outstanding-issues tooling with amend-outcome and outcome update support on archived rows using archiveRowFingerprint, verified with test suite",
+    "baseRowFingerprint": "3b8eb6f6b104d57a3f4c5150046ce1a97974f9434b718956e8d0d422dff2dc40"
+  }
+}
