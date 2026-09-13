@@ -79,6 +79,17 @@ function contactAreaFor(entry: OnCallEntry): string {
   return first && first.length > 0 ? first : UNTAGGED_AREA;
 }
 
+/**
+ * The role an entry is filed under, for the "by role" order.
+ *
+ * `details.role` is required by the contacts schema, but an entry whose
+ * `details` fail to parse still has to sort somewhere rather than vanish, so
+ * the title stands in.
+ */
+function roleNameFor(entry: OnCallEntry): string {
+  return parseContactDetails(entry.details)?.role?.trim() || entry.title;
+}
+
 /** The chip row filters on the same area the groups are headed by. */
 const contactAreaFacet: OnCallFacetReader = (entry) => [contactAreaFor(entry)];
 
@@ -285,6 +296,19 @@ export function OnCallContactsSection({
   const sortEntries = (list: OnCallEntry[]) =>
     [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
+  /**
+   * "By role" sorts by the role, which is not what `sortOrder` holds.
+   *
+   * `sortOrder` is the owner's ordering WITHIN an area — everyone on Ward 4B
+   * numbered 1, 2, 3, and everyone in ED numbered 1, 2, 3 as well. Flattening
+   * the areas and re-sorting on it interleaves the two by a number that means
+   * nothing across them, which is an arbitrary order wearing the label "by
+   * role". So this reads `details.role` and sorts alphabetically, falling back
+   * to the entry's title when a row has no role recorded.
+   */
+  const sortByRole = (list: OnCallEntry[]) =>
+    [...list].sort((a, b) => roleNameFor(a).localeCompare(roleNameFor(b)) || a.title.localeCompare(b.title));
+
   const areaGroups = Array.from(byArea.entries())
     .map(([area, list]) => ({ area, entries: sortEntries(list) }))
     .sort((a, b) => a.area.localeCompare(b.area));
@@ -331,7 +355,7 @@ export function OnCallContactsSection({
         </section>
       ) : null}
 
-      {order === "role" ? renderFlatGroup(sortEntries(Array.from(byArea.values()).flat()), "role") : null}
+      {order === "role" ? renderFlatGroup(sortByRole(Array.from(byArea.values()).flat()), "role") : null}
 
       {/* No groups at all — the overdue rows lead, each still badged. This is
           the owner's maintenance view, and the one order that does not hoist

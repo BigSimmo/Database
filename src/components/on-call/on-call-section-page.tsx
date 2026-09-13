@@ -145,19 +145,38 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
    * the cheap, safe version of the same action — the list is the OVERDUE
    * entries, which is a handful, not the whole section.
    *
-   * A failure stops the run and says so. Half a stamp reported as a success is
-   * the one outcome that would make a stale number look checked.
+   * The results accumulate in ONE list that is written to the cache once. The
+   * obvious version — calling `upsertCachedEntry` per iteration — is wrong and
+   * silently so: `entries` is the snapshot from the render that started the
+   * run, and `cacheOnCallEntries` overwrites the whole cache rather than
+   * merging, so every iteration would rebuild the list from that same stale
+   * snapshot and discard the one before it. Three successful confirmations
+   * would leave two rows still sitting under "Needs checking" until a reload,
+   * which is the worst possible outcome for this particular action: the write
+   * happened and the page says it did not.
+   *
+   * A failure stops the run and says so, keeping whatever was confirmed before
+   * it. Half a stamp reported as a success is the other way to make a stale
+   * number look checked.
    */
   async function verifyAllStale() {
     setVerifyAllState({ running: true, error: null });
+    let working = [...entries];
+    const commit = () => cacheOnCallEntries(working);
+
     for (const entry of staleEntries) {
       try {
         const response = await fetch(`/api/on-call/entries/${entry.id}/verify`, { method: "POST" });
         if (!response.ok) throw new Error(`Could not confirm ${entry.title}.`);
         const payload: unknown = await response.json();
         const updated = (payload as { entry?: OnCallEntry } | null)?.entry;
-        if (updated) upsertCachedEntry(updated);
+        if (updated) {
+          working = working.some((existing) => existing.id === updated.id)
+            ? working.map((existing) => (existing.id === updated.id ? updated : existing))
+            : [...working, updated];
+        }
       } catch (error) {
+        commit();
         setVerifyAllState({
           running: false,
           error: error instanceof Error ? error.message : "Could not confirm these entries.",
@@ -165,6 +184,8 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         return;
       }
     }
+
+    commit();
     setVerifyAllState({ running: false, error: null });
   }
 

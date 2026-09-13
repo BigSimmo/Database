@@ -151,6 +151,19 @@ describe("Contact ordering from the page menu", () => {
     expect(screen.getByTestId("on-call-contacts-group-wards")).toBeInTheDocument();
   });
 
+  it("sorts by the role, not by the area's own numbering, under 'by role'", () => {
+    // `sortOrder` is the owner's ordering WITHIN an area, so flattening the
+    // areas and re-sorting on it interleaves them by a number that means
+    // nothing across them — an arbitrary order wearing the label "by role".
+    const zulu = { ...contact("a-slug", "A row", ["Wards"], "5001"), sortOrder: 0, details: { role: "Zulu ward" } };
+    const alpha = { ...contact("z-slug", "Z row", ["Admin"], "5002"), sortOrder: 9, details: { role: "Alpha clinic" } };
+    render(<OnCallContactsSection entries={[zulu, alpha]} now={NOW} order="role" />);
+    const rows = [
+      ...screen.getByTestId("on-call-contacts-group-role").querySelectorAll("[data-testid^='on-call-contact-row-']"),
+    ];
+    expect(rows[0]).toHaveAttribute("data-testid", "on-call-contact-row-z-slug");
+  });
+
   it("drops the area groups for one flat list under 'by role'", () => {
     render(<OnCallContactsSection entries={[ED, WARD]} now={NOW} order="role" />);
     expect(screen.queryByTestId("on-call-contacts-group-emergency")).not.toBeInTheDocument();
