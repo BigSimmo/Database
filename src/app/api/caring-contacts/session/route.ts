@@ -7,7 +7,11 @@
 // request this endpoint was asked to act on.
 //
 // In sovereign production demo mode the cookie value is HMAC-signed with
-// CARING_CONTACTS_SESSION_HMAC_SECRET so a forgeable role-only cookie cannot open the workspace.
+// CARING_CONTACTS_SESSION_HMAC_SECRET. That signature only blocks offline forgery of a non-default
+// role cookie: workspace enablement is still env-only, a missing/invalid cookie falls back to
+// coordinator, and this POST issues a signed role for any caller with no client proof. HMAC is
+// not an authentication boundary. Durable patient databases are refused while demo mode is on
+// (see caring-contacts-server/store.ts).
 import { cookies } from "next/headers";
 import { z } from "zod";
 

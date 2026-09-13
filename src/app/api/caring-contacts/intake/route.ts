@@ -1,8 +1,10 @@
 // src/app/api/caring-contacts/intake/route.ts
 //
 // Manual hospital referral intake fallback (Hazard H-44). Validates a discharge
-// payload, then persists and accepts a referral through the audited store writes
-// so Initiate Care Plan can open `/plans/new?referral=<id>` against a real record.
+// payload, then persists the full intake clinical payload with the referral and
+// accepts it through audited store writes so Initiate Care Plan can open
+// `/plans/new?referral=<id>` against a real record whose clinical fields round-trip
+// from the store (never an adapter echo of discarded fields).
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
@@ -118,8 +120,21 @@ export const POST = writeHandler({
       requested = approved.id;
     }
 
+    const intakePayload = {
+      patientIdentifier: referral.patientIdentifier,
+      givenName: referral.givenName,
+      familyName: referral.familyName,
+      mobileNumber: referral.mobileNumber,
+      dischargeDate: referral.dischargeDate,
+      hospitalFacility: referral.hospitalFacility,
+      cohort: referral.cohort,
+      admittingWard: referral.admittingWard,
+      clinicalSummary: referral.clinicalSummary,
+      safetyAlerts: [...referral.safetyAlerts],
+    };
+
     const created = await store.createReferral(
-      { referralId: nextReferralId, patientId: nextPatientId },
+      { referralId: nextReferralId, patientId: nextPatientId, intakePayload },
       writeContextFor(actor, body.idempotencyKey),
     );
     if (!created.ok) return created;
@@ -130,6 +145,16 @@ export const POST = writeHandler({
     );
     if (!accepted.ok) return accepted;
 
+    // Round-trip clinical fields from the store — never return the adapter validation echo as if
+    // it were durable. If the store did not keep the payload, refuse rather than lie.
+    const storedPayload = await store.getReferralIntakePayload(nextReferralId, { actor });
+    if (!storedPayload) {
+      return {
+        ok: false,
+        reason: "Intake clinical payload was not durable after createReferral; refusing success.",
+      };
+    }
+
     return {
       ok: true,
       value: {
@@ -137,7 +162,7 @@ export const POST = writeHandler({
         patientId: accepted.value.patientId,
         state: accepted.value.state,
         pathwayVersionId: accepted.value.pathwayVersionId,
-        referral,
+        referral: storedPayload,
       },
     };
   },

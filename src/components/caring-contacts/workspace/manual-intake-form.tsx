@@ -197,7 +197,8 @@ export function ManualIntakeForm() {
             <p className="text-xs leading-5 text-[color:var(--text-muted)]">
               This verified clinical intake interface allows coordinators to manually enter hospital discharge referrals
               when structured WA Health enterprise feeds (HL7 v2 or FHIR) are unavailable or during service onboarding.
-              Referrals entered here are parsed, validated, and staged for clinical review.
+              Referrals entered here are parsed, validated, and persisted through the audited intake API (identifiers
+              plus clinical summary and safety alerts) so the plan wizard can read the same stored payload.
             </p>
           </div>
         </div>
@@ -240,10 +241,11 @@ export function ManualIntakeForm() {
             <CheckCircle2 aria-hidden="true" className="size-5 shrink-0 text-[color:var(--success)] mt-0.5" />
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">
-                Discharge Referral Verified and Staged
+                Discharge Referral Persisted and Accepted
               </h2>
               <p className="text-xs text-[color:var(--text-muted)]">
-                The referral was validated and persisted through the audited intake API, and is ready for care plan
+                The referral identifiers and clinical intake payload (including safety alerts) were validated and
+                written through the audited intake API. The plan wizard will load those stored fields for care plan
                 initiation.
               </p>
             </div>

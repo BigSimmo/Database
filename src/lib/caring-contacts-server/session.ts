@@ -9,10 +9,13 @@
 // cookie, an empty value, a name that is not one of DEMO_ROLES -- falls back to the coordinator
 // rather than throwing: an unreadable cookie must never lock someone out of a demonstration.
 //
-// Production sovereign deployments may open the workspace only when an authenticated session
-// HMAC secret is configured (`CARING_CONTACTS_SESSION_HMAC_SECRET`). Demo staging sets
-// `CARING_CONTACTS_DEMO_ENABLED=true`; live mode sets it to `false` and additionally requires
-// pilot governance attestation at boot (see instrumentation.register).
+// Production sovereign deployments may open the workspace when a session HMAC secret is
+// configured (`CARING_CONTACTS_SESSION_HMAC_SECRET`). That secret gates the demo/live env flags;
+// it does not authenticate a human. Demo staging sets `CARING_CONTACTS_DEMO_ENABLED=true` and
+// still uses forgeable/default demo role actors (HMAC only stops offline role-cookie forgery).
+// Live mode sets the flag to `false`, requires a signed production session cookie, and requires
+// pilot governance attestation at boot (see instrumentation.register). Demo mode must not bind
+// to CARING_CONTACTS_DATABASE_URL (store refuses that pairing).
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -36,6 +39,8 @@ export const CARING_CONTACTS_DATABASE_URL_VAR = "CARING_CONTACTS_DATABASE_URL";
  *   1. the isolated Playwright exception (unchanged), and
  *   2. the sovereign demo path: `CARING_CONTACTS_DEMO_ENABLED=true` PLUS a
  *      configured session HMAC secret, with role cookies signed by that secret.
+ *      Signing is integrity for the role cookie only — not proof of identity. Missing/invalid
+ *      cookies still default to coordinator; POST /session issues signed roles without client proof.
  */
 export function isCaringContactsDemoEnabled(
   environment = process.env.NODE_ENV,
@@ -54,8 +59,9 @@ export function isCaringContactsDemoEnabled(
     return true;
   }
 
-  // Sovereign staging / clinical-simulation path. The HMAC secret is the
-  // authenticated production-session contract: without it the flag is ignored.
+  // Sovereign staging / clinical-simulation path. The HMAC secret is required before the
+  // demo flag can open the workspace, but it is not human authentication: demo actors remain
+  // forgeable/defaulted. Without the secret the flag is ignored.
   return runtime[CARING_CONTACTS_DEMO_ENABLED_VAR] === "true" && hasProductionSessionSecret(runtime);
 }
 

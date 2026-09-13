@@ -715,7 +715,32 @@ export type ContactProviderStatusInput = ContactStatusInput & { status: Provider
 
 export type RepositoryOptions = { auditSink?: AuditSink };
 
-export type CreateReferralInput = { referralId: ReferralId; patientId: PatientId };
+/**
+ * Clinical payload captured at hospital referral intake (Hazard H-44).
+ *
+ * Kept off the `Referral` identity record (which remains identifiers + state only) but persisted
+ * beside it so success UX and the plan wizard can round-trip what was actually written — never an
+ * adapter echo of fields the store discarded.
+ */
+export type ReferralIntakePayload = {
+  patientIdentifier: string;
+  givenName: string;
+  familyName: string;
+  mobileNumber: string;
+  dischargeDate: string;
+  hospitalFacility: string;
+  cohort: string;
+  admittingWard: string;
+  clinicalSummary: string;
+  safetyAlerts: readonly string[];
+};
+
+export type CreateReferralInput = {
+  referralId: ReferralId;
+  patientId: PatientId;
+  /** Optional H-44 intake clinical payload; omitted by non-intake referral creators. */
+  intakePayload?: ReferralIntakePayload | null;
+};
 export type ReferralTransitionInput = { referralId: ReferralId; action: ReferralAction };
 export type SavePathwayVersionInput = { version: PathwayVersion };
 export type PathwayVersionTransitionInput = { pathwayVersionId: PathwayVersionId; action: PathwayVersionAction };
@@ -811,6 +836,11 @@ export interface CaringContactRepository {
   createReferral(input: CreateReferralInput, context: WriteContext): Promise<TransitionResult<Referral>>;
   transitionReferral(input: ReferralTransitionInput, context: WriteContext): Promise<TransitionResult<Referral>>;
   listReferrals(context: ReadContext): Promise<Referral[]>;
+  /**
+   * The H-44 intake clinical payload stored with `createReferral`, or null when none was written
+   * or the referral is not visible to this actor. Never invents fields from an adapter echo.
+   */
+  getReferralIntakePayload(referralId: ReferralId, context: ReadContext): Promise<ReferralIntakePayload | null>;
 
   // Pathway versions
   savePathwayVersion(input: SavePathwayVersionInput, context: WriteContext): Promise<TransitionResult<PathwayVersion>>;

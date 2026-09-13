@@ -112,6 +112,7 @@ import {
   type CreatePlanInput,
   type CreateReferralInput,
   type DispatchDiscrepancyResolution,
+  type ReferralIntakePayload,
   type DispatchRecord,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
@@ -922,6 +923,42 @@ export function createPostgresRepository(
     };
   }
 
+  function parseReferralIntakePayload(raw: unknown): ReferralIntakePayload | null {
+    const value = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const record = value as Record<string, unknown>;
+    const safetyAlerts = record.safetyAlerts;
+    if (!Array.isArray(safetyAlerts) || !safetyAlerts.every((entry) => typeof entry === "string")) {
+      return null;
+    }
+    const required = [
+      "patientIdentifier",
+      "givenName",
+      "familyName",
+      "mobileNumber",
+      "dischargeDate",
+      "hospitalFacility",
+      "cohort",
+      "admittingWard",
+      "clinicalSummary",
+    ] as const;
+    for (const key of required) {
+      if (typeof record[key] !== "string") return null;
+    }
+    return {
+      patientIdentifier: record.patientIdentifier as string,
+      givenName: record.givenName as string,
+      familyName: record.familyName as string,
+      mobileNumber: record.mobileNumber as string,
+      dischargeDate: record.dischargeDate as string,
+      hospitalFacility: record.hospitalFacility as string,
+      cohort: record.cohort as string,
+      admittingWard: record.admittingWard as string,
+      clinicalSummary: record.clinicalSummary as string,
+      safetyAlerts: safetyAlerts.map(String),
+    };
+  }
+
   function toPathwayApproval(row: SqlRow): PathwayApproval {
     return {
       role: textOf(row.role) as PathwayApprovalRole,
@@ -1539,15 +1576,24 @@ export function createPostgresRepository(
             state: "awaitingHandover",
             pathwayVersionId: null,
           };
+          const intakePayload = input.intakePayload ?? null;
 
           // The primary key IS the uniqueness rule, so it is asked rather than re-derived by a
           // preceding SELECT. That also answers correctly for an identifier another team already
           // holds, which a team-scoped SELECT cannot see at all.
+          // intake_payload is the H-44 clinical sidecar (migration 0010); omitted createReferral
+          // callers leave it null so identifier-only referrals stay valid.
           const inserted = await withSavepoint(connection, INSERT_SAVEPOINT, () =>
             connection.query(
-              `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id)
-               values ($1, $2, $3, $4, null)`,
-              [referral.id, referral.teamId, referral.patientId, referral.state],
+              `insert into caring_contacts.referrals (id, team_id, patient_id, state, pathway_version_id, intake_payload)
+               values ($1, $2, $3, $4, null, $5::jsonb)`,
+              [
+                referral.id,
+                referral.teamId,
+                referral.patientId,
+                referral.state,
+                intakePayload ? JSON.stringify(intakePayload) : null,
+              ],
             ),
           );
           if (!inserted.ok) {
@@ -1608,6 +1654,18 @@ export function createPostgresRepository(
       return runRead(context, async (connection) => {
         const result = await connection.query(`select ${REFERRAL_COLUMNS} from caring_contacts.referrals order by id`);
         return result.rows.map(toReferral);
+      });
+    },
+
+    async getReferralIntakePayload(referralId: ReferralId, context: ReadContext) {
+      if (!mayReadOwnTeam(context, READ_ACTIONS.referral)) return null;
+      return runRead(context, async (connection) => {
+        const result = await connection.query(`select intake_payload from caring_contacts.referrals where id = $1`, [
+          referralId,
+        ]);
+        const row = result.rows[0];
+        if (!row || isAbsent(row.intake_payload)) return null;
+        return parseReferralIntakePayload(row.intake_payload);
       });
     },
 

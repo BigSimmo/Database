@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
 import { CARING_CONTACTS_ROUTES, patientPlanRoute } from "@/lib/caring-contacts-routes";
+import type { ReferralIntakePayload } from "@/lib/caring-contacts/repository";
 import { DraftConcurrencyError } from "@/lib/caring-contacts/draft-store";
 import type { SendingPreference } from "@/lib/caring-contacts/model";
 import {
@@ -229,6 +230,12 @@ export type PlanWizardProps = {
    * what this screen therefore cannot yet promise.
    */
   patientVisibleMessageSpecimen: string;
+  /**
+   * H-44 intake clinical payload round-tripped from the audited store for this referral, or null
+   * when the referral was created without one. Used to prefill patient detail and surface safety
+   * alerts — never an HTTP-response echo of discarded fields.
+   */
+  intakePrefill?: ReferralIntakePayload | null;
 };
 
 const panelClass = workspacePanelPadded;
@@ -371,6 +378,65 @@ function SourcedFact({
   );
 }
 
+function IntakeClinicalBanner({ intake }: { intake: ReferralIntakePayload }) {
+  return (
+    <section
+      aria-label="Stored intake clinical payload"
+      className={`${panelClass} mb-4 border-l-4 border-l-[color:var(--focus)] space-y-2`}
+    >
+      <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">
+        Clinical intake loaded from the audited store
+      </h2>
+      <p className="text-xs leading-5 text-[color:var(--text-muted)]">
+        These fields were persisted with the referral at H-44 intake and round-tripped from the store for this plan.
+        Patient name and mobile are prefilled into personalisation; review safety alerts before activation.
+      </p>
+      <div className="text-xs space-y-1">
+        <p>
+          <span className="font-semibold text-[color:var(--text-muted)]">Facility / ward:</span>{" "}
+          <span className="text-[color:var(--text)]">
+            {intake.hospitalFacility} — {intake.admittingWard}
+          </span>
+        </p>
+        {intake.clinicalSummary ? (
+          <p>
+            <span className="font-semibold text-[color:var(--text-muted)]">Clinical summary:</span>{" "}
+            <span className="text-[color:var(--text)]">{intake.clinicalSummary}</span>
+          </p>
+        ) : null}
+        {intake.safetyAlerts.length > 0 ? (
+          <div>
+            <span className="font-semibold text-[color:var(--text-muted)]">Safety alerts:</span>
+            <ul className="mt-1 list-disc pl-5 text-[color:var(--text)]">
+              {intake.safetyAlerts.map((alert) => (
+                <li key={alert}>{alert}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function seedDraftFromIntake(
+  draft: ReturnType<typeof emptyPlanDraft>,
+  intake: ReferralIntakePayload | null | undefined,
+): ReturnType<typeof emptyPlanDraft> {
+  if (!intake) return draft;
+  const patientName = `${intake.givenName} ${intake.familyName}`.trim();
+  return {
+    ...draft,
+    patientDetail: {
+      ...draft.patientDetail,
+      patientName: draft.patientDetail.patientName || patientName,
+      preferredName: draft.patientDetail.preferredName || intake.givenName,
+      patientMobileNumber: draft.patientDetail.patientMobileNumber || intake.mobileNumber,
+      patientIdentifiers: draft.patientDetail.patientIdentifiers || intake.patientIdentifier,
+    },
+  };
+}
+
 export function PlanWizard({
   referralId,
   patientId,
@@ -382,6 +448,7 @@ export function PlanWizard({
   sendingPreferenceOptions,
   fictionalPatientMobileNumbers,
   patientVisibleMessageSpecimen,
+  intakePrefill = null,
 }: PlanWizardProps) {
   // THE DRAFT IS NOT REACT STATE. It is `plan-draft.ts`'s store, subscribed to here — see that
   // module's note for why: a lazy `useState` initialiser that read `sessionStorage` would make the
@@ -425,7 +492,9 @@ export function PlanWizard({
   }, []);
 
   const draft =
-    stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
+    stored !== null && stored.referralId === referralId
+      ? stored
+      : seedDraftFromIntake(emptyPlanDraft(referralId, referralPathwayVersionId), intakePrefill);
 
   /**
    * Writes `change` applied to `base`, re-based onto whatever is ACTUALLY held if a conflicting
@@ -446,7 +515,9 @@ export function PlanWizard({
       // Cast rather than re-derive: this module is the only thing that can have thrown from the
       // call above, and it always throws `DraftConcurrencyError<PlanDraft>` -- see writePlanDraft.
       const conflict = error as DraftConcurrencyError<PlanDraft>;
-      const live = conflict.currentDraft ?? emptyPlanDraft(base.referralId, base.pathwayVersionId);
+      const live =
+        conflict.currentDraft ??
+        seedDraftFromIntake(emptyPlanDraft(base.referralId, base.pathwayVersionId), intakePrefill);
       writePlanDraft(change(live), { expectedVersion: live.version });
     }
   }
@@ -554,7 +625,9 @@ export function PlanWizard({
   function recordOnLiveDraft(change: (current: PlanDraft) => PlanDraft) {
     const held = planDraftSnapshot();
     const base =
-      held !== null && held.referralId === referralId ? held : emptyPlanDraft(referralId, referralPathwayVersionId);
+      held !== null && held.referralId === referralId
+        ? held
+        : seedDraftFromIntake(emptyPlanDraft(referralId, referralPathwayVersionId), intakePrefill);
     setDiscarded(false);
     writeDraftWithRetry(base, change);
   }
@@ -811,21 +884,24 @@ export function PlanWizard({
     switch (stage) {
       case "agreement":
         return (
-          <AgreementStage
-            referralId={referralId}
-            patientId={patientId}
-            teamId={teamId}
-            actorId={actorId}
-            actorRoleLabels={actorRoleLabels}
-            assurances={draft.assurances}
-            identityChecked={draft.decisions.identityChecked}
-            verifyIdentityCommit={decisionCommits.verifyIdentity}
-            changePatientCommit={decisionCommits.changePatient}
-            onAssuranceChange={(change) =>
-              update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
-            }
-            onContinue={() => goTo("pathway")}
-          />
+          <>
+            {intakePrefill ? <IntakeClinicalBanner intake={intakePrefill} /> : null}
+            <AgreementStage
+              referralId={referralId}
+              patientId={patientId}
+              teamId={teamId}
+              actorId={actorId}
+              actorRoleLabels={actorRoleLabels}
+              assurances={draft.assurances}
+              identityChecked={draft.decisions.identityChecked}
+              verifyIdentityCommit={decisionCommits.verifyIdentity}
+              changePatientCommit={decisionCommits.changePatient}
+              onAssuranceChange={(change) =>
+                update((current) => ({ ...current, assurances: { ...current.assurances, ...change } }))
+              }
+              onContinue={() => goTo("pathway")}
+            />
+          </>
         );
       case "pathway":
         return (
