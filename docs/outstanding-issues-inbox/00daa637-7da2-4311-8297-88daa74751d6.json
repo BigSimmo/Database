@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "00daa637-7da2-4311-8297-88daa74751d6",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#YSKD8J",
+    "outcome": "Validated release-browser-matrix 3-way engine sharding (chromium, firefox, webkit) and 45m timeout in ci.yml, ending 70m job cancellations and restoring browser verdicts",
+    "baseRowFingerprint": "5310321ae2124ed10ded445a3c01add6c72cc4a2f2eee304e0177e5c17f5bd3b"
+  }
+}

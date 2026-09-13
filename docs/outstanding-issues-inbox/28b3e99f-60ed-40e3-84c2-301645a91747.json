@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "28b3e99f-60ed-40e3-84c2-301645a91747",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9fe9c50a-aa08-41e1-9f86-d9c7c640cdf1",
+    "reason": "Codex P2: retract false #5RWYHR done. No ui-ward-roles.spec.ts changes and no Playwright ED journey execution evidence; keep issue open until journeys pass."
+  }
+}
