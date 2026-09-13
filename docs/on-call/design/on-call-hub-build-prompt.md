@@ -17,6 +17,13 @@ markup directly — the CSS comments cite the components each piece of chrome wa
 It is the visual source of truth for everything below; where this prompt and the mockup
 disagree, the mockup is a drawing and this prompt is the specification.
 
+**How the build stays honest about it.**
+[`mockup-conformance.md`](mockup-conformance.md) records every element of all eleven boards
+against one of four dispositions — built, open, a deliberate departure with its reason, or
+waiting on the database change — and `tests/on-call-mockup-conformance.test.ts` fails the
+build when the drawing and that record drift apart. A departure from the drawing is allowed;
+an unrecorded one is not. Change something here and the ledger is where it is settled.
+
 ---
 
 ## 1. What exists today
