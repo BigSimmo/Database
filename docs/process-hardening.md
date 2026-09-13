@@ -425,6 +425,38 @@ All approved render-surface modules are extracted. `ClinicalDashboard.tsx` went 
 
 ## Phase 4 - Release maturity
 
+### Readiness and clinical usefulness are separate acceptance gates (2026-09-13)
+
+The RAG M2 merge did not establish live answer-quality improvement: the observed
+public web deployment still preceded that merge. Newer builds started successfully
+but failed readiness. A bounded production diagnostic timed out in site-content
+bootstrap hashing. The health wrapper reused an expensive SQL CTE without an
+explicit materialization boundary; the repair evaluates that evidence once per
+statement while retaining every integrity check and the existing digest format.
+
+With the committed 843-record bootstrap fixture on PostgreSQL 17.6.1.127, the
+original RPC completed in 12.614 seconds; three candidate runs took 4.550–4.969
+seconds and returned identical complete evidence. Missing records, altered render
+payloads, digest mismatches and an invalid initialized transition remained rejected.
+These are bounded local results, not hosted recovery or non-bootstrap performance
+proof. `npm run check:production-readiness` still reports pending privacy/legal sign-offs;
+the readiness repair does not clear those separate requirements.
+
+- Prove the serving commit and effective answer route before attributing a clinical
+  answer to merged code. Build, merge, deployment readiness and clinical usefulness
+  require their own evidence; fixed-provider fact ties are not live quality gains.
+- Exercise readiness with the committed full bootstrap fixture and a bounded
+  request budget. Compare complete evidence and corruption handling before accepting
+  a performance change; do not substitute longer timeouts or disabled checks.
+- For clinician answers, declare required guideline-supported details before
+  evaluating output. Topic relevance and citation presence alone do not establish
+  useful monitoring instructions, timing or actions. Standard answers must include
+  essential supported information; elaboration adds depth.
+- A migration merge can automatically apply to production. Keep its PR unmerged
+  until the production window is explicitly approved, then verify application,
+  serving identity and actual answer quality separately. This readiness repair
+  does not establish provider quality or close the remaining RAG programme.
+
 - `npm run check:runtime` is the strict runtime gate and is now part of `npm run verify:cheap`, `npm run verify:ui`, and `npm run verify:release`; it fails outside Node 24.x or npm 11.x when run through npm.
 - CI runs `npm run check:runtime` after dependency install so branch verification cannot silently drift away from Node 24.
 - `npm run check:edge:functions` is the Deno type gate for the Supabase `indexing-v3-agent` Edge Function.
