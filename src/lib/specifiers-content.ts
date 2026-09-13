@@ -8,6 +8,11 @@
 // The dataset is a portable clinical-content export; its README states that missing
 // definitions must NOT be invented and that the review/scope status must stay visible
 // downstream. The rendering layers honour both.
+//
+// Governance policy (#Z3GZ5P): Specifiers mode is formally bound as an aide-memoire
+// reference only, not automated clinical decision support. Tranche 1 (71 source-verified
+// entries across mood and depressive categories) has received early sign-off; option-level
+// ReviewStatusBadge indicators remain displayed across builder and search surfaces.
 
 import specifiersContent from "../../data/specifiers-content.json";
 

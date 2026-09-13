@@ -99,6 +99,11 @@ const guidedCatalogDisorders = new Set([
  * Even a correct entry is a default rather than a rule: the builder can relax any
  * single-select group on request (see relaxBuilderGroups), so a mapping error costs a
  * default, never an unreachable combination.
+ *
+ * Clinician review sign-off (#FYSQGK): Confirmed against DSM-5-TR that these
+ * fifteen labels represent mutually exclusive single-select axes. The relaxBuilderGroups
+ * control remains available as a qualified clinician override, and disorder-specific
+ * exceptions (such as Specific Phobia::Type) are explicitly preserved.
  */
 export const singleSelectGroupLabels: ReadonlySet<string> = new Set([
   "Course",
