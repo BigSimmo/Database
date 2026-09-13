@@ -16,12 +16,39 @@ npm run docs:check-links
 
 ## Start here
 
+Choose the task and the kind of evidence before following an instruction:
+
+| Need                                 | Entry point                                                            | Read it as                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| PsychSift development                | [Repository README](../README.md), [codebase index](codebase-index.md) | Setup and architecture, subject to the current manifests and provider boundaries |
+| Agent instructions or platform setup | [Task navigator](agents-guide.md), [AGENTS.md](../AGENTS.md)           | Find the applicable rule; do not run every referenced workflow                   |
+| Current work or acceptance           | The existing task checkpoint                                           | Check its identity, scope and evidence before relying on its status              |
+| A past decision or incident          | The historical records below                                           | Evidence of what happened then, not a current completion or deployment claim     |
+
+## Documentation ownership and maintenance
+
+| Document type                                  | How to maintain it                                                                                                                  | What its presence proves                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Maintained guide or runbook                    | Correct the relevant source and necessary references when behaviour changes. Check commands against the current script definitions. | Instructions exist; current execution and access still need evidence.                 |
+| Generated index or snapshot                    | Use its named generator and inspect the resulting diff. Do not hand-edit generated facts or run unrelated generators.               | The recorded inventory or snapshot, within its declared scope and capture conditions. |
+| Task checkpoint                                | Keep one current record per task with ownership, scope, decisions, evidence, blockers and next action. Preserve concurrent work.    | Reported task status, which must be reconciled with the actual working state.         |
+| Historical report, lesson or immutable receipt | Preserve the original record; add a dated correction or superseding reference through the appropriate workflow.                     | Historical evidence, including its original failures and limitations.                 |
+
+Use `npm run docs:check-links` for maintained-document references and
+`npm run docs:check-scripts` for npm script references. These are static checks;
+they do not prove that instructions are semantically correct, providers work or a
+screen matches its design. When the checker is blocked, report that limitation
+and use a clearly scoped check for the affected documents without weakening the
+repository gate. The generated inventories remain governed by their own contracts.
+
+## Core reference map
+
 | Doc                                    | What it is                                                                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | [codebase-index.md](codebase-index.md) | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts                 |
 | [README.md](README.md)                 | This index — every tracked document under `docs/`, categorised                                             |
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
-| [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
+| [agents-guide.md](agents-guide.md)     | Task navigator, platform setup and skill ownership; rules in `AGENTS.md` |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
 | [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
 | [claude-cloud.md](claude-cloud.md)     | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
@@ -46,7 +73,6 @@ npm run docs:check-links
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
-- [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
@@ -196,7 +222,7 @@ Every remaining tracked document in this category (process, plus the `agents/` r
 - [agents/dead-code-deletion.md](agents/dead-code-deletion.md) — Deleting Code You Believe Is Dead — "Nothing imports it" is necessary and nowhere near sufficient.
 - [agents/external-skill-precedence.md](agents/external-skill-precedence.md) — External Skill Precedence and Evidence — User-global skills and output-style plugins are installed outside this repo and know nothing about its contracts.
 - [agents/pull-request-workflow.md](agents/pull-request-workflow.md) — Pull Request Workflow — Open PR heads go stale whenever main advances.
-- [agents/repository-skills-and-issues.md](agents/repository-skills-and-issues.md) — Repository Skills and Outstanding-Work Memory — Automatically apply repo-local skills under .agents/skills/ when their descriptions match the user's request.
+- [agents/repository-skills-and-issues.md](agents/repository-skills-and-issues.md) — Repository skill selection, canonical catalog, planner boundaries and issue-ledger ownership.
 - [agents/test-deletion-guard.md](agents/test-deletion-guard.md) — Deleting tests, or letting a tool delete them for you — On 2026-08-31 a commit on PR #2481 titled "test(ui):
 - [agents/upload-shortcut.md](agents/upload-shortcut.md) — Upload Shortcut — When the user types exactly:
 - [agents/verification-gates.md](agents/verification-gates.md) — Verification Gates and the Gate Arbiter — check:gate-manifest enforces a one-way invariant:
