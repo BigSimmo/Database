@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "47baf43f-3c4f-493d-bca8-201633a360b7",
+  "createdOn": "2026-09-13",
+  "action": "update",
+  "payload": {
+    "id": "#E9F5GW",
+    "detail": "LIVE QA ADDENDUM 2026-09-13 (psychiatry.tools guest desktop): lithium/depression probes again showed malformed prose / source-backed stubs and a stuck subject-less monitoring search (Stop aborted cleanly). Same failure family already tracked here and associated with #J8SJQ9. Do not open a duplicate P1. Next remains: reproduce with Answer canary / UI smoke; do not weaken eval cases; fix generation/extractive path. Evidence: MASTER-LIVE-SITE-QA-REPORT 2026-09-13 (LQA-P1-ANS).",
+    "source": "session 2026-09-13 live QA; retract duplicate inbox add 9b595f7f",
+    "baseRowFingerprint": "292bbfe934f61647c824de29cae15e2528c3212649cb15e54585414864074e16"
+  }
+}

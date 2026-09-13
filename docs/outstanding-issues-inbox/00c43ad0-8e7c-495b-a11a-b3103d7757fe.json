@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "00c43ad0-8e7c-495b-a11a-b3103d7757fe",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9b595f7f-cc4b-46a6-a03c-573f5794e3b6",
+    "reason": "Codex P2: duplicate of open #E9F5GW (lithium/source-backed stub family, already linked to #J8SJQ9). Do not create a second P1 row; update #E9F5GW instead."
+  }
+}
