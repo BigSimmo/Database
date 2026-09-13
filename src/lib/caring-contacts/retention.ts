@@ -19,7 +19,7 @@
 //   * both de-identification functions are idempotent: applying either a second time returns the
 //     same value as applying it once, so a caller never has to track whether it already ran.
 import type { AuditEvent, AuditOutcome } from "./audit";
-import { awstCalendarDay, awstIsoTimestamp, systemClock } from "./clock";
+import { awstCalendarDay, systemClock } from "./clock";
 import type { Clock } from "./clock";
 import type { DeidentifiedEpisode, Episode, EpisodeState } from "./episode";
 import type { ActorId } from "./ids";
@@ -176,15 +176,15 @@ export function deidentifyAuditEvent(event: AuditEvent | DeidentifiedAuditEvent)
 // ---------------------------------------------------------------------------
 
 /**
- * Dedicated, governed retention archival function for safety-incident responder notes (#JZ8B36).
+ * Dedicated, governed retention archival gate for safety-incident responder notes (#JZ8B36).
  *
- * Checks `isDueForDeidentification` when an episode context is supplied, ensuring that notes
- * remain immutable and retained during the episode lifecycle, and are only archived once the
- * episode has terminated and the clinical record retention period (7 years via DEFAULT_RETENTION_POLICY)
- * has elapsed.
+ * Episode context is mandatory: terminal state and elapsed retention (7 years via
+ * DEFAULT_RETENTION_POLICY, AWST) are always checked. The string overload must supply `episode`
+ * (5th argument); omitting it fails closed rather than reporting a successful archival.
  *
- * If only an `episodeId` string is provided, validates that a non-empty governance reason is
- * recorded and that the policy respects clinical record retention periods (defaults to 7 years).
+ * This pure function does not read, delete, de-identify, or persist notes. It therefore never
+ * returns `archived: true`. A storage-backed archiver must perform the archival and record
+ * success only after notes are actually removed or de-identified.
  */
 export function archiveIncidentNotes(
   episode: Episode,
@@ -224,24 +224,26 @@ export function archiveIncidentNotes(
     return { ok: false, episodeId, archived: false, reason: "invalid-retention-policy" };
   }
 
-  // When episode context is provided, enforce that the episode has terminated and retention period has elapsed
-  if (episode) {
-    if (!TERMINAL_EPISODE_STATES.includes(episode.state)) {
-      return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
-    }
-    if (episode.planDates.completedAt === null) {
-      return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
-    }
-    if (!isDueForDeidentification(episode, policy, clock)) {
-      return { ok: false, episodeId, archived: false, reason: "retention-period-not-elapsed" };
-    }
+  // String overload without Episode cannot check terminal/retention rules — fail closed.
+  if (!episode) {
+    return { ok: false, episodeId, archived: false, reason: "missing-episode-context" };
   }
 
+  if (!TERMINAL_EPISODE_STATES.includes(episode.state)) {
+    return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
+  }
+  if (episode.planDates.completedAt === null) {
+    return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
+  }
+  if (!isDueForDeidentification(episode, policy, clock)) {
+    return { ok: false, episodeId, archived: false, reason: "retention-period-not-elapsed" };
+  }
+
+  // Eligibility passed, but this function has no storage backend — do not claim archival.
   return {
-    ok: true,
+    ok: false,
     episodeId,
-    archived: true,
-    reason,
-    archivedAt: awstIsoTimestamp(clock.now()),
+    archived: false,
+    reason: "archival-not-persisted",
   };
 }

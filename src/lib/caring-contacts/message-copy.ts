@@ -184,7 +184,7 @@ export function resolvePatientVisibleMessage(
   const validation = validateGovernedMessage({
     text,
     messageType: "standard",
-    syntheticFictionalContactsAcknowledged: options?.syntheticFictionalContactsAcknowledged ?? true,
+    syntheticFictionalContactsAcknowledged: options?.syntheticFictionalContactsAcknowledged ?? false,
   });
   if (!validation.valid) {
     return { ok: false, issue: validation.issues[0] };

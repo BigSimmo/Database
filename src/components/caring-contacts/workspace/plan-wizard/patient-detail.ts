@@ -122,7 +122,12 @@ export function personalisationIssues(input: {
   // name is the small indignity the asked-for field was built to prevent, and a refusal that
   // instructs them to do it is worse than no refusal at all. The field's own hint says "Ask the
   // person"; so does every refusal beneath it.
-  const preferredNameResolution = resolvePatientVisibleMessage(input.detail.preferredName);
+  // Caring Contacts prototype boundary: provisional message copy still embeds the reserved
+  // fictional staffed-line number. Opt in explicitly here — resolvePatientVisibleMessage fails
+  // closed when acknowledgment is omitted (#B16HW8).
+  const preferredNameResolution = resolvePatientVisibleMessage(input.detail.preferredName, {
+    syntheticFictionalContactsAcknowledged: true,
+  });
   if (!preferredNameResolution.ok) {
     const issue = preferredNameResolution.issue;
     issues.push({
@@ -234,7 +239,7 @@ export function createPlanPatientDetail(detail: PlanPatientDetailDraft): {
   // The API takes `min(1).nullable()`, so `null` is a legitimate wire value for a caller that holds
   // no preferred name. This function never produces one: here, a missing name means no plan.
   if (patientName === "" || patientMobileNumber === "") return null;
-  if (!resolvePatientVisibleMessage(preferredName).ok) return null;
+  if (!resolvePatientVisibleMessage(preferredName, { syntheticFictionalContactsAcknowledged: true }).ok) return null;
 
   return {
     patientName,

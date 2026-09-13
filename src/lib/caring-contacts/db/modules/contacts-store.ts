@@ -102,6 +102,17 @@ export async function selectContacts(connection: SqlConnection, planId: PlanId, 
   return result.rows;
 }
 
+/** Team-scoped (optional) all-contacts query for listPlans grouping. Ordered by plan_id, sequence. */
+export async function selectAllContacts(connection: SqlConnection, teamId?: TeamId): Promise<SqlRow[]> {
+  const result = teamId
+    ? await connection.query(
+        `select ${CONTACT_COLUMNS} from caring_contacts.contacts where team_id = $1 order by plan_id, sequence`,
+        [teamId],
+      )
+    : await connection.query(`select ${CONTACT_COLUMNS} from caring_contacts.contacts order by plan_id, sequence`);
+  return result.rows;
+}
+
 export async function selectContactsForUpdate(
   connection: SqlConnection,
   planId: PlanId,
@@ -149,6 +160,10 @@ export class ContactsStore {
 
   selectContacts(connection: SqlConnection, planId: PlanId, teamId?: TeamId): Promise<SqlRow[]> {
     return selectContacts(connection, planId, teamId);
+  }
+
+  selectAllContacts(connection: SqlConnection, teamId?: TeamId): Promise<SqlRow[]> {
+    return selectAllContacts(connection, teamId);
   }
 
   selectContactsForUpdate(connection: SqlConnection, planId: PlanId, teamId?: TeamId): Promise<SqlRow[]> {

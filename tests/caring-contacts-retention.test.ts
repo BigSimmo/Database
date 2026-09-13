@@ -449,7 +449,7 @@ describe("rule 7: incident responder notes and governed archival (#JZ8B36)", () 
       expect(result.reason).toBe("retention-period-not-elapsed");
     });
 
-    it("admits archival exactly at the seven-year boundary (AWST)", () => {
+    it("passes eligibility at the seven-year boundary but does not claim persisted archival (AWST)", () => {
       const episode = baseEpisode(); // completed 2019-08-19 (AWST)
       const exactlySeven = fixedClock("2026-08-19T02:00:00.000Z"); // 2026-08-19 AWST
       const result = archiveIncidentNotes(
@@ -458,27 +458,26 @@ describe("rule 7: incident responder notes and governed archival (#JZ8B36)", () 
         DEFAULT_RETENTION_POLICY,
         exactlySeven,
       );
-      expect(result.ok).toBe(true);
-      expect(result.archived).toBe(true);
-      if (result.ok) {
-        expect(result.reason).toBe("governed-retention-archival");
-        expect(result.archivedAt).toContain("+08:00");
-      }
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("archival-not-persisted");
     });
 
-    it("admits archival well past the boundary", () => {
+    it("passes eligibility well past the boundary but does not claim persisted archival", () => {
       const episode = baseEpisode();
       const wellPast = fixedClock("2035-01-01T02:00:00.000Z");
       const result = archiveIncidentNotes(episode, "governed-retention-archival", DEFAULT_RETENTION_POLICY, wellPast);
-      expect(result.ok).toBe(true);
-      expect(result.archived).toBe(true);
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
+      expect(result.reason).toBe("archival-not-persisted");
     });
 
     it("respects an overridden, shorter retention policy", () => {
       const episode = baseEpisode();
       const oneYearLater = fixedClock("2020-08-19T02:00:00.000Z");
       const resultShorter = archiveIncidentNotes(episode, "archive", { years: 1 }, oneYearLater);
-      expect(resultShorter.ok).toBe(true);
+      expect(resultShorter.ok).toBe(false);
+      expect(resultShorter.reason).toBe("archival-not-persisted");
 
       const resultDefault = archiveIncidentNotes(episode, "archive", DEFAULT_RETENTION_POLICY, oneYearLater);
       expect(resultDefault.ok).toBe(false);
@@ -503,7 +502,7 @@ describe("rule 7: incident responder notes and governed archival (#JZ8B36)", () 
       expect(invalidPolicyResult.reason).toBe("invalid-retention-policy");
     });
 
-    it("allows direct episodeId archival with valid reason and policy", () => {
+    it("fails closed for string-only episodeId without Episode context", () => {
       const clock = fixedClock("2030-01-01T02:00:00.000Z");
       const result = archiveIncidentNotes(
         "EPISODE-99",
@@ -511,12 +510,36 @@ describe("rule 7: incident responder notes and governed archival (#JZ8B36)", () 
         DEFAULT_RETENTION_POLICY,
         clock,
       );
-      expect(result.ok).toBe(true);
-      expect(result.archived).toBe(true);
+      expect(result.ok).toBe(false);
+      expect(result.archived).toBe(false);
       expect(result.episodeId).toBe("EPISODE-99");
-      if (result.ok) {
-        expect(result.archivedAt).toBe("2030-01-01T10:00:00.000+08:00");
-      }
+      expect(result.reason).toBe("missing-episode-context");
+    });
+
+    it("string overload checks terminal/retention rules when Episode is supplied", () => {
+      const clock = fixedClock("2030-01-01T02:00:00.000Z");
+      const active = baseEpisode({ state: "active" });
+      const refusedActive = archiveIncidentNotes(
+        "EPISODE-99",
+        "clinical-record-retention-expired",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+        active,
+      );
+      expect(refusedActive.ok).toBe(false);
+      expect(refusedActive.reason).toBe("retention-episode-not-terminal");
+
+      const due = baseEpisode();
+      const eligible = archiveIncidentNotes(
+        "EPISODE-99",
+        "clinical-record-retention-expired",
+        DEFAULT_RETENTION_POLICY,
+        clock,
+        due,
+      );
+      expect(eligible.ok).toBe(false);
+      expect(eligible.archived).toBe(false);
+      expect(eligible.reason).toBe("archival-not-persisted");
     });
   });
 });

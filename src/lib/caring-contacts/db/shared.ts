@@ -199,6 +199,7 @@ export type RepositoryContext = {
   insertAuditEvent: (connection: SqlConnection, event: AuditEvent, token: string | null) => Promise<void>;
   selectPlanForUpdate: (connection: SqlConnection, planId: PlanId, teamId?: TeamId) => Promise<SqlRow | null>;
   selectContacts: (connection: SqlConnection, planId: PlanId, teamId?: TeamId) => Promise<SqlRow[]>;
+  selectAllContacts: (connection: SqlConnection, teamId?: TeamId) => Promise<SqlRow[]>;
   selectContactsForUpdate: (connection: SqlConnection, planId: PlanId, teamId?: TeamId) => Promise<SqlRow[]>;
   cancelAllNonTerminalContacts: (connection: SqlConnection, rows: readonly SqlRow[]) => Promise<number>;
   readPlanRecord: (
@@ -343,6 +344,9 @@ export function createExecutionContext(
     },
     selectContacts: async () => {
       throw new Error("selectContacts delegate not registered");
+    },
+    selectAllContacts: async () => {
+      throw new Error("selectAllContacts delegate not registered");
     },
     selectContactsForUpdate: async () => {
       throw new Error("selectContactsForUpdate delegate not registered");

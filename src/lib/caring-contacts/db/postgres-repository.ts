@@ -231,6 +231,9 @@ function createPostgresRepositoryContext(
     selectContacts: async () => {
       throw new Error("selectContacts delegate not registered");
     },
+    selectAllContacts: async () => {
+      throw new Error("selectAllContacts delegate not registered");
+    },
     selectContactsForUpdate: async () => {
       throw new Error("selectContactsForUpdate delegate not registered");
     },
@@ -272,6 +275,7 @@ export class PostgresCaringContactsRepository implements CaringContactRepository
     this.ctx.insertAuditEvent = (conn, event, token) => this.auditStore.insertAuditEvent(conn, event, token);
     this.ctx.selectPlanForUpdate = (conn, planId, teamId) => this.plansStore.selectPlanForUpdate(conn, planId, teamId);
     this.ctx.selectContacts = (conn, planId, teamId) => this.contactsStore.selectContacts(conn, planId, teamId);
+    this.ctx.selectAllContacts = (conn, teamId) => this.contactsStore.selectAllContacts(conn, teamId);
     this.ctx.selectContactsForUpdate = (conn, planId, teamId) =>
       this.contactsStore.selectContactsForUpdate(conn, planId, teamId);
     this.ctx.cancelAllNonTerminalContacts = (conn, rows) => this.contactsStore.cancelAllNonTerminalContacts(conn, rows);

@@ -345,94 +345,16 @@ export function deployDeferralClaim(title, body) {
   return { claimed: false, phrase: "" };
 }
 
-const automatedReviewAgentPattern =
-  /\b(?:cursor\s*(?:approval|security)(?:\s*agent)?|cursor\[bot\]|bugbot|codex(?:\s*connector|\s*review)?|coderabbit(?:ai)?)\b/i;
-
-const genericReviewPattern = /\b(?:code-?\s*review|automated\s*review|review\s*agent)\b/i;
-
-const usageLimitPattern =
-  /\b(?:usage\s*limits?|spend\s*limits?|rate\s*limits?|quota(?:\s*exceeded)?|limit\s*reached|fewer\s*than\s*10\s*stars|no\s*automatic\s*review|couldn'?t\s*run)\b/i;
-
-function extractCheckText(check) {
-  if (typeof check === "string") return check;
-  if (!check || typeof check !== "object") return "";
-  const parts = [
-    check.name,
-    check.title,
-    check.summary,
-    check.text,
-    check.details,
-    check.details_url,
-    check.message,
-    check.reason,
-    check.output?.title,
-    check.output?.summary,
-    check.output?.text,
-  ];
-  return parts.filter(Boolean).join(" ");
-}
-
-function getCheckName(check) {
-  if (typeof check === "string") return check;
-  return check?.name || check?.context || check?.title || check?.app?.name || "";
-}
-
-function getCheckConclusion(check) {
-  if (typeof check === "string") {
-    if (/\bneutral\b/i.test(check)) return "neutral";
-    if (/\bskipped\b/i.test(check)) return "skipped";
-    return "";
-  }
-  return String(check?.conclusion || check?.status || "").toLowerCase();
-}
-
-export function isReviewCheckUsageLimitFailure(check) {
-  const name = getCheckName(check);
-  const text = extractCheckText(check);
-  const conclusion = getCheckConclusion(check);
-  const isKnownAgent = automatedReviewAgentPattern.test(name) || automatedReviewAgentPattern.test(text);
-  const isGenericReview = genericReviewPattern.test(name) || genericReviewPattern.test(text);
-
-  if (!isKnownAgent && !isGenericReview) return false;
-
-  const isNeutralOrSkipped =
-    conclusion === "neutral" || conclusion === "skipped" || /\b(?:neutral|skipped)\b/i.test(text);
-
-  const hasUsageLimitSignal = usageLimitPattern.test(text);
-
-  if (isKnownAgent && (isNeutralOrSkipped || hasUsageLimitSignal)) return true;
-  if (isGenericReview && (hasUsageLimitSignal || isNeutralOrSkipped)) return true;
-
-  return false;
-}
-
-function describeReviewCheck(check) {
-  if (typeof check === "string") return check;
-  const name = getCheckName(check) || "automated review";
-  const conclusion = getCheckConclusion(check);
-  const text = extractCheckText(check);
-  const match = text.match(usageLimitPattern);
-  if (match) {
-    return `${name} (${conclusion || "skipped"}: ${match[0]})`;
-  }
-  return conclusion ? `${name} (${conclusion})` : name;
-}
-
-export function isUnreviewedClinicalAllowed(body) {
-  if (process.env.ALLOW_UNREVIEWED_CLINICAL_PR === "true") return true;
-  const withoutComments = String(body ?? "").replace(/<!--[^]*?-->/g, "");
-  return /\bALLOW_UNREVIEWED_CLINICAL_PR\s*[:=]\s*["'`]?true\b/i.test(withoutComments);
-}
-
-export function evaluatePullRequestPolicy({ title, body, headRef, files, reviewChecks, checkRuns, checks }) {
-  // Four conditions block the PR (hard failure): a clinical-risk diff without a
-  // complete Clinical Governance Preflight, an unreviewed clinical-risk diff whose
-  // automated review checks reported neutral/skipped due to usage limits (#ACWXN6),
-  // a RAG-ranking-surface diff without an explicit `RAG impact:` declaration, and a
-  // Supabase-migration diff whose metadata claims a deferred deploy that merging does
-  // not honour. Every other metadata expectation (title, summary, verification, UI,
-  // risk and rollout) is advisory: it is surfaced as a warning so authors still get
-  // the nudge, but it never fails the check or blocks a merge.
+export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
+  // Three conditions block the PR (hard failure): a clinical-risk diff without a
+  // complete Clinical Governance Preflight, a RAG-ranking-surface diff without an
+  // explicit `RAG impact:` declaration, and a Supabase-migration diff whose metadata
+  // claims a deferred deploy that merging does not honour. Intermittent automated
+  // review (usage limits / eligibility) is explicitly not a gate (owner decision
+  // 2026-08-22 / #CCZ4HB; correction 2026-09-02 — decision stands until revisited).
+  // Every other metadata expectation (title, summary, verification, UI, risk and
+  // rollout) is advisory: it is surfaced as a warning so authors still get the nudge,
+  // but it never fails the check or blocks a merge.
   const errors = [];
   const warnings = [];
   const classification = classifyPullRequestFiles(files);
@@ -500,7 +422,7 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files, reviewC
   }
 
   // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
-  // Preflight and reviewed automated checks.
+  // Preflight. Intermittent automated review is not a merge gate (owner decision).
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
@@ -515,34 +437,6 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files, reviewC
           `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
         );
       }
-    }
-
-    // Blocking gate: fail-closed clinical review governance (#ACWXN6).
-    // If automated review checks report neutral/skipped due to usage limits (e.g., Cursor Approval Agent,
-    // Cursor Security Agent, Bugbot, Codex connector, CodeRabbit), enforce fail-closed behavior unless
-    // overridden by ALLOW_UNREVIEWED_CLINICAL_PR=true in process.env or the PR body.
-    const allReviewChecks = [
-      ...(Array.isArray(reviewChecks) ? reviewChecks : reviewChecks ? [reviewChecks] : []),
-      ...(Array.isArray(checkRuns) ? checkRuns : checkRuns ? [checkRuns] : []),
-      ...(Array.isArray(checks) ? checks : checks ? [checks] : []),
-    ];
-    const unreviewedAllowed = isUnreviewedClinicalAllowed(body);
-    const failedReviewChecks = allReviewChecks.filter(isReviewCheckUsageLimitFailure);
-    if (failedReviewChecks.length > 0) {
-      const descriptions = failedReviewChecks.map(describeReviewCheck).join(", ");
-      if (unreviewedAllowed) {
-        warnings.push(
-          `Emergency operator bypass active (ALLOW_UNREVIEWED_CLINICAL_PR=true): bypassed automated review check failure for: ${descriptions}.`,
-        );
-      } else {
-        errors.push(
-          `Automated review check(s) reported neutral/skipped due to usage limits: ${descriptions}. Clinical-risk PRs enforce fail-closed review governance (#ACWXN6). To bypass in an emergency, set ALLOW_UNREVIEWED_CLINICAL_PR=true in the PR body or environment.`,
-        );
-      }
-    } else if (unreviewedAllowed) {
-      warnings.push(
-        "Emergency operator bypass active (ALLOW_UNREVIEWED_CLINICAL_PR=true): automated clinical review governance checks are bypassed.",
-      );
     }
   }
 
@@ -1056,120 +950,9 @@ function selfTest() {
     true,
     "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
-  // Fail-closed clinical review governance (#ACWXN6): clinical-risk PRs fail
-  // when automated review checks report neutral/skipped due to usage limits.
-  const clinicalFiles = ["src/lib/clinical-search.ts"];
-  const usageLimitChecks = [
-    { name: "Cursor Approval Agent", conclusion: "neutral" },
-    { name: "Cursor Security Agent", conclusion: "neutral" },
-    { name: "Bugbot", conclusion: "neutral", text: "Bugbot couldn't run - usage limit reached" },
-    {
-      name: "Codex connector",
-      conclusion: "skipped",
-      text: "You have reached your Codex usage limits for code reviews",
-    },
-    {
-      name: "CodeRabbit",
-      conclusion: "neutral",
-      text: "repository receives no automatic review because it has fewer than 10 stars",
-    },
-  ];
-
-  for (const check of usageLimitChecks) {
-    const blockedResult = evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody,
-      headRef: "codex/search-fix",
-      files: clinicalFiles,
-      reviewChecks: [check],
-    });
-    assert.equal(blockedResult.ok, false, `clinical PR must fail when ${check.name} reports neutral/skipped`);
-    assert.match(blockedResult.errors.join(" "), /Automated review check/);
-    assert.match(blockedResult.errors.join(" "), /#ACWXN6/);
-
-    // Bypassed via body declaration (ALLOW_UNREVIEWED_CLINICAL_PR=true)
-    const bypassedBodyEquals = evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody + "\n\nALLOW_UNREVIEWED_CLINICAL_PR=true",
-      headRef: "codex/search-fix",
-      files: clinicalFiles,
-      reviewChecks: [check],
-    });
-    assert.equal(
-      bypassedBodyEquals.ok,
-      true,
-      `clinical PR must pass with ALLOW_UNREVIEWED_CLINICAL_PR=true for ${check.name}`,
-    );
-    assert.match(bypassedBodyEquals.warnings.join(" "), /Emergency operator bypass/);
-
-    // Bypassed via body declaration (ALLOW_UNREVIEWED_CLINICAL_PR: true)
-    const bypassedBodyColon = evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody + "\n\nALLOW_UNREVIEWED_CLINICAL_PR: true",
-      headRef: "codex/search-fix",
-      files: clinicalFiles,
-      reviewChecks: [check],
-    });
-    assert.equal(
-      bypassedBodyColon.ok,
-      true,
-      `clinical PR must pass with ALLOW_UNREVIEWED_CLINICAL_PR: true for ${check.name}`,
-    );
-    assert.match(bypassedBodyColon.warnings.join(" "), /Emergency operator bypass/);
-  }
-
-  // Bypassed via environment variable process.env.ALLOW_UNREVIEWED_CLINICAL_PR === "true"
-  const prevEnv = process.env.ALLOW_UNREVIEWED_CLINICAL_PR;
-  try {
-    process.env.ALLOW_UNREVIEWED_CLINICAL_PR = "true";
-    const bypassedEnv = evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody,
-      headRef: "codex/search-fix",
-      files: clinicalFiles,
-      reviewChecks: [{ name: "Cursor Approval Agent", conclusion: "neutral" }],
-    });
-    assert.equal(bypassedEnv.ok, true, "clinical PR must pass with env ALLOW_UNREVIEWED_CLINICAL_PR=true");
-    assert.match(bypassedEnv.warnings.join(" "), /Emergency operator bypass/);
-  } finally {
-    if (prevEnv === undefined) delete process.env.ALLOW_UNREVIEWED_CLINICAL_PR;
-    else process.env.ALLOW_UNREVIEWED_CLINICAL_PR = prevEnv;
-  }
-
-  // Passing automated review check does not block
-  assert.equal(
-    evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody,
-      headRef: "codex/search-fix",
-      files: clinicalFiles,
-      reviewChecks: [{ name: "Cursor Approval Agent", conclusion: "success" }],
-    }).ok,
-    true,
-    "passing review check must not block clinical PR",
-  );
-
-  // Non-clinical PR is not blocked by neutral review check
-  assert.equal(
-    evaluatePullRequestPolicy({
-      title: "docs: explain the review process",
-      body: completeBody,
-      headRef: "codex/review-docs",
-      files: ["docs/process-hardening.md"],
-      reviewChecks: [{ name: "Cursor Approval Agent", conclusion: "neutral" }],
-    }).ok,
-    true,
-    "non-clinical PR must not be blocked by neutral review check",
-  );
-
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
     assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-  assert.match(
-    template,
-    /ALLOW_UNREVIEWED_CLINICAL_PR=true/,
-    "PR template must document the emergency operator bypass flag ALLOW_UNREVIEWED_CLINICAL_PR=true.",
-  );
   const workflow = readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8");
   assert.match(
     workflow,

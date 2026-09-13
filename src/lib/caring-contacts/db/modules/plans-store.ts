@@ -838,7 +838,8 @@ export class PlansStore {
     if (!mayReadOwnTeam(context, READ_ACTIONS.plan)) return [];
     return this.ctx.runRead(context, async (connection) => {
       const plans = await connection.query(`select ${PLAN_LIST_COLUMNS} from caring_contacts.plans order by id`);
-      const contacts = await this.ctx.selectContacts(connection, "" as PlanId);
+      // Team-scoped all-contacts for grouping — not selectContacts("") which filters plan_id = $1.
+      const contacts = await this.ctx.selectAllContacts(connection, context.actor.teamId);
       const assurances = await connection.query(
         `select ${PLAN_ASSURANCE_COLUMNS} from caring_contacts.plan_assurances
            order by plan_id, attested_at, assurance`,

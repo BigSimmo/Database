@@ -39,7 +39,7 @@ describe("caring-contacts patient-visible copy", () => {
       // Basic-set characters, so one character costs exactly one septet and `length` IS the septet
       // cost of this name. The extension-set case, where it is not, is its own test below.
       const name = "x".repeat(length);
-      const resolved = resolvePatientVisibleMessage(name);
+      const resolved = resolvePatientVisibleMessage(name, { syntheticFictionalContactsAcknowledged: true as const });
 
       expect(resolved).toMatchObject({ ok: true });
       if (!resolved.ok) continue;
@@ -62,7 +62,9 @@ describe("caring-contacts patient-visible copy", () => {
     const ceiling = maxSeptetsWithin(PROVISIONAL_MESSAGE_RULES.maxSegments);
     const longestAccepted = "x".repeat(PREFERRED_NAME_MAX_SEPTETS);
 
-    const accepted = resolvePatientVisibleMessage(longestAccepted);
+    const accepted = resolvePatientVisibleMessage(longestAccepted, {
+      syntheticFictionalContactsAcknowledged: true as const,
+    });
     expect(accepted).toMatchObject({ ok: true });
     if (accepted.ok) {
       const evidence = calculateGsm7(accepted.text);
@@ -71,7 +73,9 @@ describe("caring-contacts patient-visible copy", () => {
       expect(evidence.segments).toBe(PROVISIONAL_MESSAGE_RULES.maxSegments);
     }
 
-    expect(resolvePatientVisibleMessage(`${longestAccepted}x`)).toEqual({
+    expect(
+      resolvePatientVisibleMessage(`${longestAccepted}x`, { syntheticFictionalContactsAcknowledged: true as const }),
+    ).toEqual({
       ok: false,
       issue: {
         code: "preferred-name-too-long",
@@ -94,13 +98,17 @@ describe("caring-contacts patient-visible copy", () => {
     // implementation that simply refused every `€` would pass the refusal alone.
     const halfLength = Math.floor(PREFERRED_NAME_MAX_SEPTETS / 2);
 
-    const accepted = resolvePatientVisibleMessage("€".repeat(halfLength));
+    const accepted = resolvePatientVisibleMessage("€".repeat(halfLength), {
+      syntheticFictionalContactsAcknowledged: true as const,
+    });
     expect(accepted).toMatchObject({ ok: true });
     if (accepted.ok) {
       expect(calculateGsm7(accepted.text).segments).toBe(PROVISIONAL_MESSAGE_RULES.maxSegments);
     }
 
-    const refused = resolvePatientVisibleMessage("€".repeat(PREFERRED_NAME_MAX_SEPTETS));
+    const refused = resolvePatientVisibleMessage("€".repeat(PREFERRED_NAME_MAX_SEPTETS), {
+      syntheticFictionalContactsAcknowledged: true as const,
+    });
     expect(refused).toMatchObject({ ok: false, issue: { code: "preferred-name-too-long" } });
   });
 
@@ -132,7 +140,7 @@ describe("caring-contacts patient-visible copy", () => {
     // patient-visible copy for a suicide-prevention message. So the absence is a loud refusal,
     // exactly as `resolveClosingContactMessageBody` refuses for the closing message.
     for (const absent of [null, "", "   "]) {
-      expect(resolvePatientVisibleMessage(absent)).toEqual({
+      expect(resolvePatientVisibleMessage(absent, { syntheticFictionalContactsAcknowledged: true })).toEqual({
         ok: false,
         issue: { code: "preferred-name-not-recorded" },
       });
@@ -140,7 +148,9 @@ describe("caring-contacts patient-visible copy", () => {
 
     // Positive control: the same function DOES produce a message when a name is recorded, so the
     // three refusals above are the absence being refused rather than the function refusing always.
-    expect(resolvePatientVisibleMessage("Rowan")).toMatchObject({ ok: true });
+    expect(
+      resolvePatientVisibleMessage("Rowan", { syntheticFictionalContactsAcknowledged: true as const }),
+    ).toMatchObject({ ok: true });
   });
 
   it("refuses a name this channel cannot carry, rather than emitting a message it would mangle", () => {
@@ -153,23 +163,39 @@ describe("caring-contacts patient-visible copy", () => {
     // characters per segment. Nothing here models that path, so within this system the message is
     // unencodable and refusing is the conservative answer. The character set is a telecom
     // specification, so nothing in the refusal decides anything about the patient.
-    expect(resolvePatientVisibleMessage("Zoë")).toEqual({
+    expect(resolvePatientVisibleMessage("Zoë", { syntheticFictionalContactsAcknowledged: true as const })).toEqual({
       ok: false,
       issue: { code: "preferred-name-not-sendable", unsupportedCharacters: ["ë"] },
     });
 
     // Positive control on the alphabet itself: accented characters that ARE in GSM-7 are accepted,
     // so this is a transport limit rather than a blanket refusal of anything unfamiliar.
-    expect(resolvePatientVisibleMessage("José")).toMatchObject({ ok: true });
+    expect(
+      resolvePatientVisibleMessage("José", { syntheticFictionalContactsAcknowledged: true as const }),
+    ).toMatchObject({ ok: true });
   });
 
   it("routes candidate message text through validateGovernedMessage and refuses prohibited terms", () => {
     // Ledger #B16HW8: resolvePatientVisibleMessage routes through validateGovernedMessage.
     // If a preferred name introduces a prohibited term (e.g. "Safe"), it fails closed with that issue.
-    const refused = resolvePatientVisibleMessage("Safe");
+    const refused = resolvePatientVisibleMessage("Safe", { syntheticFictionalContactsAcknowledged: true });
     expect(refused).toEqual({
       ok: false,
       issue: { code: "prohibited-term", term: "safe" },
+    });
+  });
+
+  it("fails closed when fictional contacts are not acknowledged", () => {
+    // Omitted acknowledgment must not default to true: provisional copy embeds the fictional staffed line.
+    const refused = resolvePatientVisibleMessage("Rowan");
+    expect(refused).toEqual({
+      ok: false,
+      issue: { code: "fictional-contact-detail-present" },
+    });
+    const refusedExplicit = resolvePatientVisibleMessage("Rowan", { syntheticFictionalContactsAcknowledged: false });
+    expect(refusedExplicit).toEqual({
+      ok: false,
+      issue: { code: "fictional-contact-detail-present" },
     });
   });
 
@@ -177,7 +203,9 @@ describe("caring-contacts patient-visible copy", () => {
     // The reversal of Ruling [127] is narrow: the message gained a slot and nothing else changed.
     // The specimen is the template with the fictional name in it, so there is no second string that
     // could drift from the one the resolver produces.
-    const resolved = resolvePatientVisibleMessage(SPECIMEN_PREFERRED_NAME);
+    const resolved = resolvePatientVisibleMessage(SPECIMEN_PREFERRED_NAME, {
+      syntheticFictionalContactsAcknowledged: true as const,
+    });
     expect(resolved).toEqual({ ok: true, text: EXACT_PATIENT_VISIBLE_MESSAGE });
     expect(EXACT_PATIENT_VISIBLE_MESSAGE).toContain(`Hi ${SPECIMEN_PREFERRED_NAME},`);
   });
@@ -384,8 +412,12 @@ describe("caring-contacts crisis-support line (Ruling [144])", () => {
     // Derived, not written down: the cap follows the base cost and the ceiling automatically.
     expect(PREFERRED_NAME_MAX_SEPTETS).toBe(ceiling - PATIENT_VISIBLE_MESSAGE_BASE_SEPTETS);
     // Ample for a first name, which is the whole claim the budget has to support.
-    expect(resolvePatientVisibleMessage("Rowan")).toMatchObject({ ok: true });
-    expect(resolvePatientVisibleMessage("Christopher")).toMatchObject({ ok: true });
+    expect(
+      resolvePatientVisibleMessage("Rowan", { syntheticFictionalContactsAcknowledged: true as const }),
+    ).toMatchObject({ ok: true });
+    expect(
+      resolvePatientVisibleMessage("Christopher", { syntheticFictionalContactsAcknowledged: true as const }),
+    ).toMatchObject({ ok: true });
   });
 
   it("keeps both messages identifiable as non-sendable specimens", () => {
