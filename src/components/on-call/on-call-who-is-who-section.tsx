@@ -3,6 +3,8 @@
 import { Pencil, Users } from "lucide-react";
 
 import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallGroupSection } from "@/components/on-call/on-call-group-section";
+import { allocateOnCallGroupSlug } from "@/components/on-call/on-call-page-anchors";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cardPadding, cardSurface } from "@/components/card-recipes";
@@ -31,19 +33,21 @@ function parseContactDetails(details: unknown): OnCallContactDetails | null {
   return result.success ? (result.data as OnCallContactDetails) : null;
 }
 
-const UNGROUPED_AREA = "Roles";
+/**
+ * Duplicated deliberately narrowly: `on-call-page-sections.ts` owns the
+ * declaration and this owns the rendering, and the pair is pinned by a DOM
+ * test that asserts every declared Who's who anchor exists on the page.
+ * Importing the list into the header module would make the header depend on
+ * the body it sits above.
+ */
+const RESERVED = ["call-first", "switchboard", "ward", "pinned"];
+const UNGROUPED_AREA = "General";
 
 function areaFor(entry: OnCallEntry): string {
-  const first = entry.tags[0]?.trim();
-  return first && first.length > 0 ? first : UNGROUPED_AREA;
-}
-
-function slugifyArea(area: string): string {
-  const slug = area
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "group";
+  const area = entry.tags
+    .map((tag) => tag.trim())
+    .find((tag) => tag.length > 0 && !RESERVED.includes(tag.toLowerCase()));
+  return area ?? UNGROUPED_AREA;
 }
 
 /**
@@ -156,31 +160,31 @@ export function OnCallWhoIsWhoSection({
     else byArea.set(area, [entry]);
   }
 
+  const taken = new Set<string>();
   const groups = Array.from(byArea.entries())
     .map(([area, list]) => ({
       area,
       entries: [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title)),
     }))
-    .sort((a, b) => a.area.localeCompare(b.area));
+    .sort((a, b) => a.area.localeCompare(b.area))
+    .map((group) => ({ ...group, slug: allocateOnCallGroupSlug(group.area, taken) }));
 
   return (
     <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-5">
-      {groups.map((group) => {
-        const slug = slugifyArea(group.area);
-        const headingId = `on-call-who-is-who-${slug}-heading`;
-        return (
-          <section key={group.area} aria-labelledby={headingId} className="grid grid-cols-[minmax(0,1fr)] gap-2">
-            <h3 id={headingId} className={eyebrowText}>
-              {group.area}
-            </h3>
-            <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-who-is-who-group-${slug}`}>
-              {group.entries.map((entry) => (
-                <RoleCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {groups.map((group) => (
+        <OnCallGroupSection
+          key={group.slug}
+          label={group.area}
+          slug={group.slug}
+          count={group.entries.length}
+          headingId={`on-call-who-is-who-${group.slug}-heading`}
+          testId={`on-call-who-is-who-group-${group.slug}`}
+        >
+          {group.entries.map((entry) => (
+            <RoleCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+          ))}
+        </OnCallGroupSection>
+      ))}
     </div>
   );
 }

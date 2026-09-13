@@ -5,6 +5,7 @@ import {
   clearOnCallEntryCache,
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
+  peekOnCallEntrySessionEpoch,
   readCachedOnCallEntries,
 } from "@/lib/on-call/entry-store";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -167,5 +168,13 @@ describe("on-call entry cache", () => {
     expect(() => cacheOnCallEntries([contact])).not.toThrow();
     expect(cacheOnCallEntries([contact])).toBe(false);
     expect(() => clearOnCallEntryCache()).not.toThrow();
+  });
+
+  it("advances the session epoch only when the cache is cleared", () => {
+    const before = peekOnCallEntrySessionEpoch();
+    cacheOnCallEntries([contact]);
+    expect(peekOnCallEntrySessionEpoch()).toBe(before);
+    clearOnCallEntryCache();
+    expect(peekOnCallEntrySessionEpoch()).toBe(before + 1);
   });
 });

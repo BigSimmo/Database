@@ -127,6 +127,24 @@ function contact(id: string, slug: string, title: string, tags: string[]): OnCal
   } as unknown as OnCallEntry;
 }
 
+function roleExplainer(id: string, slug: string, title: string, tags: string[]): OnCallEntry {
+  return {
+    id,
+    slug,
+    section: "contacts",
+    title,
+    subtitle: null,
+    body: "What this role does.",
+    details: { role: title, kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags,
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 0,
+    lastVerifiedAt: FRESH,
+  } as unknown as OnCallEntry;
+}
+
 /** Two areas, which is the floor at which a page has navigation rather than a heading. */
 const ROUTED_CONTACTS = [
   contact("aaaa1111-1111-4111-8111-111111111111", "ward-a", "Ward A", ["Wards"]),
@@ -228,6 +246,24 @@ describe("the second header row is about THIS page", () => {
     const { container } = render(<OnCallSectionPage view="contacts" />);
 
     const declared = onCallPageSections({ view: "contacts", entries });
+    expect(declared.length).toBeGreaterThan(0);
+    for (const section of declared) {
+      expect(
+        container.querySelector(`#${section.id}`),
+        `${section.label} declares #${section.id}, which is absent`,
+      ).not.toBeNull();
+    }
+  });
+
+  it("declares only anchors the Who's who page actually renders", () => {
+    const entries = [
+      roleExplainer("cccc1111-1111-4111-8111-111111111111", "reg", "Registrar", ["Medical"]),
+      roleExplainer("cccc2222-2222-4222-8222-222222222222", "cns", "CNS", ["Nursing"]),
+    ];
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="who-is-who" />);
+
+    const declared = onCallPageSections({ view: "who-is-who", entries });
     expect(declared.length).toBeGreaterThan(0);
     for (const section of declared) {
       expect(
