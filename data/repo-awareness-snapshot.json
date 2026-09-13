@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-13"
+    "committed_at": "2026-09-14"
   },
   "routes": {
     "modes": [
@@ -3387,6 +3387,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/governance/privacy-completion-drafts-2026-09-13.md",
+        "section": "governance",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/cleanup-awaiting-approval.md",
         "section": "ward-flow",
         "catalogued": false
@@ -3495,6 +3500,11 @@
         "path": "docs/rag-improvement/baseline-record.md",
         "section": "rag-improvement",
         "catalogued": true
+      },
+      {
+        "path": "docs/governance/rag-adaptive-continuation-2026-09-13.md",
+        "section": "governance",
+        "catalogued": false
       },
       {
         "path": "docs/redesign/09-ui-primitives-recipes.md",
@@ -22920,6 +22930,14 @@
         "checks": "verify:pr-local exit 0 (4570 passed/3 skipped, build 1694/1694, offline RAG 36 golden/21 suites); verify:cheap exit 0 (434 files, 4564 passed); verify:ui 339 passed + 3 pre-existing hydration-race flakes all green on isolated re-run; prettier --check . exit 0; Playwright computed-style probe proved fix in light+dark"
       },
       {
+        "date": "2026-09-13",
+        "ref": "codex/rag-adaptive-coverage-20260913",
+        "head": "c6d677e569ee9faedefa31c96eb927ab5fbd433d",
+        "scope": "Working-tree activation and attestation documentation only; no product acceptance",
+        "outcome": "Independent clinical-governance review: no unsafe status promotion; two wording corrections applied. Activation blocked on empty governed corpus and six role decisions.",
+        "checks": "check:privacy-readiness PASS 11 history checked; check:production-readiness FAIL six pending/partial items before runtime stage; scoped Prettier and diff check PASS; production aggregate and cron configuration reads only; no product tests or CI repeated"
+      },
+      {
         "date": "2026-08-07",
         "ref": "cursor/inpage-nav-default-235a",
         "head": "c6d72e406c03e205bac86d23e84813c41332c205",
@@ -23758,6 +23776,14 @@
         "scope": "Task 7 Clinical Ask external authority evidence",
         "outcome": "P1: route bypasses profile allowedAuthorityIds and enables all registry domains for mode; fix before Task 8",
         "checks": "ledger lookup; static diff review; prior focused tests noted; no provider calls"
+      },
+      {
+        "date": "2026-09-13",
+        "ref": "HEAD",
+        "head": "d0913a4364f9ddb52f1cd9ab7d19f380930e9ed6",
+        "scope": "PR2790 baseline block medication-section binding correction",
+        "outcome": "CLEAR: independent clinical review of uncommitted two-file correction on recorded base; mixed-medication ancestors may conservatively suppress a baseline list",
+        "checks": "3 reproduced failures before fix; full formatting157PASS after; sourceSHA256=b3daa858dc63b219369c5b79c5329f81bee04aac644990c43e79ae98b36fe165; testSHA256=562db7f59d33ddea19381e0864cef44a99df6704c05f5193f4c6569e1950b2ca; no provider or deployment proof"
       },
       {
         "date": "2026-07-24",
