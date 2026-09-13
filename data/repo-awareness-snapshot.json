@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-12"
+    "committed_at": "2026-09-13"
   },
   "routes": {
     "modes": [
@@ -2582,6 +2582,11 @@
         "path": "docs/superpowers/plans/2026-09-01-services-safety-provenance.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/on-call/design/mockup-conformance.md",
+        "section": "on-call",
+        "catalogued": false
       },
       {
         "path": "docs/mockup-retirement-policy.md",
