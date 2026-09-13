@@ -12,6 +12,9 @@ import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differenti
  *    rail that must stay readable at a glance.
  * 2. "Check next" aggregates the investigations the ranked differentials name,
  *    most-shared first, and never invents one of its own.
+ * 3. Both cards read the filtered result set, so the rail never describes a
+ *    wider list than the one on screen. If a lens hides every emergent, the
+ *    urgency card stays and says so instead of vanishing.
  */
 
 const catalogState = vi.hoisted(() => ({
@@ -111,6 +114,7 @@ describe("differentials interpretation rail", () => {
       expect(screen.getAllByText("Acute dystonia").length).toBeGreaterThan(0);
     });
     expect(screen.queryByTestId("differentials-highest-urgency")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
   });
 
   it("ranks shared investigations first and attributes a single-source one to its differential", async () => {
@@ -141,27 +145,44 @@ describe("differentials interpretation rail", () => {
     expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
   });
 
-  it("follows the urgency lens for check next while highest urgency keeps its safety-net rows", async () => {
+  it("makes both rail cards follow the urgency lens", async () => {
     renderWith(["lithium-adverse-effects-toxicity", "acute-dystonia"]);
 
     const card = await screen.findByTestId("differentials-shared-next-steps");
     expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
+    expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
 
+    // Narrowing to High leaves only the urgent differential. Check next follows
+    // that list. Highest urgency must not vanish: it stays with a notice that
+    // the lens hid the emergent, without putting the hidden row back on screen.
     await act(async () => {
       screen.getByTestId("differential-filter-trigger-phone").click();
     });
     await act(async () => {
-      screen.getByRole("radio", { name: "Emergent (1)" }).click();
+      screen.getByRole("radio", { name: "High (1)" }).click();
     });
     await act(async () => {
       screen.getByTestId("differential-filter-panel-done").click();
     });
 
-    // Thyroid function tests belonged to the filtered-out urgent differential.
-    expect(within(card).queryByText("Thyroid function tests")).not.toBeInTheDocument();
-    expect(within(card).getByText("ECG / QT assessment")).toBeVisible();
-    // The emergent safety net is not a lens result and stays put.
-    expect(screen.getByTestId("differentials-highest-urgency")).toBeVisible();
+    const urgency = screen.getByTestId("differentials-highest-urgency");
+    expect(urgency).toBeVisible();
+    expect(within(urgency).getByTestId("differentials-urgency-hidden-by-filters")).toHaveTextContent(
+      "1 emergent differential is hidden by the active filters.",
+    );
+    expect(within(urgency).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(card).getByText("Thyroid function tests")).toBeVisible();
+    expect(within(card).queryByText("ECG / QT assessment")).not.toBeInTheDocument();
+
+    await act(async () => {
+      within(urgency).getByRole("button", { name: "Show all results" }).click();
+    });
+    const restored = screen.getByTestId("differentials-highest-urgency");
+    expect(screen.queryByTestId("differentials-urgency-hidden-by-filters")).not.toBeInTheDocument();
+    expect(within(restored).getByTestId("differential-status-badge")).toHaveTextContent("Emergent");
+    expect(within(restored).getByRole("link")).toBeVisible();
   });
 
   it("hides the check-next card when no ranked differential names an investigation", async () => {

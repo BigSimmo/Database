@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "26c5181c-8392-4914-b94c-ce72a64abf7b",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#EP65NR",
+    "outcome": "Wired Caring Contacts Today screen (src/app/caring-contacts/page.tsx) to live synthetic store queries via auditedRead for due contacts, active caseloads, and quick actions",
+    "baseRowFingerprint": "a009c0d683b2ca8328d96841eb226df86e9d15cf3628633791d5daa5138ea1f2"
+  }
+}

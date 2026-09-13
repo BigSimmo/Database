@@ -208,4 +208,19 @@ describe("tracked sitemap", () => {
     expect(siteMap).toContain("Live user registries may contain additional service or form slugs");
     expect(siteMap).toContain("individual document IDs are private runtime data");
   });
+
+  it("disperses alphabetically adjacent routes so concurrent page-adding branches do not collide (#X2FP2R)", () => {
+    const data = collectSiteMapData();
+    const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
+    const routes = mockupRoutes.map((entry) => entry.route);
+    const alphabetical = [...routes].sort((a, b) => a.localeCompare(b));
+    // Dispersed order is not plain alphabetical order
+    expect(routes).not.toEqual(alphabetical);
+
+    // Alphabetically adjacent routes with shared prefix are dispersed across the list
+    const toolsRoutes = routes.filter((r) => r.startsWith("/mockups/tools-"));
+    expect(toolsRoutes.length).toBeGreaterThan(3);
+    const positions = toolsRoutes.map((r) => routes.indexOf(r));
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(toolsRoutes.length - 1);
+  });
 });

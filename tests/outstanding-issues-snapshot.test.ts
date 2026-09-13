@@ -45,7 +45,8 @@ const INBOX = [
   },
 ];
 
-const REVISION = { sha: "a".repeat(40), committed_at: "2026-08-20T09:14:00Z" };
+// v2 shape: a date, no sha. `readLedgerRevision` explains why the sha went.
+const REVISION = { committed_at: "2026-08-20" };
 
 describe("buildSnapshot", () => {
   it("parses both ID schemes and never drops alphanumeric ids", () => {
@@ -293,6 +294,30 @@ describe("ledger revision when git cannot be read", () => {
 
     const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
     expect(snapshot.ledger_revision).toEqual(REVISION);
+  });
+
+  it("normalises a v1 committed revision to a date, so the preserve path cannot reintroduce the sha", () => {
+    // The one path that PRESERVES rather than re-reads git is the production
+    // image, which has no `.git`. A v1 file on disk there still carries a sha
+    // and a full timestamp, and carrying that through verbatim would write the
+    // conflicting v1 shape straight back into a v2 file — silently, in the only
+    // environment that takes this branch.
+    writeFileSync(
+      snapshotPath,
+      JSON.stringify({
+        version: SNAPSHOT_VERSION,
+        ledger_revision: { sha: "a".repeat(40), committed_at: "2026-08-20T09:14:00Z" },
+        counts: {},
+        queue: [],
+        open: [],
+        pending: [],
+      }),
+      "utf8",
+    );
+
+    const snapshot = generate({ ledgerPath, inboxDir, snapshotPath });
+    expect(snapshot.ledger_revision).toEqual({ committed_at: "2026-08-20" });
+    expect(snapshot.ledger_revision).not.toHaveProperty("sha");
   });
 
   it("records null when there is no committed snapshot to preserve from", () => {

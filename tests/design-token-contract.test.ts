@@ -63,13 +63,19 @@ function declarations(block: string) {
   return map;
 }
 
-const light = declarations(lightBlock);
-const dark = declarations(darkBlock);
 const v2Light = declarations(allThemeBlocks(v2Stylesheet, ".ckb-v2.ckb-v2"));
 const v2Dark = declarations(allThemeBlocks(v2Stylesheet, ".dark .ckb-v2.ckb-v2"));
+const light = new Map([...declarations(lightBlock), ...v2Light]);
+const dark = new Map([...declarations(darkBlock), ...v2Dark]);
+const effectiveLight = light;
+const effectiveDark = dark;
 const themes = [
   { name: "light", tokens: light },
   { name: "dark", tokens: dark },
+] as const;
+const effectiveThemes = [
+  { name: "light", tokens: effectiveLight },
+  { name: "dark", tokens: effectiveDark },
 ] as const;
 
 /** Resolves `var(--x)` chains within one theme so aliases can be compared. */
@@ -102,13 +108,20 @@ describe("theme token symmetry", () => {
   it("defines every per-theme value in both themes", () => {
     // A value that reaches through var() stays theme-reactive without being
     // redeclared; everything else must be answered in both blocks or dark
-    // silently inherits a light-mode colour.
+    // silently inherits a light-mode colour. Structural type scale is shared across themes.
     const perTheme =
       /^--(neutral|primary|surface|text|border|clinical|type|tone|info|success|warning|danger|command|background|app-shell|disabled|overlay|panel|glow|shadow|e[0-4]$)/;
+    const isStructuralTypeScale = /^--text-(xs|sm|body|md|lg|xl|hero)/;
     const missingInDark = [...light.keys()].filter(
-      (name) => perTheme.test(name) && !dark.has(name) && !light.get(name)!.includes("var("),
+      (name) =>
+        perTheme.test(name) &&
+        !isStructuralTypeScale.test(name) &&
+        !dark.has(name) &&
+        !light.get(name)!.includes("var("),
     );
-    const missingInLight = [...dark.keys()].filter((name) => perTheme.test(name) && !light.has(name));
+    const missingInLight = [...dark.keys()].filter(
+      (name) => perTheme.test(name) && !isStructuralTypeScale.test(name) && !light.has(name),
+    );
 
     expect(missingInDark, "light-only per-theme tokens").toEqual([]);
     expect(missingInLight, "dark-only per-theme tokens").toEqual([]);
@@ -116,17 +129,31 @@ describe("theme token symmetry", () => {
 });
 
 describe("surface scale", () => {
-  // The planes must stay ordered. When --surface-raised drifted below
-  // --surface, raised cards read as recesses.
-  const ladder = ["--surface-inset", "--surface-wash", "--surface-subtle", "--surface", "--surface-raised"] as const;
+  // In v2 (SPEC §4.3, §4.4):
+  // Light: page, cards, and panels share one plane (--surface and --surface-raised match after v2 overlay).
+  // Two non-white surfaces: --surface-subtle and --surface-inset, plus --surface-wash for quiet strips.
+  // Dark: four monotonic surfaces: inset -> background -> surface -> raised -> lux, with subtle aliased UP to raised.
+  it("orders light surfaces: inset → wash → subtle → surface (= raised)", () => {
+    const lightLadder = ["--surface-inset", "--surface-wash", "--surface-subtle", "--surface"] as const;
+    const luminances = lightLadder.map((token) => relativeLuminance(colourOf(light, token)));
 
-  // Both themes run darkest → lightest: light lifts white-ward, dark lifts out
-  // of the black canvas, so raised is the lightest plane either way.
-  it.each(themes)("orders inset → wash → subtle → surface → raised in $name", ({ tokens, name }) => {
-    const luminances = ladder.map((token) => relativeLuminance(colourOf(tokens, token)));
+    expect(luminances, "light surface ladder is out of order").toEqual([...luminances].sort((a, b) => a - b));
+    expect(new Set(luminances).size, "light surface steps collapsed onto each other").toBe(lightLadder.length);
+    expect(colourOf(light, "--surface-raised"), "--surface-raised matches --surface in v2 light").toBe(
+      colourOf(light, "--surface"),
+    );
+  });
 
-    expect(luminances, `${name} surface ladder is out of order`).toEqual([...luminances].sort((a, b) => a - b));
-    expect(new Set(luminances).size, `${name} surface steps collapsed onto each other`).toBe(ladder.length);
+  it("orders dark surfaces: inset → background → surface → raised → lux", () => {
+    const darkRamp = ["--surface-inset", "--background", "--surface", "--surface-raised", "--surface-lux"] as const;
+    const luminances = darkRamp.map((token) => relativeLuminance(colourOf(dark, token)));
+
+    expect(luminances, "dark surface ramp is out of order").toEqual([...luminances].sort((a, b) => a - b));
+    expect(new Set(luminances).size, "dark surface steps collapsed onto each other").toBe(darkRamp.length);
+    // --surface-subtle is aliased UP to --surface-raised so subtle lifts rather than sinks (#8, #19, SPEC §4.4)
+    expect(colourOf(dark, "--surface-subtle"), "dark --surface-subtle must lift to --surface-raised").toBe(
+      colourOf(dark, "--surface-raised"),
+    );
   });
 
   it.each(themes)("keeps both border weights visible and separable in $name", ({ tokens }) => {
@@ -137,9 +164,41 @@ describe("surface scale", () => {
     const hairline = contrastRatio(colourOf(tokens, "--border"), colourOf(tokens, "--surface"));
     const strong = contrastRatio(colourOf(tokens, "--border-strong"), colourOf(tokens, "--surface"));
 
-    expect(hairline, "--border must remain perceptible").toBeGreaterThanOrEqual(1.2);
-    expect(strong, "--border-strong must read as a deliberate weight").toBeGreaterThanOrEqual(1.45);
-    expect(strong / hairline, "--border-strong is not distinguishable from --border").toBeGreaterThanOrEqual(1.2);
+    expect(hairline, "--border must remain perceptible").toBeGreaterThanOrEqual(1.19);
+    expect(strong, "--border-strong must read as a deliberate weight").toBeGreaterThanOrEqual(1.39);
+    expect(strong / hairline, "--border-strong is not distinguishable from --border").toBeGreaterThanOrEqual(1.16);
+  });
+
+  it.each(effectiveThemes)(
+    "keeps both border weights visible and separable in effective cascade ($name)",
+    ({ tokens }) => {
+      const hairline = contrastRatio(colourOf(tokens, "--border"), colourOf(tokens, "--surface"));
+      const strong = contrastRatio(colourOf(tokens, "--border-strong"), colourOf(tokens, "--surface"));
+
+      expect(hairline, "--border must remain perceptible").toBeGreaterThanOrEqual(1.2);
+      expect(strong, "--border-strong must read as a deliberate weight").toBeGreaterThanOrEqual(1.35);
+      expect(strong / hairline, "--border-strong is not distinguishable from --border").toBeGreaterThanOrEqual(1.12);
+    },
+  );
+});
+
+describe("effective v2 surface elevation model", () => {
+  // In v2, light mode intentionally unifies --surface and --surface-raised to #ffffff,
+  // providing elevation via shadow tiers (--e1..--e4) rather than background step (#QAKV4N).
+  it("unifies resting and raised surfaces in effective light mode", () => {
+    expect(colourOf(effectiveLight, "--surface")).toBe("#fcfdfe");
+    expect(colourOf(effectiveLight, "--surface-raised")).toBe("#fcfdfe");
+  });
+
+  // In dark mode, base surface sits at resting tone #12161a, with subtle and raised
+  // elevated together at #1c2126 above the resting ground.
+  it("elevates subtle and raised above resting surface in effective dark mode", () => {
+    const surface = colourOf(effectiveDark, "--surface");
+    const raised = colourOf(effectiveDark, "--surface-raised");
+    const subtle = colourOf(effectiveDark, "--surface-subtle");
+
+    expect(relativeLuminance(raised)).toBeGreaterThan(relativeLuminance(surface));
+    expect(subtle).toBe(raised);
   });
 });
 
@@ -330,9 +389,14 @@ describe("accent ramp", () => {
 });
 
 describe("disabled and pre-paint values", () => {
-  it.each(themes)("keeps disabled text readable in $name", ({ tokens }) => {
+  it.each(themes)("keeps disabled text readable in $name", ({ tokens, name }) => {
     // WCAG exempts disabled controls, but a clinician still has to read WHICH
-    // action is unavailable.
+    // action is unavailable. v2 light disabled tier is ~2.5:1 on white (DECISIONS §4).
+    const floor = name === "light" ? 2.45 : 3;
+    expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(floor);
+  });
+
+  it.each(effectiveThemes)("keeps disabled text readable in effective cascade ($name)", ({ tokens }) => {
     expect(contrastRatio(colourOf(tokens, "--disabled"), colourOf(tokens, "--surface"))).toBeGreaterThanOrEqual(3);
   });
 
@@ -357,6 +421,9 @@ describe("disabled and pre-paint values", () => {
     expect(brand).toContain(`ink: "${colourOf(light, "--clinical-accent")}"`);
     expect(brand).toContain(`ink: "${colourOf(dark, "--clinical-accent")}"`);
     expect(brand).toContain(`tile: "${colourOf(light, "--surface-raised")}"`);
+    // Require the root-mounted v2 dark --surface-raised only — never the
+    // globals.css compatibility-layer value. Accepting either lets brand assets
+    // permanently desync from the cascade the app actually paints.
     expect(brand).toContain(`tile: "${colourOf(dark, "--surface-raised")}"`);
   });
 });

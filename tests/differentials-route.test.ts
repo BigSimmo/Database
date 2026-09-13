@@ -351,6 +351,24 @@ describe("differentials API routes", () => {
     expect(payload.records?.length).toBe(payload.matches?.length);
   });
 
+  it("reports the catalogue size in `total`, not the size of the query's own result set", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const unfiltered = await GET(request("/api/differentials?kind=diagnosis&limit=10"));
+    const filtered = await GET(request("/api/differentials?kind=diagnosis&q=delirium&limit=10"));
+    const unfilteredPayload = (await unfiltered.json()) as { total?: number };
+    const filteredPayload = (await filtered.json()) as { records?: unknown[]; total?: number };
+
+    // `total` answers "how many differentials are there", so a query must not
+    // move it. It used to measure the returned records, which under a query are
+    // the ranked matches — so a caller asking for the catalogue figure got its
+    // own result count back and could not state the real one.
+    expect(filteredPayload.total).toBe(unfilteredPayload.total);
+    expect(filteredPayload.total ?? 0).toBeGreaterThan(filteredPayload.records?.length ?? 0);
+  });
+
   it("returns scored presentation matches for a query", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, { demoMode: true });

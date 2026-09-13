@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -314,7 +315,8 @@ function fileToRoute(filePath: string, kind: RouteKind) {
 
 function collectFiles(root: string, targetFileName: string): string[] {
   const files: string[] = [];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
+  const entries = readdirSync(root, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+  for (const entry of entries) {
     const fullPath = path.join(root, entry.name);
     if (entry.isDirectory()) {
       files.push(...collectFiles(fullPath, targetFileName));
@@ -322,7 +324,35 @@ function collectFiles(root: string, targetFileName: string): string[] {
     }
     if (entry.isFile() && entry.name === targetFileName) files.push(fullPath);
   }
-  return files;
+  return files.sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * A DISPERSING order, not an alphabetical one — matching the approach in
+ * `scripts/generate-repo-awareness-snapshot.ts` (#X2FP2R).
+ *
+ * Sorted by route path alphabetically, two routes added on concurrent branches
+ * land adjacent to each other whenever their paths sort next to each other,
+ * producing hard merge conflicts in docs/site-map.md (e.g. PR #2674 on /mockups/s*).
+ *
+ * A SHA-1 hash of the route path is uniformly distributed, so concurrent additions
+ * land far apart across the document and git's three-way merge resolves both
+ * hunks untouched.
+ */
+export function dispersalKey(value: string): string {
+  return createHash("sha1").update(value).digest("hex");
+}
+
+export function byDispersedRoute<T extends { route: string; file: string; target?: string }>(
+  left: T,
+  right: T,
+): number {
+  return (
+    dispersalKey(left.route).localeCompare(dispersalKey(right.route)) ||
+    left.route.localeCompare(right.route) ||
+    left.file.localeCompare(right.file) ||
+    (left.target ?? "").localeCompare(right.target ?? "")
+  );
 }
 
 function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
@@ -333,7 +363,7 @@ function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
       route: fileToRoute(file, kind),
       file: toPosixPath(path.relative(process.cwd(), file)),
     }))
-    .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
+    .sort(byDispersedRoute);
 }
 
 /*
@@ -368,7 +398,7 @@ function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
         return target ? { ...route, target } : null;
       })
       .filter((value): value is RedirectRoute => Boolean(value))
-      .sort((left, right) => left.route.localeCompare(right.route))
+      .sort(byDispersedRoute)
   );
 }
 
@@ -377,7 +407,7 @@ function discoverNonRoutedMockupArtifacts() {
   if (!existsSync(mockupsDir)) return [];
   return collectFiles(mockupsDir, "page.tsx")
     .map((file) => toPosixPath(path.relative(process.cwd(), file)))
-    .sort((left, right) => left.localeCompare(right));
+    .sort((left, right) => dispersalKey(left).localeCompare(dispersalKey(right)) || left.localeCompare(right));
 }
 
 export function collectSiteMapData(): SiteMapData {
