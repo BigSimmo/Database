@@ -76,10 +76,20 @@ export const ON_CALL_SECTION_HEADER_TEST_IDS = {
  * The section pages' header.
  *
  * `sections` are the page's own groups, declared by `onCallPageSections` and
- * narrowed by `useInPageSectionNav` to the ones actually rendered — so a flat
- * page (Referrals, Orientation, Teaching) resolves to none and the header drops
- * back to being a title with a back control and an actions sheet. That is the
- * behaviour, not a special case.
+ * narrowed by `useInPageSectionNav` to the ones actually rendered — so a page
+ * with nothing to group by (Teaching) resolves to none and the header is just
+ * the page's name and its actions. That is the behaviour, not a special case.
+ *
+ * NO BACK CONTROL, deliberately. Every page in this mode is a destination in
+ * the mode pill's own list — the hub included, as "Tonight" — so an arrow
+ * pointing at the hub described a parent-child hierarchy that does not exist.
+ * It also put a control that leaves the page at the head of a row whose entire
+ * job is moving around INSIDE the page, which is the confusion this row was
+ * built to end. The way out is the pill that got you here.
+ *
+ * `OnCallCardNavHeader` above keeps its arrow: the pocket card is reached by
+ * an action ("Print the pocket card") as well as by the pill, and backing out
+ * of an action is what an arrow is for.
  */
 export function OnCallSectionNavHeader({
   title,
@@ -97,8 +107,15 @@ export function OnCallSectionNavHeader({
   if (resolved.length === 0) {
     return (
       <InPageNavHeader
-        back={{ href: "/on-call", label: "On Call" }}
         title={title}
+        // Phone only: this bar is portaled INTO the universal header's own
+        // collapse slot, so its solid surface painted a second panel inside a
+        // glass one and the two rows read as two objects with a seam between
+        // them. Transparent lets one material carry both. It keeps its bottom
+        // rule here — with no groups there is no track to draw the edge — and
+        // from `sm` it is a standalone sticky bar with content scrolling
+        // under it, so it keeps the opaque background too.
+        className="max-sm:bg-transparent"
         testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
         actionsTitle={`${title} actions`}
         actionsDescription={actionsDescription}
@@ -110,7 +127,6 @@ export function OnCallSectionNavHeader({
 
   return (
     <InPageNavHeader
-      back={{ href: "/on-call", label: "On Call" }}
       title={title}
       sections={resolved}
       activeId={activeId}
@@ -119,6 +135,10 @@ export function OnCallSectionNavHeader({
       // mode's pages; a second stacked line of small text under the page name
       // read as more description rather than as the control it is.
       sectionLabelPlacement="inline"
+      // Same material as the flat variant above, and no bottom rule on the
+      // phone: the weighted track is the block's edge, and a hairline directly
+      // above it drew the seam back in.
+      className="max-sm:border-b-0 max-sm:bg-transparent"
       testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
       actionsTitle={`${title} actions`}
       actionsDescription={actionsDescription}

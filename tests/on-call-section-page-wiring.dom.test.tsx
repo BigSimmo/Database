@@ -132,13 +132,18 @@ describe("the second header row is about THIS page", () => {
     expect(screen.queryAllByRole("navigation", { name: "On Call pages" })).toHaveLength(0);
   });
 
-  it("names the page, with a way back to the hub", () => {
+  it("names the page, and carries no back arrow", () => {
+    // Every page in this mode is a destination in the mode pill's own list —
+    // the hub included, as "Tonight" — so an arrow pointing at the hub
+    // described a parent-child hierarchy that does not exist. It also put a
+    // control that LEAVES the page at the head of a row whose whole job is
+    // moving around inside it, which is the confusion this row exists to end.
     storeState.entries = [];
-    render(<OnCallSectionPage view="contacts" />);
+    const { container } = render(<OnCallSectionPage view="contacts" />);
     const header = screen.getByTestId("on-call-section-detail-header");
     expect(header).toBeTruthy();
-    const back = within(header).getByRole("link", { name: /back to on call/i });
-    expect(back.getAttribute("href")).toBe("/on-call");
+    expect(within(header).queryByRole("link", { name: /back to on call/i })).toBeNull();
+    expect(container.textContent).toContain("Contacts");
   });
 
   it("drops back to a plain title on a page with no groups", () => {

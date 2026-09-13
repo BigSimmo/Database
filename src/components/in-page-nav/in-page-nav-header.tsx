@@ -17,8 +17,19 @@ import { Sheet } from "@/components/ui/sheet";
 import { cn, pageContainer } from "@/components/ui-primitives";
 
 type InPageNavHeaderSharedProps = {
-  /** `label` is the mode home's name: shown from `sm`, and the aria-label at every width. */
-  back: { href: string; label: string };
+  /**
+   * `label` is the mode home's name: shown from `sm`, and the aria-label at
+   * every width.
+   *
+   * OMIT IT for a page that is a destination rather than a child. On Call's
+   * seven pages are all reached from the mode pill, which lists them and the
+   * hub together, so an arrow pointing at the hub described a hierarchy that
+   * does not exist — and it put a navigation control at the head of a row
+   * whose entire job is navigating INSIDE this page. Leaving it out frees the
+   * gutter for the page's own name, and the way out is the pill that got you
+   * here.
+   */
+  back?: { href: string; label: string };
   /**
    * `false` keeps the arrow alone at every width so the title owns the row.
    * `back.label` is still required — it is the accessible name either way, and
@@ -321,22 +332,24 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
           <div
             className={cn(containerClassName ?? pageContainer, "flex min-h-12 min-w-0 flex-wrap items-center gap-2")}
           >
-            <ContextualBackLink
-              fallbackHref={back.href}
-              aria-label={`Back to ${back.label.toLowerCase()}`}
-              title={showBackLabel ? undefined : back.label}
-              className={cn(
-                // `min-w-tap` is load-bearing on phones: the visible label is
-                // `hidden sm:inline`, so without a width floor the control shrinks
-                // to the icon + horizontal padding (~40px) and fails the production
-                // tap-target contract that Production UI asserts on medications.
-                "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
-                showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
-              )}
-            >
-              <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
-              {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
-            </ContextualBackLink>
+            {back ? (
+              <ContextualBackLink
+                fallbackHref={back.href}
+                aria-label={`Back to ${back.label.toLowerCase()}`}
+                title={showBackLabel ? undefined : back.label}
+                className={cn(
+                  // `min-w-tap` is load-bearing on phones: the visible label is
+                  // `hidden sm:inline`, so without a width floor the control shrinks
+                  // to the icon + horizontal padding (~40px) and fails the production
+                  // tap-target contract that Production UI asserts on medications.
+                  "inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
+                  showBackLabel ? "pl-1.5 pr-3 max-sm:px-1.5" : "px-1.5",
+                )}
+              >
+                <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden />
+                {showBackLabel ? <span className="hidden sm:inline">{back.label}</span> : null}
+              </ContextualBackLink>
+            ) : null}
             {rail ? (
               // With a rail, every section is already named in the row below, so
               // from `sm` — where the whole rail fits — the disclosure would open
@@ -361,24 +374,41 @@ export function InPageNavHeader(props: InPageNavHeaderProps) {
                   {title}
                 </TitleTag>
                 {activeSection ? (
+                  // Drawn as a control and named as one. Three cues, because
+                  // any one alone reads as a label: it is a bordered pill on a
+                  // row of plain text, it carries "n of m" so it is plainly
+                  // about position IN this page rather than a filter over it,
+                  // and its accessible name says what tapping it does. The
+                  // weighted track directly beneath is the fourth.
                   <button
                     type="button"
                     ref={sectionTitleTriggerRef}
                     onClick={(event) => openSectionSheet(event.currentTarget)}
                     aria-expanded={sectionSheetOpen}
                     aria-haspopup="dialog"
+                    aria-label={`${activeSection.label} — section ${activeIndex + 1} of ${documentSections.length}. Jump to another part of this page.`}
                     data-testid={`${testIdPrefix}-section-trigger`}
-                    className="focus-ring-tab inline-flex min-h-tap min-w-0 shrink items-center gap-1.5 rounded-full px-2.5 text-left text-2xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]"
+                    className="focus-ring-tab group/section inline-flex min-h-tap min-w-0 shrink items-center rounded-full text-left"
                   >
-                    {ActiveIcon ? <ActiveIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
-                    <span className="min-w-0 truncate">{activeSection.label}</span>
-                    <ChevronDown
-                      aria-hidden
-                      className={cn(
-                        "h-3.5 w-3.5 shrink-0 transition motion-reduce:transition-none",
-                        sectionSheetOpen && "rotate-180",
-                      )}
-                    />
+                    {/* The hit area is the 48px button; the PAINTED pill is
+                        this inner span at 32px. Filling the whole tap target
+                        with ink made the control louder than the page's own
+                        name — and shrinking the button to match the ink is the
+                        "fix" that costs the production tap floor. */}
+                    <span className="inline-flex min-h-8 min-w-0 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-2xs font-bold text-[color:var(--clinical-accent)] transition group-hover/section:border-[color:var(--clinical-accent)]">
+                      {ActiveIcon ? <ActiveIcon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+                      <span className="min-w-0 truncate">{activeSection.label}</span>
+                      <span aria-hidden className="nums shrink-0 font-semibold opacity-70">
+                        {activeIndex + 1}/{documentSections.length}
+                      </span>
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 transition motion-reduce:transition-none",
+                          sectionSheetOpen && "rotate-180",
+                        )}
+                      />
+                    </span>
                   </button>
                 ) : null}
                 <span aria-hidden className="min-w-0 flex-1" />

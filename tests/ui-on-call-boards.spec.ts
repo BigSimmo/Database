@@ -262,12 +262,21 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
 });
 
 test.describe("02 More — the second row is about the page you are on", () => {
-  test("names the page and the group you are in, with a way back to the hub", async ({ page }) => {
+  test("names the page and the group you are in, and offers no way out of it", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    const header = page.getByTestId("on-call-section-detail-header");
+    const header = page.getByTestId("on-call-section-detail-header").first();
     await expect(header).toBeVisible();
     await expect(header).toContainText("Contacts");
-    await expect(header.getByRole("link", { name: /back to on call/i })).toHaveAttribute("href", "/on-call");
+
+    // No back arrow. Every page here is a destination in the pill's own list,
+    // so an arrow to the hub claimed a hierarchy that does not exist — and put
+    // a control that leaves the page at the head of the row that moves around
+    // inside it. The pill is the way out.
+    await expect(header.getByRole("link", { name: /back to on call/i })).toHaveCount(0);
+
+    // What the row does say: which part of the page you are in, and how many
+    // parts there are — so it reads as position, not as a filter.
+    await expect(page.getByTestId("on-call-section-section-trigger")).toContainText(/1\/\d/);
   });
 
   test("opens this page's own groups, not the mode's nine sections", async ({ page }) => {
