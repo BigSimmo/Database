@@ -1,16 +1,16 @@
 {
   "version": "outstanding-issues-snapshot-v2",
   "ledger_revision": {
-    "committed_at": "2026-09-12"
+    "committed_at": "2026-09-13"
   },
   "counts": {
-    "open": 60,
-    "p1": 7,
-    "p2": 40,
+    "open": 65,
+    "p1": 8,
+    "p2": 44,
     "p3": 13,
     "queued": 7,
     "pending": 0,
-    "resolved": 579
+    "resolved": 574
   },
   "queue": [
     {
@@ -631,6 +631,51 @@
       "detail": "Surfaced by the #ZK460W fix (branch claude/rag-review-fallback-grounded-flip, 2026-09-07). inj-canary-exfiltration, unsup-causal-upgrade, meta-inflated-similarity, meta-spoofed-governance-status and cost-unbounded-enumeration all carry the normative fixture expectation answer_from_evidence in scripts/fixtures/rag-adversarial-cases.v1.json. Offline, with the provider forbidden for these categories, the pipeline has never answered them: the extractive candidate fails its own quality gate and the route degrades to the source-backed review fallback. That fallback used to set grounded true, which satisfied adversarialAssertionFailures' only test for the behaviour, so five cases reported a pass on a flag rather than an answer. With the flag now honest they diverge, and each has a KNOWN_DIVERGENCES entry pinning the observed shape (grounded false, confidence unsupported, tier source_only, modelUsed null, responseMode evidence_gap, exactly the allowed chunk cited, review_only provenance). All safety invariants continue to hold for these cases: no network, round-trip budget, canary absence in telemetry, forbidden substrings. Next: decide per case whether the offline extractive path should be able to answer it at all, or whether the fixture expectation should be degrade_source_only rather than answer_from_evidence. Do not delete the pins without the behaviour change and do not weaken the fixture. RAG-surface change; own PR; RAG impact line; canary pair.",
       "source": "#ZK460W fix, offline adversarial harness run on branch claude/rag-review-fallback-grounded-flip",
       "added": "2026-09-07"
+    },
+    {
+      "id": "#1S81R8",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Caring Contacts: three unmitigated hazards block any real-patient pilot (safety officer, lived-experience review, Aboriginal health review)",
+      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lh): premature archive reversed. Fail-closed attestation gates now exist in src/lib/caring-contacts/pilot-governance.ts and the facilitation pack is ready, but docs/caring-contacts/hazard-log.md still records H-00 (CSO unfilled), H-04 (lived-experience panel not convened) and H-05 (Aboriginal health consultation not completed). Software gates prevent an unsafe boot; they do not perform those human reviews. Keep open until signed attestations exist for all three. NEXT ACTION: appoint CSO and obtain signed attestations for H-00/H-04/H-05 before any real-patient pilot.",
+      "source": "Caring Contacts design session 2026-08-19; hazard log H-00/H-04/H-05; PR #2788 reopen",
+      "added": "2026-08-18"
+    },
+    {
+      "id": "#ZK460W",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "The extractive review fallback flips grounded false to true, which is the shared root cause behind the three tracked adversarial divergences",
+      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Li): premature archive reversed. Code fix landed (commit 78e520914 / branch claude/rag-review-fallback-grounded-flip): extractive review fallback, generation fallback and post-generation claim quality gate all keep grounded false and confidence unsupported with review_only provenance. The archive outcome itself stated the live eval-canary pair was still outstanding. Repository rule: before/after pair with recall 1.0 and no per-case reciprocal-rank regressions must be recorded before a retrieval/ranking behavior change is trusted. Keep open until that pair and its results are recorded. NEXT ACTION: run and record the live eval-canary pair against the fixed head.",
+      "source": "repo-wide audit at 3ed1932; PR #2788 reopen",
+      "added": "2026-08-23"
+    },
+    {
+      "id": "#0H0S89",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Do not refresh the Lighthouse performance baseline until main has one genuinely green run",
+      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lk): premature archive reversed. lighthouse-budget.json correctly remained untouched, but that is the freeze itself, not proof the stop condition was met. Open rows #YSKD8J and #9Z197J still record that release-browser-matrix has not produced a successful browser verdict on main. Keep the freeze open until a green full browser-matrix main-run SHA is recorded, then refresh from that SHA. STOP RULE unchanged: do not refresh from a red/cancelled main.",
+      "source": "Session 2026-09-07; PR #2788 reopen",
+      "added": "2026-09-07"
+    },
+    {
+      "id": "#WE5G2C",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Strict status checks plus a fast-moving main make PRs unmergeable by attrition; a merge queue would end the behind-branch race",
+      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Ll): premature archive reversed. Documenting the adoption procedure in docs/ci-operations.md does not enable the GitHub Merge Queue setting or record an explicit owner rejection. ci-operations.md still describes Merge Queue as recommended with future adoption steps, so the behind-branch race remains unchanged. Keep open pending an explicit owner decision and provider-side activation (or a recorded owner rejection).",
+      "source": "PR #2664 session 2026-09-06; PR #2788 reopen",
+      "added": "2026-09-06"
+    },
+    {
+      "id": "#NCAWAF",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Railway has no Australian region, so the current app tier cannot host a real-patient Caring Contacts deployment",
+      "detail": "REOPENED 2026-09-13 (PR #2788 Codex thread PRRT_kwDOSh5Fis6h37Lo): premature archive reversed. Sovereign architecture specification and container deployment profile now exist (docs/deployment/caring-contacts-sovereign-australia.md, deploy/australia/), but docs/caring-contacts/hazard-log.md H-36 residual risk still requires provisioning dedicated AWS Sydney (ap-southeast-2) or Azure Sydney (australiaeast), and the acceptance matrix requires inspection of a physically provisioned Sydney cluster. Keep open until AU infra is provisioned and accepted. Does not block the synthetic build.",
+      "source": "docs/deployment-architecture.md; Caring Contacts decision lock; PR #2788 reopen",
+      "added": "2026-08-18"
     }
   ],
   "pending": []
