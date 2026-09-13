@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0df53881-3643-4411-8ebb-b3ece5c7c507",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#3F76JZ",
+    "outcome": "Documented GitHub 10-star eligibility requirement for automated CodeRabbit reviews in docs/ci-operations.md",
+    "baseRowFingerprint": "73da54379c125dae1feb0ca5e8dbb3a3ea1e5b9171e81a59612f5fa73b6cd4d9"
+  }
+}
