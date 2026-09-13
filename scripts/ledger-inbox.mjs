@@ -134,6 +134,17 @@ export function applyRequest(markdown, request, options = {}) {
   if (request.action === "cancel") {
     throw new Error("cancel requests must be applied through batch reconciliation");
   }
+  if (request.action === "amend-outcome" || (request.action === "update" && request.payload?.outcome)) {
+    const targetId = normalizeIssueDisplayId(request.payload.id);
+    const target = parseIssues(markdown).rows.find(
+      (row) => normalizeIssueDisplayId(row.id) === targetId && (row.table === "open" || row.table === "archive"),
+    );
+    if (target?.table === "open") {
+      throw new Error(
+        `${request.action} outcome amendments require an archived issue; ${request.payload.id} is still open`,
+      );
+    }
+  }
   const dateOptions = { ...options, date: request.createdOn };
   if (request.action === "queue" && request.payload?.baseRowFingerprint) {
     const id = request.payload.id;
@@ -238,13 +249,10 @@ function mutationConflicts(requests) {
   const conflicts = [];
   for (const [target, targetRequests] of byTarget.entries()) {
     if (targetRequests.length <= 1) continue;
-    // Allow concurrent duplicate `done` or outcome amendment requests for the same issue ID to be merged cleanly.
-    if (
-      targetRequests.every(
-        (r) => r.action === "done" || r.action === "amend-outcome" || (r.action === "update" && r.payload?.outcome),
-      )
-    )
-      continue;
+    // Duplicate closes are batch-aware: after the first archives the row, later
+    // closes append their outcomes. Archive amendments retain their original
+    // fingerprint, so concurrent amendments must instead require cancellation.
+    if (targetRequests.every((r) => r.action === "done")) continue;
     conflicts.push([target, targetRequests.map((r) => r.id)]);
   }
   return conflicts;
@@ -830,6 +838,11 @@ function createRequest(action, argv) {
         throw new Error(`ledger request rejected: ${payload.id} is not in Open items`);
       }
     } else {
+      if (action === "amend-outcome" || (action === "update" && payload.outcome !== undefined)) {
+        throw new Error(
+          `ledger request rejected: ${payload.id} is still open; outcome amendments require an archived issue`,
+        );
+      }
       payload.baseRowFingerprint = currentFingerprint;
     }
   }

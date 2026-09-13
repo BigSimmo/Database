@@ -574,6 +574,44 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
       expect(() => applyRequest(ARCHIVE_LEDGER, req)).toThrow(/stale/);
     });
 
+    it("rejects outcome amendments targeting an open row", () => {
+      const fingerprint = issueRowFingerprint(ARCHIVE_LEDGER, "#001");
+      const amend = {
+        version: 1,
+        id: "bbbb4444-4444-4444-8444-444444444444",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: { id: "#001", outcome: "Not archived", baseRowFingerprint: fingerprint },
+      };
+      const mixedUpdate = {
+        ...amend,
+        id: "bbbb5555-5555-4555-8555-555555555555",
+        action: "update",
+        payload: { ...amend.payload, summary: "Must not be partially applied" },
+      };
+
+      expect(() => applyRequest(ARCHIVE_LEDGER, amend)).toThrow(/outcome amendments require an archived issue/);
+      expect(() => applyRequest(ARCHIVE_LEDGER, mixedUpdate)).toThrow(/outcome amendments require an archived issue/);
+    });
+
+    it("requires cancellation for concurrent archived outcome amendments", () => {
+      const fingerprint = archiveRowFingerprint(ARCHIVE_LEDGER, "#005");
+      const first = {
+        version: 1,
+        id: "bbbb6666-6666-4666-8666-666666666666",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: { id: "#005", outcome: "Branch A", baseRowFingerprint: fingerprint },
+      };
+      const second = {
+        ...first,
+        id: "bbbb7777-7777-4777-8777-777777777777",
+        payload: { ...first.payload, outcome: "Branch B" },
+      };
+
+      expect(() => planRequestBatch([first, second])).toThrow(/explicit cancellation decision/);
+    });
+
     it("updateArchivedIssue correctly updates outcome and is idempotent", () => {
       const once = updateArchivedIssue(ARCHIVE_LEDGER, "#005", "Direct amendment");
       expect(checkIssues(once, { prettierIgnored: true })).toEqual([]);
