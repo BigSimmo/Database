@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CARING_CONTACTS_DATABASE_URL_VAR,
   CARING_CONTACTS_DEMO_ENABLED_VAR,
   CARING_CONTACTS_ROLE_COOKIE,
   CARING_CONTACTS_SESSION_HMAC_SECRET_VAR,
@@ -139,23 +140,32 @@ describe("demo role switcher", () => {
       ).toBe(true);
     });
 
-    it("opens live mode when demo is explicitly false and the session HMAC secret is set", () => {
+    it("opens live mode when demo is explicitly false, session HMAC secret, and dedicated DB URL are set", () => {
+      expect(
+        isCaringContactsLiveEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+          [CARING_CONTACTS_DATABASE_URL_VAR]: "postgres://caring-contacts@127.0.0.1:54329/postgres",
+        }),
+      ).toBe(true);
       expect(
         isCaringContactsLiveEnabled("production", {
           [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
           [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
         }),
-      ).toBe(true);
+      ).toBe(false);
       expect(
         isCaringContactsDemoEnabled("production", {
           [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
           [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+          [CARING_CONTACTS_DATABASE_URL_VAR]: "postgres://caring-contacts@127.0.0.1:54329/postgres",
         }),
       ).toBe(false);
       expect(
         isCaringContactsWorkspaceEnabled("production", {
           [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
           [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+          [CARING_CONTACTS_DATABASE_URL_VAR]: "postgres://caring-contacts@127.0.0.1:54329/postgres",
         }),
       ).toBe(true);
     });

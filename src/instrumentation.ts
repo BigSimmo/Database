@@ -81,6 +81,11 @@ export async function register() {
   // Caring Contacts live (non-demo) sovereign mode: fail closed unless a MAC-authenticated
   // CSO attestation is present and valid (H-00 / H-04 / H-05). Demo/staging mode skips this.
   if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
+    if (!process.env.CARING_CONTACTS_DATABASE_URL?.trim()) {
+      throw new Error(
+        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL (no in-memory fallback for real-patient writes).",
+      );
+    }
     const { createHmac, timingSafeEqual } = await import("node:crypto");
     const { assertPilotGovernanceReady } = await import("@/lib/caring-contacts/pilot-governance");
     const raw = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON?.trim();

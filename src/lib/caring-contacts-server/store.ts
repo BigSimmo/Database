@@ -50,6 +50,13 @@ export async function caringContactsStore(): Promise<CaringContactRepository> {
 async function buildStore(): Promise<CaringContactRepository> {
   const url = caringContactsDatabaseUrl();
   if (!url) {
+    // Live mode refuses the in-memory fallback: authenticated real-patient writes must not
+    // appear durable while sitting only in process memory.
+    if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
+      throw new Error(
+        "Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL; refusing in-memory fallback for real-patient writes.",
+      );
+    }
     // The demo population lives on THIS branch and only this one. `createDemoWorkspaceStore`
     // constructs the in-memory repository itself, so the seed has no parameter through which a
     // database-backed store could arrive, and nothing below this `if` can reach it -- see

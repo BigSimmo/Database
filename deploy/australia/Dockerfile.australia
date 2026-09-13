@@ -10,7 +10,7 @@
 #    - CARING_CONTACTS_REGION=ap-southeast-2 (Sydney)
 #    - ZERO_DATA_EGRESS_AUSTRALIA=true (No offshore AI/LLM or data processing)
 #    - SENTRY_PII_SCRUBBING=true (Strict redaction of Australian mobile numbers & PHI)
-# 4. Deep healthcheck wired to /api/health/ready.
+# 4. Deep healthcheck wired to /api/caring-contacts/ready (sovereign store probe).
 
 FROM node:24-bookworm-slim@sha256:235600a8101ab264e117b1768e925532262668dc9b581ef1dd7d96ced463b8e7 AS node-base
 
@@ -107,9 +107,9 @@ LABEL sovereign.hazard-control="H-36"
 
 STOPSIGNAL SIGTERM
 
-# Deep readiness probe evaluating database connectivity
+# Sovereign readiness: Caring Contacts store / dedicated DB (not shared Supabase-only ready)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/caring-contacts/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 # Direct Next.js execution bypassing dev port wrappers
 CMD ["sh", "-c", "exec node node_modules/next/dist/bin/next start -H 0.0.0.0 -p ${PORT:-3000}"]

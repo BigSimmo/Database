@@ -92,4 +92,16 @@ describe("Pilot Governance & Hazard Controls (#1S81R8)", () => {
 
     expect(() => assertPilotGovernanceReady(false, expiredAttestation)).toThrow(/expired or has an invalid date/);
   });
+
+  it("fails if validUntilIso is malformed (non-finite)", () => {
+    const malformed = {
+      ...validAttestation,
+      pilotScope: {
+        ...validAttestation.pilotScope,
+        validUntilIso: "not-a-date",
+      },
+    };
+
+    expect(() => assertPilotGovernanceReady(false, malformed)).toThrow(/expired or has an invalid date/);
+  });
 });

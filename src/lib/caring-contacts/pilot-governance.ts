@@ -72,7 +72,8 @@ export function validateGovernanceAttestation(payload: unknown): CsoGovernanceAt
     );
   }
 
-  if (!p.pilotScope?.validUntilIso || new Date(p.pilotScope.validUntilIso).getTime() < Date.now()) {
+  const validUntilMs = p.pilotScope?.validUntilIso ? new Date(p.pilotScope.validUntilIso).getTime() : Number.NaN;
+  if (!Number.isFinite(validUntilMs) || validUntilMs < Date.now()) {
     throw new PilotGovernanceViolationError("The pilot governance attestation has expired or has an invalid date.");
   }
 

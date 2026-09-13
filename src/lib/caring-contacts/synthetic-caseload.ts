@@ -240,6 +240,15 @@ export const SYNTHETIC_CASELOAD_12_PATIENTS: readonly SyntheticPatientJourney[] 
 
 /**
  * Returns the full cohort of 12 synthetic demonstration journeys.
+ *
+ * SCOPE NOTE (PR #2776 Copilot follow-up): this generator is the advertised
+ * Phase-3 caseload contract and is covered by unit tests, but the runtime demo
+ * store (`createDemoWorkspaceStore` / `DEMO_SEED_PEOPLE`) still seeds a smaller
+ * curated population on `systemClock()`. Wiring all 12 journeys plus the
+ * virtual AWST `CaringContactsTimeProvider` into the live demo seed is a
+ * larger domain-seed rewrite (pathway lifecycle, plan states, dispatch
+ * attribution) and is deferred as a tracked follow-up rather than shoehorned
+ * into this clinical-safety unblock.
  */
 export function generateSyntheticCaseload(): readonly SyntheticPatientJourney[] {
   return SYNTHETIC_CASELOAD_12_PATIENTS;

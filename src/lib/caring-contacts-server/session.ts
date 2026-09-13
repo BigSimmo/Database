@@ -25,6 +25,7 @@ export const CARING_CONTACTS_ROLE_COOKIE = "caring-contacts-demo-role";
 export const CARING_CONTACTS_PRODUCTION_SESSION_COOKIE = "caring-contacts-production-session";
 export const CARING_CONTACTS_SESSION_HMAC_SECRET_VAR = "CARING_CONTACTS_SESSION_HMAC_SECRET";
 export const CARING_CONTACTS_DEMO_ENABLED_VAR = "CARING_CONTACTS_DEMO_ENABLED";
+export const CARING_CONTACTS_DATABASE_URL_VAR = "CARING_CONTACTS_DATABASE_URL";
 
 /**
  * The role switcher is a development/test demonstration aid, not authentication.
@@ -59,17 +60,25 @@ export function isCaringContactsDemoEnabled(
 }
 
 /**
- * Live (non-demo) sovereign mode: demo explicitly disabled and a session HMAC
- * secret configured. Actor resolution uses the signed production session cookie,
- * not the forgeable demo role cookie. Pilot governance attestation is enforced
- * at boot by instrumentation.register when this mode is active.
+ * Live (non-demo) sovereign mode: demo explicitly disabled, a session HMAC
+ * secret configured, AND the dedicated Caring Contacts database URL present.
+ * Without `CARING_CONTACTS_DATABASE_URL` the store factory would fall back to
+ * an in-memory repository, so real-patient writes could appear to succeed and
+ * then vanish on restart — live mode therefore fails closed without it.
+ * Actor resolution uses the signed production session cookie, not the
+ * forgeable demo role cookie. Pilot governance attestation is enforced at boot
+ * by instrumentation.register when this mode is active.
  */
 export function isCaringContactsLiveEnabled(
   environment = process.env.NODE_ENV,
   runtime: Record<string, string | undefined> = process.env,
 ): boolean {
   if (environment !== "production") return false;
-  return runtime[CARING_CONTACTS_DEMO_ENABLED_VAR] === "false" && hasProductionSessionSecret(runtime);
+  return (
+    runtime[CARING_CONTACTS_DEMO_ENABLED_VAR] === "false" &&
+    hasProductionSessionSecret(runtime) &&
+    Boolean(runtime[CARING_CONTACTS_DATABASE_URL_VAR]?.trim())
+  );
 }
 
 /** True when any Caring Contacts page or API may serve (demo, live, or non-production). */

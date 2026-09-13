@@ -29,6 +29,40 @@ export function formatAwstDateTimeLocal(date: Date): string {
   return `${value("year")}-${value("month")}-${value("day")}T${value("hour")}:${value("minute")}`;
 }
 
+/**
+ * `datetime-local` holds an Australia/Perth wall-clock value with no offset.
+ * Append the fixed AWST (+08:00) offset before converting so coordinators outside
+ * Perth do not shift the discharge instant by their browser timezone.
+ */
+export function awstDateTimeLocalToIso(datetimeLocal: string): string {
+  const trimmed = datetimeLocal.trim();
+  const match = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  if (!match) {
+    throw new Error("Discharge date must be a datetime-local Australia/Perth wall-clock value.");
+  }
+  const seconds = match[2] ?? "00";
+  const instant = new Date(`${match[1]}:${seconds}+08:00`);
+  if (Number.isNaN(instant.getTime())) {
+    throw new Error("Discharge date could not be interpreted as an Australia/Perth instant.");
+  }
+  return instant.toISOString();
+}
+
+/** Confirmation rendering always uses Australia/Perth, matching the intake wall clock. */
+export function formatAwstConfirmation(isoOrDate: string | Date): string {
+  const instant = typeof isoOrDate === "string" ? new Date(isoOrDate) : isoOrDate;
+  return instant.toLocaleString("en-AU", {
+    timeZone: "Australia/Perth",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  });
+}
+
 export function ManualIntakeForm() {
   const [adapter] = useState(() => new SyntheticHospitalReferralAdapter());
 
@@ -80,12 +114,21 @@ export function ManualIntakeForm() {
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
+    let dischargeIso: string;
+    try {
+      dischargeIso = awstDateTimeLocalToIso(dischargeDate);
+    } catch (error) {
+      setIsSubmitting(false);
+      setErrorMessage(error instanceof Error ? error.message : "Invalid discharge date/time.");
+      return;
+    }
+
     const payload = {
       patientIdentifier,
       givenName,
       familyName,
       mobileNumber,
-      dischargeDate: new Date(dischargeDate).toISOString(),
+      dischargeDate: dischargeIso,
       hospitalFacility: facility,
       cohort,
       admittingWard,
@@ -233,7 +276,7 @@ export function ManualIntakeForm() {
               <div>
                 <span className="font-semibold text-[color:var(--text-muted)]">Discharge Timestamp:</span>{" "}
                 <span className="font-medium text-[color:var(--text)]">
-                  {new Date(verifiedReferral.dischargeDate).toLocaleString()}
+                  {formatAwstConfirmation(verifiedReferral.dischargeDate)}
                 </span>
               </div>
             </div>
