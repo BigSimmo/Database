@@ -289,6 +289,8 @@ function MorePanelDestination({
  * modality decision; nothing here re-derives them.
  */
 export function CaringContactsShell({ title, description, serviceState, children }: CaringContactsShellProps) {
+  const isTrainingMode = process.env.NEXT_PUBLIC_CARING_CONTACTS_TRAINING_MODE === "true";
+
   return (
     <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)] md:flex">
       {WIDTH_STATE_MARKERS.map(({ state, className, label }) => (
@@ -336,6 +338,15 @@ export function CaringContactsShell({ title, description, serviceState, children
       </aside>
 
       <div className="min-w-0 flex-1">
+        {isTrainingMode && (
+          <div
+            data-testid="caring-contacts-training-banner"
+            role="status"
+            className="w-full border-b-2 border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-[color:var(--warning-text)] sm:text-sm"
+          >
+            TRAINING MODE — Synthetic Data Only — No SMS Dispatched
+          </div>
+        )}
         <header
           id={WORKSPACE_HEADER_ID}
           data-synthetic-marker-host

@@ -532,7 +532,8 @@
         "src/app/caring-contacts/templates/[pathwayId]/page.tsx",
         "src/app/caring-contacts/guidance/page.tsx",
         "src/app/caring-contacts/reports/page.tsx",
-        "src/app/caring-contacts/team/page.tsx"
+        "src/app/caring-contacts/team/page.tsx",
+        "src/app/caring-contacts/intake/page.tsx"
       ],
       "routeRoots": true,
       "roots": [],

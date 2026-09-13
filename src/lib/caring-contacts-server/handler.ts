@@ -45,7 +45,7 @@ import {
 import type { CaringContactRepository, WriteContext } from "@/lib/caring-contacts/repository";
 import { parseJsonBody } from "@/lib/validation/body";
 
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "./session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "./session";
 import { caringContactsStore } from "./store";
 
 /**
@@ -202,8 +202,8 @@ export async function auditedRead<T>(
  */
 export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
-    if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
-    const actor = await resolveDemoActor();
+    if (!isCaringContactsWorkspaceEnabled()) return demoUnavailableResponse();
+    const actor = await resolveCaringContactsActor();
     const store = await caringContactsStore();
     const objectId = config.access.objectId(request);
 
@@ -310,7 +310,7 @@ export function writeHandler<TBody, TResult>(
   config: WriteHandlerConfig<TBody, TResult>,
 ): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
-    if (!isCaringContactsDemoEnabled()) return demoUnavailableResponse();
+    if (!isCaringContactsWorkspaceEnabled()) return demoUnavailableResponse();
     let body: TBody;
     try {
       body = await parseJsonBody(request, config.schema);
@@ -323,7 +323,7 @@ export function writeHandler<TBody, TResult>(
       return invalidRequestResponse();
     }
 
-    const actor = await resolveDemoActor();
+    const actor = await resolveCaringContactsActor();
     const action = typeof config.action === "function" ? config.action(body) : config.action;
     const decision = canPerformCaringContactAction(actor, action, { teamId: actor.teamId });
     const store = await caringContactsStore();
