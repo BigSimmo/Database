@@ -26,42 +26,26 @@ if (release && !["verified", "accepted_decision"].includes(item.status)) {
 }
 ```
 
-If any requirement remains `pending` or `partial`, the check exits with code 1 (`PRIVACY_READINESS_FAIL mode=release`). **This fail-closed behavior is non-negotiable** and prevents releasing code before provider, legal, and operational gates are formally verified.
+If any requirement remains `pending` or `partial`, the check exits with code 1 (`PRIVACY_READINESS_FAIL mode=release`). **This fail-closed behavior is non-negotiable**: each requirement needs verified evidence or an actual decision by an authorised role, recorded through the existing `accepted_decision` route. An accepted decision is not a claim that the underlying contract or provider entitlement was verified.
 
 ---
 
 ## Required Operational Actions Before Production Release
 
-The following three operational actions are tracked in `docs/governance/privacy-readiness.v1.json` and must be executed by designated owners before release mode can pass:
+The canonical register records six pending/partial items. Use the [role-attestation pack](governance/privacy-role-attestation-pack-2026-09-01.md) for their evidence and decision requirements:
 
-### 1. OpenAI Zero Data Retention (ZDR) Agreement (`PRIV-PROVIDER-OPENAI-ZDR`)
+| Requirement                          | Recorded status | Remaining evidence or decision                                                                                                                                                                             |
+| ------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PRIV-PROVIDER-OPENAI-ZDR`           | Pending         | Actual provider retention approval, production-project match and applicable endpoint/cache coverage, or an authorised restricted-use decision. A submitted request and `store:false` do not establish ZDR. |
+| `PRIV-LEGAL-OPENAI-DPA`              | Pending         | Applicable agreement, acceptance evidence and production-account scope confirmed by the authorised legal role. A separate countersigned DPA is not universally required.                                   |
+| `PRIV-LEGAL-RAILWAY-DPA`             | Pending         | Executed agreement covering the intended processing, or a legally assessed restriction decision. Public standard terms alone do not establish sensitive-health-data coverage.                              |
+| `PRIV-LEGAL-APP8-CROSS-BORDER-BASIS` | Pending         | Privacy-adviser determination for the actual processing flow and its restrictions.                                                                                                                         |
+| `PRIV-LEGAL-APP1-APP5-NOTICE`        | Pending         | Accountable entity, privacy contact, rights/complaints process and approved notice.                                                                                                                        |
+| `PRIV-CLINICAL-PHI-MINIMISATION`     | Partial         | Clinical-owner decision on the intended deployment, residual risk and incident controls.                                                                                                                   |
 
-- **Accountable Role**: OpenAI account owner.
-- **Evidence Class**: Provider.
-- **Current State**: Request submitted and acknowledged; interim controls disabled data sharing, API call logging, and extraneous platform tooling.
-- **Release Invariant Requirement**:
-  - Full formal execution of the enterprise Zero Data Retention agreement covering Responses, Embeddings, prompt caching, and audio transcription.
-  - Verification that production API keys belong to the approved ZDR project.
-  - External evidence reference recorded in the register and status transitioned to `"verified"`.
+The register records production `RAG_QUERY_HASH_SECRET` ownership/parity and retention schedules as verified, with dated evidence and expiry. A read-only production check on 2026-09-13 confirmed all four expected retention jobs were unique, active and matched the committed schedules and commands; the obsolete cache job was absent. This closes the missing post-merge configuration read, but does not prove purge execution, refresh staging evidence or renew owner approval. The previous reference here to a pending `DOCUMENT_SIGNED_URL_HMAC_SECRET` rotation was incorrect for the HMAC requirement. Do not rotate another secret to close it; revalidate evidence when it expires or relevant controls change.
 
-### 2. Railway Data Processing Agreement (DPA) (`PRIV-LEGAL-RAILWAY-DPA`)
-
-- **Accountable Role**: Authorised legal signatory.
-- **Evidence Class**: Legal.
-- **Current State**: Pending formal execution.
-- **Release Invariant Requirement**:
-  - Executed Data Processing Agreement with Railway covering ephemeral compute, container execution, and Australian/cross-border data privacy standards.
-  - Document reference recorded in `docs/governance/` before status is transitioned to `"verified"`.
-
-### 3. Production HMAC Secret Rotation & Parity (`PRIV-PROVIDER-PRODUCTION-HMAC-SECRET`)
-
-- **Accountable Role**: Production platform owner.
-- **Evidence Class**: Provider.
-- **Current State**: Partial (names-only parity check completed).
-- **Release Invariant Requirement**:
-  - High-entropy rotation (>= 32 bytes) of `DOCUMENT_SIGNED_URL_HMAC_SECRET`.
-  - Confirmation across production Railway environment variables and GitHub repository secret environments via names-only parity checks (`scripts/check-env-parity.mjs`).
-  - Production platform owner attestation recorded before transitioning to `"verified"`.
+A restricted, non-identifying deployment can be considered through the existing decision route. The designated roles must explicitly assess its scope and residual risk, including user-account data; a general request to deploy is not that assessment. Record each covered requirement, actual decision, authorised role, rationale, scope, dates and sanitized evidence reference in `docs/governance/`, then update the register and run the release check. Do not synthesize approvals or change the validator to accept an unresolved item.
 
 ---
 

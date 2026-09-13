@@ -482,18 +482,19 @@ commented entry so `npm run check:env-parity` knows the name.
 
 ### Adaptive answer release activation proof
 
-An adaptive release uses the existing server controls: `RAG_PROGRAMME_MODE=canary`,
+After governed publications and retrieval acceptance are verified, a full adaptive release uses
+`RAG_GOVERNED_RETRIEVAL_ENABLED=true` together with the existing server controls: `RAG_PROGRAMME_MODE=canary`,
 `RAG_PROGRAMME_CANARY_BASIS_POINTS=10000`, `RAG_ADAPTIVE_ANSWER_ENABLED=true`, and
 `RAG_ADAPTIVE_ANSWER_RENDER_ENABLED=true`. At 100%, guests and authenticated readers
 receive the same configured capabilities without a cohort identity. Partial rollouts
 retain authenticated HMAC cohorts and leave guests on legacy. Public/private access
 scope is unchanged. Site content and Australian augmentation remain independently
-controlled; an answer release does not turn them on. Keep
-`RAG_GOVERNED_RETRIEVAL_ENABLED=false` while using the existing library: this uses the
-existing document retrieval path. Sources without governed coverage retain the
-verified legacy answer contract and must never be reported as adaptive answers.
-Enable the governed corpus path only after its
-publications and retrieval acceptance have been verified. An empty governed result
+controlled; an answer release does not turn them on. An installation using only the existing
+legacy library keeps `RAG_GOVERNED_RETRIEVAL_ENABLED=false` and receives shared answer fixes,
+but cannot deliver full adaptive answers through that path. Sources without governed coverage
+retain the verified legacy answer contract and must never be reported as adaptive answers.
+Do not infer governed scope or clinical approval from a public document, title or flag setting.
+An empty governed result
 never silently falls back to another corpus. `legacy` remains the answer rollback.
 
 After an authorized deployment, supply `DEPLOY_ACTIVATION_URL` (the HTTPS origin),
