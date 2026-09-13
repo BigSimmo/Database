@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ManualIntakeForm } from "@/components/caring-contacts/workspace/manual-intake-form";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { ServiceState } from "@/lib/caring-contacts/service-state";
 
@@ -26,8 +26,8 @@ const CaringContactsShell = dynamic(() =>
  * the safety banner renders appropriately during any service-wide stop (Ruling 56).
  */
 export default async function CaringContactsIntakePage() {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
   // Read service state through the audited seam

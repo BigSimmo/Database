@@ -342,7 +342,7 @@ export function CaringContactsShell({ title, description, serviceState, children
           <div
             data-testid="caring-contacts-training-banner"
             role="status"
-            className="w-full border-b-2 border-amber-600 bg-amber-500 px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-black sm:text-sm"
+            className="w-full border-b-2 border-[color:var(--warning-border)] bg-[color:var(--warning-bg)] px-4 py-2 text-center text-xs font-bold uppercase tracking-wider text-[color:var(--warning-text)] sm:text-sm"
           >
             TRAINING MODE — Synthetic Data Only — No SMS Dispatched
           </div>

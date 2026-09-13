@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { floatingControl, primaryControl } from "@/components/ui-primitives";
-import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
+import { CARING_CONTACTS_ROUTES, newPlanRoute } from "@/lib/caring-contacts-routes";
 import {
   SyntheticHospitalReferralAdapter,
   WA_HEALTH_FACILITIES,
@@ -48,6 +48,7 @@ export function ManualIntakeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [verifiedReferral, setVerifiedReferral] = useState<PatientReferral | null>(null);
+  const [stagedReferralId, setStagedReferralId] = useState<string | null>(null);
 
   const handlePrefill = (targetFacility: WAHealthFacility) => {
     const payload = adapter.createSyntheticPayload(targetFacility);
@@ -72,13 +73,14 @@ export function ManualIntakeForm() {
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage(null);
+    setStagedReferralId(null);
 
     const alertsList = safetyAlerts
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
 
-    const result = await adapter.ingestReferral({
+    const payload = {
       patientIdentifier,
       givenName,
       familyName,
@@ -89,18 +91,45 @@ export function ManualIntakeForm() {
       admittingWard,
       clinicalSummary,
       safetyAlerts: alertsList,
-    });
+    };
 
-    setIsSubmitting(false);
-    if (!result.ok) {
-      setErrorMessage(result.error);
-    } else {
-      setVerifiedReferral(result.value);
+    // Client-side validation first so field errors stay local; persistence always goes through
+    // the audited intake API before success is reported.
+    const validated = await adapter.ingestReferral(payload);
+    if (!validated.ok) {
+      setIsSubmitting(false);
+      setErrorMessage(validated.error);
+      return;
+    }
+
+    try {
+      const idempotencyKey = `intake-${crypto.randomUUID()}`;
+      const response = await fetch("/api/caring-contacts/intake", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, idempotencyKey }),
+      });
+      const body = (await response.json().catch(() => null)) as {
+        value?: { referralId?: string; referral?: PatientReferral };
+        refusal?: string;
+      } | null;
+      if (!response.ok || !body?.value?.referralId) {
+        setErrorMessage(body?.refusal ?? "Referral could not be persisted through the audited intake API.");
+        setIsSubmitting(false);
+        return;
+      }
+      setVerifiedReferral(body.value.referral ?? validated.value);
+      setStagedReferralId(body.value.referralId);
+    } catch {
+      setErrorMessage("Referral could not be persisted through the audited intake API.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleReset = () => {
     setVerifiedReferral(null);
+    setStagedReferralId(null);
     setErrorMessage(null);
     setPatientIdentifier("");
     setGivenName("");
@@ -131,14 +160,14 @@ export function ManualIntakeForm() {
         </div>
 
         {/* Quick Prefill Actions */}
-        <div className="mt-4 pt-3 border-t border-[color:var(--border-subtle)] flex flex-wrap items-center gap-2">
+        <div className="mt-4 pt-3 border-t border-[color:var(--border)] flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-[color:var(--text-muted)]">Prefill WA Health sample:</span>
           {WA_HEALTH_FACILITIES.map((fac) => (
             <button
               key={fac}
               type="button"
               onClick={() => handlePrefill(fac)}
-              className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-xs font-medium text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <RefreshCw aria-hidden="true" className="size-3" />
               <span>{fac}</span>
@@ -151,7 +180,7 @@ export function ManualIntakeForm() {
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-[color:var(--danger)] bg-[color:var(--danger-subtle)] p-4 text-xs text-[color:var(--danger-text)]"
+          className="flex items-start gap-3 rounded-[var(--radius-lg)] border border-[color:var(--danger)] bg-[color:var(--danger-soft)] p-4 text-xs text-[color:var(--danger-text)]"
         >
           <AlertCircle aria-hidden="true" className="size-5 shrink-0 text-[color:var(--danger)]" />
           <div className="space-y-1">
@@ -171,7 +200,8 @@ export function ManualIntakeForm() {
                 Discharge Referral Verified and Staged
               </h2>
               <p className="text-xs text-[color:var(--text-muted)]">
-                The referral was validated by the hospital adapter and is ready for care plan initiation.
+                The referral was validated and persisted through the audited intake API, and is ready for care plan
+                initiation.
               </p>
             </div>
           </div>
@@ -209,14 +239,14 @@ export function ManualIntakeForm() {
             </div>
 
             {verifiedReferral.clinicalSummary && (
-              <div className="pt-2 border-t border-[color:var(--border-subtle)]">
+              <div className="pt-2 border-t border-[color:var(--border)]">
                 <span className="font-semibold text-[color:var(--text-muted)]">Summary:</span>
                 <p className="mt-1 text-[color:var(--text)]">{verifiedReferral.clinicalSummary}</p>
               </div>
             )}
 
             {verifiedReferral.safetyAlerts.length > 0 && (
-              <div className="pt-2 border-t border-[color:var(--border-subtle)]">
+              <div className="pt-2 border-t border-[color:var(--border)]">
                 <span className="font-semibold text-[color:var(--text-muted)]">Safety & Support Alerts:</span>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {verifiedReferral.safetyAlerts.map((alert, idx) => (
@@ -233,7 +263,12 @@ export function ManualIntakeForm() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Link href={CARING_CONTACTS_ROUTES.newPlan} data-internal-link="true" className={primaryControl}>
+            <Link
+              href={stagedReferralId ? newPlanRoute(stagedReferralId) : CARING_CONTACTS_ROUTES.newPlan}
+              data-internal-link="true"
+              className={primaryControl}
+              aria-disabled={!stagedReferralId}
+            >
               <span>Initiate Care Plan</span>
             </Link>
             <Link href={CARING_CONTACTS_ROUTES.patients} data-internal-link="true" className={floatingControl}>
@@ -247,7 +282,7 @@ export function ManualIntakeForm() {
       ) : (
         /* Manual Intake Fallback Form */
         <form onSubmit={handleSubmit} className={`${workspacePanelPadded} space-y-5`}>
-          <div className="border-b border-[color:var(--border-subtle)] pb-3">
+          <div className="border-b border-[color:var(--border)] pb-3">
             <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Referral Details</h2>
             <p className="text-xs text-[color:var(--text-muted)]">
               Enter the patient discharge information extracted from the hospital discharge summary.
@@ -422,7 +457,7 @@ export function ManualIntakeForm() {
           </div>
 
           {/* Submit Actions */}
-          <div className="pt-3 border-t border-[color:var(--border-subtle)] flex items-center justify-between">
+          <div className="pt-3 border-t border-[color:var(--border)] flex items-center justify-between">
             <Link href={CARING_CONTACTS_ROUTES.today} data-internal-link="true" className={floatingControl}>
               <span>Cancel</span>
             </Link>

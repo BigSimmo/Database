@@ -8,7 +8,7 @@ import {
 import type { PlanWizardPathwayOption } from "@/components/caring-contacts/workspace/plan-wizard/plan-wizard";
 import { CARING_CONTACTS_REFERRAL_QUERY_PARAM } from "@/lib/caring-contacts-routes";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Referral } from "@/lib/caring-contacts/model";
 import {
@@ -137,8 +137,8 @@ export default async function CaringContactsNewPlanPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
   const requestedReferralId = readRequestedReferralId(await searchParams);
 

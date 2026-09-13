@@ -54,6 +54,13 @@ const envSchema = z.object({
   // production. See docs/staging-setup.md and src/lib/supabase/project.ts.
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_REF: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_NAME: z.string().optional(),
+  CARING_CONTACTS_DEMO_ENABLED: z.enum(["true", "false"]).optional(),
+  CARING_CONTACTS_SESSION_HMAC_SECRET: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_HMAC_SECRET: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: z.preprocess(
     coerceBlankEnv,

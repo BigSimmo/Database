@@ -126,7 +126,7 @@ export function TodayDashboard({
               <span
                 className={`${badgeClass} ${
                   counts.due > 0
-                    ? "bg-[color:var(--clinical-accent-subtle)] text-[color:var(--clinical-accent)]"
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                 }`}
               >
@@ -134,7 +134,7 @@ export function TodayDashboard({
                 {serviceState.stopped ? "Dispatch stopped" : counts.due > 0 ? "Dispatch ready" : "None due"}
               </span>
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
+            <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs text-[color:var(--text-muted)]">
               <span>Windows: Morning · Midday · Afternoon</span>
               <Link
                 href={scheduleDayRoute(todayCalendarDay)}
@@ -155,7 +155,7 @@ export function TodayDashboard({
               <span
                 className={`${badgeClass} ${
                   counts.needsReview > 0
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                    ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
                     : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                 }`}
               >
@@ -163,7 +163,7 @@ export function TodayDashboard({
                 {counts.needsReview > 0 ? "Exceptions" : "Clear"}
               </span>
             </div>
-            <div className="mt-4 border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
+            <div className="mt-4 border-t border-[color:var(--border)] pt-3 text-xs text-[color:var(--text-muted)]">
               <span>Failed deliveries, missed, or invalid numbers</span>
             </div>
           </div>
@@ -178,9 +178,9 @@ export function TodayDashboard({
               <span
                 className={`${badgeClass} ${
                   unclaimed.state === "escalated"
-                    ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                    ? "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
                     : unclaimed.state === "withinThreshold"
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                      ? "bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]"
                       : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
                 }`}
               >
@@ -192,7 +192,7 @@ export function TodayDashboard({
                     : "Assigned"}
               </span>
             </div>
-            <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
+            <div className="mt-4 flex items-center justify-between border-t border-[color:var(--border)] pt-3 text-xs text-[color:var(--text-muted)]">
               <span>
                 {unclaimed.oldestMinutesUnclaimed !== null
                   ? `Oldest: ${unclaimed.oldestMinutesUnclaimed}m`
@@ -219,8 +219,8 @@ export function TodayDashboard({
               <span
                 className={`${badgeClass} ${
                   serviceState.stopped
-                    ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
-                    : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    ? "bg-[color:var(--danger-bg)] text-[color:var(--danger-text)]"
+                    : "bg-[color:var(--success-bg)] text-[color:var(--success-text)]"
                 }`}
               >
                 {serviceState.stopped ? (
@@ -231,7 +231,7 @@ export function TodayDashboard({
                 {serviceState.stopped ? "Emergency Stop" : "Active"}
               </span>
             </div>
-            <div className="mt-4 border-t border-[color:var(--border-subtle)] pt-3 text-xs text-[color:var(--text-muted)]">
+            <div className="mt-4 border-t border-[color:var(--border)] pt-3 text-xs text-[color:var(--text-muted)]">
               <span>
                 {serviceState.stopped
                   ? "All dispatches held by emergency stop"
@@ -282,7 +282,7 @@ export function TodayDashboard({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[color:var(--border-subtle)] bg-[color:var(--surface)]">
+                <tbody className="divide-y divide-[color:var(--border)] bg-[color:var(--surface)]">
                   {/* Urgent exceptions first */}
                   {exceptions.entries.map((entry) => (
                     <tr key={entry.contactId} className="hover:bg-[color:var(--surface-subtle)]/50">
@@ -294,9 +294,7 @@ export function TodayDashboard({
                         {entry.messageType}
                       </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`${badgeClass} bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300`}
-                        >
+                        <span className={`${badgeClass} bg-[color:var(--warning-bg)] text-[color:var(--warning-text)]`}>
                           <AlertCircle aria-hidden="true" className="size-3" />
                           Review: {entry.state}
                         </span>
@@ -325,7 +323,7 @@ export function TodayDashboard({
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`${badgeClass} bg-[color:var(--clinical-accent-subtle)] text-[color:var(--clinical-accent)]`}
+                          className={`${badgeClass} bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]`}
                         >
                           <Clock aria-hidden="true" className="size-3" />
                           {outsideWindowDueIds.has(entry.contactId)
@@ -423,7 +421,7 @@ export function TodayDashboard({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[color:var(--border-subtle)] bg-[color:var(--surface)] text-xs">
+                <tbody className="divide-y divide-[color:var(--border)] bg-[color:var(--surface)] text-xs">
                   {coordinators.map((c) => (
                     <tr key={c.actorId} className="hover:bg-[color:var(--surface-subtle)]/50">
                       <td className="px-4 py-2.5 font-mono text-[color:var(--text-heading)]">{c.actorId}</td>

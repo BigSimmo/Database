@@ -2,12 +2,18 @@ import { cookies } from "next/headers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  CARING_CONTACTS_DEMO_ENABLED_VAR,
   CARING_CONTACTS_ROLE_COOKIE,
+  CARING_CONTACTS_SESSION_HMAC_SECRET_VAR,
   CaringContactsDemoUnavailableError,
   DEMO_ROLES,
   demoActorForRole,
   isCaringContactsDemoEnabled,
+  isCaringContactsLiveEnabled,
+  isCaringContactsWorkspaceEnabled,
+  parseDemoRoleCookieValue,
   resolveDemoActor,
+  signDemoRoleCookie,
 } from "@/lib/caring-contacts-server/session";
 import { logger } from "@/lib/logger";
 
@@ -111,6 +117,54 @@ describe("demo role switcher", () => {
       // there, so removing them must not close a developer's workspace.
       expect(isCaringContactsDemoEnabled("development", {})).toBe(true);
       expect(isCaringContactsDemoEnabled("test", {})).toBe(true);
+    });
+
+    it("opens sovereign demo mode only when the flag and session HMAC secret are both set", () => {
+      expect(
+        isCaringContactsDemoEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "true",
+        }),
+      ).toBe(false);
+      expect(
+        isCaringContactsDemoEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "true",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+        }),
+      ).toBe(true);
+      expect(
+        isCaringContactsWorkspaceEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "true",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+        }),
+      ).toBe(true);
+    });
+
+    it("opens live mode when demo is explicitly false and the session HMAC secret is set", () => {
+      expect(
+        isCaringContactsLiveEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+        }),
+      ).toBe(true);
+      expect(
+        isCaringContactsDemoEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+        }),
+      ).toBe(false);
+      expect(
+        isCaringContactsWorkspaceEnabled("production", {
+          [CARING_CONTACTS_DEMO_ENABLED_VAR]: "false",
+          [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret",
+        }),
+      ).toBe(true);
+    });
+
+    it("rejects an unsigned role cookie when the production session secret is configured", () => {
+      const runtime = { [CARING_CONTACTS_SESSION_HMAC_SECRET_VAR]: "test-session-hmac-secret" };
+      expect(parseDemoRoleCookieValue("auditor", runtime)).toBe("coordinator");
+      const signed = signDemoRoleCookie("auditor", "test-session-hmac-secret");
+      expect(parseDemoRoleCookieValue(signed, runtime)).toBe("auditor");
     });
   });
 });

@@ -5,6 +5,9 @@
 // credential, and an invalid role is a 400 -- the "fall back rather than fail" behaviour belongs
 // to an unreadable COOKIE (see ../../../../lib/caring-contacts-server/session.ts), not to a bad
 // request this endpoint was asked to act on.
+//
+// In sovereign production demo mode the cookie value is HMAC-signed with
+// CARING_CONTACTS_SESSION_HMAC_SECRET so a forgeable role-only cookie cannot open the workspace.
 import { cookies } from "next/headers";
 import { z } from "zod";
 
@@ -14,7 +17,9 @@ import {
   demoActorForRole,
   isCaringContactsDemoEnabled,
   isDemoRole,
+  productionSessionSecret,
   resolveDemoActor,
+  signDemoRoleCookie,
 } from "@/lib/caring-contacts-server/session";
 import type { CaringContactRole } from "@/lib/caring-contacts/permissions";
 import { jsonError, PublicApiError } from "@/lib/http";
@@ -30,7 +35,7 @@ const setRoleSchema = z
     path: ["role"],
   });
 
-/** The demo role switcher is not an authentication surface and is absent in production. */
+/** The demo role switcher is not an authentication surface and is absent outside demo mode. */
 function demoUnavailableResponse(): Response {
   return jsonError(new PublicApiError("Not found.", 404), 404, { log: false });
 }
@@ -49,8 +54,11 @@ export async function POST(request: Request) {
     const body = await parseJsonBody(request, setRoleSchema, "role must be one of the caring-contacts demo roles.");
     const actor = demoActorForRole(body.role);
 
+    const secret = productionSessionSecret();
+    const cookieValue = secret ? signDemoRoleCookie(body.role, secret) : body.role;
+
     const cookieStore = await cookies();
-    cookieStore.set(CARING_CONTACTS_ROLE_COOKIE, body.role, {
+    cookieStore.set(CARING_CONTACTS_ROLE_COOKIE, cookieValue, {
       httpOnly: true,
       sameSite: "lax",
       secure: true,
