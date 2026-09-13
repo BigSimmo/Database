@@ -583,15 +583,17 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
         action: "amend-outcome",
         payload: { id: "#001", outcome: "Not archived", baseRowFingerprint: fingerprint },
       };
-      const mixedUpdate = {
+      const outcomeOnlyUpdate = {
         ...amend,
         id: "bbbb5555-5555-4555-8555-555555555555",
         action: "update",
-        payload: { ...amend.payload, summary: "Must not be partially applied" },
+        payload: { id: "#001", outcome: "Not archived", baseRowFingerprint: fingerprint },
       };
 
       expect(() => applyRequest(ARCHIVE_LEDGER, amend)).toThrow(/outcome amendments require an archived issue/);
-      expect(() => applyRequest(ARCHIVE_LEDGER, mixedUpdate)).toThrow(/outcome amendments require an archived issue/);
+      expect(() => applyRequest(ARCHIVE_LEDGER, outcomeOnlyUpdate)).toThrow(
+        /outcome amendments require an archived issue/,
+      );
     });
 
     it("requires cancellation for concurrent archived outcome amendments", () => {
@@ -622,6 +624,33 @@ describe("ledger-inbox idempotent close and duplicate done handling", () => {
 
       const twice = updateArchivedIssue(once, "#005", "Direct amendment");
       expect(twice).toBe(once);
+    });
+
+    it("rejects mixed update that pairs outcome with open-row fields", () => {
+      const mixed = {
+        version: 1,
+        id: "bbbb8888-8888-4888-8888-888888888888",
+        createdOn: "2026-08-15",
+        action: "update",
+        payload: {
+          id: "#005",
+          summary: "Must not be silently dropped",
+          outcome: "Archive note",
+        },
+      };
+      expect(validateRequest(mixed)).toContain("update cannot mix outcome with pri, summary, detail, or source");
+      expect(() => applyRequest(ARCHIVE_LEDGER, mixed)).toThrow(/cannot mix outcome/);
+    });
+
+    it("rejects amend-outcome when the id is not archived", () => {
+      const missing = {
+        version: 1,
+        id: "bbbb9999-9999-4999-8999-999999999999",
+        createdOn: "2026-08-15",
+        action: "amend-outcome",
+        payload: { id: "#999", outcome: "No such archive row" },
+      };
+      expect(() => applyRequest(ARCHIVE_LEDGER, missing)).toThrow(/not archived/);
     });
   });
 });

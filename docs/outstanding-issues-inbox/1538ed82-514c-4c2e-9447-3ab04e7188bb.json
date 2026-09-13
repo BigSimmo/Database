@@ -5,7 +5,7 @@
   "action": "done",
   "payload": {
     "id": "#DW3XK8",
-    "outcome": "Added four missing no-DDL migrations to KNOWN_ORPHAN_VERSIONS in migration-history-placeholders test and reconciled 20260702170000 in supabase/drift-allowlist.json",
+    "outcome": "Confirmed residual already closed on main: the four stems (20260629100000, 20260702170000, 20260708160000, 20260709150000) are declared in NEUTRALIZED_MIGRATIONS with the reverse-pass guard (#2546). Live-drift forensics (docs/audit/live-drift-forensics-2026-08.md) record 20260702170000 WITH statements, so it must not join drift-allowlist no_statements (a premature entry stale-fails check:drift). No further code change.",
     "baseRowFingerprint": "82fbc105d79de3d16375e5cc92d8c869660bdc46cfb4255afe7304219bec5759"
   }
 }

@@ -92,7 +92,13 @@ export function validateRequest(request) {
     if (request.action === "amend-outcome") {
       if (!request.payload?.outcome) problems.push("amend-outcome requires outcome");
     } else {
-      if (!["pri", "summary", "detail", "source", "outcome"].some((field) => request.payload?.[field] !== undefined)) {
+      const openFields = ["pri", "summary", "detail", "source"].filter(
+        (field) => request.payload?.[field] !== undefined,
+      );
+      const hasOutcome = request.payload?.outcome !== undefined;
+      if (hasOutcome && openFields.length > 0) {
+        problems.push("update cannot mix outcome with pri, summary, detail, or source");
+      } else if (!hasOutcome && openFields.length === 0) {
         problems.push("update requires pri, summary, detail, source, or outcome");
       }
     }
@@ -226,6 +232,7 @@ export function applyRequest(markdown, request, options = {}) {
         replace: Boolean(options.replace ?? request.payload.replace),
       });
     }
+    throw new Error(`${request.payload.id} is not archived; outcome amendments require an archived issue`);
   }
   return updateIssue(markdown, request.payload.id, request.payload);
 }
