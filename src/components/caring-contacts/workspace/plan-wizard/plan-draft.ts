@@ -582,3 +582,30 @@ export function clearPlanDraft(): void {
   }
   notifyPlanDraftListeners();
 }
+
+/**
+ * Whether a draft differs from the initial empty draft for that referral.
+ *
+ * Used by the tab-close dirty-state guard to attach `beforeunload`
+ * strictly when a coordinator has actively modified in-progress clinical details.
+ */
+export function isPlanDraftDirty(
+  draft: PlanDraft | null,
+  referralId: string,
+  referralPathwayVersionId: string | null,
+): boolean {
+  if (draft === null || draft.referralId !== referralId) return false;
+  if (draft.stage !== "agreement") return true;
+  if (draft.assurances.patientAgreed || draft.assurances.mobileIsPatientControlled) return true;
+  if (draft.pathwayVersionId !== referralPathwayVersionId) return true;
+  if (draft.patientDetail.patientName.trim() !== "") return true;
+  if (draft.patientDetail.preferredName.trim() !== "") return true;
+  if (draft.patientDetail.patientMobileNumber.trim() !== "") return true;
+  if (draft.patientDetail.patientIdentifiers.trim() !== "") return true;
+  if (draft.sendingPreference !== null) return true;
+  if (draft.activation.dischargeDay.trim() !== "") return true;
+  if (draft.activation.firstContactDay.trim() !== "") return true;
+  if (draft.activation.firstContactReason.trim() !== "") return true;
+  if (draft.decisions.identityChecked || draft.decisions.preferenceGivenOnStaffedLine) return true;
+  return false;
+}

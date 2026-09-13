@@ -30,10 +30,12 @@ import { ExitOnlyOverlayTrigger } from "../overlays/exit-only-overlay-trigger";
 import type { WorkspaceOverlayCommit } from "../overlays/overlay-commits";
 import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { wizardDecisionRefusal, type WizardDecisionState } from "./overlay-guards";
 import {
   clearPlanDraft,
   emptyPlanDraft,
+  isPlanDraftDirty,
   planDraftServerSnapshot,
   planDraftSnapshot,
   planDraftIsHeld,
@@ -400,6 +402,11 @@ export function PlanWizard({
 
   const draft =
     stored !== null && stored.referralId === referralId ? stored : emptyPlanDraft(referralId, referralPathwayVersionId);
+
+  const isDirty =
+    !discarded && submissionState.status === "idle" && isPlanDraftDirty(draft, referralId, referralPathwayVersionId);
+
+  useDirtyStateGuard(isDirty);
 
   // RULING [120]: minted at the moment stage 4 is REACHED, not at the moment it is confirmed.
   //

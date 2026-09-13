@@ -1,9 +1,10 @@
 "use client";
 
 import { Info, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
+import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
 import { MissingValue } from "@/components/ui/missing-value";
 
 import { calculators, domainLabels, type CalculatorFixture } from "./calculator-fixtures";
@@ -168,7 +169,7 @@ export function CalculatorSheet({
 
         <div
           ref={scrollRef}
-          className="modal-landscape-container grid min-h-0 flex-1 content-start gap-4 overflow-y-auto py-4"
+          className="modal-landscape-container grid min-h-0 flex-1 content-start gap-4 overflow-y-auto overscroll-contain py-4"
         >
           <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
             <Info className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
@@ -198,18 +199,24 @@ export function CalculatorsPopupSheetMockup() {
 
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
 
+  const calculatorSheetId = useId();
+
   useEffect(() => {
     if (!activeCalc) return;
+    pushSheet(calculatorSheetId);
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenId(null);
+      if (!isTopmostSheet(calculatorSheetId)) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpenId(null);
+      }
     };
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      popSheet(calculatorSheetId);
     };
-  }, [activeCalc]);
+  }, [activeCalc, calculatorSheetId]);
 
   return (
     <div className="min-h-screen bg-[color:var(--background)]">

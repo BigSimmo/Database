@@ -9,7 +9,8 @@ Unchecked boxes below are rerun per release candidate; they do not imply abandon
 The 2026-09-01 closeout records privacy-minimal OpenAI account controls and an acknowledged ZDR
 request, not ZDR approval. `npm run check:production-readiness` must continue to fail closed until the
 eight provider, owner, legal, privacy-adviser, and clinical-safety requirements in that register are
-verified.
+verified. Detailed operational requirements for OpenAI ZDR, Railway DPA execution, and production
+`DOCUMENT_SIGNED_URL_HMAC_SECRET` rotation are documented in [`production-readiness.md`](production-readiness.md).
 
 **Provider-backed boundary:** commands such as `check:supabase-project`, `eval:quality`,
 `eval:retrieval:quality`, and `verify:release` touch live Supabase and/or OpenAI. Agents must not

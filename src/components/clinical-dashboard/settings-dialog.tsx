@@ -1351,7 +1351,6 @@ export function SettingsDialog({
                   </button>
                 </SettingsCard>
               </SettingsSection>
-
             </div>
           </div>
         </div>
