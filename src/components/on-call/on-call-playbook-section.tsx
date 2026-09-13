@@ -5,7 +5,9 @@ import Link from "next/link";
 
 import { cardInteractive, cardSurface } from "@/components/card-recipes";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
@@ -249,7 +251,11 @@ export function OnCallPlaybookSection({
       {linked.length > 0 ? <div className="grid gap-3">{linked.map(card)}</div> : null}
 
       {unlinked.length > 0 ? (
-        <section aria-labelledby="on-call-playbook-no-guideline-heading" className="grid gap-2">
+        <section
+          id={onCallGroupAnchorId("no-guideline")}
+          aria-labelledby="on-call-playbook-no-guideline-heading"
+          className={cn(inPageAnchor, "grid gap-2")}
+        >
           <div className="flex items-center gap-1.5">
             <h3 id="on-call-playbook-no-guideline-heading" className={eyebrowText}>
               No guideline linked yet

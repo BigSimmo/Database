@@ -2,11 +2,9 @@
 
 import { CalendarDays, ChevronRight, Phone, Shield, Trash2, Users } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
-import { RegistryModeNav } from "@/components/mode-nav/registry-mode-nav";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
@@ -18,7 +16,6 @@ import {
 } from "@/components/on-call/on-call-section-identity";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
-import { activeModeSecondaryNavigationId } from "@/lib/mode-secondary-navigation";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -292,7 +289,6 @@ function timeLabel(iso: string): string {
 }
 
 export function OnCallHome() {
-  const pathname = usePathname();
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
   const recent = useOnCallRecent();
 
@@ -340,7 +336,9 @@ export function OnCallHome() {
 
   return (
     <>
-      <RegistryModeNav modeId="on-call" activeId={activeModeSecondaryNavigationId("on-call", pathname)} />
+      {/* No section rail here either. This page IS the section list — its tile
+          grid names all nine with their counts — and the mode pill above opens
+          the same nine. A bar between them would be the third copy. */}
       <OnCallPageMenu view="home" />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>

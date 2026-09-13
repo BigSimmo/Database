@@ -67,9 +67,10 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  // The page menu portals its trigger into the universal header's trailing
-  // slot and renders nothing at all when that host is absent, so a standalone
-  // render has to provide it.
+  // The section header portals into the phone collapse host and falls back to
+  // rendering in flow when that host is absent, so a standalone render needs
+  // nothing — but the home's page menu still uses the universal header's
+  // trailing slot, and providing it keeps both paths exercisable here.
   const slot = document.createElement("div");
   slot.id = universalHeaderTrailingSlotId;
   document.body.append(slot);
@@ -89,7 +90,7 @@ beforeEach(() => {
 });
 
 async function openMenuAndVerifyAll() {
-  fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
+  fireEvent.click(screen.getByTestId("on-call-section-actions-trigger"));
   fireEvent.click(screen.getByTestId("on-call-page-menu-verify-all"));
 }
 
@@ -150,7 +151,7 @@ describe("Mark all as still correct", () => {
   it("offers nothing to confirm when nothing is overdue", () => {
     storeState.entries = THREE_STALE.map((entry) => ({ ...entry, lastVerifiedAt: "2026-09-01T00:00:00.000Z" }));
     render(<OnCallSectionPage view="contacts" />);
-    fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
+    fireEvent.click(screen.getByTestId("on-call-section-actions-trigger"));
     expect(screen.queryByTestId("on-call-page-menu-verify-all")).not.toBeInTheDocument();
   });
 });

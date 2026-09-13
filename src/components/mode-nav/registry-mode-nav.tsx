@@ -31,12 +31,6 @@ export const registryModeNavDensityProfiles = {
   // and Search/Browse were two names for one place.
   dictionary: "balanced-four",
   sources: "balanced-four",
-  // Nine destinations, three of which must still be readable at 390px. Only
-  // `extended` drops the glyphs below its top band, and that is exactly the
-  // trade this rail needs: "Tonight", "Contacts" and "Playbook" wearing icons
-  // do not fit a phone, and the icon is the part that carries no information
-  // the label does not already carry. It is also the shape the mockup draws.
-  "on-call": "extended",
 } as const satisfies Record<ModeNavAdoptedMode, ModeNavDensityProfile>;
 
 /**

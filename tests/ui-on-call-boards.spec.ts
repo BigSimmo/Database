@@ -52,15 +52,33 @@ const ROUTES = {
   whoIsWho: "/on-call/who-is-who",
 } as const;
 
+/** The list each section route renders once its entries have arrived. */
+const SECTION_LIST_TEST_IDS: Record<string, string> = {
+  [ROUTES.contacts]: "on-call-contacts-section",
+  [ROUTES.playbook]: "on-call-playbook-section",
+  [ROUTES.referrals]: "on-call-referrals-section",
+  [ROUTES.orientation]: "on-call-orientation-section",
+  [ROUTES.teaching]: "on-call-education-section",
+  [ROUTES.logistics]: "on-call-logistics-section",
+  [ROUTES.whoIsWho]: "on-call-who-is-who-section",
+};
+
 async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   await page.setViewportSize({ width, height: BOARD_HEIGHT });
   await page.goto(route, { waitUntil: "domcontentloaded" });
-  // The entry store fetches on the client, so every module below waits on data
-  // rather than on the shell. The rail is mounted by the page itself, which
-  // makes it the earliest reliable signal that this mode's page is live.
-  await expect(page.locator('[data-testid="universal-header-collapse"] [data-testid="mode-nav"]')).toBeVisible({
-    timeout: 20_000,
-  });
+  // The entry store fetches on the client, so every board below waits on data
+  // rather than on the shell. The hub has no page header, so the two wait on
+  // different things: the hub on its tile grid, a section page on its header.
+  if (route === ROUTES.home) {
+    await expect(page.getByTestId("on-call-home-sections")).toBeVisible({ timeout: 20_000 });
+    return;
+  }
+  await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible({ timeout: 20_000 });
+  // The header renders before the fetch resolves, so waiting on it alone would
+  // measure the loading state. The list component mounts only once entries have
+  // arrived, which is the signal that the page is actually the page.
+  const listTestId = SECTION_LIST_TEST_IDS[route];
+  if (listTestId) await expect(page.getByTestId(listTestId)).toBeVisible({ timeout: 20_000 });
 }
 
 /**
@@ -188,6 +206,19 @@ test.describe("01 Home", () => {
     await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
   });
 
+  test("puts the page menu in the universal header, and offers no chat there", async ({ page }) => {
+    await openBoard(page, ROUTES.home);
+    const trigger = page.getByTestId("on-call-page-menu-trigger");
+    await expect(trigger).toBeVisible();
+    await expectTapFloor(trigger, "hub page menu trigger");
+
+    // On Call answers nothing, so there is no conversation to start. The
+    // button used to be stood down only while a page filled the header's
+    // trailing slot, which meant it came back the moment a page put its own
+    // controls somewhere else.
+    await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
+  });
+
   test("holds together at the site's narrow width, which the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.home, NARROW);
     await expect(page.getByTestId("on-call-home-sections")).toBeVisible();
@@ -195,53 +226,126 @@ test.describe("01 Home", () => {
   });
 });
 
-test.describe("02 More and 03 All modes", () => {
-  test("folds the overflow destinations into a More sheet that names the current page", async ({ page }) => {
-    await openBoard(page, ROUTES.contacts);
-    await page.getByRole("button", { name: /More/ }).click();
-    const sheet = page.getByTestId("mode-nav-sheet");
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole("link", { name: /Contacts/ })).toHaveAttribute("aria-current", "page");
-    // Pocket card is a destination in the sheet, per the recorded deviation:
-    // the shared sheet has no foot region to set it below a rule.
-    await expect(sheet.getByRole("link", { name: /Pocket card/ })).toBeVisible();
-  });
-
+test.describe("02 More, 03 All modes — the pill owns page switching", () => {
   test("opens this mode's own sections from the pill, with one tap back to all modes", async ({ page }) => {
     await openBoard(page, ROUTES.contacts, DESKTOP);
     await page.getByRole("button", { name: /Mode/ }).first().click();
 
-    // The owner's decision, and what makes On Call's pill different: in a mode
-    // that owns its own pages the pill opens THOSE, drawn like the switcher
-    // everywhere else, rather than making a reader step in from the full mode
-    // list every time they want another section.
+    // In a mode that owns its own pages the pill opens THOSE, drawn like the
+    // switcher everywhere else, rather than making a reader step in from the
+    // full mode list every time they want another section.
     const sections = page.locator("#app-mode-menu");
     await expect(sections).toBeVisible();
     await expect(sections).toHaveAttribute("aria-label", /On Call pages/);
     await expect(sections.getByRole("link", { name: "Tonight" })).toBeVisible();
 
-    // And it is never a dead end: the level above is one control away, which is
-    // board 03's own note about the stack being reversible.
+    // And never a dead end: the level above is one control away.
     await page.getByTestId("app-mode-popover-back").click();
     await expect(page.locator("#app-mode-menu")).toHaveAttribute("aria-label", /Choose app mode/);
+  });
+
+  test("carries no second bar repeating those same destinations", async ({ page }) => {
+    // The whole point of the change. The pill above already opens the nine
+    // pages; a rail underneath listing the same nine was two controls doing
+    // one job, and it hid five of them behind "More" while doing it.
+    for (const route of [ROUTES.home, ROUTES.contacts, ROUTES.playbook, ROUTES.logistics]) {
+      await openBoard(page, route);
+      await expect(page.getByTestId("mode-nav")).toHaveCount(0);
+      await expect(page.getByRole("navigation", { name: "On Call pages" })).toHaveCount(0);
+    }
+  });
+});
+
+test.describe("02 More — the second row is about the page you are on", () => {
+  test("names the page and the group you are in, with a way back to the hub", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    const header = page.getByTestId("on-call-section-detail-header");
+    await expect(header).toBeVisible();
+    await expect(header).toContainText("Contacts");
+    await expect(header.getByRole("link", { name: /back to on call/i })).toHaveAttribute("href", "/on-call");
+  });
+
+  test("opens this page's own groups, not the mode's nine sections", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    await page.getByTestId("on-call-section-section-trigger").click();
+
+    // The areas Contacts files its rows under. This is the assertion jsdom
+    // cannot make: section resolution tests visibility with getClientRects,
+    // which jsdom reports empty for everything.
+    const sheet = page.getByRole("dialog");
+    await expect(sheet.getByRole("button", { name: /Wards/ })).toBeVisible();
+    await expect(sheet.getByRole("button", { name: /Services/ })).toBeVisible();
+    // Not the routes — those belong to the pill.
+    await expect(sheet.getByRole("button", { name: /^Playbook/ })).toHaveCount(0);
+  });
+
+  test("jumps to a group and says so afterwards", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    await page.getByTestId("on-call-section-section-trigger").click();
+    await page.getByRole("dialog").getByRole("button", { name: /Wards/ }).click();
+
+    const wards = page.locator("#on-call-group-wards");
+    await expect(wards).toBeInViewport({ timeout: 5_000 });
+    // The header's second line follows the reader down the page.
+    await expect(page.getByTestId("on-call-section-section-trigger")).toContainText("Wards");
+  });
+
+  test("says the page's name once, and still offers no chat", async ({ page }) => {
+    await openBoard(page, ROUTES.contacts);
+    // The header, the hero and the entries heading all painted "Contacts", one
+    // under the other, on a 390px screen. The entries heading is now named for
+    // a screen reader only.
+    // Measured, not counted by role: the entries heading is still in the
+    // accessibility tree (it labels the region), it is simply clipped to a
+    // pixel. So the question is how many are actually painted.
+    const paintedTitles = await page.evaluate(
+      () =>
+        Array.from(document.querySelectorAll("h1, h2, h3"))
+          .filter((node) => node.textContent?.trim() === "Contacts")
+          .filter((node) => node.getBoundingClientRect().height > 16).length,
+    );
+    expect(paintedTitles, "Contacts is painted more than once").toBe(1);
+    await expect(page.getByRole("button", { name: "Start a new chat" })).toHaveCount(0);
+  });
+
+  test("drops back to a plain title on a page with nothing to jump between", async ({ page }) => {
+    // Referrals is a flat list. A jump list of one row is furniture.
+    await openBoard(page, ROUTES.referrals);
+    await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible();
+    await expect(page.getByTestId("on-call-section-section-trigger")).toHaveCount(0);
+  });
+
+  test("declares no anchor the page does not render", async ({ page }) => {
+    await openBoard(page, ROUTES.logistics);
+    await page.getByTestId("on-call-section-section-trigger").click();
+    const labels = await page.getByRole("dialog").getByRole("button").allInnerTexts();
+    for (const label of labels) {
+      const slug = label
+        .split("\n")[0]!
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      if (!slug || slug === "close") continue;
+      await expect(page.locator(`#on-call-group-${slug}`), `${label} is offered but absent`).toHaveCount(1);
+    }
   });
 });
 
 test.describe("05 Page menu", () => {
   test("opens from the header's own control, not from the page body", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    const trigger = page.getByTestId("on-call-page-menu-trigger");
+    const trigger = page.getByTestId("on-call-section-actions-trigger");
     await expect(trigger).toBeVisible();
     await expectTapFloor(trigger, "page menu trigger");
-    // It replaces the new-chat button rather than sitting beside it: this mode
-    // has no chat to start, and two controls in one slot is the regression.
-    await expect(page.locator(".universal-header-new-chat")).toBeHidden();
+    // The actions live on the page's own header now, not in a second portal
+    // into the universal header — one header row owns the whole page.
   });
 
   test("carries the order control, the pocket card, and the privacy explanation", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
-    await page.getByTestId("on-call-page-menu-trigger").click();
-    const sheet = page.getByTestId("on-call-page-menu-sheet");
+    await page.getByTestId("on-call-section-actions-trigger").click();
+    const sheet = page.getByRole("dialog");
     await expect(sheet).toBeVisible();
     await expect(page.getByTestId("on-call-page-menu-order")).toBeVisible();
     await expect(page.getByTestId("on-call-page-menu-card")).toBeVisible();
@@ -256,7 +360,7 @@ test.describe("05 Page menu", () => {
   test("reorders the list from the sheet", async ({ page }) => {
     await openBoard(page, ROUTES.contacts);
     await expect(page.getByTestId("on-call-contacts-group-tonight")).toBeVisible();
-    await page.getByTestId("on-call-page-menu-trigger").click();
+    await page.getByTestId("on-call-section-actions-trigger").click();
     await page.getByRole("radio", { name: "By role" }).click();
     await expect(page.getByTestId("on-call-contacts-group-role")).toBeVisible();
     await expect(page.getByTestId("on-call-contacts-group-tonight")).toHaveCount(0);
@@ -408,10 +512,9 @@ test.describe("The mode's own chrome, across the site's widths", () => {
     });
   }
 
-  test("keeps the rail readable at the tablet width the drawing never shows", async ({ page }) => {
+  test("keeps the page header intact at the tablet width the drawing never shows", async ({ page }) => {
     await openBoard(page, ROUTES.contacts, TABLET);
-    const nav = page.locator('[data-testid="universal-header-collapse"] [data-testid="mode-nav"]');
-    await expect(nav).toBeVisible();
+    await expect(page.getByTestId("on-call-section-detail-header")).toBeVisible();
     await expectNoHorizontalOverflow(page, "contacts at 768px");
   });
 

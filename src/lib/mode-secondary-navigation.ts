@@ -176,7 +176,11 @@ export const MODE_NAV_ADOPTED_MODES = [
   "therapy-compass",
   "dictionary",
   "sources",
-  "on-call",
+  // On Call is deliberately absent. Its nine destinations stay registered
+  // below — the mode pill's section level reads them — but no page mounts the
+  // shared bar, because the pill already opens exactly those nine and a rail
+  // repeating them was two controls doing one job. The section pages carry the
+  // in-page header instead, whose list is the current page's own groups.
 ] as const satisfies readonly AppModeId[];
 
 export type ModeNavAdoptedMode = (typeof MODE_NAV_ADOPTED_MODES)[number];

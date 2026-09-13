@@ -9,7 +9,9 @@ import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-bad
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { Button } from "@/components/ui/button";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
+import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
@@ -352,7 +354,11 @@ export function OnCallContactsSection({
       />
 
       {order !== "overdue" && needsChecking.length > 0 ? (
-        <section aria-labelledby="on-call-contacts-needs-checking-heading" className="grid gap-2">
+        <section
+          id={onCallGroupAnchorId("needs-checking")}
+          aria-labelledby="on-call-contacts-needs-checking-heading"
+          className={cn(inPageAnchor, "grid gap-2")}
+        >
           <div
             className={cn(
               "sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1",
@@ -397,7 +403,12 @@ export function OnCallContactsSection({
             const slug = slugifyArea(group.area);
             const headingId = `on-call-contacts-area-${slug}-heading`;
             return (
-              <section key={group.area} aria-labelledby={headingId} className="grid gap-2">
+              <section
+                key={group.area}
+                id={onCallGroupAnchorId(slug)}
+                aria-labelledby={headingId}
+                className={cn(inPageAnchor, "grid gap-2")}
+              >
                 <div className="sticky top-0 z-[var(--z-raised)] flex items-center gap-1.5 bg-[color:var(--background)] py-1">
                   <h3 id={headingId} className={eyebrowText}>
                     {group.area}

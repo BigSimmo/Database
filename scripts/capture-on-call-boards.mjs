@@ -40,6 +40,17 @@ const expectedProjectId = localProjectId(projectRoot);
 const outDir = path.join(projectRoot, ".tmp-visual", "on-call-boards");
 const mockupPath = path.join(projectRoot, "docs", "on-call", "design", "prototypes", "on-call-screens.html");
 
+/** The list each section route renders once its entries have arrived. */
+const SECTION_LISTS = {
+  "/on-call/contacts": "on-call-contacts-section",
+  "/on-call/playbook": "on-call-playbook-section",
+  "/on-call/referrals": "on-call-referrals-section",
+  "/on-call/orientation": "on-call-orientation-section",
+  "/on-call/education": "on-call-education-section",
+  "/on-call/logistics": "on-call-logistics-section",
+  "/on-call/who-is-who": "on-call-who-is-who-section",
+};
+
 /** The width every artboard was drawn at. */
 const PHONE = { width: 390, height: 844 };
 
@@ -52,7 +63,7 @@ const PHONE = { width: 390, height: 844 };
  */
 const BOARDS = [
   { no: "01", title: "Home", route: "/on-call" },
-  { no: "02", title: "More", route: "/on-call/contacts", open: "more-sheet" },
+  { no: "02", title: "Jump to a group", route: "/on-call/contacts", open: "jump-to" },
   { no: "03", title: "All modes", route: "/on-call/contacts", open: "mode-sheet" },
   { no: "04", title: "Site", route: null, note: "Waiting on the database change" },
   { no: "05", title: "Page menu", route: "/on-call/contacts", open: "page-menu" },
@@ -116,10 +127,6 @@ async function assertProjectIdentity(baseUrl) {
 
 /** Opens whichever overlay the board is drawn with, then waits for it. */
 async function openOverlay(page, kind) {
-  if (kind === "more-sheet") {
-    await page.getByRole("button", { name: /More/ }).click();
-    await page.getByTestId("mode-nav-sheet").waitFor({ state: "visible" });
-  }
   if (kind === "mode-sheet") {
     await page.getByRole("button", { name: /Mode/ }).first().click();
     await page
@@ -128,8 +135,12 @@ async function openOverlay(page, kind) {
       .catch(() => {});
   }
   if (kind === "page-menu") {
-    await page.getByTestId("on-call-page-menu-trigger").click();
-    await page.getByTestId("on-call-page-menu-sheet").waitFor({ state: "visible" });
+    await page.getByTestId("on-call-section-actions-trigger").click();
+    await page.getByRole("dialog").waitFor({ state: "visible" });
+  }
+  if (kind === "jump-to") {
+    await page.getByTestId("on-call-section-section-trigger").click();
+    await page.getByRole("dialog").waitFor({ state: "visible" });
   }
   // Sheets animate in; the capture should not catch one mid-slide.
   await page.waitForTimeout(400);
@@ -144,10 +155,16 @@ async function captureBuilt(browser, baseUrl, board, dark) {
   const page = await context.newPage();
   try {
     await page.goto(`${baseUrl}${board.route}`, { waitUntil: "networkidle" });
-    // The entry store fetches on the client, so the modules arrive after load.
-    await page
-      .locator('[data-testid="universal-header-collapse"] [data-testid="mode-nav"]')
-      .waitFor({ state: "visible", timeout: 20_000 });
+    // The entry store fetches on the client, so the page arrives after load.
+    // The hub and a section page announce readiness differently: the hub has no
+    // page header, and a section page's header renders before its entries do.
+    if (board.route === "/on-call") {
+      await page.getByTestId("on-call-home-sections").waitFor({ state: "visible", timeout: 20_000 });
+    } else {
+      await page.getByTestId("on-call-section-detail-header").waitFor({ state: "visible", timeout: 20_000 });
+      const list = SECTION_LISTS[board.route];
+      if (list) await page.getByTestId(list).waitFor({ state: "visible", timeout: 20_000 });
+    }
     await page.waitForTimeout(600);
     if (board.open) await openOverlay(page, board.open);
     const file = path.join(outDir, `board-${board.no}-built${dark ? "-dark" : ""}.png`);

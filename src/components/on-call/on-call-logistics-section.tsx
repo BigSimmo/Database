@@ -3,7 +3,9 @@
 import { Lock, MapPinned, Pencil, Phone } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -179,7 +181,12 @@ export function OnCallLogisticsSection({
         const slug = slugifyCategory(group.category);
         const headingId = `on-call-logistics-category-${slug}-heading`;
         return (
-          <section key={group.category} aria-labelledby={headingId} className="grid gap-2">
+          <section
+            key={group.category}
+            id={onCallGroupAnchorId(slug)}
+            aria-labelledby={headingId}
+            className={cn(inPageAnchor, "grid gap-2")}
+          >
             <div className="flex items-center gap-1.5">
               {group.allPrivate ? (
                 <Lock aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" />

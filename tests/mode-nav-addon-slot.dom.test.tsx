@@ -299,15 +299,17 @@ describe("header addon slot ownership", () => {
       "src/components/factsheets/factsheet-nav-header.tsx",
       "src/components/forms/form-detail-page.tsx",
       "src/components/formulation/formulation-nav-header.tsx",
-      // On Call is the exception to the sibling convention above, and
-      // deliberately so: its pages mount `RegistryModeNav`, which is the SHARED
-      // bar rather than a page-owned header, so there is no section table to
-      // colocate and no icons or hooks to keep out of a Server Component. The
-      // one `*-nav-header.tsx` left in the mode is the essentials card's, which
-      // is a real `InPageNavHeader` and does follow the convention.
-      "src/components/on-call/on-call-home.tsx",
+      // On Call now follows the sibling convention exactly: both its headers —
+      // the essentials card's and the section pages' — live in
+      // `on-call-nav-header.tsx`, and nothing else in the mode claims the slot.
+      //
+      // Two files came off this list when the shared rail did. The section page
+      // mounted `RegistryModeNav` until that bar turned out to be listing the
+      // same nine destinations the mode pill already opens; the home mounted it
+      // too, on a page whose tile grid IS the section list. The home's page
+      // menu goes to the universal header's TRAILING slot, which is a different
+      // host and not this one.
       "src/components/on-call/on-call-nav-header.tsx",
-      "src/components/on-call/on-call-section-page.tsx",
       "src/components/services/service-detail-page.tsx",
       // The source record has no section index, so it renders the header's
       // breadcrumb shape (back, title) straight from the Server Component page

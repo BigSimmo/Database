@@ -91,18 +91,6 @@ const MODES = [
   { modeId: "differentials", route: "/differentials/diagnoses", items: 4, profile: "balanced-four" },
   { modeId: "factsheets", route: "/factsheets/search", items: 2, profile: "two-item" },
   { modeId: "dictionary", route: "/dictionary/search?q=MSE", items: 4, profile: "balanced-four" },
-  // On Call, nine destinations. It was absent from this table for as long as its
-  // registry was empty: every route in the mode is an information page, so
-  // `PageSecondaryNavigation` returns null and the SHELL cannot draw the bar —
-  // this spec failed at all nine width points not because labels clipped but
-  // because there was nothing to measure. The page now mounts `RegistryModeNav`
-  // itself, so there is.
-  //
-  // `extended` rather than `compact-four`, and the reason is the glyphs: it is
-  // the only profile that drops them below its top band, and "Tonight",
-  // "Contacts" and "Playbook" wearing icons do not fit a 390px phone. The mockup
-  // draws the bar without them for the same reason.
-  { modeId: "on-call", route: "/on-call/contacts", items: 9, profile: "extended" },
 ] as const;
 
 function densityPoints(profile: DensityProfile) {

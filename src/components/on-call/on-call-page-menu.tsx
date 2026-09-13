@@ -14,6 +14,142 @@ import { type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-
 import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
 
 /**
+ * The page menu's rows, without a trigger or a sheet of its own.
+ *
+ * The section pages hand these to `InPageNavHeader`'s actions slot, which owns
+ * the ellipsis and the sheet — one header row for the whole page. The mode home
+ * has no in-page header, so it keeps `OnCallPageMenu` below, which wraps the
+ * same rows in its own trigger and portals that into the universal header.
+ * Splitting them is what stops the two surfaces drifting into different menus.
+ */
+export function OnCallPageMenuActions({
+  order,
+  onOrderChange,
+  onAdd,
+  addLabel,
+  onVerifyAll,
+  staleCount = 0,
+  onNavigate,
+}: {
+  order?: OnCallContactsOrder;
+  onOrderChange?: (next: OnCallContactsOrder) => void;
+  onAdd?: () => void;
+  addLabel?: string;
+  onVerifyAll?: () => void;
+  staleCount?: number;
+  /** Closes whichever surface is hosting these rows. */
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      {order && onOrderChange ? (
+        <div className="grid gap-1.5 pb-1" data-testid="on-call-page-menu-order">
+          {/* Inside the sheet, not inline above the list: at phone width
+                  the shared header puts a segmented control here rather than
+                  claiming a band of its own, which is board 05's own note. */}
+          <p className={cn(eyebrowText)} id="on-call-page-menu-order-label">
+            Order
+          </p>
+          <SegmentedControl
+            value={order}
+            onChange={onOrderChange}
+            ariaLabelledBy="on-call-page-menu-order-label"
+            options={[
+              { value: "role", label: "By role" },
+              { value: "area", label: "By area" },
+              { value: "overdue", label: "Overdue first" },
+            ]}
+          />
+        </div>
+      ) : null}
+
+      {onAdd ? (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            onAdd();
+          }}
+          className={inPageActionRowClass}
+          data-testid="on-call-page-menu-add"
+        >
+          <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+          <span className="grid gap-0.5">
+            <span>{addLabel ?? "Add an entry"}</span>
+            <span className={cn(textMuted, "text-xs font-normal")}>Role first, name only if you must.</span>
+          </span>
+        </button>
+      ) : null}
+
+      {onVerifyAll && staleCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => {
+            onNavigate?.();
+            onVerifyAll();
+          }}
+          className={inPageActionRowClass}
+          data-testid="on-call-page-menu-verify-all"
+        >
+          <Check aria-hidden="true" className="size-icon-md shrink-0" />
+          <span className="grid gap-0.5">
+            <span>Mark all as still correct</span>
+            {/* The consequence, in the number it actually applies to.
+                    "Stamps today on 42 entries" when only three are overdue
+                    would be a lie about a write. */}
+            <span className={cn(textMuted, "text-xs font-normal")}>
+              {`Stamps today on ${staleCount} overdue ${staleCount === 1 ? "entry" : "entries"}.`}
+            </span>
+          </span>
+        </button>
+      ) : null}
+
+      <Link
+        href="/on-call/card"
+        onClick={() => onNavigate?.()}
+        className={inPageActionRowClass}
+        data-testid="on-call-page-menu-card"
+      >
+        <Printer aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span>Pocket card</span>
+          {/* Every action states its consequence, so nothing surprises the
+                  reader after the tap. */}
+          <span className={cn(textMuted, "text-xs font-normal")}>
+            One printable page. Excludes private and overdue entries.
+          </span>
+        </span>
+      </Link>
+
+      {/* Not a control: an explanation, in the place a reader looks when they
+              wonder why something is missing. Making it a toggle would imply a
+              private entry can be shown to someone who is not signed in, which is
+              the one thing the shared read guarantees cannot happen. */}
+      <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-privacy">
+        <Lock aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span className="font-bold">Private entries are yours alone</span>
+          <span className={cn(textMuted, "text-xs")}>
+            An entry marked private is visible only when you are signed in, never on the printed card, and never to
+            anyone else.
+          </span>
+        </span>
+      </div>
+
+      <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-tags">
+        <Tag aria-hidden="true" className="size-icon-md shrink-0" />
+        <span className="grid gap-0.5">
+          <span className="font-bold">What the home shows</span>
+          <span className={cn(textMuted, "text-xs")}>
+            {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
+          </span>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The page menu, in the universal header's right-hand slot.
  *
  * The build prompt's §2.2: this mode's right-hand control is the page menu
@@ -92,114 +228,15 @@ export function OnCallPageMenu({
         portal
         testId="on-call-page-menu-sheet"
       >
-        <div className="grid gap-2">
-          {order && onOrderChange ? (
-            <div className="grid gap-1.5 pb-1" data-testid="on-call-page-menu-order">
-              {/* Inside the sheet, not inline above the list: at phone width
-                  the shared header puts a segmented control here rather than
-                  claiming a band of its own, which is board 05's own note. */}
-              <p className={cn(eyebrowText)} id="on-call-page-menu-order-label">
-                Order
-              </p>
-              <SegmentedControl
-                value={order}
-                onChange={onOrderChange}
-                ariaLabelledBy="on-call-page-menu-order-label"
-                options={[
-                  { value: "role", label: "By role" },
-                  { value: "area", label: "By area" },
-                  { value: "overdue", label: "Overdue first" },
-                ]}
-              />
-            </div>
-          ) : null}
-
-          {onAdd ? (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onAdd();
-              }}
-              className={inPageActionRowClass}
-              data-testid="on-call-page-menu-add"
-            >
-              <Plus aria-hidden="true" className="size-icon-md shrink-0" />
-              <span className="grid gap-0.5">
-                <span>{addLabel ?? "Add an entry"}</span>
-                <span className={cn(textMuted, "text-xs font-normal")}>Role first, name only if you must.</span>
-              </span>
-            </button>
-          ) : null}
-
-          {onVerifyAll && staleCount > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onVerifyAll();
-              }}
-              className={inPageActionRowClass}
-              data-testid="on-call-page-menu-verify-all"
-            >
-              <Check aria-hidden="true" className="size-icon-md shrink-0" />
-              <span className="grid gap-0.5">
-                <span>Mark all as still correct</span>
-                {/* The consequence, in the number it actually applies to.
-                    "Stamps today on 42 entries" when only three are overdue
-                    would be a lie about a write. */}
-                <span className={cn(textMuted, "text-xs font-normal")}>
-                  {`Stamps today on ${staleCount} overdue ${staleCount === 1 ? "entry" : "entries"}.`}
-                </span>
-              </span>
-            </button>
-          ) : null}
-
-          <Link
-            href="/on-call/card"
-            onClick={() => setOpen(false)}
-            className={inPageActionRowClass}
-            data-testid="on-call-page-menu-card"
-          >
-            <Printer aria-hidden="true" className="size-icon-md shrink-0" />
-            <span className="grid gap-0.5">
-              <span>Pocket card</span>
-              {/* Every action states its consequence, so nothing surprises the
-                  reader after the tap. */}
-              <span className={cn(textMuted, "text-xs font-normal")}>
-                One printable page. Excludes private and overdue entries.
-              </span>
-            </span>
-          </Link>
-
-          {/* Not a control: an explanation, in the place a reader looks when they
-              wonder why something is missing. Making it a toggle would imply a
-              private entry can be shown to someone who is not signed in, which is
-              the one thing the shared read guarantees cannot happen. */}
-          <div
-            className={cn(inPageActionRowClass, "cursor-default font-normal")}
-            data-testid="on-call-page-menu-privacy"
-          >
-            <Lock aria-hidden="true" className="size-icon-md shrink-0" />
-            <span className="grid gap-0.5">
-              <span className="font-bold">Private entries are yours alone</span>
-              <span className={cn(textMuted, "text-xs")}>
-                An entry marked private is visible only when you are signed in, never on the printed card, and never to
-                anyone else.
-              </span>
-            </span>
-          </div>
-
-          <div className={cn(inPageActionRowClass, "cursor-default font-normal")} data-testid="on-call-page-menu-tags">
-            <Tag aria-hidden="true" className="size-icon-md shrink-0" />
-            <span className="grid gap-0.5">
-              <span className="font-bold">What the home shows</span>
-              <span className={cn(textMuted, "text-xs")}>
-                {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
-              </span>
-            </span>
-          </div>
-        </div>
+        <OnCallPageMenuActions
+          order={order}
+          onOrderChange={onOrderChange}
+          onAdd={onAdd}
+          addLabel={addLabel}
+          onVerifyAll={onVerifyAll}
+          staleCount={staleCount}
+          onNavigate={() => setOpen(false)}
+        />
       </Sheet>
     </>
   );

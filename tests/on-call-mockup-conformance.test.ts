@@ -243,7 +243,13 @@ describe("On Call mockup conformance ledger", () => {
       "on-call-playbook-group-no-guideline",
       "on-call-logistics-private-note",
       "on-call-orientation-checklist-",
-      "mode-nav-sheet",
+      // The second header row, which replaced the shared rail. `mode-nav-sheet`
+      // stood here while On Call mounted that rail; it does not any more, and a
+      // load-bearing entry for a component this mode never renders would have
+      // gone on passing forever.
+      "on-call-section-detail-header",
+      "on-call-section-section-trigger",
+      "on-call-section-actions-trigger",
     ];
     for (const testId of loadBearing) {
       expect(spec.includes(testId), `${BOARD_SPEC_PATH} never asserts "${testId}" on a rendered page`).toBe(true);
@@ -254,7 +260,6 @@ describe("On Call mockup conformance ledger", () => {
       rows.filter((row) => row.disposition === "built").map((row) => row.where.replace(/`/g, "").trim()),
     );
     for (const testId of loadBearing) {
-      if (testId === "mode-nav-sheet") continue;
       expect(
         [...builtIds].some((id) => id === testId || id.startsWith(testId)),
         `${testId} is asserted in the browser but not recorded as built`,
