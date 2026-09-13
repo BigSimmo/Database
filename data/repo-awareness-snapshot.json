@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-12"
+    "committed_at": "2026-09-13"
   },
   "routes": {
     "modes": [
@@ -218,6 +218,11 @@
         "path": "/mockups/calculators-clinical-console",
         "file": "src/app/mockups/calculators-clinical-console/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/caring-contacts/intake",
+        "file": "src/app/caring-contacts/intake/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/caring-contacts/team",
@@ -2089,6 +2094,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/deployment/caring-contacts-sovereign-australia.md",
+        "section": "deployment",
+        "catalogued": false
+      },
+      {
         "path": "docs/care-plan/reports/task-7-report.md",
         "section": "care-plan",
         "catalogued": true
@@ -2476,6 +2486,11 @@
       {
         "path": "docs/design-system/sweep-fix-visible-live-regions.md",
         "section": "design-system",
+        "catalogued": false
+      },
+      {
+        "path": "docs/caring-contacts/referral-feasibility.md",
+        "section": "caring-contacts",
         "catalogued": false
       },
       {
@@ -2892,6 +2907,11 @@
         "path": "docs/redesign/04-deferred.md",
         "section": "redesign",
         "catalogued": true
+      },
+      {
+        "path": "docs/caring-contacts/pilot-governance-checklist.md",
+        "section": "caring-contacts",
+        "catalogued": false
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-12-addendum.md",
@@ -6251,6 +6271,9 @@
       },
       {
         "name": "decisions"
+      },
+      {
+        "name": "deployment"
       },
       {
         "name": "design-system"
