@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "373966b5-57c1-457a-8e66-a632bc72012e",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#WE5G2C",
+    "outcome": "Documented GitHub Merge Queue operational adoption recommendation in docs/ci-operations.md",
+    "baseRowFingerprint": "79b22212883eca64c898d9342e4dec463be42e351be921918fbfacb4bb488011"
+  }
+}

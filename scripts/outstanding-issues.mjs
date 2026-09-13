@@ -329,6 +329,30 @@ export function updateIssue(markdown, id, fields) {
 }
 
 /**
+ * Amend the outcome of an archived issue row (#1BKK79).
+ * Preserves historical resolution while allowing outcome corrections or notes.
+ */
+export function updateArchivedIssue(markdown, id, outcome, options = {}) {
+  if (!outcome) throw new Error("--outcome is required to update an archived issue");
+  return guarded(markdown, (current) => {
+    const parsed = parseIssues(current);
+    const targetId = normalizeIssueDisplayId(id);
+    const row = parsed.rows.find((r) => r.table === "archive" && normalizeIssueDisplayId(r.id) === targetId);
+    if (!row) throw new Error(`${id} is not in archive table in ${ISSUES_PATH}`);
+
+    const cells = splitCells(row.raw);
+    cells[3] = options.replace ? escapeCell(outcome) : mergeArchiveOutcome(cells[3], outcome);
+    const updatedRow = buildRow(cells);
+    if (splitCells(updatedRow).length !== ARCHIVE_CELLS) {
+      throw new Error(`built an archive row with ${splitCells(updatedRow).length} cells, expected ${ARCHIVE_CELLS}`);
+    }
+    const lines = current.split("\n");
+    lines[row.line - 1] = updatedRow;
+    return pruneResolvedIdFromQueue(lines.join("\n"), id);
+  });
+}
+
+/**
  * Edit the recommended-execution-queue row that cites `id` (ledger #M6JNR8).
  *
  * The queue owns recommended order, acuity, capability, timing and approvals,

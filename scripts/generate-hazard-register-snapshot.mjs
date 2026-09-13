@@ -101,7 +101,9 @@ export function normaliseStatus(status) {
   const value = status.toLowerCase();
   if (value.includes("unmitigated")) return "unmitigated";
   if (value.startsWith("partial")) return "partial";
-  if (value.includes("unreviewed")) return "controlled-unreviewed";
+  // Any Controlled* status (including governance-gated / blueprint / fallback wording)
+  // is a code-level control that has not received clinical sign-off of the register itself.
+  if (value.includes("unreviewed") || value.startsWith("controlled")) return "controlled-unreviewed";
   return status;
 }
 

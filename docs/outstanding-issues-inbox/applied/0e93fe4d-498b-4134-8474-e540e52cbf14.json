@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "0e93fe4d-498b-4134-8474-e540e52cbf14",
+  "createdOn": "2026-09-12",
+  "action": "update",
+  "payload": {
+    "id": "#6GW95D",
+    "detail": "PROGRESS 2026-09-12: safe-orphan-cleanup.mjs report-only entrypoint now rejects --apply/--force before forwarding to worktree-cleanup.mjs. Canonical row still says cleanup remains open and deferred \u2014 keep #6GW95D open; this is tooling hygiene, not issue closure.",
+    "source": "PR #2778 review: safe cleanup entrypoint is not a done for deferred cleanup work",
+    "baseRowFingerprint": "1575cb96581142b0fb1cecb9d6dd2f000f24601321bd078dc751c32446af9e53"
+  }
+}

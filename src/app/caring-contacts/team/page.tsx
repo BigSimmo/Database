@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { TeamRoster } from "@/components/caring-contacts/workspace/team-roster";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { systemClock } from "@/lib/caring-contacts/clock";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
@@ -76,8 +76,8 @@ const CaringContactsShell = dynamic(() =>
  * owner rather than gaps a screen filled in.
  */
 export default async function CaringContactsTeamPage() {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
 
   // "service" names the one service-wide record, matching the object id the API route records

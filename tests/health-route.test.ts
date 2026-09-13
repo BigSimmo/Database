@@ -284,7 +284,12 @@ describe("GET /api/health/ready", () => {
   });
 
   it("exposes no diagnostic details even to a token-bearing caller", async () => {
-    mockEnv({ configured: true, demoMode: true, deepSecret: true });
+    mockEnv({ configured: true, deepSecret: true });
+    const { probeSupabaseHealth } = mockHealthySiteContent();
+    const spendSnapshot = vi.fn(async () => ({ totalUsd: 42 }));
+    const answerSloSnapshot = vi.fn(async () => ({ answers: 42 }));
+    vi.doMock("@/lib/observability/spend-metrics", () => ({ spendSnapshot }));
+    vi.doMock("@/lib/observability/answer-slo", () => ({ answerSloSnapshot }));
     const { GET } = await import("../src/app/api/health/ready/route");
 
     const response = await GET(
@@ -295,6 +300,13 @@ describe("GET /api/health/ready", () => {
     expect(body.slo).toBeUndefined();
     expect(body.cache).toBeUndefined();
     expect(body.coalescing).toBeUndefined();
+    expect(body.spend).toBeUndefined();
+    expect(body.ragProgramme).toBeUndefined();
+    const cached = await payload(await GET(new Request("http://localhost/api/health/ready")));
+    expect(cached).toEqual(body);
+    expect(probeSupabaseHealth).toHaveBeenCalledTimes(1);
+    expect(spendSnapshot).not.toHaveBeenCalled();
+    expect(answerSloSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns 503 without leaking dependency details when the readiness query fails", async () => {

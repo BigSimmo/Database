@@ -154,6 +154,7 @@ function installAnswerCacheEntrypointHarness(
 }
 
 async function admittedShadowCacheHarness() {
+  vi.stubEnv("RAG_GOVERNED_RETRIEVAL_ENABLED", "true");
   vi.stubEnv("RAG_PROGRAMME_MODE", "legacy");
   vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", "0");
   vi.stubEnv("RAG_SITE_CONTENT_ENABLED", "false");
@@ -557,6 +558,7 @@ describe("RAG cache invalidation", () => {
       publicSiteContentReleaseDigest: "c".repeat(64),
       publicSiteContentChangeEpoch: "1",
       publicSiteContentState: "current",
+      governedRetrievalEnabled: true,
       siteContentEnabled: false,
       australianAugmentationEnabled: false,
       adaptiveAnswerEnabled: false,

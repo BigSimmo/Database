@@ -19,11 +19,14 @@
 //   * both de-identification functions are idempotent: applying either a second time returns the
 //     same value as applying it once, so a caller never has to track whether it already ran.
 import type { AuditEvent, AuditOutcome } from "./audit";
-import { awstCalendarDay } from "./clock";
+import { awstCalendarDay, systemClock } from "./clock";
 import type { Clock } from "./clock";
 import type { DeidentifiedEpisode, Episode, EpisodeState } from "./episode";
 import type { ActorId } from "./ids";
 import type { TransitionResult } from "./model";
+import type { IncidentNoteArchiveResult } from "./types";
+
+export type { IncidentCaseNote, IncidentNoteArchiveResult } from "./types";
 
 export type RetentionPolicy = { years: number };
 
@@ -148,4 +151,99 @@ export type DeidentifiedAuditEvent = {
 export function deidentifyAuditEvent(event: AuditEvent | DeidentifiedAuditEvent): DeidentifiedAuditEvent {
   const { actorId, action, timestamp, objectType, outcome } = event;
   return Object.freeze({ actorId, action, timestamp, objectType, outcome, objectId: "" });
+}
+
+// ---------------------------------------------------------------------------
+// Incident Responder Notes & Retention Policy (#JZ8B36)
+//
+// Formalizing the lightweight case-note capability on `service_stops.note`:
+//
+// 1. Retention disposition during episode lifecycle:
+//    Notes written by responders mid-incident on `service_stops.note` are free text containing
+//    clinical and patient details ("Treat it as patient data").
+//    Throughout the episode lifecycle, notes are strictly immutable, enforced at the storage
+//    layer by the `assert_service_stop_immutable` trigger (Rulings 30 and 32). UPDATE is
+//    forbidden across all incident note fields.
+//
+// 2. Governed archival path vs permanent unremovability (Ruling 34 & Owner Decision 2026-08-21):
+//    DELETE was deliberately left unblocked on `service_stops` so that patient case notes would
+//    not become permanently unremovable, while avoiding accidental or un-governed deletion.
+//    Notes must not be deleted or purged ad-hoc during the active episode lifecycle.
+//    Once an episode has concluded and reached a terminal state ("withdrawn", "cancelled",
+//    "completed") and the mandatory clinical record retention period has elapsed (7 years in AWST
+//    calendar days under DEFAULT_RETENTION_POLICY), the notes become eligible for governed
+//    archival and de-identification via `archiveIncidentNotes`.
+// ---------------------------------------------------------------------------
+
+/**
+ * Dedicated, governed retention archival gate for safety-incident responder notes (#JZ8B36).
+ *
+ * Episode context is mandatory: terminal state and elapsed retention (7 years via
+ * DEFAULT_RETENTION_POLICY, AWST) are always checked. The string overload must supply `episode`
+ * (5th argument); omitting it fails closed rather than reporting a successful archival.
+ *
+ * This pure function does not read, delete, de-identify, or persist notes. It therefore never
+ * returns `archived: true`. A storage-backed archiver must perform the archival and record
+ * success only after notes are actually removed or de-identified.
+ */
+export function archiveIncidentNotes(
+  episode: Episode,
+  reason: string,
+  policy?: RetentionPolicy,
+  clock?: Clock,
+): IncidentNoteArchiveResult;
+export function archiveIncidentNotes(
+  episodeId: string,
+  reason: string,
+  policy?: RetentionPolicy,
+  clock?: Clock,
+  episode?: Episode,
+): IncidentNoteArchiveResult;
+export function archiveIncidentNotes(
+  episodeOrId: string | Episode,
+  reason: string,
+  policy: RetentionPolicy = DEFAULT_RETENTION_POLICY,
+  clock: Clock = systemClock(),
+  episodeContext?: Episode,
+): IncidentNoteArchiveResult {
+  const isEpisodeObject = typeof episodeOrId === "object" && episodeOrId !== null;
+  const episode = isEpisodeObject ? episodeOrId : episodeContext;
+  const episodeId = isEpisodeObject
+    ? ((episodeOrId as unknown as { id?: string; episodeId?: string }).id ??
+      (episodeOrId as unknown as { id?: string; episodeId?: string }).episodeId ??
+      "episode")
+    : episodeOrId;
+
+  if (!episodeId || episodeId.trim() === "") {
+    return { ok: false, episodeId: "", archived: false, reason: "missing-episode-id" };
+  }
+  if (!reason || reason.trim() === "") {
+    return { ok: false, episodeId, archived: false, reason: "missing-reason" };
+  }
+  if (!policy || typeof policy.years !== "number" || policy.years <= 0 || !Number.isFinite(policy.years)) {
+    return { ok: false, episodeId, archived: false, reason: "invalid-retention-policy" };
+  }
+
+  // String overload without Episode cannot check terminal/retention rules — fail closed.
+  if (!episode) {
+    return { ok: false, episodeId, archived: false, reason: "missing-episode-context" };
+  }
+
+  if (!TERMINAL_EPISODE_STATES.includes(episode.state)) {
+    return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
+  }
+  if (episode.planDates.completedAt === null) {
+    return { ok: false, episodeId, archived: false, reason: "retention-episode-not-terminal" };
+  }
+  if (!isDueForDeidentification(episode, policy, clock)) {
+    return { ok: false, episodeId, archived: false, reason: "retention-period-not-elapsed" };
+  }
+
+  // Eligibility passed, but this function has no storage backend — do not claim archival.
+  return {
+    ok: false,
+    episodeId,
+    archived: false,
+    reason: "archival-not-persisted",
+  };
 }

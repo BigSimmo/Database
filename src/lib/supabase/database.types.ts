@@ -3031,6 +3031,12 @@ export type Database = {
     };
     Functions: {
       analyze_rag_tables: { Args: never; Returns: undefined };
+      assert_public_source_document_governance: {
+        Args: {
+          p_document_id: string;
+        };
+        Returns: undefined;
+      };
       apply_document_metadata_patch: {
         Args: {
           p_document_id: string;

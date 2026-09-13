@@ -19,10 +19,13 @@ type HealthResponseOptions = {
   includeCache?: boolean;
   includeCoalescing?: boolean;
   includeSpend?: boolean;
+  includeOperatorDiagnostics?: boolean;
 };
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
   const deep = options.forceDeep || new URL(request.url).searchParams.get("deep") === "1";
+  const tokenAuthorized = allowDeepHealthProbe(request);
+  const operatorDiagnostics = tokenAuthorized && options.includeOperatorDiagnostics !== false;
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
   const openAIConfigured = Boolean(env.OPENAI_API_KEY);
   const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
@@ -37,7 +40,6 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   let siteContent: SiteContentPublicHealthProjection | null = null;
 
   if (deep) {
-    const tokenAuthorized = allowDeepHealthProbe(request);
     if (!options.allowUnauthenticatedDeep && !tokenAuthorized) {
       checks.supabase = "unauthorized";
     } else {
@@ -47,10 +49,10 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       // readiness endpoint, which exposes no diagnostic details — and only when
       // not explicitly suppressed. Reads a cumulative counter (no DB), so it is
       // available even in demo mode. Like `slo`, it never flips liveness.
-      if (tokenAuthorized && options.includeCache !== false) {
+      if (operatorDiagnostics && options.includeCache !== false) {
         cache = cacheMetricsSnapshot();
       }
-      if (tokenAuthorized && options.includeCoalescing !== false) {
+      if (operatorDiagnostics && options.includeCoalescing !== false) {
         coalescing = answerCoalescingMetricsSnapshot();
       }
 
@@ -89,13 +91,13 @@ export async function healthResponse(request: Request, options: HealthResponseOp
               checks.siteContent = "error";
             }
           }
-          // `tokenAuthorized &&` matches `spendSnapshot` below and makes the gate real: the
+          // `operatorDiagnostics &&` matches `spendSnapshot` below and makes the gate real: the
           // SLO aggregate is a deliberate CROSS-TENANT read (see its entry in
           // scripts/lib/tenancy-scan.mjs, which states this exact gate). Without it the
           // snapshot also ran for any caller passing `allowUnauthenticatedDeep`, so the only
           // thing holding the claim true was `/api/health/ready` opting out via
           // `includeSlo: false` — one flag at one caller, not a gate.
-          if (health.ok && tokenAuthorized && options.includeSlo !== false) {
+          if (health.ok && operatorDiagnostics && options.includeSlo !== false) {
             try {
               // Avoid recursively instantiating the full generated PostgREST
               // client type against the intentionally tiny SLO query surface.
@@ -108,7 +110,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           // + healthy Supabase). Derives USD from already-recorded token counts and
           // a configurable price; errors are swallowed to null and never flip
           // liveness. Suppressed only when explicitly disabled.
-          if (health.ok && tokenAuthorized && options.includeSpend !== false) {
+          if (health.ok && operatorDiagnostics && options.includeSpend !== false) {
             try {
               const { spendSnapshot } = await import("@/lib/observability/spend-metrics");
               // admin is structurally a SpendProbeClient; cast avoids a deep
@@ -152,7 +154,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       ...(coalescing ? { coalescing } : {}),
       ...(spend ? { spend } : {}),
       ...(siteContent ? { siteContent } : {}),
-      ...(deep && allowDeepHealthProbe(request)
+      ...(deep && operatorDiagnostics
         ? { ragProgramme: { ...ragProgrammeHealth(), siteContentFreshness: siteContent?.state ?? "unavailable" } }
         : {}),
     },

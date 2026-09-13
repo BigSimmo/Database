@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d4869fe1-6e26-4d27-8556-9f7d1a2b2986",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Calculator catalogue search misses GAD-7 for query anxiety screening",
+    "detail": "/calculators/search?q=anxiety+screening returned 0 matches while GAD-7 is reachable via depression-severity browsing. Synonym/index gap. Next: add aliases for anxiety screening → GAD-7 and audit similar gaps. Also note document title on calculators route showed Differential Diagnosis | PsychSift while UI said Clinical Calculators (metadata bug).",
+    "source": "session 2026-09-13 live QA reverify",
+    "issueUlid": "01M2CF38YM3CJPX5WE30A7CPRP"
+  }
+}

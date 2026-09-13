@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d42f80fe-f958-4de3-bc82-2fe0b533b0fd",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "WATCH: suspected CrCl/QTc NumberField corruption (not reproduced on 2026-09-13 retest)",
+    "detail": "Earlier live desktop pass on psychiatry.tools prescribing mode: CrCl typed as 95 briefly displayed 42095; QTc showed unexpected 420. Suspected race in clinical-dashboard patient-profile NumberField (type=number + render sync) with writePatientProfile on every keystroke. 2026-09-13 re-verification could NOT reproduce (CrCl 95 and QTc 450 displayed correctly under slow type, replace, backspace). SaMD memo discusses broader patient-profile classification but does not evidence this corruption. Keep OPEN as a low-priority watch until Playwright digit-by-digit asserts values never gain foreign prefixes \u2014 do NOT treat as confirmed P1 clinical defect without reproduction. Stop: do not close from a single non-repro session alone; do not divert urgent clinical-safety work on suspicion alone.",
+    "source": "session 2026-09-13 live QA; Codex review: require evidence before P1",
+    "issueUlid": "01M2CF389BWFARS34GS9BCK4WG"
+  }
+}

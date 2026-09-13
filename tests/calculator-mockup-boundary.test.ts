@@ -38,4 +38,16 @@ describe("calculator mockup import boundary", () => {
       expect(source, `${file} imports calculator mockups`).not.toContain("@/components/calculator-mockups");
     }
   });
+
+  it("keeps production source independent from src/app/mockups", () => {
+    const productionFiles = sourceFiles(resolve(process.cwd(), "src")).filter((file) => {
+      const normalized = file.replaceAll("\\", "/");
+      return !normalized.includes("/src/app/mockups/");
+    });
+
+    for (const file of productionFiles) {
+      const source = readFileSync(file, "utf8");
+      expect(source, `${file} imports from @/app/mockups`).not.toContain("@/app/mockups");
+    }
+  });
 });

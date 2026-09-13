@@ -13,6 +13,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -365,22 +366,36 @@ function withLeaseAcquisitionLock(root, action) {
     token: randomUUID(),
   };
   mkdirSync(directory, { recursive: true });
+  const stagingPath = `${lockPath}.${owner.token}`;
+  writeFileSync(stagingPath, canonicalJson(owner), "utf8");
   let acquired = false;
   let observedOwner = null;
-  for (let attempt = 0; attempt < 200 && !acquired; attempt += 1) {
-    try {
-      writeFileSync(lockPath, canonicalJson(owner), { encoding: "utf8", flag: "wx" });
-      acquired = true;
-    } catch (error) {
-      if (error?.code !== "EEXIST") throw error;
-      let existing;
+  try {
+    for (let attempt = 0; attempt < 200 && !acquired; attempt += 1) {
       try {
-        existing = JSON.parse(readFileSync(lockPath, "utf8"));
-        observedOwner = existing;
-      } catch {
-        fail(`lease acquisition lock is unreadable at ${lockPath}; inspect it rather than bypassing custody`);
+        linkSync(stagingPath, lockPath);
+        acquired = true;
+      } catch (error) {
+        if (error?.code !== "EEXIST") throw error;
+        let existing;
+        try {
+          existing = JSON.parse(readFileSync(lockPath, "utf8"));
+          observedOwner = existing;
+        } catch {
+          if (attempt === 199) {
+            fail(`lease acquisition lock is unreadable at ${lockPath}; inspect it rather than bypassing custody`);
+          }
+        }
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
       }
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10);
+    }
+  } finally {
+    if (existsSync(stagingPath)) {
+      try {
+        rmSync(stagingPath, { force: true });
+      } catch {
+        // best-effort cleanup of temporary staging file
+      }
     }
   }
   if (!acquired) {
@@ -2539,7 +2554,7 @@ export function validateControlPlane(root = repositoryRoot) {
     seenCertifiedHandovers.add(certificate.certificate.handoverPath);
     const handover = entries.find((entry) => entry.relative === certificate.certificate.handoverPath);
     if (!handover) fail(`reset certificate refers to missing handover ${certificate.certificate.handoverPath}`);
-    validateCertificateAgainstHandover(certificate, handover, root);
+    validateCertificateAgainstHandover(certificate, handover, root, state.integrationBranch);
   }
   return {
     contract,

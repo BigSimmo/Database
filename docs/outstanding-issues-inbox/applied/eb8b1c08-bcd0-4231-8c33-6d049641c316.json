@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "eb8b1c08-bcd0-4231-8c33-6d049641c316",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0e93fe4d-498b-4134-8474-e540e52cbf14",
+    "reason": "Premature done for #6GW95D: safe-orphan-cleanup.mjs is report-only verification only; canonical row says cleanup remains open and deferred until exact-path owner authorization. Keep issue open."
+  }
+}

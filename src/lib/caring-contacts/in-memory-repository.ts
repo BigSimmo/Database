@@ -24,7 +24,7 @@ import { changeContactDate, moveContactWithinDay } from "./contact-rescheduling"
 import { fingerprintOf } from "./fingerprint";
 import { applyHospitalStatusEvent, applyWithdrawalRequest, sendableContacts } from "./hospital-events";
 import { contactId } from "./ids";
-import type { ActorId, ContactId, PathwayVersionId, PlanId, TeamId } from "./ids";
+import type { ActorId, ContactId, PathwayVersionId, PlanId, ReferralId, TeamId } from "./ids";
 import { DISPATCHED_CONTACT_STATES, applyContactTransition, applyPlanTransition, planSendingHold } from "./model";
 import type { Contact, ContactAction, ContactState, Plan, Referral, TransitionResult } from "./model";
 import { defaultNotificationPreferences, type NotificationPreferences } from "./notification-preferences";
@@ -70,6 +70,7 @@ import {
   type CreatePlanInput,
   type CreateReferralInput,
   type DispatchRecord,
+  type ReferralIntakePayload,
   type HospitalStatusInput,
   type HospitalStatusOutcome,
   type PathwayVersionTransitionInput,
@@ -86,7 +87,7 @@ import {
   type WriteContext,
 } from "./repository";
 import type { PlanAssuranceAttestation } from "./assurances";
-import type { Episode } from "./episode";
+import { ValidationError, type Episode } from "./episode";
 import { buildApprovedSchedule, type PlannedContact } from "./schedule";
 
 type StagedWrite<T> = {
@@ -258,6 +259,8 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
   // 1-9 built, and delegates every transition to the module that owns the rule; nothing here
   // re-derives a decision one of those modules already makes.
   const referrals = new Map<string, Referral>();
+  /** H-44 intake clinical payload keyed by referral id; absent when createReferral omitted it. */
+  const referralIntakePayloads = new Map<string, ReferralIntakePayload>();
   const pathwayVersions = new Map<string, PathwayVersion>();
   const assignments = new Map<string, PlanAssignment>();
   const dispatches = new Map<string, DispatchRecord>();
@@ -535,7 +538,9 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       const name =
         input?.patientDetail?.patientName ?? (input as unknown as { patientName?: string })?.patientName ?? "";
       if (typeof name !== "string" || name.trim().length === 0) {
-        throw new Error("Validation error: patient name must not be blank");
+        throw new ValidationError(
+          "Validation error: patient name must not be blank: Patient name cannot be blank or whitespace",
+        );
       }
       return runWrite<PlanRecord>({
         method: "createPlan",
@@ -864,9 +869,21 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
             state: "awaitingHandover",
             pathwayVersionId: null,
           };
+          const intakePayload = input.intakePayload ?? null;
           return {
             ok: true,
-            value: { value: { ...referral }, commit: () => referrals.set(input.referralId, referral) },
+            value: {
+              value: { ...referral },
+              commit: () => {
+                referrals.set(input.referralId, referral);
+                if (intakePayload) {
+                  referralIntakePayloads.set(input.referralId, {
+                    ...intakePayload,
+                    safetyAlerts: [...intakePayload.safetyAlerts],
+                  });
+                }
+              },
+            },
           };
         },
       });
@@ -911,6 +928,16 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
       return [...referrals.values()]
         .filter((referral) => mayRead(context.actor, READ_ACTIONS.referral, referral.teamId))
         .map((referral) => ({ ...referral }));
+    },
+
+    async getReferralIntakePayload(referralId: ReferralId, context: ReadContext) {
+      const referral = referrals.get(referralId);
+      if (!referral || !mayRead(context.actor, READ_ACTIONS.referral, referral.teamId)) {
+        return null;
+      }
+      const payload = referralIntakePayloads.get(referralId);
+      if (!payload) return null;
+      return { ...payload, safetyAlerts: [...payload.safetyAlerts] };
     },
 
     // ---------------------------------------------------------------------
@@ -1389,6 +1416,10 @@ export function createInMemoryRepository(clock: Clock, options: RepositoryOption
                   const record = idempotency.get(key);
                   if (record) idempotency.set(key, { ...record, result: RETENTION_CLEARED_REPLAY_ANSWER });
                 }
+                // H-44 intake sidecar: name/mobile/clinicalSummary/safetyAlerts live on the referral
+                // outside the plan row. A clearance that left them would report the episode de-identified
+                // while getReferralIntakePayload still released full clinical PHI.
+                referralIntakePayloads.delete(stored.referralId);
                 retentionCleared.set(input.planId, { terminalAt: admitted.value, clearedAt });
               },
             },

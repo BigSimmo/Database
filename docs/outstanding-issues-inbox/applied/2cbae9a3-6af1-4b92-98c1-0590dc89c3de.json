@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2cbae9a3-6af1-4b92-98c1-0590dc89c3de",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#TJKFDR",
+    "outcome": "Published acquire.lock.json atomically via unique staging tempfile and linkSync in scripts/ward-flow/chat-control.mjs with retry window for EEXIST, eliminating the window where concurrent processes read a half-written lock file. Covered by serializes cross-role lease acquisition across processes in tests/ward-flow-chat-control.test.ts.",
+    "baseRowFingerprint": "92c4f7fada0956600402f51eba661fac3757bbfee38aa5d5e1c2d9de4bf96a2c"
+  }
+}

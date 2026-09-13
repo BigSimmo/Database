@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3d64d894-54a4-46a7-a601-80a9b1f5b730",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#Q6WD1M",
+    "outcome": "Added coordinator pull suitability refusal proof test in tests/ward-flow-reducer.test.ts asserting cohort-only refusal with 'failed gate cohort:' and successful override transition",
+    "baseRowFingerprint": "d822bd0ac35e0069de66a6b2bf5661251acdc32de306b9af5f6d27b79b379cf4"
+  }
+}

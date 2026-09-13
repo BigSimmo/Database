@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "eae6064f-474f-4d19-a9d2-4cd9a6cf65c8",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#TDKW4W",
+    "outcome": "Defined HospitalReferralAdapter interface, synthetic hospital feed, and manual clinical intake fallback route",
+    "baseRowFingerprint": "c5ebb9f5797b63d40f15ea74a953d4d2ecc7bd0b303f8b3a8a5193f1947ede09"
+  }
+}

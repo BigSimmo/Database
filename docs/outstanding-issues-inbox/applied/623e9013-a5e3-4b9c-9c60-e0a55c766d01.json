@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "623e9013-a5e3-4b9c-9c60-e0a55c766d01",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#V6CDEV",
+    "outcome": "Enforced non-blank patientName in both stores and added CHECK constraint check_patient_name_not_blank on caring_contacts.plans",
+    "baseRowFingerprint": "f2eb5a61b8a7a6a5255140358402d3812c25ff32710b4ceba7b713b1d1e64d4b"
+  }
+}

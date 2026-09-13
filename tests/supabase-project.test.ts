@@ -136,4 +136,33 @@ describe("Supabase project guard", () => {
 
     expect(() => requireServerEnv()).toThrow(/Supabase project mismatch/);
   });
+
+  it("accepts an explicitly declared Caring Contacts project distinct from PsychSift", () => {
+    const caringRef = "caringcontactssydney"; // 20 chars
+    const check = checkSupabaseProjectConfig(
+      {
+        NEXT_PUBLIC_SUPABASE_URL: `https://${caringRef}.supabase.co`,
+        SUPABASE_PROJECT_REF: caringRef,
+        SUPABASE_PROJECT_NAME: "Caring Contacts Australia",
+        SUPABASE_CARING_CONTACTS_PROJECT_REF: caringRef,
+        SUPABASE_CARING_CONTACTS_PROJECT_NAME: "Caring Contacts Australia",
+      },
+      { requireMetadata: true },
+    );
+
+    expect(check.status).toBe("ready");
+    expect(check.observed.environment).toBe("caring-contacts");
+    expect(check.expected.ref).toBe(caringRef);
+  });
+
+  it("rejects a Caring Contacts declaration that collides with PsychSift production", () => {
+    const check = checkSupabaseProjectConfig({
+      NEXT_PUBLIC_SUPABASE_URL: expectedSupabaseProject.url,
+      SUPABASE_CARING_CONTACTS_PROJECT_REF: expectedSupabaseProject.ref,
+      SUPABASE_CARING_CONTACTS_PROJECT_NAME: "Caring Contacts Australia",
+    });
+
+    expect(check.status).toBe("mismatch");
+    expect(check.problems.join(" ")).toContain("collides with the production");
+  });
 });

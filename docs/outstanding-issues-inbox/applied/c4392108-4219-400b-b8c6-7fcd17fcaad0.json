@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c4392108-4219-400b-b8c6-7fcd17fcaad0",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#Y183KM",
+    "outcome": "Reconciled src/lib/supabase/database.types.ts with supabase/schema.sql by adding missing assert_public_source_document_governance RPC, verified zero type escapes and clean typecheck",
+    "baseRowFingerprint": "1b7929a384022951e1e6d01a1b1a98f367ce585cdc4ddcd2ae4c9ac39e6368fa"
+  }
+}

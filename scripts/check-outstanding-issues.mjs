@@ -290,6 +290,28 @@ export function issueRowFingerprint(markdown, issueId) {
 }
 
 /**
+ * Fingerprint the Resolved / archive row for `issueId` (#1BKK79).
+ * Allows optimistic verification when amending an outcome on an already-archived item.
+ */
+export function archiveRowFingerprint(markdown, issueId) {
+  const id = normalizeIssueDisplayId(issueId);
+  const legacy = id.match(/^#(\d+)$/);
+  const number = legacy ? Number(legacy[1]) : null;
+  if (legacy) {
+    if (!Number.isFinite(number)) return null;
+  } else if (!isIssueDisplayId(id)) {
+    return null;
+  }
+
+  const archive = parseIssues(markdown).rows.filter((entry) => entry.table === "archive" && entry.valid && entry.raw);
+  const row =
+    archive.find((entry) => entry.id === id) ?? (legacy ? archive.find((entry) => entry.number === number) : null);
+  if (!row) return null;
+  const normalized = `| ${cells(row.raw).join(" | ")} |`;
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+/**
  * Fingerprint the recommended-execution-queue row that cites `issueId`.
  *
  * The queue is a second table about the same issues, and until ledger #M6JNR8

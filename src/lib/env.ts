@@ -54,6 +54,13 @@ const envSchema = z.object({
   // production. See docs/staging-setup.md and src/lib/supabase/project.ts.
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_REF: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_NAME: z.string().optional(),
+  CARING_CONTACTS_DEMO_ENABLED: z.enum(["true", "false"]).optional(),
+  CARING_CONTACTS_SESSION_HMAC_SECRET: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_HMAC_SECRET: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: z.preprocess(
     coerceBlankEnv,
@@ -215,6 +222,11 @@ const envSchema = z.object({
   RAG_PROGRAMME_MODE: z.enum(["legacy", "shadow", "canary"]).default("legacy"),
   RAG_PROGRAMME_CANARY_BASIS_POINTS: z.coerce.number().int().min(0).max(10000).default(0),
   RAG_PROGRAMME_ROLLOUT_SALT: z.preprocess(coerceBlankEnv, z.string().min(32).optional()),
+  // Corpus retrieval activation is independent of adaptive answer generation/rendering.
+  RAG_GOVERNED_RETRIEVAL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   RAG_SITE_CONTENT_ENABLED: z
     .enum(["true", "false"])
     .default("false")
@@ -381,6 +393,7 @@ function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
   const mode = environment.RAG_PROGRAMME_MODE ?? "legacy";
   const percentage = environment.RAG_PROGRAMME_CANARY_BASIS_POINTS;
   const flags = [
+    "RAG_GOVERNED_RETRIEVAL_ENABLED",
     "RAG_SITE_CONTENT_ENABLED",
     "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
     "RAG_ADAPTIVE_ANSWER_ENABLED",
@@ -402,6 +415,7 @@ function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
     RAG_PROGRAMME_MODE: "legacy",
     RAG_PROGRAMME_CANARY_BASIS_POINTS: "0",
     RAG_PROGRAMME_ROLLOUT_SALT: undefined,
+    RAG_GOVERNED_RETRIEVAL_ENABLED: "false",
     RAG_SITE_CONTENT_ENABLED: "false",
     RAG_AUSTRALIAN_AUGMENTATION_ENABLED: "false",
     RAG_ADAPTIVE_ANSWER_ENABLED: "false",

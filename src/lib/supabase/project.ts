@@ -30,6 +30,12 @@ export type SupabaseProjectConfig = {
   // footgun this guard exists to prevent). See docs/staging-setup.md.
   SUPABASE_STAGING_PROJECT_REF?: string | null;
   SUPABASE_STAGING_PROJECT_NAME?: string | null;
+  // Dedicated Caring Contacts sovereign Sydney project. Distinct from PsychSift
+  // production and from staging; both vars required. Separation from the
+  // clinical KB remains enforced by assertNotClinicalKbProject on the Caring
+  // Contacts database URL.
+  SUPABASE_CARING_CONTACTS_PROJECT_REF?: string | null;
+  SUPABASE_CARING_CONTACTS_PROJECT_NAME?: string | null;
 };
 
 export type SupabaseProjectCheckStatus = "ready" | "missing" | "mismatch" | "warning";
@@ -46,7 +52,7 @@ export type SupabaseProjectCheck = {
     urlRef: string | null;
     configuredRef: string | null;
     configuredName: string | null;
-    environment: "production" | "staging";
+    environment: "production" | "staging" | "caring-contacts";
   };
   staleProject: (typeof staleSupabaseProjects)[number] | null;
   problems: string[];
@@ -116,6 +122,51 @@ function resolveStagingProject(config: SupabaseProjectConfig): {
   };
 }
 
+/**
+ * Resolve an optional Caring Contacts sovereign project declared via env.
+ * Same fail-loud partial-declaration rules as staging; must not collide with
+ * PsychSift production, stale refs, or an explicitly declared staging ref.
+ */
+function resolveCaringContactsProject(config: SupabaseProjectConfig): {
+  project: ExpectedSupabaseProject | null;
+  problem: string | null;
+} {
+  const ref = trimmed(config.SUPABASE_CARING_CONTACTS_PROJECT_REF);
+  const name = trimmed(config.SUPABASE_CARING_CONTACTS_PROJECT_NAME);
+  if (!ref && !name) return { project: null, problem: null };
+  if (!ref || !name) {
+    return {
+      project: null,
+      problem:
+        "Set BOTH SUPABASE_CARING_CONTACTS_PROJECT_REF and SUPABASE_CARING_CONTACTS_PROJECT_NAME to enable the Caring Contacts project.",
+    };
+  }
+  if (!/^[a-z0-9]{20}$/.test(ref)) {
+    return {
+      project: null,
+      problem: `SUPABASE_CARING_CONTACTS_PROJECT_REF "${ref}" is not a valid Supabase ref.`,
+    };
+  }
+  if (reservedProjectRefs.has(ref)) {
+    return {
+      project: null,
+      problem: `SUPABASE_CARING_CONTACTS_PROJECT_REF ${ref} collides with the production/stale project; Caring Contacts must be a distinct project.`,
+    };
+  }
+  const stagingRef = trimmed(config.SUPABASE_STAGING_PROJECT_REF);
+  if (stagingRef && stagingRef === ref) {
+    return {
+      project: null,
+      problem:
+        "SUPABASE_CARING_CONTACTS_PROJECT_REF collides with SUPABASE_STAGING_PROJECT_REF; Caring Contacts must be a distinct accepted identity.",
+    };
+  }
+  return {
+    project: { name, ref, url: `https://${ref}.supabase.co`, region: "ap-southeast-2" },
+    problem: null,
+  };
+}
+
 export function checkSupabaseProjectConfig(
   config: SupabaseProjectConfig,
   options: SupabaseProjectCheckOptions = {},
@@ -130,15 +181,23 @@ export function checkSupabaseProjectConfig(
   const warnings: string[] = [];
 
   const { project: stagingProject, problem: stagingProblem } = resolveStagingProject(config);
-  // Pick which accepted project this config is targeting. Staging is only
-  // matched when the observed ref equals the explicitly-declared staging ref;
-  // everything else resolves to production, so production behavior is
-  // unchanged when no staging project is declared.
-  const expected: ExpectedSupabaseProject =
-    stagingProject && observedRefs.includes(stagingProject.ref) ? stagingProject : expectedSupabaseProject;
-  const environment: "production" | "staging" = expected === stagingProject ? "staging" : "production";
+  const { project: caringContactsProject, problem: caringContactsProblem } = resolveCaringContactsProject(config);
+  // Pick which accepted project this config is targeting. Dedicated Caring
+  // Contacts and staging are only matched when the observed ref equals the
+  // explicitly-declared ref; everything else resolves to production, so
+  // production behavior is unchanged when neither alternate is declared.
+  let expected: ExpectedSupabaseProject = expectedSupabaseProject;
+  let environment: "production" | "staging" | "caring-contacts" = "production";
+  if (caringContactsProject && observedRefs.includes(caringContactsProject.ref)) {
+    expected = caringContactsProject;
+    environment = "caring-contacts";
+  } else if (stagingProject && observedRefs.includes(stagingProject.ref)) {
+    expected = stagingProject;
+    environment = "staging";
+  }
 
   if (stagingProblem) problems.push(stagingProblem);
+  if (caringContactsProblem) problems.push(caringContactsProblem);
 
   if (!url) {
     return {

@@ -66,6 +66,42 @@ function answer(text: string, sources: SearchResult[], citations = sources.map((
 }
 
 describe("deterministic claim support", () => {
+  it("supports a complete numbered clinical action across a PDF wrap", () => {
+    const evidence = source(
+      "wrapped-numbered-assessment",
+      "2. MO to check the serum lithium level (note time of last dose) and renal function as\nsoon as possible from the time of escalation.\n3. Notify the treating team.",
+      { title: "Lithium clinical guideline" },
+    );
+    expect(
+      sourceDirectlySupportsAnswerText(
+        "MO to check the serum lithium level (note time of last dose) and renal function as soon as possible from the time of escalation.",
+        evidence,
+      ),
+    ).toBe(true);
+    expect(reflowBoundedSourceLines(evidence.content, { requireContinuationStart: true })).toEqual([
+      "2. MO to check the serum lithium level (note time of last dose) and renal function as soon as possible from the time of escalation.",
+      "3. Notify the treating team.",
+    ]);
+  });
+
+  it.each(["\n\n", "\n3. ", "\n• "])(
+    "does not join a numbered clinical action across a semantic boundary: %j",
+    (boundary) => {
+      const blocks = reflowBoundedSourceLines(`2. Check the lithium level${boundary}repeat after 12 hours.`, {
+        requireContinuationStart: true,
+      });
+      expect(blocks.some((block) => /Check the lithium level.*repeat after 12 hours/.test(block))).toBe(false);
+    },
+  );
+
+  it("keeps numbered topic headings separate even when they name an action", () => {
+    expect(
+      reflowBoundedSourceLines("2. Safety check\nrepeat after 12 hours.", {
+        requireContinuationStart: true,
+      }),
+    ).toEqual(["2. Safety check", "repeat after 12 hours."]);
+  });
+
   describe("A2 R4 preservation boundaries", () => {
     it.each([
       ["INR 2.0", "The INR is 2.0.", true],

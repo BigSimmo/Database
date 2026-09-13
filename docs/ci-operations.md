@@ -26,7 +26,9 @@ Keying each base-branch push on `github.run_id` eliminates the queue eviction de
 2. **Runner Minute Profile:** Concurrent runs on `main` do not create queuing bottlenecks across the repository fleet; each merge candidate receives complete, isolated validation.
 3. **Safety Assertions:** Contract assertions in `tests/ci-cache-safety.test.ts` pin that base-branch pushes never cancel in-flight runs and retain the per-run concurrency group.
 
-## Merge Queue Adoption and Behind-Branch Race Mitigation (#WE5G2C)
+## Branch Protection & Concurrency (#WE5G2C)
+
+GitHub Merge Queue is the recommended architectural solution to eliminate behind-branch cancellation races during high merge frequency.
 
 High-throughput merge bursts frequently trigger the **behind-branch race condition**:
 
@@ -65,6 +67,22 @@ To safely adopt GitHub Merge Queue for `main`:
    - **Minimum Batch Size:** Set to 1 for latency-sensitive merges during regular development.
    - **Merge Method:** Pinned to Squash and Merge to align with the repository's single-parent commit history discipline.
 4. **Non-Reentrant Workflow Operations:** Workflows that perform branch-specific operations (e.g. branch cleanup or bot synchronization) must remain excluded from `merge_group` runs.
+
+## CodeRabbit Review (#3F76JZ)
+
+Automatic reviews require at least 10 repository stars on GitHub, not additional budget spend:
+
+- **Eligibility Requirement:** As verified on PRs #2522 and #2542, CodeRabbit reports: _"This repository does not receive automatic reviews because it has fewer than 10 stars"_ (`Plan: Team`, repository star count: 0).
+- **Not a Spending Cap Issue:** This is a categorical repository eligibility requirement, not a credit exhaustion or spending cap issue.
+- **Operational Guidance:** Sessions should not treat a missing CodeRabbit review as a budget symptom. Do not undraft PRs solely in an attempt to trigger review, as draft status is skipped by CodeRabbit outright and undrafting mid-CI unnecessarily escalates workflows to the full heavy test set.
+
+## Scheduled Workflows (#QSHHGK)
+
+Scheduled automation runs on off-peak schedules to maintain repository baseline freshness:
+
+- **Weekly Baseline Refresh:** `.github/workflows/bundle-budget-refresh.yml` runs weekly on Wednesdays at 04:40 UTC to prevent baseline staleness.
+- **Early Visibility:** By executing cold builds (`check-bundle-budget.mjs --refresh-baseline`) and reporting metrics into a rolling GitHub issue, accumulated bundle growth from merged PRs is surfaced before crossing the 10% failure threshold.
+- **Report-Only Invariant:** The workflow never auto-commits or pushes changes; baseline refreshes remain explicit, reviewed human pull requests.
 
 ## Operational Invariants (#055, #0H0S89, #6GW95D)
 
