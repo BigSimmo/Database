@@ -1,103 +1,104 @@
-# Agents Guide
+# Agent onboarding and task navigator
 
-Short onboarding pointer. The authoritative, always-current rules for agents
-working in this repository live in the root [`AGENTS.md`](../AGENTS.md) —
-verification gates, provider confirmation boundaries, Supabase project safety,
-review routing, and workflow shortcuts. This page only orients you; it does not
-duplicate those rules, so it cannot drift from them.
+Use this page to find the right instructions for the task. The repository's working
+rules live in [AGENTS.md](../AGENTS.md) and the named references below, within the
+instruction hierarchy. This guide provides navigation; it is not a second copy of
+provider permissions, review-bot rules or verification requirements.
 
-## Read in this order
+## Choose the task first
 
-1. [`AGENTS.md`](../AGENTS.md) — agent rules, verification gates, shortcuts
-   (`upload`, `dependency`, `bug-hunter`), and safety boundaries. It is a small
-   always-loaded core plus an index; the full text of most rules lives in a named
-   file under [`docs/agents/`](agents/), which the core points to by path.
-2. [`docs/codebase-index.md`](codebase-index.md) — architecture and module map.
-3. [`docs/README.md`](README.md) — index of all runbooks, governance docs, and
-   plans, with maintained vs historical classification.
-4. [`docs/site-map.md`](site-map.md) — generated route map.
+| Working on                                                  | Start with                                                               | Important distinction                                                                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| PsychSift: clinical knowledge, documents, search or answers | [Repository setup](../README.md) and [codebase index](codebase-index.md) | Provider access and production effects have explicit boundaries. A local/offline result does not establish hosted behaviour. |
+| General tooling, documentation or repository maintenance    | [AGENTS.md](../AGENTS.md), then the applicable reference below           | Start with inspection. A documentation task does not require an app server or broad application tests.                       |
 
-## Human quickstart
+A branch name, old handoff or successful command alone does not establish that this
+is the intended checkout. Verify identity and ownership before writing. Active plans
+and acceptance evidence belong to their current task; historical reports are leads.
 
-- Node 24.x / npm 11.x are hard requirements (`engine-strict`); the app is
-  Next.js 16 + Supabase + OpenAI.
-- Copy `.env.example` to `.env.local` and fill in values (never commit
-  secrets). Without Supabase/OpenAI values the app runs in demo mode on a
-  synthetic corpus.
-- `npm run ensure` starts or verifies the dev server on a stable
-  project-specific port (never assume `localhost:3000`).
-- `npm run worker` runs the local ingestion worker in a second terminal.
-- When adding environment variables, update the schema in `src/lib/env.ts` and
-  document them in `.env.example`.
-- Before handing off changes: `npm run verify:cheap` first, then
-  `npm run verify:pr-local` when the change is PR-ready (see
-  [`docs/process-hardening.md`](process-hardening.md) for the full
-  verification pyramid).
+## Find the instructions for the job
 
-## AI tooling map
+| Task or concern                                              | Authoritative reference                                                                                                                                                                                                         |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Select verification, reuse evidence, choose browser coverage | [Verification gates](../AGENTS.md#process-hardening-phases)                                                                                                                                                                     |
+| Start or prepare a Windows Desktop worktree                  | [Desktop worktree setup](agents/codex-desktop-worktree-setup.md)                                                                                                                                                                |
+| Use the dependency shortcut                                  | [Dependency workflow](agents/codex-dependency-shortcut.md)                                                                                                                                                                      |
+| Work in Codex Cloud                                          | [Cloud environment](agents/codex-cloud-environment.md) and [setup contract](codex-cloud.md)                                                                                                                                     |
+| Work in Cursor Cloud                                         | [Cursor Cloud](agents/cursor-cloud.md)                                                                                                                                                                                          |
+| Apply repository productivity defaults                       | [Productivity defaults](agents/codex-productivity-defaults.md)                                                                                                                                                                  |
+| Choose a skill or handle outstanding work                    | [Skills and issue ledger](../AGENTS.md#repository-productivity-skills), [.agents overview](../.agents/README.md)                                                                                                                |
+| Review, maintain or publish a pull request                   | [Bare publication](../AGENTS.md#bare-pr-publication-is-not-readiness-work), [Run PR](../AGENTS.md#run-pr-shortcut) and [PR follow-through](../AGENTS.md#babysit-the-pull-request-then-stop), using the exact requested workflow |
+| Resolve review ownership, routing or throttling              | [Review routing](agents/codex-review-throttling.md) and [GitHub review behaviour](agents/codex-github-review.md)                                                                                                                |
+| Use the upload shortcut                                      | [Upload workflow](../AGENTS.md#upload-shortcut)                                                                                                                                                                                 |
+| Investigate a defect                                         | [Bug-hunter shortcut](../AGENTS.md#bug-hunter-shortcut)                                                                                                                                                                         |
+| Change routes, controls or bundle-sensitive UI               | [Wiring and bundle budget](../AGENTS.md#page-and-button-wiring)                                                                                                                                                                 |
+| Apply external skills or report evidence                     | [Skill precedence and evidence](../AGENTS.md#external-skill-precedence)                                                                                                                                                         |
+| Remove apparently unused code                                | [Code deletion safeguards](../AGENTS.md#deleting-code-you-believe-is-dead)                                                                                                                                                      |
+| Handle outstanding work                                      | [Issue-ledger ownership](../AGENTS.md#outstanding-work-memory-issues)                                                                                                                                                           |
+| Change Claude Code hooks                                     | [Hook contract](../AGENTS.md#claude-code-hook-scripts)                                                                                                                                                                          |
+| Select a supported reasoning route                           | [Reasoning calibration](agents/codex-reasoning-effort.md)                                                                                                                                                                       |
 
-This repo intentionally uses several AI systems; the overlap is by design, not
-accident. [`AGENTS.md`](../AGENTS.md) is the single source of truth — every system
-below defers to it, so rules live in one place and cannot drift.
+Read only the references the task needs. Required specialist guidance still applies;
+this navigator does not make every linked procedure a mandatory startup step.
 
-| System                    | Owns                                                       | Where it is configured                                                                                                                                                                                                          |
-| ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AGENTS.md** (canonical) | All agent rules, gates, safety boundaries                  | `AGENTS.md` — the always-loaded core plus an index of `docs/agents/**`, where the full text of the delegated rules lives; `CLAUDE.md` imports it with `@AGENTS.md` and adds orientation only — never a second copy of the rules |
-| **Codex** (OpenAI)        | Primary PR code-review + automatic resolve                 | AGENTS.md "Codex review" sections, `docs/codex-review-protocol.md`, `docs/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml`                                                                      |
-| **Claude Code**           | Interactive dev; scoped review subagents + workflow skills | `.claude/` (agents, skills, hooks), `.github/workflows/claude.yml`                                                                                                                                                              |
-| **Cursor**                | Editor skills + project MCP (Supabase, Context7, …)        | `.cursor/` (skills, `mcp.json`)                                                                                                                                                                                                 |
-| **Railway MCP**           | Desktop/CLI template; hosted app is separate               | Root `.mcp.json` / `.codex/config.toml` use `https://mcp.railway.com` with OAuth; hosted ChatGPT/Codex requires a workspace-installed app                                                                                       |
-| **CodeRabbit**            | Advisory PR review (never blocking)                        | `.coderabbit.yaml` (`commit_status: false`)                                                                                                                                                                                     |
-| **`.agents/`**            | Home-grown skill catalogue                                 | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                                                                                                       |
+## Start safely and verify proportionately
 
-Rule of thumb: change agent behaviour in `AGENTS.md` — or in the `docs/agents/` file its core
-points to for that rule — then let each system inherit it. A rule has exactly one home; do not
-answer a drift report by adding a second copy somewhere more convenient.
-Do not add a new AI system or grow the skill count without retiring something — the
-breadth is already a maintenance cost for a single maintainer. Prefer **≤5 active MCP
-servers** per session (tool-schema token bloat degrades agents).
+1. Read the relevant task entry point and applicable instructions; establish
+   branch, current changes and ownership. Preserve concurrent and uncommitted work.
+2. Use the platform-specific setup contract if dependencies are actually needed.
+   Runtime requirements come from the manifests and lockfile. Do not run the Cloud
+   provisioner on Windows or reinstall dependencies merely to edit documentation.
+3. When the task needs the running app, use `npm run ensure` and its printed URL.
+   Follow the project-identity requirement. Do not assume a port or start the worker
+   as a generic onboarding step: inspect its provider and data effects first.
+   When adding environment variables, update the schema in `src/lib/env.ts` and
+   document them in `.env.example`; never commit credentials.
+4. Select proof using [verification gates](../AGENTS.md#process-hardening-phases). Do not
+   automatically stack `verify:cheap` and `verify:pr-local`, and preserve the separate
+   bare-publication route when that is what the user requested.
+5. Report what was actually inspected or executed, the exact relevant result and
+   any blocked or unrun acceptance. Keep local, hosted and physical-device evidence
+   distinct. Commit or publish only within the user's actual authority.
 
-## MCP default read path (ops / docs)
+## Tooling and documentation ownership
 
-Use registered MCPs before opening dashboards when the task is read-only inspection.
-Writes, secret rotations, and hosted mutations stay confirmation-gated per `AGENTS.md`.
+<!-- Named map retained for CLAUDE.md orientation (“AI tooling map”). -->
 
-| Server                      | Config                                                                                                                                                                        | Use for                                                                                                                                                                            | Do not                                                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Supabase** (read-only)    | `.cursor/mcp.json` — pinned `project_ref=sjrfecxgysukkwxsowpy`, `read_only=true`                                                                                              | `search_docs`, advisors, read SQL, schema inspection                                                                                                                               | Print secret values; raw-edit retrieval RPCs via `execute_sql`; Auth DB connection-cap (`#011`) — **dashboard only**                             |
-| **Railway**                 | Desktop/CLI: root `.mcp.json` / `.codex/config.toml` (`railway` + OAuth). Hosted ChatGPT/Codex: workspace-installed app only — repository MCP files are not a read path there | Deploy status, service logs, env **names**/presence (Desktop/CLI MCP or hosted app tools)                                                                                          | Treat root `.mcp.json` as hosted proof; confuse `RAILWAY_API_TOKEN` (personal) with CI `RAILWAY_TOKEN`; mutate without approval                  |
-| **Context7**                | `.cursor/mcp.json` → `npx -y @upstash/context7-mcp@3.2.5` (+ Cursor `context7-plugin`)                                                                                        | Versioned docs for **Tailwind 4, Zod 4, Playwright, Vitest, React 19, `@supabase/supabase-js`** (peers; not exhaustive). Local stdio reads `CONTEXT7_API_KEY` from env (see below) | Next.js 16 — always use `node_modules/next/dist/docs/` (AGENTS.md). Do not invent App Router APIs from training data; never commit the API key   |
-| **Chrome DevTools**         | `.cursor/mcp.json` → `npx -y chrome-devtools-mcp@1.6.0`                                                                                                                       | CLS/LCP/console/network while implementing redesigns (`#147`, `#162`–`#164`, Therapy Compass)                                                                                      | Don't leave it always-on with Browse + Playwright MCP (token bloat). Use for perf/debug passes                                                   |
-| **Figma**                   | Cursor Figma plugin + `.cursor/mcp.json` → `https://mcp.figma.com/mcp` (OAuth); Codex Desktop/CLI template in `.codex/config.toml` stays disabled unless locally opted in     | Desktop Cursor: capture live UI, read/write frames, Make context, Code Connect                                                                                                     | Cursor Cloud Agents do not inherit Desktop OAuth. Treat Make as exploration; product truth is `docs/design-system/` + gates; keep ≤5 active MCPs |
-| **GitHub Checks / Actions** | Operator approval pending                                                                                                                                                     | PR check visibility when `gh pr checks` returns empty totals                                                                                                                       | Bot `update-branch`; broaden scopes beyond Checks/Actions read                                                                                   |
+**AI tooling map** (system → configuration ownership):
 
-### Context7 API key (optional)
-
-1. Create a free key at [context7.com/dashboard](https://context7.com/dashboard) (`ctx7sk…`).
-2. **Project MCP (checked-in):** `.cursor/mcp.json` runs pinned local
-   `@upstash/context7-mcp@3.2.5` with `env.CONTEXT7_API_KEY: ${env:CONTEXT7_API_KEY}` so the
-   stdio child receives the key when Cursor expands it (Cursor filters inherited env for MCP
-   children — the explicit `env` pass-through is required). Set the key as a **user/OS env var**
-   or in Cursor **Settings → MCP → context7**.
-3. **Cursor Cloud Agent Secrets:** inject `CONTEXT7_API_KEY` into the agent shell
-   `process.env`. That authenticates **local** Context7 (`npx @upstash/context7-mcp` /
-   `npx ctx7`) and project stdio MCP after reload. It does **not** authenticate a separate
-   **host-injected** Context7 connector — measured 2026-08-05: host `resolve-library-id`
-   still returned monthly quota exceeded while the same key worked for `npx ctx7 library …`.
-   If host MCP is quota-blocked, use `npx ctx7 library|docs …` (or the project local MCP
-   after reload) — do not invent APIs from training data.
-4. **Does not expand project MCP `${env:}`:** `.env.local` alone (Next app / env.ts path).
-5. **Reload MCP servers after key changes.** The stdio child captures env at spawn time — setting
-   or rotating `CONTEXT7_API_KEY` has no effect until you reload MCP (or restart Cursor).
-6. **Keyless / lower rate limits:** when `CONTEXT7_API_KEY` is unset, Cursor expands
-   `${env:CONTEXT7_API_KEY}` to an empty string and the server runs anonymously. If MCP logs
-   ever show the literal placeholder `${env:CONTEXT7_API_KEY}` as the key value, remove the
-   `env` object from the `context7` entry (anonymous) or set a real key, then reload MCP.
-7. Prefer `resolve-library-id` → `query-docs` when the authenticated MCP path is available;
-   otherwise `npx ctx7`. Avoid raw `curl` with keys in chat logs unless debugging.
-
-Never paste credential values into chat, issues, or commits. Prefer presence/length checks
-(`check:local-presence`) over dumping env contents.
+- Root [AGENTS.md](../AGENTS.md) and its references carry repository instructions.
+  [CLAUDE.md](../CLAUDE.md) provides platform orientation. Global personal preferences
+  belong outside the repository; do not copy private configuration into these docs.
+- [.agents/skills/catalog.json](../.agents/skills/catalog.json) defines canonical
+  repository skills. `npm run skills` lists them; `npm run check:skills` checks the
+  supported surfaces. Aliases are not additional skills.
+- Tool availability and authentication depend on the current host and session.
+  Repository configuration describes intended integration, not proof that an MCP,
+  OAuth session or hosted connector is callable. Use the relevant Cloud/setup and
+  provider guidance before accessing services; do not copy token or endpoint tables
+  here as another operational authority.
+- For authorised read-only inspection, prefer available registered MCPs before
+  dashboards, subject to the exceptions below. Keep Supabase MCP read-only and
+  never raw-edit retrieval RPCs via `execute_sql`. Keep GitHub Checks/Actions
+  inspection within the approved read scope; do not broaden permissions.
+- Preserve the Supabase Auth database connection-cap constraint (`#011`): use the
+  dashboard for an authorised change, not a raw SQL or MCP workaround. See the
+  [connection-cap runbook](auth-connection-cap-runbook.md).
+- For peer-library documentation and the existing Context7 setup, see
+  [the platform guide](agents/cursor-cloud.md#context7-setup-and-peer-library-documentation).
+  Next.js APIs use the bundled version's documentation as required by AGENTS.md.
+- Preserve the existing maintenance constraint: do not add another AI system or
+  grow the skill count without retiring something. Prefer at most five active MCP
+  servers per session; avoid loading redundant tool surfaces. Explicit user
+  directions and the governing instruction hierarchy still control.
+- Figma Make is exploration; [the design system](design-system/README.md) and
+  its gates remain product design authority. Cursor Cloud does not inherit Desktop
+  OAuth. Use Chrome DevTools for relevant performance/debugging work without
+  leaving redundant browser MCP servers active.
+- [The documentation index](README.md) distinguishes maintained instructions,
+  generated views and historical evidence. Correct the maintained source and its
+  necessary references; do not rewrite historical reports to make old results look
+  current. Generated artifacts must follow their documented generator.
 
 ## Auto-fixer governance and deduplication (#JZM7RM)
 
