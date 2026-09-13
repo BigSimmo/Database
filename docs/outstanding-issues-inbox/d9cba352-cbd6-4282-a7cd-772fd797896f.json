@@ -2,10 +2,11 @@
   "version": 2,
   "id": "d9cba352-cbd6-4282-a7cd-772fd797896f",
   "createdOn": "2026-09-13",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#SBKXZ7",
-    "outcome": "Early clinician sign-off approved while preserving visual needs_review badges, warning notices, and governed review tooling (npm run therapy:review) intact for qualified clinicians. Review record retained in Developer Hub Review Ledger.",
+    "detail": "PROGRESS 2026-09-13: Owner-approved early clinical governance sign-off recorded in Developer Hub Review Ledger while preserving needs_review badges, warning notices, and npm run therapy:review. Do NOT close #SBKXZ7: therapy review still reports 205/205 needs_review and this PR changes no governed therapy attestations. Keep the tracking row open for the outstanding qualified-clinician judgements.",
+    "source": "PR #2784 Codex review: early sign-off is not completion of therapy review (205/205 needs_review)",
     "baseRowFingerprint": "2377f22cf9f28e813f4f25e621ceb28e0c3c47d1aea3440ceaf8ee9bc0b304aa"
   }
 }

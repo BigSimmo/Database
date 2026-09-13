@@ -2,10 +2,11 @@
   "version": 2,
   "id": "74c10f9d-bf85-4fb9-a5c9-b20f7ebed2e8",
   "createdOn": "2026-09-13",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#018",
-    "outcome": "Residuals formally split by mechanism: Lithium toxicity/range monitoring verified and resolved on main; metabolic monitoring isolated to dedicated issue #J8SJQ9; ADHD monitoring separated as independent evaluation debt. Review record retained in Developer Hub Review Ledger.",
+    "detail": "PROGRESS 2026-09-13: Mechanism split documented (Lithium residuals resolved on main; metabolic monitoring isolated to #J8SJQ9; ADHD monitoring identified as independent evaluation debt). Do NOT close #018 until the ADHD corpus debt has its own tracked successor issue (no separate ADHD/CAMHS issue found yet). Keep #018 open as the durable ADHD debt tracker.",
+    "source": "PR #2784 Codex review: ADHD residual must remain tracked; no successor issue exists yet",
     "baseRowFingerprint": "f3d82a2e8be078c931835d97791164a0bcdf8be11a2ae1846b6cef9ea65cf1c0"
   }
 }

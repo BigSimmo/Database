@@ -2,10 +2,11 @@
   "version": 2,
   "id": "de66e30d-0f49-451e-b6dd-f6c59b1a46d0",
   "createdOn": "2026-09-13",
-  "action": "done",
+  "action": "update",
   "payload": {
     "id": "#Z3GZ5P",
-    "outcome": "Early sign-off completed for Tranche 1 (71 source-verified specifier items); Specifiers catalogue and guided builder formally bound to aide-memoire reference policy (not automated decision support); option-level ReviewStatusBadge retained. Review record retained in Developer Hub Review Ledger.",
+    "detail": "PROGRESS 2026-09-13: Early governance note + aide-memoire policy binding recorded in Developer Hub Review Ledger; option-level ReviewStatusBadge retained. Do NOT close #Z3GZ5P: data/specifiers-content.json items remain clinician-review-pending (no genuine tranche attestations written into review fields). Keep open until real specifier review progress is recorded.",
+    "source": "PR #2784 Codex review: claimed Tranche 1 close is premature while all items remain clinician-review-pending",
     "baseRowFingerprint": "f32096dc941e3941479cf4ce99c50ad891914a8a6abf4400120ccd9ce769553a"
   }
 }
