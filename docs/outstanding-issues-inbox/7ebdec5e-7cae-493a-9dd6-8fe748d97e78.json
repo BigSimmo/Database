@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ebdec5e-7cae-493a-9dd6-8fe748d97e78",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#4VKAA1",
+    "outcome": "Replaced bare foreign keys with composite (team_id, plan_id) and (team_id, contact_id) foreign keys in schema and migrations",
+    "baseRowFingerprint": "cca68cd35cc99daca07e72d033689618e31b02ccc0163a8985a1c3029e8c3b11"
+  }
+}
