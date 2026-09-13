@@ -24,6 +24,7 @@ import {
   PLAN_DRAFT_STORAGE_KEY,
   clearPlanDraft,
   emptyPlanDraft,
+  isPlanDraftDirty,
   planDraftIsHeld,
   planDraftSnapshot,
   planDraftStorageAvailable,
@@ -545,6 +546,82 @@ describe("what stage 4 adds to the draft (Phase 2B Task 9)", () => {
       }),
     );
     expect(readPlanDraft(REFERRAL), "a draft carrying an empty plan identifier was accepted").toBeNull();
+  });
+
+  describe("isPlanDraftDirty — distinguishes pristine defaults from in-progress clinical drafts", () => {
+    it("reports pristine/empty drafts as clean", () => {
+      expect(isPlanDraftDirty(null, REFERRAL, null)).toBe(false);
+      expect(isPlanDraftDirty(emptyPlanDraft(REFERRAL, null), REFERRAL, null)).toBe(false);
+      expect(isPlanDraftDirty(emptyPlanDraft(REFERRAL, "PATHWAY-1"), REFERRAL, "PATHWAY-1")).toBe(false);
+      // Different referral is not dirty for this referral
+      expect(isPlanDraftDirty(emptyPlanDraft(OTHER_REFERRAL, null), REFERRAL, null)).toBe(false);
+    });
+
+    it("reports modified drafts as dirty", () => {
+      const base = emptyPlanDraft(REFERRAL, null);
+
+      expect(isPlanDraftDirty({ ...base, stage: "pathway" }, REFERRAL, null)).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, assurances: { patientAgreed: true, mobileIsPatientControlled: false } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(isPlanDraftDirty({ ...base, pathwayVersionId: "CHANGED-PATHWAY" }, REFERRAL, null)).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, patientDetail: { ...base.patientDetail, patientName: "Jane Doe" } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty({ ...base, patientDetail: { ...base.patientDetail, preferredName: "Jane" } }, REFERRAL, null),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, patientDetail: { ...base.patientDetail, patientMobileNumber: "0400000000" } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, patientDetail: { ...base.patientDetail, patientIdentifiers: "ID-123" } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(isPlanDraftDirty({ ...base, sendingPreference: "morning" }, REFERRAL, null)).toBe(true);
+      expect(
+        isPlanDraftDirty({ ...base, activation: { ...base.activation, dischargeDay: "2026-03-10" } }, REFERRAL, null),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, activation: { ...base.activation, firstContactDay: "2026-03-11" } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, activation: { ...base.activation, firstContactReason: "Discharge follow-up" } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty({ ...base, decisions: { ...base.decisions, identityChecked: true } }, REFERRAL, null),
+      ).toBe(true);
+      expect(
+        isPlanDraftDirty(
+          { ...base, decisions: { ...base.decisions, preferenceGivenOnStaffedLine: true } },
+          REFERRAL,
+          null,
+        ),
+      ).toBe(true);
+    });
   });
 });
 

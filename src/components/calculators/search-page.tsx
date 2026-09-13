@@ -20,6 +20,7 @@ import {
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { ShowAllChip } from "@/components/show-all-chip";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { isTopmostSheet, popSheet, pushSheet } from "@/components/ui/sheet-focus";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
@@ -317,6 +318,8 @@ export function CalculatorsSearchPage({
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
   const activeFilterCount = selectedDomains.size + (progress === "all" ? 0 : 1) + (time === "all" ? 0 : 1);
 
+  const calculatorSheetId = useId();
+
   function openCalculator(calculatorId: string) {
     const calculator = calculatorRecordById(calculatorId);
     if (!calculator) return;
@@ -331,19 +334,21 @@ export function CalculatorsSearchPage({
 
   useEffect(() => {
     if (!activeCalc) return;
+    pushSheet(calculatorSheetId);
     const onKey = (event: KeyboardEvent) => {
+      if (!isTopmostSheet(calculatorSheetId)) return;
       if (event.key === "Escape") {
+        event.preventDefault();
         setOpenId(null);
         router.push(calculatorSearchHref(query));
       }
     };
     window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      popSheet(calculatorSheetId);
     };
-  }, [activeCalc, query, router]);
+  }, [activeCalc, calculatorSheetId, query, router]);
 
   function toggleDomain(domain: CalculatorDomain) {
     setSelectedDomains((current) => {

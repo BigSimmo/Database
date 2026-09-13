@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { SETTINGS_SECTIONS } from "@/components/clinical-dashboard/settings-sections";
 import { HUB_PANELS, panelsInGroup } from "@/lib/developer-area/hub-panels";
+import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 // Test files live outside `src/**`, so unlike `hub-panels.ts` itself they are
 // not bound by eslint.config.mjs's mockup-import boundary and may import this
 // constant freely — see the anti-drift assertion below.
@@ -42,12 +45,23 @@ describe("hub panels", () => {
     expect(clinicalTrust[0]).toMatchObject({ id: "clinical-trust", phase: 1, group: "clinical" });
   });
 
-  it("keeps the existing prototypes reachable as real destinations", () => {
-    for (const id of ["care-plan", "caring-contact", "ward-flow"]) {
+  it("keeps the existing prototypes and Caring Contacts workspace reachable as real destinations", () => {
+    for (const id of ["care-plan", "caring-contact", "caring-contacts-workspace", "ward-flow"]) {
       const panel = HUB_PANELS.find((entry) => entry.id === id);
       expect(panel?.phase, `${id} should be built`).toBe(1);
       expect(panel?.href, `${id} needs a destination`).toBeTruthy();
     }
+
+    // Prototypes stay out of the live Tools catalogue mockup tree. Caring Contacts keeps
+    // a catalogue card gated by isCaringContactsToolListed; Settings still offers Developer;
+    // /caring-contacts itself is not a developer-gated prefix (page + hub locks stay honest).
+    expect(toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/"))).toBe(false);
+    expect(toolCatalogRecords.some((tool) => tool.id === "caring-contacts")).toBe(true);
+    expect(SETTINGS_SECTIONS.some((section) => section.id === "development")).toBe(true);
+    expect(DEVELOPER_GATED_PATH_PREFIXES).not.toContain("/caring-contacts");
+
+    const workspaceLayout = readFileSync(join(process.cwd(), "src/app/caring-contacts/layout.tsx"), "utf8");
+    expect(workspaceLayout).not.toMatch(/<DeveloperAreaGate[\s>]/);
   });
 
   it("keeps the Care Plan href in sync with its route source", () => {
@@ -198,5 +212,13 @@ describe("the brand sheet the hub links to", () => {
       digest(served),
       "public/brand/preview.html has drifted from docs/brand/preview.html — copy the documented sheet over the served one so the Developer Hub link cannot show a retired mark",
     ).toBe(digest(documented));
+  });
+
+  it("hides caring-contacts-workspace from the hub when production workspace is locked off", () => {
+    const locked = panelsInGroup("reference", "production", {});
+    expect(locked.some((panel) => panel.id === "caring-contacts-workspace")).toBe(false);
+
+    const enabled = panelsInGroup("reference", "development", {});
+    expect(enabled.some((panel) => panel.id === "caring-contacts-workspace")).toBe(true);
   });
 });

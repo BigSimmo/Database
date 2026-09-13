@@ -4237,6 +4237,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/production-readiness.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/control/assignments/WF-BUILD2-001-COORDINATOR-REFERRAL-SURFACES.md",
         "section": "ward-flow",
         "catalogued": false
@@ -20579,6 +20584,14 @@
         "checks": "check:outstanding-issues; design-token-contract 31/31; merge-tree clean; pr-bugbot no comments"
       },
       {
+        "date": "2026-09-13",
+        "ref": "codex/clinical-governance-signoff",
+        "head": "aa5144be429faee1e44de63f0dfd4e7eb784e427",
+        "scope": "clinical catalogue governance sign-offs: #FYSQGK, #018, #Z3GZ5P, #SBKXZ7",
+        "outcome": "Early sign-off completed: (1) #FYSQGK 15 single-select group labels confirmed against DSM-5-TR with clinician override; (2) #018 lithium/ADHD/metabolic residuals formally split by mechanism; (3) #Z3GZ5P Tranche 1 71 specifiers signed off under aide-memoire policy; (4) #SBKXZ7 therapy records approved with visual needs_review badges preserved. Retained in Developer Hub Review Ledger for clinical content audit.",
+        "checks": "vitest tests/specifier-builder-diagnoses.test.ts tests/specifiers-content.test.ts tests/developer-review-state-page.dom.test.tsx; check:outstanding-issues; check:branch-review-ledger; check:ledger-write-discipline"
+      },
+      {
         "date": "2026-07-13",
         "ref": "origin/coderabbitai/docstrings/21f9540",
         "head": "aa58dd1f8ba40eff536ee61b13769ebb2418befc",
@@ -27753,6 +27766,14 @@
         "scope": "PR #1489 review+bugbot+fix+heavy",
         "outcome": "clean product delta; fixed generator missing-source/manifest errors + exact hash filename check; #117 Source += PR #1489; dispositioned CR ledger/#1514 nits as out-of-scope; Production UI reds on prior tip unrelated to therapy assets (doc-viewer smoke + services phone-scroll); main sync merge-tree clean; no P0-P2 product defects",
         "checks": "build-therapies-index --check: Therapy indexes are current (205 records); vitest therapy-compass 21/21; verify:cheap: 445 files / 4661 passed; verify:pr-local: Client bundle secret surface check passed + Offline RAG fixture validation passed (36 golden cases); format:check: All matched files use Prettier code style!; check:outstanding-issues passed; merge-tree origin/main clean"
+      },
+      {
+        "date": "2026-09-13",
+        "ref": "codex/rag-readiness-fix-20260913",
+        "head": "ff1ac7b934d3474b12ceea377ea9253caa0946d3",
+        "scope": "readiness materialized operational base schema security review",
+        "outcome": "Independent Astra High schema review: no blocking defects; statement-local materialization preserves canonical hashes, integrity predicates, ownership and ACLs. Local implementation accepted; no hosted recovery or clinical quality claim.",
+        "checks": "199 focused schema/drift/health tests PASS; migration-role and function-grants PASS; pinned127 pristine manifest replay20s PASS; complete original/candidate JSON equal (12.614s vs4.550-4.969s), idempotence, schema parity, four corruption cases and service-role ACL PASS from combined R1/R3 evidence. Production-readiness BLOCKED at unchanged privacy/legal gate; hosted and non-bootstrap performance unrun."
       },
       {
         "date": "2026-07-24",

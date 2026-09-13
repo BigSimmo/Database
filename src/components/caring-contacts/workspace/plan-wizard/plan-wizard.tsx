@@ -33,10 +33,12 @@ import { ExitOnlyOverlayTrigger } from "../overlays/exit-only-overlay-trigger";
 import type { WorkspaceOverlayCommit } from "../overlays/overlay-commits";
 import { WorkspaceOverlayTrigger } from "../overlays/overlay-trigger";
 import { UnavailableDestination } from "../unavailable-destination";
+import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import { wizardDecisionRefusal, type WizardDecisionState } from "./overlay-guards";
 import {
   clearPlanDraft,
   emptyPlanDraft,
+  isPlanDraftDirty,
   planDraftServerSnapshot,
   planDraftSnapshot,
   planDraftIsHeld,
@@ -521,6 +523,14 @@ export function PlanWizard({
       writePlanDraft(change(live), { expectedVersion: live.version });
     }
   }
+
+  // Keep the unload guard for sending / refused / created-not-started: those
+  // paths intentionally retain the draft, and dropping the beforeunload prompt
+  // would silently discard patient details on reload (review on #2789).
+  const isDirty =
+    !discarded && submissionState.status !== "created" && isPlanDraftDirty(draft, referralId, referralPathwayVersionId);
+
+  useDirtyStateGuard(isDirty);
 
   // RULING [120]: minted at the moment stage 4 is REACHED, not at the moment it is confirmed.
   //
