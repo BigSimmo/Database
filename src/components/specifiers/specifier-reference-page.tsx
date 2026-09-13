@@ -36,6 +36,7 @@ import {
   type SpecifierDefinitionStatus,
   type SpecifierSourceStatus,
 } from "@/lib/specifiers-content";
+import { SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE } from "@/lib/specifiers-governance";
 
 const definitionStatusLabel: Record<SpecifierDefinitionStatus, string> = {
   defined: "Generated clinical anchor",
@@ -173,7 +174,9 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
                 <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-2xs font-bold text-[color:var(--text-muted)]">
                   {item.groupLabel}
                 </span>
-                <ReviewStatusBadge status={item.review.sourceVerificationStatus} />
+                {SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE ? (
+                  <ReviewStatusBadge status={item.review.sourceVerificationStatus} />
+                ) : null}
                 <CategoryTag categoryId={item.categoryId} name={item.categoryName} />
                 <DiagnosisChips values={[item.disorderName]} />
               </>

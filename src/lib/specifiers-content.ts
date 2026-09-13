@@ -10,13 +10,27 @@
 // downstream. The rendering layers honour both.
 //
 // Governance policy (#Z3GZ5P): Specifiers mode is formally bound as an aide-memoire
-// reference only, not automated clinical decision support. Tranche 1 (71 source-verified
-// entries across mood and depressive categories) has received early sign-off; option-level
-// ReviewStatusBadge indicators remain displayed across builder and search surfaces.
+// reference only, not automated clinical decision support. The runtime binding lives in
+// @/lib/specifiers-governance (usage mode, CDS=false, required option-level review
+// badges, and SpecifierSafetyNote copy). Source-verified counts are not clinical
+// attestations — clinicianReviewStatus remains pending until real review fields land.
 
 import specifiersContent from "../../data/specifiers-content.json";
 
 import { findSpecifier, specifierRecords, type SpecifierRecord } from "@/lib/specifiers";
+import {
+  SPECIFIERS_IS_AUTOMATED_DECISION_SUPPORT,
+  SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE,
+  SPECIFIERS_SAFETY_NOTE,
+  SPECIFIERS_USAGE_MODE,
+} from "@/lib/specifiers-governance";
+
+export {
+  SPECIFIERS_IS_AUTOMATED_DECISION_SUPPORT,
+  SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE,
+  SPECIFIERS_SAFETY_NOTE,
+  SPECIFIERS_USAGE_MODE,
+};
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
