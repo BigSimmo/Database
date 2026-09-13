@@ -45,21 +45,23 @@ describe("hub panels", () => {
     expect(clinicalTrust[0]).toMatchObject({ id: "clinical-trust", phase: 1, group: "clinical" });
   });
 
-  it("keeps every detailed prototype reachable only from the developer hub", () => {
+  it("keeps the existing prototypes and Caring Contacts workspace reachable as real destinations", () => {
     for (const id of ["care-plan", "caring-contact", "caring-contacts-workspace", "ward-flow"]) {
       const panel = HUB_PANELS.find((entry) => entry.id === id);
       expect(panel?.phase, `${id} should be built`).toBe(1);
       expect(panel?.href, `${id} needs a destination`).toBeTruthy();
     }
 
-    expect(
-      toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/") || tool.href === "/caring-contacts"),
-    ).toBe(false);
-    expect(SETTINGS_SECTIONS.some((section) => (section.id as string) === "development")).toBe(false);
-    expect(DEVELOPER_GATED_PATH_PREFIXES).toContain("/caring-contacts");
+    // Prototypes stay out of the live Tools catalogue mockup tree. Caring Contacts keeps
+    // a catalogue card gated by isCaringContactsToolListed; Settings still offers Developer;
+    // /caring-contacts itself is not a developer-gated prefix (page + hub locks stay honest).
+    expect(toolCatalogRecords.some((tool) => tool.href.startsWith("/mockups/"))).toBe(false);
+    expect(toolCatalogRecords.some((tool) => tool.id === "caring-contacts")).toBe(true);
+    expect(SETTINGS_SECTIONS.some((section) => section.id === "development")).toBe(true);
+    expect(DEVELOPER_GATED_PATH_PREFIXES).not.toContain("/caring-contacts");
 
     const workspaceLayout = readFileSync(join(process.cwd(), "src/app/caring-contacts/layout.tsx"), "utf8");
-    expect(workspaceLayout).toContain("<DeveloperAreaGate>{children}</DeveloperAreaGate>");
+    expect(workspaceLayout).not.toMatch(/<DeveloperAreaGate[\s>]/);
   });
 
   it("keeps the Care Plan href in sync with its route source", () => {

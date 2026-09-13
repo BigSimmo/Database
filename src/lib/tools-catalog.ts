@@ -1,4 +1,5 @@
 import { appModeHomeHref, canAccessFavouritesMode } from "@/lib/app-modes";
+import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -34,6 +35,7 @@ export type ToolCatalogId =
   | "safety-plan"
   | "calculators"
   | "monitoring"
+  | "caring-contacts"
   | "favourites";
 
 export type ToolCatalogRecord = {
@@ -361,6 +363,26 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     output: "Monitoring schedule, thresholds, and review prompts.",
   },
   {
+    // The one card that is the front door to a standalone workspace. Caring Contacts owns
+    // its own navigation once you are inside it, so this catalogue entry is the only place
+    // the host application names it — see docs/codebase-index.md.
+    id: "caring-contacts",
+    title: "Caring Contacts",
+    description: "A synthetic demonstration of caring-contact follow-up after a hospital stay.",
+    bestFor: "Seeing how caring-contact follow-up is coordinated",
+    detail:
+      "A working demonstration built on invented patients and invented numbers. Nothing in it is ever sent to a real number, and none of it is patient data.",
+    href: CARING_CONTACTS_ROUTES.today,
+    area: "coordination",
+    status: "ready",
+    sourceBacked: false,
+    actionLabel: "Open",
+    keywords: ["caring contacts", "follow-up", "aftercare", "discharge", "coordination", "demonstration"],
+    checkFirst: ["Everything shown is invented", "No message is ever sent", "Not a clinical record"],
+    neededInput: ["Nothing — the workspace carries its own synthetic examples"],
+    output: "A demonstration workspace showing how caring-contact follow-up is coordinated.",
+  },
+  {
     id: "favourites",
     title: "Saved workflows",
     mobileTitle: "Saved",
@@ -417,10 +439,47 @@ export function toolCatalogRecordById(id: string): ToolCatalogRecord {
   return record;
 }
 
-/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+/**
+ * Whether the Caring Contacts card may be offered at all.
+ *
+ * The workspace behind it fails closed in production (`isCaringContactsDemoEnabled`,
+ * src/lib/caring-contacts-server/session.ts): every route 404s until enterprise sign-on
+ * exists, with one exception for the isolated Playwright production server. Offering
+ * the card there would put an "Open" button on the live launcher whose target is a
+ * dead link on a suicide-prevention surface, so the card follows the same lock.
+ *
+ * It cannot call that predicate: the module is server-only, and the catalogue is
+ * rendered by client components, which see only what the client bundle inlines —
+ * `NODE_ENV` and `NEXT_PUBLIC_DEMO_MODE`. `PLAYWRIGHT_OFFLINE_MODE` never reaches the
+ * browser, and reading it here would make the server and the client disagree about
+ * the list. The two predicates still agree everywhere a server can start: a production
+ * process carrying `NEXT_PUBLIC_DEMO_MODE=true` without the Playwright offline flag is
+ * refused by `src/instrumentation.ts`. Pinned by tests/tools-catalog.test.ts.
+ *
+ * Both reads must stay as literal `process.env.NAME` member expressions — that is
+ * what Next inlines into the client bundle; an indirection reads `undefined` there.
+ */
+export function isCaringContactsToolListed(
+  environment: string | undefined = process.env.NODE_ENV,
+  demoMode: string | undefined = process.env.NEXT_PUBLIC_DEMO_MODE,
+): boolean {
+  if (environment !== "production") return true;
+  return demoMode === "true";
+}
+
+/**
+ * The catalogue as a given session may see it: account-scoped Favourites / Saved
+ * workflows are hidden from guests, and the Caring Contacts card is hidden wherever
+ * its workspace is locked (see `isCaringContactsToolListed`).
+ */
 export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
-  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
-  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  const caringContactsListed = isCaringContactsToolListed();
+  return toolCatalogRecords.filter((tool) => {
+    if (tool.id === "caring-contacts") return caringContactsListed;
+    if (favouritesAllowed) return true;
+    return tool.id !== "favourites" && !tool.href.startsWith("/favourites");
+  });
 }
 
 export function toolSearchText(tool: ToolCatalogRecord) {

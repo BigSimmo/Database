@@ -2,6 +2,7 @@ import {
   Bell,
   CircleHelp,
   CircleUserRound,
+  FlaskConical,
   Keyboard,
   ShieldCheck,
   SlidersHorizontal,
@@ -29,7 +30,8 @@ export type SettingsSectionId =
   | "notifications"
   | "privacy"
   | "keyboard"
-  | "help";
+  | "help"
+  | "development";
 
 export const SETTINGS_SECTIONS: ReadonlyArray<{
   id: SettingsSectionId;
@@ -46,6 +48,7 @@ export const SETTINGS_SECTIONS: ReadonlyArray<{
   { id: "privacy", navLabel: "Privacy", title: "Privacy & security", icon: ShieldCheck },
   { id: "keyboard", navLabel: "Shortcuts", title: "Keyboard shortcuts", icon: Keyboard },
   { id: "help", navLabel: "Help & About", title: "Help & About", icon: CircleHelp },
+  { id: "development", navLabel: "Developer", title: "Developer", icon: FlaskConical },
 ];
 
 export function sectionDomId(id: SettingsSectionId) {
@@ -206,6 +209,12 @@ export const SETTINGS_SEARCH_ENTRIES: ReadonlyArray<SettingsSearchEntry> = [
     section: "help",
     label: "Guide & help",
     keywords: "about support documentation how to onboarding tour version",
+  },
+  {
+    id: "settings-row-development-page",
+    section: "development",
+    label: "Developer",
+    keywords: "prototype mockups experimental in progress caring contacts",
   },
 ];
 
