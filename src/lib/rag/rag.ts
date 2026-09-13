@@ -203,6 +203,7 @@ import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
+  appendRoutingReason,
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
@@ -1987,7 +1988,7 @@ async function answerQuestionWithScopeUncoalesced(
   startedAt: number,
 ): Promise<RagAnswer> {
   throwIfAborted(args.signal);
-  const answerContract = answerContractForRollout(args.ragProgrammeRollout);
+  const requestedAnswerContract = answerContractForRollout(args.ragProgrammeRollout);
   const recordQuery = (answer: RagAnswer, row: RagQueryInsert) =>
     recordRagQueryForAnswer(args.observationContext, answer, row, logRagQuery);
   assertGlobalSearchAllowed({
@@ -2110,6 +2111,31 @@ async function answerQuestionWithScopeUncoalesced(
         captureRagQueryPlan: (plan) => void (requestQueryPlan = plan),
       }),
     );
+  } catch (error) {
+    throwIfAborted(args.signal);
+    if (!isAnswerRouteDeadlineExceeded(error)) throw error;
+    // Retrieval never produced a completed, admitted evidence set. Do not claim
+    // that the corpus lacks an answer or release partially hydrated candidates.
+    return {
+      answer: "The search reached its time limit before source evidence could be confirmed. Please try again.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      answerSections: [],
+      modelUsed: null,
+      routingMode: "unsupported",
+      routingReason: "retrieval_deadline_exceeded",
+      fallbackReasonCode: "provider_timeout",
+      degradedMode: { active: true, reason: "The search reached its time limit." },
+      latencyTimings: {
+        search_latency_ms: Date.now() - searchStartedAt,
+        generation_latency_ms: 0,
+        route_budget_ms: retrievalDeadline.budgetMs,
+        route_deadline_exceeded: true,
+        total_latency_ms: Date.now() - startedAt,
+      },
+    };
   } finally {
     retrievalDeadline.dispose();
   }
@@ -2162,6 +2188,12 @@ async function answerQuestionWithScopeUncoalesced(
     : routeSelection;
   const answerInputResults = packedRouteSelection.results;
   let coverageSelections: CoverageEvidenceSelection[] = packedRouteSelection.coverageSelections;
+  // A rollout choice does not grant missing source-role or corpus authority.
+  // Legacy admitted evidence keeps its established verified answer contract;
+  // only an actual governed coverage plan can activate adaptive generation.
+  const adaptiveCoverageUnavailable =
+    requestedAnswerContract.adaptive && (!packedRouteSelection.coverage || coverageSelections.length === 0);
+  const answerContract = adaptiveCoverageUnavailable ? answerContractForRollout() : requestedAnswerContract;
   const searchLatencyMs = Date.now() - searchStartedAt;
   const {
     relevance,
@@ -2427,6 +2459,12 @@ async function answerQuestionWithScopeUncoalesced(
       }
     }
 
+    if (adaptiveCoverageUnavailable) {
+      finalized.routingReason = appendRoutingReason(
+        finalized.routingReason,
+        "adaptive_contract_fallback:legacy_coverage_unavailable",
+      );
+    }
     finalized.latencyTimings = {
       ...answer.latencyTimings,
       ...finalized.latencyTimings,
@@ -2873,16 +2911,21 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     ? packGovernedContext
     : createGenerationContextPacker({
         ...contextPackerOptions,
-        loadLegacy: (legacyResults) =>
-          routeDeadline.race(
+        loadLegacy: (legacyResults) => {
+          throwIfAborted(routeDeadline.signal);
+          return routeDeadline.race(
             packAdjacentSourceContext(createAdminClient(), legacyResults, queryClass, {
               crossDocument: crossDocumentPlan.enabled,
             }),
-          ),
+          );
+        },
       });
 
   const generationDegradation = createGenerationDegradationRecorder({
-    enabled: args.ragQueryPlanMode === "shadow" || args.ragQueryPlanMode === "canary",
+    enabled:
+      args.ragProgrammeRollout?.servedMode === "candidate" ||
+      args.ragQueryPlanMode === "shadow" ||
+      args.ragQueryPlanMode === "canary",
     routeBudgetMs: routeDeadline.budgetMs,
     contract: answerContract,
   });
@@ -3063,30 +3106,36 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     accessScope: contextPackAccessScope,
     snapshot: args.ragRequestContext?.snapshot,
   });
-  const { served: modelContextSelection, strongRetry: strongRetryContextSelection } =
-    await packModelContextEvidencePair(selectedContextPair, packContextForGeneration, useGovernedContextPacking);
-  const modelContextResults = modelContextSelection.results;
-  const strongRetryContextResults = strongRetryContextSelection.results;
-  coverageSelections = modelContextSelection.coverageSelections;
-  const generationFallbackResults = strongRetryContextResults;
-  let responseContextResults = modelContextResults;
-  let responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-  const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
-  await args.onProgress?.({
-    stage: "ranking",
-    message: "Selected governed source passages for answer generation.",
-    selectedContextCount: modelContextSelectionSummary.selectedCount,
-    australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
-    waSourceCount: modelContextSelectionSummary.waSelectedCount,
-    usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
-    ...buildEvidencePreviewProgress({
-      normalResults: modelContextResults,
-      fallbackResults: generationFallbackResults,
-      relevance,
-    }),
-  });
+  // The route pack is already admitted and safe to verify if optional generation
+  // packing expires. Only a completed generation pack may replace its evidence.
+  let strongRetryContextSelection = packedRouteSelection;
+  let generationFallbackResults = packedRouteSelection.results;
   let initialGenerationQualityFailure: ReturnType<typeof generationQualityFailureDiagnostics> = null;
   try {
+    const { served: modelContextSelection, strongRetry } = await routeDeadline.race(
+      packModelContextEvidencePair(selectedContextPair, packContextForGeneration, useGovernedContextPacking),
+    );
+    strongRetryContextSelection = strongRetry;
+    const modelContextResults = modelContextSelection.results;
+    const strongRetryContextResults = strongRetryContextSelection.results;
+    coverageSelections = modelContextSelection.coverageSelections;
+    generationFallbackResults = strongRetryContextResults;
+    let responseContextResults = modelContextResults;
+    let responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
+    const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
+    await args.onProgress?.({
+      stage: "ranking",
+      message: "Selected governed source passages for answer generation.",
+      selectedContextCount: modelContextSelectionSummary.selectedCount,
+      australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
+      waSourceCount: modelContextSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
+      ...buildEvidencePreviewProgress({
+        normalResults: modelContextResults,
+        fallbackResults: generationFallbackResults,
+        relevance,
+      }),
+    });
     await args.onProgress?.({
       stage: "generating",
       message: `Generating cited answer with ${route.mode} route.`,
@@ -3412,6 +3461,17 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     const generatedWasGrounded = answer.grounded;
     answer = finalizeAnswer(answer, numericVerificationSources);
     if (generatedWasGrounded && !answer.grounded) generationDegradation.verificationFailed();
+
+    // Let finalization apply source-selection-aware recovery first. A retry
+    // still rejected there must enter the existing evidence recovery path;
+    // rejection is not proof that the retained sources lack an answer.
+    if (answerNeedsStrongQualityRepair && !answer.grounded) {
+      const retryFailure = answer.routingReason?.match(/(?:^|;\s*)final_quality_gate:([^;]+)/)?.[1];
+      if (retryFailure) {
+        generationDegradation.retry(retryFailure, "exhausted", routeDeadline.remainingMs());
+        throw new GenerationQualityError("post_finalize", retryFailure, summarizeGenerationQualityAnswerShape(answer));
+      }
+    }
 
     // Recover a schema-valid answer that fails deterministic provenance through the same final gates.
     const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")

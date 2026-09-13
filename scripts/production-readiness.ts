@@ -94,6 +94,7 @@ export function ragProgrammeReadinessPolicy(
   )
     failures.push("canary_percentage_invalid");
   const flags = [
+    "RAG_GOVERNED_RETRIEVAL_ENABLED",
     "RAG_SITE_CONTENT_ENABLED",
     "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
     "RAG_ADAPTIVE_ANSWER_ENABLED",
@@ -102,7 +103,13 @@ export function ragProgrammeReadinessPolicy(
   if (flags.some((flag) => ![undefined, "true", "false"].includes(environment[flag])))
     failures.push("component_flag_invalid");
   if (mode === "canary") {
-    if ((environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim().length ?? 0) < 32)
+    if (percentage !== 10000 && (environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim().length ?? 0) < 32)
+      failures.push("rollout_salt_missing_or_invalid");
+    if (
+      percentage === 10000 &&
+      environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim() &&
+      environment.RAG_PROGRAMME_ROLLOUT_SALT.trim().length < 32
+    )
       failures.push("rollout_salt_missing_or_invalid");
     if (!evidence.rollbackOwnerBound) failures.push("rollback_ownership_unavailable");
   }

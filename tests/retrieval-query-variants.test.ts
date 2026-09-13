@@ -57,6 +57,47 @@ function tableFact(overrides: Partial<NonNullable<SearchResult["table_facts"]>[n
 }
 
 describe("retrieval query variants", () => {
+  it.each([
+    "Give a detailed clinician monitoring schedule for lithium: baseline tests, level sampling and targets, monitoring after dose changes, stable treatment, higher-risk patients, and actions for suspected toxicity.",
+    "When should a lithium blood level be taken after the last dose and after starting or changing the dose?",
+    "What monitoring is required following each dose change of lithium?",
+  ])("does not treat monitoring timing as a prescribed dose request: %s", (query) => {
+    expect(medicationDoseEvidenceQueryIntent(query).asksAmount).toBe(false);
+  });
+
+  it.each([
+    "What dose of lithium should be prescribed and what monitoring is required after dose changes?",
+    "What is the maximum lithium dose and when are levels checked after the last dose?",
+    "How should the lithium dose change?",
+  ])("preserves explicit dose requests alongside monitoring: %s", (query) => {
+    expect(medicationDoseEvidenceQueryIntent(query).asksAmount).toBe(true);
+  });
+
+  it.each([
+    ["what is the monitoring used for lithium", "lithium monitoring"],
+    [
+      "When should a lithium blood level be taken after the last dose and after starting or changing the dose?",
+      "lithium level",
+    ],
+    [
+      "Give a detailed clinician monitoring schedule for lithium: baseline tests, level sampling and targets, monitoring after dose changes, stable treatment, higher-risk patients, and actions for suspected toxicity.",
+      "lithium monitoring",
+    ],
+    ["What monitoring is required for valproate therapy?", "valproate monitoring"],
+  ])("keeps a medication-focused recall query inside the RPC budget: %s", (query, focused) => {
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+    expect(variants[0]).toBe(buildClinicalTextSearchQuery(query));
+    expect(variants.slice(0, maxTextRpcQueryVariants)).toContain(focused);
+    expect(variants).toHaveLength(new Set(variants).size);
+  });
+
+  it("does not collapse a medication comparison into one medicine's monitoring", () => {
+    const query = "Compare monitoring for lithium and valproate";
+    const variants = buildRetrievalQueryVariants(query, analyzeClinicalQuery(query));
+    expect(variants).not.toContain("lithium monitoring");
+    expect(variants).not.toContain("valproate monitoring");
+  });
+
   it("keeps simple query variants byte-identical when a single plan is supplied", () => {
     const query = "What ANC threshold should stop clozapine?";
     const analysis = analyzeClinicalQuery(query);

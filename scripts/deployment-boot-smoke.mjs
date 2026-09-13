@@ -7,6 +7,14 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { appName, localProjectId } from "../src/lib/local-server-utils.mjs";
 
+// Opt-in deployed activation proof; the default local boot smoke remains unchanged.
+if (process.argv.includes("--activation")) {
+  const { checkDeployedRagActivation } = await import("./lib/deployment-rag-activation.mjs");
+  const result = await checkDeployedRagActivation(process.env);
+  console.log(JSON.stringify(result));
+  process.exit(result.ok ? 0 : 1);
+}
+
 function parsePositiveInt(name, fallback) {
   const rawValue = process.env[name];
   if (rawValue === undefined) return fallback;

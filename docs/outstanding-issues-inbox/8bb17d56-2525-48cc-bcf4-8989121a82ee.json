@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8bb17d56-2525-48cc-bcf4-8989121a82ee",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Tablet: Therapy card three-action controls under 44px touch height",
+    "detail": "Tablet design pass: therapy result card bookmark 40×40, Review referral 135×40, Add to shortlist 140×40 — all below ~44px touch height. Next: raise action row hit targets to ≥44px height. Evidence: design-sizing/tablet/therapy-dense-cards.png; DS-04.",
+    "source": "session 2026-09-13 design sizing tablet",
+    "issueUlid": "01M2D2HKWPSFFGYD1C8JEFB7Z3"
+  }
+}

@@ -30,6 +30,7 @@ import { cn, primaryControl } from "@/components/ui-primitives";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import { searchSpecifiers, specifierFamilies, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
+import { SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE } from "@/lib/specifiers-governance";
 import { interpretSmartSearch } from "@/lib/smart-search-intent";
 import {
   readResultFilterValue,
@@ -125,7 +126,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
               <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">{item.disorder}</p>
               <div className="flex flex-wrap items-center gap-1.5">
                 <CategoryTag categoryId={item.categoryId} name={item.category} />
-                <ReviewStatusBadge status={item.src} />
+                {SPECIFIERS_REQUIRE_OPTION_REVIEW_BADGE ? <ReviewStatusBadge status={item.src} /> : null}
               </div>
             </Link>
           </li>

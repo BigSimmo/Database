@@ -4,7 +4,7 @@
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 35 canonical skills. `npm run check:skills` verifies those skills, their compatibility aliases, and the Claude, Cursor, and PsychSift plugin skill surfaces. The older long names remain compatibility aliases and must not be counted as unique skills.
+Select repo-local skills under `.agents/skills/` when their descriptions match the actual task and their use materially helps. Read an explicitly named skill before acting. Run `npm run skills` when the current catalog is needed; `.agents/skills/catalog.json` owns its contents rather than a duplicated count here. `npm run check:skills` verifies the canonical skills, compatibility aliases, and Claude, Cursor, and PsychSift plugin skill surfaces when those surfaces change. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 
@@ -16,7 +16,7 @@ The foundational orchestration skills are:
 - `operations`: turn pending operator debt into a deduplicated, approval-gated batch.
 - `task`: manage safe start, handoff, merge proof, and cleanup transitions.
 
-Run the matching planner command in `docs/productivity-workflows.md` without side effects by default. Add `-- --run` only to execute its local/offline checks. The workflow engine must never execute commands listed under `approvalRequired`.
+When planning would help, use the matching planner command in `docs/productivity-workflows.md` without side effects by default. Do not invoke a planner for a simple task merely because a skill exists. Add `-- --run` only for authorised local/offline checks required by the task. The workflow engine must never execute commands listed under `approvalRequired`; selecting a skill or planner grants no additional authority.
 
 ## Outstanding-work memory (`/issues`)
 

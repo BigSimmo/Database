@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "eb53b29c-b44d-42cf-a46d-e99021816677",
+  "createdOn": "2026-09-13",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Phone: fixed composer occludes Therapy and Sources result cards mid-list",
+    "detail": "Phone design/sizing pass 390×844: at scroll 0, fixed bottom composer overlays the next Therapy result card and Sources catalogue card. End-of-list clearance can be OK. Same chrome-reserve class as Aug calculators dock covering cards. Next: reserve bottom padding equal to composer height on results lists; verify Therapy/Sources/DSM family. Evidence: DESIGN-SIZING-PHONE.md; DS-01 / LQA-P1-01.",
+    "source": "session 2026-09-13 design sizing phone; Aug live-design audit composer class",
+    "issueUlid": "01M2D2HK8D696Y30W4104P5GKY"
+  }
+}

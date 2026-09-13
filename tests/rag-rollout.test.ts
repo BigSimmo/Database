@@ -3,6 +3,7 @@ import {
   decideRagProgrammeRollout,
   adaptiveAnswerRenderAllowed,
   ragProgrammeVersions,
+  ragProgrammeHealth,
   withRagProgrammeRollout,
   type RagProgrammeRolloutInput,
 } from "../src/lib/rag/rag-rollout";
@@ -13,7 +14,7 @@ import {
   closeShadowSearch,
   finishSearch,
 } from "../src/lib/rag/rag-search-timing";
-import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
+import type { SearchTelemetry, SearchChunksArgs } from "../src/lib/rag/rag-contracts";
 
 const input: RagProgrammeRolloutInput = {
   configuredMode: "canary",
@@ -28,6 +29,7 @@ const input: RagProgrammeRolloutInput = {
   publicSiteContentReleaseDigest: "b".repeat(64),
   publicSiteContentChangeEpoch: "7",
   publicSiteContentState: "current",
+  governedRetrievalEnabled: true,
   siteContentEnabled: true,
   australianAugmentationEnabled: true,
   adaptiveAnswerEnabled: false,
@@ -43,6 +45,7 @@ describe("programme rollout truth table", () => {
     vi.stubEnv("RAG_PROGRAMME_MODE", "canary");
     vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", "10000");
     vi.stubEnv("RAG_PROGRAMME_ROLLOUT_SALT", "synthetic-rollout-salt-01234567890123456789");
+    vi.stubEnv("RAG_GOVERNED_RETRIEVAL_ENABLED", "true");
     const { withRagProgrammeRollout: resolve } = await import("../src/lib/rag/rag-rollout");
     const { env } = await import("../src/lib/env");
     const { retrievalAccessScopeForArgs } = await import("../src/lib/owner-scope");
@@ -78,6 +81,7 @@ describe("programme rollout truth table", () => {
     ["RAG_PROGRAMME_MODE", "invalid"],
     ["RAG_PROGRAMME_CANARY_BASIS_POINTS", "10001"],
     ["RAG_SITE_CONTENT_ENABLED", "yes"],
+    ["RAG_GOVERNED_RETRIEVAL_ENABLED", "yes"],
     ["RAG_PROGRAMME_ROLLOUT_SALT", "short"],
   ])("malformed server %s cannot activate any component", async (field, value) => {
     vi.stubEnv("RAG_PROGRAMME_MODE", "canary");
@@ -87,6 +91,7 @@ describe("programme rollout truth table", () => {
     const { env } = await import("../src/lib/env");
     expect(env.RAG_PROGRAMME_MODE).toBe("legacy");
     expect(env.RAG_AUSTRALIAN_AUGMENTATION_ENABLED).toBe(false);
+    expect(env.RAG_GOVERNED_RETRIEVAL_ENABLED).toBe(false);
   });
   it("legacy and shadow retain the legacy namespace and shadow serves only legacy", () => {
     const legacy = decideRagProgrammeRollout({ ...input, configuredMode: "legacy" });
@@ -114,20 +119,203 @@ describe("programme rollout truth table", () => {
     expect(JSON.stringify(decision)).not.toContain(input.ownerId);
     expect(JSON.stringify(decision)).not.toContain(input.serverSalt);
   });
+  it.each([null, "private-owner-canary"])("serves adaptive answers on legacy retrieval for owner %s", (ownerId) => {
+    const decision = decideRagProgrammeRollout({
+      ...input,
+      ownerId,
+      governedRetrievalEnabled: false,
+      adaptiveAnswerEnabled: true,
+      adaptiveRenderEnabled: true,
+    });
+    expect(decision).toMatchObject({
+      servedMode: "candidate",
+      retrievalMode: "legacy",
+      runShadowRetrieval: false,
+      components: { siteContent: false, australianAugmentation: false, adaptiveAnswer: true, adaptiveRender: true },
+    });
+    expect(decision.cacheNamespace).not.toBe("legacy");
+    expect(adaptiveAnswerRenderAllowed(decision, ragProgrammeVersions.adaptiveAnswerContract)).toBe(true);
+  });
+  it("requires corpus activation for shadow retrieval and preserves legacy cache identity", () => {
+    const decision = decideRagProgrammeRollout({ ...input, configuredMode: "shadow", governedRetrievalEnabled: false });
+    expect(decision).toMatchObject({
+      servedMode: "legacy",
+      retrievalMode: "legacy",
+      runShadowRetrieval: false,
+      cacheNamespace: "legacy",
+      components: { siteContent: false, australianAugmentation: false, adaptiveAnswer: false, adaptiveRender: false },
+    });
+  });
   it.each([
-    { ownerId: null },
-    { serverSalt: undefined },
-    { serverSalt: " " },
+    { serverSalt: "short" },
     { canaryBasisPoints: -1 },
     { canaryBasisPoints: 10001 },
     { canaryBasisPoints: NaN },
     { canaryBasisPoints: 1.2 },
     { configuredMode: "invalid" },
+    { governedRetrievalEnabled: "true" },
   ])("fails closed on malformed configuration %j", (change) => {
     expect(decideRagProgrammeRollout({ ...input, ...change } as RagProgrammeRolloutInput).servedMode).toBe("legacy");
   });
   it("zero percent always serves legacy", () =>
     expect(decideRagProgrammeRollout({ ...input, canaryBasisPoints: 0 }).servedMode).toBe("legacy"));
+  it("releases the same configured components to guests and authenticated readers at 100 percent", () => {
+    const flags = {
+      ...input,
+      siteContentEnabled: false,
+      australianAugmentationEnabled: false,
+      adaptiveAnswerEnabled: true,
+      adaptiveRenderEnabled: true,
+    };
+    const guest = decideRagProgrammeRollout({ ...flags, ownerId: null, serverSalt: undefined });
+    const authenticated = decideRagProgrammeRollout(flags);
+    expect(guest.servedMode).toBe("candidate");
+    expect(guest.cohortBucket).toBeNull();
+    expect(guest.components).toEqual(authenticated.components);
+    expect(guest.components).toEqual({
+      siteContent: false,
+      australianAugmentation: false,
+      adaptiveAnswer: true,
+      adaptiveRender: true,
+    });
+    expect(guest.cacheNamespace).toBe(authenticated.cacheNamespace);
+    expect(decideRagProgrammeRollout({ ...flags, serverSalt: undefined }).servedMode).toBe("candidate");
+  });
+  it.each([0, 1, 5000, 9999])("does not invent guest cohorts at %i basis points", (canaryBasisPoints) => {
+    expect(decideRagProgrammeRollout({ ...input, canaryBasisPoints, ownerId: null }).servedMode).toBe("legacy");
+    expect(decideRagProgrammeRollout({ ...input, canaryBasisPoints, serverSalt: undefined }).servedMode).toBe("legacy");
+    expect(decideRagProgrammeRollout({ ...input, canaryBasisPoints, serverSalt: " " }).servedMode).toBe("legacy");
+  });
+  it("preserves the authenticated partial cohort boundary", () => {
+    const decision = decideRagProgrammeRollout({ ...input, canaryBasisPoints: 5000 });
+    expect(decision.cohortBucket).not.toBeNull();
+    expect(decision.servedMode).toBe(decision.cohortBucket! < 5000 ? "candidate" : "legacy");
+  });
+  it.each([
+    [{ adaptiveAnswerEnabled: false }, true, true],
+    [{ adaptiveRenderEnabled: false }, true, true],
+    [{}, false, true],
+    [{}, true, false],
+  ] as const)("guest release cannot bypass an adaptive prerequisite %j", (change, producer, renderer) => {
+    const decision = decideRagProgrammeRollout(
+      { ...input, ownerId: null, adaptiveAnswerEnabled: true, adaptiveRenderEnabled: true, ...change },
+      producer,
+      renderer,
+    );
+    expect(decision.components.adaptiveRender).toBe(false);
+    expect(adaptiveAnswerRenderAllowed(decision, ragProgrammeVersions.adaptiveAnswerContract)).toBe(false);
+  });
+  it.each([
+    { queryPlanVersion: "" },
+    { sourcePolicyVersion: "" },
+    { indexGeneration: "" },
+    { adaptiveAnswerEnabled: "true" },
+  ])("guest full rollout fails closed on malformed request metadata %j", (change) => {
+    expect(
+      decideRagProgrammeRollout({ ...input, ownerId: null, ...change } as RagProgrammeRolloutInput).servedMode,
+    ).toBe("legacy");
+  });
+  it("default health visibly reports why full adaptive serving is unavailable", () => {
+    expect(ragProgrammeHealth().fullRollout).toMatchObject({
+      eligible: false,
+      adaptiveAnswer: false,
+      adaptiveRender: false,
+      reason: "programme_not_canary",
+    });
+  });
+  it.each([
+    ["canary", "false", "legacy", false],
+    ["canary", "true", "canary", false],
+    ["shadow", "false", "legacy", false],
+    ["shadow", "true", "shadow", true],
+  ] as const)("selects %s retrieval with corpus activation %s", async (mode, enabled, expectedMode, runShadow) => {
+    vi.stubEnv("RAG_PROGRAMME_MODE", mode);
+    vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", "10000");
+    vi.stubEnv("RAG_GOVERNED_RETRIEVAL_ENABLED", enabled);
+    vi.stubEnv("RAG_SITE_CONTENT_ENABLED", "true");
+    vi.stubEnv("RAG_AUSTRALIAN_AUGMENTATION_ENABLED", "true");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_ENABLED", "true");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_RENDER_ENABLED", "true");
+    const { withRagProgrammeRollout: resolve, ragProgrammeHealth: health } = await import("../src/lib/rag/rag-rollout");
+    const request = resolve({
+      query: "What is clozapine?",
+      ragQueryPlanMode: "canary" as const,
+      governedCorpusComponents: { siteContent: true, australianAugmentation: true, australianCurrent: true },
+      observationContext: { interactionId: "opaque-rollout-test", rolloutMode: "legacy" as const },
+    });
+    expect(request.ragQueryPlanMode).toBe(expectedMode);
+    expect(request.observationContext.rolloutMode).toBe(mode === "canary" ? "canary" : expectedMode);
+    expect(request.ragProgrammeRollout.runShadowRetrieval).toBe(runShadow);
+    expect(request.ragProgrammeRollout.components.adaptiveAnswer).toBe(mode === "canary");
+    expect(health().retrieval).toEqual({ governedRetrievalEnabled: enabled === "true", mode: expectedMode });
+    if (enabled === "false") {
+      expect(request.governedCorpusComponents).toBeUndefined();
+      expect(health().components).toMatchObject({ siteContent: false, australianAugmentation: false });
+      expect(health().augmentationHealth).toBe("disabled");
+      const nested = resolve({ ...request, ragQueryPlanMode: "canary" as const });
+      expect(nested.ragProgrammeRollout).toBe(request.ragProgrammeRollout);
+      expect(nested.ragQueryPlanMode).toBe("legacy");
+    } else {
+      expect(request.governedCorpusComponents).toMatchObject({ australianAugmentation: true, australianCurrent: true });
+    }
+  });
+  it("full rollout leaves guest public scope and private-owner isolation unchanged", async () => {
+    vi.resetModules();
+    vi.stubEnv("OPENAI_API_KEY", "synthetic-key");
+    vi.stubEnv("RAG_PROVIDER_MODE", "auto");
+    vi.stubEnv("RAG_PROGRAMME_MODE", "canary");
+    vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", "10000");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_ENABLED", "true");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_RENDER_ENABLED", "true");
+    const { withRagProgrammeRollout: resolve, ragProgrammeHealth: health } = await import("../src/lib/rag/rag-rollout");
+    const { retrievalAccessScopeForArgs, retrievalAccessScopeMatchesOwner } = await import("../src/lib/owner-scope");
+    const guest = resolve<SearchChunksArgs>({ query: "What is clozapine?" });
+    const scope = retrievalAccessScopeForArgs(guest);
+    expect(scope).toEqual({ includePublic: true });
+    expect(retrievalAccessScopeMatchesOwner(scope, "private-owner")).toBe(false);
+    expect(guest).not.toHaveProperty("ownerId");
+    expect(guest.ragProgrammeRollout.servedMode).toBe("candidate");
+    expect(guest.ragQueryPlanMode).toBe("legacy");
+    expect(guest.governedCorpusComponents).toBeUndefined();
+    const owned = resolve<SearchChunksArgs>({ query: "What is clozapine?", ownerId: "private-owner" });
+    expect(retrievalAccessScopeForArgs(owned)).toEqual({ ownerId: "private-owner", includePublic: true });
+    expect(owned.ragQueryPlanMode).toBe("legacy");
+    expect(owned.ragProgrammeRollout.cacheNamespace).toBe(guest.ragProgrammeRollout.cacheNamespace);
+    expect(health().retrieval).toEqual({ governedRetrievalEnabled: false, mode: "legacy" });
+    expect(health().fullRollout).toEqual({
+      eligible: true,
+      adaptiveAnswer: false,
+      adaptiveRender: false,
+      generationProviderAvailable: true,
+      coverageContractAvailable: false,
+      reason: "governed_coverage_contract_unavailable",
+    });
+    const { env } = await import("../src/lib/env");
+    env.RAG_ADAPTIVE_ANSWER_ENABLED = false;
+    expect(health().fullRollout.reason).toBe("adaptive_answer_disabled");
+  });
+  it.each([
+    ["offline", "synthetic-key", false],
+    ["offline", "", false],
+    ["auto", "", false],
+    ["auto", "synthetic-key", true],
+    ["openai", "synthetic-key", true],
+  ])("reports effective generation availability for %s provider configuration", async (mode, key, available) => {
+    vi.stubEnv("RAG_GOVERNED_RETRIEVAL_ENABLED", "true");
+    vi.stubEnv("RAG_PROGRAMME_MODE", "canary");
+    vi.stubEnv("RAG_PROGRAMME_CANARY_BASIS_POINTS", "10000");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_ENABLED", "true");
+    vi.stubEnv("RAG_ADAPTIVE_ANSWER_RENDER_ENABLED", "true");
+    vi.stubEnv("RAG_PROVIDER_MODE", mode as string);
+    vi.stubEnv("OPENAI_API_KEY", key as string);
+    const { ragProgrammeHealth: health } = await import("../src/lib/rag/rag-rollout");
+    expect(health().fullRollout).toMatchObject({
+      generationProviderAvailable: available,
+      adaptiveAnswer: available,
+      adaptiveRender: available,
+      reason: available ? "enabled" : "generation_provider_unavailable",
+    });
+  });
   it.each([
     "queryPlanVersion",
     "sourcePolicyVersion",
@@ -142,6 +330,7 @@ describe("programme rollout truth table", () => {
     );
   });
   it.each([
+    "governedRetrievalEnabled",
     "siteContentEnabled",
     "australianAugmentationEnabled",
     "adaptiveAnswerEnabled",
