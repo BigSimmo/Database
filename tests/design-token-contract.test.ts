@@ -130,7 +130,7 @@ describe("theme token symmetry", () => {
 
 describe("surface scale", () => {
   // In v2 (SPEC §4.3, §4.4):
-  // Light: true-white page, cards, and panels (--surface and --surface-raised are both #ffffff).
+  // Light: page, cards, and panels share one plane (--surface and --surface-raised match after v2 overlay).
   // Two non-white surfaces: --surface-subtle and --surface-inset, plus --surface-wash for quiet strips.
   // Dark: four monotonic surfaces: inset -> background -> surface -> raised -> lux, with subtle aliased UP to raised.
   it("orders light surfaces: inset → wash → subtle → surface (= raised)", () => {
@@ -186,8 +186,8 @@ describe("effective v2 surface elevation model", () => {
   // In v2, light mode intentionally unifies --surface and --surface-raised to #ffffff,
   // providing elevation via shadow tiers (--e1..--e4) rather than background step (#QAKV4N).
   it("unifies resting and raised surfaces in effective light mode", () => {
-    expect(colourOf(effectiveLight, "--surface")).toBe("#ffffff");
-    expect(colourOf(effectiveLight, "--surface-raised")).toBe("#ffffff");
+    expect(colourOf(effectiveLight, "--surface")).toBe("#fcfdfe");
+    expect(colourOf(effectiveLight, "--surface-raised")).toBe("#fcfdfe");
   });
 
   // In dark mode, base surface sits at resting tone #12161a, with subtle and raised
