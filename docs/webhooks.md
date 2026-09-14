@@ -13,7 +13,13 @@ share the same optional chat destinations.
 ## Chat destinations (shared)
 
 Set either, both, or neither. A receiver with no destination configured still
-accepts the event and reports it as undelivered.
+accepts the event and reports it as undelivered — but it no longer does so quietly.
+`postChatNotification` logs any discarded warning- or error-severity notification at
+`logger.error`, which the logger forwards to Sentry Logs, so a dropped deploy failure
+is visible without depending on the variable that is missing. `npm run check:production-readiness`
+warns about the same gap before an incident rather than during one. Both exist because
+the prose warning below was already written on 2026-09-11, when 24 production deploys
+then failed and rolled back over three days with every alert discarded on this path.
 
 - `SLACK_WEBHOOK_URL` — a Slack incoming webhook (`{ "text": … }`).
 - `DISCORD_WEBHOOK_URL` — a Discord webhook (`{ "content": … }`).

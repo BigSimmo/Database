@@ -596,6 +596,24 @@ async function main() {
       );
     }
 
+    // A deploy-alert receiver with no destination is worse than no receiver: it authenticates,
+    // answers `200 { "forwarded": false }`, and discards the alert. That configuration existed on
+    // both Railway services while 24 production deploys failed and rolled back over three days
+    // (2026-09-11 to 2026-09-14) without anyone being told. Checked here because the runtime log
+    // in chat-notify only fires once something has already gone wrong, and this gate can say so
+    // beforehand. Suppressed under --ci, like the neighbouring env-presence checks, since CI
+    // carries none of these values.
+    const chatDestinationConfigured = Boolean(envModule.env.SLACK_WEBHOOK_URL || envModule.env.DISCORD_WEBHOOK_URL);
+    if (chatDestinationConfigured) {
+      result.passes.push("A chat destination is set; Railway deploy alerts have somewhere to go.");
+    } else if (!isCiMode) {
+      result.warnings.push(
+        envModule.env.RAILWAY_WEBHOOK_SECRET
+          ? "RAILWAY_WEBHOOK_SECRET is set but neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is; the deploy-alert receiver will authenticate and silently discard every alert, including failed deploys. Set one on the Railway service (see docs/webhooks.md § 1)."
+          : "Neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is set; deploy and CI alerts have no destination (see docs/webhooks.md).",
+      );
+    }
+
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {
       result.warnings.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY looks like a placeholder.");
     }
