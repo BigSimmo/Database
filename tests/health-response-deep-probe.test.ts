@@ -27,7 +27,11 @@ function mockSupabase(healthy: boolean, options: { fails?: boolean } = {}) {
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
   }));
   const current = new Date().toISOString();
-  const readSiteContentHealthEvidence = vi.fn(async (_client: unknown, _signal?: AbortSignal) => {
+  const readSiteContentHealthEvidence = vi.fn(async (client: unknown, signal?: AbortSignal) => {
+    // Mirror the real call: the admin client is forwarded, and an expired deadline aborts
+    // rather than being ignored.
+    expect(client).toEqual({ id: "admin-client" });
+    signal?.throwIfAborted();
     if (options.fails) throw new Error("private database failure");
     return {
       initialized: true,
