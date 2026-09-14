@@ -262,6 +262,38 @@ describe("the site-content control-plane audit", () => {
     expect(signal, "an unbounded control-plane query is what caused the outage").toBeInstanceOf(AbortSignal);
   });
 
+  /**
+   * The deadline is a measured range, not a preference, and it went in below the range once.
+   *
+   * An abort is reported through the same `catch` as a corpus inconsistency — `checks.siteContent
+   * = "error"`, which makes the whole probe 503 — so a deadline under the audit's healthy cost
+   * does not bound a fault, it fabricates one, on every single call. That would take out
+   * `check:production-readiness` too, since `scripts/lib/deployment-rag-activation.mjs` reads this
+   * exact response and fails on a non-2xx. The opposite error is quieter but also real: a deadline
+   * above that caller's own 15 s whole-response budget can never fire, so a one-field timeout
+   * degrades into an opaque `health_probe_failed` instead.
+   */
+  it("keeps its deadline above the audit's measured cost and below the readiness prober's budget", async () => {
+    mockEnv();
+    mockSupabase(true);
+    const { SITE_CONTENT_PROBE_TIMEOUT_MS } = await import("../src/lib/health-response");
+
+    // Measured on the live container, 2026-09-14: /api/health/ready totalled 7.884 s with the
+    // audit against 0.798 s without it. See docs/deployment-architecture.md § Readiness.
+    const MEASURED_HEALTHY_COST_MS = 7_100;
+    // scripts/lib/deployment-rag-activation.mjs: AbortSignal.timeout(15000) around this response.
+    const READINESS_PROBER_BUDGET_MS = 15_000;
+
+    expect(
+      SITE_CONTENT_PROBE_TIMEOUT_MS,
+      "a deadline below the audit's healthy cost reports every healthy call as an integrity fault",
+    ).toBeGreaterThan(MEASURED_HEALTHY_COST_MS);
+    expect(
+      SITE_CONTENT_PROBE_TIMEOUT_MS,
+      "a deadline above the readiness prober's own budget can never be reached",
+    ).toBeLessThan(READINESS_PROBER_BUDGET_MS);
+  });
+
   it("fails the deep probe closed, without leaking the RPC error", async () => {
     // Migrated from `tests/health-route.test.ts`, where it asserted the same fail-closed
     // behaviour on `/api/health/ready`. The behaviour is unchanged; only its caller moved.

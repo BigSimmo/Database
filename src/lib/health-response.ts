@@ -28,11 +28,27 @@ type HealthResponseOptions = {
 };
 
 /**
- * Deadline for the site-content evidence read. Three seconds is far above its healthy cost and
- * far below any caller's patience; it exists so a slow control-plane audit degrades one field
- * instead of hanging a request.
+ * Deadline for the site-content evidence read. It exists so a slow control-plane audit degrades
+ * one field instead of hanging a request, and it is bounded on BOTH sides by measurement rather
+ * than chosen for roundness:
+ *
+ * - It must sit well ABOVE the audit's healthy cost. `read_site_content_health()` was measured at
+ *   about 7.1 s against the live database on 2026-09-14 (`docs/deployment-architecture.md`
+ *   § Readiness). A deadline under that does not bound a fault, it manufactures one — the abort
+ *   lands in the `catch` below as `checks.siteContent = "error"`, which is indistinguishable from
+ *   a genuine corpus inconsistency and drops the whole probe to 503. That would break the one
+ *   surface this endpoint still exists to provide, because `scripts/lib/deployment-rag-activation.mjs`
+ *   reads exactly this response and fails `check:production-readiness` on a non-2xx.
+ * - It must sit BELOW the readiness prober's own whole-response budget, which is
+ *   `AbortSignal.timeout(15000)` in that same file. A deadline above it would never be reached:
+ *   the caller would give up first, turning a diagnosable one-field timeout into an opaque
+ *   `health_probe_failed`.
+ *
+ * Ten seconds carries roughly 40% headroom over the measured cost and leaves the rest of the
+ * deep probe about five seconds inside the caller's budget. `tests/health-response-deep-probe.test.ts`
+ * pins both bounds, because the value being below the measured cost is the defect this replaced.
  */
-const SITE_CONTENT_PROBE_TIMEOUT_MS = 3_000;
+export const SITE_CONTENT_PROBE_TIMEOUT_MS = 10_000;
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
   const deep = options.forceDeep || new URL(request.url).searchParams.get("deep") === "1";

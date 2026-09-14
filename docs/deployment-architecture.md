@@ -306,8 +306,18 @@ nothing said so. `PR #2785`, which made that function cheaper, briefly restored 
 
 The audit itself was not weakened. It keeps its home on the token-gated `/api/health?deep=1` and
 in `npm run check:production-readiness`; only the deploy gate stopped asking, via
-`includeSiteContent: false`. Its read is additionally bounded by a 3-second `AbortSignal`, so no
-future caller can put an unbounded control-plane query back on a request path.
+`includeSiteContent: false`. Its read is additionally bounded by an `AbortSignal`, so no future
+caller can put an unbounded control-plane query back on a request path.
+
+**That deadline is derived from two measurements, not chosen.** It has to clear the audit's
+healthy cost of about 7.1 s, because an abort below that manufactures the fault it is meant to
+bound: the timeout surfaces as `checks.siteContent = "error"`, which is indistinguishable from a
+real corpus inconsistency and drops the whole probe to 503. It also has to stay under the 15-second
+whole-response budget that `scripts/lib/deployment-rag-activation.mjs` already applies when it
+reads this endpoint for `check:production-readiness`, or the caller gives up first and a
+diagnosable one-field timeout becomes an opaque `health_probe_failed`. Ten seconds sits between
+them with about 40% headroom. Widening the corpus moves the lower bound, so the fix when it is
+next approached is the profiling work queued in `/issues`, not a larger number here.
 
 **The trade, stated plainly:** a site-content integrity fault no longer blocks a rollout. It is
 caught by monitoring instead. That is deliberate — before this, it blocked _every_ rollout,
