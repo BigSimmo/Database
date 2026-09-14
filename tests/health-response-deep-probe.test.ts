@@ -21,14 +21,15 @@ function mockEnv() {
   }));
 }
 
-function mockSupabase(healthy: boolean) {
+function mockSupabase(healthy: boolean, options: { fails?: boolean } = {}) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin-client" })) }));
   vi.doMock("@/lib/supabase/health", () => ({
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
   }));
   const current = new Date().toISOString();
-  vi.doMock("@/lib/site-content/site-content-publication", () => ({
-    readSiteContentHealthEvidence: vi.fn(async () => ({
+  const readSiteContentHealthEvidence = vi.fn(async (_client: unknown, _signal?: AbortSignal) => {
+    if (options.fails) throw new Error("private database failure");
+    return {
       initialized: true,
       bootstrapIntegrityState: "not_applicable",
       activePublicSiteRelease: {
@@ -65,8 +66,10 @@ function mockSupabase(healthy: boolean) {
       latestInvocationSucceeded: true,
       lastActivation: current,
       rollbackAvailable: false,
-    })),
-  }));
+    };
+  });
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({ readSiteContentHealthEvidence }));
+  return { readSiteContentHealthEvidence };
 }
 
 async function deepProbe() {
@@ -219,5 +222,69 @@ describe("authorized deep health probe diagnostics", () => {
     expect(body.coalescing).toBeUndefined();
     expect(answerSloSnapshot).not.toHaveBeenCalled();
     expect(spendSnapshot).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The split that keeps production deployable.
+ *
+ * `read_site_content_health()` audits the whole site-content control plane — record counts,
+ * digest comparisons, tombstone reconciliation — and costs about seven seconds against the live
+ * database. Railway allows each healthcheck attempt ten, so while `/api/health/ready` called it,
+ * 24 consecutive production deploys (2026-09-11 to 2026-09-14) built, started cleanly, answered
+ * too slowly and were rolled back. The audit is not weakened here; one caller stopped asking.
+ * `docs/deployment-architecture.md` § Readiness carries the measurements.
+ */
+describe("the site-content control-plane audit", () => {
+  it("runs for the token-gated deep probe", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true);
+
+    const { response, body } = await deepProbe();
+
+    expect(response.status).toBe(200);
+    expect(readSiteContentHealthEvidence).toHaveBeenCalledTimes(1);
+    expect(body.checks).toMatchObject({ siteContent: "ok" });
+    expect(body.siteContent).toMatchObject({ state: "current" });
+  });
+
+  it("is bounded by a deadline so it can never hang a request path", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true);
+
+    await deepProbe();
+
+    const signal = readSiteContentHealthEvidence.mock.calls[0]?.[1];
+    expect(signal, "an unbounded control-plane query is what caused the outage").toBeInstanceOf(AbortSignal);
+  });
+
+  it("fails the deep probe closed, without leaking the RPC error", async () => {
+    // Migrated from `tests/health-route.test.ts`, where it asserted the same fail-closed
+    // behaviour on `/api/health/ready`. The behaviour is unchanged; only its caller moved.
+    mockEnv();
+    mockSupabase(true, { fails: true });
+
+    const { response, body } = await deepProbe();
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "error" });
+    expect(JSON.stringify(body)).not.toContain("private database failure");
+  });
+
+  it("is skipped, not failed, when a caller opts out", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true, { fails: true });
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(
+      new Request("http://localhost/api/health?deep=1", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+      { includeSiteContent: false },
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(body.siteContent).toBeUndefined();
+    expect(readSiteContentHealthEvidence).not.toHaveBeenCalled();
   });
 });

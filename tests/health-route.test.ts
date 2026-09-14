@@ -29,50 +29,49 @@ function mockHealthySiteContent(options: { fails?: boolean } = {}) {
   const probeSupabaseHealth = vi.fn(async () => ({ ok: true, checkedAt: current }));
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
   vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
-  vi.doMock("@/lib/site-content/site-content-publication", () => ({
-    readSiteContentHealthEvidence: vi.fn(async () => {
-      if (options.fails) throw new Error("private database failure");
-      return {
-        initialized: true,
-        bootstrapIntegrityState: "not_applicable",
-        activePublicSiteRelease: {
-          version: "clinical-kb-site-release-v1",
-          releaseId: "11111111-1111-5111-8111-111111111111",
-          registryVersion: "site-content-registry-v1",
-          staticManifestDigest: "a".repeat(64),
-          dynamicStateDigest: "b".repeat(64),
-          releaseDigest: "c".repeat(64),
-          state: "active",
-          activatedAt: current,
-        },
-        publicSiteChangeEpoch: "7",
-        outstandingHeadCount: 0,
-        populationComplete: true,
-        releaseDigestValid: true,
-        dynamicDigestValid: true,
-        administratorAttestationValid: true,
-        governanceValid: true,
-        pendingSetExact: true,
-        outstandingHeadCountAgrees: true,
-        pendingCount: 0,
-        retryPendingCount: 0,
-        processingCount: 0,
-        readyCount: 0,
-        quarantinedCount: 0,
-        oldestOutstandingOriginAgeMs: null,
-        countOverflow: false,
-        timeIntegrityValid: true,
-        expiredProcessingLeaseCount: 0,
-        synchronizerSeen: true,
-        lastInvocationAt: current,
-        lastSuccessfulInvocationAt: current,
-        latestInvocationSucceeded: true,
-        lastActivation: current,
-        rollbackAvailable: false,
-      };
-    }),
-  }));
-  return { probeSupabaseHealth };
+  const readSiteContentHealthEvidence = vi.fn(async () => {
+    if (options.fails) throw new Error("private database failure");
+    return {
+      initialized: true,
+      bootstrapIntegrityState: "not_applicable",
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1",
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active",
+        activatedAt: current,
+      },
+      publicSiteChangeEpoch: "7",
+      outstandingHeadCount: 0,
+      populationComplete: true,
+      releaseDigestValid: true,
+      dynamicDigestValid: true,
+      administratorAttestationValid: true,
+      governanceValid: true,
+      pendingSetExact: true,
+      outstandingHeadCountAgrees: true,
+      pendingCount: 0,
+      retryPendingCount: 0,
+      processingCount: 0,
+      readyCount: 0,
+      quarantinedCount: 0,
+      oldestOutstandingOriginAgeMs: null,
+      countOverflow: false,
+      timeIntegrityValid: true,
+      expiredProcessingLeaseCount: 0,
+      synchronizerSeen: true,
+      lastInvocationAt: current,
+      lastSuccessfulInvocationAt: current,
+      latestInvocationSucceeded: true,
+      lastActivation: current,
+      rollbackAvailable: false,
+    };
+  });
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({ readSiteContentHealthEvidence }));
+  return { probeSupabaseHealth, readSiteContentHealthEvidence };
 }
 
 function healthRequest(query = "", headers?: HeadersInit) {
@@ -245,30 +244,44 @@ describe("GET /api/health", () => {
 });
 
 describe("GET /api/health/ready", () => {
-  it("returns only bounded site-content health after the ordinary Supabase probe succeeds", async () => {
+  // Railway allows each healthcheck attempt ten seconds. `read_site_content_health()` — the
+  // site-content control-plane audit — costs about seven against the live database, and
+  // between 2026-09-11 and 2026-09-14 that margin failed 24 production deploys in a row: each
+  // one built, started cleanly, answered this endpoint too slowly and was rolled back, pinning
+  // the live site to three-day-old code with nothing to say so. Readiness now answers only
+  // "can THIS CONTAINER serve requests". The audit is unchanged and still runs on the
+  // token-gated `/api/health?deep=1` — `tests/health-response-deep-probe.test.ts` holds the
+  // cases that used to live here, including the fail-closed one.
+  it("never runs the site-content control-plane audit", async () => {
     mockEnv({ configured: true });
-    mockHealthySiteContent();
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent();
     const { GET } = await import("../src/app/api/health/ready/route");
 
     const response = await GET(new Request("http://localhost/api/health/ready"));
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "ok" });
-    expect(body.siteContent).toMatchObject({ state: "current", releaseDigestPrefix: "cccccccccccc" });
-    expect(JSON.stringify(body.siteContent)).not.toMatch(/changeEpoch|dynamicStateDigest|workerId|publishedBy/);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(body.siteContent, "readiness must expose no control-plane projection").toBeUndefined();
+    expect(
+      readSiteContentHealthEvidence,
+      "a seven-second audit on the deploy gate is what rolled back 24 deploys",
+    ).not.toHaveBeenCalled();
   });
 
-  it("fails closed without leaking the site-content RPC error", async () => {
+  it("stays deployable when the site-content audit would fail", async () => {
     mockEnv({ configured: true });
-    mockHealthySiteContent({ fails: true });
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent({ fails: true });
     const { GET } = await import("../src/app/api/health/ready/route");
 
     const response = await GET(new Request("http://localhost/api/health/ready"));
     const body = await payload(response);
 
-    expect(response.status).toBe(503);
-    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "error" });
+    // The inverse of the old contract, and the point of the change: a control-plane fault is a
+    // monitoring signal, not a reason to refuse to ship unrelated code.
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(readSiteContentHealthEvidence).not.toHaveBeenCalled();
     expect(JSON.stringify(body)).not.toContain("private database failure");
   });
 

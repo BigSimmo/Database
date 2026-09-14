@@ -628,8 +628,18 @@ export async function publishSiteContentCommand(input: {
   return { outcome: "applied" as const, result };
 }
 
-export async function readSiteContentHealthEvidence(supabase: unknown): Promise<SiteContentReleaseEvidence> {
-  const { data, error } = await callRpc(supabase as RpcClient, "read_site_content_health", {});
+/**
+ * `signal` is not optional decoration: `read_site_content_health()` is a whole-corpus integrity
+ * audit, and on 2026-09-13 an unbounded call to it from `/api/health/ready` was what stopped
+ * production deploying for three days (see `docs/deployment-architecture.md` § Readiness).
+ * Every request-path caller must bound it; `callRpc` forwards the signal to PostgREST, so an
+ * expired deadline cancels the query rather than merely abandoning the promise.
+ */
+export async function readSiteContentHealthEvidence(
+  supabase: unknown,
+  signal?: AbortSignal,
+): Promise<SiteContentReleaseEvidence> {
+  const { data, error } = await callRpc(supabase as RpcClient, "read_site_content_health", {}, signal);
   if (error) throw new Error("Site-content health evidence is unavailable.");
   try {
     return parseSiteContentReleaseEvidence(data);

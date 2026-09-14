@@ -33,6 +33,11 @@ export async function GET(request: Request) {
     includeCoalescing: false,
     includeSpend: false,
     includeOperatorDiagnostics: false,
+    // The one that matters for deployment. See the guard in `health-response.ts`: the
+    // site-content audit takes ~7s and Railway allows each healthcheck attempt 10, which cost
+    // this project 24 rolled-back production deploys before it was found. Readiness stays a
+    // question about this container.
+    includeSiteContent: false,
   });
   const body = (await response.clone().json()) as unknown;
   cachedReady = { expiresAt: now + READY_CACHE_TTL_MS, body, status: response.status };

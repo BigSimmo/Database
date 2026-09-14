@@ -20,7 +20,19 @@ type HealthResponseOptions = {
   includeCoalescing?: boolean;
   includeSpend?: boolean;
   includeOperatorDiagnostics?: boolean;
+  /**
+   * The site-content control-plane audit. Default on, but `/api/health/ready` turns it OFF —
+   * see the block guarding it below for why that endpoint must not ask this question.
+   */
+  includeSiteContent?: boolean;
 };
+
+/**
+ * Deadline for the site-content evidence read. Three seconds is far above its healthy cost and
+ * far below any caller's patience; it exists so a slow control-plane audit degrades one field
+ * instead of hanging a request.
+ */
+const SITE_CONTENT_PROBE_TIMEOUT_MS = 3_000;
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
   const deep = options.forceDeep || new URL(request.url).searchParams.get("deep") === "1";
@@ -66,14 +78,28 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           const admin = createAdminClient();
           const health = await probeSupabaseHealth(admin);
           checks.supabase = health.ok ? "ok" : "error";
-          if (health.ok) {
+          // NOT on the readiness path, deliberately. `read_site_content_health()` is a
+          // whole-corpus integrity audit — record counts, digest comparisons, tombstone
+          // reconciliation — and it costs about seven seconds against the live database.
+          // Railway allows each healthcheck attempt ten, so between 2026-09-11 and 2026-09-14
+          // this single call failed 24 production deploys: every merge built, started, answered
+          // this endpoint too slowly, and was rolled back, silently pinning the live site to
+          // three-day-old code. Readiness answers "can THIS CONTAINER serve requests"; whether
+          // the shared control plane is internally consistent is a monitoring question, and it
+          // keeps its home on the token-gated `/api/health?deep=1` and in
+          // `npm run check:production-readiness`. `tests/health-response-deep-probe.test.ts`
+          // pins both halves of that split.
+          if (health.ok && options.includeSiteContent !== false) {
             try {
               const [{ readSiteContentHealthEvidence }, { classifySiteContentHealth, classifySiteContentPartition }] =
                 await Promise.all([
                   import("@/lib/site-content/site-content-publication"),
                   import("@/lib/site-content/site-content-health"),
                 ]);
-              const evidence = await readSiteContentHealthEvidence(admin);
+              const evidence = await readSiteContentHealthEvidence(
+                admin,
+                AbortSignal.timeout(SITE_CONTENT_PROBE_TIMEOUT_MS),
+              );
               const partition = classifySiteContentPartition({
                 expectedSiteStaticManifestDigest: env.SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST,
                 activePublicSiteRelease: evidence.activePublicSiteRelease,

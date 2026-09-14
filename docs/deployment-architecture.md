@@ -272,12 +272,49 @@ check and watch patterns rather than relying on dashboard defaults.
   },
   "deploy": {
     "healthcheckPath": "/api/health/ready",
-    "healthcheckTimeout": 60,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
     "multiRegionConfig": { "asia-southeast1-eqsg3a": { "numReplicas": 1 } },
   },
 }
 ```
+
+### Readiness: what `/api/health/ready` may and may not ask
+
+**Readiness answers one question — can THIS CONTAINER serve requests?** Configuration is
+present, and Supabase answers a one-row `select`. Nothing else belongs on it.
+
+It must never carry a whole-corpus or cross-tenant audit. Railway allows each healthcheck
+attempt **ten seconds** (measured from the deploy-log retry cadence: a 10 s request timeout plus
+exponential backoff of 0.2 / 1.2 / 2.2 / 4.2 / 8.2 s), and a deployment that cannot answer inside
+the window is discarded and rolled back.
+
+Between **2026-09-11 and 2026-09-14 that is exactly what happened, 24 times.** The endpoint had
+been calling `read_site_content_health()` — the site-content control-plane integrity audit — which
+costs about seven seconds against the live database:
+
+```
+/api/health          http=200 total=0.798s   # shallow: config flags only
+/api/health/ready    http=200 total=7.884s   # with the audit, measured on the live container
+```
+
+Seven against a ten-second limit is a coin flip, and a cold container — no warm Postgres
+connection, no cached plan, cold PostgREST schema cache — loses it. Every merge built, started
+cleanly, answered too slowly and was rolled back; production sat on three-day-old code and
+nothing said so. `PR #2785`, which made that function cheaper, briefly restored deploys on
+13 September before the margin closed again — the clearest single confirmation of the mechanism.
+
+The audit itself was not weakened. It keeps its home on the token-gated `/api/health?deep=1` and
+in `npm run check:production-readiness`; only the deploy gate stopped asking, via
+`includeSiteContent: false`. Its read is additionally bounded by a 3-second `AbortSignal`, so no
+future caller can put an unbounded control-plane query back on a request path.
+
+**The trade, stated plainly:** a site-content integrity fault no longer blocks a rollout. It is
+caught by monitoring instead. That is deliberate — before this, it blocked _every_ rollout,
+related or not, and did so invisibly.
+
+`tests/health-response-deep-probe.test.ts` pins both halves of the split, and
+`tests/railway-config.test.ts` pins the 300-second window.
 
 ## 3. Ingestion tier
 
