@@ -323,6 +323,16 @@ Nine token-authorized deep probes against the live warm container on 2026-09-14 
 the caller's 15 s budget. Widening the corpus moves the lower bound, so the fix when it is
 next approached is the profiling work queued in `/issues`, not a larger number here.
 
+[`scripts/operator-explain-site-content-health.sql`](../scripts/operator-explain-site-content-health.sql)
+is that profiling, ready to run read-only in an approved operator window. It carries one
+hypothesis worth stating up front, reached from the schema rather than from a plan: `live_events`
+filters `site_content_sync_events` by `state in ('pending','retry_pending','processing','ready')`,
+and none of that table's three indexes serves it — two are partial and cover only three of the
+four states between them, and the third has `state` as its last column. If that is right the audit
+sequentially scans an append-only event log on every call, which is a cost that only ever rises
+and matches PR #2785 buying hours rather than a fix. The script confirms or kills it in its
+Step 3.
+
 **The trade, stated plainly:** a site-content integrity fault no longer blocks a rollout. It is
 caught by monitoring instead. That is deliberate — before this, it blocked _every_ rollout,
 related or not, and did so invisibly.
