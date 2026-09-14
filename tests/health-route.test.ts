@@ -374,3 +374,77 @@ describe("GET /api/health/ready", () => {
     }
   });
 });
+
+/**
+ * The guard that outlives the incident.
+ *
+ * The 24 rolled-back deploys were not caused by the site-content audit being expensive. They
+ * were caused by the SHAPE of the readiness contract: `/api/health/ready` opted into the deep
+ * branch and then switched each expensive probe off by name, six `false`s long. A deny-list is
+ * correct only until the next probe is added, and it stops being correct silently. The audit was
+ * simply the next probe.
+ *
+ * The same mechanism had already misfired once, on `includeSlo`, and was read as a one-probe bug
+ * — see that case in `tests/health-response-deep-probe.test.ts`, whose comment ends "one flag at
+ * one caller, not a gate".
+ *
+ * So the useful test is not "the audit is not called" — that one pins yesterday's probe. It is
+ * this: readiness returns EXACTLY these keys and nothing else. A probe added to the deep branch
+ * that leaks onto the deploy gate adds a check or a body section, and fails here, in CI, in
+ * milliseconds, instead of in production three days later.
+ *
+ * If you are here because this test failed after adding a probe: that is the test working. The
+ * probe belongs on the token-gated `/api/health?deep=1`. Putting it on readiness means proving
+ * it is bounded and cheap enough for Railway's ten-second window, and saying so in
+ * `health-response.ts` beside the `probes` contract.
+ */
+describe("the readiness contract, pinned by shape rather than by yesterday's probe", () => {
+  it("exposes exactly the container-level checks, and no diagnostic section at all", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    mockHealthySiteContent();
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const body = await payload(await GET(new Request("http://localhost/api/health/ready")));
+
+    expect(Object.keys(body.checks as Record<string, unknown>).sort()).toEqual([
+      "openaiConfig",
+      "siteContent",
+      "supabase",
+      "supabaseConfig",
+    ]);
+    expect(Object.keys(body).sort()).toEqual([
+      "checks",
+      "demoMode",
+      "deploymentCommitSha",
+      "status",
+      "timestamp",
+      "uptimeSeconds",
+    ]);
+  });
+
+  it("bounds its one database call, because an unbounded one cannot beat a ten-second gate", async () => {
+    mockEnv({ configured: true });
+    const { probeSupabaseHealth } = mockHealthySiteContent();
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    await GET(new Request("http://localhost/api/health/ready"));
+
+    const signal = (probeSupabaseHealth.mock.calls[0] as unknown[])[1];
+    expect(signal, "a cold container can outrun Railway's window on even a one-row select").toBeInstanceOf(AbortSignal);
+  });
+
+  it("leaves the diagnostic probe fully populated, so nothing was removed, only relocated", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent();
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(
+      new Request("http://localhost/api/health?deep=1", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(readSiteContentHealthEvidence).toHaveBeenCalledTimes(1);
+    expect(body.siteContent).toBeDefined();
+    expect(body.checks).toMatchObject({ siteContent: "ok" });
+  });
+});

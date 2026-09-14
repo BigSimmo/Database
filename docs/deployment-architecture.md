@@ -327,6 +327,56 @@ next approached is the profiling work queued in `/issues`, not a larger number h
 caught by monitoring instead. That is deliberate — before this, it blocked _every_ rollout,
 related or not, and did so invisibly.
 
+#### The actual root cause was the shape of the contract, not the cost of one query
+
+Taking the audit off the gate fixes the outage that happened. It does not fix the one that
+happens next, because the audit was never the defect — it was the first thing to fall through a
+hole that was already there.
+
+`/api/health/ready` used to opt **into** the deep diagnostic branch and then switch each
+expensive probe off by name:
+
+```ts
+forceDeep: true, allowUnauthenticatedDeep: true,
+includeSlo: false, includeCache: false, includeCoalescing: false,
+includeSpend: false, includeOperatorDiagnostics: false,   // and, eventually, includeSiteContent: false
+```
+
+That is a deny-list, and a deny-list is correct only until the next entry is added. Anything
+landing in the deep branch was live on Railway's healthcheck from that moment, and stayed live
+until somebody remembered to come back and add one more `false`. Nobody did. The mechanism had
+already misfired once before, on `includeSlo`, and was read as a one-probe bug — the comment on
+that case in `tests/health-response-deep-probe.test.ts` ends "one flag at one caller, not a gate".
+
+Readiness now declares what it is instead of listing what it is not:
+
+```ts
+forceDeep: true, allowUnauthenticatedDeep: true, probes: "readiness"
+```
+
+Under `probes: "readiness"` every optional probe is off regardless of its own flag, so a probe
+added later is diagnostic-only **by construction** and cannot reach the deploy gate by omission.
+Putting one on readiness is now a deliberate edit in `health-response.ts` next to the contract it
+changes.
+
+Two guards hold it:
+
+- `tests/health-route.test.ts` pins the readiness response **by shape** — the exact set of check
+  keys and body sections — rather than by naming yesterday's probe. Anything that leaks in fails
+  in CI in milliseconds instead of in production three days later.
+- The one database call readiness still makes, `probeSupabaseHealth`, now carries a 5-second
+  deadline. It was the last unbounded thing on the gate: a one-row select is cheap warm, but a
+  cold container has no warm connection, no cached plan and a cold PostgREST schema cache, and an
+  unbounded call cannot answer before a ten-second window closes. The worst case is now a fast
+  503 naming the failing check, with room left for Railway's remaining retries, instead of a
+  timeout indistinguishable from a hung container.
+
+#### Nothing watches the site between deployments
+
+Railway's healthcheck runs at deploy time only, by its own documentation. It is not continuous
+monitoring, so between deployments nothing checks that the live site is healthy. That gap is
+unclosed and is not addressed by any of the above.
+
 `tests/health-response-deep-probe.test.ts` pins both halves of the split, and
 `tests/railway-config.test.ts` pins the 300-second window.
 
