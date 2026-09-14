@@ -371,11 +371,34 @@ Two guards hold it:
   503 naming the failing check, with room left for Railway's remaining retries, instead of a
   timeout indistinguishable from a hung container.
 
-#### Nothing watches the site between deployments
+#### A slow audit and a broken corpus are different incidents
 
-Railway's healthcheck runs at deploy time only, by its own documentation. It is not continuous
-monitoring, so between deployments nothing checks that the live site is healthy. That gap is
-unclosed and is not addressed by any of the above.
+On the diagnostic probe, an expired site-content deadline reports `checks.siteContent = "timeout"`
+and a genuine control-plane inconsistency reports `"error"`. Both still fail the probe closed — an
+audit that did not finish is not evidence that the corpus is sound — but they call for opposite
+responses, and until they were named apart both read as an integrity fault. Given the deadline
+carries about 27% headroom over a cost that grows with the corpus, this is what the next person
+will see first when the margin closes, and it should point at profiling rather than at the data.
+
+#### Nothing watched the site between deployments, and the monitor that did could not see this
+
+Railway's healthcheck runs at deploy time only, by its own documentation, so it is not continuous
+monitoring. `live-domain-monitor.yml` covers that gap every six hours — and it stayed green
+through all three days of the outage. Every probe in it passed and every one was telling the
+truth: the domain served the app shell, `/api/health` answered `"ok"`, live mode was intact. The
+site was simply serving three-day-old code, and nothing compared what was **deployed** against
+what had been **merged**.
+
+That monitor now also asserts that main's head has not gone unshipped for longer than
+`LIVE_DEPLOY_MAX_LAG_HOURS` (default 12). The measurement is the age of the unshipped head, not
+the distance between the two commits — during the incident the live commit and main's head were
+56 minutes apart in authored time while the site stayed stranded for three days, so a
+commit-distance test would have read 0 h and stayed silent in exactly the case it exists for.
+
+It needs no secret, because `/api/health` reports `deploymentCommitSha` to any anonymous caller,
+and a red run already reaches chat through `notify-ci-failure.yml`. It deliberately shares nothing
+with the Railway deploy webhook: that path has its own failure modes, and a detector that depends
+on the thing it watches is not a detector.
 
 `tests/health-response-deep-probe.test.ts` pins both halves of the split, and
 `tests/railway-config.test.ts` pins the 300-second window.

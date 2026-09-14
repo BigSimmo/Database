@@ -21,7 +21,7 @@ function mockEnv() {
   }));
 }
 
-function mockSupabase(healthy: boolean, options: { fails?: boolean } = {}) {
+function mockSupabase(healthy: boolean, options: { fails?: boolean; timesOut?: boolean } = {}) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin-client" })) }));
   vi.doMock("@/lib/supabase/health", () => ({
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
@@ -32,6 +32,9 @@ function mockSupabase(healthy: boolean, options: { fails?: boolean } = {}) {
     // rather than being ignored.
     expect(client).toEqual({ id: "admin-client" });
     signal?.throwIfAborted();
+    if (options.timesOut) {
+      throw Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+    }
     if (options.fails) throw new Error("private database failure");
     return {
       initialized: true,
@@ -324,5 +327,38 @@ describe("the site-content control-plane audit", () => {
     expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
     expect(body.siteContent).toBeUndefined();
     expect(readSiteContentHealthEvidence).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A slow audit and a broken corpus are not the same incident.
+ *
+ * Both arrive through one `catch`, and until they were named apart both read as
+ * `checks.siteContent = "error"` — an integrity fault. The responses are opposites: a timeout
+ * means the query has outgrown its budget and wants profiling, an error means the control plane
+ * disagrees with itself and wants a look at the data. The deadline is sized with about 27%
+ * headroom over the measured cost and the cost grows with the corpus, so this distinction is not
+ * hypothetical: it is what the next person sees first when the margin closes.
+ *
+ * Both still fail closed. An audit that did not finish is not evidence that the corpus is sound.
+ */
+describe("a site-content audit that runs out of time", () => {
+  it("is reported as a timeout, not as an integrity fault", async () => {
+    mockEnv();
+    mockSupabase(true, { timesOut: true });
+
+    const { response, body } = await deepProbe();
+
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "timeout" });
+    expect(response.status, "an unfinished audit is not proof of a sound corpus").toBe(503);
+  });
+
+  it("still calls a genuine control-plane failure an error", async () => {
+    mockEnv();
+    mockSupabase(true, { fails: true });
+
+    const { body } = await deepProbe();
+
+    expect(body.checks).toMatchObject({ siteContent: "error" });
   });
 });

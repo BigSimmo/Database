@@ -1,3 +1,5 @@
+import { isAbortError } from "@/lib/abort-error";
+
 type ProbeError = { message?: string; code?: string; details?: string; hint?: string } | null;
 type ProbeResult = PromiseLike<{ error: ProbeError }> & {
   // PostgREST's builder carries this; the structural type keeps it optional so a hand-rolled
@@ -33,17 +35,6 @@ function errorMessage(error: unknown) {
     return String((error as { message?: unknown }).message ?? "");
   }
   return String(error ?? "");
-}
-
-/**
- * An expired `AbortSignal` deadline, as distinct from a provider fault. `AbortSignal.timeout()`
- * rejects with a `TimeoutError` DOMException whose message ("The operation was aborted due to
- * timeout") matches none of the provider patterns below, so it needs its own test.
- */
-function isAbortError(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  const name = (error as { name?: unknown }).name;
-  return name === "TimeoutError" || name === "AbortError";
 }
 
 export function isSupabaseUnavailableError(error: unknown) {

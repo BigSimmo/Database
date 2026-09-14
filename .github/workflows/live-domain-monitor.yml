@@ -87,3 +87,63 @@ jobs:
             echo "::error::www.psychiatry.tools returned $code"
             exit 1
           fi
+
+      # The check the three-day outage actually needed, and the one nobody had.
+      #
+      # Between 2026-09-11 and 2026-09-14, 24 consecutive production deploys were rejected at
+      # Railway's healthcheck and rolled back. This workflow stayed green throughout. Every probe
+      # above passed and each was telling the truth: the domain served the app shell, /api/health
+      # answered "ok", live mode was intact. The site was simply serving three-day-old code, and
+      # nothing here compared what was DEPLOYED against what had been MERGED. It was found by
+      # someone noticing that an expected UI change was missing from the live site.
+      #
+      # The measurement is HOW LONG MAIN'S HEAD HAS GONE UNSHIPPED, not how far apart the two
+      # commits are. That distinction is the whole check. During the real incident the live commit
+      # and main's head were 56 minutes apart in authored time while the site stayed stranded for
+      # three days, so a commit-distance test would have read 0h and said nothing — silent in
+      # exactly the case it exists for. Head age reads 23h on the same data.
+      #
+      # No secret is needed: /api/health reports deploymentCommitSha to any anonymous caller, in
+      # keeping with this workflow's no-secrets contract. A red run is the alert, and "Live domain
+      # monitor" is already listed in notify-ci-failure.yml.
+      #
+      # It is also deliberately independent of the Railway deploy webhook. That path has its own
+      # failure modes — on 2026-09-13 it answered 401 to all eighteen deliveries — and a detector
+      # sharing a dependency with the thing it watches is not a detector.
+      - name: Live deployment has not been stranded behind main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # Tolerates ordinary deploy lag, which is minutes. Raise via repository variable only
+          # with a reason: this number is how long a silent rollback loop may run undetected.
+          MAX_LAG_HOURS: ${{ vars.LIVE_DEPLOY_MAX_LAG_HOURS || '12' }}
+        run: |
+          set -euo pipefail
+          live="$(curl -sSL --fail --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors \
+            "$LIVE_DOMAIN_URL/api/health" | jq -r '.deploymentCommitSha // empty')"
+          if [ -z "$live" ]; then
+            echo "::error::/api/health reported no deploymentCommitSha, so a stranded deployment can no longer be detected here"
+            exit 1
+          fi
+
+          head_sha="$(gh api "repos/$REPO/commits/main" --jq '.sha')"
+          if [ "$live" = "$head_sha" ]; then
+            echo "Live deployment is at main ($live)."
+            exit 0
+          fi
+
+          if ! gh api "repos/$REPO/commits/$live" --jq '.sha' >/dev/null 2>&1; then
+            echo "::error::Live deployment $live is not a commit in $REPO, so what is serving production is unknown"
+            exit 1
+          fi
+
+          head_at="$(gh api "repos/$REPO/commits/$head_sha" --jq '.commit.committer.date')"
+          lag_hours=$(( ( $(date -u +%s) - $(date -u -d "$head_at" +%s) ) / 3600 ))
+
+          if [ "$lag_hours" -gt "$MAX_LAG_HOURS" ]; then
+            echo "::error::main has been unshipped for ${lag_hours}h. Production is serving $live, not $head_sha."
+            echo "::error::Deploys are not landing. A deployment that builds and starts but fails its"
+            echo "::error::healthcheck is discarded and rolled back, leaving the site up on older code."
+            exit 1
+          fi
+          echo "main head $head_sha is ${lag_hours}h old and not yet live ($live); within the ${MAX_LAG_HOURS}h allowance."

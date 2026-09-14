@@ -1,5 +1,6 @@
 import { ragProgrammeHealth } from "@/lib/rag/rag-rollout";
 import { NextResponse } from "next/server";
+import { isAbortError } from "@/lib/abort-error";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
 import type { AnswerSloSnapshot, SloProbeClient } from "@/lib/observability/answer-slo";
@@ -103,7 +104,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   const operatorDiagnostics = tokenAuthorized && probeEnabled(options.includeOperatorDiagnostics);
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
   const openAIConfigured = Boolean(env.OPENAI_API_KEY);
-  const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
+  const checks: Record<string, "ok" | "missing" | "error" | "timeout" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
     openaiConfig: openAIConfigured ? "ok" : env.RAG_PROVIDER_MODE === "offline" ? "skipped" : "missing",
     siteContent: "skipped",
@@ -179,8 +180,14 @@ export async function healthResponse(request: Request, options: HealthResponseOp
               });
               siteContent = classification.publicProjection;
               checks.siteContent = classification.operationStop ? "error" : "ok";
-            } catch {
-              checks.siteContent = "error";
+            } catch (error) {
+              // A deadline and a corpus inconsistency arrive through the same `catch` and call for
+              // opposite responses: one is "this query has outgrown its budget, go profile it", the
+              // other is "the control plane disagrees with itself, go look at the data". Collapsing
+              // both into "error" sent the last investigation to the wrong place, so they are named
+              // apart here. Both still fail the probe closed — an audit that did not finish is not
+              // evidence that the corpus is sound.
+              checks.siteContent = isAbortError(error) ? "timeout" : "error";
             }
           }
           // `operatorDiagnostics &&` matches `spendSnapshot` below and makes the gate real: the
@@ -230,7 +237,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   }
 
   const ready = !Object.values(checks).some(
-    (value) => value === "missing" || value === "error" || value === "unauthorized",
+    (value) => value === "missing" || value === "error" || value === "timeout" || value === "unauthorized",
   );
 
   return NextResponse.json(
