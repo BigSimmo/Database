@@ -32,9 +32,10 @@ type HealthResponseOptions = {
  * one field instead of hanging a request, and it is bounded on BOTH sides by measurement rather
  * than chosen for roundness:
  *
- * - It must sit well ABOVE the audit's healthy cost. `read_site_content_health()` was measured at
- *   about 7.1 s against the live database on 2026-09-14 (`docs/deployment-architecture.md`
- *   § Readiness). A deadline under that does not bound a fault, it manufactures one — the abort
+ * - It must sit well ABOVE the audit's healthy cost. Nine token-authorized deep probes against
+ *   the live warm container on 2026-09-14 took 7.18 s to 7.86 s, every one of them HTTP 200
+ *   (`docs/deployment-architecture.md` § Readiness). A deadline under that does not bound a
+ *   fault, it manufactures one — the abort
  *   lands in the `catch` below as `checks.siteContent = "error"`, which is indistinguishable from
  *   a genuine corpus inconsistency and drops the whole probe to 503. That would break the one
  *   surface this endpoint still exists to provide, because `scripts/lib/deployment-rag-activation.mjs`
@@ -44,9 +45,12 @@ type HealthResponseOptions = {
  *   the caller would give up first, turning a diagnosable one-field timeout into an opaque
  *   `health_probe_failed`.
  *
- * Ten seconds carries roughly 40% headroom over the measured cost and leaves the rest of the
- * deep probe about five seconds inside the caller's budget. `tests/health-response-deep-probe.test.ts`
- * pins both bounds, because the value being below the measured cost is the defect this replaced.
+ * Ten seconds clears the slowest of those nine samples by about 27% and still leaves the whole
+ * deep probe comfortably inside the caller's 15 s budget. That headroom is thin, and deliberately
+ * so: it is sized for the corpus as measured, not for an arbitrary future one. The way to widen
+ * it is to make the audit cheaper — the profiling work queued in `/issues` — not to raise this
+ * number until it collides with the caller's timeout. `tests/health-response-deep-probe.test.ts`
+ * pins both bounds, because the value going in below the measured cost is the defect this replaced.
  */
 export const SITE_CONTENT_PROBE_TIMEOUT_MS = 10_000;
 

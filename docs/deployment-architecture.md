@@ -310,13 +310,17 @@ in `npm run check:production-readiness`; only the deploy gate stopped asking, vi
 caller can put an unbounded control-plane query back on a request path.
 
 **That deadline is derived from two measurements, not chosen.** It has to clear the audit's
-healthy cost of about 7.1 s, because an abort below that manufactures the fault it is meant to
+healthy cost, because an abort below that manufactures the fault it is meant to
 bound: the timeout surfaces as `checks.siteContent = "error"`, which is indistinguishable from a
 real corpus inconsistency and drops the whole probe to 503. It also has to stay under the 15-second
 whole-response budget that `scripts/lib/deployment-rag-activation.mjs` already applies when it
 reads this endpoint for `check:production-readiness`, or the caller gives up first and a
-diagnosable one-field timeout becomes an opaque `health_probe_failed`. Ten seconds sits between
-them with about 40% headroom. Widening the corpus moves the lower bound, so the fix when it is
+diagnosable one-field timeout becomes an opaque `health_probe_failed`.
+
+Nine token-authorized deep probes against the live warm container on 2026-09-14 ran between
+**7.18 s and 7.86 s**, every one HTTP 200 — a tight cluster that independently confirms the
+~7-second figure above. Ten seconds clears the slowest of them by about 27% and sits well under
+the caller's 15 s budget. Widening the corpus moves the lower bound, so the fix when it is
 next approached is the profiling work queued in `/issues`, not a larger number here.
 
 **The trade, stated plainly:** a site-content integrity fault no longer blocks a rollout. It is

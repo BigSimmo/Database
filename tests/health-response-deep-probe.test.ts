@@ -278,9 +278,11 @@ describe("the site-content control-plane audit", () => {
     mockSupabase(true);
     const { SITE_CONTENT_PROBE_TIMEOUT_MS } = await import("../src/lib/health-response");
 
-    // Measured on the live container, 2026-09-14: /api/health/ready totalled 7.884 s with the
-    // audit against 0.798 s without it. See docs/deployment-architecture.md § Readiness.
-    const MEASURED_HEALTHY_COST_MS = 7_100;
+    // Slowest of nine successful deep probes against the live warm container on 2026-09-14
+    // (range 7.18-7.86 s, all HTTP 200), rounded up. Pinning the worst observed case rather than
+    // the average is the point: the average is what a too-small deadline hides behind.
+    // See docs/deployment-architecture.md § Readiness.
+    const MEASURED_HEALTHY_COST_MS = 7_900;
     // scripts/lib/deployment-rag-activation.mjs: AbortSignal.timeout(15000) around this response.
     const READINESS_PROBER_BUDGET_MS = 15_000;
 
