@@ -59,15 +59,41 @@
 -- which blends vector similarity. Read it as evidence about which DOCUMENTS are
 -- plausible top candidates, not as the production rank. Steps 1 to 3 need no such
 -- caveat, because they are statements about the stored corpus itself.
+--
+-- AN EMPTY STEP 4 OR 5 IS NOT A FINDING UNTIL STEP 1 IS READ. The governed
+-- candidate function returns nothing at all unless `corpus_scopes` is non-null,
+-- and its only document branch admits `australian_public` and
+-- `international_supplementary`. A document scoped `uploaded_local` cannot be
+-- produced by it however well it matches. Step 1 reports that scope, and Steps 4
+-- and 5 pass the scope array explicitly, so neither trap can fire silently.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- Step 1: What clozapine guidelines are actually in the corpus?
+-- Step 1: What clozapine guidelines are in the corpus, and can they be retrieved?
 --
--- Establishes the duplicate set. The four canary cases all pin
--- CG.MHSP.ClozapinePresAdminMonitor.pdf as the expected file. If several near
--- duplicates are indexed, retrieval has to discriminate between documents that
--- look alike lexically but differ in whether they carry the threshold table.
+-- Establishes the duplicate set AND whether each document can enter retrieval at
+-- all. The four canary cases pin CG.MHSP.ClozapinePresAdminMonitor.pdf, so the
+-- governance columns below are not background detail: production retrieval admits
+-- a document only when every one of them holds (see the `document_candidates` CTE
+-- of match_governed_candidate_chunks_v3), and `retrievable_corpus_scope` is the
+-- one that most often fails.
+--
+-- READ `corpus_scope` FIRST, BECAUSE IT MAY END THE INVESTIGATION HERE.
+-- match_governed_candidate_chunks_v3 has exactly two candidate branches: documents
+-- scoped `australian_public` or `international_supplementary`, and site-content
+-- records scoped `clinical_kb_site`. There is NO branch for `uploaded_local`. That
+-- value passes the argument validator and then matches nothing, and it is
+-- deliberate: migration 20260901120100_fail_closed_unactivated_uploaded_local_retrieval.sql
+-- switched uploaded-local retrieval off, "until P16 supplies generation-bound
+-- activation".
+--
+-- So a plausible and cheap explanation of all four canary failures is simply that
+-- the expected clozapine guideline is scoped `uploaded_local` and is therefore
+-- currently unretrievable BY DESIGN — no chunking defect, no ranking defect, and
+-- nothing wrong with the verification guards. If this row shows that, Steps 4 and
+-- 5 will be empty by construction, their emptiness says nothing about ranking, and
+-- the real question becomes whether that fail-closed state is still intended while
+-- these cases sit red in the weekly canary.
 -- ----------------------------------------------------------------------------
 begin;
 set local statement_timeout = '30s';
@@ -79,7 +105,20 @@ select
   d.chunk_count,
   d.page_count,
   d.owner_id is null as ownerless,
-  d.metadata->'public_corpus' as public_corpus,
+  d.metadata->>'corpus_scope' as corpus_scope,
+  d.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')
+    as retrievable_corpus_scope,
+  d.metadata->'public_corpus' = 'true'::jsonb as public_corpus,
+  d.metadata->>'source_kind' as source_kind,
+  d.metadata->>'content_mode' as content_mode,
+  d.metadata->>'document_status' as document_status,
+  d.metadata->>'change_state' as change_state,
+  d.metadata->>'licence_policy' as licence_policy,
+  nullif(d.metadata->>'source_catalogue_key', '') is not null as has_catalogue_key,
+  nullif(d.metadata->>'source_policy_version', '') is not null as has_policy_version,
+  nullif(d.metadata->>'publication_approval_id', '') is not null as has_publication_approval,
+  nullif(d.metadata->>'publication_manifest_digest', '') is not null as has_manifest_digest,
+  d.index_generation_id,
   d.metadata->>'review_status' as review_status,
   d.created_at
 from public.documents d
@@ -100,6 +139,14 @@ commit;
 -- retrieval. If it returns rows, retrieval is failing to surface them and Step 4
 -- says which documents are displacing them.
 --
+-- `production_admissible` IS PART OF THE ANSWER, NOT DECORATION. This query
+-- deliberately does not filter to admissible rows, because a stale chunk from a
+-- superseded index generation, or a duplicate on an unindexed document, is
+-- exactly the kind of thing worth seeing. But such a row cannot enter retrieval,
+-- so it is NOT evidence that the evidence exists and is being outranked. Treat
+-- only rows where `production_admissible` is true as support for the ranking
+-- branch of the result table at the end of this file.
+--
 -- The figure pattern matches the forms these guidelines use: a decimal count with
 -- or without units (1.5, 1.5 x10^9/L, 0.5 x 10 9 /L), and the bare integer
 -- thresholds used for WCC (3.0, 3500).
@@ -113,6 +160,26 @@ select
   c.chunk_index,
   c.section_heading,
   length(c.content) as content_chars,
+  (
+    d.owner_id is null
+    and d.status = 'indexed'
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
+    and d.metadata->>'corpus_scope' in ('australian_public', 'international_supplementary')
+    and d.metadata->>'source_kind' = 'document'
+    and d.metadata->'public_corpus' = 'true'::jsonb
+    and d.metadata->>'content_mode' = 'indexed_content'
+    and d.metadata->>'document_status' = 'current'
+    and coalesce(d.metadata->>'change_state', '') in ('changed', 'unchanged')
+    and d.metadata->>'licence_policy' = 'public_index_permitted'
+    and nullif(d.metadata->>'source_catalogue_key', '') is not null
+    and nullif(d.metadata->>'source_policy_version', '') is not null
+    and nullif(d.metadata->>'publication_approval_id', '') is not null
+    and nullif(d.metadata->>'publication_manifest_digest', '') is not null
+  ) as production_admissible,
+  public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
+    as committed_generation,
+  c.index_generation_id as chunk_generation_id,
+  d.index_generation_id as document_generation_id,
   c.content ~* '(anc|absolute neutrophil|neutrophil|wcc|white cell)' as mentions_count_name,
   c.content ~* '[0-9]+\.[0-9]+\s*(x\s*10)?' as carries_decimal_figure,
   c.content ~* '(withhold|cease|stop|do not (give|administer|dispense)|suspend)' as carries_stop_action,
@@ -123,7 +190,7 @@ where (d.file_name ilike '%clozapine%' or d.title ilike '%clozapine%')
   and c.content ~* '(anc|absolute neutrophil|neutrophil|wcc|white cell)'
   and c.content ~* '[0-9]+\.[0-9]+'
   and c.content ~* '(withhold|cease|stop|do not (give|administer|dispense)|suspend)'
-order by d.file_name, c.page_number nulls last, c.chunk_index;
+order by production_admissible desc, d.file_name, c.page_number nulls last, c.chunk_index;
 
 commit;
 
@@ -182,10 +249,27 @@ commit;
 -- CG.MHSP.ClozapinePresAdminMonitor.pdf does not appear near the top, the
 -- duplicates are displacing it and the remaining hypothesis holds.
 --
--- Arguments are the function defaults made explicit: match_count 12, no document
--- filter, the all-zero owner sentinel (public corpus), include_public true. This
--- reads the same governed candidate path the application reads. It is provider
--- side work against the live index, which is why it belongs in an approved window.
+-- `corpus_scopes` IS NOT OPTIONAL, despite defaulting to NULL. The callee's
+-- `admitted` CTE requires `corpus_scopes is not null` with cardinality 1..4, and
+-- every candidate branch cross-joins `admitted` — so a call that stops at
+-- `include_public` returns ZERO ROWS ALWAYS, whatever is in the index. An operator
+-- reading that emptiness as "not retrievable" would be sent to ingestion or source
+-- work over a document that is in fact perfectly retrievable. The array below is
+-- therefore passed explicitly, and holds the two scopes the document branch can
+-- match.
+--
+-- This is a narrower question than production asks. The application's primary
+-- phase is `uploaded_local` plus, conditionally, `clinical_kb_site` and
+-- `australian_public`, with `international_supplementary` as a second phase
+-- (retrievalCorpusScopes in src/lib/rag/rag-candidate-sources.ts). The scopes here
+-- cover the PDF corpus only, deliberately, so the site-release machinery is not
+-- dragged into a question about a PDF. `corpus_scope` is selected per row so it is
+-- visible which branch each hit came from.
+--
+-- Remaining arguments are the function defaults made explicit: match_count 12, no
+-- document filter, the all-zero owner sentinel, include_public true. This reads the
+-- same governed candidate path the application reads. It is provider-side work
+-- against the live index, which is why it belongs in an approved window.
 -- ----------------------------------------------------------------------------
 begin;
 set local statement_timeout = '60s';
@@ -201,6 +285,7 @@ select
   q.case_id,
   row_number() over (partition by q.case_id order by m.text_rank desc) as rank,
   m.file_name,
+  m.corpus_scope,
   m.page_number,
   m.chunk_index,
   m.section_heading,
@@ -214,7 +299,8 @@ cross join lateral public.match_document_chunks_text_v3(
   12,
   null,
   '00000000-0000-0000-0000-000000000000'::uuid,
-  true
+  true,
+  array['australian_public', 'international_supplementary']::text[]
 ) m
 order by q.case_id, text_rank desc;
 
@@ -228,6 +314,11 @@ commit;
 -- returns the threshold passage and Step 4 does not, the defect is ranking. If
 -- this returns nothing useful either, the defect is upstream in ingestion, which
 -- is consistent with a Step 2 that came back empty.
+--
+-- One prior condition, from Step 1: if the expected document is not scoped
+-- `australian_public` or `international_supplementary`, this returns zero rows
+-- whatever its content, because no candidate branch of the callee can produce it.
+-- Check `corpus_scope` in Step 1 before reading an empty result here as a finding.
 -- ----------------------------------------------------------------------------
 begin;
 set local statement_timeout = '60s';
@@ -238,6 +329,7 @@ with expected_document as (
   where file_name = 'CG.MHSP.ClozapinePresAdminMonitor.pdf'
 )
 select
+  m.corpus_scope,
   m.chunk_index,
   m.page_number,
   m.section_heading,
@@ -249,7 +341,8 @@ cross join lateral public.match_document_chunks_text_v3(
   12,
   e.ids,
   '00000000-0000-0000-0000-000000000000'::uuid,
-  true
+  true,
+  array['australian_public', 'international_supplementary']::text[]
 ) m
 order by m.text_rank desc;
 
@@ -258,9 +351,32 @@ commit;
 -- ============================================================================
 -- HOW TO READ THE RESULT
 --
---   Step 2 returns rows for CG.MHSP.ClozapinePresAdminMonitor.pdf
---     AND Step 4 ranks that document below the duplicates
+--   Step 1 shows the expected document is scoped `uploaded_local`
+--       -> NOT A DEFECT IN THIS PIPELINE. Uploaded-local retrieval is switched off
+--          on purpose by 20260901120100_fail_closed_unactivated_uploaded_local_retrieval.sql
+--          pending generation-bound activation, so the document cannot enter the
+--          governed candidate path and Steps 4 and 5 are empty by construction.
+--          Read no further. The decision this raises is a product one for the
+--          owner: keep the fail-closed state and accept these canary cases stay
+--          red, or prioritise the activation work. Do not attempt to route around
+--          it in retrieval code.
+--
+--   Step 1 shows any OTHER governance column false, at a retrievable scope
+--       -> ADMISSION defect. The document is meant to be retrievable but its
+--          publication metadata does not satisfy the candidate branch. Fix the
+--          metadata rather than the retrieval code, and read no further down this
+--          file until it is fixed.
+--
+--   Step 2 returns PRODUCTION-ADMISSIBLE rows for
+--   CG.MHSP.ClozapinePresAdminMonitor.pdf AND Step 4 ranks that document below
+--   the duplicates
 --       -> RANKING defect. The evidence exists and is not being selected.
+--
+--   Step 2 returns rows but none with `production_admissible` true
+--       -> GENERATION or PUBLICATION defect. The passage exists in storage but
+--          belongs to a superseded index generation or an unpublished document,
+--          so retrieval cannot reach it. Compare `chunk_generation_id` against
+--          `document_generation_id` and check the publication metadata in Step 1.
 --
 --   Step 2 empty for that document, Step 3 shows a figure/action split
 --       -> INGESTION defect. Chunk the monitoring table so one passage carries
