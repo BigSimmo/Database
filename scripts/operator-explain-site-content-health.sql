@@ -16,6 +16,19 @@
 -- Run twice and use the SECOND result: the first pays for cold caches and a cold
 -- PostgREST/plan cache, which is a different question from steady-state cost.
 --
+-- EVERY PROFILING STATEMENT IS BOUNDED. `explain (analyze, ...)` executes the query
+-- it is measuring, and the query being measured here is the known-expensive one: it
+-- costs ~7 s today against a table that only grows, and the suspected defect is a
+-- sequential scan whose cost is proportional to that growth. An unbounded diagnostic
+-- against the live clinical database can therefore consume production resources for
+-- as long as the plan takes, competing with application traffic and with maintenance.
+-- Each step below runs inside its own transaction with `set local statement_timeout`,
+-- following the same `set local` convention the guard migrations use (AGENTS.md
+-- § Supabase project safety). A timeout is a RESULT, not a failure: it means the audit
+-- has already outgrown the bound the request path gives it, which is the finding.
+-- `set local` reverts at commit, so nothing about the session or the database is
+-- changed by running this.
+--
 -- WHAT THIS CAN AND CANNOT SHOW:
 -- read_site_content_health() is `language sql` but far too large to be inlined,
 -- so EXPLAIN on a call to it reports one Result node and a total time. That total
@@ -33,8 +46,15 @@
 -- happens inside the base. If these two times are close, the wrapper is not the
 -- problem and the base is the whole cost.
 -- ----------------------------------------------------------------------------
+begin;
+set local statement_timeout = '60s';
 explain (analyze, buffers) select public.read_site_content_health();
+commit;
+
+begin;
+set local statement_timeout = '60s';
 explain (analyze, buffers) select public.site_content_health_operational_base();
+commit;
 
 -- ----------------------------------------------------------------------------
 -- Step 2: What the audit is proportional to
@@ -101,13 +121,19 @@ order by t.relname, i.relname;
 -- predicate. If it is already an index scan, discard this hypothesis and go to
 -- Step 4.
 -- ----------------------------------------------------------------------------
+begin;
+set local statement_timeout = '30s';
 explain (analyze, buffers)
 select count(*) from public.site_content_sync_events e
 where e.state in ('pending','retry_pending','processing','ready');
+commit;
 
 -- How lopsided the table is. A large total against a small live count is the
 -- partial index's whole justification.
+begin;
+set local statement_timeout = '30s';
 select state, count(*) from public.site_content_sync_events group by state order by count(*) desc;
+commit;
 
 -- ----------------------------------------------------------------------------
 -- Step 4: SECOND SUSPECT — the recursive chain walk
@@ -122,6 +148,8 @@ select state, count(*) from public.site_content_sync_events group by state order
 -- long: watch the Recursive Union's actual rows and number of iterations, and the
 -- time on the WorkTable Scan.
 -- ----------------------------------------------------------------------------
+begin;
+set local statement_timeout = '60s';
 explain (analyze, buffers)
 with recursive
   sync_state as (select s.* from public.site_content_sync_state s where s.singleton),
@@ -148,6 +176,7 @@ with recursive
     select distinct on (head_logical_id) * from chains order by head_logical_id, cardinality(path) desc
   )
 select count(*) from terminals;
+commit;
 
 -- ============================================================================
 -- READING THE RESULT
