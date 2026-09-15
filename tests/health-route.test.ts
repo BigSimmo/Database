@@ -29,50 +29,49 @@ function mockHealthySiteContent(options: { fails?: boolean } = {}) {
   const probeSupabaseHealth = vi.fn(async () => ({ ok: true, checkedAt: current }));
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
   vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
-  vi.doMock("@/lib/site-content/site-content-publication", () => ({
-    readSiteContentHealthEvidence: vi.fn(async () => {
-      if (options.fails) throw new Error("private database failure");
-      return {
-        initialized: true,
-        bootstrapIntegrityState: "not_applicable",
-        activePublicSiteRelease: {
-          version: "clinical-kb-site-release-v1",
-          releaseId: "11111111-1111-5111-8111-111111111111",
-          registryVersion: "site-content-registry-v1",
-          staticManifestDigest: "a".repeat(64),
-          dynamicStateDigest: "b".repeat(64),
-          releaseDigest: "c".repeat(64),
-          state: "active",
-          activatedAt: current,
-        },
-        publicSiteChangeEpoch: "7",
-        outstandingHeadCount: 0,
-        populationComplete: true,
-        releaseDigestValid: true,
-        dynamicDigestValid: true,
-        administratorAttestationValid: true,
-        governanceValid: true,
-        pendingSetExact: true,
-        outstandingHeadCountAgrees: true,
-        pendingCount: 0,
-        retryPendingCount: 0,
-        processingCount: 0,
-        readyCount: 0,
-        quarantinedCount: 0,
-        oldestOutstandingOriginAgeMs: null,
-        countOverflow: false,
-        timeIntegrityValid: true,
-        expiredProcessingLeaseCount: 0,
-        synchronizerSeen: true,
-        lastInvocationAt: current,
-        lastSuccessfulInvocationAt: current,
-        latestInvocationSucceeded: true,
-        lastActivation: current,
-        rollbackAvailable: false,
-      };
-    }),
-  }));
-  return { probeSupabaseHealth };
+  const readSiteContentHealthEvidence = vi.fn(async () => {
+    if (options.fails) throw new Error("private database failure");
+    return {
+      initialized: true,
+      bootstrapIntegrityState: "not_applicable",
+      activePublicSiteRelease: {
+        version: "clinical-kb-site-release-v1",
+        releaseId: "11111111-1111-5111-8111-111111111111",
+        registryVersion: "site-content-registry-v1",
+        staticManifestDigest: "a".repeat(64),
+        dynamicStateDigest: "b".repeat(64),
+        releaseDigest: "c".repeat(64),
+        state: "active",
+        activatedAt: current,
+      },
+      publicSiteChangeEpoch: "7",
+      outstandingHeadCount: 0,
+      populationComplete: true,
+      releaseDigestValid: true,
+      dynamicDigestValid: true,
+      administratorAttestationValid: true,
+      governanceValid: true,
+      pendingSetExact: true,
+      outstandingHeadCountAgrees: true,
+      pendingCount: 0,
+      retryPendingCount: 0,
+      processingCount: 0,
+      readyCount: 0,
+      quarantinedCount: 0,
+      oldestOutstandingOriginAgeMs: null,
+      countOverflow: false,
+      timeIntegrityValid: true,
+      expiredProcessingLeaseCount: 0,
+      synchronizerSeen: true,
+      lastInvocationAt: current,
+      lastSuccessfulInvocationAt: current,
+      latestInvocationSucceeded: true,
+      lastActivation: current,
+      rollbackAvailable: false,
+    };
+  });
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({ readSiteContentHealthEvidence }));
+  return { probeSupabaseHealth, readSiteContentHealthEvidence };
 }
 
 function healthRequest(query = "", headers?: HeadersInit) {
@@ -245,30 +244,44 @@ describe("GET /api/health", () => {
 });
 
 describe("GET /api/health/ready", () => {
-  it("returns only bounded site-content health after the ordinary Supabase probe succeeds", async () => {
+  // Railway allows each healthcheck attempt ten seconds. `read_site_content_health()` — the
+  // site-content control-plane audit — costs about seven against the live database, and
+  // between 2026-09-11 and 2026-09-14 that margin failed 24 production deploys in a row: each
+  // one built, started cleanly, answered this endpoint too slowly and was rolled back, pinning
+  // the live site to three-day-old code with nothing to say so. Readiness now answers only
+  // "can THIS CONTAINER serve requests". The audit is unchanged and still runs on the
+  // token-gated `/api/health?deep=1` — `tests/health-response-deep-probe.test.ts` holds the
+  // cases that used to live here, including the fail-closed one.
+  it("never runs the site-content control-plane audit", async () => {
     mockEnv({ configured: true });
-    mockHealthySiteContent();
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent();
     const { GET } = await import("../src/app/api/health/ready/route");
 
     const response = await GET(new Request("http://localhost/api/health/ready"));
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "ok" });
-    expect(body.siteContent).toMatchObject({ state: "current", releaseDigestPrefix: "cccccccccccc" });
-    expect(JSON.stringify(body.siteContent)).not.toMatch(/changeEpoch|dynamicStateDigest|workerId|publishedBy/);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(body.siteContent, "readiness must expose no control-plane projection").toBeUndefined();
+    expect(
+      readSiteContentHealthEvidence,
+      "a seven-second audit on the deploy gate is what rolled back 24 deploys",
+    ).not.toHaveBeenCalled();
   });
 
-  it("fails closed without leaking the site-content RPC error", async () => {
+  it("stays deployable when the site-content audit would fail", async () => {
     mockEnv({ configured: true });
-    mockHealthySiteContent({ fails: true });
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent({ fails: true });
     const { GET } = await import("../src/app/api/health/ready/route");
 
     const response = await GET(new Request("http://localhost/api/health/ready"));
     const body = await payload(response);
 
-    expect(response.status).toBe(503);
-    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "error" });
+    // The inverse of the old contract, and the point of the change: a control-plane fault is a
+    // monitoring signal, not a reason to refuse to ship unrelated code.
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(readSiteContentHealthEvidence).not.toHaveBeenCalled();
     expect(JSON.stringify(body)).not.toContain("private database failure");
   });
 
@@ -359,5 +372,79 @@ describe("GET /api/health/ready", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+/**
+ * The guard that outlives the incident.
+ *
+ * The 24 rolled-back deploys were not caused by the site-content audit being expensive. They
+ * were caused by the SHAPE of the readiness contract: `/api/health/ready` opted into the deep
+ * branch and then switched each expensive probe off by name, six `false`s long. A deny-list is
+ * correct only until the next probe is added, and it stops being correct silently. The audit was
+ * simply the next probe.
+ *
+ * The same mechanism had already misfired once, on `includeSlo`, and was read as a one-probe bug
+ * — see that case in `tests/health-response-deep-probe.test.ts`, whose comment ends "one flag at
+ * one caller, not a gate".
+ *
+ * So the useful test is not "the audit is not called" — that one pins yesterday's probe. It is
+ * this: readiness returns EXACTLY these keys and nothing else. A probe added to the deep branch
+ * that leaks onto the deploy gate adds a check or a body section, and fails here, in CI, in
+ * milliseconds, instead of in production three days later.
+ *
+ * If you are here because this test failed after adding a probe: that is the test working. The
+ * probe belongs on the token-gated `/api/health?deep=1`. Putting it on readiness means proving
+ * it is bounded and cheap enough for Railway's ten-second window, and saying so in
+ * `health-response.ts` beside the `probes` contract.
+ */
+describe("the readiness contract, pinned by shape rather than by yesterday's probe", () => {
+  it("exposes exactly the container-level checks, and no diagnostic section at all", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    mockHealthySiteContent();
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const body = await payload(await GET(new Request("http://localhost/api/health/ready")));
+
+    expect(Object.keys(body.checks as Record<string, unknown>).sort()).toEqual([
+      "openaiConfig",
+      "siteContent",
+      "supabase",
+      "supabaseConfig",
+    ]);
+    expect(Object.keys(body).sort()).toEqual([
+      "checks",
+      "demoMode",
+      "deploymentCommitSha",
+      "status",
+      "timestamp",
+      "uptimeSeconds",
+    ]);
+  });
+
+  it("bounds its one database call, because an unbounded one cannot beat a ten-second gate", async () => {
+    mockEnv({ configured: true });
+    const { probeSupabaseHealth } = mockHealthySiteContent();
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    await GET(new Request("http://localhost/api/health/ready"));
+
+    const signal = (probeSupabaseHealth.mock.calls[0] as unknown[])[1];
+    expect(signal, "a cold container can outrun Railway's window on even a one-row select").toBeInstanceOf(AbortSignal);
+  });
+
+  it("leaves the diagnostic probe fully populated, so nothing was removed, only relocated", async () => {
+    mockEnv({ configured: true, deepSecret: true });
+    const { readSiteContentHealthEvidence } = mockHealthySiteContent();
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(
+      new Request("http://localhost/api/health?deep=1", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(readSiteContentHealthEvidence).toHaveBeenCalledTimes(1);
+    expect(body.siteContent).toBeDefined();
+    expect(body.checks).toMatchObject({ siteContent: "ok" });
   });
 });

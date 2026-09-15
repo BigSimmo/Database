@@ -11,6 +11,7 @@ import {
   openAIReadinessPolicy,
   validClinicalAskEvidenceArtifact,
   ragProgrammeReadinessPolicy,
+  alertDestinationReadiness,
 } from "../scripts/production-readiness";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 
@@ -327,5 +328,40 @@ describe("production readiness provider policy", () => {
     expect(source).toContain("check:local-presence");
     expect(source).toContain("HEALTH_DEEP_PROBE_SECRET is not set");
     expect(source).toContain("OPENAI_SAFETY_IDENTIFIER_SECRET is not set");
+  });
+});
+
+/**
+ * The gate that would have caught a three-day outage before it started.
+ *
+ * Deploy alerts with no destination are discarded by a receiver that still answers 2xx, so the
+ * integration looks healthy from every angle except the one that matters. That was the live
+ * configuration on both Railway services through 24 failed production deploys in September 2026.
+ */
+describe("deploy alert destination readiness", () => {
+  it("passes on either destination alone", () => {
+    expect(alertDestinationReadiness({ SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/x" }).ok).toBe(true);
+    expect(alertDestinationReadiness({ DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/x" }).ok).toBe(true);
+  });
+
+  it("warns harder when the receiver is armed, because alerts are then actively discarded", () => {
+    const armed = alertDestinationReadiness({ RAILWAY_WEBHOOK_SECRET: "railway-webhook-secret-value-123" });
+
+    expect(armed.ok).toBe(false);
+    expect(armed.message).toContain("RAILWAY_WEBHOOK_SECRET is set");
+    expect(armed.message).toContain("discard");
+  });
+
+  it("still warns when nothing at all is wired up", () => {
+    const bare = alertDestinationReadiness({});
+
+    expect(bare.ok).toBe(false);
+    expect(bare.message).toContain("no destination");
+  });
+
+  it("never echoes a configured webhook URL into the readiness output", () => {
+    const secretish = "https://hooks.slack.com/services/T000/B000/xxxxxxxxxxxx";
+
+    expect(alertDestinationReadiness({ SLACK_WEBHOOK_URL: secretish }).message).not.toContain(secretish);
   });
 });
