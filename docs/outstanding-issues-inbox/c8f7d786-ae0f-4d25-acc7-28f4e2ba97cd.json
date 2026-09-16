@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c8f7d786-ae0f-4d25-acc7-28f4e2ba97cd",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Four dictionary sources record a publisher that is a description, not an agency",
+    "detail": "WA-MHAS records 'Government of Western Australia', WA-AHLO records 'WA Health service providers', WA-MHERL records 'Mental Health Commission / WA Health' (two publishers in one field), and 4AT-OFFICIAL records '4AT developers'. None was registered in src/lib/source-authority-registry.ts on purpose: a catch-all entry for the Crown would resolve every WA government document to a single authority, which is worse than leaving the records held. Establish the actual publishing agency for each and correct the publisher field, then re-run npm run check:source-acquisitions.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTYZ83JHT39NQ48KG5ZKTW"
+  }
+}

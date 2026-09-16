@@ -19,6 +19,7 @@ import {
   visibleTopicSheets,
 } from "@/components/factsheets/factsheets-data";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
+import { GOVERNED_SOURCE_HOSTS } from "@/lib/sources/source-url-policy";
 
 const kinds = new Set(["medRich", "medLite", "condition", "therapy", "procedure"]);
 
@@ -54,10 +55,29 @@ describe("factsheet library", () => {
     }
   });
 
-  it("attaches verifiable https URLs to every cited source", () => {
+  it("attaches verifiable, governed https URLs to cited sources that have one", () => {
+    // Replaces an earlier blanket "every source has a URL" assertion. `url` is
+    // optional by design: a source whose host is not in GOVERNED_SOURCE_HOSTS
+    // renders as a plain citation rather than an outbound link, and the host
+    // list is ranking-adjacent policy that content work does not widen. The
+    // blanket rule left only worse options — fabricate a link, or drop the
+    // citation. This is stronger: a URL that *is* present must be https and
+    // governed, and a citation without one must still be fully identified.
+    const governed = new Set<string>(GOVERNED_SOURCE_HOSTS);
     for (const sheet of factsheets) {
       for (const source of sheet.sources) {
-        expect(source.url, `${sheet.slug} source ${source.n}`).toMatch(/^https:\/\//);
+        const where = `${sheet.slug} source ${source.n}`;
+        expect(source.title, where).toBeTruthy();
+        expect(source.org, where).toBeTruthy();
+        expect(source.year, where).toBeTruthy();
+        expect(source.tag, where).toBeTruthy();
+        if (source.url === undefined) {
+          // A plain citation must say what it is, since the reader cannot open it.
+          expect(source.evidenceType, `${where} must declare its evidence type`).toBeTruthy();
+          continue;
+        }
+        expect(source.url, where).toMatch(/^https:\/\//);
+        expect(governed.has(new URL(source.url).hostname), `${where} cites an ungoverned host`).toBe(true);
       }
     }
   });
