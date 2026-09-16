@@ -398,7 +398,12 @@ export function getDifferentialDetailContext(
   for (const slug of knownRelatedSlugs) {
     const related = catalogRecordBySlug.get(slug);
     const title = typeof related?.title === "string" ? related.title.trim() : "";
-    const clinicalHinge = typeof related?.clinicalHinge === "string" ? related.clinicalHinge.trim() : "";
+    // The subtitle is the fallback, not a nicety: a record that withheld its
+    // generated body has no clinical hinge, and without a fallback every other
+    // record's map would drop it, turning a reviewed link into an inert row.
+    const relatedSubtitle = typeof related?.subtitle === "string" ? related.subtitle.trim() : "";
+    const clinicalHinge =
+      (typeof related?.clinicalHinge === "string" ? related.clinicalHinge.trim() : "") || relatedSubtitle;
     const safetySummary =
       typeof related?.safetySnapshot?.summary === "string" ? related.safetySnapshot.summary.trim() : "";
     const status = related?.status;

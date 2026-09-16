@@ -24,6 +24,20 @@ const presentationDisplaySource = join(root, "src", "data", "differential-presen
 const checkOnly = process.argv.includes("--check");
 
 const snapshot = JSON.parse(readFileSync(source, "utf8"));
+
+// The curated overlay is the single source of truth for which records withhold
+// their generated body, so this reads it rather than keeping a second list that
+// could drift. Node 24 strips the types on import, and the overlay's only import
+// is type-only, so no alias resolution or build step is involved.
+// tests/cross-mode-differentials-index.test.ts locks this index to the live
+// projection, which applies the same withhold — without this the two diverge and
+// the "Also in your library" strip keeps showing the wrong diagnosis's summary.
+const { curatedDifferentials } = await import(join(root, "src", "lib", "differential-curated.ts"));
+const withheldSlugs = new Set(
+  Object.entries(curatedDifferentials)
+    .filter(([, entry]) => entry.generatedBodyUnreliable === true)
+    .map(([slug]) => slug),
+);
 const presentationDisplayMetadata = JSON.parse(readFileSync(presentationDisplaySource, "utf8")).presentations;
 
 // Bare-number aliases (e.g. a field-weight "1.1" leaked from snapshot template
@@ -47,7 +61,7 @@ const catalog = {
   diagnoses: snapshot.diagnoses.map((diagnosis) => ({
     slug: diagnosis.slug,
     title: diagnosis.title,
-    clinicalHinge: diagnosis.clinicalHinge,
+    clinicalHinge: withheldSlugs.has(diagnosis.slug) ? "" : diagnosis.clinicalHinge,
   })),
   presentations: snapshot.presentations.map((presentation) => {
     const metadata = presentationDisplayMetadata[presentation.id];

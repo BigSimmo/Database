@@ -19,6 +19,7 @@ import {
   visibleSectionItems,
 } from "@/lib/differential-detail";
 import { curatedDifferentials, curatedEntryFor } from "@/lib/differential-curated";
+import type { DifferentialSnapshot } from "@/lib/differential-snapshot";
 import {
   differentialRecords,
   getDifferentialDetailContext,
@@ -26,6 +27,11 @@ import {
   type DifferentialRecord,
   type DifferentialSection,
 } from "@/lib/differentials";
+
+/** The generated export as it sits on disk, read straight from the file rather
+ *  than through the catalogue loader, which now withholds a contaminated body
+ *  before anything can see it. */
+const rawSnapshot = JSON.parse(readFileSync("data/differentials-snapshot.json", "utf8")) as DifferentialSnapshot;
 
 function buildSection(overrides: Partial<DifferentialSection> = {}): DifferentialSection {
   return {
@@ -373,8 +379,12 @@ describe("Authored content overlay", () => {
     const record = getDifferentialRecord("lithium-physiological-withdrawal-tremor");
     expect(record).toBeTruthy();
     // The export gives this record four statements about akathisia and
-    // parkinsonism in its "immediate action" section; none is an action.
-    expect(record!.immediateActions[0]).toMatch(/most commonly missed/);
+    // parkinsonism in its "immediate action" section; none is an action. Since
+    // the withhold, the catalogue no longer hands them out at all — the raw
+    // snapshot below is the only place they survive.
+    expect(record!.immediateActions).toEqual([]);
+    const exported = rawSnapshot.diagnoses.find((entry) => entry.slug === record!.slug);
+    expect(exported!.immediateActions[0]).toMatch(/most commonly missed/);
     const curated = curatedEntryFor(record!.slug);
     expect(doNowStepsAreCurated(curated)).toBe(true);
     expect(resolveDoNowSteps(record!, curated)[0]).toMatch(/Characterise the tremor/);

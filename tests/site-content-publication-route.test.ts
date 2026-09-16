@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
+import { curatedDifferentials } from "@/lib/differential-curated";
+import { generatedBodyWithheld } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import {
   diagnosisToRow,
@@ -585,6 +587,55 @@ describe("canonical dynamic public projection", () => {
       .map(({ record, renderPayload }) => ({ logicalId: record.logicalId, record, renderPayload }))
       .sort((left, right) => left.logicalId.localeCompare(right.logicalId));
 
-    expect(frozen).toEqual(current);
+    // Epoch zero is frozen inside an applied migration and cannot be rewritten,
+    // so a record that withheld its generated body after 2026-08-24 legitimately
+    // differs from it. The allowance is deliberately narrow rather than an
+    // exclusion: the record must be one the curated overlay marks withheld, the
+    // difference must be confined to the fields the withhold empties plus the
+    // hashes derived from them, and each of those fields must actually be empty
+    // on the current side. Anything else is still a silent public-content diff
+    // and still fails.
+    //
+    // NOTE FOR THE OWNER: the live site_content rows seeded from this migration
+    // still carry the withheld text. Closing that needs a republish against the
+    // live database, which is an operator action, not something a test can do.
+    const withheldLogicalIds = new Set(
+      Object.entries(curatedDifferentials)
+        .filter(([, entry]) => generatedBodyWithheld(entry))
+        .map(([slug]) => `differentials:diagnosis:${slug}`),
+    );
+    const withheldPayloadFields = ["clinicalHinge", "sections", "currentPresentation", "immediateActions"] as const;
+    const withheldDerivedRecordFields = new Set(["body", "publicationVersion", "contentHash"]);
+
+    const isEmptyWithheldValue = (value: unknown) => value === "" || (Array.isArray(value) && value.length === 0);
+
+    const normalise = (entries: typeof current) =>
+      entries.map((entry) => {
+        if (!withheldLogicalIds.has(entry.logicalId)) return entry;
+        const payload = entry.renderPayload as Record<string, unknown>;
+        const record = entry.record as unknown as Record<string, unknown>;
+        return {
+          ...entry,
+          record: Object.fromEntries(
+            Object.entries(record).filter(([key]) => !withheldDerivedRecordFields.has(key)),
+          ) as typeof entry.record,
+          renderPayload: Object.fromEntries(
+            Object.entries(payload).filter(([key]) => !withheldPayloadFields.includes(key as never)),
+          ) as typeof entry.renderPayload,
+        };
+      });
+
+    // The allowance must be earned: every withheld record present in epoch zero
+    // has to be genuinely emptied now, or the exclusion above would hide a real
+    // change to those same fields.
+    for (const entry of current) {
+      if (!withheldLogicalIds.has(entry.logicalId)) continue;
+      const payload = entry.renderPayload as Record<string, unknown>;
+      for (const field of withheldPayloadFields) {
+        expect(isEmptyWithheldValue(payload[field]), `${entry.logicalId} still publishes ${field}`).toBe(true);
+      }
+    }
+
+    expect(normalise(frozen as typeof current)).toEqual(normalise(current));
   });
 });

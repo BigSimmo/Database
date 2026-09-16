@@ -1180,9 +1180,12 @@ export function DifferentialDetailPage({
   liveGovernance?: DifferentialRecordGovernance | null;
 }) {
   const curated = detailContext.curated ?? null;
-  // Done once, at the boundary, rather than guarded at each render site: a
-  // record whose generated export describes a different diagnosis loses that
-  // body here, and every panel below is already written to handle its absence.
+  // Applied here as well as in the catalogue loader, not instead of it. The
+  // loader covers every record built from the snapshot; this covers a record
+  // handed to the page from anywhere else, including a live owner row read back
+  // from Supabase that was seeded before the withhold existed. The call is
+  // idempotent and returns non-withheld records by identity, so the duplication
+  // costs nothing and closes the one path the loader cannot see.
   const bodyWithheld = generatedBodyWithheld(curated);
   const record = useMemo(() => withholdGeneratedBody(exportedRecord, curated), [curated, exportedRecord]);
   const [activeTab, setActiveTab] = useState<DifferentialDetailTabId>("overview");

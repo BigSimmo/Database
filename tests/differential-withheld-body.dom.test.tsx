@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,10 +12,14 @@ import { AccountDataProvider } from "@/components/account-data-provider";
 import { DifferentialDetailPage } from "@/components/differentials/differential-detail-page";
 import { curatedEntryFor } from "@/lib/differential-curated";
 import type { DifferentialDetailContext } from "@/lib/differential-detail";
+import type { DifferentialSnapshot } from "@/lib/differential-snapshot";
 import { getDifferentialRecord } from "@/lib/differentials";
 import { AuthProvider } from "@/lib/supabase/client";
 
 const LITHIUM = "lithium-physiological-withdrawal-tremor";
+
+/** The generated export on disk, before the catalogue loader withholds it. */
+const rawSnapshot = JSON.parse(readFileSync("data/differentials-snapshot.json", "utf8")) as DifferentialSnapshot;
 
 function buildContext(slug: string): DifferentialDetailContext {
   return {
@@ -59,8 +65,12 @@ describe("a differential whose generated body is withheld", () => {
     const record = renderRecord(LITHIUM);
 
     // Proof the fixture is the contaminated record and not an already-clean one.
-    expect(record.clinicalHinge).toMatch(/inner restlessness/i);
-    const contaminatedAction = record.immediateActions.find((action) => /drug-induced parkinsonism/i.test(action));
+    // Read from the export on disk, because the catalogue loader now withholds
+    // the body before the page ever sees it, and `record` is already clean.
+    expect(record.clinicalHinge).toBe("");
+    const exported = rawSnapshot.diagnoses.find((entry) => entry.slug === LITHIUM)!;
+    expect(exported.clinicalHinge).toMatch(/inner restlessness/i);
+    const contaminatedAction = exported.immediateActions.find((action) => /drug-induced parkinsonism/i.test(action));
     expect(contaminatedAction).toBeTruthy();
 
     expect(screen.queryByText(/inner restlessness/i)).toBeNull();
