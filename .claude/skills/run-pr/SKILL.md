@@ -27,8 +27,9 @@ Never, even during a sweep:
   anything under `supabase/`, or touches a RAG-ranking surface is merged by Josh, not by
   agents — its required `PR policy` check stays red until Josh adds the `owner-approved`
   label, and any new push removes that label. Never add the `owner-approved` label, never
-  arm or re-arm auto-merge on one of these PRs, and disarm auto-merge on one if you find it
-  armed. See AGENTS.md "Owner-merge rule" for the full definition.
+  arm or re-arm auto-merge on one of these PRs. If you find one armed, report it in the sweep
+  summary and do not disarm it: disarming is a GitHub mutation outside this sweep's
+  authorization, and `PR policy` already blocks the merge until the owner approves. See AGENTS.md "Owner-merge rule" for the full definition.
 - Never close a pull request, delete or rename branches, force-push (no `--force`, no
   `--force-with-lease`), or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`,

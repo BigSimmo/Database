@@ -24,7 +24,8 @@ When invoked:
     anything under `supabase/`, or touches a RAG-ranking surface is merged by Josh, not by
     agents — its required `PR policy` check stays red until Josh adds the `owner-approved`
     label, and any new push removes it. Never add that label, never merge one of these PRs,
-    and never arm or re-arm auto-merge on one; disarm it if you find it armed. Full
+    and never arm or re-arm auto-merge on one; if you find one armed, report it instead of disarming
+    it (`PR policy` already blocks the merge until the owner approves). Full
     definition in `AGENTS.md` "Owner-merge rule".
 11. **Follow CI for at most 30 minutes, then stop.** After a fix is pushed, watch the required
     checks on a slow cadence (roughly every five minutes, never tight polling); re-run a failed
