@@ -884,15 +884,19 @@ export type FactsheetEvidence = {
 };
 
 /**
- * Evidence check date for the whole library: the day the source-checked claim
- * review was completed. Recorded once so eight records cannot drift apart over
- * a date that describes a single event.
+ * The day the source-checked claim review was completed, and the default for a
+ * sheet whose sources have not been reopened since.
+ *
+ * It is a default, not a constant for the library: a sheet whose sources were
+ * re-read later carries its own later date. Pinning all eight to one value
+ * would have reported false provenance for sertraline, whose Australian
+ * indication list was re-verified against the publisher two days afterwards.
  */
 export const FACTSHEET_EVIDENCE_CHECKED_ON = "2026-09-14";
 
-const draft = (holds: readonly FactsheetHold[] = []): FactsheetEvidence => ({
+const draft = (holds: readonly FactsheetHold[] = [], checkedOn = FACTSHEET_EVIDENCE_CHECKED_ON): FactsheetEvidence => ({
   status: "draft",
-  evidenceCheckedOn: FACTSHEET_EVIDENCE_CHECKED_ON,
+  evidenceCheckedOn: checkedOn,
   clinicalReviewer: null,
   approvedOn: null,
   nextReviewDue: null,
@@ -917,7 +921,10 @@ const draft = (holds: readonly FactsheetHold[] = []): FactsheetEvidence => ({
  * `tests/factsheets-clinical-safeguards.test.ts`, one describe block per hold.
  */
 export const factsheetEvidence: Record<string, FactsheetEvidence> = {
-  sertraline: draft(),
+  // Later than the rest: the Australian indication list was re-read from the
+  // publisher on 2026-09-16, which confirmed PTSD is not an Australian Zoloft
+  // indication.
+  sertraline: draft([], "2026-09-16"),
   depression: draft(),
   gad: draft([
     {

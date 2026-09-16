@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { factsheetNavSections } from "@/components/factsheets/factsheet-nav-header";
 import {
   factsheets,
   findFactsheet,
@@ -319,6 +320,35 @@ describe("a sheet that raises an emergency-grade symptom must give a way to act"
       }
     });
   }
+});
+
+describe("the emergency route is reachable from the section index", () => {
+  // A crisis block that exists but is not indexed is a block a reader has to
+  // scroll to find. medRich indexes its urgent block; medLite and the lithium
+  // act-now list must too, or the in-page disclosure and weighted track omit
+  // exactly the sections that name self-harm and toxicity.
+  it("indexes an urgent-help jump target on every sheet that renders one", () => {
+    for (const sheet of factsheets) {
+      const ids = factsheetNavSections(sheet).map((section) => section.id);
+      if (sheet.kind === "medRich" || sheet.kind === "medLite") {
+        expect(ids, `${sheet.slug} must index its urgent-help block`).toContain("factsheet-urgent");
+      }
+      if (sheet.kind === "procedure" && sheet.warningSigns) {
+        expect(ids, `${sheet.slug} must index its act-now list`).toContain("factsheet-warning-signs");
+      }
+    }
+  });
+
+  it("gives the act-now list its own target rather than sharing the safety anchor", () => {
+    // `factsheet-staying-safe` anchors the prose callout, which renders BELOW
+    // the warning list. Sharing it would scroll a reader who picked "Staying
+    // safe" straight past the toxicity symptoms.
+    const sheet = sheetOrFail("lithium-monitoring");
+    const ids = factsheetNavSections(sheet).map((section) => section.id);
+    expect(ids).toContain("factsheet-warning-signs");
+    expect(ids).toContain("factsheet-staying-safe");
+    expect(ids.indexOf("factsheet-warning-signs")).toBeLessThan(ids.indexOf("factsheet-staying-safe"));
+  });
 });
 
 describe("act-now symptoms are scannable, not buried in prose", () => {

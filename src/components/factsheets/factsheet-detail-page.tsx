@@ -728,7 +728,7 @@ function FactsheetBody({
               sheet a reader must be able to find by scanning. Matches the
               medRich "Serious — tell your doctor" list idiom. */}
           {factsheet.warningSigns ? (
-            <div className={cn("rounded-2xl border p-5", toneDanger)}>
+            <div id="factsheet-warning-signs" className={cn(inPageAnchor, "rounded-2xl border p-5", toneDanger)}>
               <div className="mb-3 flex items-center gap-2">
                 <TriangleAlert className="h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden="true" />
                 <span className="text-sm font-bold text-[color:var(--danger)]">{factsheet.warningSigns.heading}</span>
