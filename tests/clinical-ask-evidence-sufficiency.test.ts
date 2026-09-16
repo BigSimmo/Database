@@ -150,4 +150,39 @@ describe("Clinical Ask evidence sufficiency", () => {
     expect(decision.unresolvedConflictIds).toEqual([]);
     expect(decision).toMatchObject({ sufficient: true, externalFallbackReason: null });
   });
+
+  it("does not let a duration-only passage cover claim sections without topic cues", () => {
+    const dsm = clinicalAskModeProfile("dsm");
+    const evidence = [
+      source({
+        extract: "The episode lasts at least 2 weeks.",
+      }),
+    ];
+    const inputRequest = request("Does the episode last at least 2 weeks?");
+    // DSM profile question shape still uses the services helper request factory;
+    // only sectionOrder/cues matter for this coverage assertion.
+    const coverage = annotateEvidenceCoverage(dsm, { ...inputRequest, mode: "dsm" }, evidence);
+    const durationRows = coverage.filter((row) => row.sectionId === "duration" && row.directlySupports);
+    const apparentRows = coverage.filter((row) => row.sectionId === "apparently_supported" && row.directlySupports);
+    expect(durationRows.length).toBeGreaterThan(0);
+    expect(apparentRows).toEqual([]);
+  });
+
+  it("detects contradictory request-predicate values inside one extract", () => {
+    const evidence = [
+      source({
+        id: "indexed:self",
+        extract: "The episode lasts at least 2 weeks. It lasts 4 weeks.",
+      }),
+    ];
+    const inputRequest = request("Does the episode last at least 2 weeks?");
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    expect(
+      coverage.some(
+        (row) => row.evidenceId === "indexed:self" && row.conflictsWithEvidenceIds.includes("indexed:self"),
+      ),
+    ).toBe(true);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+    expect(decision).toMatchObject({ sufficient: false, externalFallbackReason: "conflict" });
+  });
 });

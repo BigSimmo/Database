@@ -104,12 +104,12 @@ function minimalSearchResult(evidence: ClinicalAskEvidence): SearchResult {
  * answer was declared sufficient on a single passage that spoke to one of six
  * things it claimed to establish.
  *
- * Only sections that assert a specific dimension appear here. A section absent
- * from this table is request-scoped — it restates or frames the question
- * (`candidate_mapping`, `potential_matches`) or reports what is missing or
- * contradicted (`missing_information`, `differential_gaps`, `evidence_against`),
- * and a gap section is not something a source is cited FOR. Those keep the
- * request-level verdict, which is the right test for them.
+ * Only sections that assert a specific dimension appear here. Framing and gap
+ * sections that are not something a source is cited FOR live in
+ * `REQUEST_SCOPED_SECTIONS` and keep the request-level verdict. Every other
+ * section without a cue stays uncovered (safe: seeks corroboration) so a
+ * duration-only passage cannot mark `apparently_supported`, `supporting_clues`,
+ * `predisposing`, and similar claim sections as directly supported.
  *
  * A cue that is too narrow leaves a section uncovered, which seeks corroboration;
  * one that is too broad is no worse than the behaviour this replaces. Both
@@ -117,12 +117,27 @@ function minimalSearchResult(evidence: ClinicalAskEvidence): SearchResult {
  * cue is allowed to turn an unsupported section into a supported one on its own:
  * request-level support is still required as well.
  */
+const REQUEST_SCOPED_SECTIONS: ReadonlySet<string> = new Set([
+  "potential_matches",
+  "potential_forms",
+  "potential_specifiers",
+  "candidate_mapping",
+  "candidate_possibilities",
+  "missing_information",
+  "missing_assessment",
+  "missing_criteria",
+  "differential_gaps",
+  "evidence_against",
+  "questions_to_test",
+]);
+
 const SECTION_TOPIC_CUES: Readonly<Record<string, RegExp>> = {
   duration:
     /\b(?:durat|lasts?\b|lasted\b|lasting\b|persist|weeks?\b|months?\b|years?\b|days?\b|hours?\b|minutes?\b|at least \d)/i,
   impairment: /\b(?:impair|function|distress|disabilit|interfere|occupational|social)/i,
   exclusions: /\b(?:exclu|not better explained|ruled? out\b|attributable|due to another|never been|absence of)/i,
   eligibility: /\b(?:eligib|accepts? referral|accepting referral|inclusion|exclusion|age range|catchment|qualif)/i,
+  fit_reasons: /\b(?:fit|suitab|match|appropriate|accepts?|adult|referral|within|pathway)/i,
   access_pathway: /\b(?:referr|pathway|access|intake|triage|how to (?:get|obtain)|contact|self-refer)/i,
   jurisdiction_stage: /\b(?:jurisdiction|states?\b|territor|act\b|section \d|schedule|stage|commonwealth)/i,
   prerequisites: /\b(?:prerequisite|before\b|prior to\b|must (?:first|already)|required?\b|requires\b|precondition)/i,
@@ -142,9 +157,10 @@ const SECTION_TOPIC_CUES: Readonly<Record<string, RegExp>> = {
 
 function sectionAddressed(sectionId: string, extract: string) {
   const cue = SECTION_TOPIC_CUES[sectionId];
-  // No cue means the section is request-scoped, so the request-level verdict is
-  // already the right answer and nothing further is required of the passage.
-  return cue ? cue.test(extract) : true;
+  if (cue) return cue.test(extract);
+  // Framing/gap sections keep the request-level verdict. Unlisted claim sections
+  // default uncovered so a single-dimension passage cannot paper over them.
+  return REQUEST_SCOPED_SECTIONS.has(sectionId);
 }
 
 /**
@@ -156,6 +172,19 @@ function atomPredicateKey(atom: ClinicalValueAtom) {
   return [
     atom.kind,
     atom.comparator ?? "",
+    atom.canonicalUnit ?? "",
+    atom.denominatorUnit ?? "",
+    atom.denominatorTime ?? "",
+    atom.denominatorWeight ?? "",
+    atom.route ?? "",
+    atom.frequency ?? "",
+  ].join("|");
+}
+
+/** Conflict identity ignores comparator so "at least 2 weeks" still collides with "4 weeks". */
+function atomConflictKey(atom: ClinicalValueAtom) {
+  return [
+    atom.kind,
     atom.canonicalUnit ?? "",
     atom.denominatorUnit ?? "",
     atom.denominatorTime ?? "",
@@ -255,8 +284,11 @@ function sentenceContaining(extract: string, atom: ClinicalValueAtom) {
 }
 
 /** Atoms that speak to a request predicate in a sentence that still overlaps the
- *  request (or shares a sentence with such an atom). Unrelated same-unit facts in
- *  other sentences are ignored. */
+ *  request, plus any other candidate that shares a predicate key with those
+ *  atoms anywhere in the same extract. Same-sentence content-word overlap alone
+ *  dropped "It lasts 4 weeks" next to a request-aligned "lasts at least 2 weeks"
+ *  (stop-word-only sentences), so contradictory values never reached comparison.
+ *  Unrelated same-unit facts with a different predicate key stay ignored. */
 function requestScopedAtoms(
   extract: string,
   atoms: readonly ClinicalValueAtom[],
@@ -264,16 +296,37 @@ function requestScopedAtoms(
   supportText: string,
 ) {
   const requiredKeys = requestPredicateKeys(requiredAtoms);
-  const candidates = atoms.filter((atom) => requiredKeys.has(atomPredicateKey(atom)));
+  const requiredConflictKeys = new Set(requiredAtoms.map(atomConflictKey));
+  // Predicate key includes comparator, so "4 weeks" must still enter the pool when
+  // the request asked for "at least 2 weeks" — conflict identity is the wider net.
+  const candidates = atoms.filter(
+    (atom) => requiredKeys.has(atomPredicateKey(atom)) || requiredConflictKeys.has(atomConflictKey(atom)),
+  );
   const direct = candidates.filter((atom) => sharesContentWord(sentenceContaining(extract, atom), supportText));
-  if (direct.length === 0)
-    return candidates.filter((atom) =>
-      requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue),
-    );
-  const directSentences = new Set(direct.map((atom) => sentenceContaining(extract, atom)));
+  const seeds =
+    direct.length > 0
+      ? direct
+      : candidates.filter((atom) =>
+          requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue),
+        );
+  if (seeds.length === 0) return [];
+  const seedConflictKeys = new Set(seeds.map(atomConflictKey));
+  const seedSentences = new Set(seeds.map((atom) => sentenceContaining(extract, atom)));
   return candidates.filter((atom) => {
+    if (seeds.some((item) => item === atom)) return true;
     const sentence = sentenceContaining(extract, atom);
-    return direct.some((item) => item === atom) || directSentences.has(sentence);
+    if (seedSentences.has(sentence)) return true;
+    if (!seedConflictKeys.has(atomConflictKey(atom))) return false;
+    // Stop-word-only / anaphoric continuations ("It lasts 4 weeks") keep the
+    // predicate so same-extract contradictions still reach comparison. Sentences
+    // that introduce a different topical noun ("programme lasts 12 weeks") stay out
+    // unless they share a content word with a seed sentence.
+    const words = contentWords(sentence);
+    if (words.size === 0) return true;
+    for (const seedSentence of seedSentences) {
+      if (sharesContentWord(sentence, seedSentence)) return true;
+    }
+    return false;
   });
 }
 
@@ -287,13 +340,21 @@ function conflictingEvidenceIds(
   const itemScoped = requestScopedAtoms(item.extract, itemAtoms, requiredAtoms, supportText);
   if (itemScoped.length === 0) return [];
   const conflicts = new Set<string>();
+  for (const atom of itemScoped) {
+    for (const candidate of itemScoped) {
+      if (atom === candidate) continue;
+      if (atomConflictKey(candidate) !== atomConflictKey(atom)) continue;
+      if (candidate.canonicalValue === atom.canonicalValue) continue;
+      conflicts.add(item.id);
+    }
+  }
   for (const other of others) {
     if (other.evidence.id === item.id) continue;
     const otherScoped = requestScopedAtoms(other.evidence.extract, other.atoms, requiredAtoms, supportText);
     if (otherScoped.length === 0) continue;
     for (const atom of itemScoped) {
       for (const candidate of otherScoped) {
-        if (atomPredicateKey(candidate) !== atomPredicateKey(atom)) continue;
+        if (atomConflictKey(candidate) !== atomConflictKey(atom)) continue;
         if (candidate.canonicalValue === atom.canonicalValue) continue;
         conflicts.add(other.evidence.id);
       }
