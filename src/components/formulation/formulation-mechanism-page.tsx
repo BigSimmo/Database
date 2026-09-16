@@ -31,7 +31,12 @@ import { FormulationNavHeader } from "@/components/formulation/formulation-nav-h
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { formulationSourceLibrary, relatedFormulationMechanisms, type FormulationMechanism } from "@/lib/formulation";
+import {
+  formulationReviewLabel,
+  formulationSourceLibrary,
+  relatedFormulationMechanisms,
+  type FormulationMechanism,
+} from "@/lib/formulation";
 
 function FactorColumn({ title, items }: { title: string; items: string[] }) {
   return (
@@ -224,6 +229,10 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                   ["Clinical contexts", mechanism.diagnosticContexts.slice(0, 3).join(" · ")],
                   ["Development", mechanism.development],
                   ["Formulation use", mechanism.formulationUse],
+                  // The handover set every rewritten mechanism to
+                  // clinical_review_required and nothing rendered it, so a
+                  // record awaiting sign-off read exactly like a signed one.
+                  ["Review", formulationReviewLabel(mechanism.reviewStatus)],
                 ].map(([label, body]) => (
                   <div key={label} className="px-4 py-3">
                     <dt className="text-xs font-extrabold text-[color:var(--text-heading)]">{label}</dt>

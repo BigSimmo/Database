@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Info, Network, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Info, Network, ShieldAlert, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -43,15 +43,29 @@ export function MechanismBadge({ label = "Formulation mechanism" }: { label?: st
   );
 }
 
+/**
+ * `subject` exists because the same footer sits under three different kinds of
+ * record. "Treat each mechanism as a hypothesis" is the right sentence under a
+ * mechanism and the wrong one under a guide module, which is not a hypothesis
+ * about a person at all.
+ */
 export function FormulationSafetyNote({
   compact = false,
   id,
   className,
+  subject = "mechanism",
 }: {
   compact?: boolean;
   id?: string;
   className?: string;
+  subject?: "mechanism" | "record" | "guide";
 }) {
+  const lead =
+    subject === "guide"
+      ? "This is a reference guide, not an assessment, a diagnosis or a treatment protocol."
+      : subject === "record"
+        ? "Treat each factor as a hypothesis, not a diagnosis."
+        : "Treat each mechanism as a hypothesis, not a diagnosis.";
   return (
     <aside
       id={id}
@@ -63,10 +77,55 @@ export function FormulationSafetyNote({
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
       <p>
-        Treat each mechanism as a hypothesis, not a diagnosis. Check the person’s context, culture, development, mental
-        state, risk, and alternative explanations, then revise the formulation when new evidence does not fit.
+        {lead} Check the person’s context, culture, development, mental state, risk, and alternative explanations, then
+        revise the formulation when new evidence does not fit.
       </p>
     </aside>
+  );
+}
+
+/**
+ * The record's own scope limit, which every handover record carries and which
+ * the first import rendered nowhere on a guide and under the misleading label
+ * "Check alternatives" on a concept. A statement that a guide is not a
+ * statutory authority or a treatment protocol is a safety boundary, so it is
+ * shown at the top of the record rather than buried in a detail list.
+ */
+export function FormulationScopeLimit({
+  appliesTo,
+  doesNotApplyTo,
+}: {
+  appliesTo?: string | null;
+  doesNotApplyTo?: string | null;
+}) {
+  if (!appliesTo && !doesNotApplyTo) return null;
+  return (
+    <section
+      aria-labelledby="formulation-scope-label"
+      className={cn(
+        formulationCard,
+        "grid gap-2.5 border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] p-4 sm:p-5",
+      )}
+    >
+      <div className="flex items-center gap-2 text-[color:var(--warning)]">
+        <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden />
+        <p id="formulation-scope-label" className={eyebrowText}>
+          Scope of this record
+        </p>
+      </div>
+      {appliesTo ? (
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+          <span className="font-extrabold text-[color:var(--text-heading)]">Use it for: </span>
+          {appliesTo}
+        </p>
+      ) : null}
+      {doesNotApplyTo ? (
+        <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+          <span className="font-extrabold text-[color:var(--text-heading)]">Do not use it for: </span>
+          {doesNotApplyTo}
+        </p>
+      ) : null}
+    </section>
   );
 }
 

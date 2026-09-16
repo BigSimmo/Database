@@ -3208,11 +3208,104 @@
           "text": "3.1 Distinguish the products of assessment"
         },
         {
-          "kind": "paragraph",
-          "spans": [
-            {
-              "text": "| Product | Main question | |---|---| | History and chronology | What happened, when, and according to whom? | | Phenomenology and MSE | What experiences, signs, behaviours and cognitive changes are present? | | Diagnostic formulation | Which syndrome or diagnosis fits the pattern, and what alternatives remain? | | Explanatory formulation | How might selected factors and processes interact in this individual? | | Risk formulation | What current needs, changes and foreseeable scenarios require preventive action? | | Management plan | What will be done, why, by whom and with what review arrangements? | | Capacity and legal reasoning | What decision is being considered and what separately established criteria or authority apply? |"
-            }
+          "kind": "table",
+          "head": [
+            [
+              {
+                "text": "Product"
+              }
+            ],
+            [
+              {
+                "text": "Main question"
+              }
+            ]
+          ],
+          "rows": [
+            [
+              [
+                {
+                  "text": "History and chronology"
+                }
+              ],
+              [
+                {
+                  "text": "What happened, when, and according to whom?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Phenomenology and MSE"
+                }
+              ],
+              [
+                {
+                  "text": "What experiences, signs, behaviours and cognitive changes are present?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Diagnostic formulation"
+                }
+              ],
+              [
+                {
+                  "text": "Which syndrome or diagnosis fits the pattern, and what alternatives remain?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Explanatory formulation"
+                }
+              ],
+              [
+                {
+                  "text": "How might selected factors and processes interact in this individual?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Risk formulation"
+                }
+              ],
+              [
+                {
+                  "text": "What current needs, changes and foreseeable scenarios require preventive action?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Management plan"
+                }
+              ],
+              [
+                {
+                  "text": "What will be done, why, by whom and with what review arrangements?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Capacity and legal reasoning"
+                }
+              ],
+              [
+                {
+                  "text": "What decision is being considered and what separately established criteria or authority apply?"
+                }
+              ]
+            ]
           ]
         },
         {
@@ -4217,11 +4310,104 @@
           "text": "7.7 Specialty overlays and scope limits"
         },
         {
-          "kind": "paragraph",
-          "spans": [
-            {
-              "text": "| Setting | Additional formulation questions, not a complete specialty guideline | |---|---| | Child and adolescent | Developmental stage, family and school context, safeguarding, informant differences, autonomy and communication. Avoid applying adult trait assumptions unchanged. | | Older adult / cognitive | Baseline cognition and function, fluctuation, medicines, medical illness, sensory access, carers and environmental change. | | Perinatal | Timing in relation to pregnancy or birth, sleep, physical health, relationship/support context and care responsibilities. Urgent syndromes need separate pathways. | | Intellectual disability / neurodevelopment | Communication profile, sensory and environmental fit, pain or unmet needs, positive support and change from baseline. | | Addiction | Symptom chronology, intoxication/withdrawal, reinforcement, harms, access to care and interaction with other conditions. | | Consultation–liaison / neuropsychiatry | Medical course, cognition, neurological symptoms, medicines, care context and competing explanatory models. | | Forensic | Actual behaviour, context and history, separate structured violence assessment where appropriate, legal setting, opportunity and protective management. |"
-            }
+          "kind": "table",
+          "head": [
+            [
+              {
+                "text": "Setting"
+              }
+            ],
+            [
+              {
+                "text": "Additional formulation questions, not a complete specialty guideline"
+              }
+            ]
+          ],
+          "rows": [
+            [
+              [
+                {
+                  "text": "Child and adolescent"
+                }
+              ],
+              [
+                {
+                  "text": "Developmental stage, family and school context, safeguarding, informant differences, autonomy and communication. Avoid applying adult trait assumptions unchanged."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Older adult / cognitive"
+                }
+              ],
+              [
+                {
+                  "text": "Baseline cognition and function, fluctuation, medicines, medical illness, sensory access, carers and environmental change."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Perinatal"
+                }
+              ],
+              [
+                {
+                  "text": "Timing in relation to pregnancy or birth, sleep, physical health, relationship/support context and care responsibilities. Urgent syndromes need separate pathways."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Intellectual disability / neurodevelopment"
+                }
+              ],
+              [
+                {
+                  "text": "Communication profile, sensory and environmental fit, pain or unmet needs, positive support and change from baseline."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Addiction"
+                }
+              ],
+              [
+                {
+                  "text": "Symptom chronology, intoxication/withdrawal, reinforcement, harms, access to care and interaction with other conditions."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Consultation–liaison / neuropsychiatry"
+                }
+              ],
+              [
+                {
+                  "text": "Medical course, cognition, neurological symptoms, medicines, care context and competing explanatory models."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Forensic"
+                }
+              ],
+              [
+                {
+                  "text": "Actual behaviour, context and history, separate structured violence assessment where appropriate, legal setting, opportunity and protective management."
+                }
+              ]
+            ]
           ]
         },
         {
@@ -4572,60 +4758,111 @@
           ]
         },
         {
-          "kind": "paragraph",
-          "spans": [
-            {
-              "text": "| Element | Documentation focus | |---|---| | "
-            },
-            {
-              "text": "Current presentation",
-              "strong": true
-            },
-            {
-              "text": " | Actual thoughts, behaviour, mental state, distress and current safety needs, with source and time. | | "
-            },
-            {
-              "text": "State",
-              "strong": true
-            },
-            {
-              "text": " | What has changed relative to this person’s own usual baseline? | | "
-            },
-            {
-              "text": "Status, if used",
-              "strong": true
-            },
-            {
-              "text": " | Relative to which specifically described comparison population? Avoid an undefined label. | | "
-            },
-            {
-              "text": "Drivers and scenarios",
-              "strong": true
-            },
-            {
-              "text": " | Which change or circumstance could plausibly worsen safety, and what contributes to it? | | "
-            },
-            {
-              "text": "Available resources",
-              "strong": true
-            },
-            {
-              "text": " | Who or what is accessible now, acceptable to the person and usable in the scenario? | | "
-            },
-            {
-              "text": "Actions and contingencies",
-              "strong": true
-            },
-            {
-              "text": " | What addresses the driver or opportunity, who is responsible, and what happens if the plan cannot operate? | | "
-            },
-            {
-              "text": "Uncertainty",
-              "strong": true
-            },
-            {
-              "text": " | What remains unknown, disputed or rapidly changing, and how will it be reassessed? |"
-            }
+          "kind": "table",
+          "head": [
+            [
+              {
+                "text": "Element"
+              }
+            ],
+            [
+              {
+                "text": "Documentation focus"
+              }
+            ]
+          ],
+          "rows": [
+            [
+              [
+                {
+                  "text": "Current presentation",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "Actual thoughts, behaviour, mental state, distress and current safety needs, with source and time."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "State",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "What has changed relative to this person’s own usual baseline?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Status, if used",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "Relative to which specifically described comparison population? Avoid an undefined label."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Drivers and scenarios",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "Which change or circumstance could plausibly worsen safety, and what contributes to it?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Available resources",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "Who or what is accessible now, acceptable to the person and usable in the scenario?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Actions and contingencies",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "What addresses the driver or opportunity, who is responsible, and what happens if the plan cannot operate?"
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Uncertainty",
+                  "strong": true
+                }
+              ],
+              [
+                {
+                  "text": "What remains unknown, disputed or rapidly changing, and how will it be reassessed?"
+                }
+              ]
+            ]
           ]
         },
         {
@@ -4701,11 +4938,93 @@
           ]
         },
         {
-          "kind": "paragraph",
-          "spans": [
-            {
-              "text": "| Supported need or hypothesis | Proposed action and observable aim | Reason to reassess | |---|---|---| | Attendance barrier appears practical | Resolve the identified access problem and observe attendance/function. | The barrier remains, a different barrier emerges or distress persists despite access. | | Repetitive abstract processing appears unhelpful | Agree a concrete problem-solving or attention/activity experiment. | The difficulty is obsessional, trauma-related or an unresolved real-world problem instead. | | A relational misunderstanding is evident | Clarify what occurred, acknowledge service contribution and agree communication. | The account suggests actual abuse, discrimination or a different clinical syndrome. | | Safety worsens in a foreseeable context | Address the modifiable driver, access/opportunity and available support, with a contingency. | Resources fail, mental state changes or new information alters the scenario. |"
-            }
+          "kind": "table",
+          "head": [
+            [
+              {
+                "text": "Supported need or hypothesis"
+              }
+            ],
+            [
+              {
+                "text": "Proposed action and observable aim"
+              }
+            ],
+            [
+              {
+                "text": "Reason to reassess"
+              }
+            ]
+          ],
+          "rows": [
+            [
+              [
+                {
+                  "text": "Attendance barrier appears practical"
+                }
+              ],
+              [
+                {
+                  "text": "Resolve the identified access problem and observe attendance/function."
+                }
+              ],
+              [
+                {
+                  "text": "The barrier remains, a different barrier emerges or distress persists despite access."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Repetitive abstract processing appears unhelpful"
+                }
+              ],
+              [
+                {
+                  "text": "Agree a concrete problem-solving or attention/activity experiment."
+                }
+              ],
+              [
+                {
+                  "text": "The difficulty is obsessional, trauma-related or an unresolved real-world problem instead."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "A relational misunderstanding is evident"
+                }
+              ],
+              [
+                {
+                  "text": "Clarify what occurred, acknowledge service contribution and agree communication."
+                }
+              ],
+              [
+                {
+                  "text": "The account suggests actual abuse, discrimination or a different clinical syndrome."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "Safety worsens in a foreseeable context"
+                }
+              ],
+              [
+                {
+                  "text": "Address the modifiable driver, access/opportunity and available support, with a contingency."
+                }
+              ],
+              [
+                {
+                  "text": "Resources fail, mental state changes or new information alters the scenario."
+                }
+              ]
+            ]
           ]
         },
         {
@@ -5010,11 +5329,92 @@
           "text": "9.6 Language substitutions"
         },
         {
-          "kind": "paragraph",
-          "spans": [
-            {
-              "text": "| Avoid as a stand-alone statement | Prefer a specific, testable account | |---|---| | “Manipulative” | Describe the action, context, immediate effect and what remains unknown about function or intent. | | “Poor motivation” | Describe difficulty initiating or sustaining the activity, including symptoms, cognition, access and perceived relevance. | | “Splits the team” | Describe polarised staff responses and the sequence of interactions. | | “Trauma caused this” | Identify reported exposure, temporal links, alternative explanations and the level of inference. | | “Protective family” | State who is available, what help is agreed and any limits or safety concerns. | | “Low risk, suitable for discharge” | Document current assessment, needs, changes, relevant scenarios and the rationale for the actual plan. |"
-            }
+          "kind": "table",
+          "head": [
+            [
+              {
+                "text": "Avoid as a stand-alone statement"
+              }
+            ],
+            [
+              {
+                "text": "Prefer a specific, testable account"
+              }
+            ]
+          ],
+          "rows": [
+            [
+              [
+                {
+                  "text": "“Manipulative”"
+                }
+              ],
+              [
+                {
+                  "text": "Describe the action, context, immediate effect and what remains unknown about function or intent."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "“Poor motivation”"
+                }
+              ],
+              [
+                {
+                  "text": "Describe difficulty initiating or sustaining the activity, including symptoms, cognition, access and perceived relevance."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "“Splits the team”"
+                }
+              ],
+              [
+                {
+                  "text": "Describe polarised staff responses and the sequence of interactions."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "“Trauma caused this”"
+                }
+              ],
+              [
+                {
+                  "text": "Identify reported exposure, temporal links, alternative explanations and the level of inference."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "“Protective family”"
+                }
+              ],
+              [
+                {
+                  "text": "State who is available, what help is agreed and any limits or safety concerns."
+                }
+              ]
+            ],
+            [
+              [
+                {
+                  "text": "“Low risk, suitable for discharge”"
+                }
+              ],
+              [
+                {
+                  "text": "Document current assessment, needs, changes, relevant scenarios and the rationale for the actual plan."
+                }
+              ]
+            ]
           ]
         },
         {

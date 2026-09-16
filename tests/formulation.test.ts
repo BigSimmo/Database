@@ -9,6 +9,7 @@ import {
   formulationMechanisms,
   formulationDomainsInUse,
   formulationQualityPrompts,
+  formulationReviewLabel,
   formulationSectionsForTemplate,
   formulationSourceLibrary,
   formulationTemplates,
@@ -154,5 +155,17 @@ describe("clinical formulation content", () => {
     expect(draft).toContain(rumination.exampleSentence);
     expect(draft).toContain("Check worry and realistic problem solving.");
     expect(draft).toContain("Draft for clinical review");
+  });
+
+  // Every mechanism the 2026-09-16 handover rewrote is awaiting sign-off, and
+  // nothing rendered that, so a pending record read exactly like a signed one.
+  it("states the review position of every mechanism, and never invents approval", () => {
+    for (const mechanism of formulationMechanisms) {
+      expect(mechanism.reviewStatus).toBe("clinical_review_required");
+      expect(formulationReviewLabel(mechanism.reviewStatus)).toContain("No named reviewer");
+    }
+    expect(formulationReviewLabel("clinically_reviewed")).toBe("Clinically reviewed.");
+    // An unknown status is never quietly downgraded to "reviewed".
+    expect(formulationReviewLabel("something_new")).toBe("something_new");
   });
 });

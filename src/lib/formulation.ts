@@ -48,6 +48,21 @@ export type FormulationMechanism = {
   version: string;
 };
 
+/**
+ * The clinician-facing wording for a record's review state. Every record in the
+ * 2026-09-16 handover is `clinical_review_required`, and the first import stored
+ * that on each record without ever rendering it, so twelve rewritten mechanisms
+ * looked signed off. An unrecognised status is shown verbatim rather than
+ * silently treated as reviewed.
+ */
+export function formulationReviewLabel(status: string): string {
+  if (status === "clinical_review_required") {
+    return "Clinical review required. No named reviewer has signed this record off.";
+  }
+  if (status === "clinically_reviewed") return "Clinically reviewed.";
+  return status;
+}
+
 export type FormulationTemplate = { id: string; label: string };
 
 export type FormulationSection = {

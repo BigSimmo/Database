@@ -218,11 +218,47 @@ describe("formulation concept library", () => {
           expect(block.text).not.toMatch(/^#|\*\*/);
           continue;
         }
-        const spans = block.kind === "paragraph" ? block.spans : block.items.flat();
+        const spans =
+          block.kind === "paragraph"
+            ? block.spans
+            : block.kind === "table"
+              ? [...block.head.flat(), ...block.rows.flat(2)]
+              : block.items.flat();
         for (const span of spans) {
           expect(span.text).not.toMatch(/\*\*|\[S\d{2}\]\(/);
         }
       }
+    }
+  });
+
+  // The first import flattened every markdown table into one paragraph, so five
+  // guide tables reached the page as a single run-on line of pipe characters.
+  it("renders guide tables as tables, never as pipe-delimited prose", () => {
+    const tables = formulationGuides.flatMap((guide) => guide.blocks.filter((block) => block.kind === "table"));
+    expect(tables.length).toBe(5);
+    for (const table of tables) {
+      expect(table.head.length).toBeGreaterThan(1);
+      expect(table.rows.length).toBeGreaterThan(0);
+      for (const row of table.rows) {
+        expect(row.length).toBe(table.head.length);
+      }
+    }
+    for (const guide of formulationGuides) {
+      for (const block of guide.blocks) {
+        if (block.kind !== "paragraph") continue;
+        expect(block.spans.map((span) => span.text).join("")).not.toContain("|");
+      }
+    }
+  });
+
+  // Every handover record carries a scope limit. A guide that does not say it is
+  // not a treatment protocol or a statutory authority is the safety failure.
+  it("keeps a scope limit on every published record", () => {
+    for (const record of [...publishedFormulationConcepts, ...formulationGuides]) {
+      expect(record.whenDoesNotApply?.trim()).toBeTruthy();
+    }
+    for (const guide of formulationGuides) {
+      expect(guide.whenApplies?.trim()).toBeTruthy();
     }
   });
 

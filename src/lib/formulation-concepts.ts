@@ -90,7 +90,13 @@ export type FormulationGuideSpan = {
 export type FormulationGuideBlock =
   | { kind: "heading"; text: string }
   | { kind: "paragraph"; spans: FormulationGuideSpan[] }
-  | { kind: "list"; items: FormulationGuideSpan[][] };
+  | { kind: "list"; items: FormulationGuideSpan[][] }
+  /**
+   * A table in the handover markdown. The first import flattened these into a
+   * paragraph, so five guide tables reached clinicians as one run-on line of
+   * pipe characters. A table is a table.
+   */
+  | { kind: "table"; head: FormulationGuideSpan[][]; rows: FormulationGuideSpan[][][] };
 
 export type FormulationGuide = FormulationRecordBase & {
   blocks: FormulationGuideBlock[];

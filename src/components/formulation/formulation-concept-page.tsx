@@ -15,6 +15,7 @@ import {
   EvidenceList,
   FormulationPageShell,
   FormulationSafetyNote,
+  FormulationScopeLimit,
   MechanismCaveats,
   MechanismDomainChips,
   SectionHeading,
@@ -22,6 +23,7 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { FormulationNavHeader } from "@/components/formulation/formulation-nav-header";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { formulationReviewLabel } from "@/lib/formulation";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import {
   formulationConceptGroup,
@@ -65,6 +67,45 @@ function Spans({ spans }: { spans: FormulationGuideSpan[] }) {
         ),
       )}
     </>
+  );
+}
+
+function GuideTable({ head, rows }: { head: FormulationGuideSpan[][]; rows: FormulationGuideSpan[][][] }) {
+  return (
+    <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
+        <thead>
+          <tr>
+            {head.map((cell, index) => (
+              <th
+                key={index}
+                scope="col"
+                className="border-b border-[color:var(--border)] px-3 py-2 align-top text-xs font-extrabold uppercase tracking-wide text-[color:var(--text-heading)]"
+              >
+                <Spans spans={cell} />
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="align-top">
+              {row.map((cell, cellIndex) => (
+                <td
+                  key={cellIndex}
+                  className={cn(
+                    "border-b border-[color:var(--border)] px-3 py-2 font-medium leading-6 text-[color:var(--text-muted)]",
+                    cellIndex === 0 && "font-bold text-[color:var(--text-heading)]",
+                  )}
+                >
+                  <Spans spans={cell} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -124,6 +165,11 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_21rem]">
           <div className="grid min-w-0 gap-5">
+            <FormulationScopeLimit
+              appliesTo={isGuide ? record.whenApplies : null}
+              doesNotApplyTo={record.whenDoesNotApply}
+            />
+
             {isGuide ? (
               <section
                 id="formulation-guide-body"
@@ -141,6 +187,8 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                     <p key={index} className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                       <Spans spans={block.spans} />
                     </p>
+                  ) : block.kind === "table" ? (
+                    <GuideTable key={index} head={block.head} rows={block.rows} />
                   ) : (
                     <ul
                       key={index}
@@ -175,7 +223,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                   <Prose label="When this applies" body={record.whenApplies} />
                   <Prose label="Candidate process" body={record.candidateLoop} />
                   <Prose label="Ask" body={record.clinicalQuestion} />
-                  <Prose label="Check alternatives" body={record.alternatives ?? record.whenDoesNotApply} />
+                  <Prose label="Check alternatives" body={record.alternatives} />
                   <Prose label="Clinical implication" body={record.actions} />
                   <Prose label="Next steps" body={record.nextSteps} />
                 </section>
@@ -204,7 +252,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                 {[
                   ["Record type", record.kind === "clinical_guide_module" ? "Clinical guide module" : record.kind],
                   ["Population", record.population],
-                  ["Review", "Clinical review required. No named reviewer has signed this record off."],
+                  ["Review", formulationReviewLabel(record.review.status)],
                 ]
                   .filter((row): row is [string, string] => Boolean(row[1]))
                   .map(([label, body]) => (
@@ -281,7 +329,11 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
           </aside>
         </div>
 
-        <FormulationSafetyNote id="formulation-evidence" className={inPageAnchor} />
+        <FormulationSafetyNote
+          id="formulation-evidence"
+          className={inPageAnchor}
+          subject={isGuide ? "guide" : "record"}
+        />
       </FormulationPageShell>
     </>
   );
