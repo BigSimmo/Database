@@ -266,7 +266,10 @@ function requestScopedAtoms(
   const requiredKeys = requestPredicateKeys(requiredAtoms);
   const candidates = atoms.filter((atom) => requiredKeys.has(atomPredicateKey(atom)));
   const direct = candidates.filter((atom) => sharesContentWord(sentenceContaining(extract, atom), supportText));
-  if (direct.length === 0) return candidates.filter((atom) => requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue));
+  if (direct.length === 0)
+    return candidates.filter((atom) =>
+      requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue),
+    );
   const directSentences = new Set(direct.map((atom) => sentenceContaining(extract, atom)));
   return candidates.filter((atom) => {
     const sentence = sentenceContaining(extract, atom);

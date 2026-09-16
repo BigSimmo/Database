@@ -107,9 +107,11 @@ describe("Clinical Ask evidence sufficiency", () => {
     const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
     const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
 
-    expect(coverage.some((row) => row.evidenceId === "indexed:support" && row.conflictsWithEvidenceIds.includes("indexed:conflict"))).toBe(
-      true,
-    );
+    expect(
+      coverage.some(
+        (row) => row.evidenceId === "indexed:support" && row.conflictsWithEvidenceIds.includes("indexed:conflict"),
+      ),
+    ).toBe(true);
     expect(decision).toMatchObject({ sufficient: false, externalFallbackReason: "conflict" });
     expect(decision.unresolvedConflictIds).toContain("indexed:conflict");
   });
@@ -122,8 +124,7 @@ describe("Clinical Ask evidence sufficiency", () => {
     });
     const second = source({
       id: "indexed:two",
-      extract:
-        "The example service accepts referrals for adults within 2 weeks. The initial assessment takes 4 weeks.",
+      extract: "The example service accepts referrals for adults within 2 weeks. The initial assessment takes 4 weeks.",
     });
     const inputRequest = request("Does the example service accept adult referrals within 2 weeks?");
     const evidence = [first, second];
