@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-13T07:34:00.983Z",
+  "generated_at": "2026-09-16T13:04:14.958Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "f1e3a295820cf40e6f1c33e7fe503322b1259b477db65921e58ed7308682a267",
+  "schema_sha256": "d19668f852c16b2459e961c8fd9969296c1d7225780fdaa9fbf15fd8548c5f9c",
   "replay_seconds": 20,
   "snapshot": {
     "views": [
@@ -12412,7 +12412,7 @@
         "table": "site_content_release_records"
       },
       {
-        "def": "CHECK ((((target_publication_id IS NULL) AND (release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
+        "def": "CHECK ((((target_publication_id IS NULL) AND (release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text)) OR ((target_publication_id IS NOT NULL) AND (jsonb_typeof(record) = 'object'::text) AND (jsonb_typeof(render_payload) = 'object'::text))))",
         "name": "site_content_release_records_check1",
         "table": "site_content_release_records"
       },
@@ -12642,7 +12642,7 @@
         "table": "site_content_sync_state"
       },
       {
-        "def": "CHECK ((((NOT initialized) AND (active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid) AND (served_change_epoch = 0) AND (active_transition_receipt_id IS NULL)) OR (initialized AND (active_transition_receipt_id IS NOT NULL))))",
+        "def": "CHECK ((((NOT initialized) AND (active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid) AND (served_change_epoch = 0) AND (active_transition_receipt_id IS NULL)) OR (initialized AND (active_transition_receipt_id IS NOT NULL))))",
         "name": "site_content_sync_state_transition_pointer_check",
         "table": "site_content_sync_state"
       },

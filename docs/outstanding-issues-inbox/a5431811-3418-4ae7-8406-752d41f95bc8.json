@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "a5431811-3418-4ae7-8406-752d41f95bc8",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Refreshing the frozen P03 bootstrap changes a release identity that production code and two applied migrations pin",
+    "detail": "Adding any canonical service record breaks tests/site-content-publication-route.test.ts (epoch-zero seed freeze) and tests/supabase-schema.test.ts (registry baseline pin), because both compare the repository catalogue to JSON frozen inside supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql. npm run bootstrap:refresh regenerates both blobs and is proved faithful (843/843 records and 281/281 baselines reproduce byte-for-byte; the recomputed frozen digest and release id match the committed 57f6ec90...fa1bc and 91ceaa8d-470c-5661-8ce6-980c2a1bb137 exactly, cross-checked against the migration SQL functions in a scratch Postgres). BLOCKER: the release id is content-addressed, so a new population yields c96d32f6-e42a-53b0-8cfe-cd07d4b7f963, and that id is pinned in 16 places including src/lib/site-content/site-content-health.ts (RETAINED_BOOTSTRAP_RELEASE_ID), supabase/migrations/20260824123000_add_site_content_health_probe.sql and supabase/migrations/20260830121000_bind_site_content_release_transitions.sql. Editing an applied migration does not re-run it, so the live database keeps the old id while redeployed code expects the new one; if production is still serving the retained bootstrap the health path would stop recognising it. NEXT: read the live site_content_releases row to establish which release the production database is serving and whether it still holds e4a1dd29. That single fact decides whether this is a mechanical refresh or a production-behaviour change needing a deploy plan. STOP: do not run bootstrap:refresh --write and merge without that read and an approved Supabase window.",
+    "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
+    "issueUlid": "01M2MSHG955AA5CDE9CFHRG35C"
+  }
+}

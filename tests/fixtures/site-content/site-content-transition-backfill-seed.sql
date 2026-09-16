@@ -12,7 +12,7 @@ declare
   v_rollback_id text;
 begin
   select * into strict v_bootstrap from public.site_content_releases
-  where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid;
+  where id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid;
 
   for v_source in
     select * from (values
@@ -138,10 +138,10 @@ from event where logical_id = 'services:backfill-pending';
 
 update public.site_content_sync_state
 set change_epoch = 3, served_change_epoch = 0,
-  active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid,
+  active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid,
   active_release_digest = (
     select release_digest from public.site_content_releases
-    where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+    where id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
   ),
   initialized = false
 where singleton;
