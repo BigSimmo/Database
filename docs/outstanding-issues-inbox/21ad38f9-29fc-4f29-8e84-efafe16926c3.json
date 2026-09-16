@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "21ad38f9-29fc-4f29-8e84-efafe16926c3",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "read_site_content_public_records() has no EXPLAIN baseline, and it is on the search request path",
+    "detail": "The search-path sibling of #458SAC, and a different function: #458SAC measured read_site_content_health() at ~7s, but that one walks site_content_sync_events and read_site_content_public_records never touches that table, so its hypothesis does not transfer and its number is not evidence here. This read IS on the request path: src/lib/universal-search.ts calls it once per registry domain per search. PR #2805 restored a cache in front of it (15s fresh, stale-while-revalidate to 10 min, single flight), which removes the repetition but not the cost of the first read in each window. Nothing has ever measured that cost. READY TO RUN, read-only, nothing writes or locks: scripts/operator-explain-site-content-public-records.sql, every profiling statement bounded by set local statement_timeout, run the whole script twice and use the second pass. Step 0 is decisive on its own and needs no EXPLAIN: pg_stat_statements gives real call counts and mean latency as production has actually been running it. A mean in single-digit milliseconds means this function is NOT the search-latency cause and the investigation belongs on the document retrieval path instead (see #8VAY97, the other unmeasured read on that path). GATE: provider-backed, so an approved operator window and explicit user confirmation per AGENTS.md API and provider confirmation boundary. STOP: do not enable pg_stat_statements if it is absent, and do not run any statement from this script unbounded.",
+    "source": "Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D); search latency root-cause work, PR #2805",
+    "issueUlid": "01M2MP6CTCYE6BZBVY6MJSB00D"
+  }
+}
