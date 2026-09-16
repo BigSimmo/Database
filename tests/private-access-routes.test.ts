@@ -1971,7 +1971,12 @@ describe("private document API access", () => {
     expect(inserted.file_name).toBe("WACHS-anything.pdf");
     expect(inserted.metadata.publisher_code).toBeNull();
     expect(inserted.metadata.publisher).toBeNull();
-    expect(inserted.metadata.jurisdiction).toBe("Australia/WA");
+    // Jurisdiction is null for the same reason the two fields above are. It used
+    // to be seeded to "Australia/WA", which meant a file named WACHS-anything.pdf
+    // did mint a WA locality claim even while the publisher fields correctly
+    // refused to. The owner sets jurisdiction through the documents bulk metadata
+    // route, which resolves it against the authority register.
+    expect(inserted.metadata.jurisdiction).toBeNull();
   });
 
   it("assigns a smart unique title when a different document has the same upload name", async () => {
