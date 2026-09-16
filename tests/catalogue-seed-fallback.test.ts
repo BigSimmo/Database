@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { logger } from "@/lib/logger";
 import {
   catalogueSeedFallbackBudgetMs,
   catalogueSeedFallbackCooldownMs,
@@ -29,6 +30,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   clearCatalogueSeedFallbackCooldown();
 });
 
@@ -171,5 +173,69 @@ describe("readCatalogueWithSeedFallback", () => {
       readCatalogueWithSeedFallback({ kind: "form", seeds, signal: AbortSignal.abort(), read, now: time.now }),
     ).rejects.toThrow();
     expect(read).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The seven-day outage happened because degradation was silent. A fallback that quietly absorbs a
+ * broken catalogue would recreate that, so these assert the reporting rather than the records.
+ */
+describe("readCatalogueWithSeedFallback reports the degradation it absorbs", () => {
+  it("logs an error the first time it falls back, and not again while cooling down", async () => {
+    const time = clock();
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const read = vi.fn(async () => {
+      throw new Error("Canonical site-content read failed: boom");
+    });
+
+    for (let i = 0; i < 4; i += 1) {
+      await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    }
+
+    expect(reported).toHaveBeenCalledTimes(1);
+    const [message, context] = reported.mock.calls[0]!;
+    expect(message).toContain("serving in-bundle seeds");
+    expect(context).toMatchObject({ catalogue_kind: "form", failure: "Error" });
+  });
+
+  it("logs the recovery so a resolved outage is visible too", async () => {
+    const time = clock();
+    const recovered = vi.spyOn(logger, "info").mockImplementation(() => {});
+    vi.spyOn(logger, "error").mockImplementation(() => {});
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValue(canonical);
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(recovered).not.toHaveBeenCalled();
+
+    time.advance(catalogueSeedFallbackCooldownMs + 1);
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(recovered).toHaveBeenCalledTimes(1);
+    expect(recovered.mock.calls[0]![0]).toContain("no longer degraded");
+
+    // An ordinary healthy read is not a recovery, so it stays quiet.
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(recovered).toHaveBeenCalledTimes(1);
+  });
+
+  // The query never reaches this module, and nothing may smuggle it into a log line.
+  it("reports the catalogue kind and failure shape only", async () => {
+    const time = clock();
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const read = vi.fn(async () => {
+      throw new Error("boom");
+    });
+
+    await readCatalogueWithSeedFallback({ kind: "medication", seeds, read, now: time.now });
+
+    expect(Object.keys(reported.mock.calls[0]![1] ?? {}).sort()).toEqual([
+      "budget_ms",
+      "catalogue_kind",
+      "cooldown_ms",
+      "detail",
+      "failure",
+    ]);
   });
 });

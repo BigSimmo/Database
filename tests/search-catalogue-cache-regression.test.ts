@@ -77,7 +77,7 @@ describe("registry catalogue reads stay cached on the search path", () => {
     const calls: RpcCall[] = [];
     const { runUniversalSearch } = await loadUniversalSearch();
 
-    await runUniversalSearch({
+    const response = await runUniversalSearch({
       query: "transport",
       limitPerDomain: 5,
       domains: [...registryDomains],
@@ -88,6 +88,8 @@ describe("registry catalogue reads stay cached on the search path", () => {
     const reads = catalogueReads(calls);
     expect(reads).toHaveLength(registryDomains.length);
     expect(new Set(reads.map((read) => read.args.p_kind))).toEqual(new Set(["form", "service", "medication"]));
+    // A healthy catalogue is never marked degraded, so the flag stays a real signal.
+    expect(response.groups.every((group) => group.degraded === undefined)).toBe(true);
   });
 
   // The typeahead symptom: a debounced keystroke sequence is many searches in a few seconds.
@@ -166,6 +168,9 @@ describe("registry catalogue reads stay cached on the search path", () => {
       const forms = response.groups.find((group) => group.kind === "forms");
       expect(forms?.error).not.toBe(true);
       expect(forms?.items.length ?? 0).toBeGreaterThan(0);
+      // Answering from seeds is not the same as answering canonically, and the response says so.
+      // Without this an external monitor cannot tell a healthy catalogue from a broken one.
+      expect(forms?.degraded).toBe(true);
       clearCatalogueSeedFallbackCooldown();
     },
     20_000,
@@ -184,5 +189,63 @@ describe("registry catalogue reads stay cached on the search path", () => {
     });
 
     expect(catalogueReads(calls)).toHaveLength(0);
+  });
+});
+
+/**
+ * The other half of the 2026-09-16 outage. Falling back keeps the reader working; this keeps the
+ * operator informed. A fan-out where every requested domain failed answered HTTP 200 with an
+ * empty body and logged nothing, so there was no signal to alert on for seven days.
+ */
+describe("a total search blackout is reported", () => {
+  it("logs an error when every requested domain fails", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const { logger } = await import("@/lib/logger");
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const supabase = {
+      rpc: () => Promise.reject(new Error("database unreachable")),
+    } as unknown as SearchSupabase;
+
+    const response = await runUniversalSearch({
+      query: "transport",
+      limitPerDomain: 5,
+      domains: ["documents"],
+      demo: false,
+      supabase,
+    });
+
+    expect(response.groups.every((group) => group.error)).toBe(true);
+    expect(reported).toHaveBeenCalledTimes(1);
+    const [message, context] = reported.mock.calls[0]!;
+    expect(message).toContain("every requested domain failed");
+    expect(context).toMatchObject({ domains: ["documents"], domain_count: 1 });
+    // The query is never logged, whatever else is.
+    expect(JSON.stringify(context)).not.toContain("transport");
+    vi.restoreAllMocks();
+  });
+
+  it("stays quiet when a working domain answers alongside a failing one", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const { logger } = await import("@/lib/logger");
+    const reported = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const supabase = {
+      rpc: () => Promise.reject(new Error("database unreachable")),
+    } as unknown as SearchSupabase;
+
+    const response = await runUniversalSearch({
+      // `dictionary` reads the in-bundle catalogue, so it answers while `documents` fails.
+      query: "akathisia",
+      limitPerDomain: 5,
+      domains: ["documents", "dictionary"],
+      demo: false,
+      supabase,
+    });
+
+    expect(response.groups.some((group) => group.error)).toBe(true);
+    expect(response.groups.some((group) => group.items.length > 0)).toBe(true);
+    expect(reported).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
   });
 });

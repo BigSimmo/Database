@@ -12,10 +12,11 @@ import {
 import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { dictionaryKindLabel, searchDictionary } from "@/lib/dictionary";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
+import { logger } from "@/lib/logger";
 import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
-import { readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
+import { catalogueKindIsDegraded, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
@@ -67,6 +68,13 @@ export type UniversalSearchGroup = {
   items: UniversalSearchItem[];
   latencyMs: number;
   error?: boolean;
+  /**
+   * The domain answered, but from the in-bundle catalogue rather than the published one, because
+   * the canonical read could not be completed. Results are real and may lag the latest release.
+   * Present so the response says so out loud — a silent fallback is how the 2026-09-16 outage
+   * would repeat with results on screen to hide it.
+   */
+  degraded?: boolean;
 };
 
 // How the raw query was understood, so the UI can show a "Showing results for… / Did you
@@ -665,6 +673,46 @@ function buildInterpretation(
   };
 }
 
+/**
+ * The three domains whose records come from the published catalogue, mapped to the site-content
+ * kind they read. Everything else is in-bundle or retrieval-backed and cannot be degraded in this
+ * sense. Marked on the group inside the fan-out, not after it, so the streamed NDJSON group and
+ * the final response agree.
+ */
+const registryCatalogueKind: Partial<Record<UniversalSearchDomain, string>> = {
+  medications: "medication",
+  services: "service",
+  forms: "form",
+};
+
+/**
+ * A search where EVERY requested domain failed is an outage, not graceful degradation.
+ *
+ * Per-domain tolerance (one broken adapter must never blank the response) is right, but on
+ * 2026-09-16 it was measured turning a total catalogue failure into an HTTP 200 carrying
+ * `{"total":0,"items":[],"error":true}` for every domain — indistinguishable from "no matches",
+ * and so quiet that it ran for seven days before an operator reported it. Nothing was logged and
+ * no exception was captured, so there was no error rate to alert on.
+ *
+ * Deliberately not throttled: a blackout should be as loud as it is rare. A caller abort never
+ * reaches here (it propagates above), and the catalogue domains now fall back to in-bundle seeds
+ * rather than erroring, so this fires only when the whole fan-out is genuinely broken.
+ *
+ * Carries domain names and latencies only. The query never enters a log line.
+ */
+function reportUniversalSearchBlackout(
+  groups: readonly UniversalSearchGroup[],
+  requested: readonly UniversalSearchDomain[],
+) {
+  const errored = groups.filter((group) => group.error);
+  if (errored.length === 0 || errored.length < requested.length) return;
+  logger.error("Universal search returned nothing: every requested domain failed", {
+    domains: errored.map((group) => group.kind),
+    domain_count: requested.length,
+    latency_ms: errored.map((group) => group.latencyMs),
+  });
+}
+
 export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<UniversalSearchResponse> {
   const startedAt = Date.now();
   throwIfAborted(args.signal);
@@ -712,6 +760,9 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
           total: tagged.length,
           items: tagged,
           latencyMs: Date.now() - domainStartedAt,
+          ...(registryCatalogueKind[domain] && catalogueKindIsDegraded(registryCatalogueKind[domain])
+            ? { degraded: true }
+            : {}),
         };
       } catch {
         // A failed/timed-out domain yields an empty errored group — one slow or broken adapter
@@ -726,6 +777,7 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
     }),
   );
   throwIfAborted(args.signal);
+  reportUniversalSearchBlackout(groups, requested);
 
   const preferredDomains = universalSearchPreferredDomains(args.contextMode).filter((domain) =>
     requested.includes(domain),

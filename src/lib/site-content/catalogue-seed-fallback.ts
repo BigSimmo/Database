@@ -31,6 +31,8 @@
  * be able to tell the reader that the list may be stale. Never drop `degraded` on the floor.
  */
 
+import { logger } from "@/lib/logger";
+
 /** How long one canonical read may take before the reader is served seeds instead. */
 export const catalogueSeedFallbackBudgetMs = 1_200;
 
@@ -45,6 +47,35 @@ type Outcome<T> = {
 };
 
 const cooldownUntil = new Map<string, number>();
+
+/**
+ * Falling back MUST be loud. The 2026-09-16 outage lasted seven days because degradation was
+ * silent: the endpoint answered HTTP 200 with an empty body and nothing was logged, so there was
+ * no error rate to spike and no signal to alert on. A fallback that hides the failure it is
+ * absorbing would reproduce exactly that, only with results on screen to make it less visible.
+ *
+ * The cooldown rate-limits this for free. A read is only attempted when no cooldown is open, so
+ * every failure reaching here is a transition into degraded mode: at most one line per kind per
+ * `cooldownMs`, paired with one recovery line when the next probe succeeds.
+ *
+ * Carries the catalogue kind and the failure shape only. There is no user query on this path at
+ * all — the read fetches every record of a kind — and none is passed here.
+ */
+function reportFallback(kind: string, error: unknown, budgetMs: number, cooldownMs: number) {
+  logger.error("Canonical catalogue read failed; search is serving in-bundle seeds", {
+    catalogue_kind: kind,
+    failure: error instanceof Error ? error.name : typeof error,
+    detail: error instanceof Error ? error.message : undefined,
+    budget_ms: budgetMs,
+    cooldown_ms: cooldownMs,
+  });
+}
+
+function reportRecovery(kind: string) {
+  logger.info("Canonical catalogue read recovered; search is no longer degraded", {
+    catalogue_kind: kind,
+  });
+}
 
 function abortReason(signal: AbortSignal): Error {
   return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
@@ -73,6 +104,10 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   input.signal?.throwIfAborted();
 
   const coolingUntil = cooldownUntil.get(input.kind);
+  // Reaching past this point with a cooldown recorded means it has just expired, so this read is
+  // the re-probe — which is what makes a success below a recovery worth reporting rather than an
+  // ordinary read.
+  const probing = coolingUntil !== undefined;
   if (coolingUntil !== undefined) {
     if (coolingUntil > now()) return { records: [...input.seeds], degraded: true };
     cooldownUntil.delete(input.kind);
@@ -102,18 +137,35 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   try {
     const records = await Promise.race([input.read(budget.signal), abandoned]);
     cooldownUntil.delete(input.kind);
+    if (probing) reportRecovery(input.kind);
     return { records, degraded: false };
   } catch (error) {
     // The caller gave up on the whole search; nothing here is a catalogue-health signal.
     if (input.signal?.aborted) throw abortReason(input.signal);
     cooldownUntil.set(input.kind, now() + cooldownMs);
-    void error;
+    reportFallback(input.kind, error, budgetMs, cooldownMs);
     return { records: [...input.seeds], degraded: true };
   } finally {
     clearTimeout(timer);
     input.signal?.removeEventListener("abort", forwardCallerAbort);
     budget.signal.removeEventListener("abort", onAbort);
   }
+}
+
+/**
+ * Whether this catalogue is currently being served from seeds.
+ *
+ * The open cooldown IS the degraded state: it is set the moment a read fails and every read
+ * skipped while it is open returns seeds. Reading it after the fan-out therefore reports the same
+ * answer the request itself got, without threading a flag back through every adapter signature.
+ *
+ * This is what lets the response say `degraded`, which is what an external monitor can assert on.
+ * Without it the seed fallback would make the next occurrence of this outage invisible from
+ * outside — results on screen, canonical data unreachable, nobody told.
+ */
+export function catalogueKindIsDegraded(kind: string, now: () => number = Date.now): boolean {
+  const coolingUntil = cooldownUntil.get(kind);
+  return coolingUntil !== undefined && coolingUntil > now();
 }
 
 /** Test seam, and the hook an operator-triggered "try the database again now" would use. */
