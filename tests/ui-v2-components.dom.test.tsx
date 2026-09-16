@@ -788,6 +788,50 @@ describe("Select", () => {
     render(<Select label="Jurisdiction" hideLabel options={[{ value: "wa", label: "Western Australia" }]} />);
     expect(screen.getByRole("combobox")).toHaveAccessibleName(/Jurisdiction/);
   });
+
+  // A placeholder used to force `defaultValue=""` even when the caller drove the
+  // control with `value`, so every controlled Select with a placeholder warned
+  // that it was both controlled and uncontrolled. React resolves that by
+  // ignoring the default, so the visible behaviour was right and the warning was
+  // the only symptom -- which is exactly why it survived in a shared control.
+  it("does not claim to be both controlled and uncontrolled when a placeholder is set", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(
+        <Select
+          label="Category"
+          placeholder="Choose one"
+          value="parking"
+          onChange={() => {}}
+          options={[
+            { value: "parking", label: "Parking" },
+            { value: "food", label: "Food" },
+          ]}
+        />,
+      );
+
+      const warnings = consoleError.mock.calls.map((call) => String(call[0] ?? ""));
+      expect(warnings.filter((message) => /controlled or uncontrolled/i.test(message))).toEqual([]);
+      expect(screen.getByRole("combobox")).toHaveValue("parking");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("still starts an uncontrolled select on its placeholder", () => {
+    render(
+      <Select
+        label="Category"
+        placeholder="Choose one"
+        options={[
+          { value: "parking", label: "Parking" },
+          { value: "food", label: "Food" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("combobox")).toHaveValue("");
+  });
 });
 
 describe("Checkbox", () => {

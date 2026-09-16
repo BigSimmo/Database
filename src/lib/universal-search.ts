@@ -219,6 +219,7 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
             supabase: args.supabase,
             kind: "medication",
             slug: null,
+            cache: true,
             seeds: defaultMedicationRecords(),
             signal: args.signal,
           })
@@ -249,6 +250,7 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
             supabase: args.supabase,
             kind: "service",
             slug: null,
+            cache: true,
             seeds: serviceRecords,
             signal: args.signal,
           })
@@ -267,6 +269,7 @@ async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
             supabase: args.supabase,
             kind: "form",
             slug: null,
+            cache: true,
             seeds: formRecords,
             signal: args.signal,
           })

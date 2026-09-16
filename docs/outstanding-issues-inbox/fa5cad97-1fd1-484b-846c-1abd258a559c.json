@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa5cad97-1fd1-484b-846c-1abd258a559c",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Every catalogue search reads the whole release payload because the kind filter cannot reach the scan",
+    "detail": "MECHANISM, read from the SQL on 2026-09-16, not measured. Inside read_site_content_public_records the classified CTE computes kind as coalesce(p.kind, case when rr.logical_id like ...) from site_content_release_records rr LEFT JOIN site_content_publications p, and only the NEXT CTE applies where c.kind = p_kind. Because kind is a coalesce over a column from the nullable side of a left join, the planner cannot push that predicate beneath the join: it must join every public-visible record in the active release, across all five kinds, compute kind for each, then discard the four nobody asked for. There is no index on the computed kind because it is computed. The function also returns the whole record and render_payload JSON per row where the pre-2026-09-09 read asked for roughly twenty named ranking columns. WHY IT IS STILL OPEN AFTER PR #2805: that PR restored the cache half, which was the regression; this half is a property of the SQL function and cannot be narrowed from application code. THE FIX, when justified: a stored, indexed kind column on site_content_release_records so the filter can reach the scan, plus a narrower return for the ranking callers. CONFIRM FIRST, do not build on this reading: Step 3 of scripts/operator-explain-site-content-public-records.sql compares the full join against a logical_id-prefixed scan and settles whether the push-down actually fails. GATE: this ships as a migration, and merging a migration reaches the live clinical database within seconds with no deploy step to hold it back, so it needs an approved window and CREATE INDEX CONCURRENTLY cannot run in that transaction, per AGENTS.md Supabase project safety: operator-prebuild plus a validate-only guard migration. STOP: do not change the functions return columns without checking every caller of readCanonicalSiteContentRecords, including the detail-page and differential-page readers that use mapRecord.",
+    "source": "Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D); offline read of supabase/migrations/20260830121000, PR #2805",
+    "issueUlid": "01M2MP6T6HPX8N86MCEX18AXR2"
+  }
+}
