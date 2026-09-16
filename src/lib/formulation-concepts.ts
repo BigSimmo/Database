@@ -151,7 +151,12 @@ export function formulationConceptsInGroup(groupId: string) {
   return publishedFormulationConcepts.filter((concept) => concept.group === groupId);
 }
 
-/** Citations that can be rendered as an outbound link, in reading order. */
+/**
+ * Citations that can be rendered as an outbound link or registered as catalogue
+ * usage, in reading order. Held admissions stay metadata-only: they keep their
+ * citation text on the record but never become an outbound link or a source
+ * catalogue usage row (handover / #2824 review).
+ */
 export function linkableEvidence(evidence: readonly FormulationEvidenceRef[]) {
-  return evidence.filter((entry) => entry.urlStatus === "governed" && entry.url);
+  return evidence.filter((entry) => entry.admission !== "held" && entry.urlStatus === "governed" && entry.url);
 }

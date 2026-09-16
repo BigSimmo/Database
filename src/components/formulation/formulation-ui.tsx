@@ -131,7 +131,7 @@ export function EvidenceList({ evidence, label = "Evidence" }: { evidence: Formu
             <span className="mr-1.5 inline-flex min-w-8 justify-center rounded bg-[color:var(--surface-subtle)] px-1.5 py-0.5 font-extrabold text-[color:var(--clinical-accent)]">
               {entry.label}
             </span>
-            {entry.url ? (
+            {entry.admission !== "held" && entry.url ? (
               <a
                 href={entry.url}
                 target="_blank"
@@ -152,7 +152,11 @@ export function EvidenceList({ evidence, label = "Evidence" }: { evidence: Formu
               {limitation}
             </p>
           ))}
-          {entry.urlStatus === "host_not_governed" ? (
+          {entry.admission === "held" ? (
+            <p className="text-2xs font-medium leading-4 text-[color:var(--warning)]">
+              Link withheld: this source remains held and is cited as metadata only.
+            </p>
+          ) : entry.urlStatus === "host_not_governed" ? (
             <p className="text-2xs font-medium leading-4 text-[color:var(--warning)]">
               Link withheld: this publisher&rsquo;s host is not on the governed source list.
             </p>

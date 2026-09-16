@@ -8,6 +8,7 @@ import {
   formulationConcepts,
   formulationGuides,
   heldFormulationConcepts,
+  linkableEvidence,
   publishedFormulationConcepts,
   publishedFormulationGuides,
   publishedFormulationRecord,
@@ -107,6 +108,16 @@ describe("formulation concept library", () => {
     for (const concept of heldFormulationConcepts) {
       const hits = searchFormulationConcepts(concept.title);
       expect(hits.map((hit) => hit.concept.id)).not.toContain(concept.id);
+    }
+  });
+
+  it("never links or catalogues held admissions", () => {
+    for (const record of [...publishedFormulationConcepts, ...publishedFormulationGuides]) {
+      for (const entry of record.evidence) {
+        if (entry.admission !== "held") continue;
+        expect(linkableEvidence([entry])).toEqual([]);
+      }
+      expect(linkableEvidence(record.evidence).every((entry) => entry.admission !== "held")).toBe(true);
     }
   });
 
