@@ -17,8 +17,8 @@
       "retained_as_draft": 333,
       "verdict_recorded_no_change": 68,
       "proposal_recorded_not_applied": 28,
-      "held": 50,
-      "admitted_as_candidate": 8
+      "held": 41,
+      "admitted_as_candidate": 17
     },
     "fieldResolutions": {
       "preserved": 235,
@@ -36,23 +36,23 @@
   },
   "sourceStages": {
     "staged": 58,
-    "catalogued": 8,
+    "catalogued": 17,
     "bytesAcquired": 0,
     "extractionChecked": 0,
     "indexed": 0,
     "retrievalVerified": 0,
     "clinicallyApproved": 0,
     "activated": 0,
-    "note": "Eight sources admitted to the acquisition ledger as candidates: WHO AUDIT and ASSIST, WA MP 0155/21, RANZCP PS #74, PS #116 and PPG #16, NICE NG225 and CG103. Metadata only."
+    "note": "Seventeen sources admitted to the acquisition ledger as candidates. Metadata only."
   },
   "importPreview": {
     "ledgerPreviewed": "src/data/source-acquisitions.json",
     "counts": {
-      "insert": 8,
+      "insert": 17,
       "reuse": 0,
       "skip": 0,
       "conflict": 0,
-      "held": 50
+      "held": 41
     },
     "catalogueIdentity": {
       "reuse": 12,
@@ -74,7 +74,9 @@
     "Token normalisation initially stripped punctuation, merging K10 with K10+ (two different Kessler instruments). Fixed to flatten case and spacing only; regression test pins it.",
     "The Australian Prescriber article was added to the ledger; the acquisition gate refused it because its publisher is registered catalogueIdentityOnly and registering it would alter retrieval selection. Withdrawn rather than registered.",
     "Fifteen sources were initially reported as blocked on the authority register. Re-checked: their publishers (AIHW, Healthdirect) are registered and ledger-eligible, and the block came from the offline planner's conservative default rather than the real gate.",
-    "nice-delirium was recorded as an identity conflict. Resolved on the facts: two chapter URLs of one NICE guideline, not two sources."
+    "nice-delirium was recorded as an identity conflict. Resolved on the facts: two chapter URLs of one NICE guideline, not two sources.",
+    "Australian Prescriber was reported as blocked on its catalogueIdentityOnly flag. That was wrong: an unrecognised publisherCode ('Aust Prescr') overrides the publisher-name match and yields unknown_jurisdiction. The register's own code AUSPRES resolves it, with no registry change at all.",
+    "Fifteen sources were reported as blocked on the authority register when their publishers (AIHW, Healthdirect) were already registered and ledger-eligible; the block came from the offline planner's conservative default, not the real gate."
   ],
   "protectedActionsNotTaken": [
     "No clinical approval or activation of any record",
@@ -99,28 +101,22 @@
       "whyNotDoneHere": "Each statement needs its own source read and clinical judgement."
     },
     {
-      "item": "Whether the register should accept a continuously maintained page carrying a review date and a null publication date",
-      "owner": "Source register owner",
-      "blocks": "13 governed WA, national and WHO sources",
-      "whyNotDoneHere": "Changes the clinical source register's contract. Review dates already read and banked."
-    },
-    {
-      "item": "Authority-register entries for 21 publishers (Mental Health Tribunal WA, Mental Health Commission WA, NSW ACI, NACCHO, AMHOCN, COPE, AADPA and others), plus a ledger-eligible entry for Australian Prescriber",
-      "owner": "Source register owner",
-      "blocks": "22 sources",
-      "whyNotDoneHere": "Registering a publisher changes retrieval selection, which is protected."
-    },
-    {
-      "item": "Whether meteor.aihw.gov.au and 18 other hosts belong in GOVERNED_SOURCE_HOSTS",
+      "item": "Whether meteor.aihw.gov.au and other hosts belong in GOVERNED_SOURCE_HOSTS",
       "owner": "Source register owner",
       "blocks": "19 sources",
-      "whyNotDoneHere": "Widening host policy is never a side effect."
+      "whyNotDoneHere": "The owner declined this one when asked on 2026-09-16."
     },
     {
-      "item": "Browser read of 4 AIHW pages, a WA Health PDF and the recovery framework",
+      "item": "A date for 21 sources whose publisher is now registered, including four AIHW pages that returned HTTP 403",
       "owner": "Source register owner",
-      "blocks": "6 sources",
-      "whyNotDoneHere": "Those publishers returned HTTP 403 to this session."
+      "blocks": "21 sources",
+      "whyNotDoneHere": "None of the remaining held sources carries a date in the handover, and those publishers blocked automated reads."
+    },
+    {
+      "item": "The actual publishing agency for four records whose publisher field is a description",
+      "owner": "Source register owner",
+      "blocks": "4 sources",
+      "whyNotDoneHere": "Registering a catch-all authority would be a quality regression."
     },
     {
       "item": "Original-document acquisition and indexing",
@@ -129,7 +125,7 @@
       "whyNotDoneHere": "Needs per-source rights, environment and cost approval."
     }
   ],
-  "resumePoint": "Thirty sources read from their publishers; eight admitted. What remains divides cleanly: clinical judgement on the drafts, three owner decisions about the source register (review-dated pages, 21 publishers, host policy), and six pages that need a browser. None is work this session can do without changing a protected surface.",
+  "resumePoint": "Seventeen of 58 sources admitted. Both owner approvals from 2026-09-16 are implemented. The binding constraint on the remaining 41 is now a date: none carries one in the handover, and the publishers that still block are either unread (403) or genuinely undated. Everything else waiting is clinical judgement.",
   "publisherReads": {
     "performedOn": "2026-09-16",
     "sourcesRead": 30,
@@ -147,5 +143,18 @@
     "effect": "acquisitionLedgerIssues requires publicationDate for every non-rejected record, so 13 governed WA, national and WHO sources cannot be registered even though their metadata was read successfully.",
     "whyNotFixedHere": "Relaxing the mandatory field is the weakened schema the field policy forbids. The honest alternative, a distinct state requiring a real review date, changes the clinical source register's contract and is the owner's decision.",
     "readingBanked": "establishedReviewDate on each affected record, so the reading is not repeated."
+  },
+  "ownerApprovalsActedOn": {
+    "grantedBy": "Repository owner, in session, 2026-09-16",
+    "approved": [
+      "Let the register hold a continuously maintained page dated by its review stamp",
+      "Register the publishers the authority register did not know"
+    ],
+    "declined": ["Widen GOVERNED_SOURCE_HOSTS"],
+    "implementedAs": {
+      "dateModel": "Added SourceDateModel to src/lib/sources/acquisition-ledger.ts. A continuously_updated record must carry a real reviewDate and must not carry a publicationDate. The published rule is unchanged; three tests pin that this is an added state, not a relaxation.",
+      "authorityEntries": "Twelve entries added to src/lib/source-authority-registry.ts plus one alias, all catalogueIdentityOnly, matching the Chief Psychiatrist's own entry. Runtime retrieval selection is unchanged and a test pins it.",
+      "notRegistered": "Four publisher strings that are descriptions rather than agencies were left unregistered on purpose."
+    }
   }
 }

@@ -4,8 +4,8 @@
   "previewedOn": "2026-09-16",
   "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry, not clinical approval and not deployed catalogue visibility. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
   "counts": {
-    "held": 50,
-    "admitted_as_candidate": 8
+    "held": 41,
+    "admitted_as_candidate": 17
   },
   "sources": [
     {
@@ -18,9 +18,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'4AT developers' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -62,9 +62,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australasian ADHD Professionals Association' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -349,9 +349,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australian Mental Health Outcomes and Classification Network' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -403,9 +403,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'American Psychiatric Association' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -452,9 +452,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australian Government Department of Health, Disability and Ageing' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -501,9 +501,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Columbia Lighthouse Project' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -550,9 +550,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Centre of Perinatal Excellence' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -599,9 +599,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'DIVA Foundation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -636,22 +636,22 @@
     {
       "handoverSourceId": "HEALTHDIRECT-BPD-2026",
       "title": "Borderline personality disorder (BPD)",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-borderline-personality-disorder-bpd",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -671,22 +671,22 @@
     {
       "handoverSourceId": "HEALTHDIRECT-CBT-2024",
       "title": "Cognitive behaviour therapy (CBT)",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-cognitive-behaviour-therapy-cbt",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -706,22 +706,22 @@
     {
       "handoverSourceId": "HEALTHDIRECT-DBT",
       "title": "Dialectical behaviour therapy (DBT)",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-dialectical-behaviour-therapy-dbt",
       "catalogueIdentityOutcome": "reuse",
       "existingDictionarySourceId": "healthdirect-dbt",
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -741,22 +741,22 @@
     {
       "handoverSourceId": "HEALTHDIRECT-PTSD",
       "title": "Post-traumatic stress disorder (PTSD)",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-post-traumatic-stress-disorder-ptsd",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -822,9 +822,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -876,9 +876,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -930,9 +930,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -1018,9 +1018,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -1164,9 +1164,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher \"Royal Children's Hospital Melbourne\" is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -1301,9 +1301,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'WA Health service providers' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -1343,22 +1343,22 @@
     {
       "handoverSourceId": "WA-CONSENT-2026",
       "title": "Consent to treatment",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-health-consent-to-treatment",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_has_a_review_date_but_no_publication_date",
-          "blocker": "WA Health article pages carry a review stamp rather than a publication date. A review date is a different event and must not be recorded as publication.",
-          "nextAction": "Decide whether the ledger should accept a review-dated web article with a null publication date, or drop the URL in favour of a dated underlying document."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1438,9 +1438,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'Government of Western Australia' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -1487,9 +1487,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Mental Health Commission, Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -1565,9 +1565,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'Mental Health Commission / WA Health' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -1614,9 +1614,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Mental Health Tribunal Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -1804,9 +1804,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Health Support Services, Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
@@ -1948,22 +1948,22 @@
     {
       "handoverSourceId": "australian-prescriber-movement",
       "title": "Drug-induced movement disorders",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-australian-prescriber-movement-2019",
       "catalogueIdentityOutcome": "reuse",
       "existingDictionarySourceId": "australian-prescriber-movement",
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_registered_for_catalogue_identity_only",
-          "blocker": "Australian Prescriber is in the source authority register with `catalogueIdentityOnly: true`, so the ledger cannot place it in a jurisdiction. The acquisition gate blocks it and warns that registering it changes retrieval selection.",
-          "nextAction": "Owner decision: whether to give `australian-prescriber` a ledger-eligible authority entry. This changes retrieval selection, so it is not a side effect of this work. The date and citation above are established and can be reused when it is."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -2060,22 +2060,22 @@
     {
       "handoverSourceId": "healthdirect-antipsychotics",
       "title": "Antipsychotic medicines",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-antipsychotic-medicines",
       "catalogueIdentityOutcome": "reuse",
       "existingDictionarySourceId": "healthdirect-antipsychotics",
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -2129,22 +2129,22 @@
     {
       "handoverSourceId": "healthdirect-psychosis",
       "title": "Psychosis",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-psychosis",
       "catalogueIdentityOutcome": "reuse",
       "existingDictionarySourceId": "healthdirect-psychosis",
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -2164,22 +2164,22 @@
     {
       "handoverSourceId": "healthdirect-psychotherapy",
       "title": "Psychotherapy",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-psychotherapy",
       "catalogueIdentityOutcome": "reuse",
       "existingDictionarySourceId": "healthdirect-psychotherapy",
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_states_a_review_date_not_a_publication_date",
-          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
-          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -2245,9 +2245,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -2294,9 +2294,9 @@
           "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
         },
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Western Sydney Local Health District' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
         },
         {
           "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
@@ -2363,5 +2363,30 @@
       }
     }
   ],
-  "publisherReadsPerformedOn": "2026-09-16"
+  "publisherReadsPerformedOn": "2026-09-16",
+  "authorityRegistrations2026_09_16": {
+    "registered": [
+      "American Psychiatric Association",
+      "Australasian ADHD Professionals Association",
+      "Australian Government Department of Health, Disability and Ageing",
+      "Australian Mental Health Outcomes and Classification Network",
+      "Centre of Perinatal Excellence",
+      "Columbia Lighthouse Project",
+      "DIVA Foundation",
+      "Health Support Services, Western Australia",
+      "Mental Health Commission, Western Australia",
+      "Mental Health Tribunal Western Australia",
+      "NSW Agency for Clinical Innovation",
+      "National Aboriginal Community Controlled Health Organisation",
+      "Royal Children's Hospital Melbourne",
+      "Western Sydney Local Health District"
+    ],
+    "deliberatelyNotRegistered": [
+      "4AT developers",
+      "Government of Western Australia",
+      "Mental Health Commission / WA Health",
+      "WA Health service providers"
+    ],
+    "setting": "catalogueIdentityOnly, matching the Chief Psychiatrist's own entry: the catalogue can place the publisher in a jurisdiction, and runtime retrieval selection is unchanged."
+  }
 }

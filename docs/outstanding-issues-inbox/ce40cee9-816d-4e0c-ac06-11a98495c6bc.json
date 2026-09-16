@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ce40cee9-816d-4e0c-ac06-11a98495c6bc",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Twenty-one dictionary sources need a date; four AIHW pages block automated reads",
+    "detail": "After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTYZ0YWY625D8YN1AS21XM"
+  }
+}

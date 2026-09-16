@@ -89,9 +89,10 @@ entries.
 
 ## Sources: registered is not ingested
 
-Eight sources were admitted to `src/data/source-acquisitions.json` as **candidates**: the WHO AUDIT
-(2001) and ASSIST (2010) manuals, WA Health MP 0155/21, RANZCP PS #74, PS #116 and PPG #16, NICE
-NG225 and NICE CG103. That is metadata and nothing else.
+**Seventeen of the 58 sources are admitted to `src/data/source-acquisitions.json` as candidates**,
+up from two: the WHO AUDIT and ASSIST manuals, WA Health MP 0155/21 and its consent article, RANZCP
+PS #74, PS #116 and PPG #16, NICE NG225 and CG103, Australian Prescriber's movement-disorders
+article, and seven Healthdirect articles. That is metadata and nothing else.
 
 Eight receipt stages are tracked per source and only the first two have been attempted:
 
@@ -103,62 +104,83 @@ Eight receipt stages are tracked per source and only the first two have been att
 `originalBytesSha256`, `documentId` and `jobId` stay null until real receipts exist. Acquiring
 original documents needs a separate per-source rights, environment and cost approval.
 
+### The register can now hold a page that is maintained rather than issued
+
+Australia's most-used official clinical web sources publish a **review** date, not a publication
+date. Healthdirect stamps `Last reviewed: <Month Year>` on every article; WA Health's consent article
+stamps `Last reviewed: 22-05-2026`. The register demanded a publication date, so it could not hold
+them at all — blocked not for missing metadata but for having the wrong shape of it.
+
+`SourceDateModel` adds the missing state. A record marked `continuously_updated`:
+
+- **must** carry a real `reviewDate`,
+- **must not** carry a `publicationDate`, because there is no publication event to date,
+- has its month/year precision rule applied to the review date instead.
+
+This is not a relaxation, and the tests say so: a `published` record with no publication date is
+still rejected, a `continuously_updated` record with no review date is rejected, and one claiming
+both is rejected. Recording a review date in `publicationDate` remains wrong and remains blocked.
+
 ### Dates are recorded as the events they actually are
 
-Thirty sources were read from their publishers' own pages on 2026-09-16. Each carries a
-`publisherCheck` with the finding and the date checked.
-
-Publication, version-release, effective, updated and review dates are different events and none was
-substituted for another:
+Thirty sources were read from their publishers' own pages on 2026-09-16, each carrying a
+`publisherCheck` with the finding and the date checked. Publication, version-release, effective,
+updated and review dates are different events and none was substituted for another:
 
 - **MP 0155/21** — 2021-08-09, the policy's stated date of effect.
 - **PS #74, PS #116, PPG #16** — month precision. RANZCP states a last-updated month and no
-  publication day; day precision would assert a day the College never gave.
+  publication day.
 - **ASSIST 2010** — year precision. WHO gives 2010 and no day.
-- **NG225** — 2022-09-07; **CG103** — 2010-07-28. NICE returned HTTP 403 to direct fetches, so both
-  came from NICE's own site index; the records say so, and say to confirm in a browser.
+- **NG225** — 2022-09-07; **CG103** — 2010-07-28; **Australian Prescriber** — 2019-04-01.
+- **Healthdirect ×7, WA Health consent** — review dates, under the model above.
+
+A page stamped only `Last updated` stays held. An update is a third event, and the register has no
+field for it — the WA Chief Psychiatrist's Mental Health Act page is the case in point.
 
 ### `nice-delirium` was not a conflict
 
 The dictionary cites `.../cg103/chapter/context`; the handover proposed
-`.../cg103/chapter/Recommendations`. These are two chapters of one guideline, not two sources. The
-register row carries the guideline itself and the dictionary keeps its chapter URL, because pointing
-at the chapter that supports the claim is more precise than pointing at the guideline. No second id
-was minted.
+`.../cg103/chapter/Recommendations`. Two chapters of one guideline, not two sources. The register row
+carries the guideline and the dictionary keeps its chapter URL, because pointing at the chapter that
+supports the claim is more precise. No second id was minted.
 
-### The one structural blocker, now evidenced
+### Publishers the register did not know
 
-**Australia's most-used official clinical web sources publish a review date, not a publication
-date.** Healthdirect stamps `Last reviewed: <Month Year>`; WA Health's consent article stamps
-`Last reviewed: 22-05-2026`; the WA Chief Psychiatrist's forms, AMHP and PMP pages and the WHO mhGAP
-page carry no date at all because they are continuously maintained registers.
+Twelve authority entries were added and the Commonwealth department's 2025 name aliased onto its
+existing entry: the Mental Health Tribunal WA, Health Support Services WA, NSW ACI, Western Sydney
+LHD, Royal Children's Hospital Melbourne, AADPA, AMHOCN, COPE, NACCHO, the American Psychiatric
+Association, the Columbia Lighthouse Project and the DIVA Foundation.
 
-`acquisitionLedgerIssues` requires a `publicationDate` for every non-rejected record. So thirteen
-governed WA, national and WHO sources cannot be registered — **not because their metadata is
-missing, but because the register cannot represent the shape of date these publishers give**. The
-review dates that were read are banked on each record in `establishedReviewDate` so the reading is
-not repeated.
+All are `catalogueIdentityOnly`, which is the Chief Psychiatrist's own setting: the catalogue can
+place the publisher in a jurisdiction — without which a source can never leave D band — while
+**runtime retrieval selection is unchanged**. Registering them outright would have changed which
+sources retrieval picks, which is a separate decision.
 
-This was not fixed here. Relaxing the mandatory field is precisely the "weakened schema" the field
-policy forbids, and the honest alternative — a distinct state that requires a real review date
-instead — is a change to the clinical source register's contract, which is the owner's to make.
+Four publishers were deliberately **not** registered, because the strings are descriptions rather
+than agencies: `Government of Western Australia`, `WA Health service providers`,
+`Mental Health Commission / WA Health` (two publishers in one field) and `4AT developers`. A
+catch-all entry for the Crown would resolve every WA government document to one authority, which is
+worse than leaving four records held until their actual publisher is established.
 
-### Why the other 50 are held
+### A trap worth knowing
 
-The reads changed the character of most holds rather than clearing them, which is the more useful
-outcome: a source nobody had looked at is now a source with a named, specific obstacle.
+An **unrecognised `publisherCode` overrides the publisher-name match**. Recording Australian
+Prescriber as `Aust Prescr` made the catalogue return `unknown_jurisdiction` and the gate report a
+registered publisher as unregistered. Use the register's own code (`AUSPRES`) or leave the code null;
+do not invent an abbreviation.
 
-| Count | Obstacle                                                                                                                                                      | Whose call                                                  |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| 21    | Publisher absent from the source authority register (Mental Health Tribunal WA, Mental Health Commission WA, NSW ACI, NACCHO, AMHOCN, COPE, AADPA and others) | Owner — registering a publisher changes retrieval selection |
-| 19    | Host absent from `GOVERNED_SOURCE_HOSTS`, including `meteor.aihw.gov.au`                                                                                      | Owner — widening host policy is never a side effect         |
-| 13    | Publisher gives a review date or no date at all (see above)                                                                                                   | Owner — register contract                                   |
-| 4     | `aihw.gov.au` returned HTTP 403 to this session; publisher already registered and ledger-eligible, so the date is the only thing missing                      | Needs a browser read                                        |
-| 1     | Australian Prescriber is dated (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014) but registered `catalogueIdentityOnly`             | Owner — changing it alters retrieval selection              |
-| 2     | Not yet read: a WA Health PDF and a document on the archived `www1.health.gov.au`                                                                             | Needs a browser read                                        |
+### Why the other 41 are held
 
-`publisherCheck.checkedOn: null` means nobody has looked, which is a weaker statement than "the
-publisher states no date". The two lead to different next actions and are kept apart.
+| Count | Obstacle                                                                                                                   | Whose call                                          |
+| ----- | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 19    | Host absent from `GOVERNED_SOURCE_HOSTS`, including `meteor.aihw.gov.au`                                                   | Owner — widening host policy is never a side effect |
+| 17    | Publisher now registered; no publication or review date has been established                                               | Needs a page read                                   |
+| 4     | Publisher page returned HTTP 403 to this session (four AIHW pages; AIHW is registered, so the date is all that is missing) | Needs a browser read                                |
+| 4     | Publisher field is a description, not an agency (see above)                                                                | Needs the actual publisher                          |
+| 6     | Publisher states no date at all, or only an update stamp, or the index conflicts with the recorded publisher               | Mixed                                               |
+
+`publisherCheck.checkedOn: null` means nobody has looked, which is weaker than "the publisher states
+no date". The two lead to different next actions and are kept apart.
 
 ## The link trap
 

@@ -25,7 +25,13 @@ import {
   SOURCE_RECEIPT_STAGES,
 } from "@/lib/dictionary-editorial/source-dispositions";
 import { dictionaryEntries, dictionarySource, dictionarySources } from "@/lib/dictionary-data";
-import { sourceAcquisitionRecords } from "@/lib/sources/acquisition-ledger";
+import {
+  acquisitionLedgerIssues,
+  acquisitionRecordGeography,
+  acquisitionRecordWarnings,
+  sourceAcquisitionRecords,
+} from "@/lib/sources/acquisition-ledger";
+import { sourceAuthorityIsRuntimeClassifiable, sourceAuthorityRegistry } from "@/lib/source-authority-registry";
 import { sourceUsageHref } from "@/lib/sources/source-usage-presentation";
 
 describe("dictionary sense drafts", () => {
@@ -230,8 +236,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(8);
-    expect(heldDictionarySources()).toHaveLength(50);
+    expect(admitted).toHaveLength(17);
+    expect(heldDictionarySources()).toHaveLength(41);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -356,21 +362,45 @@ describe("publisher re-reads", () => {
     }
   });
 
-  it("keeps a review date out of the publication-date field", () => {
-    // Healthdirect, WA Health and the WHO stamp a review month on a page they
-    // maintain continuously. A review date is a different event from publication,
-    // so it is banked where it was found and never promoted into publicationDate.
-    const reviewDated = dictionarySourceDispositions.filter((disposition) => disposition.establishedReviewDate);
-    expect(reviewDated.length).toBeGreaterThanOrEqual(7);
-    for (const disposition of reviewDated) {
-      expect(disposition.ledgerOutcome).toBe("held");
-      expect(disposition.blockers[0]?.code).toBe("publisher_states_a_review_date_not_a_publication_date");
-      expect(disposition.ledgerRecordId).toBeNull();
+  it("records a continuously updated page by its review date, never as a publication", () => {
+    // Healthdirect maintains its articles rather than issuing them and stamps
+    // `Last reviewed: <Month Year>`. Before the `continuously_updated` date model
+    // the register could not hold them at all, because it demanded a publication
+    // date the publisher does not give.
+    const continuous = sourceAcquisitionRecords.filter((record) => record.dateModel === "continuously_updated");
+    expect(continuous.length).toBeGreaterThanOrEqual(8);
+    for (const record of continuous) {
+      expect(record.publicationDate).toBeNull();
+      expect(record.reviewDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(record.disposition).toBe("candidate");
     }
-    const reviewStamps = new Set(reviewDated.map((disposition) => disposition.establishedReviewDate));
-    for (const record of sourceAcquisitionRecords) {
-      expect(reviewStamps.has(record.publicationDate ?? "")).toBe(false);
+    // Month precision still means the first of the month, on whichever date the
+    // record actually carries.
+    for (const record of continuous) {
+      if (record.datePrecision === "month") expect(record.reviewDate?.endsWith("-01")).toBe(true);
     }
+  });
+
+  it("refuses a continuously updated record that also claims a publication date", () => {
+    const [base] = sourceAcquisitionRecords.filter((record) => record.dateModel === "continuously_updated");
+    expect(base).toBeDefined();
+    const contradictory = { ...base, publicationDate: "2020-01-01" };
+    expect(acquisitionLedgerIssues([contradictory]).join(" ")).toMatch(/no publication event/i);
+  });
+
+  it("refuses a continuously updated record with no review date", () => {
+    const [base] = sourceAcquisitionRecords.filter((record) => record.dateModel === "continuously_updated");
+    const undated = { ...base, reviewDate: null };
+    expect(acquisitionLedgerIssues([undated]).join(" ")).toMatch(/reviewDate is required/);
+  });
+
+  it("still refuses a published record with no publication date", () => {
+    // The old rule is intact for everything that is genuinely published. The new
+    // date model is an added state, not a relaxation.
+    const published = sourceAcquisitionRecords.find((record) => record.dateModel !== "continuously_updated");
+    expect(published).toBeDefined();
+    const undated = { ...published!, publicationDate: null };
+    expect(acquisitionLedgerIssues([undated]).join(" ")).toMatch(/publicationDate is required/);
   });
 
   it("resolves nice-delirium as one work with two chapter locators", () => {
@@ -386,15 +416,51 @@ describe("publisher re-reads", () => {
     expect(record?.publicationDate).toBe("2010-07-28");
   });
 
-  it("does not admit a source whose publisher is registered for catalogue identity only", () => {
-    // Australian Prescriber has an establishable publication date but carries
-    // `catalogueIdentityOnly: true`, so admitting it would mean changing retrieval
-    // selection. That is an owner decision, not a side effect of a dictionary import.
-    const prescriber = dictionarySourceDispositions.find(
-      (disposition) => disposition.handoverSourceId === "australian-prescriber-movement",
+  it("uses the register's own publisher code, which an unrecognised one overrides", () => {
+    // The first attempt recorded "Aust Prescr". An unrecognised publisherCode beats
+    // the publisher-name match, so the catalogue returned unknown_jurisdiction and
+    // the gate read a registered publisher as unregistered. AUSPRES resolves it.
+    const prescriber = sourceAcquisitionRecords.find(
+      (record) => record.id === "dictionary-australian-prescriber-movement-2019",
     );
-    expect(prescriber?.ledgerOutcome).toBe("held");
-    expect(prescriber?.blockers[0]?.code).toBe("publisher_registered_for_catalogue_identity_only");
-    expect(sourceAcquisitionRecords.some((record) => record.publisher === "Australian Prescriber")).toBe(false);
+    expect(prescriber?.publisherCode).toBe("AUSPRES");
+    expect(acquisitionRecordGeography(prescriber!)).toBe("australian_national");
+    expect(acquisitionRecordWarnings(prescriber!)).not.toContain("unknown_jurisdiction");
+  });
+
+  it("leaves runtime selection alone for every publisher registered for this handover", () => {
+    // The new entries are catalogueIdentityOnly, matching the Chief Psychiatrist's
+    // own entry: the catalogue can place them in a jurisdiction, and which sources
+    // retrieval picks is unchanged.
+    const added = [
+      "mental-health-tribunal-wa",
+      "health-support-services-wa",
+      "nsw-agency-for-clinical-innovation",
+      "western-sydney-local-health-district",
+      "royal-childrens-hospital-melbourne",
+      "australasian-adhd-professionals-association",
+      "amhocn",
+      "centre-of-perinatal-excellence",
+      "naccho",
+      "american-psychiatric-association",
+      "columbia-lighthouse-project",
+      "diva-foundation",
+    ];
+    for (const key of added) {
+      const entry = sourceAuthorityRegistry.find((candidate) => candidate.key === key);
+      expect(entry, key).toBeDefined();
+      expect(sourceAuthorityIsRuntimeClassifiable(entry!), key).toBe(false);
+    }
+  });
+
+  it("does not register a publisher field that is a description rather than an agency", () => {
+    // "Government of Western Australia" would resolve every WA government document
+    // to one authority. Four records stay held rather than buy admission with a
+    // catch-all.
+    const vague = dictionarySourceDispositions.filter((disposition) =>
+      disposition.blockers.some((blocker) => blocker.code === "publisher_field_is_a_description_not_an_agency"),
+    );
+    expect(vague.length).toBeGreaterThanOrEqual(3);
+    for (const disposition of vague) expect(disposition.ledgerOutcome).toBe("held");
   });
 });
