@@ -73,7 +73,13 @@ export function Select({
             {...props}
             id={field.id}
             value={value}
-            defaultValue={defaultValue ?? (placeholder ? "" : undefined)}
+            // The placeholder default belongs to an UNCONTROLLED select only.
+            // Handing React a `value` and a `defaultValue` together makes it warn
+            // that the control is both, on every Select in the app that pairs a
+            // caller-driven value with a placeholder. A controlled select already
+            // renders the placeholder option whenever its value is "", so the
+            // default has nothing left to do there.
+            defaultValue={value === undefined ? (defaultValue ?? (placeholder ? "" : undefined)) : undefined}
             required={field.required}
             autoComplete={field.autoComplete}
             aria-invalid={field.invalid || undefined}

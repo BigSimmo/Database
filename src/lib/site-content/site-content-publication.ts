@@ -25,6 +25,7 @@ import {
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
+import { readSiteContentRecordsCached } from "@/lib/site-content/site-content-record-cache";
 import type { SiteContentReconciliationInput } from "@/lib/site-content/site-content-reconciliation";
 import {
   parseSiteContentReleaseEvidence,
@@ -144,6 +145,7 @@ const publicKeys = new Set([
   "setting_flags",
   "section",
   "sectionCue",
+  "scope",
   "sections",
   "selected",
   "selectedCount",
@@ -249,6 +251,10 @@ const topLevelKeys: Record<DynamicSiteContentKind, ReadonlySet<string>> = {
     "status",
     "subtitle",
     "clinicalHinge",
+    // Whether the hinge describes this diagnosis or its presentation group. The
+    // published surface must carry it: without it a reader sees acute dystonia's
+    // record asserting the akathisia discriminator as its own.
+    "clinicalHingeScope",
     "safetySnapshot",
     "sections",
     "related",
@@ -489,23 +495,42 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   slug: string | null;
   seeds: readonly T[];
   signal?: AbortSignal;
+  /**
+   * Opt in to the short-lived process cache in `site-content-record-cache`. Search sets this:
+   * it reads the same catalogue once per registry domain per search and only ever renders the
+   * public projection. Publication, reconciliation and detail-page reads deliberately do not,
+   * so an operator always sees their own change immediately.
+   */
+  cache?: boolean;
   mapRecord?: (representation: {
     canonicalRecord: Record<string, unknown>;
     finalRenderPayload: Record<string, unknown>;
   }) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
-  const { data, error } = await callRpc(
-    input.supabase as RpcClient,
-    "read_site_content_public_records",
-    {
-      p_kind: input.kind,
-      p_slug: input.slug,
-    },
-    input.signal,
-  );
-  if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
-  if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
-  const rows = data as Array<Record<string, unknown>>;
+  const readRows = async (signal?: AbortSignal) => {
+    const { data, error } = await callRpc(
+      input.supabase as RpcClient,
+      "read_site_content_public_records",
+      {
+        p_kind: input.kind,
+        p_slug: input.slug,
+      },
+      signal,
+    );
+    if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
+    if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
+    return data as Array<Record<string, unknown>>;
+  };
+  const rows = input.cache
+    ? (
+        await readSiteContentRecordsCached({
+          kind: input.kind,
+          slug: input.slug,
+          signal: input.signal,
+          read: readRows,
+        })
+      ).rows
+    : await readRows(input.signal);
   const initialized = rows.some((row) => row.initialized === true);
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot ?? null;
   const retainedReleaseId =
@@ -628,8 +653,18 @@ export async function publishSiteContentCommand(input: {
   return { outcome: "applied" as const, result };
 }
 
-export async function readSiteContentHealthEvidence(supabase: unknown): Promise<SiteContentReleaseEvidence> {
-  const { data, error } = await callRpc(supabase as RpcClient, "read_site_content_health", {});
+/**
+ * `signal` is not optional decoration: `read_site_content_health()` is a whole-corpus integrity
+ * audit, and on 2026-09-13 an unbounded call to it from `/api/health/ready` was what stopped
+ * production deploying for three days (see `docs/deployment-architecture.md` § Readiness).
+ * Every request-path caller must bound it; `callRpc` forwards the signal to PostgREST, so an
+ * expired deadline cancels the query rather than merely abandoning the promise.
+ */
+export async function readSiteContentHealthEvidence(
+  supabase: unknown,
+  signal?: AbortSignal,
+): Promise<SiteContentReleaseEvidence> {
+  const { data, error } = await callRpc(supabase as RpcClient, "read_site_content_health", {}, signal);
   if (error) throw new Error("Site-content health evidence is unavailable.");
   try {
     return parseSiteContentReleaseEvidence(data);

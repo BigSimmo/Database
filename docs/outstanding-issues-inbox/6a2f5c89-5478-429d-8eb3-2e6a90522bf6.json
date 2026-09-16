@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6a2f5c89-5478-429d-8eb3-2e6a90522bf6",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Mental Health Act 2014 (WA) pin reads 02-b0-01; the legislation site reports 02-b0-02 on the same currency date",
+    "detail": "data/mha-2014-sections.source.json and the mhaActMetadata projection pin actVersion 02-b0-01, actAsAt 2025-09-25. A read of https://www.legislation.wa.gov.au/legislation/statutes.nsf/law_a147019.html on 2026-09-16 reported the current consolidation as 02-b0-02 with currency start 25 Sep 2025 - a different suffix on the same in-force date, which is the shape of a corrected reprint rather than an amendment. Not acted on: bumping the pin invalidates the sourceTextSha256 of all 79 section summaries and would flip them to pending, so it needs the two consolidations compared section by section and the affected summaries re-derived. Scripts/build-mha-act-sections.mjs --refresh is the only network-touching build script and is the intended route. Package hold H02.",
+    "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MQ1AXX89KSNXN3Z3F3Z9YQ"
+  }
+}

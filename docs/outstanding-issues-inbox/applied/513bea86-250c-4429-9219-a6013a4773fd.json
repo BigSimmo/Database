@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "513bea86-250c-4429-9219-a6013a4773fd",
+  "createdOn": "2026-09-15",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Uploaded-local retrieval is fail-closed by design, and nothing connects that decision to the canary cases it keeps red",
+    "detail": "FINDING, from an offline schema read on 2026-09-15 while fixing review findings on PR #2803. match_governed_candidate_chunks_v3 has exactly two candidate branches: a document branch admitting only corpus_scope australian_public or international_supplementary, and a site-content branch for clinical_kb_site. There is NO uploaded_local branch. The value passes the argument validator (the <@ allow-list in the admitted CTE names all four scopes) and then matches nothing. This is deliberate, not a defect: migration 20260901120100_fail_closed_unactivated_uploaded_local_retrieval.sql states it switched uploaded-local retrieval off 'until P16 supplies generation-bound activation'. WHY IT MATTERS BEYOND THAT MIGRATION. The application still treats uploaded_local as a live retrieval scope in several places: retrievalCorpusScopes in src/lib/rag/rag-candidate-sources.ts always puts uploaded_local in the primary phase, and rag-governed-search.ts, source-conflict-section.ts and rag-reviewed-policy-input.ts all filter retrieved rows on corpus_scope === 'uploaded_local'. So the read path is written as if those rows arrive and the database cannot produce them. If site content and Australian augmentation are both off for a query, the primary phase is uploaded_local alone and the governed candidate function returns nothing at all. LIKELY CONNECTION, unconfirmed: if CG.MHSP.ClozapinePresAdminMonitor.pdf is scoped uploaded_local then the four clozapine canary cases are failing because their expected document is currently unretrievable by design, with no chunking, ranking or verification defect anywhere. That would also fit the wider pattern of answer-quality cases red since 2026-08-23. CONFIRM IT FIRST: Step 1 of scripts/operator-clozapine-retrieval-diagnosis.sql reports corpus_scope and every governance predicate per clozapine document, read-only, and settles this in one query. THE DECISION THIS RAISES IS THE OWNER'S, not a code change: either the fail-closed state stays and the affected canary cases are expected to be red until P16 activation lands, in which case that expectation should be written down so the red is not re-investigated every few weeks, or the activation work is prioritised. DO NOT route around the fail-closed state in retrieval code, and do not relax the affected eval cases to make them pass.",
+    "source": "Claude Code session 2026-09-15 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), offline read of supabase/schema.sql and supabase/migrations/20260901120100; PR #2803 review round",
+    "issueUlid": "01M2JW4Z4A9V1TJ54QF9GQCH08"
+  }
+}

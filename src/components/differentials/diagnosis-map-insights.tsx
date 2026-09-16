@@ -76,7 +76,11 @@ function SelectedSummary({
 }) {
   const title = selectedNode ? (detail?.title ?? selectedNode.label) : record.title;
   const status = selectedNode ? detail?.status : record.status;
-  const hinge = selectedNode ? (detail?.clinicalHinge ?? selectedNode.note) : record.clinicalHinge;
+  // A presentation-scoped hinge belongs to the group, so prefer the per-edge
+  // relationship note, which is authored against this exact pair.
+  const relatedHinge = detail?.clinicalHingeScope === "presentation" ? null : detail?.clinicalHinge;
+  const focusHinge = record.clinicalHingeScope === "presentation" ? "" : record.clinicalHinge;
+  const hinge = selectedNode ? (relatedHinge ?? selectedNode.note) : focusHinge;
   const safety = selectedNode ? detail?.safetySummary : record.safetySnapshot.summary;
   const href = selectedNode && detail ? `/differentials/diagnoses/${detail.slug}` : null;
 

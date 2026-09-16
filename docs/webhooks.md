@@ -13,7 +13,13 @@ share the same optional chat destinations.
 ## Chat destinations (shared)
 
 Set either, both, or neither. A receiver with no destination configured still
-accepts the event and reports it as undelivered.
+accepts the event and reports it as undelivered — but it no longer does so quietly.
+`postChatNotification` logs any discarded warning- or error-severity notification at
+`logger.error`, which the logger forwards to Sentry Logs, so a dropped deploy failure
+is visible without depending on the variable that is missing. `npm run check:production-readiness`
+warns about the same gap before an incident rather than during one. Both exist because
+the prose warning below was already written on 2026-09-11, when 24 production deploys
+then failed and rolled back over three days with every alert discarded on this path.
 
 - `SLACK_WEBHOOK_URL` — a Slack incoming webhook (`{ "text": … }`).
 - `DISCORD_WEBHOOK_URL` — a Discord webhook (`{ "content": … }`).
@@ -42,6 +48,23 @@ https://psychiatry.tools/api/webhooks/railway?token=<RAILWAY_WEBHOOK_SECRET>
 
 Transient phases (`BUILDING`, `DEPLOYING`, `QUEUED`, …) are dropped to keep the
 channel quiet; the receiver answers `200 { "skipped": true }` for them.
+
+**Reading a failure.** The two ways this integration dies look nothing alike, and
+telling them apart is the whole job:
+
+| Symptom                                | Cause                                                               | Fix                                               |
+| -------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
+| `401` on `POST /api/webhooks/railway`  | the `?token=` in the Railway webhook URL ≠ `RAILWAY_WEBHOOK_SECRET` | re-add the webhook URL with the current secret    |
+| `503 webhook_not_configured`           | `RAILWAY_WEBHOOK_SECRET` unset on the service                       | set it                                            |
+| `200 { "forwarded": false }`           | authenticated, but no chat destination in server env                | set `SLACK_WEBHOOK_URL` or `DISCORD_WEBHOOK_URL`  |
+| no request reaches the receiver at all | no outgoing webhook configured on the Railway project               | add it in Railway → Project → Settings → Webhooks |
+
+All four are now reported by the app itself — the first two as `logger.warn`/`logger.error`
+from the route, the third from `postChatNotification` — and warn/error reach Sentry, which
+does not depend on any of the variables above. Before that they were visible only in
+Railway's HTTP proxy log, which is not somewhere anyone watches. On 2026-09-13 the
+integration was in the **first** row: eighteen deliveries across six deploy events,
+every one answered `401`, while the investigation was looking at the third row.
 
 > Chat destination: this receiver forwards through `postChatNotification`, which
 > reads `SLACK_WEBHOOK_URL`/`DISCORD_WEBHOOK_URL` from **server env** — set them on

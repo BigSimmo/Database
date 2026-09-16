@@ -368,7 +368,7 @@ const calculatorFixtures: RawCalculatorFixture[] = [
     domain: "distress",
     icon: Activity,
     indication:
-      "Measure non-specific psychological distress over the past 4 weeks; standard for Australian mental-health care plans.",
+      "Measure non-specific psychological distress over the past 4 weeks as a screening and monitoring measure, not a diagnostic instrument.",
     summary: "10-item distress measure scored 10–50, widely used across Australian primary care.",
     stem: "In the past 4 weeks, about how often did you feel:",
     timeEstimate: "2–3 min",
@@ -577,13 +577,14 @@ const calculatorFixtures: RawCalculatorFixture[] = [
     domain: "substance",
     icon: GlassWater,
     indication: "Brief consumption screen for hazardous drinking — the first three AUDIT items.",
-    summary: "3 consumption questions scored 0–4 each; sex-specific positive thresholds.",
+    summary: "3 consumption questions scored 0–4 each, total 0–12, read against a named screening convention.",
     timeEstimate: "1 min",
     timeEstimateMinutes: { min: 1, max: 1 },
     minScore: 0,
     maxScore: 12,
-    scoringNote: "Positive screen at ≥3 for women and ≥4 for men. Higher totals track hazard severity.",
-    source: "Bush et al. 1998",
+    scoringNote:
+      "Sum of 3 items (0–4 each), range 0–12. The registered convention is Bradley et al. 2007: 4 or more for men and 3 or more for women, derived in United States primary care. Confirm the convention your service uses.",
+    source: "Bush et al. 1998 (derivation, men only) · Bradley et al. 2007 (thresholds)",
     items: [
       {
         id: "a1",
@@ -626,23 +627,24 @@ const calculatorFixtures: RawCalculatorFixture[] = [
       {
         min: 0,
         max: 2,
-        label: "Lower risk",
+        label: "Below both thresholds",
         tone: "success",
-        guidance: "Lower-risk screening score band; interpret in clinical context.",
+        guidance: "Below the registered screening thresholds for men and for women; interpret in clinical context.",
       },
       {
         min: 3,
-        max: 4,
-        label: "At threshold",
+        max: 3,
+        label: "At the threshold for women",
         tone: "warning",
-        guidance: "Positive screening score band; interpret in clinical context.",
+        guidance: "At the registered threshold for women and below it for men; interpret in clinical context.",
       },
       {
-        min: 5,
+        min: 4,
         max: 12,
-        label: "Higher risk",
+        label: "At or above both thresholds",
         tone: "danger",
-        guidance: "Higher screening score band; interpret in clinical context.",
+        guidance:
+          "At or above the registered screening thresholds for men and for women; interpret in clinical context.",
       },
     ],
   },
@@ -884,12 +886,29 @@ const rightsInfo: Record<string, CalculatorRights> = {
   ybocs: { status: "unknown" },
 };
 
-function sourceIdFor(id: string) {
-  return `source:${id}`;
+/**
+ * AUDIT-C is the one instrument whose evidence does not reduce to a single `source:<id>` record.
+ * Its screening-performance evidence (`source:auditc:validation`), its sex-specific threshold
+ * convention (`source:auditc:thresholds`) and the Australian standard-drink context assumed by
+ * its item wording (`source:auditc`) are three different sources supporting three different
+ * claims, and collapsing them onto one id is what let a standard-drinks guide stand as the sole
+ * support for a screening cut-point.
+ */
+const extraSourceIds: Record<string, string[]> = {
+  auditc: ["source:auditc:validation", "source:auditc:thresholds", "source:auditc"],
+};
+
+const extraClaimIds: Record<string, string[]> = {
+  phq9: ["claim:phq9:safety-flag"],
+  auditc: ["claim:auditc:thresholds", "claim:auditc:units"],
+};
+
+function sourceIdsFor(id: string) {
+  return [...(extraSourceIds[id] ?? [`source:${id}`]), "source:governance"];
 }
 
-function claimIdFor(id: string) {
-  return `claim:${id}:interpretation`;
+function claimIdsFor(id: string) {
+  return [`claim:${id}:interpretation`, ...(extraClaimIds[id] ?? [])];
 }
 
 function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFixture | "bands"> {
@@ -904,8 +923,8 @@ function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFix
     completionPolicy: "Every item requires an explicit response before a final result is shown.",
     interpretationPolicy:
       "Interpretation describes the completed instrument result only and does not determine management.",
-    sourceIds: [sourceIdFor(id), "source:governance"],
-    claimIds: [claimIdFor(id), ...(id === "phq9" ? ["claim:phq9:safety-flag"] : [])],
+    sourceIds: sourceIdsFor(id),
+    claimIds: claimIdsFor(id),
     rights: rightsInfo[id] ?? { status: "unknown" },
     responseAnchorSetId: responseAnchorSetIds[id] ?? "",
     wordingSetId: wordingSetIds[id] ?? "",
@@ -926,10 +945,18 @@ function metadataFor(id: string): Omit<CalculatorFixture, keyof RawCalculatorFix
   };
 }
 
+/**
+ * AUDIT-C carries no single universal cut-point. The registered convention is Bradley et al.
+ * 2007 (`source:auditc:thresholds`): 4 or more for men, 3 or more for women, derived in United
+ * States primary care. A total of 3 is therefore positive for women and negative for men, which
+ * is why the band interpretation names the convention rather than asserting one threshold. The
+ * Australian standard-drinks guide (`source:auditc`) supports the drink-size context behind item
+ * wording only, never the cut-point — see `claim:auditc:units`.
+ */
 function interpretationFor(id: string, label: string) {
   if (id === "k10") return `${label} psychological-distress range; it is not a diagnostic category.`;
   if (id === "auditc")
-    return `${label} completed AUDIT-C range; interpret with Australian alcohol context and history.`;
+    return `${label} on the registered AUDIT-C convention (4 or more for men, 3 or more for women). A completed score screens reported consumption and does not establish a diagnosis. Interpret with Australian standard-drink context, drinking history and the convention your service uses.`;
   return `${label} completed-score range; interpret with the instrument source, clinical context and limitations.`;
 }
 

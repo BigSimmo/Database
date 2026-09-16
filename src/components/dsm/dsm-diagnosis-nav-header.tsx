@@ -27,9 +27,28 @@ export const dsmDiagnosisNavSections: readonly PageSection[] = [
   { id: "record-summary", label: "Record summary", icon: ClipboardList },
 ];
 
-/** The client half of `DsmDiagnosisPage`, which is a Server Component. */
-export function DsmDiagnosisNavHeader({ title, actions }: { title: string; actions?: ReactNode }) {
-  const { sections, activeId, selectSection } = useInPageSectionNav(dsmDiagnosisNavSections);
+/**
+ * The client half of `DsmDiagnosisPage`, which is a Server Component.
+ *
+ * `criteriaLabel` follows the record's criteria provenance: 145 of the 146
+ * records supply no `criteria_display`, so on those the first section holds a
+ * key-feature summary and is labelled as one. There is no collision with the
+ * separate `key-features` section, which renders only when the record carries
+ * both — i.e. only where this label stays "Criteria".
+ */
+export function DsmDiagnosisNavHeader({
+  title,
+  actions,
+  criteriaLabel = "Criteria",
+}: {
+  title: string;
+  actions?: ReactNode;
+  criteriaLabel?: string;
+}) {
+  const navSections = dsmDiagnosisNavSections.map((section) =>
+    section.id === "criteria" ? { ...section, label: criteriaLabel } : section,
+  );
+  const { sections, activeId, selectSection } = useInPageSectionNav(navSections);
 
   return (
     <InPageNavHeader

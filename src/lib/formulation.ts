@@ -1,4 +1,5 @@
 import formulationContentJson from "@/data/formulation-content.json";
+import type { FormulationEvidenceRef } from "@/lib/formulation-concepts";
 import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
 export type FormulationMechanism = {
@@ -30,6 +31,18 @@ export type FormulationMechanism = {
   treatmentImplications: string[];
   treatmentLeverage: string;
   sources: string[];
+  /**
+   * Structured citations added by the 2026-09-16 content handover. The patch
+   * set arrived with Markdown links inline in plain-text clinical fields;
+   * those fields are rendered as text, so a raw `[S23](…)` would have been
+   * shown to a clinician verbatim. The citation lives here instead, resolved
+   * to a real source identity, and is rendered at the point of use.
+   */
+  evidence: FormulationEvidenceRef[];
+  /** The handover record this mechanism was reconciled against. */
+  conceptId: string;
+  /** Native pending state. Never advanced without a named clinical reviewer. */
+  reviewStatus: string;
   sourceStatus: string;
   sourceConfidence: string;
   version: string;
@@ -321,13 +334,16 @@ export function formulationDraftFor({
   }
   lines.push("");
 
+  // A section the clinician left blank used to be filled with the library's own
+  // prompts for the selected mechanisms, unlabelled and indistinguishable from
+  // elicited history once the draft was copied into a record. Missing case
+  // evidence has to stay missing: the prompts are still one click away behind
+  // "Use suggestions", which is an explicit clinician action.
   for (const section of sections) {
     if (section.id === "presenting") continue;
     const note = notes[section.id]?.trim();
-    const suggestions = suggestionsForFormulationSection(mechanisms, section.id);
-    if (!note && !suggestions.length) continue;
     lines.push(section.label);
-    lines.push(note || suggestions.map((item) => `- ${item}`).join("\n"));
+    lines.push(note || "- No case evidence recorded.");
     lines.push("");
   }
 

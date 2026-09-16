@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "d52d5f1b-4918-4e49-99ef-504fe50d1446",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "7151233d-68ba-43cd-93ba-583fd58e666e",
+    "reason": "Codex P2 on #2817: six-page browser read duplicates broader date task (dictionary sources need dates / AIHW 403). Fold into that task; METEOR stays on its host-policy row."
+  }
+}

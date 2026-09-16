@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "56296d1f-f6e1-40ac-b0ba-0e33a6c31f35",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Published differential rows carry unscoped payloads, so a page can present group text as a diagnosis's own",
+    "detail": "REPLACES cancelled request 471fe126-addc-410b-8434-3d1263a9cfa4, which carried the same finding with a remedy that is now forbidden. The finding stands: withPresentationScope() labels presentation-scope text at catalogue load rather than in data/differentials-snapshot.json, so rows seeded from buildDefaultDifferentialRows() still carry unscoped payloads and a published page can present group text as a diagnosis's own. That is a clinical-accuracy defect, not a cosmetic one. THE REMEDY HAS CHANGED. The cancelled request said to refresh the frozen block inside supabase/migrations/20260824122000 plus schema.sql and drift-manifest.json, citing fb0b0279b as precedent. Doing that is what produced the 2026-09-16 divergence: the migration is already applied, the Supabase integration never re-runs it, and regenerating it moves a content-addressed release identity live can never adopt. npm run bootstrap:refresh --write now refuses and tests/site-content-epoch-zero-freeze.test.ts pins the frozen identity. CORRECT NEXT ACTION: write the scope into data/differentials-snapshot.json so newly published rows carry it, then publish the affected records through the pipeline in docs/site-content-sync-runbook.md. Do NOT edit the frozen migration. If the already-frozen 843 rows must also carry scope, that is a republication through the pipeline, not a rewrite of history. Note the frozen rows are only served while the retained bootstrap is active, which is itself the subject of the P1 row on the live catalogue still serving the 2026-08-24 freeze.",
+    "source": "Session 2026-09-16 epoch-zero freeze repair; supersedes 471fe126",
+    "issueUlid": "01M2NDVPDXDF1DFT8K6PR9Z38W"
+  }
+}

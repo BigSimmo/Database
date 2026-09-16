@@ -5,7 +5,7 @@ import {
   DsmDifferentialConsiderationsPage,
   type DsmDifferentialConsideration,
 } from "@/components/dsm/dsm-differential-considerations-page";
-import { dsmCriteria, dsmStaticParams, getDsmDiagnosis, resolveDsmDifferential } from "@/lib/dsm";
+import { dsmCriteriaView, dsmStaticParams, getDsmDiagnosis, resolveDsmDifferential } from "@/lib/dsm";
 
 type DsmDifferentialRouteProps = {
   params: Promise<{ slug: string }>;
@@ -49,8 +49,10 @@ function buildConsiderations(values: string[]): DsmDifferentialConsideration[] {
             title: match.title,
             icdCode: match.icd_code,
             category: match.category.label,
-            coreFeatures: dsmCriteria(match)
-              .slice(0, 4)
+            // Labelled "core features" on the panel, which is true of either
+            // source, so the view's rows are used whole rather than gated.
+            coreFeatures: dsmCriteriaView(match)
+              .rows.slice(0, 4)
               .map((criterion) => `${criterion.label}. ${criterion.text}`),
           }
         : undefined,

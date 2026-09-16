@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2a8e6e9d-3b08-4aa2-a7e0-292c867357b0",
+  "createdOn": "2026-09-14",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "read_site_content_health() costs ~7s and will drift back over any deploy-gate threshold",
+    "detail": "Measured 2026-09-14 against the live production container: /api/health/ready with the site-content audit took 6.9-7.9s while the shallow /api/health took 0.8s on the same container, so essentially all of it is the read_site_content_health() RPC. That audit is a multi-CTE whole-corpus integrity walk (record counts, digest comparisons, tombstone reconciliation, publication cross-checks) and it grows with content. PR #2785 materialized part of it on 2026-09-13 and bought a few hours of passing deploys before the margin closed again, which is evidence the cost is data-proportional rather than fixed. The immediate outage is closed by taking it off the deploy gate, but the function itself has never been profiled and has no index or cost budget. Needs an EXPLAIN (ANALYZE, BUFFERS) baseline on the live database and, if warranted, indexes plus a documented latency budget with a test that pins it. Live-database access is provider-backed and needs owner approval.",
+    "source": "docs/deployment-architecture.md (Readiness section); src/lib/health-response.ts; supabase/migrations/20260913072413_materialize_site_content_health_operational_base.sql",
+    "issueUlid": "01M2GCR00X458SACFXMFZERNY6"
+  }
+}

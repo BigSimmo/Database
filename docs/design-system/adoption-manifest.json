@@ -931,12 +931,14 @@
       "directImportFiles": [
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
-        "src/components/on-call/on-call-referrals-section.tsx"
+        "src/components/on-call/on-call-referrals-section.tsx",
+        "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
-        "src/components/on-call/on-call-referrals-section.tsx"
+        "src/components/on-call/on-call-referrals-section.tsx",
+        "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1636,8 +1638,8 @@
       "source": "src/components/ui/text-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
+      "productImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1653,8 +1655,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -4364,7 +4366,7 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 42,
+    "productImportedComponentCount": 43,
     "rootCount": 100,
     "productionRouteCount": 92,
     "nextUiEntryCount": 155
