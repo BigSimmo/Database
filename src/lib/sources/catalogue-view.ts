@@ -14,8 +14,11 @@ const BAND_ORDER = { A: 0, B: 1, C: 2, D: 3, excluded: 4 } as const;
 
 /** Shared with `browse-facets.ts` so a facet list cannot order itself differently
     from the catalogue it links into. */
+const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
+const FULL_COLLATOR = new Intl.Collator("en-AU");
+
 export function compareText(left: string, right: string) {
-  return left.localeCompare(right, "en-AU", { sensitivity: "base" }) || left.localeCompare(right, "en-AU");
+  return BASE_COLLATOR.compare(left, right) || FULL_COLLATOR.compare(left, right);
 }
 
 /** The catalogue's own quality order. Exported so the browse summaries pick the

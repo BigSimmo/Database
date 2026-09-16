@@ -73,8 +73,10 @@ function modeLabel(modeId: AppModeId) {
   return appModeDefinition(modeId).label;
 }
 
+const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
+
 function compareText(left: string, right: string) {
-  return left.localeCompare(right, "en-AU", { sensitivity: "base" });
+  return BASE_COLLATOR.compare(left, right);
 }
 
 function uniqueSorted(values: readonly string[]) {
