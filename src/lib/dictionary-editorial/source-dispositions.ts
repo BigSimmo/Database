@@ -67,6 +67,16 @@ export type DictionarySourceDisposition = {
    * represent a continuously maintained page.
    */
   establishedReviewDate?: string;
+  /**
+   * An update stamp read from the publisher, verbatim.
+   *
+   * Kept apart from `establishedReviewDate` because an update is a third event.
+   * A page can be updated without being reviewed — a data refresh, a broken link,
+   * a typo — so recording one as the other would assert a check nobody performed.
+   * The register has no field for this event yet, which is why these records stay
+   * held even though the date is established.
+   */
+  establishedUpdateStatement?: string;
 };
 
 export const dictionarySourceDispositions: readonly DictionarySourceDisposition[] = (
