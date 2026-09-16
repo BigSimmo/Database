@@ -2,7 +2,7 @@
 
 import { CalendarDays, ChevronRight, Phone, Printer, Shield, Trash2, Users } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -26,6 +26,7 @@ import {
   ON_CALL_HOME_TAGS,
   countOnCallEntriesBySection,
   onCallAvailability,
+  msUntilOnCallHoursBoundary,
   onCallLocalDateKey,
   onCallPrimaryNumber,
   onCallTelHref,
@@ -259,17 +260,35 @@ function timeLabel(iso: string): string {
   return `${`${parsed.getHours()}`.padStart(2, "0")}:${`${parsed.getMinutes()}`.padStart(2, "0")}`;
 }
 
-export function OnCallHome({ now = new Date() }: { now?: Date } = {}) {
+export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
   const recent = useOnCallRecent();
 
   // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
   // the after-hours rule landed, so a second `new Date()` a line away could put
   // the ward strip on the daytime number while the call cards were already on
-  // the after-hours one. Injectable so a test can stand at 22:00 without faking
-  // the process clock, and deliberately NOT memoised: a phone left open across
-  // 17:00 should pick up the after-hours number on its next render rather than
-  // hold the clock it mounted with.
+  // the after-hours one. `pinnedNow` lets a test stand at 22:00 without faking
+  // the process clock.
+  //
+  // The tick is not decoration. An earlier version of this comment claimed a
+  // page left open across 17:00 would "pick up the after-hours number on its
+  // next render" — which is true only of a page someone is touching, and the
+  // page that matters here is the one lying on a desk at 2am producing no
+  // renders at all. It would have gone on offering the daytime desk line
+  // indefinitely: the exact wrong-number failure this change exists to prevent,
+  // arriving by a different route. So the page wakes itself once, on the next
+  // boundary that would change the answer, and never on a fixed interval.
+  const [tick, setTick] = useState(() => new Date());
+  const now = pinnedNow ?? tick;
+
+  useEffect(() => {
+    // A pinned clock is the caller's to move. Scheduling against it would drag a
+    // print view or a test off the moment it deliberately stood on.
+    if (pinnedNow) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilOnCallHoursBoundary(now));
+    return () => clearTimeout(timer);
+  }, [pinnedNow, now]);
+
   const today = onCallLocalDateKey(now);
   const callFirst = useMemo(() => selectCallFirstContacts(entries), [entries]);
   const switchboard = useMemo(() => selectSwitchboardContact(entries), [entries]);

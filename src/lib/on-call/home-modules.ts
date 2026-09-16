@@ -93,6 +93,39 @@ export function isOnCallOutOfHours(now: Date = new Date()): boolean {
 }
 
 /**
+ * How long until `isOnCallOutOfHours` would give a different answer.
+ *
+ * A screen that picked its number at render keeps that number until something
+ * re-renders it, and a phone lying on a desk re-renders nothing. So the On Call
+ * home opened at 16:55 went on offering the daytime desk line all night — the
+ * precise wrong-number failure the after-hours precedence exists to prevent.
+ * Callers schedule one timer on this and re-read the clock when it fires.
+ *
+ * Walks forward in whole hours rather than doing calendar arithmetic, because
+ * the answer must agree with `isOnCallOutOfHours` exactly, and the cheapest way
+ * to guarantee that is to ask it. A weekend is crossed in one hop for the same
+ * reason it should be: Saturday 08:00 is not a boundary, so waking there would
+ * re-render for nothing.
+ *
+ * Always strictly positive, so a timer built on it can never spin. Standing
+ * exactly on 17:00 returns the time to the NEXT flip, not zero.
+ */
+export function msUntilOnCallHoursBoundary(now: Date = new Date()): number {
+  const current = isOnCallOutOfHours(now);
+  const probe = new Date(now.getTime());
+  probe.setMinutes(0, 0, 0);
+  // Four days of hours covers the longest gap between flips (Friday 17:00 to
+  // Monday 08:00) with room to spare, and bounds the loop absolutely.
+  for (let step = 0; step < 24 * 4; step += 1) {
+    probe.setHours(probe.getHours() + 1);
+    if (isOnCallOutOfHours(probe) !== current) return probe.getTime() - now.getTime();
+  }
+  // Unreachable while the rule keeps a weekday working day, but a caller must
+  // still get a usable delay rather than a zero that would spin a timer.
+  return 60 * 60 * 1000;
+}
+
+/**
  * The one number a row rings, and what to call it.
  *
  * The precedence depends on WHEN the screen is being read, and the promise that

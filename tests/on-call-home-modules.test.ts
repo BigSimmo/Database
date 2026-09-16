@@ -6,6 +6,7 @@ import {
   ON_CALL_WARD_STRIP_LIMIT,
   countOnCallEntriesBySection,
   isOnCallOutOfHours,
+  msUntilOnCallHoursBoundary,
   onCallLocalDateKey,
   onCallPrimaryNumber,
   onCallTelHref,
@@ -355,5 +356,53 @@ describe("countOnCallEntriesBySection", () => {
     // Otherwise the Contacts tile promises a number that is not in the list.
     const { counts } = countOnCallEntriesBySection([contact({ details: { role: "R", kind: ROLE_EXPLAINER_KIND } })]);
     expect(counts.get("contacts")).toBeUndefined();
+  });
+});
+
+describe("msUntilOnCallHoursBoundary", () => {
+  // Codex P1 on PR #2806: a phone left open across 17:00 kept offering the
+  // daytime desk line, because React only re-renders on a state change and
+  // nothing scheduled one. A comment claiming the page would "pick it up on its
+  // next render" was wrong about a page nobody is touching, which is exactly the
+  // page someone glances at overnight.
+  it("counts down to 17:00 from inside the working day", () => {
+    // Wednesday 16:00 local.
+    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 16, 0, 0))).toBe(60 * 60 * 1000);
+  });
+
+  it("counts down to 08:00 from the small hours", () => {
+    // Wednesday 02:30 local.
+    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 2, 30, 0))).toBe(5.5 * 60 * 60 * 1000);
+  });
+
+  it("counts down to the next morning's 08:00 from the evening", () => {
+    // Wednesday 22:00 local -> Thursday 08:00 local.
+    expect(msUntilOnCallHoursBoundary(new Date(2026, 8, 16, 22, 0, 0))).toBe(10 * 60 * 60 * 1000);
+  });
+
+  it("carries a Friday evening across the weekend to Monday 08:00", () => {
+    // Friday 18:00 local. Saturday and Sunday are out of hours throughout, so
+    // the next moment the answer can change is Monday morning -- waking at
+    // Saturday 08:00 would re-render for nothing.
+    const friday = new Date(2026, 8, 18, 18, 0, 0);
+    expect(friday.getDay()).toBe(5);
+    expect(msUntilOnCallHoursBoundary(friday)).toBe(62 * 60 * 60 * 1000);
+  });
+
+  it("never returns zero or less, so a timer scheduled on it cannot spin", () => {
+    for (const at of [
+      new Date(2026, 8, 16, 8, 0, 0),
+      new Date(2026, 8, 16, 17, 0, 0),
+      new Date(2026, 8, 19, 12, 0, 0),
+    ]) {
+      expect(msUntilOnCallHoursBoundary(at)).toBeGreaterThan(0);
+    }
+  });
+
+  it("lands exactly on a boundary that flips the answer", () => {
+    const at = new Date(2026, 8, 16, 16, 0, 0);
+    const next = new Date(at.getTime() + msUntilOnCallHoursBoundary(at));
+    expect(isOnCallOutOfHours(at)).toBe(false);
+    expect(isOnCallOutOfHours(next)).toBe(true);
   });
 });

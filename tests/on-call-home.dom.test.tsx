@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -225,5 +225,48 @@ describe("On Call home layout", () => {
 
     expect(screen.queryByTestId("on-call-home-stale")).toBeNull();
     expect(screen.queryByText(/needs? checking/i)).toBeNull();
+  });
+
+  it("moves to the after-hours number when 17:00 passes on a page nobody has touched", () => {
+    // Codex P1 on PR #2806. React re-renders on state changes, and a phone lying
+    // on a desk produces none, so a home opened at 16:55 went on offering the
+    // daytime desk line all night. That is the wrong-number failure this whole
+    // change exists to prevent, arriving by a different route.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 16, 16, 55, 0));
+      storeState.entries = [dualLineContact()];
+
+      render(<OnCallHome />);
+      expect(screen.getByTestId("on-call-home-call-bed-manager")).toHaveTextContent("9224 1111");
+
+      // Nothing is clicked, scrolled or typed. Only the clock moves.
+      act(() => {
+        vi.advanceTimersByTime(6 * 60 * 1000);
+      });
+
+      const card = screen.getByTestId("on-call-home-call-bed-manager");
+      expect(card).toHaveTextContent("9224 2222");
+      expect(card).toHaveTextContent(/after hours/i);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("holds a clock a caller pinned, so a test or a print view is not moved under it", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 16, 16, 55, 0));
+      storeState.entries = [dualLineContact()];
+
+      render(<OnCallHome now={new Date(2026, 8, 16, 9, 0, 0)} />);
+      act(() => {
+        vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+      });
+
+      expect(screen.getByTestId("on-call-home-call-bed-manager")).toHaveTextContent("9224 1111");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

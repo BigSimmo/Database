@@ -60,9 +60,16 @@ function occurrenceSortKey(value: string | undefined): number {
  */
 function resolvedOccurrence(details: OnCallEducationDetails | null, entry: OnCallEntry, today: string) {
   const date = onCallTeachingDate(entry, today);
+  const owner = details?.nextOccurrence?.trim() || null;
+  // Both, not one or the other. The computed date is the only part that can be
+  // trusted to be current, and the owner's own wording is the only part that
+  // carries a TIME — "Thursday 1pm" reduced to "Thu 17 Sep 2026" tells a reader
+  // which day to turn up and leaves them guessing when. The structured rule
+  // exists to compute with; it was never meant to speak for the free text.
+  // Codex P2 on PR #2806.
   return {
     date,
-    label: date ? onCallTeachingDateLabel(date) : (details?.nextOccurrence ?? null),
+    label: date ? [onCallTeachingDateLabel(date), owner].filter(Boolean).join(", ") : owner,
     sortKey: date ? Date.parse(`${date}T00:00:00Z`) : occurrenceSortKey(details?.nextOccurrence),
   };
 }

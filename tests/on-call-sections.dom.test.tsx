@@ -373,4 +373,39 @@ describe("OnCallLogisticsSection", () => {
     render(<OnCallLogisticsSection entries={[]} now={NOW} />);
     expect(screen.getByTestId("on-call-logistics-empty")).toBeInTheDocument();
   });
+
+  it("keeps the owner's own start time beside the computed date", () => {
+    // Codex P2 on PR #2806. The roll-forward replaced `nextOccurrence` outright
+    // with a date-only label, so "Thursday 1pm" lost its only visible TIME. That
+    // free-text field is the one the reader is meant to read: the structured
+    // rule exists to compute with, not to speak for it.
+    const session = {
+      id: "55555555-5555-4555-8555-555555555555",
+      slug: "journal-club",
+      section: "education",
+      title: "Journal club",
+      subtitle: null,
+      body: null,
+      details: {
+        nextOccurrence: "Thursday 1pm",
+        nextOccurrenceDate: "2026-01-08",
+        recurrenceRule: { frequency: "weekly" },
+        topics: [],
+      },
+      linkedDocumentIds: [],
+      tags: [],
+      isPersonal: false,
+      includeOnCard: false,
+      sortOrder: 0,
+      lastVerifiedAt: new Date("2026-09-01T00:00:00.000Z").toISOString(),
+    } as unknown as OnCallEntry;
+
+    render(<OnCallEducationSection entries={[session]} now={new Date("2026-09-16T00:00:00.000Z")} />);
+
+    const card = screen.getByText("Journal club").closest("article");
+    expect(card).not.toBeNull();
+    // Both: the rolled-forward date, and the time nobody else knows.
+    expect(card).toHaveTextContent(/Sep 2026/);
+    expect(card).toHaveTextContent("Thursday 1pm");
+  });
 });

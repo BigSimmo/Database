@@ -96,4 +96,41 @@ describe("OnCallFreshnessPanel", () => {
 
     await waitFor(() => expect(screen.getByTestId("developer-on-call-freshness-partial")).toBeInTheDocument());
   });
+
+  it("never reports an all-clear when every row was unreadable", async () => {
+    // Codex P2 on PR #2806. Dropping an unparseable row keeps the panel useful
+    // when one entry is malformed, but during a client/API schema skew EVERY row
+    // is rejected and the panel then said "Nothing is overdue" about a response
+    // it could not read. That is the false all-clear this panel's own error
+    // state exists to prevent -- a maintainer acts on it by doing nothing.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ entries: [{ id: "not-a-uuid" }, { nope: 1 }] })));
+
+    render(<OnCallFreshnessPanel />);
+
+    await waitFor(() => expect(screen.getByTestId("developer-on-call-freshness-error")).toBeInTheDocument());
+    expect(screen.queryByTestId("developer-on-call-freshness-clear")).toBeNull();
+  });
+
+  it("says how many rows it could not read rather than quietly undercounting", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse({ entries: [NEVER, { id: "not-a-uuid" }, { also: "broken" }] })),
+    );
+
+    render(<OnCallFreshnessPanel />);
+
+    const skipped = await screen.findByTestId("developer-on-call-freshness-skipped");
+    expect(skipped).toHaveTextContent("2");
+    // The count it does show is still shown, because a partial answer beats none.
+    expect(screen.getByTestId("developer-on-call-freshness-count-overdue")).toHaveTextContent("1");
+  });
+
+  it("says nothing about skipped rows when every row parsed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse({ entries: [NEVER, FRESH] })));
+
+    render(<OnCallFreshnessPanel />);
+
+    await waitFor(() => expect(screen.getByTestId("developer-on-call-freshness-count-overdue")).toHaveTextContent("1"));
+    expect(screen.queryByTestId("developer-on-call-freshness-skipped")).toBeNull();
+  });
 });

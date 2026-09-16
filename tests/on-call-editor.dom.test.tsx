@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { OnCallEntryEditor, OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { ON_CALL_RECURRENCE_FREQUENCIES, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
 afterEach(() => {
@@ -405,14 +405,45 @@ const JOURNAL_CLUB: OnCallEntry = {
 };
 
 describe("OnCallEntryEditor — a teaching session that repeats", () => {
-  it("offers the three frequencies the app can compute with, and not repeating", () => {
+  // Codex P2 on PR #2806: bare "Weekly" and "Monthly" promise more than the
+  // schedule can do. Monthly repeats on the anchor's calendar DATE, so a "third
+  // Sunday of the month" session drifts onto a weekday, and nothing here can
+  // express a term that ends. The labels now say what each option actually does,
+  // and the hint names what cannot be expressed at all.
+  it("says what each frequency actually does, rather than promising more than it can", () => {
     render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
 
     const control = screen.getByLabelText(/^Repeats/);
     const options = within(control)
       .getAllByRole("option")
       .map((option) => option.textContent);
-    expect(options).toEqual(["Does not repeat", "Weekly", "Fortnightly", "Monthly"]);
+    expect(options).toEqual([
+      "Does not repeat",
+      "Weekly, on the same weekday",
+      "Fortnightly, on the same weekday",
+      "Monthly, on the same date",
+    ]);
+  });
+
+  it("warns that a weekday-of-the-month or a term that ends cannot be expressed", () => {
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const control = screen.getByLabelText(/^Repeats/);
+    const hintId = (control.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean)[0];
+    const hint = hintId ? document.getElementById(hintId) : null;
+    expect(hint).toHaveTextContent(/third Sunday/i);
+    expect(hint).toHaveTextContent(/stops/i);
+  });
+
+  it("gives every frequency the model has a label, so adding one cannot be forgotten", () => {
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const control = screen.getByLabelText(/^Repeats/);
+    const values = within(control)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter(Boolean);
+    expect(values).toEqual([...ON_CALL_RECURRENCE_FREQUENCIES]);
   });
 
   it("saves the chosen frequency as a structured rule beside the owner's free text", async () => {

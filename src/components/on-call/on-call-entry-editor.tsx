@@ -21,6 +21,7 @@ import {
   onCallEntryFreshness,
   onCallEntrySchema,
   type OnCallEntry,
+  type OnCallRecurrenceFrequency,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
@@ -62,12 +63,33 @@ type DetailFieldSpec = {
  * frequencies, and a single tick could only ever mean "weekly". The empty value
  * is a real choice — "does not repeat" is what most sessions are — which is why
  * it is a listed option rather than a placeholder the reader has to guess at.
+ *
+ * Each label says what the option actually DOES, because bare "Monthly" reads as
+ * "however this meeting recurs" and means something narrower: the anchor's
+ * calendar date. A third-Sunday journal club set to Monthly walks onto a
+ * Wednesday within two months and sends someone to an empty room. Neither a
+ * weekday-of-the-month rule nor a term with an end date is representable at all,
+ * so the hint names both rather than letting the reader discover it later.
+ * Codex P2 on PR #2806.
+ *
+ * Typed as a full `Record` of the frequency union: adding a fourth frequency to
+ * the model then fails to compile here rather than quietly shipping a raw enum
+ * value into a select. A test also pins that every frequency reaches the list.
  */
+const RECURRENCE_LABELS: Record<OnCallRecurrenceFrequency, string> = {
+  weekly: "Weekly, on the same weekday",
+  fortnightly: "Fortnightly, on the same weekday",
+  monthly: "Monthly, on the same date",
+};
+
+const RECURRENCE_HINT =
+  "Only these fixed patterns can be computed. A schedule tied to a position in the month (a third Sunday), or one that stops at the end of a term, cannot be expressed here — leave it as does not repeat and keep the date current by hand.";
+
 const RECURRENCE_OPTIONS: SelectOption[] = [
   { value: "", label: "Does not repeat" },
   ...ON_CALL_RECURRENCE_FREQUENCIES.map((frequency) => ({
     value: frequency,
-    label: `${frequency.charAt(0).toUpperCase()}${frequency.slice(1)}`,
+    label: RECURRENCE_LABELS[frequency],
   })),
 ];
 
@@ -135,7 +157,7 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       label: "Repeats",
       kind: "select",
       options: RECURRENCE_OPTIONS,
-      hint: "A repeating session rolls its date forward on its own, so Coming up does not go blank the day it passes.",
+      hint: RECURRENCE_HINT,
     },
     { key: "presenter", label: "Presenter", kind: "text" },
     { key: "location", label: "Location", kind: "text" },

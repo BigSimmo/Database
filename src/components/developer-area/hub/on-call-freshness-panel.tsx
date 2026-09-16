@@ -34,7 +34,7 @@ import { ON_CALL_REVIEW_INTERVAL_MONTHS, onCallEntrySchema } from "@/lib/on-call
 type PanelState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; summary: OnCallFreshnessSummary; signedOut: boolean };
+  | { kind: "ready"; summary: OnCallFreshnessSummary; signedOut: boolean; skipped: number };
 
 /**
  * Parses only what this panel depends on, and refuses anything else.
@@ -50,13 +50,22 @@ function parseEntriesPayload(payload: unknown) {
   const record = payload as Record<string, unknown>;
   if (!Array.isArray(record.entries)) return null;
   const entries = [];
+  let skipped = 0;
   for (const candidate of record.entries) {
     const parsed = onCallEntrySchema.safeParse(candidate);
     // A single unreadable row is dropped rather than failing the whole read: a
     // maintainer is better served by "these nine are overdue" than by nothing.
+    // But the drop is counted and shown, because a silent drop undercounts, and
+    // an undercount on this panel reads as reassurance.
     if (parsed.success) entries.push(parsed.data);
+    else skipped += 1;
   }
-  return { entries, signedOut: record.signedOut === true };
+  // Every row rejected while rows were sent is not an empty hub, it is a read
+  // this panel could not perform — most likely a client/API schema skew. Calling
+  // it "nothing overdue" would be the exact false all-clear the error state
+  // exists to prevent. An genuinely empty list still parses to an empty list.
+  if (record.entries.length > 0 && entries.length === 0) return null;
+  return { entries, signedOut: record.signedOut === true, skipped };
 }
 
 /** "never confirmed", or how long ago it last was, in whole months. */
@@ -92,6 +101,7 @@ export function OnCallFreshnessPanel() {
           kind: "ready",
           summary: summariseOnCallFreshness(parsed.entries, new Date()),
           signedOut: parsed.signedOut,
+          skipped: parsed.skipped,
         });
       } catch {
         if (!cancelled) setState({ kind: "error", message: "The entries API could not be reached." });
@@ -123,11 +133,17 @@ export function OnCallFreshnessPanel() {
     );
   }
 
-  const { summary, signedOut } = state;
+  const { summary, signedOut, skipped } = state;
   const now = new Date();
 
   return (
     <div className="grid gap-6">
+      {skipped > 0 ? (
+        <p data-testid="developer-on-call-freshness-skipped" className={META_CLASS}>
+          {`${skipped} ${skipped === 1 ? "entry" : "entries"} could not be read and ${skipped === 1 ? "is" : "are"} not counted below. The count is therefore a floor, not a total.`}
+        </p>
+      ) : null}
+
       {signedOut ? (
         <p data-testid="developer-on-call-freshness-partial" className={META_CLASS}>
           Read without an account, so entries flagged personal are not included. Sign in for the whole hub.
