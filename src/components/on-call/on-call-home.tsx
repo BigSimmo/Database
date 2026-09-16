@@ -9,7 +9,6 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
-import { OnCallStaleStrip } from "@/components/on-call/on-call-stale-strip";
 import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import {
   ON_CALL_HOME_ICON,
@@ -21,7 +20,6 @@ import {
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
-import { summariseOnCallFreshness } from "@/lib/on-call/freshness-summary";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -56,14 +54,15 @@ import { clearOnCallRecent, recordOnCallRecent, useOnCallRecent } from "@/lib/on
  * inside the app. Each empty state names the tag that fills it, which is how the
  * convention is discovered.
  *
- * **On the freshness strip.** This comment used to record a decision that there
- * be deliberately no freshness warning here, because "a count of stale entries
- * on the home is a number you cannot act on from the home". That objection was
- * right about a bare count, and it is the thing `OnCallStaleStrip` is built to
- * answer: it names the affected sections and links into each one, so it is a way
- * in rather than a number. It sits above the section tiles rather than at the
- * top, because it is maintenance and the numbers a shift actually needs come
- * first.
+ * **There is deliberately no freshness warning on this page**, and this is the
+ * second time that has been decided. A strip naming overdue sections was built
+ * here and then removed on the owner's instruction (2026-09-16): overdue entries
+ * are a maintenance fact, and a reader opening this page is mid-shift and
+ * looking for a number. Overdue entries are reported in the developer hub
+ * instead, at `/mockups/development/on-call-freshness`, which is where the
+ * person who maintains the hub looks rather than the person using it. Individual
+ * overdue rows still carry their own badge inside each section, where the row is
+ * and where confirming it is one tap. Do not restore a warning here.
  */
 
 /**
@@ -282,7 +281,6 @@ export function OnCallHome({ now = new Date() }: { now?: Date } = {}) {
   // blank every Thursday. Same `(entries, today)` string-date contract.
   const upcoming = useMemo(() => selectUpcomingTeachingSessions(entries, today), [entries, today]);
   const { counts } = useMemo(() => countOnCallEntriesBySection(entries), [entries]);
-  const freshness = useMemo(() => summariseOnCallFreshness(entries, now), [entries, now]);
 
   // A hub with no entries at all and a hub whose entries are simply untagged are
   // different problems with different answers, and a single empty state that
@@ -514,10 +512,6 @@ export function OnCallHome({ now = new Date() }: { now?: Date } = {}) {
             <OnCallTeachingStrip sessions={upcoming} />
           </HomeModule>
         ) : null}
-
-        {/* A sibling of the modules rather than inside one: the strip owns its
-            own section and heading, and nesting it would give one block two. */}
-        <OnCallStaleStrip summary={freshness} />
 
         <HomeModule
           id="on-call-home-sections"

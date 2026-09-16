@@ -178,24 +178,6 @@ describe("On Call home layout", () => {
     expect(screen.queryByTestId("on-call-search-results")).toBeNull();
   });
 
-  it("puts the freshness strip above the section tiles it points into", () => {
-    storeState.entries = [staleContact("ward-4b", "Ward 4B")];
-
-    render(<OnCallHome />);
-
-    const strip = screen.getByTestId("on-call-home-stale");
-    const tiles = screen.getByTestId("on-call-home-sections");
-    expect(strip.compareDocumentPosition(tiles) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
-  it("says nothing about freshness when nothing is overdue", () => {
-    storeState.entries = [contact("reg", "After-hours registrar", ["call-first"], "9224 3000")];
-
-    render(<OnCallHome />);
-
-    expect(screen.queryByTestId("on-call-home-stale")).toBeNull();
-  });
-
   it("offers the daytime number during the working day", () => {
     storeState.entries = [dualLineContact()];
 
@@ -229,5 +211,19 @@ describe("On Call home layout", () => {
     // A date, never a countdown: it has to be checkable against a roster.
     expect(strip).toHaveTextContent(/Sep/);
     expect(screen.getByTestId("on-call-home-teaching-next-badge")).toBeInTheDocument();
+  });
+
+  it("says nothing about overdue entries, which are the developer hub's business", () => {
+    // Removed on the owner's instruction 2026-09-16: a reader opening this page
+    // is mid-shift and looking for a number, and overdue entries are a
+    // maintenance fact. They are reported at
+    // /mockups/development/on-call-freshness instead. This test exists so a
+    // later "helpful" restoration goes red rather than shipping.
+    storeState.entries = [staleContact("ward-4b", "Ward 4B")];
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-stale")).toBeNull();
+    expect(screen.queryByText(/needs? checking/i)).toBeNull();
   });
 });
