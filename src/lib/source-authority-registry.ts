@@ -318,7 +318,14 @@ export const sourceAuthorityRegistry = [
     key: "australian-department-of-health",
     codes: ["AUSDOH", "DOHA"],
     publisher: "Australian Government Department of Health and Aged Care",
-    publisherAliases: ["Australian Department of Health and Aged Care", "Australian Government Department of Health"],
+    publisherAliases: [
+      "Australian Department of Health and Aged Care",
+      "Australian Government Department of Health",
+      // The department was renamed again in 2025; the older names stay because
+      // documents published under them do not get retitled.
+      "Australian Government Department of Health, Disability and Ageing",
+      "Department of Health, Disability and Ageing",
+    ],
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
@@ -539,6 +546,135 @@ export const sourceAuthorityRegistry = [
     jurisdictions: ["International", "Global"],
     scope: "international",
     tier: "supplementary",
+  }),
+  // Publishers cited by the 2026-09 Dictionary handover that the register did not
+  // know. Each is `catalogueIdentityOnly`, which is the Chief Psychiatrist's own
+  // setting: it lets the catalogue place the publisher in a jurisdiction — without
+  // which a source can never leave D band — while leaving runtime retrieval
+  // selection exactly as it was. Registering them outright would have changed which
+  // sources retrieval picks, which is a separate decision from letting the register
+  // name them.
+  //
+  // Four further publishers were deliberately NOT registered, because the strings
+  // are descriptions rather than agencies: "Government of Western Australia",
+  // "WA Health service providers", "Mental Health Commission / WA Health" (two
+  // publishers in one field) and "4AT developers". Registering a catch-all like
+  // "Government of Western Australia" would resolve every WA government document to
+  // one authority, which is worse than leaving those four records held until their
+  // actual publishing agency is established.
+  authority({
+    key: "mental-health-tribunal-wa",
+    codes: ["MHTWA"],
+    publisher: "Mental Health Tribunal Western Australia",
+    publisherAliases: ["Mental Health Tribunal WA", "Mental Health Tribunal (WA)"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "health-support-services-wa",
+    codes: ["HSSWA"],
+    publisher: "Health Support Services",
+    publisherAliases: ["Health Support Services, Western Australia", "Health Support Services WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "nsw-agency-for-clinical-innovation",
+    codes: ["NSWACI"],
+    publisher: "NSW Agency for Clinical Innovation",
+    publisherAliases: ["Agency for Clinical Innovation"],
+    jurisdictions: ["Australia/NSW"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "western-sydney-local-health-district",
+    codes: ["WSLHD"],
+    publisher: "Western Sydney Local Health District",
+    jurisdictions: ["Australia/NSW"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "royal-childrens-hospital-melbourne",
+    codes: ["RCHMELB"],
+    publisher: "Royal Children's Hospital Melbourne",
+    publisherAliases: ["The Royal Children's Hospital Melbourne"],
+    jurisdictions: ["Australia/VIC"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "australasian-adhd-professionals-association",
+    codes: ["AADPA"],
+    publisher: "Australasian ADHD Professionals Association",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "amhocn",
+    codes: ["AMHOCN"],
+    publisher: "Australian Mental Health Outcomes and Classification Network",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "centre-of-perinatal-excellence",
+    codes: ["COPE"],
+    publisher: "Centre of Perinatal Excellence",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "naccho",
+    codes: ["NACCHO"],
+    publisher: "National Aboriginal Community Controlled Health Organisation",
+    publisherAliases: ["National Aboriginal Community Controlled Health Organization"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "american-psychiatric-association",
+    codes: ["APA"],
+    publisher: "American Psychiatric Association",
+    jurisdictions: ["International", "Global", "United States"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "columbia-lighthouse-project",
+    codes: ["CSSRS"],
+    publisher: "Columbia Lighthouse Project",
+    publisherAliases: ["The Columbia Lighthouse Project"],
+    jurisdictions: ["International", "Global", "United States"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "diva-foundation",
+    codes: ["DIVA"],
+    publisher: "DIVA Foundation",
+    jurisdictions: ["International", "Global"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
   }),
 ] satisfies SourceAuthorityDefinition[];
 

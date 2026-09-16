@@ -5601,7 +5601,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(clinicalSummary.getByRole("heading", { name: "Clinical priorities" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
@@ -5678,7 +5680,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     const summaryToggle = clinicalSummary.getByTestId("toggle-document-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(summaryToggle).toBeVisible();
