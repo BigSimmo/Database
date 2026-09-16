@@ -76,7 +76,7 @@ function ExpandedCalculator({
             {state.result.guidance}
           </p>
         ) : null}
-        <FlagNotice flags={state.flags} />
+        <FlagNotice flags={state.flags} provisional={!state.complete} />
         <BandLegend calc={calc} activeBand={state.started ? state.band : undefined} />
         <div className="grid gap-2 border-t border-[color:var(--border)] pt-3">
           <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-1.5 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">

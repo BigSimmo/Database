@@ -816,8 +816,10 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): five guards.
-  The non-bypassable auto-merge ownership guard blocks a push on every PR branch when the PR's
-  auto-merge is armed. The other guards retain explicit overrides: format-before-push (closes the `verify:cheap` vs
+  The non-bypassable auto-merge ownership guard warns (but does not block) an ordinary push to a
+  PR branch whose auto-merge is armed; it blocks only when that push force-updates the branch or
+  carries a hosted migration (`autoMergeVerdict` in `scripts/guard-push.mjs`). The other guards
+  retain explicit overrides: format-before-push (closes the `verify:cheap` vs
   CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
   with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
   (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
@@ -844,9 +846,19 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   explicit reason it could not run), while clinical-risk changes must fully disposition the governance
   checklist. `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
   warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
-  The `pull_request_target` job checks out the trusted `github.workflow_sha` revision, has
-  read-only permissions, and never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
-  same stable `PR policy` check name.
+  The `pull_request_target` job checks out the trusted `github.workflow_sha` revision and never executes
+  PR-head code. Its permissions are exactly `contents: read`, `pull-requests: write` (used solely to remove
+  the `owner-approved` label when new commits land) and `actions: read` (to list this workflow's own run
+  records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
+  migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
+  the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
+  RAG-ranking PRs stay red until the owner applies `owner-approved`, which agents must never add. The
+  label counts only when applied by the repository owner (not a collaborator or GitHub App) after the
+  earliest PR policy run whose run record names the current PR head SHA (cancelled runs included; bind
+  via `run.head_sha`, never `GITHUB_SHA` alone under `pull_request_target`), so a label from before a
+  push never covers the new head. A `Migration history edit approved:` override additionally requires
+  an accompanying fail-fast validation guard migration in the same change. Drafts remain non-blocking
+  until marked ready; merge-queue runs emit the same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
   with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
   repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains

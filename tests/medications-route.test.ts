@@ -107,7 +107,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
 function createSupabaseMock(
   resolve: QueryResolver = () => ok([]),
-  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+  options: { canonicalRows?: unknown[]; limited?: boolean; canonicalRead?: () => Promise<QueryResult> } = {},
 ) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
@@ -129,7 +129,9 @@ function createSupabaseMock(
           ],
           error: null,
         }
-      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
+      : options.canonicalRead
+        ? options.canonicalRead()
+        : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -600,5 +602,76 @@ describe("medications API", () => {
     expect(response.status).toBe(404);
     expect(consoleError).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The same coverage the registry list route has, and for the same reason.
+ *
+ * This route read the catalogue with no budget at all, so during the 2026-09-09 outage it held the
+ * request open rather than failing. Without these two cases a regression that drops the fallback,
+ * leaves `/api/medications` hanging, or makes a degraded response publicly cacheable would pass
+ * the whole suite.
+ */
+describe("medications survive an unusable catalogue", () => {
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it.each([
+    ["rejects", () => Promise.reject(new Error("canonical read failed"))],
+    ["never settles", () => new Promise<QueryResult>(() => {})],
+  ])(
+    "serves the in-bundle catalogue when the canonical read %s",
+    async (_label, canonicalRead) => {
+      const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+      clearCatalogueSeedFallbackCooldown();
+      const client = createSupabaseMock(undefined, { canonicalRead: canonicalRead as () => Promise<QueryResult> });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/route");
+
+      const response = await GET(request("/api/medications"));
+      const payload = (await response.json()) as { records: unknown[] };
+
+      expect(response.status).toBe(200);
+      expect(payload.records.length).toBeGreaterThan(0);
+      // A degraded response must not be pinned at a CDN in front of a database that may recover
+      // inside the thirty-second cooldown.
+      expectPrivateCache(response);
+    },
+    20_000,
+  );
+
+  /**
+   * `catalogue-seed-fallback` returns `degraded` precisely so a caller can tell the reader the
+   * list may lag anything published since the last release, and says never to drop it on the
+   * floor. This route did drop it, so the reader saw a seed catalogue presented as live. The two
+   * cases below are the pair that matters: the flag is set only when the fallback actually fired.
+   */
+  it("tells the reader the catalogue is a retained copy when the fallback fires", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: () => Promise.reject(new Error("canonical read failed")),
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const payload = (await (await GET(request("/api/medications"))).json()) as { retainedSnapshot?: boolean };
+
+    expect(payload.retainedSnapshot).toBe(true);
+  });
+
+  it("does not label a healthy canonical read as a retained copy", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const payload = (await (await GET(request("/api/medications"))).json()) as { retainedSnapshot?: boolean };
+
+    expect(payload.retainedSnapshot).toBeUndefined();
   });
 });

@@ -53,7 +53,15 @@ export function eligibility(pr) {
   // A canary assertion in PR text is not an authenticated exact-candidate proof.
   // Accept only a trusted, launch-bound attestation that the adapter verifies.
   if (classification.ragRanking && !pr.canaryVerified) return "rag-evidence-required";
-  const policy = evaluatePullRequestPolicy({ title: pr.title, body: pr.body, headRef: pr.headRef, files: pr.files });
+  // Owner-merge hold: database, clinical-risk and RAG-ranking PRs are merged only by the
+  // owner. The batch never supplies ownerApproval, so such PRs are always excluded here.
+  const policy = evaluatePullRequestPolicy({
+    title: pr.title,
+    body: pr.body,
+    headRef: pr.headRef,
+    files: pr.files,
+    enforceOwnerMerge: true,
+  });
   if (!policy.ok) return `policy: ${policy.errors.join("; ")}`;
   return null;
 }

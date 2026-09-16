@@ -21,7 +21,7 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import {
-  dsmCriteria,
+  dsmCriteriaView,
   dsmDifferentialParts,
   dsmSpecifierSplit,
   resolveDsmDifferential,
@@ -67,15 +67,24 @@ function SummaryTile({
   );
 }
 
-function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: number }) {
+function CriteriaRow({
+  criterion,
+  index,
+  isDsmCriteria,
+}: {
+  criterion: DsmLabeledText;
+  index: number;
+  isDsmCriteria: boolean;
+}) {
+  const ordinal = criterion.label || index + 1;
   return (
     <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 border-b border-[color:var(--border)] px-3 py-3.5 last:border-b-0 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:px-4">
       <span className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-        {criterion.label || index + 1}
+        {ordinal}
       </span>
       <div className="min-w-0 pt-0.5">
         <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Core criterion {criterion.label || index + 1}
+          {isDsmCriteria ? `Core criterion ${ordinal}` : `Key feature ${ordinal}`}
         </p>
         <p className="mt-1 text-sm font-medium leading-6 text-[color:var(--text-heading)]">{criterion.text}</p>
       </div>
@@ -84,7 +93,7 @@ function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: n
 }
 
 export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
-  const criteria = dsmCriteria(diagnosis);
+  const { rows: criteria, isDsmCriteria } = dsmCriteriaView(diagnosis);
   const { specifiers, absentNotes } = dsmSpecifierSplit(diagnosis);
   const compareHref = `/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)}`;
 
@@ -97,7 +106,15 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
   // "4 criteria, A-D" / "1 criterion, A". Twelve records carry a single criterion,
   // so the range is appended only when there are at least two to span — otherwise
   // it would read "A-A". Labels fall back to the ordinal the list rows already use.
-  const criteriaCountLabel = countLabel(criteria.length, "criterion", "criteria");
+  //
+  // 145 of the 146 records supply no `criteria_display`, so on all but Bipolar II
+  // these rows are the record's key-feature summary. Calling that "4 criteria"
+  // under a heading reading "Core diagnostic criteria / All criteria are shown"
+  // stated the DSM-5-TR standard on the reader's behalf. The noun now follows the
+  // provenance, and the summary itself is unchanged and still fully shown.
+  const criteriaCountLabel = isDsmCriteria
+    ? countLabel(criteria.length, "criterion", "criteria")
+    : countLabel(criteria.length, "key feature", "key features");
   const firstCriterionLabel = criteria[0]?.label || "1";
   const lastCriterionLabel = criteria.at(-1)?.label || String(criteria.length);
   const criteriaSummary =
@@ -111,6 +128,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
     <>
       <DsmDiagnosisNavHeader
         title={diagnosis.title}
+        criteriaLabel={isDsmCriteria ? "Criteria" : "Key features"}
         actions={
           <div className="grid gap-2">
             <Link href="/dsm/search" className={inPageActionRowClass}>
@@ -132,7 +150,11 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
         <DsmPageHeader
           eyebrow="Diagnosis information"
           title={diagnosis.title}
-          description="Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
+          description={
+            isDsmCriteria
+              ? "Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
+              : "Key features, specifiers, differential considerations, and documentation support in one open, scan-friendly view. Full DSM-5-TR criteria are not included in this record."
+          }
           code={diagnosis.icd_code}
           copyCode
           category={diagnosis.category.label}
@@ -155,7 +177,11 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
           */}
           <section aria-label="At a glance" className="grid gap-2.5">
             <dl className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-              <SummaryTile icon={ListChecks} label="Criteria" value={criteriaSummary} />
+              <SummaryTile
+                icon={ListChecks}
+                label={isDsmCriteria ? "Criteria" : "Key features"}
+                value={criteriaSummary}
+              />
               <SummaryTile
                 icon={SlidersHorizontal}
                 label="Specifiers"
@@ -190,22 +216,30 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                   </span>
                   <div>
                     <h2 id="criteria-title" className="text-base font-extrabold text-[color:var(--text-heading)]">
-                      Core diagnostic criteria
+                      {isDsmCriteria ? "Core diagnostic criteria" : "Key features"}
                     </h2>
                     <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-                      All criteria are shown. No expand controls or hidden sections.
+                      {isDsmCriteria
+                        ? "All criteria are shown. No expand controls or hidden sections."
+                        : "The full DSM-5-TR criteria are not included in this record. Everything the record does hold is shown below. Check DSM-5-TR before recording the diagnosis."}
                     </p>
                   </div>
                 </div>
                 {criteria.length ? (
                   <ol>
                     {criteria.map((criterion, index) => (
-                      <CriteriaRow key={`${criterion.label}-${criterion.text}`} criterion={criterion} index={index} />
+                      <CriteriaRow
+                        key={`${criterion.label}-${criterion.text}`}
+                        criterion={criterion}
+                        index={index}
+                        isDsmCriteria={isDsmCriteria}
+                      />
                     ))}
                   </ol>
                 ) : (
                   <p className="px-4 py-5 text-sm font-medium text-[color:var(--text-muted)]">
-                    No structured criteria were included in the supplied record.
+                    Neither criteria nor key features were included in the supplied record. This is not a statement that
+                    DSM-5-TR defines none.
                   </p>
                 )}
               </section>

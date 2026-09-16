@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
-import { curatedDifferentials } from "@/lib/differential-curated";
-import { generatedBodyWithheld } from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import {
   diagnosisToRow,
@@ -532,7 +530,28 @@ describe("canonical dynamic public projection", () => {
     expect(JSON.stringify(privateSourceProjection)).not.toContain(privateToken);
   });
 
-  it("freezes the complete current P03 dynamic seed population into epoch zero without a semantic diff", () => {
+  /**
+   * SHAPE, NOT CONTENT — and the difference is why 2026-09-16 happened.
+   *
+   * This population is frozen inside an APPLIED migration, and the epoch-zero release id is derived
+   * from its digest. The test here used to assert `frozen` equalled the whole current catalogue, so
+   * adding or editing a single record failed by construction and the only way to pass was to
+   * regenerate `20260824122000`. Regenerating it moves a release identity the live database can
+   * never adopt, because an applied migration is never re-run. PR #2814 did exactly that: the
+   * repository went on to describe a bootstrap (`91ceaa8d…`, 860 records) that no database has ever
+   * held, live kept `e4a1dd29…` and 843, and `check:drift` went red on two constraints.
+   *
+   * Content divergence is not a defect. Epoch zero is a frozen snapshot of 2026-08-24; the catalogue
+   * is curated continuously, and curated content reaches live through the publication pipeline
+   * (`docs/site-content-sync-runbook.md`), never by editing this migration. So a record whose text
+   * has since been revised SHOULD differ here.
+   *
+   * What must not drift is the projection FORMAT. If `canonicalDynamicSiteContentProjection` changes
+   * the keys it emits, the frozen bytes stop being readable as that projection, and this fails.
+   * Identity of the freeze itself (release id, digest, counts) is pinned separately in
+   * `tests/site-content-epoch-zero-freeze.test.ts`.
+   */
+  it("keeps the frozen epoch-zero seed readable as the current P03 projection format", () => {
     const migration = readFileSync(
       "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
       "utf8",
@@ -587,55 +606,57 @@ describe("canonical dynamic public projection", () => {
       .map(({ record, renderPayload }) => ({ logicalId: record.logicalId, record, renderPayload }))
       .sort((left, right) => left.logicalId.localeCompare(right.logicalId));
 
-    // Epoch zero is frozen inside an applied migration and cannot be rewritten,
-    // so a record that withheld its generated body after 2026-08-24 legitimately
-    // differs from it. The allowance is deliberately narrow rather than an
-    // exclusion: the record must be one the curated overlay marks withheld, the
-    // difference must be confined to the fields the withhold empties plus the
-    // hashes derived from them, and each of those fields must actually be empty
-    // on the current side. Anything else is still a silent public-content diff
-    // and still fails.
+    // Non-vacuous: the 2026-08-24 freeze carries 843 records, so a truncated or empty blob fails
+    // here rather than passing as "every frozen record had the right shape".
+    expect(frozen.length).toBe(843);
+    expect(current.length).toBeGreaterThanOrEqual(frozen.length);
+
+    const keysOf = (value: unknown) =>
+      value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : null;
+    /** `services:x` -> `services`, `differentials:diagnosis:x` -> `differentials:diagnosis`. */
+    const kindOf = (logicalId: string) => logicalId.split(":").slice(0, -1).join(":");
+
+    // An optional field is absent from a record that has no value for it, so the key set of one
+    // record is content-dependent and cannot be compared to another record's. What is NOT
+    // content-dependent is the VOCABULARY: every key the projection can emit today. A rename or a
+    // removal leaves the frozen bytes carrying a key nothing reads, and that is what this catches.
     //
-    // NOTE FOR THE OWNER: the live site_content rows seeded from this migration
-    // still carry the withheld text. Closing that needs a republish against the
-    // live database, which is an operator action, not something a test can do.
-    const withheldLogicalIds = new Set(
-      Object.entries(curatedDifferentials)
-        .filter(([, entry]) => generatedBodyWithheld(entry))
-        .map(([slug]) => `differentials:diagnosis:${slug}`),
-    );
-    const withheldPayloadFields = ["clinicalHinge", "sections", "currentPresentation", "immediateActions"] as const;
-    const withheldDerivedRecordFields = new Set(["body", "publicationVersion", "contentHash"]);
-
-    const isEmptyWithheldValue = (value: unknown) => value === "" || (Array.isArray(value) && value.length === 0);
-
-    const normalise = (entries: typeof current) =>
-      entries.map((entry) => {
-        if (!withheldLogicalIds.has(entry.logicalId)) return entry;
-        const payload = entry.renderPayload as Record<string, unknown>;
-        const record = entry.record as unknown as Record<string, unknown>;
-        return {
-          ...entry,
-          record: Object.fromEntries(
-            Object.entries(record).filter(([key]) => !withheldDerivedRecordFields.has(key)),
-          ) as typeof entry.record,
-          renderPayload: Object.fromEntries(
-            Object.entries(payload).filter(([key]) => !withheldPayloadFields.includes(key as never)),
-          ) as typeof entry.renderPayload,
-        };
-      });
-
-    // The allowance must be earned: every withheld record present in epoch zero
-    // has to be genuinely emptied now, or the exclusion above would hide a real
-    // change to those same fields.
+    // PER KIND, not pooled. A medication payload and a service payload share almost nothing — the
+    // union across all five kinds is 49 keys while any one kind emits 11 to 22, so a pooled
+    // vocabulary silently tolerates dropping a service key that medications happen to also emit.
+    //
+    // Only the "no longer emitted" direction is checked. A key added after 2026-08-24 is absent
+    // from the freeze by definition, so requiring the freeze to carry today's mandatory keys would
+    // re-create the failure-by-construction this test was rewritten to remove.
+    const universes = new Map<string, { record: Set<string>; render: Set<string> }>();
     for (const entry of current) {
-      if (!withheldLogicalIds.has(entry.logicalId)) continue;
-      const payload = entry.renderPayload as Record<string, unknown>;
-      for (const field of withheldPayloadFields) {
-        expect(isEmptyWithheldValue(payload[field]), `${entry.logicalId} still publishes ${field}`).toBe(true);
-      }
+      const kind = kindOf(entry.logicalId as string);
+      const bucket = universes.get(kind) ?? { record: new Set<string>(), render: new Set<string>() };
+      for (const key of keysOf(entry.record) ?? []) bucket.record.add(key);
+      for (const key of keysOf(entry.renderPayload) ?? []) bucket.render.add(key);
+      universes.set(kind, bucket);
     }
+    expect(universes.size, "the projection must emit more than one kind to pin per kind").toBeGreaterThan(1);
 
-    expect(normalise(frozen as typeof current)).toEqual(normalise(current));
+    for (const entry of frozen) {
+      const logicalId = entry.logicalId as string;
+      const kind = kindOf(logicalId);
+      const bucket = universes.get(kind);
+      // A frozen record whose whole KIND has gone is a real break: nothing in the catalogue can
+      // still render what live is serving from the freeze.
+      expect(bucket, `frozen seed record ${logicalId} belongs to a kind the catalogue no longer emits`).toBeDefined();
+      const recordKeys = keysOf(entry.record);
+      const renderKeys = keysOf(entry.renderPayload);
+      expect(recordKeys, `frozen seed record ${logicalId} is not an object`).not.toBeNull();
+      expect(renderKeys, `frozen seed record ${logicalId} render payload is not an object`).not.toBeNull();
+      expect(
+        recordKeys!.filter((key) => !bucket!.record.has(key)),
+        `frozen seed record ${logicalId} carries record keys the projection no longer emits`,
+      ).toEqual([]);
+      expect(
+        renderKeys!.filter((key) => !bucket!.render.has(key)),
+        `frozen seed record ${logicalId} carries render keys the projection no longer emits`,
+      ).toEqual([]);
+    }
   });
 });

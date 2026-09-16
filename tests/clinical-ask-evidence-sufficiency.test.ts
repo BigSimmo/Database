@@ -77,6 +77,22 @@ describe("Clinical Ask evidence sufficiency", () => {
     );
   });
 
+  it("keeps mixed reviewed and unreviewed support insufficient", () => {
+    const evidence = [
+      source({ id: "reviewed", reviewState: "reviewed" }),
+      source({ id: "needs", reviewState: "needs_review", extract: "Occupational impairment is present." }),
+    ];
+    const inputRequest = request("adult referrals within 6 weeks with impairment");
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    // Force both items to count as direct support across required sections so the
+    // review-state gate is what decides sufficiency.
+    const forced = coverage.map((annotation) => ({ ...annotation, directlySupports: true }));
+    expect(assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage: forced })).toMatchObject({
+      sufficient: false,
+      externalFallbackReason: "needs_review",
+    });
+  });
+
   it("keeps unresolved conflicts insufficient", () => {
     const evidence = [source(), source({ id: "indexed:two", extract: "The pathway uses 12 weeks." })];
     const coverage: EvidenceCoverageAnnotation[] = profile.sectionOrder.map((sectionId) => ({
@@ -91,5 +107,82 @@ describe("Clinical Ask evidence sufficiency", () => {
     expect(
       assessEvidenceSufficiency({ profile, request: request("within 6 weeks"), evidence, coverage }),
     ).toMatchObject({ sufficient: false, externalFallbackReason: "conflict", unresolvedConflictIds: ["indexed:two"] });
+  });
+
+  it("detects a contradictory threshold that fails exact request support", () => {
+    const supporting = source({
+      id: "indexed:support",
+      extract: "The example service accepts referrals for adults within 2 weeks.",
+    });
+    const contradictory = source({
+      id: "indexed:conflict",
+      extract: "The example service accepts referrals for adults within 4 weeks.",
+    });
+    const inputRequest = request("Does the example service accept adult referrals within 2 weeks?");
+    const evidence = [supporting, contradictory];
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+
+    expect(
+      coverage.some(
+        (row) => row.evidenceId === "indexed:support" && row.conflictsWithEvidenceIds.includes("indexed:conflict"),
+      ),
+    ).toBe(true);
+    expect(decision).toMatchObject({ sufficient: false, externalFallbackReason: "conflict" });
+    expect(decision.unresolvedConflictIds).toContain("indexed:conflict");
+  });
+
+  it("does not treat unrelated same-unit durations as a conflict when the request predicate agrees", () => {
+    const first = source({
+      id: "indexed:one",
+      extract:
+        "The example service accepts referrals for adults within 2 weeks. The structured programme lasts 12 weeks.",
+    });
+    const second = source({
+      id: "indexed:two",
+      extract: "The example service accepts referrals for adults within 2 weeks. The initial assessment takes 4 weeks.",
+    });
+    const inputRequest = request("Does the example service accept adult referrals within 2 weeks?");
+    const evidence = [first, second];
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+
+    expect(decision.unresolvedConflictIds).toEqual([]);
+    expect(decision).toMatchObject({ sufficient: true, externalFallbackReason: null });
+  });
+
+  it("does not let a duration-only passage cover claim sections without topic cues", () => {
+    const dsm = clinicalAskModeProfile("dsm");
+    const evidence = [
+      source({
+        extract: "The episode lasts at least 2 weeks.",
+      }),
+    ];
+    const inputRequest = request("Does the episode last at least 2 weeks?");
+    // DSM profile question shape still uses the services helper request factory;
+    // only sectionOrder/cues matter for this coverage assertion.
+    const coverage = annotateEvidenceCoverage(dsm, { ...inputRequest, mode: "dsm" }, evidence);
+    const durationRows = coverage.filter((row) => row.sectionId === "duration" && row.directlySupports);
+    const apparentRows = coverage.filter((row) => row.sectionId === "apparently_supported" && row.directlySupports);
+    expect(durationRows.length).toBeGreaterThan(0);
+    expect(apparentRows).toEqual([]);
+  });
+
+  it("detects contradictory request-predicate values inside one extract", () => {
+    const evidence = [
+      source({
+        id: "indexed:self",
+        extract: "The episode lasts at least 2 weeks. It lasts 4 weeks.",
+      }),
+    ];
+    const inputRequest = request("Does the episode last at least 2 weeks?");
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    expect(
+      coverage.some(
+        (row) => row.evidenceId === "indexed:self" && row.conflictsWithEvidenceIds.includes("indexed:self"),
+      ),
+    ).toBe(true);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+    expect(decision).toMatchObject({ sufficient: false, externalFallbackReason: "conflict" });
   });
 });

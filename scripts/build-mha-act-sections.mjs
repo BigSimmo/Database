@@ -36,10 +36,18 @@ const reviewPath = join(root, "docs", "evidence", "mha-2014-section-summaries-re
 // Pinned consolidated version. Bumping these three values is a deliberate act: it
 // invalidates every sourceTextSha256 whose section text actually changed, which is
 // exactly the re-review trigger the hash exists to produce.
-export const ACT_VERSION = "02-b0-01";
+//
+// Moved from 02-b0-01 on 2026-09-16, because that consolidation was withdrawn: its
+// filestore URL returns HTTP 404 and legislation.wa.gov.au no longer lists it among the
+// versions of this Act. So the link this app rendered under every Act-section summary was
+// dead. 02-b0-02 replaced it at the SAME currency start, 25 September 2025 — the trailing
+// pair is the revision of one consolidation at one currency point, and the versions page
+// shows no period between them. The in-force law is therefore unchanged and ACT_AS_AT
+// does not move; what changed is which document the publisher serves.
+export const ACT_VERSION = "02-b0-02";
 export const ACT_AS_AT = "2025-09-25";
 export const ACT_SOURCE_URL =
-  "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-01%5D.html?OpenElement";
+  "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement";
 const EXTRACTOR_VERSION = 1;
 const FORMAT_VERSION = 1;
 
@@ -345,7 +353,16 @@ export function checkProblems({ source, curated, catalog, supplemental }) {
     if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
   }
 
-  const catalogCodes = new Set((catalog.forms ?? []).map((form) => normalizeFormCode(form.form)));
+  // A form is only a conflict when the catalogue row carries a cue of its OWN. Catalogue
+  // membership is not a cue: the seven forms the archive never indexed now have catalogue
+  // rows for their operational guidance, and their section mapping still comes from the
+  // supplemental map -- which is where the checkable `basis` for it lives. Deleting those
+  // entries would leave those forms with no Act sections at all.
+  const catalogCodes = new Set(
+    (catalog.forms ?? [])
+      .filter((form) => parseSectionCue(form?.sourceFacts?.sectionCue).length > 0)
+      .map((form) => normalizeFormCode(form.form)),
+  );
   for (const form of supplemental?.forms ?? []) {
     if (!form.sections?.length) problems.push(`Supplemental cue for Form ${form.code} lists no sections.`);
     if (!form.basis?.trim()) {

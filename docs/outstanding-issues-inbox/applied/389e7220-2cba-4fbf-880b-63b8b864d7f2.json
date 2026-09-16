@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "389e7220-2cba-4fbf-880b-63b8b864d7f2",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Six Australian and WA publishers are unregistered, so eight Australian sources cannot enter the ledger at all while 14 UK NICE guidelines can",
+    "detail": "src/lib/source-authority-registry.ts does not contain Centre for Clinical Interventions (a WA Health service), Phoenix Australia (issuer of the national PTSD guidelines), Australasian ADHD Professionals Association, COPE Centre of Perinatal Excellence, Australian Government Department of Health Disability and Ageing, or Monash University. acquisitionLedgerIssues rejects any record whose publisher the register cannot place in a jurisdiction, so those eight reconciled Therapy sources are held entirely and can never leave D band. The register meanwhile admits the 14 NICE guidelines registered on 2026-09-16, which inverts the WA-first order docs/source-acquisition-protocol.md requires. cci.health.wa.gov.au is already a governed host, so CCI is blocked on the publisher entry alone. nhmrc.gov.au and tga.gov.au are additionally not in GOVERNED_SOURCE_HOSTS. Next action: owner decides which publishers to register, because registering one changes retrieval selection and source ranking. Proposal with per-publisher blockers in the 2026-09-16 Therapy handover work bundle (authority-register-expansion-proposal.json). Verify with npm run check:source-acquisitions and npm run check:source-catalogue.",
+    "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16, branch claude/vibrant-mccarthy-bbi43k",
+    "issueUlid": "01M2MR666RRR3N4HZ796R488P0"
+  }
+}

@@ -22,6 +22,7 @@ import { useId, useMemo, useState } from "react";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { sharedHomePresentation } from "@/lib/ui-copy";
+import { RetainedSnapshotNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   ResultFilterSheet,
@@ -681,6 +682,8 @@ function MedicationResults({
         appliedFilters={appliedFilters}
         onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
       />
+
+      {catalog.data?.retainedSnapshot ? <RetainedSnapshotNotice /> : null}
 
       <MedicationInterpretationChip interpretation={catalog.data?.interpretation} />
 

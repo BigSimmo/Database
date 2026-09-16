@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa780bd2-110e-4d28-ad4b-21395ada57e8",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Formulation: 41 handover sources stay held, each with a named blocker",
+    "detail": "The 2026-09-16 Formulation handover proposed 55 source identities. Five cleared the current native gates and were registered as unverified link-only candidates in PR #2824; nine reused existing native identities. The remaining 41 are held. Blockers, several per source: publisher not resolved in the current authority registry (33), fresh source check incomplete (20), publication or edition date unknown (15), version unknown (15), canonical host not on the governed allowlist (8), restricted pointer that is not an importable work (1). Eight sit on ungoverned hosts, including ACSQHC, OAIC, Springer, Frontiers, Phoenix Australia, and CCI's non-www host where the allowlist carries the www variant. Registering a publisher moves retrieval selection, so each is an owner decision, not a bulk fix. Their citations currently render with issuer and identifier and the link withheld.",
+    "source": "PR #2824; src/data/source-acquisitions.json; src/data/formulation-concepts.json",
+    "issueUlid": "01M2N7NYVH61GQYYTNFBK6H4F9"
+  }
+}

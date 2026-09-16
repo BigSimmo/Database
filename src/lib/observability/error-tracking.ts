@@ -248,6 +248,49 @@ export function privacySafeTransactionEvent(event: ScrubbedTransactionEvent): Sc
   };
 }
 
+/**
+ * Webpack assigns chunk ids per build, so `chunks/41261.js` names a different file
+ * after every deploy even when the fault is unchanged.
+ */
+const BUILD_VOLATILE_FILENAME = /(^|[\\/])chunks[\\/][^\\/]*\d{3,}[^\\/]*\.m?js$/i;
+
+/**
+ * Minifier output: `Z`, `rV`, `gX`, `d0`. Regenerated on every build.
+ *
+ * Capped at two characters on purpose. Three would also swallow `GET`, `POST` and
+ * `PUT`, which are the most useful names a route frame can carry, and keeping a name
+ * that turns out to be volatile only costs the grouping this already had.
+ */
+const MINIFIED_IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]?$/;
+
+/**
+ * Build-stable part of a frame filename, or `"unknown"`.
+ *
+ * Without uploaded source maps every production frame is minified, and the pieces
+ * that change per build were previously fed straight into the fingerprint. One
+ * recurring `/api/medications` fault split across 25 Sentry issues that way
+ * (2026-09-16 review). Route module paths and `node_modules` paths survive a rebuild;
+ * numbered chunk files do not.
+ */
+export function stableFrameFilename(filename: string | undefined): string {
+  if (!filename) return "unknown";
+  return BUILD_VOLATILE_FILENAME.test(filename) ? "unknown" : filename;
+}
+
+/**
+ * Build-stable part of a frame function name, or `"unknown"`.
+ *
+ * Minified member expressions keep a readable tail (`rV.handleResponse`), so the
+ * mangled segments are dropped rather than the whole name: `rV.handleResponse` and
+ * `d0.makeRequest` stay distinguishable across deploys as `handleResponse` and
+ * `makeRequest`, while a wholly mangled `Z` collapses to `"unknown"`.
+ */
+export function stableFrameFunction(name: string | undefined): string {
+  if (!name) return "unknown";
+  const retained = name.split(".").filter((segment) => segment.length > 0 && !MINIFIED_IDENTIFIER.test(segment));
+  return retained.length ? retained.join(".") : "unknown";
+}
+
 /** Keep code locations while removing all free-form/request data before export. */
 export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   const exceptions = event.exception?.values?.map((exception) => ({
@@ -289,9 +332,9 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     message: exceptions?.length ? undefined : SAFE_ERROR_MESSAGE,
     exception: exceptions?.length ? { values: exceptions } : undefined,
     fingerprint: workerStage
-      ? ["worker", workerStage, exceptionType, topFrame?.filename ?? "unknown"]
+      ? ["worker", workerStage, exceptionType, stableFrameFilename(topFrame?.filename)]
       : routePath
-        ? [routePath, exceptionType, topFrame?.filename ?? "unknown", topFrame?.function ?? "unknown"]
+        ? [routePath, exceptionType, stableFrameFilename(topFrame?.filename), stableFrameFunction(topFrame?.function)]
         : undefined,
     tags: Object.keys(tags).length ? tags : undefined,
   };

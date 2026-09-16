@@ -12,7 +12,35 @@ const RELEASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const CHANGE_EPOCH = /^(?:0|[1-9][0-9]*)$/;
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
-const RETAINED_BOOTSTRAP_RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
+/**
+ * The epoch-zero bootstrap release ids this build recognises.
+ *
+ * The first entry is the identity the live database holds and the one the committed
+ * migrations carry. It is the only id a database should acquire from this repository.
+ *
+ * The second is the identity a regeneration of the frozen population produced on
+ * 2026-09-16 (PR #2814). The id is derived from the release digest, which is derived
+ * from the frozen seed population, so refreshing that population moves it — while an
+ * applied migration is never re-run, so no live database ever adopts the new value.
+ * The regeneration has since been reverted and pinned by
+ * `tests/site-content-epoch-zero-freeze.test.ts`, but any database replayed from the
+ * repository during the window it was on `main` (a preview branch, a scratch replay)
+ * carries it, and a build that failed to recognise its own bootstrap would report the
+ * site unavailable. So it stays.
+ *
+ * Never remove an id a database may hold, and never ADD one to make a regeneration
+ * pass: a new id here means an applied migration was rewritten, which is the defect.
+ */
+const RETAINED_BOOTSTRAP_RELEASE_IDS: ReadonlySet<string> = new Set([
+  "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
+  "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+  "ddc94ecf-3527-5b4d-846b-af5724b428ca",
+]);
+
+/** True when `releaseId` is one of the retained epoch-zero bootstrap identities. */
+export function isRetainedBootstrapReleaseId(releaseId: string): boolean {
+  return RETAINED_BOOTSTRAP_RELEASE_IDS.has(releaseId);
+}
 const RETAINED_BOOTSTRAP_REGISTRY_VERSION = "site-content-bootstrap-public-release-v1";
 const RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST = "0".repeat(64);
 
@@ -312,7 +340,7 @@ export function classifySiteContentPartition(input: SiteContentPartitionInput): 
     return { ...base, state: "unavailable", staticMatches: false, reasons: sortedReasons(reasons) };
   }
   if (
-    release.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    RETAINED_BOOTSTRAP_RELEASE_IDS.has(release.releaseId) &&
     release.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
     release.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST
   ) {
@@ -336,7 +364,7 @@ function hasExactRetainedBootstrapIdentity(input: SiteContentHealthInput): boole
   const activeRelease = input.activePublicSiteRelease;
   return (
     isRelease(activeRelease) &&
-    activeRelease.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    RETAINED_BOOTSTRAP_RELEASE_IDS.has(activeRelease.releaseId) &&
     activeRelease.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
     activeRelease.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST &&
     activeRelease.state === "active" &&

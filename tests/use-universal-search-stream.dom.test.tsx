@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  groupIsWorthShowing,
   useUniversalSearch,
   clearUniversalSearchCacheForTests,
 } from "@/components/clinical-dashboard/use-universal-search";
@@ -192,5 +193,38 @@ describe("useUniversalSearch NDJSON integration", () => {
     expect(requestSignals[2].aborted).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(result.current).toMatchObject({ groups: [secondGroup], loading: false, query: secondQuery });
+  });
+});
+
+/**
+ * An empty group is noise; an empty DEGRADED group is a false absence. The catalogue could not be
+ * read, the in-bundle list holds no match for this query, and dropping the group shows a confident
+ * "no matches" for a question nobody answered — the same silent-absence failure as the outage that
+ * prompted all of this, one layer up.
+ */
+describe("groupIsWorthShowing", () => {
+  const group = (overrides: Partial<UniversalSearchGroup> = {}): UniversalSearchGroup => ({
+    kind: "forms",
+    total: 1,
+    items: [{ id: "a", kind: "forms", title: "A form", href: "/forms/a", score: 1 }],
+    latencyMs: 12,
+    ...overrides,
+  });
+
+  it("shows a group that has results", () => {
+    expect(groupIsWorthShowing(group())).toBe(true);
+  });
+
+  it("hides an ordinary empty group", () => {
+    expect(groupIsWorthShowing(group({ items: [], total: 0 }))).toBe(false);
+  });
+
+  it("keeps an empty group that was served from seeds", () => {
+    expect(groupIsWorthShowing(group({ items: [], total: 0, degraded: true }))).toBe(true);
+  });
+
+  it("still hides an errored group, degraded or not", () => {
+    expect(groupIsWorthShowing(group({ items: [], total: 0, error: true }))).toBe(false);
+    expect(groupIsWorthShowing(group({ items: [], total: 0, error: true, degraded: true }))).toBe(false);
   });
 });
