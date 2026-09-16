@@ -121,6 +121,29 @@ describe("a malformed answer map never completes an instrument", () => {
     expect(derived.flags).toContain(flagged.flag);
   });
 
+  it("stays started so the entry can be cleared and the invalid label renders", () => {
+    // Consumers gate the Clear button (`disabled={!derived.started}`) and the result pill
+    // (`derived.started ? derived.result.label : "Not started"`) on this flag. An invalid entry
+    // that reported `started: false` would tell the user to clear it while disabling Clear.
+    expect(auditc).toBeDefined();
+    if (!auditc) return;
+    const derived = deriveCalculator(auditc, { a1: 99 } as AnswerMap);
+
+    expect(derived.invalid).toBe(true);
+    expect(derived.started).toBe(true);
+    expect(derived.result.label).toBe("Invalid entry");
+  });
+
+  it("is not started when nothing has been entered at all", () => {
+    expect(auditc).toBeDefined();
+    if (!auditc) return;
+    const derived = deriveCalculator(auditc, {});
+
+    expect(derived.started).toBe(false);
+    expect(derived.invalid).toBe(false);
+    expect(derived.result.label).toBe("Incomplete");
+  });
+
   it("publishes no score in the copyable summary while the map is malformed", async () => {
     const { formatResultSummary } = await import("@/components/calculators/calculator-ui");
     expect(auditc).toBeDefined();

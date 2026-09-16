@@ -154,7 +154,10 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   // must never complete an instrument, because a zero-scoring fallback would
   // otherwise publish a final band off values the instrument cannot carry.
   const complete = !invalid && calc.items.every(isAnswered);
-  const started = !invalid && calc.items.some(isAnswered);
+  // A malformed map is started, not "Not started". Consumers gate the Clear button and the result
+  // pill on `started`, so treating an invalid entry as unstarted would disable the only control
+  // that clears it and would hide the "Invalid entry" label behind "Not started".
+  const started = invalid || calc.items.some(isAnswered);
   const band = complete ? bandForScore(calc, score) : undefined;
   // Safety flags stay visible while an assessment is incomplete or invalid, because an endorsed
   // risk item matters before the total does. Only flags from items whose own answer is valid are
