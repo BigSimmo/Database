@@ -5,6 +5,34 @@
 -- clozapine-fbc-acronym-threshold
 -- ============================================================================
 --
+-- ANSWERED 2026-09-16. THE CAUSE IS TABLE EXTRACTION, NOT RETRIEVAL OR RANKING.
+-- A live guest search of the production public corpus returned 12 chunks across
+-- 7 WA clozapine guidelines, so the documents are retrievable and admitted.
+-- Exactly ONE chunk bound a blood-count threshold to a stop instruction, and its
+-- text was scrambled: a three-column table read line-major across the columns,
+-- producing "Neutropenia Requires medical review. Stop clozapine. Contact
+-- WBC < 1.5 x 10 9/L. Flu-like symptoms such 3.2% haematologist ..." -- the
+-- threshold bound to "Contact" instead of to "Neutropenia". Verification
+-- correctly refused to state a clozapine threshold from that text.
+--
+-- Root cause in code: page text came from page.get_text("text", sort=True),
+-- which orders text LINES by (y, x). Fixed by extract_pdf_assets.table_aware_page_text,
+-- which substitutes the cell-by-cell rendering find_tables() already produces.
+-- Reproduced, fixed and mutation-tested in
+-- worker/python/test_extract_pdf_assets_table_reading_order.py.
+--
+-- THE FIX DOES NOT REPAIR ALREADY-INDEXED TEXT. Existing chunks keep the
+-- scrambled wording until their documents are re-ingested. STEP 6 below finds
+-- the affected chunks corpus-wide so a re-index can be scoped. Run it first now;
+-- Steps 1 to 5 are retained as the trail that got here and for re-use on the
+-- next retrieval question of this shape.
+--
+-- Clinical note for whoever reads Step 6's output: the Rockingham Peel table
+-- labels 1.5 and 0.5 x10^9/L as WBC thresholds. Those are ANC figures. Whether
+-- the source PDF mislabels them or the interleaving moved them under the wrong
+-- heading cannot be told from the extracted text, so the source document needs a
+-- human check independently of this software fix.
+--
 -- PURPOSE:
 -- Settle, with data rather than inference, why an answer IS generated for the
 -- clozapine blood-monitoring questions (~17 s of generation on the ANC case) and
@@ -345,6 +373,74 @@ cross join lateral public.match_document_chunks_text_v3(
   array['australian_public', 'international_supplementary']::text[]
 ) m
 order by m.text_rank desc;
+
+commit;
+
+-- ----------------------------------------------------------------------------
+-- Step 6: Which already-indexed chunks carry interleaved table text?
+--
+-- RUN THIS ONE FIRST. The extraction fix only applies to documents ingested
+-- after it ships, so this scopes the re-index backlog. Read-only.
+--
+-- Two independent fingerprints of line-major column interleaving:
+--   A. an action verb followed within 40 characters by a blood-count
+--      comparison, which is the clozapine signature ("Stop clozapine. Contact
+--      WBC < 1.5"). The window deliberately crosses a full stop, because
+--      splicing across sentence boundaries is exactly what interleaving does;
+--      an earlier [^.] version of this pattern missed the real chunk.
+--   B. a bare percentage wedged between two lowercase words ("such 3.2%
+--      haematologist"), which is an incidence column spliced into a prose
+--      column and needs no clozapine vocabulary to detect.
+--
+-- Fingerprint B is the corpus-wide one. Treat the output as CANDIDATES for
+-- re-ingestion, not as proof: a percentage can legitimately sit mid-sentence, so
+-- read the excerpt before acting on any row.
+-- ----------------------------------------------------------------------------
+begin;
+set local statement_timeout = '120s';
+
+select
+  d.file_name,
+  d.title,
+  c.page_number,
+  c.chunk_index,
+  c.content ~* '(withhold|cease|stop|suspend|discontinue)[^\n]{0,40}\m(wbc|anc|neutrophil|white cell)\M\s*[<≤]'
+    as action_then_threshold,
+  c.content ~ '[a-z]\s+[0-9]+(\.[0-9]+)?%\s+[a-z]'
+    as percentage_wedged_in_prose,
+  left(regexp_replace(c.content, '\s+', ' ', 'g'), 320) as excerpt
+from public.document_chunks c
+join public.documents d on d.id = c.document_id
+where d.status = 'indexed'
+  and (
+    c.content ~* '(withhold|cease|stop|suspend|discontinue)[^\n]{0,40}\m(wbc|anc|neutrophil|white cell)\M\s*[<≤]'
+    or c.content ~ '[a-z]\s+[0-9]+(\.[0-9]+)?%\s+[a-z]'
+  )
+order by action_then_threshold desc, d.file_name, c.page_number nulls last, c.chunk_index
+limit 500;
+
+commit;
+
+-- Documents to re-ingest, collapsed from the same fingerprints. This is the
+-- worklist: re-ingesting a document re-extracts every page with the fix.
+begin;
+set local statement_timeout = '120s';
+
+select
+  d.file_name,
+  d.title,
+  count(*) as suspect_chunks,
+  min(c.page_number) as first_page,
+  max(c.page_number) as last_page
+from public.document_chunks c
+join public.documents d on d.id = c.document_id
+where d.status = 'indexed'
+  and (
+    c.content ~* '(withhold|cease|stop|suspend|discontinue)[^\n]{0,40}\m(wbc|anc|neutrophil|white cell)\M\s*[<≤]'
+    or c.content ~ '[a-z]\s+[0-9]+(\.[0-9]+)?%\s+[a-z]'
+  )
+group by d.file_name, d.title
+order by suspect_chunks desc, d.file_name;
 
 commit;
 
