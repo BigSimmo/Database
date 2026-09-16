@@ -26,6 +26,20 @@ export type DictionarySenseReviewState = "candidate" | "name_checked" | "histori
 
 export type DictionarySenseEditorialPriority = "P0" | "P1" | "P2" | "P3";
 
+/**
+ * An alias as the handover records it.
+ *
+ * Deliberately not flattened to a bare string on import. `kind` distinguishes a
+ * lookup variant from a genuine synonym, and `evidenceStatus` says whether anyone
+ * has checked it — both of which a reviewer needs and neither of which survives
+ * `aliases.map((alias) => alias.value)`.
+ */
+export type DictionarySenseAlias = {
+  value: string;
+  kind: string;
+  evidenceStatus: string;
+};
+
 export type DictionarySenseProvenance = {
   document: string;
   documentSha256: string;
@@ -52,7 +66,7 @@ export type DictionarySenseDraft = {
   documentationNote: string | null;
   /** The safety qualification. Never shown apart from the meaning it qualifies. */
   warning: string | null;
-  aliases: readonly string[];
+  aliases: readonly DictionarySenseAlias[];
   availabilityNote: string | null;
   linkedSenseIds: readonly string[];
   /** Normalised tokens this sense competes for. Drives the ambiguity groups. */
@@ -180,6 +194,14 @@ export function dictionarySenseDraftIssues(
       issues.push(`${draft.id}: normalizedToken does not match token`);
     }
     if (!draft.context.trim()) issues.push(`${draft.id}: missing context`);
+    for (const alias of draft.aliases) {
+      // The declared type said `string[]` until a review caught that all 63 aliases
+      // in the corpus are objects. Checked here so the type cannot drift from the
+      // data again without a test going red.
+      if (typeof alias !== "object" || typeof alias.value !== "string" || !alias.value.trim()) {
+        issues.push(`${draft.id}: alias is not a {value, kind, evidenceStatus} record`);
+      }
+    }
     if (!draft.jurisdiction.trim()) issues.push(`${draft.id}: missing jurisdiction`);
     for (const linked of draft.linkedSenseIds) {
       if (!drafts.some((other) => other.id === linked)) issues.push(`${draft.id}: unknown linked sense ${linked}`);
@@ -209,8 +231,19 @@ export function dictionarySenseDraftIssues(
     byKey.set(key, [...(byKey.get(key) ?? []), draft.id]);
   }
   for (const [key, members] of byKey) {
-    if (members.length > 1 && !groups.some((group) => group.tokenKey === key)) {
+    if (members.length < 2) continue;
+    const group = groups.find((candidate) => candidate.tokenKey === key);
+    if (!group) {
       issues.push(`${key}: ${members.length} senses share this token but no collision group covers it`);
+      continue;
+    }
+    // Existence is not enough. A group listing two of the three `ACT` senses would
+    // pass an existence check while `dictionarySenseCollisions("ACT")` silently
+    // dropped the third meaning — which is the ambiguity rule failing quietly, the
+    // one failure mode this whole layer exists to prevent.
+    const missing = members.filter((id) => !group.senseIds.includes(id));
+    if (missing.length) {
+      issues.push(`${key}: collision group omits ${missing.join(", ")}`);
     }
   }
 

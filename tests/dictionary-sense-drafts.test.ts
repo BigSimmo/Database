@@ -27,12 +27,15 @@ import {
 import { dictionaryEntries, dictionarySource, dictionarySources } from "@/lib/dictionary-data";
 import {
   acquisitionLedgerIssues,
+  acquisitionSourceReferences,
   acquisitionRecordGeography,
   acquisitionRecordWarnings,
   sourceAcquisitionRecords,
 } from "@/lib/sources/acquisition-ledger";
 import { sourceAuthorityIsRuntimeClassifiable, sourceAuthorityRegistry } from "@/lib/source-authority-registry";
 import { sourceUsageHref } from "@/lib/sources/source-usage-presentation";
+import { canonicalizeSourceReferences } from "@/lib/sources/catalogue-core";
+import { repositorySourceReferences } from "@/lib/sources/repository-providers";
 
 describe("dictionary sense drafts", () => {
   it("carries the whole handover corpus", () => {
@@ -323,12 +326,23 @@ describe("source link routing", () => {
   });
 
   it("emits no source usage for any draft", () => {
-    // Drafts are unpublished, so they must not appear in the source catalogue's
-    // "used by" list either — a citation on an unreachable page is a broken link
-    // and an implied endorsement at the same time.
+    // Asserted against the real provider output, not against ids in two different
+    // namespaces: an earlier version of this compared draft ids with ledger ids,
+    // which can never collide and so could never have failed. What matters is that
+    // no provider emits a dictionary usage carrying a sense id, because a citation
+    // pointing at an unreachable page is a broken link and an implied endorsement
+    // at the same time.
     const senseIds = new Set(dictionarySenseDrafts.map((draft) => draft.id));
-    for (const record of sourceAcquisitionRecords) {
-      expect(senseIds.has(record.id)).toBe(false);
+    const usages = repositorySourceReferences().map((reference) => reference.usage);
+    expect(usages.length).toBeGreaterThan(0);
+    for (const usage of usages) {
+      expect(senseIds.has(usage.recordId), `${usage.modeId}/${usage.recordId}`).toBe(false);
+    }
+    // And the same through the canonicalised catalogue the /sources routes render.
+    for (const entry of canonicalizeSourceReferences(repositorySourceReferences())) {
+      for (const usage of entry.usedBy) {
+        expect(senseIds.has(usage.recordId), `${entry.id} -> ${usage.recordId}`).toBe(false);
+      }
     }
   });
 });
@@ -462,5 +476,33 @@ describe("publisher re-reads", () => {
     );
     expect(vague.length).toBeGreaterThanOrEqual(3);
     for (const disposition of vague) expect(disposition.ledgerOutcome).toBe("held");
+  });
+});
+
+describe("what a candidate actually is", () => {
+  it("renders every row this handover added as D band and unverified", () => {
+    // A review found the documentation claiming these have "no deployed catalogue
+    // visibility". They do appear at /sources — the register feeds every non-rejected
+    // row into the catalogue. What holds is narrower and is pinned here: they render
+    // at the lowest band, marked unverified, and never as approved.
+    const added = sourceAcquisitionRecords.filter((record) => record.id.startsWith("dictionary-"));
+    expect(added.length).toBeGreaterThanOrEqual(17);
+
+    const entries = canonicalizeSourceReferences(acquisitionSourceReferences(added));
+    expect(entries).toHaveLength(added.length);
+    for (const entry of entries) {
+      expect(entry.rating.band, entry.title).toBe("D");
+      expect(entry.validationStatus, entry.title).toBe("unverified");
+      expect(entry.warnings, entry.title).toContain("verification_unknown");
+    }
+  });
+
+  it("gives no added row full text, an index entry or clinical approval", () => {
+    const added = sourceAcquisitionRecords.filter((record) => record.id.startsWith("dictionary-"));
+    for (const record of added) {
+      expect(record.contentMode, record.id).toBe("link_only");
+      expect(record.disposition, record.id).toBe("candidate");
+      expect(record.validationStatus, record.id).not.toBe("approved");
+    }
   });
 });

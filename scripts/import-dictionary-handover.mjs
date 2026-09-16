@@ -67,6 +67,9 @@ const senseDrafts = content
     documentationStatus: record.documentationStatus,
     documentationNote: text(record.documentationNote),
     warning: text(record.warning),
+    // Kept as {value, kind, evidenceStatus} records rather than flattened to
+    // strings: the kind and evidence status are what tell a reviewer whether an
+    // alias was checked or merely inherited.
     aliases: record.aliases ?? [],
     availabilityNote: text(record.availabilityText),
     linkedSenseIds: record.linkedSenseIds ?? [],

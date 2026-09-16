@@ -92,7 +92,37 @@ entries.
 **Seventeen of the 58 sources are admitted to `src/data/source-acquisitions.json` as candidates**,
 up from two: the WHO AUDIT and ASSIST manuals, WA Health MP 0155/21 and its consent article, RANZCP
 PS #74, PS #116 and PPG #16, NICE NG225 and CG103, Australian Prescriber's movement-disorders
-article, and seven Healthdirect articles. That is metadata and nothing else.
+article, and seven Healthdirect articles. They are metadata rows, not indexed documents — see exactly what that does and does not mean below.
+
+### These candidates ARE visible at `/sources`
+
+An earlier draft of this document said they had "no deployed catalogue visibility". **That was
+wrong**, and a review caught it. `acquisitionProvider` feeds every non-rejected ledger row into
+`repositorySourceReferences()`, which `/sources/search` renders with a detail page each. All 17 rows
+appear there.
+
+That is the register working as designed — the eight rows already in the ledger before this change
+behave identically — and the catalogue labels them honestly: every one renders as **D band,
+`unverified`, carrying a `verification_unknown` warning**. A test pins that, so none can drift to a
+higher band or an approved status without going red.
+
+What "candidate" does mean is narrower, and is the claim that actually holds:
+
+| Has                                             | Does not have                                            |
+| ----------------------------------------------- | -------------------------------------------------------- |
+| A catalogue entry, at D band, marked unverified | Full text, or any bytes acquired                         |
+| A link to the publisher's page                  | Any index entry or retrieval eligibility                 |
+| A dated, attributable register row              | Clinical approval, or any citation from clinical content |
+
+### The handover evidence file is verbatim, and sometimes disagrees with the ledger
+
+`src/data/dictionary-source-candidates.json` is an unaltered import of what the handover recorded,
+including claims later judged wrong. Its ASSIST entry states `2010-01-01` at **day** precision; the
+ledger records the same source at **year** precision, because WHO gives only 2010.
+
+That disagreement is deliberate. Correcting the evidence file would destroy the record of what the
+handover actually claimed, which is what a reviewer needs in order to check the judgement. The
+evidence file says what was inherited; the ledger says what was concluded.
 
 Eight receipt stages are tracked per source and only the first two have been attempted:
 

@@ -73,6 +73,31 @@ export const dictionarySourceDispositions: readonly DictionarySourceDisposition[
   dispositionData as { sources: readonly DictionarySourceDisposition[] }
 ).sources;
 
+function normalizeTitle(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-AU")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Whether two titles name the same work.
+ *
+ * Containment rather than equality, because a publisher's full title is often
+ * longer than the one a citing document uses: NICE CG103 is "Delirium: prevention,
+ * diagnosis and management in hospital and long-term care", and the handover cites
+ * it without the setting. That is the same guideline. Two genuinely different works
+ * — a NICE guideline against a WHO manual — share no such prefix, which is the
+ * mis-mapping this is here to catch.
+ */
+function titlesDescribeTheSameWork(a: string, b: string): boolean {
+  const left = normalizeTitle(a);
+  const right = normalizeTitle(b);
+  if (!left || !right) return false;
+  return left.startsWith(right) || right.startsWith(left);
+}
+
 export function heldDictionarySources(): readonly DictionarySourceDisposition[] {
   return dictionarySourceDispositions.filter((disposition) => disposition.ledgerOutcome === "held");
 }
@@ -83,6 +108,7 @@ export function dictionarySourceDispositionIssues(
 ): string[] {
   const issues: string[] = [];
   const ledgerIds = new Set(sourceAcquisitionRecords.map((record) => record.id));
+  const ledgerById = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
   const seen = new Set<string>();
 
   for (const disposition of dispositions) {
@@ -95,6 +121,26 @@ export function dictionarySourceDispositionIssues(
         issues.push(`${id}: admitted but names no ledger record`);
       } else if (!ledgerIds.has(disposition.ledgerRecordId)) {
         issues.push(`${id}: names ledger record ${disposition.ledgerRecordId}, which is not in the ledger`);
+      } else {
+        // Existence alone would let the NICE disposition point at the WHO row and
+        // still pass. This id is the only link between a handover outcome and the
+        // native register, so the row it names has to be the right row and still a
+        // candidate — an adopted or rejected row means someone moved it and the
+        // disposition no longer describes reality.
+        const record = ledgerById.get(disposition.ledgerRecordId)!;
+        if (record.disposition !== "candidate") {
+          issues.push(
+            `${id}: ledger record ${record.id} is ${record.disposition}, not a candidate; this disposition is stale`,
+          );
+        }
+        if (record.contentMode !== "link_only") {
+          issues.push(`${id}: ledger record ${record.id} is no longer link-only`);
+        }
+        if (disposition.title && !titlesDescribeTheSameWork(record.title, disposition.title)) {
+          issues.push(
+            `${id}: ledger record ${record.id} is titled ${JSON.stringify(record.title)}, which is not this source`,
+          );
+        }
       }
     } else if (disposition.ledgerRecordId) {
       issues.push(`${id}: not admitted but names a ledger record`);
