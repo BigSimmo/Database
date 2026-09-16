@@ -13931,7 +13931,7 @@ as $$
     left join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
     where rr.public_visible and not rr.tombstone
       and (rr.target_publication_id is not null or
-        (rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137' and rr.target_publication_id is null))
+        ((rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137') and rr.target_publication_id is null))
   ), requested as (
     select c.logical_id, c.record, c.render_payload
     from classified c
@@ -13941,7 +13941,7 @@ as $$
     from requested r
     cross join state s
     where s.active_release_id is not null
-      and (s.initialized or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137')
+      and (s.initialized or s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137')
       and (not s.initialized or not exists (
         select 1 from public.site_content_public_records h
         where h.head_change_epoch > s.served_change_epoch
@@ -16838,7 +16838,7 @@ as $$
       coalesce(r.state = 'active' and r.release_digest = s.active_release_digest and (
         s.transition_kind in ('activation','rollback')
         or (s.transition_kind = 'bootstrap'
-          and r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
           and r.target_change_epoch = 0
           and r.release_digest = public.site_content_bootstrap_digest(r.id))
       ), false) valid
@@ -16881,7 +16881,7 @@ as $$
     join public.site_content_release_records rr on rr.release_id = s.active_release_id
     where rr.public_visible and not rr.tombstone
       and rr.target_publication_id is null
-      and rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
       and k.prefix is not null
       and rr.logical_id like k.prefix || '%'
       and (p_slug is null or rr.logical_id = k.prefix || p_slug)
@@ -16904,7 +16904,7 @@ as $$
       'state', case
         when not s.valid then 'unavailable'
         when not s.initialized then 'unavailable'
-        when s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid then 'unavailable'
+        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid) then 'unavailable'
         when exists (select 1 from outstanding) then 'updating'
         else 'current'
       end
