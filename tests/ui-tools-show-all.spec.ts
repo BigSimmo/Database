@@ -20,6 +20,13 @@ test("the legacy tools alias lands on the single tools directory", async ({ page
   await page.waitForURL(/\/tools$/);
 
   const results = page.getByTestId("tools-search-results-page");
+  // `waitForURL` resolves on the URL change, which can land while the alias page is still
+  // mounted alongside the directory it redirected to. CI caught exactly that on 2026-09-16:
+  // two `tools-search-results-page` mains at once, one of them still inside the outgoing
+  // page's composer reserve, and every locator below failed strict mode rather than the
+  // assertion it was written for. Settling on a single main first is what the test meant by
+  // "lands on the single tools directory", so this asserts it rather than working around it.
+  await expect(results).toHaveCount(1);
   await expect(results).toBeVisible();
   await expect(results.getByRole("heading", { level: 1, name: "All tools" })).toBeVisible();
   await expect(page.getByTestId("tools-shortcuts")).toBeVisible();
