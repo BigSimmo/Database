@@ -214,6 +214,11 @@ export async function GET(request: Request) {
       supabase,
       kind: "medication",
       slug: null,
+      // A Supabase edge outage must not take the catalogue offline when a complete
+      // curated copy is already in process memory. The response is labelled below and
+      // served `private, no-store`, so a retained answer is never mistaken for canonical
+      // state and never enters a shared cache.
+      fallbackToSeedsOnUnavailable: true,
       seeds: seedRecords.map((record) => ({
         record,
         governance: publicMedicationGovernance(record),
@@ -241,6 +246,10 @@ export async function GET(request: Request) {
         interpretation: ranked?.interpretation,
         total: fullRecords.length,
         governance: governanceBySlug,
+        // Present only while the canonical read is failing. `fixture` stays false for this
+        // case, so the degraded answer is served `private, no-store` and expires with the
+        // request rather than being held by a CDN for an hour after recovery.
+        ...(canonical.source === "seed_unavailable" ? { retainedSnapshot: true as const } : {}),
       },
       { request, fixture: canonical.source === "seed_uninitialized" },
     );

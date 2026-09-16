@@ -29,6 +29,12 @@ type MedicationCatalogResponse = {
     { sourceStatus: string; validationStatus: string; sourceCheckedAt?: string | null; sourcesRecorded?: boolean }
   >;
   demoMode?: boolean;
+  /**
+   * Set when the server could not reach the canonical catalogue and answered from the
+   * curated copy it ships with. Surfaces as a notice so a retained answer is never read
+   * as live published content.
+   */
+  retainedSnapshot?: boolean;
 };
 
 type MedicationDetailResponse = {
@@ -40,6 +46,7 @@ type MedicationDetailResponse = {
     sourcesRecorded?: boolean;
   };
   demoMode?: boolean;
+  retainedSnapshot?: boolean;
 };
 
 type AsyncState<T> = {

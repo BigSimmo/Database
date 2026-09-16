@@ -1,4 +1,4 @@
-import { CircleAlert, RefreshCw, Square, WifiOff } from "lucide-react";
+import { CircleAlert, DatabaseBackup, RefreshCw, Square, WifiOff } from "lucide-react";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, primaryControl } from "@/components/ui-primitives";
@@ -49,6 +49,30 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
           : isDeployedClinicalKb()
             ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
             : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+      </p>
+    </UtilityDrawer>
+  );
+}
+
+/**
+ * Shown when the server answered a registry request from the curated copy it ships
+ * with because the canonical database could not be reached. The content is real and
+ * is the same material the repository publishes from, but it is not live published
+ * state, so it is always labelled rather than served silently.
+ */
+export function RetainedSnapshotNotice({ className }: { className?: string }) {
+  return (
+    <UtilityDrawer
+      icon={DatabaseBackup}
+      title="Retained copy"
+      summary="The live catalogue is unreachable. Showing the copy stored with this app."
+      mobileSummary="Retained copy"
+      className={className}
+    >
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
+        The database did not respond, so these records come from the curated copy stored with this app rather than the
+        live catalogue. Recent edits published to the live catalogue may be missing. Check the source and review dates
+        on any record before relying on it, and reload once the connection recovers.
       </p>
     </UtilityDrawer>
   );

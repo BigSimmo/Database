@@ -82,6 +82,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       supabase,
       kind: "medication",
       slug: normalizedSlug,
+      // Same contract as the catalogue route: answer from the retained curated copy when
+      // the canonical read cannot complete, labelled and never shared-cached.
+      fallbackToSeedsOnUnavailable: true,
       seeds: seed ? [seed] : [],
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
         record: finalRenderPayload as unknown as MedicationRecord,
@@ -94,7 +97,11 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     const payload = canonical.records[0];
     if (!payload) return notFoundResponse(normalizedSlug);
     return medicationResponse(
-      { ...payload, publicAccess: true },
+      {
+        ...payload,
+        publicAccess: true,
+        ...(canonical.source === "seed_unavailable" ? { retainedSnapshot: true as const } : {}),
+      },
       { request, fixture: canonical.source === "seed_uninitialized" },
     );
   } catch (error) {
