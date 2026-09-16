@@ -345,7 +345,16 @@ export function checkProblems({ source, curated, catalog, supplemental }) {
     if (!entry.reviewedAt?.trim()) problems.push(`Reviewed section ${entry.section} has no reviewedAt.`);
   }
 
-  const catalogCodes = new Set((catalog.forms ?? []).map((form) => normalizeFormCode(form.form)));
+  // A form is only a conflict when the catalogue row carries a cue of its OWN. Catalogue
+  // membership is not a cue: the seven forms the archive never indexed now have catalogue
+  // rows for their operational guidance, and their section mapping still comes from the
+  // supplemental map -- which is where the checkable `basis` for it lives. Deleting those
+  // entries would leave those forms with no Act sections at all.
+  const catalogCodes = new Set(
+    (catalog.forms ?? [])
+      .filter((form) => parseSectionCue(form?.sourceFacts?.sectionCue).length > 0)
+      .map((form) => normalizeFormCode(form.form)),
+  );
   for (const form of supplemental?.forms ?? []) {
     if (!form.sections?.length) problems.push(`Supplemental cue for Form ${form.code} lists no sections.`);
     if (!form.basis?.trim()) {
