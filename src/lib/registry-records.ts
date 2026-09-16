@@ -182,6 +182,9 @@ export function deriveRegistrySourceFreshness(
 function outdatedCleared(row: RegistryRecordRow, referenceDate: Date): boolean {
   const reviewedAt = lastReviewEvidence(row);
   if (!reviewedAt) return false;
+  const ageDays = (referenceDate.getTime() - reviewedAt.getTime()) / (1000 * 60 * 60 * 24);
+  // Match deriveRegistrySourceFreshness: a far-future typo must not clear outdated.
+  if (ageDays < -FUTURE_DATE_TOLERANCE_DAYS) return false;
   if (reviewedAt.getTime() >= referenceDate.getTime()) return true;
   return governanceDate(row.review_due_at) !== null;
 }
