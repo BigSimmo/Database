@@ -208,24 +208,52 @@ export function isRedundantSafetySummary(summary: string, tags: readonly string[
  *  review" action: headline, hinge, safety summary, then actionable lists,
  *  ending with the on-page disclaimer. */
 export function formatDifferentialCopyText(record: DifferentialRecord): string {
+  // The hinge, immediate actions and investigations are written about the
+  // presentation group, not this diagnosis. Copied text ends up in a medical
+  // record, so each of those blocks says whose text it is rather than reading as
+  // an instruction for this diagnosis. See differentialGroupLabel below.
+  const group = differentialGroupLabel(record);
+  const groupSuffix = group
+    ? ` (${group} group, not specific to ${record.title})`
+    : " (presentation group, not diagnosis-specific)";
+  const hingeScoped = record.clinicalHingeScope === "presentation";
   const lines: string[] = [`${record.title} — ${differentialStatusLabel(record.status)} differential`];
   if (record.subtitle.trim()) lines.push(record.subtitle.trim());
-  if (record.clinicalHinge.trim()) lines.push("", `Clinical hinge: ${record.clinicalHinge.trim()}`);
+  if (record.clinicalHinge.trim()) {
+    lines.push(
+      "",
+      `${hingeScoped ? `Presentation hinge${groupSuffix}` : "Clinical hinge"}: ${record.clinicalHinge.trim()}`,
+    );
+  }
   if (record.safetySnapshot.summary.trim()) {
     lines.push("", `Must-not-miss: ${record.safetySnapshot.summary.trim()}`);
   }
   const actions = record.immediateActions.map(cleanDifferentialItem).filter(Boolean).slice(0, 6);
   if (actions.length > 0) {
-    lines.push("", "Immediate actions:");
+    lines.push("", `Immediate actions${groupSuffix}:`);
     for (const action of actions) lines.push(`- ${action}`);
   }
   const investigations = record.investigations.map(cleanDifferentialItem).filter(Boolean);
   if (investigations.length > 0) {
-    lines.push("", "Investigations:");
+    lines.push("", `Investigations${groupSuffix}:`);
     for (const investigation of investigations) lines.push(`- ${investigation}`);
   }
   lines.push("", "Clinical reference — not validated decision support. Review before use.");
   return lines.join("\n");
+}
+
+/** The presentation group a record was derived from, for labelling text that
+ *  belongs to the group rather than the diagnosis. */
+export function differentialGroupLabel(record: DifferentialRecord): string {
+  return record.currentPresentation.find((value) => value.trim())?.trim() ?? "";
+}
+
+/** Label for a section whose text describes the presentation group rather than
+ *  this diagnosis, or null when the section is the diagnosis's own. */
+export function sectionScopeLabel(section: DifferentialSection, record: DifferentialRecord): string | null {
+  if (section.scope !== "presentation") return null;
+  const group = differentialGroupLabel(record);
+  return group ? `Applies to the ${group} group` : "Applies to the presentation group";
 }
 
 const clinicalHingePrefix = /^clinical hinge:\s*/i;

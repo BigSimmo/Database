@@ -61,6 +61,7 @@ import {
   resolveSafetyFacts,
   safetyFactCompactLabel,
   sectionBadgeLabel,
+  sectionScopeLabel,
   visibleSectionItems,
   type DifferentialDetailContext,
   type DifferentialDetailTabId,
@@ -221,6 +222,17 @@ function SectionItems({
   );
 }
 
+/**
+ * Says when a section's text describes the presentation group rather than this
+ * diagnosis. The imported corpus derives hinge, action, investigation and mimic
+ * text from the group, so acute dystonia's "Bedside question" is the akathisia
+ * discriminator. Labelling it is what keeps the page from asserting it of this
+ * diagnosis. See tests/differentials-presentation-scope.test.ts.
+ */
+function ScopeNote({ label }: { label: string }) {
+  return <p className="mt-1 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">{label}</p>;
+}
+
 function SectionRow({
   section,
   record,
@@ -238,6 +250,7 @@ function SectionRow({
   const meta = rowMeta[section.tone];
   const items = useMemo(() => visibleSectionItems(section, record), [section, record]);
   const badge = sectionBadgeLabel(section, record);
+  const scopeNote = sectionScopeLabel(section, record);
 
   const iconTile = (
     <span
@@ -257,6 +270,7 @@ function SectionRow({
         {iconTile}
         <div className="min-w-0">
           <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
+          {scopeNote ? <ScopeNote label={scopeNote} /> : null}
           <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
             {section.summary}
           </p>
@@ -286,6 +300,7 @@ function SectionRow({
         {iconTile}
         <div className="min-w-0">
           <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
+          {scopeNote ? <ScopeNote label={scopeNote} /> : null}
           <p
             className={cn(
               "mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6",

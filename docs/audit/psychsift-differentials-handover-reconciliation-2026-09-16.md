@@ -171,11 +171,65 @@ Worked example, `acute-dystonia`:
   strongly suggests drug-induced parkinsonism", and says nothing about airway or
   anticholinergic reversal.
 
-This is a clinical-accuracy hazard rather than a formatting defect, and it is
-out of scope for a metadata reconciliation. The snapshot cannot be regenerated in this
-environment: `scripts/import-differentials-export.ts` reads an export zip from a
-Windows workstation path that does not exist here. Remediation is recorded as
-outstanding work for the clinical owner to direct.
+This is a clinical-accuracy hazard rather than a formatting defect. The owner
+directed a corpus-wide scope labelling remediation on 2026-09-16, which is applied
+in the commit that follows this one.
+
+### What the remediation does
+
+Presentation-scope text stays in the corpus. It is labelled as group context and is
+never presented as the diagnosis's own discriminator. No clinical content was
+authored, rewritten or deleted.
+
+- `scripts/lib/parse-differentials-export.ts` — root cause. Comparison criteria,
+  diagnosis sections and the diagnosis record now carry an explicit
+  `scope`/`clinicalHingeScope`. The presentation hinge is no longer pushed into the
+  diagnosis's "why it fits" items, and `safetySnapshot.summary` no longer falls back
+  to it.
+- `src/lib/differentials.ts` — `withPresentationScope()` derives the same labels from
+  the committed snapshot's own structure, since the snapshot predates the parser fix
+  and cannot be regenerated here (`import-differentials-export.ts` reads an export zip
+  from a Windows workstation path that does not exist in this environment).
+- `src/lib/differential-snapshot.ts` — `DifferentialTextScope`, plus
+  `diagnosisScopedHinge()` and `diagnosisOwnSummary()` so a surface showing a
+  diagnosis's own description cannot reach for a group hinge.
+- Search results, stream cards, cross-mode links and the cross-mode index now show
+  the diagnosis's own summary. The index previously projected the group hinge, which
+  is the exact trap `src/lib/dsm.ts` documents and routes around; that note is updated.
+- `formatDifferentialCopyText()` labels the hinge, immediate actions and investigations
+  with the group they belong to, because that text is copied into a medical record.
+- The detail page shows an "Applies to the &lt;group&gt; group" note on every
+  presentation-scope section.
+- `site-content-publication.ts` allows the scope fields through the public projection,
+  so a published page cannot lose the labelling.
+
+`tests/differentials-presentation-scope.test.ts` is the guard. It was written first and
+failed on three assertions against the unfixed corpus, including acute dystonia
+carrying "inner restlessness" and "thyroid function". It now passes, and it fails
+again if any future import presents group text as a diagnosis's own.
+
+Acute dystonia after the change: its own text is the dystonia phenomenology and the
+airway/laryngospasm red flags. The akathisia hinge and the thyroid workup are still
+present, labelled as the Akathisia / EPSE / Tremor / Sedation group's.
+
+### Deliberately not done: the frozen publication seed
+
+`tests/site-content-publication-route.test.ts` pins the P03 epoch-zero bootstrap
+population against a JSON block frozen inside
+`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql`. Writing
+the scope into `data/differentials-snapshot.json` changes that population, so the seed
+would have to be refreshed in the migration body plus `supabase/schema.sql` and
+`supabase/drift-manifest.json`.
+
+That migration has already reached the live database, and refreshing it needs Docker,
+which is not available in this session. Editing an applied migration is not this
+change's to make. The scope is therefore derived at catalogue load time rather than
+written into the snapshot file, which leaves the frozen seed untouched and the
+publication test green.
+
+Consequence to carry forward: records seeded from `buildDefaultDifferentialRows()`
+still carry unscoped payloads until that seed is refreshed. Everything the app renders
+is scoped.
 
 ## Residual approvals and rollback
 

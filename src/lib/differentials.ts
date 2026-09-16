@@ -9,6 +9,7 @@ import {
   type DifferentialPresentationMatch,
   type DifferentialRecordMatch,
 } from "@/lib/differential-search-composition";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import type {
   DifferentialComparisonCandidate,
   DifferentialComparisonCriterion,
@@ -18,6 +19,7 @@ import type {
   DifferentialRedFlagFlow,
   DifferentialScenarioPreset,
   DifferentialSection,
+  DifferentialSnapshot,
 } from "@/lib/differential-snapshot";
 
 export type DifferentialStreamType = "presentations" | "diagnoses";
@@ -50,8 +52,107 @@ export {
   type DifferentialSearchResultItem,
 } from "@/lib/differential-search-composition";
 
-function catalog() {
-  return loadDifferentialSnapshot();
+const DIAGNOSIS_SCOPED_SECTION_IDS = new Set(["why-it-fits", "must-not-miss"]);
+
+/**
+ * Labels every piece of a diagnosis record with whose text it is.
+ *
+ * The export parser derives each diagnosis from its presentation group, so the
+ * hinge, bedside question, immediate actions, investigations and mimics are
+ * written about the group and then stamped onto all of its diagnoses. Measured
+ * on the committed snapshot: 201 diagnoses share 31 distinct hinges, and five of
+ * the seven comparison fields are byte-identical for every candidate in all 31
+ * groups. Unlabelled, that makes the app assert the akathisia discriminator and
+ * a tremor workup of acute dystonia.
+ *
+ * The parser now emits `scope` itself (see
+ * `scripts/lib/parse-differentials-export.ts`), but the committed snapshot
+ * predates it and cannot be regenerated without the upstream export zip. This
+ * derives the same labels from the snapshot's own structure — a field identical
+ * across every sibling in a group is group text — so the corpus is correct
+ * before the next import and stays correct after it.
+ *
+ * Deliberately applied HERE rather than in `loadDifferentialSnapshot()`: that
+ * loader also feeds `buildDefaultDifferentialRows`, whose output is pinned
+ * byte-for-byte against the epoch-zero bootstrap seed frozen inside an applied
+ * migration (`tests/site-content-publication-route.test.ts`). Refreshing that
+ * seed edits a migration that has already reached the live database, which is
+ * not this change's to make. See
+ * `docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md`.
+ *
+ * Guarded by `tests/differentials-presentation-scope.test.ts`.
+ */
+function withPresentationScope(snapshot: DifferentialSnapshot): DifferentialSnapshot {
+  const groupsOf = new Map<string, string[]>();
+  const sharedByGroup = new Map<string, Map<string, string>>();
+  const hinges = new Set<string>();
+
+  for (const presentation of snapshot.presentations) {
+    const shared = new Map<string, string>();
+    const candidates = presentation.candidates ?? [];
+    if (candidates.length > 1) {
+      for (const criterion of presentation.criteria ?? []) {
+        const values = candidates.map((candidate) => candidate.comparison?.[criterion.id]).filter(Boolean);
+        if (values.length === candidates.length && new Set(values).size === 1) shared.set(criterion.id, values[0]!);
+      }
+    }
+    sharedByGroup.set(presentation.id, shared);
+    const hinge = presentation.safetySnapshot?.summary?.trim();
+    if (hinge) hinges.add(hinge);
+    for (const candidate of candidates) {
+      groupsOf.set(candidate.slug, [...(groupsOf.get(candidate.slug) ?? []), presentation.id]);
+    }
+  }
+
+  return {
+    ...snapshot,
+    presentations: snapshot.presentations.map((presentation) => ({
+      ...presentation,
+      criteria: (presentation.criteria ?? []).map((criterion) => ({
+        ...criterion,
+        scope: DIAGNOSIS_SCOPED_SECTION_IDS.has(criterion.id) ? ("diagnosis" as const) : ("presentation" as const),
+      })),
+    })),
+    diagnoses: snapshot.diagnoses.map((record) => {
+      const shared = (groupsOf.get(record.slug) ?? []).flatMap((id) => [...(sharedByGroup.get(id) ?? new Map())]);
+      const sharedByCriterion = new Map(shared);
+      const hinge = record.clinicalHinge?.trim() ?? "";
+      const hingeScope = hinge && hinges.has(hinge) ? ("presentation" as const) : ("diagnosis" as const);
+      return {
+        ...record,
+        clinicalHingeScope: hingeScope,
+        safetySnapshot: {
+          ...record.safetySnapshot,
+          // Never the presentation hinge: that put the akathisia discriminator
+          // in acute dystonia's safety summary.
+          summary:
+            hingeScope === "presentation" && record.safetySnapshot.summary?.trim() === hinge
+              ? record.safetySnapshot.tags.join(", ")
+              : record.safetySnapshot.summary,
+        },
+        sections: record.sections.map((section) => {
+          const sharedValue = sharedByCriterion.get(section.id);
+          const summary = section.summary?.trim() ?? "";
+          const isGroup = DIAGNOSIS_SCOPED_SECTION_IDS.has(section.id)
+            ? Boolean(sharedValue && summary && summary === sharedValue.trim())
+            : true;
+          const items =
+            section.id === "why-it-fits" && hingeScope === "presentation" && hinge
+              ? // The group hinge read as evidence for this diagnosis.
+                section.items.filter((item) => item.trim() !== hinge)
+              : section.items;
+          return { ...section, items, scope: isGroup ? ("presentation" as const) : ("diagnosis" as const) };
+        }),
+      };
+    }),
+  };
+}
+
+let scopedCatalog: DifferentialSnapshot | null = null;
+
+function catalog(): DifferentialSnapshot {
+  if (!scopedCatalog) scopedCatalog = withPresentationScope(loadDifferentialSnapshot());
+  return scopedCatalog;
 }
 
 export { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
@@ -361,7 +462,7 @@ export const differentialPresentationsCards: DifferentialStreamCard[] = differen
 export const differentialDiagnosesCards: DifferentialStreamCard[] = differentialRecords.map((record) => ({
   id: `diagnosis-${record.slug}`,
   title: record.title,
-  description: record.clinicalHinge,
+  description: diagnosisOwnSummary(record),
   examples: record.related.slice(0, 3).map((node) => node.label),
   href: `/differentials/diagnoses/${record.slug}`,
 }));
