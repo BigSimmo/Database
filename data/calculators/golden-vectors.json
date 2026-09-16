@@ -138,19 +138,25 @@
           "name": "all items minimum (Never / 1-2 drinks)",
           "answers": { "a1": 0, "a2": 0, "a3": 0 },
           "expectedScore": 0,
-          "expectedBand": "Lower risk"
+          "expectedBand": "Below both thresholds"
         },
         {
           "name": "all items maximum",
           "answers": { "a1": 4, "a2": 4, "a3": 4 },
           "expectedScore": 12,
-          "expectedBand": "Higher risk"
+          "expectedBand": "At or above both thresholds"
         },
         {
-          "name": "at threshold (each item scores 1)",
+          "name": "threshold for women (each item scores 1)",
           "answers": { "a1": 1, "a2": 1, "a3": 1 },
           "expectedScore": 3,
-          "expectedBand": "At threshold"
+          "expectedBand": "At the threshold for women"
+        },
+        {
+          "name": "threshold for men (a1=2, a2=1, a3=1)",
+          "answers": { "a1": 2, "a2": 1, "a3": 1 },
+          "expectedScore": 4,
+          "expectedBand": "At or above both thresholds"
         }
       ]
     }

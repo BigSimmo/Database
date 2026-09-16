@@ -221,7 +221,7 @@ describe("repository source providers", () => {
       new Set([dsmClinicalContent.source_repository]),
     );
 
-    expect(provider("calculators").references()).toHaveLength(8);
+    expect(provider("calculators").references()).toHaveLength(10);
   });
 
   it("catalogues every academic calculator evidence source with its structured provenance", () => {
@@ -235,6 +235,8 @@ describe("repository source providers", () => {
       "source:gad7",
       "source:k10",
       "source:cage",
+      "source:auditc:validation",
+      "source:auditc:thresholds",
       "source:auditc",
       "source:mdq",
       "source:sadpersons",
