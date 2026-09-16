@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
+import { ClipboardList, FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -18,6 +18,7 @@ import {
   type OnCallEntry,
   type OnCallLinkedDocument,
 } from "@/lib/on-call/entry-model";
+import { playbookFormReferences } from "@/lib/on-call/playbook-forms";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
@@ -62,7 +63,8 @@ function telHref(raw: string | undefined): string | undefined {
   return compact.length > 0 ? `tel:${compact}` : undefined;
 }
 
-const documentLinkRow = cn(cardInteractive, "flex min-h-tap w-full items-center gap-3 rounded-lg p-3 text-left");
+/** One tappable row inside a card — a linked guideline, or a referenced form. */
+const linkRow = cn(cardInteractive, "flex min-h-tap w-full items-center gap-3 rounded-lg p-3 text-left");
 
 function LinkedGuidance({
   linkedDocumentIds,
@@ -103,7 +105,7 @@ function LinkedGuidance({
   return (
     <div className="grid gap-2" data-testid={`on-call-playbook-guidance-${slug}`}>
       {resolved.map((doc) => (
-        <Link key={doc.id} href={`/documents/${doc.id}`} className={documentLinkRow}>
+        <Link key={doc.id} href={`/documents/${doc.id}`} className={linkRow}>
           <FileText className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{doc.title}</span>
@@ -113,6 +115,60 @@ function LinkedGuidance({
       ))}
     </div>
   );
+}
+
+/**
+ * The official forms this scenario names.
+ *
+ * Renders nothing when the owner named none. There is deliberately no empty
+ * state here and no "find a form" prompt: an absent form reference is not a gap
+ * to fill, and a suggestion box under an escalation ladder would read as the app
+ * proposing a statutory form of its own. Which form applies is a legal judgement
+ * this page does not make — see `src/lib/on-call/playbook-forms.ts`.
+ */
+function ReferencedForms({ entry }: { entry: OnCallEntry }) {
+  const forms = playbookFormReferences(entry);
+  if (forms.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-playbook-forms-${entry.slug}`}>
+      <h4 className={eyebrowText}>Forms referenced</h4>
+      {/* Says whose words the titles are. The code below is the owner's — they
+          typed it into this scenario — but the title beside it is the Office of
+          the Chief Psychiatrist's register, not a description the app or the
+          owner wrote. */}
+      <p className={cn("text-xs", textMuted)}>
+        Official Western Australian Mental Health Act 2014 forms named in this scenario. Titles come from the Chief
+        Psychiatrist&rsquo;s register.
+      </p>
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2">
+        {forms.map((form) => (
+          <li key={form.code}>
+            <Link
+              href={form.href}
+              className={linkRow}
+              data-testid={`on-call-playbook-form-${entry.slug}-${formTestIdPart(form.code)}`}
+            >
+              <ClipboardList className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-[color:var(--text)]">Form {form.code}</span>
+                {/* Never truncated: a clipped statutory title ("Order that
+                    person cannot continue to be&hellip;") can read as the
+                    opposite of what the form does. It wraps instead, which is
+                    what keeps this legible at 320px. */}
+                <span className={cn("block text-xs", textMuted)}>{form.title}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** A form code as a testid-safe fragment: `6B attachment` -> `6b-attachment`. */
+function formTestIdPart(code: string) {
+  return code.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
 
 function PlaybookCard({
@@ -190,6 +246,8 @@ function PlaybookCard({
           <p className={cn("text-sm", textMuted)}>No escalation steps recorded yet.</p>
         )}
       </div>
+
+      <ReferencedForms entry={entry} />
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         <h4 className={eyebrowText}>Local guidance</h4>
