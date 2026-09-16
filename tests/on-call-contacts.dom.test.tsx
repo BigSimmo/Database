@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
@@ -162,6 +162,33 @@ describe("OnCallOfflineBanner", () => {
   });
 });
 
+/**
+ * Local-time clocks for the after-hours rule, built with the `Date(y, m, d, h)`
+ * constructor so the hour under test is the hour on the reader's own phone
+ * whatever zone the test runner sits in. 16 September 2026 is a Wednesday.
+ */
+const WEEKDAY_MORNING = new Date(2026, 8, 16, 9, 0, 0);
+const WEEKDAY_NIGHT = new Date(2026, 8, 16, 22, 0, 0);
+
+const DAY_AND_NIGHT_BED_MANAGER = contact({
+  id: "55555555-5555-5555-5555-555555555555",
+  slug: "bed-manager",
+  title: "Bed manager",
+  tags: ["Ward 4B"],
+  details: { role: "Bed manager", phone: "08 9224 1111", afterHoursPhone: "0455 222 333" },
+  lastVerifiedAt: new Date(2026, 8, 10, 9, 0, 0).toISOString(),
+});
+
+const PERSONAL_CONSULTANT = contact({
+  id: "66666666-6666-6666-6666-666666666666",
+  slug: "consultant-mobile",
+  title: "Consultant mobile",
+  tags: ["Ward 4B"],
+  isPersonal: true,
+  details: { role: "Consultant mobile", phone: "0400 111 222" },
+  lastVerifiedAt: new Date(2026, 8, 10, 9, 0, 0).toISOString(),
+});
+
 describe("OnCallContactsSection", () => {
   it("renders a tel: link for the phone number so ringing the ED registrar is one tap", () => {
     render(<OnCallContactsSection entries={[FRESH_ED_REGISTRAR]} now={NOW} />);
@@ -212,5 +239,49 @@ describe("OnCallContactsSection", () => {
     render(<OnCallContactsSection entries={[]} now={NOW} />);
     expect(screen.getByTestId("on-call-contacts-empty")).toBeInTheDocument();
     expect(screen.queryByRole("heading")).toBeNull();
+  });
+
+  it("rings the direct line during the working day", () => {
+    render(<OnCallContactsSection entries={[DAY_AND_NIGHT_BED_MANAGER]} now={WEEKDAY_MORNING} />);
+    expect(screen.getByTestId("on-call-contact-row-bed-manager")).toHaveAttribute("href", "tel:0892241111");
+  });
+
+  it("rings the after-hours line at 22:00, which is when this page is actually read", () => {
+    render(<OnCallContactsSection entries={[DAY_AND_NIGHT_BED_MANAGER]} now={WEEKDAY_NIGHT} />);
+    expect(screen.getByTestId("on-call-contact-row-bed-manager")).toHaveAttribute("href", "tel:0455222333");
+  });
+
+  it("offers a copy control named for the number it copies and the contact it belongs to", () => {
+    render(<OnCallContactsSection entries={[DAY_AND_NIGHT_BED_MANAGER]} now={WEEKDAY_NIGHT} />);
+    // Named, because a bare "Copy" in a list of forty rows tells a screen-reader
+    // user nothing about which number they are about to take.
+    expect(screen.getByRole("button", { name: /copy after hours number for bed manager/i })).toBeInTheDocument();
+  });
+
+  it("keeps the copy control OUTSIDE the row's tel: link, never nested inside it", () => {
+    render(<OnCallContactsSection entries={[DAY_AND_NIGHT_BED_MANAGER]} now={WEEKDAY_NIGHT} />);
+    const row = screen.getByTestId("on-call-contact-row-bed-manager");
+    const copy = screen.getByRole("button", { name: /copy after hours number for bed manager/i });
+    // A `<button>` inside an `<a>` is invalid markup and announces one action
+    // twice; the row and the control are siblings.
+    expect(row.contains(copy)).toBe(false);
+    expect(row.querySelector("button")).toBeNull();
+  });
+
+  it("puts a number on the clipboard without its formatting", async () => {
+    const user = userEvent.setup();
+    // Stubbed after `setup()`: user-event installs a clipboard of its own, which
+    // would otherwise swallow the write this test is watching for.
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true, writable: true });
+    render(<OnCallContactsSection entries={[DAY_AND_NIGHT_BED_MANAGER]} now={WEEKDAY_NIGHT} />);
+    await user.click(screen.getByRole("button", { name: /copy after hours number for bed manager/i }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("0455222333"));
+    Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true, writable: true });
+  });
+
+  it("offers no copy control for a personal contact, whose digits the page already withholds", () => {
+    render(<OnCallContactsSection entries={[PERSONAL_CONSULTANT]} now={WEEKDAY_NIGHT} />);
+    expect(screen.queryByRole("button", { name: /copy/i })).toBeNull();
   });
 });
