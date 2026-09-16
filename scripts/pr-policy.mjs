@@ -166,6 +166,16 @@ const ragRankingPatterns = [
   // nine Australian publishers and had to declare its RAG impact voluntarily, because this gate
   // did not ask.
   /^src\/lib\/(?:source-authority-registry|australian-source-priority)\.ts$/,
+  // Ingestion decides the TEXT that becomes chunks, embeddings and cited evidence, so it
+  // moves retrieval outcomes one step further back than ranking does. AGENTS.md § RAG ranking
+  // protection names CHUNKING explicitly, yet none of these files matched any pattern here --
+  // src/lib/chunking.ts classified as neither ragRanking nor clinicalRisk. Added 2026-09-16
+  // after PR #2810 changed PDF table extraction, altering the text served as clinical
+  // evidence, and had to declare its RAG impact voluntarily because this gate did not ask.
+  // Same remedy, and same reason, as the 2026-09-07 source-authority addition above.
+  /^src\/lib\/chunking\.ts$/,
+  /^src\/lib\/extractors\//,
+  /^worker\/python\/extract_pdf_assets\.py$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -699,6 +709,14 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["tests/ranking-tuning.test.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/source-authority-registry.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/australian-source-priority.ts"]).ragRanking, true);
+  // Ingestion text surfaces: what gets chunked is a retrieval input, so these must ask for a
+  // RAG impact declaration. PR #2810 changed the first of these and the gate stayed silent.
+  assert.equal(classifyPullRequestFiles(["src/lib/chunking.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["worker/python/extract_pdf_assets.py"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/document.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/pdf-extraction-budget.ts"]).ragRanking, true);
+  // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT stays out.
+  assert.equal(classifyPullRequestFiles(["src/lib/ingestion-audit.ts"]).ragRanking, false);
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);

@@ -20,6 +20,16 @@ Code and ground truth whose edits change (or re-measure) retrieval/ranking behav
   touching a score. Added 2026-09-07 (PR #2711 declared its RAG impact voluntarily because the
   gate did not yet ask). Note this is authority _classification_, not a governance ranking
   penalty or boost — the latter stays refuted, see `refuted-approaches.md` § Refutation 3.
+- `src/lib/chunking.ts`, `src/lib/extractors/**`, `worker/python/extract_pdf_assets.py` — one
+  step further back again, and the furthest back that still counts: ingestion decides the TEXT
+  that becomes chunks, embeddings and cited evidence, so changing it changes what retrieval can
+  return and what an answer can be grounded in. `AGENTS.md` already named chunking, but until
+  2026-09-16 none of these matched a pattern here and `src/lib/chunking.ts` classified as neither
+  ragRanking nor clinicalRisk. Added after PR #2810 changed PDF table extraction — a table read
+  across its columns instead of down them had bound a clozapine withhold threshold to the wrong
+  words — and had to declare its RAG impact voluntarily because the gate did not ask. Note the
+  canary pair for an ingestion change belongs around the RE-INDEX, not around the merge: the new
+  code cannot alter any retrieval result until documents are re-ingested.
 - `scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`,
   `scripts/lib/ranking-tuning.ts`, `scripts/lib/ranking-snapshot-builder.ts`,
   `scripts/build-ranking-snapshot.ts`, `scripts/tune-search-weights.ts`
