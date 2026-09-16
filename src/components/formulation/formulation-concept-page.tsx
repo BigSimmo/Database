@@ -99,7 +99,10 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
           <InformationPageHeader
             eyebrow={isGuide ? "Formulation guide" : (group?.label ?? "Formulation concept")}
             title={record.title}
-            subtitle={record.summary}
+            // A guide module whose opening paragraph is a table has no usable
+            // one-line summary, so its summary falls back to its own title.
+            // Repeating that under the heading says nothing.
+            subtitle={record.summary === record.title ? undefined : record.summary}
             icon={isGuide ? Route : Waypoints}
             badges={
               <>
