@@ -55,17 +55,76 @@ function contactDetails(entry: OnCallEntry): ContactDetails | null {
 }
 
 /**
+ * The working day, in the ordinary hospital sense: 08:00 to 17:00, Monday to
+ * Friday. Outside it the direct desk line is the number nobody answers.
+ *
+ * Two separate constants rather than a range object because the boundary is the
+ * whole rule: 08:00 is the first in-hours minute and 17:00 the first out-of-hours
+ * one, and both are pinned by test.
+ */
+export const ON_CALL_IN_HOURS_START_HOUR = 8;
+export const ON_CALL_IN_HOURS_END_HOUR = 17;
+
+/**
+ * Is this hub being read out of hours?
+ *
+ * Exported so every screen can agree on one definition instead of each inventing
+ * its own — a home that offers the after-hours number while Contacts offers the
+ * direct one is exactly the "two different numbers for one role" problem the
+ * precedence comment below exists to prevent.
+ *
+ * Read in the **viewer's own zone**, via `getDay`/`getHours` rather than their
+ * UTC counterparts, for the same reason `onCallLocalDateKey` does: the question
+ * is what time it is for the registrar holding the phone in Perth, not what time
+ * it is on whatever server rendered the page. A UTC reading would hand a Perth
+ * registrar the daytime number at 1am (UTC+8 puts local midnight at 16:00 UTC,
+ * squarely inside a UTC working day).
+ *
+ * Deliberately approximate: it knows nothing of public holidays or a particular
+ * department's roster. It is a sensible default for which number to OFFER first,
+ * and both numbers stay visible on the row either way, so being wrong on Anzac
+ * Day costs a glance rather than a missed call.
+ */
+export function isOnCallOutOfHours(now: Date = new Date()): boolean {
+  const day = now.getDay(); // 0 = Sunday … 6 = Saturday, in the viewer's zone.
+  if (day === 0 || day === 6) return true;
+  const hour = now.getHours();
+  return hour < ON_CALL_IN_HOURS_START_HOUR || hour >= ON_CALL_IN_HOURS_END_HOUR;
+}
+
+/**
  * The one number a row rings, and what to call it.
  *
- * Direct beats after-hours beats pager beats extension — the same precedence
- * the Contacts list uses, so a role does not appear to have two different
- * numbers depending on which screen you are looking at.
+ * The precedence depends on WHEN the screen is being read, and the promise that
+ * every screen uses the same one still holds — it is one rule, evaluated against
+ * one clock, rather than one fixed order:
+ *
+ *   in hours (Mon–Fri 08:00–17:00)   direct → after hours → pager → extension
+ *   out of hours (everything else)   after hours → direct → pager → extension
+ *
+ * Why it changes: this is a hub for a junior doctor on a night shift. Offering
+ * the daytime direct line at 3am — a desk nobody is sitting at — is offering the
+ * one number that cannot help, and the after-hours number was only ever small
+ * grey text further down the Contacts page. Pager and extension stay below both,
+ * unchanged: they are how you reach someone when neither line answers.
+ *
+ * The `label` always names the number actually returned ("After hours" for an
+ * after-hours line, "Direct" for a direct one), so no screen can show a number
+ * under the wrong name — which would be worse than showing no number at all.
+ *
+ * `now` is injectable so callers and tests pin the window explicitly instead of
+ * faking the clock; it defaults to the real one.
  */
-export function onCallPrimaryNumber(entry: OnCallEntry): { label: string; value: string } | null {
+export function onCallPrimaryNumber(
+  entry: OnCallEntry,
+  now: Date = new Date(),
+): { label: string; value: string } | null {
   const details = contactDetails(entry);
   if (!details) return null;
-  if (details.phone) return { label: "Direct", value: details.phone };
-  if (details.afterHoursPhone) return { label: "After hours", value: details.afterHoursPhone };
+  const direct = details.phone ? { label: "Direct", value: details.phone } : null;
+  const afterHours = details.afterHoursPhone ? { label: "After hours", value: details.afterHoursPhone } : null;
+  const preferred = isOnCallOutOfHours(now) ? (afterHours ?? direct) : (direct ?? afterHours);
+  if (preferred) return preferred;
   if (details.pager) return { label: "Pager", value: details.pager };
   if (details.extension) return { label: "Ext", value: details.extension };
   return null;
@@ -75,11 +134,26 @@ export function onCallAvailability(entry: OnCallEntry): string | null {
   return contactDetails(entry)?.availability ?? null;
 }
 
-/** `tel:` target for a number, or undefined when there is nothing dialable. */
-export function onCallTelHref(raw: string | undefined | null): string | undefined {
+/**
+ * A number stripped to what a dialler — or a medical record, or a paging system
+ * — will accept: digits, plus a leading `+`, which is part of an international
+ * number rather than presentation.
+ *
+ * Exported because two things need exactly this string and must not disagree
+ * about it: the `tel:` link below, and the copy control that puts the number on
+ * the clipboard for pasting somewhere the app cannot reach. Returns `undefined`
+ * when there is nothing to dial ("via switchboard").
+ */
+export function onCallDialableNumber(raw: string | undefined | null): string | undefined {
   if (!raw) return undefined;
   const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
+  return compact.length > 0 ? compact : undefined;
+}
+
+/** `tel:` target for a number, or undefined when there is nothing dialable. */
+export function onCallTelHref(raw: string | undefined | null): string | undefined {
+  const compact = onCallDialableNumber(raw);
+  return compact ? `tel:${compact}` : undefined;
 }
 
 const bySortOrder = (a: OnCallEntry, b: OnCallEntry) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title);

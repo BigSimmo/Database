@@ -282,6 +282,20 @@ const AD_HOC_WORKSHOP = entry("education", {
   details: { topics: [] },
 });
 
+// A weekly session anchored on a date that has already gone by. Nothing about
+// the stored row changes as the weeks pass, so the page must do the rolling.
+const REGISTRAR_TEACHING = entry("education", {
+  id: "ffffffff-0000-0000-0000-000000000004",
+  slug: "registrar-teaching",
+  title: "Registrar teaching",
+  details: {
+    recurrence: "Third Sunday of the month",
+    nextOccurrenceDate: "2026-01-20",
+    recurrenceRule: { frequency: "monthly" },
+    topics: [],
+  },
+});
+
 describe("OnCallEducationSection", () => {
   it("orders sessions by next occurrence, soonest first, with undated sessions last", () => {
     render(<OnCallEducationSection entries={[GRAND_ROUNDS, AD_HOC_WORKSHOP, JOURNAL_CLUB]} now={NOW} />);
@@ -301,6 +315,16 @@ describe("OnCallEducationSection", () => {
     expect(recordingLink).toHaveAttribute("rel", "noopener noreferrer");
     expect(recordingLink.querySelector("svg")).not.toBeNull();
     expect(recordingLink).toHaveTextContent(/opens in a new tab/i);
+  });
+
+  it("rolls a recurring session forward instead of printing a date that has gone by", () => {
+    render(<OnCallEducationSection entries={[REGISTRAR_TEACHING]} now={NOW} />);
+    const card = screen.getByTestId("on-call-education-card-registrar-teaching");
+    // NOW is 4 September 2026; the typed anchor was 20 January.
+    expect(card).toHaveTextContent("20 Sep 2026");
+    expect(card).not.toHaveTextContent("Jan");
+    // The owner's own wording for the pattern still shows beside it.
+    expect(card).toHaveTextContent("Third Sunday of the month");
   });
 
   it("renders a real empty state when there are no teaching sessions", () => {
