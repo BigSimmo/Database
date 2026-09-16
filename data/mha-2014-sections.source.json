@@ -2,11 +2,11 @@
   "exportMetadata": {
     "format": "mha-2014-act-section-source",
     "formatVersion": 1,
-    "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-01%5D.html?OpenElement",
-    "actVersion": "02-b0-01",
+    "sourceUrl": "https://www.legislation.wa.gov.au/legislation/prod/filestore.nsf/FileURL/mrdoc_48919.htm/$FILE/Mental%20Health%20Act%202014%20-%20%5B02-b0-02%5D.html?OpenElement",
+    "actVersion": "02-b0-02",
     "actAsAt": "2025-09-25",
-    "fetchedAt": "2026-08-22T07:18:00.053Z",
-    "documentSha256": "b808fd903f6ad9c50aa9d8cf350d54c42e5838afc66411d522228e79c6383e39",
+    "fetchedAt": "2026-09-16T09:40:37.041Z",
+    "documentSha256": "921a5174712405a8298ec350e1be275e0664c62092519d87ae3886a135dd2d0c",
     "extractorVersion": 1,
     "counts": {
       "sections": 79

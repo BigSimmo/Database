@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "2f013142-e84e-4013-915b-b69041979f7d",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6a2f5c89-5478-429d-8eb3-2e6a90522bf6",
+    "reason": "Resolved in this branch before reconciliation. 02-b0-01 was withdrawn (its filestore URL 404s and it is not listed among the versions of the Act); 02-b0-02 replaced it at the same 25 Sep 2025 currency start, so the law did not change. The pin moved via --refresh and all 79 cited sections came back byte-identical, so no summary was invalidated. See commit 2d05eb0aa."
+  }
+}

@@ -116,3 +116,11 @@ f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0:supabase/migrations/20260824122000_add_
 # "Vulvovaginal Candidiasis (Thrush)"). Clinical catalogue text, not credentials.
 d80752962a611cd6d2ee5bc0f11595c78c175916:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
 d80752962a611cd6d2ee5bc0f11595c78c175916:supabase/schema.sql:generic-api-key:13398
+# Same reviewed clinical `key` labels (Withdrawal / Thrush indication text) as the
+# d8075296 / f8da9503 pins above. These two commits on #2821 refreshed the P03
+# bootstrap blobs; generic-api-key still misclassifies the JSON key fields.
+# DESCRIBED, NEVER QUOTED. Both the migration and the mirrored schema.sql line.
+7096ceef0eb531835fd3d13a0de0d0878a6fe6fb:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+7096ceef0eb531835fd3d13a0de0d0878a6fe6fb:supabase/schema.sql:generic-api-key:13398
+2d05eb0aadbb917b65d7f8fdd13a6dc330961d02:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+2d05eb0aadbb917b65d7f8fdd13a6dc330961d02:supabase/schema.sql:generic-api-key:13398

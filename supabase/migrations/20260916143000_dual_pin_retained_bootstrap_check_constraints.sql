@@ -1,26 +1,26 @@
 -- Dual-pin retained-bootstrap CHECK constraints and
--- read_site_content_public_records bootstrap predicates (#2820).
+-- read_site_content_public_records bootstrap predicates (#2820), widened to
+-- the retained triple-pin set during merge with #2821 so this earlier version
+-- cannot narrow away ddc94ecf if applied beside
+-- 20260916160000_triple_pin_retained_bootstrap_release_ids.sql.
 --
 -- WHY. #2814 refreshed the epoch-zero population and re-keyed the content-addressed
 -- release id from e4a1dd29-14f6-556c-8fb7-f4f947d8b846 to
 -- 91ceaa8d-470c-5661-8ce6-980c2a1bb137 across schema.sql and the historical
--- bootstrap migration text. An applied migration is not re-run, so live still
--- carries the e4a1dd29 pins in:
+-- bootstrap migration text. #2821 later re-keyed again onto
+-- ddc94ecf-3527-5b4d-846b-af5724b428ca. An applied migration is not re-run, so
+-- live may still carry e4a1dd29 and/or 91ceaa8d pins in:
 --   - site_content_release_records_check1
 --   - site_content_sync_state_transition_pointer_check
 --   - read_site_content_public_records (from 20260916103000)
--- while the drift manifest / schema.sql mirror pinned only 91ceaa8d for the
--- CHECKs (and the function body in schema.sql). live-drift.yml reported
--- UNEXPECTED DRIFT (2) on the CHECKs with migration history otherwise aligned
--- (246=246); the function pin was a latent chain-mirror/live mismatch the same
--- re-key left behind. See issue #2820 and
+-- while a freshly replayed schema seeds ddc94ecf. See issue #2820 and
 -- src/lib/site-content/site-content-health.ts (RETAINED_BOOTSTRAP_RELEASE_IDS).
 --
 -- THE CHANGE. Widen both CHECKs and the three bootstrap predicates inside
--- read_site_content_public_records to accept either retained bootstrap
--- identity, matching the health probe's dual recognition. Existing live rows
--- and the live function path with e4a1dd29 continue to satisfy; a freshly
--- replayed schema that seeds 91ceaa8d also satisfies. No data rewrite.
+-- read_site_content_public_records to accept any of the three retained
+-- bootstrap identities (union / triple-pin), matching the health probe.
+-- Existing live rows with e4a1dd29 / 91ceaa8d continue to satisfy; a freshly
+-- replayed schema that seeds ddc94ecf also satisfies. No data rewrite.
 --
 -- LOCKS. Both ALTER TABLE pairs take ACCESS EXCLUSIVE. Bounded local lock and
 -- statement timeouts fail and roll back a busy deploy instead of waiting
@@ -34,7 +34,7 @@
 -- (copy from 20260916103000), and updating supabase/schema.sql to match in the
 -- same change.
 --
--- NOT DONE HERE. This does not re-key live data onto 91ceaa8d and does not edit
+-- NOT DONE HERE. This does not re-key live data onto ddc94ecf and does not edit
 -- applied historical migrations.
 
 set local search_path = public, pg_catalog;
@@ -51,6 +51,7 @@ alter table public.site_content_release_records
       and (
         release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
         or release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid
       )
       and jsonb_typeof(record) = 'object'
       and jsonb_typeof(render_payload) = 'object'
@@ -72,6 +73,7 @@ alter table public.site_content_sync_state
       and (
         active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
         or active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid
       )
       and served_change_epoch = 0
       and active_transition_receipt_id is null
@@ -102,7 +104,7 @@ as $$
       coalesce(r.state = 'active' and r.release_digest = s.active_release_digest and (
         s.transition_kind in ('activation','rollback')
         or (s.transition_kind = 'bootstrap'
-          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
+          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
           and r.target_change_epoch = 0
           and r.release_digest = public.site_content_bootstrap_digest(r.id))
       ), false) valid
@@ -145,7 +147,7 @@ as $$
     join public.site_content_release_records rr on rr.release_id = s.active_release_id
     where rr.public_visible and not rr.tombstone
       and rr.target_publication_id is null
-      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
+      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or rr.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and k.prefix is not null
       and rr.logical_id like k.prefix || '%'
       and (p_slug is null or rr.logical_id = k.prefix || p_slug)
@@ -168,7 +170,7 @@ as $$
       'state', case
         when not s.valid then 'unavailable'
         when not s.initialized then 'unavailable'
-        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid) then 'unavailable'
+        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or s.active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid) then 'unavailable'
         when exists (select 1 from outstanding) then 'updating'
         else 'current'
       end

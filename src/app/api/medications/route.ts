@@ -266,6 +266,11 @@ export async function GET(request: Request) {
         interpretation: ranked?.interpretation,
         total: fullRecords.length,
         governance: governanceBySlug,
+        // `catalogue-seed-fallback` is explicit that `degraded` must never be dropped on the
+        // floor: seeds can lag anything published since the last release, so the reader has to be
+        // told the list may be stale. This route was still dropping it. `MedicationResultsView`
+        // turns it into the "Retained copy" notice.
+        ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
       },
       // Not widened to cover `canonical.degraded`: `fixture` lengthens public caching, which would
       // pin a stale seed list in front of a database that may recover in thirty seconds.

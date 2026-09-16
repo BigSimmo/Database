@@ -61,12 +61,15 @@ describe("read_site_content_public_records keeps the kind filter where the plann
     expect(body).not.toMatch(/where\s+c\.kind\s*=\s*p_kind/);
   });
 
-  it("still restricts the publication-less branch to the bootstrap release", () => {
+  it("still restricts the publication-less branch to retained bootstrap releases", () => {
     // The only rows the old WHERE admitted with a null target_publication_id. Losing this would
     // expose unpublished release records, which is a correctness and governance failure, not a
-    // performance one.
+    // performance one. Accept every retained epoch-zero identity so fresh replay (ddc94ecf) and
+    // live DBs still holding e4a1dd29 / 91ceaa8d all keep serving bootstrap records.
     expect(body).toContain("rr.target_publication_id is null");
-    expect(body).toContain("rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid");
+    expect(body).toContain("e4a1dd29-14f6-556c-8fb7-f4f947d8b846");
+    expect(body).toContain("91ceaa8d-470c-5661-8ce6-980c2a1bb137");
+    expect(body).toContain("ddc94ecf-3527-5b4d-846b-af5724b428ca");
   });
 
   it("keeps the security boundary the function is reachable through", () => {

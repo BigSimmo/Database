@@ -159,3 +159,33 @@ Ordered by what would have caught _this_, soonest first.
    an access condition that the old source had accumulated over months. None was mentioned in the
    change. A swap of this shape should list the properties of the thing being replaced and say, for
    each, whether it is preserved or deliberately dropped.
+
+## Two additions from the Sentry side of the same day
+
+Reviewed after this audit landed, from production telemetry rather than the search path.
+
+### `/api/medications` was dropping `degraded` on the floor
+
+`catalogue-seed-fallback` returns `degraded` precisely so a caller can tell the reader the list may
+lag anything published since the last release, and its own header says never to drop it. The
+universal-search surface honours that. The medication catalogue route did not: it took the fallback
+and answered 200 with a seed catalogue presented as live. It now sets `retainedSnapshot` on the body
+and `MedicationResultsView` renders the "Retained copy" notice, pointing the reader at the record's
+own page, which still reads canonically. Pinned by the two cases added to
+`tests/medications-route.test.ts`.
+
+This is the same failure shape as point 2 above, one layer out. Making degradation loud in the logs
+does not make it visible to the person reading the screen.
+
+### A second, unrelated outage the same week
+
+On 2026-09-15 at 18:00 UTC the project's Supabase edge returned HTTP 520 (x20) plus 521, 522, 525 and 503. Those are Cloudflare origin-connection codes and they carry an HTML error page rather than a
+PostgREST body, which is why fragments of that page ("What happened?", "the bottom of this error
+page") appear as bogus frames in the captured stack. Sentry recorded 247 events across four days on
+`/api/medications`. This is an upstream availability failure, distinct from the slow read this audit
+is about, and the budget-and-fallback mechanism already absorbs it.
+
+Diagnosing it surfaced a separate defect in the error tracker: the fingerprint took the minified
+filename and function verbatim, and both are regenerated on every build, so one recurring fault had
+split across 25 separate Sentry issues. See `docs/error-tracking.md` for the normalisation and why
+the minified-identifier pattern stops at two characters.

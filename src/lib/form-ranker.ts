@@ -39,6 +39,13 @@ export type FormCatalogDetails = {
   destination: string;
   authorises: string;
   doesNotAuthorise: string;
+  /**
+   * What the form stops short of, in the form's own statutory terms -- "signing Form 3C
+   * does not start a fresh 72-hour period", "cancellation does not itself supply
+   * apprehension or transport authority". Distinct from `doesNotAuthorise`, which is the
+   * generic disclaimer; a boundary is the specific trap the Act sets for this form.
+   */
+  boundaries?: string[];
   before: string[];
   parallel: string[];
   after: string[];
@@ -87,6 +94,14 @@ export type FormCatalogDetails = {
   officialPdfEditingRestricted?: boolean;
   officialTitleCheckedAt: string;
   archiveGeneratedAt?: string;
+  /**
+   * Review state of the operational guidance -- purpose, maker, threshold, clock,
+   * boundaries, traps, pre-use checks, safety pearl -- from
+   * `data/forms-content-review.json`. `drafted` means written from the Act text and the
+   * approved form with no clinician sign-off, and the UI says so; it is never inferred
+   * from the content being present.
+   */
+  contentReviewStatus?: "drafted" | "reviewed";
 };
 
 export function formCatalogDetails(record: FormRecord): FormCatalogDetails | null {
