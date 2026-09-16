@@ -33,7 +33,6 @@ import {
   type MedicationTabId,
 } from "@/components/clinical-dashboard/medication-nav-header";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { RetainedSnapshotNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
 import {
   medicationAccessBadges,
@@ -470,7 +469,6 @@ export function MedicationRecordPage({
       </Sheet>
       <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
         <div className="mt-3">
-          {data?.retainedSnapshot ? <RetainedSnapshotNotice className="mb-3" /> : null}
           {/* Findings against the entered patient belong on the page, not only
               behind the patient sheet — arriving here from a result row flagged
               "2 interactions" should not mean hunting for them. Renders nothing

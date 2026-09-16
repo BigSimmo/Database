@@ -7,7 +7,6 @@ import {
   rowToPresentationWorkflow,
   type DifferentialRecordRow,
 } from "@/lib/differential-records";
-import { logger } from "@/lib/logger";
 import { rowToMedicationRecord, type MedicationRecordRow } from "@/lib/medication-records";
 import {
   clinicalRegistryRecordToCorpusEntry,
@@ -485,21 +484,6 @@ function publicProjection(value: unknown): unknown {
   );
 }
 
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
-}
-
-/** The seeds a request would have been answered with, narrowed to one slug when asked for one. */
-function seedsForRequest<T>(seeds: readonly T[], slug: string | null): T[] {
-  if (!slug) return [...seeds];
-  return seeds.filter((seed) => {
-    const value = seed as Record<string, unknown>;
-    const record = value.record as Record<string, unknown> | undefined;
-    const workflow = value.workflow as Record<string, unknown> | undefined;
-    return value.slug === slug || record?.slug === slug || workflow?.id === slug;
-  });
-}
-
 export async function readCanonicalSiteContentRecords<T>(input: {
   supabase: unknown;
   kind: string;
@@ -513,33 +497,11 @@ export async function readCanonicalSiteContentRecords<T>(input: {
    * so an operator always sees their own change immediately.
    */
   cache?: boolean;
-  /**
-   * Opt in to answering from `seeds` when the canonical read itself fails to complete —
-   * a transport error, an unreachable database, or an upstream edge returning an HTML
-   * error page rather than a PostgREST response.
-   *
-   * This is deliberately NOT the default. Publication, reconciliation and any operator
-   * surface must keep failing loudly, because a silent fall back to the shipped snapshot
-   * would let an operator believe they were looking at live canonical state. Only
-   * read-only public catalogue routes, where the shipped snapshot is the same curated
-   * material the repository already serves before first publication, may opt in — and a
-   * caller that does is responsible for labelling the response as a retained copy and for
-   * keeping it out of shared caches.
-   *
-   * Introduced after the 2026-09-15 18:00 UTC Supabase edge incident, when 20x HTTP 520
-   * plus 521/522/525/503 responses from the project's Cloudflare front end took the whole
-   * medication catalogue to a 500 while a complete curated copy sat in process memory.
-   */
-  fallbackToSeedsOnUnavailable?: boolean;
   mapRecord?: (representation: {
     canonicalRecord: Record<string, unknown>;
     finalRenderPayload: Record<string, unknown>;
   }) => T;
-}): Promise<{
-  records: T[];
-  source: "canonical_public" | "seed_uninitialized" | "seed_unavailable";
-  snapshot: unknown | null;
-}> {
+}): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
   const readRows = async (signal?: AbortSignal) => {
     const { data, error } = await callRpc(
       input.supabase as RpcClient,
@@ -554,35 +516,16 @@ export async function readCanonicalSiteContentRecords<T>(input: {
     if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
     return data as Array<Record<string, unknown>>;
   };
-  const readCanonicalRows = async () =>
-    input.cache
-      ? (
-          await readSiteContentRecordsCached({
-            kind: input.kind,
-            slug: input.slug,
-            signal: input.signal,
-            read: readRows,
-          })
-        ).rows
-      : await readRows(input.signal);
-
-  let rows: Array<Record<string, unknown>>;
-  try {
-    rows = await readCanonicalRows();
-  } catch (error) {
-    // An abort is the caller withdrawing the request, not the database being
-    // unavailable, so it always propagates.
-    if (!input.fallbackToSeedsOnUnavailable || isAbortError(error)) throw error;
-    input.signal?.throwIfAborted();
-    // No error text is logged: an upstream failure body can be an entire HTML error
-    // page, and the route/kind pair is all that is needed to correlate with the
-    // provider's own status.
-    logger.warn("Canonical site-content read unavailable; serving the retained snapshot", {
-      kind: input.kind,
-      scope: input.slug ? "record" : "collection",
-    });
-    return { records: seedsForRequest(input.seeds, input.slug), source: "seed_unavailable", snapshot: null };
-  }
+  const rows = input.cache
+    ? (
+        await readSiteContentRecordsCached({
+          kind: input.kind,
+          slug: input.slug,
+          signal: input.signal,
+          read: readRows,
+        })
+      ).rows
+    : await readRows(input.signal);
   const initialized = rows.some((row) => row.initialized === true);
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot ?? null;
   const retainedReleaseId =
@@ -590,7 +533,15 @@ export async function readCanonicalSiteContentRecords<T>(input: {
       ? (snapshot as Record<string, unknown>).releaseId
       : null;
   if (rows.length > 0 && !initialized && snapshot === null && typeof retainedReleaseId !== "string") {
-    return { records: seedsForRequest(input.seeds, input.slug), source: "seed_uninitialized", snapshot };
+    const seeds = input.slug
+      ? input.seeds.filter((seed) => {
+          const value = seed as Record<string, unknown>;
+          const record = value.record as Record<string, unknown> | undefined;
+          const workflow = value.workflow as Record<string, unknown> | undefined;
+          return value.slug === input.slug || record?.slug === input.slug || workflow?.id === input.slug;
+        })
+      : [...input.seeds];
+    return { records: seeds, source: "seed_uninitialized", snapshot };
   }
   const records = rows.flatMap((row) => {
     const canonicalRecord = row.record;

@@ -55,24 +55,25 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 }
 
 /**
- * Shown when the server answered a registry request from the curated copy it ships
- * with because the canonical database could not be reached. The content is real and
- * is the same material the repository publishes from, but it is not live published
- * state, so it is always labelled rather than served silently.
+ * Shown when `readCatalogueWithSeedFallback` served the in-bundle catalogue because the
+ * canonical read failed, timed out, or is inside its cooldown. The content is real and is
+ * the same material the repository publishes from, but it can lag anything published since
+ * the last release, which is exactly why that helper returns `degraded` rather than
+ * swallowing it. Never let a caller drop that flag without telling the reader.
  */
 export function RetainedSnapshotNotice({ className }: { className?: string }) {
   return (
     <UtilityDrawer
       icon={DatabaseBackup}
       title="Retained copy"
-      summary="The live catalogue is unreachable. Showing the copy stored with this app."
+      summary="The live catalogue did not answer. Showing the copy stored with this app."
       mobileSummary="Retained copy"
       className={className}
     >
       <p className="text-base-minus leading-6 text-[color:var(--warning)]">
-        The database did not respond, so these records come from the curated copy stored with this app rather than the
-        live catalogue. Recent edits published to the live catalogue may be missing. Check the source and review dates
-        on any record before relying on it, and reload once the connection recovers.
+        The live catalogue did not answer in time, so these records come from the copy stored with this app. Anything
+        published since the last release may be missing. Each record&apos;s own page still reads live, so open it to
+        confirm before relying on this list. The app retries on its own within about thirty seconds.
       </p>
     </UtilityDrawer>
   );

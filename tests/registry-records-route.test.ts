@@ -119,7 +119,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
 function createSupabaseMock(
   resolve: QueryResolver = () => ok([]),
-  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+  options: { canonicalRows?: unknown[]; limited?: boolean; canonicalRead?: () => Promise<QueryResult> } = {},
 ) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
@@ -141,7 +141,9 @@ function createSupabaseMock(
           ],
           error: null,
         }
-      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
+      : options.canonicalRead
+        ? options.canonicalRead()
+        : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -703,4 +705,43 @@ describe("registry records API", () => {
     expect(response.status).toBe(200);
     expect(client.calls.some((call) => call.upsert)).toBe(false);
   });
+});
+
+/**
+ * The symptom the operator actually reported on 2026-09-16: Forms search sat on "Searching…" and
+ * never resolved. This route had no budget on its canonical read at all, so a catalogue read that
+ * was never going to finish in time simply held the request open. Universal search timed out at
+ * 2500 ms and returned an empty group; this route did not even do that.
+ *
+ * Both cases must answer from the in-bundle catalogue instead, and must NOT be marked publicly
+ * cacheable — a degraded response pinned at a CDN would outlive the thirty-second cooldown that
+ * lets the database recover on its own.
+ */
+describe("registry records survive an unusable catalogue", () => {
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it.each([
+    ["rejects", () => Promise.reject(new Error("canonical read failed"))],
+    ["never settles", () => new Promise<QueryResult>(() => {})],
+  ])(
+    "serves the in-bundle catalogue when the canonical read %s",
+    async (_label, canonicalRead) => {
+      const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+      clearCatalogueSeedFallbackCooldown();
+      const client = createSupabaseMock(undefined, { canonicalRead: canonicalRead as () => Promise<QueryResult> });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/registry/records/route");
+
+      const response = await GET(request("/api/registry/records?kind=form"));
+      const payload = (await response.json()) as { records: unknown[] };
+
+      expect(response.status).toBe(200);
+      expect(payload.records.length).toBeGreaterThan(0);
+      expectPrivateCache(response);
+    },
+    20_000,
+  );
 });

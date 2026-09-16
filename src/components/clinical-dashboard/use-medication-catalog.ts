@@ -30,9 +30,9 @@ type MedicationCatalogResponse = {
   >;
   demoMode?: boolean;
   /**
-   * Set when the server could not reach the canonical catalogue and answered from the
-   * curated copy it ships with. Surfaces as a notice so a retained answer is never read
-   * as live published content.
+   * Set when `readCatalogueWithSeedFallback` served the in-bundle catalogue because the
+   * canonical read failed, timed out, or is inside its cooldown. Surfaces as a notice so a
+   * possibly stale list is never read as live published content.
    */
   retainedSnapshot?: boolean;
 };
@@ -46,7 +46,6 @@ type MedicationDetailResponse = {
     sourcesRecorded?: boolean;
   };
   demoMode?: boolean;
-  retainedSnapshot?: boolean;
 };
 
 type AsyncState<T> = {
