@@ -12668,7 +12668,7 @@ create table public.site_content_release_records (
   unique (release_id, logical_document_id),
   unique (release_id, logical_chunk_id),
   check ((tombstone and embedding is null and not public_visible) or (not tombstone and public_visible)),
-  check ((target_publication_id is null and release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+  check ((target_publication_id is null and (release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
       and jsonb_typeof(record) = 'object' and jsonb_typeof(render_payload) = 'object') or
     (target_publication_id is not null and jsonb_typeof(record) = 'object' and jsonb_typeof(render_payload) = 'object')),
   foreign key (target_publication_id, logical_id)
@@ -16768,7 +16768,8 @@ $$;
 alter table public.site_content_sync_state
   add constraint site_content_sync_state_transition_pointer_check check (
     (not initialized
-      and active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+      and (active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
       and served_change_epoch = 0
       and active_transition_receipt_id is null)
     or (initialized and active_transition_receipt_id is not null)
