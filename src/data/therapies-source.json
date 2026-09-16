@@ -34,7 +34,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -127,7 +127,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -217,7 +217,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -310,7 +310,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -398,7 +398,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -484,7 +484,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -576,7 +576,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -665,7 +665,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -751,7 +751,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -842,7 +842,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -935,7 +935,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -1023,7 +1023,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -1109,7 +1109,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1197,7 +1197,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1286,7 +1286,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1378,7 +1378,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1466,7 +1466,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1551,7 +1551,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1637,7 +1637,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1722,7 +1722,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1809,7 +1809,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1901,7 +1901,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -1991,7 +1991,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -2081,7 +2081,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -2167,7 +2167,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -2258,7 +2258,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -2352,7 +2352,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -2439,7 +2439,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -2531,7 +2531,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -2622,7 +2622,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -2713,7 +2713,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -2802,7 +2802,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -2893,7 +2893,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -2979,7 +2979,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3068,7 +3068,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -3160,7 +3160,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -3247,7 +3247,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3338,7 +3338,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3425,7 +3425,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3516,7 +3516,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3604,7 +3604,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -3689,7 +3689,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3780,7 +3780,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3867,7 +3867,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -3960,7 +3960,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4051,7 +4051,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -4138,7 +4138,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4229,7 +4229,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4318,7 +4318,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4407,7 +4407,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4499,7 +4499,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4589,7 +4589,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -4681,7 +4681,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4769,7 +4769,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4855,7 +4855,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -4948,7 +4948,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -5037,7 +5037,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -5123,7 +5123,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5209,7 +5209,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5300,7 +5300,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5387,7 +5387,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5476,7 +5476,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5568,7 +5568,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -5655,7 +5655,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -5742,7 +5742,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5831,7 +5831,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -5919,7 +5919,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -6009,7 +6009,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6095,7 +6095,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6183,7 +6183,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6268,7 +6268,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6355,7 +6355,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -6442,7 +6442,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -6528,7 +6528,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6616,7 +6616,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -6704,7 +6704,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -6792,7 +6792,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6882,7 +6882,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -6974,7 +6974,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7061,7 +7061,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7150,7 +7150,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7240,7 +7240,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7327,7 +7327,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7415,7 +7415,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7503,7 +7503,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7594,7 +7594,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7679,7 +7679,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 71,
     "tags": [
@@ -7762,7 +7762,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7853,7 +7853,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -7939,7 +7939,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8028,7 +8028,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8119,7 +8119,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8206,7 +8206,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -8294,7 +8294,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -8382,7 +8382,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8476,7 +8476,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8565,7 +8565,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8651,7 +8651,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8740,7 +8740,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8828,7 +8828,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -8918,7 +8918,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -9005,7 +9005,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -9098,7 +9098,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -9189,7 +9189,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -9276,7 +9276,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -9364,7 +9364,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -9449,7 +9449,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -9537,7 +9537,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -9625,7 +9625,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -9718,7 +9718,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -9810,7 +9810,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -9899,7 +9899,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -9990,7 +9990,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10079,7 +10079,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10169,7 +10169,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -10258,7 +10258,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10347,7 +10347,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -10436,7 +10436,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10524,7 +10524,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -10612,7 +10612,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10697,7 +10697,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -10785,7 +10785,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -10872,7 +10872,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -10962,7 +10962,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11049,7 +11049,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11135,7 +11135,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11227,7 +11227,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11318,7 +11318,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -11406,7 +11406,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11490,7 +11490,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11574,7 +11574,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11660,7 +11660,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -11748,7 +11748,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11832,7 +11832,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -11917,7 +11917,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12004,7 +12004,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12093,7 +12093,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12182,7 +12182,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12272,7 +12272,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12363,7 +12363,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -12453,7 +12453,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12543,7 +12543,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -12632,7 +12632,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12720,7 +12720,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12811,7 +12811,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12900,7 +12900,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -12985,7 +12985,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13072,7 +13072,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13160,7 +13160,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13246,7 +13246,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13332,7 +13332,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13423,7 +13423,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13509,7 +13509,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13596,7 +13596,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13683,7 +13683,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 71,
     "tags": [
@@ -13772,7 +13772,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13865,7 +13865,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -13953,7 +13953,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14043,7 +14043,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14129,7 +14129,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14214,7 +14214,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14303,7 +14303,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14396,7 +14396,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14485,7 +14485,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14572,7 +14572,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -14663,7 +14663,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 71,
     "tags": [
@@ -14753,7 +14753,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14842,7 +14842,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -14929,7 +14929,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15016,7 +15016,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -15106,7 +15106,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15197,7 +15197,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 71,
     "tags": [
@@ -15281,7 +15281,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15369,7 +15369,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15457,7 +15457,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -15543,7 +15543,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15636,7 +15636,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -15729,7 +15729,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15813,7 +15813,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15899,7 +15899,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -15990,7 +15990,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16079,7 +16079,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16169,7 +16169,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16258,7 +16258,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16349,7 +16349,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16439,7 +16439,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -16527,7 +16527,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16616,7 +16616,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16706,7 +16706,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16791,7 +16791,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16880,7 +16880,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -16970,7 +16970,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17062,7 +17062,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -17154,7 +17154,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -17245,7 +17245,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17334,7 +17334,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 100,
     "reviewCompleteness": 57,
     "tags": [
@@ -17421,7 +17421,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17507,7 +17507,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17592,7 +17592,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17680,7 +17680,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17769,7 +17769,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17859,7 +17859,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -17952,7 +17952,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -18042,7 +18042,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
@@ -18134,7 +18134,7 @@
     "contentOrigin": "local-database",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": false,
-    "sourceCompleteness": 100,
+    "sourceCompleteness": null,
     "indexCompleteness": 92,
     "reviewCompleteness": 57,
     "tags": [
