@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -504,5 +505,24 @@ describe("what a candidate actually is", () => {
       expect(record.disposition, record.id).toBe("candidate");
       expect(record.validationStatus, record.id).not.toBe("approved");
     }
+  });
+});
+
+describe("the handover guide states the counts the data actually holds", () => {
+  it("keeps the admitted/held split in step with the dispositions", () => {
+    // A stale review comment was once applied literally and wrote a number that had
+    // been correct two commits earlier into the clinical handover contract. Read the
+    // guide against the data rather than trusting either figure.
+    const guide = readFileSync(new URL("../docs/dictionary-editorial-drafts.md", import.meta.url), "utf8");
+    const admitted = dictionarySourceDispositions.filter(
+      (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
+    ).length;
+    const held = heldDictionarySources().length;
+
+    const row = guide.match(/58 records: (\d+) admitted as ledger candidates, (\d+) held/);
+    expect(row, "the source-outcomes row is missing from the guide").not.toBeNull();
+    expect(Number(row![1])).toBe(admitted);
+    expect(Number(row![2])).toBe(held);
+    expect(admitted + held).toBe(dictionarySourceDispositions.length);
   });
 });
