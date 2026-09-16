@@ -231,3 +231,108 @@ describe("registry-records rowGovernance", () => {
     expect(governance.sourceStatus).toBe("review_due");
   });
 });
+
+describe("registry-records rowGovernance read-time ageing", () => {
+  function makeRegistryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecordRow {
+    return {
+      id: "11111111-1111-4111-8111-111111111111",
+      owner_id: "22222222-2222-4222-8222-222222222222",
+      slug: "test-service",
+      kind: "service",
+      title: "Test Service",
+      subtitle: null,
+      route: null,
+      eligibility: null,
+      cost: null,
+      referral: null,
+      location: null,
+      best_use: null,
+      catalogue_label: null,
+      navigator_query: null,
+      tags: [],
+      catchments: [],
+      status_chips: [],
+      primary_contact: null,
+      contacts: [],
+      summary_cards: [],
+      referral_info: [],
+      criteria: [],
+      verification: {},
+      source: {},
+      catalog_payload: {},
+      source_status: "current",
+      validation_status: "unverified",
+      last_reviewed_at: "2026-06-01T00:00:00.000Z",
+      review_due_at: "2026-09-01T00:00:00.000Z",
+      created_at: "2026-05-14T00:00:00.000Z",
+      updated_at: "2026-05-14T00:00:00.000Z",
+      ...overrides,
+    };
+  }
+
+  const reference = new Date("2026-09-14T00:00:00.000Z");
+
+  it("downgrades a stored current record once its review date has passed", () => {
+    const governance = rowGovernance(makeRegistryRow(), reference);
+    expect(governance.sourceStatus).toBe("review_due");
+  });
+
+  it("keeps a stored current record while its review date is still ahead", () => {
+    const row = makeRegistryRow({ review_due_at: "2026-12-01T00:00:00.000Z" });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("current");
+  });
+
+  it("reports unknown for a stored current record carrying no review evidence at all", () => {
+    const row = makeRegistryRow({ last_reviewed_at: null, review_due_at: null, verification: {} });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("unknown");
+  });
+
+  it("reports unknown when the only review date is implausibly far in the future", () => {
+    const row = makeRegistryRow({
+      last_reviewed_at: "2126-06-01T00:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("unknown");
+  });
+
+  it("ages a stored current record with no review date once the review interval has elapsed", () => {
+    const row = makeRegistryRow({ last_reviewed_at: "2024-01-01T00:00:00.000Z", review_due_at: null });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("review_due");
+  });
+
+  it("accepts a recent review as current when no review date is recorded", () => {
+    const row = makeRegistryRow({ last_reviewed_at: "2026-08-01T00:00:00.000Z", review_due_at: null });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("current");
+  });
+
+  it("never upgrades a stored unknown record to current", () => {
+    const row = makeRegistryRow({ source_status: "unknown", review_due_at: "2026-12-01T00:00:00.000Z" });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("unknown");
+  });
+
+  it("leaves validation status untouched when the source status ages", () => {
+    const row = makeRegistryRow({ validation_status: "approved" });
+    const governance = rowGovernance(row, reference);
+    expect(governance.sourceStatus).toBe("review_due");
+    expect(governance.validationStatus).toBe("approved");
+  });
+
+  it("keeps a stored outdated record when the only evidence is an old review date", () => {
+    const row = makeRegistryRow({
+      source_status: "outdated",
+      last_reviewed_at: "2024-01-01T00:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("outdated");
+  });
+
+  it("keeps a stored outdated record when the source carries a truthy reviewed note but no date", () => {
+    const row = makeRegistryRow({
+      source_status: "outdated",
+      last_reviewed_at: null,
+      review_due_at: null,
+      source: { reviewed: "reviewed by the team" },
+    });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("outdated");
+  });
+});
