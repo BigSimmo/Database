@@ -77,18 +77,105 @@ if (!policyJob) {
     ) {
       failures.push("PR policy validation must use refreshed PR metadata for draft, title, body, and head ref.");
     }
+    assertOwnerMergeControls(validateStep);
   }
 
+  // The only write scope is pull-requests: write, for removing the stale owner-approved
+  // label. It is declared once, at workflow level, where this guard can see all of it.
+  const permissionLines = yamlBlock(workflow, "permissions:", 0)
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.replace(/#.*$/, "").trim())
+    .filter(Boolean);
+  const expectedPermissions = ["contents: read", "pull-requests: write"];
   if (
-    !/^permissions:\s*$/m.test(workflow) ||
-    !workflow.includes("contents: read") ||
-    !workflow.includes("pull-requests: read")
+    permissionLines.length !== expectedPermissions.length ||
+    !expectedPermissions.every((permission) => permissionLines.includes(permission))
   ) {
-    failures.push("pr-policy.yml must declare read-only workflow permissions.");
+    failures.push(
+      `pr-policy.yml must declare exactly \`${expectedPermissions.join("`, `")}\` at workflow level (found: ${permissionLines.join(", ") || "none"}).`,
+    );
   }
-  if (/pull-requests:\s*write/.test(policyJob) || /contents:\s*write/.test(policyJob)) {
-    failures.push("pr-policy.yml policy job must not request write permissions.");
+  if (/^\s+permissions:/m.test(policyJob)) {
+    failures.push("pr-policy.yml policy job must not override the workflow-level permissions.");
   }
+}
+
+function indexOfOrInfinity(source, needle) {
+  const index = source.indexOf(needle);
+  return index < 0 ? Number.POSITIVE_INFINITY : index;
+}
+
+function assertOwnerMergeControls(step) {
+  // Owner-merge hold and migration history guard (scripts/pr-policy.mjs, C0).
+  if (!/enforceOwnerMerge:\s*true\b/.test(step)) {
+    failures.push("PR policy validation must call evaluatePullRequestPolicy with enforceOwnerMerge: true.");
+  }
+  if (!/\bownerApproval,/.test(step) || !/\bbaseMigrationVersions,/.test(step)) {
+    failures.push("PR policy validation must pass ownerApproval and baseMigrationVersions to the policy.");
+  }
+  if (!/fileStatuses:\s*changedFiles\.map/.test(step) || !step.includes("previous_filename")) {
+    failures.push(
+      "PR policy validation must pass fileStatuses (filename, status, previous_filename) from pulls.listFiles.",
+    );
+  }
+
+  // Applied migration versions come from the trusted checkout, never the PR head.
+  if (!/readdirSync\(\s*`\$\{process\.env\.GITHUB_WORKSPACE\}\/supabase\/migrations`\s*,?\s*\)/.test(step)) {
+    failures.push(
+      "PR policy validation must read baseMigrationVersions with fs.readdirSync(`${process.env.GITHUB_WORKSPACE}/supabase/migrations`) from the trusted checkout.",
+    );
+  }
+  if (!/baseMigrationVersions\.length === 0/.test(step)) {
+    failures.push("PR policy validation must fail closed when the trusted checkout lists no migration versions.");
+  }
+
+  // Label removal: exactly one call, gated on a push-like action, before the draft return.
+  const removals = step.match(/github\.rest\.issues\.removeLabel\(/g) ?? [];
+  if (removals.length !== 1) {
+    failures.push(
+      `PR policy validation must remove the owner-approved label in exactly one place (found ${removals.length}).`,
+    );
+  } else {
+    const removalIndex = step.indexOf("github.rest.issues.removeLabel(");
+    const guard = step
+      .slice(0, removalIndex)
+      .split(/\r?\n/)
+      .reverse()
+      .find((line) => /^\s*if \(/.test(line));
+    if (!guard || !guard.includes("context.payload.action") || !guard.includes('"synchronize"')) {
+      failures.push(
+        "PR policy validation must gate owner-approved label removal on context.payload.action including synchronize.",
+      );
+    }
+    if (removalIndex > indexOfOrInfinity(step, "if (latestPr.draft)")) {
+      failures.push(
+        "PR policy validation must remove a stale owner-approved label before the draft early-return, so a draft cannot carry approval across a push.",
+      );
+    }
+    if (removalIndex > indexOfOrInfinity(step, "evaluatePullRequestPolicy({")) {
+      failures.push("PR policy validation must remove a stale owner-approved label before evaluating policy.");
+    }
+  }
+  if (!/error\?\.status !== 404/.test(step)) {
+    failures.push("PR policy validation must ignore only a 404 when removing the label, and fail closed otherwise.");
+  }
+
+  // Approval: the most recent labeled event, and never one performed through a GitHub App.
+  if (!step.includes("github.rest.issues.listEvents") || !step.includes('event.event === "labeled"')) {
+    failures.push("PR policy validation must read the owner-approved labeled events to verify approval.");
+  }
+  if (!step.includes("performed_via_github_app") || !/rejectedReason:/.test(step)) {
+    failures.push("PR policy validation must reject an owner-approved label applied through a GitHub App.");
+  }
+}
+
+// Whole-workflow: nothing in pr-policy.yml may check out or reference the PR head ref/sha.
+if (/github\.event\.pull_request\.head\.(?:sha|ref)|github\.head_ref/.test(workflow)) {
+  failures.push("pr-policy.yml must never reference the pull request head ref or sha.");
+}
+if ((workflow.match(/uses:\s*actions\/checkout@/g) ?? []).length !== 1) {
+  failures.push("pr-policy.yml must contain exactly one actions/checkout step (the trusted policy checkout).");
 }
 
 const syncJob = yamlBlock(ciWorkflow, "sync-pr-policy-body:", 2);

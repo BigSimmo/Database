@@ -10,9 +10,11 @@ concurrency:
   group: pr-policy-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# pull-requests: write exists for ONE call: removing the `owner-approved` label when new
+# commits land. Nothing else here writes. The PR head is never checked out or executed.
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   policy:
@@ -41,9 +43,11 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            const fs = require("node:fs");
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
-            const { evaluatePullRequestPolicy } = await import(moduleUrl);
+            const { OWNER_APPROVED_LABEL, evaluatePullRequestPolicy, migrationVersionsFromEntries } = await import(moduleUrl);
+            const repo = { owner: context.repo.owner, repo: context.repo.repo };
             const pr = context.payload.pull_request;
             if (!pr?.number) {
               core.setFailed("Missing pull_request.number in pull_request_target payload.");
@@ -65,22 +69,122 @@ jobs:
               return;
             }
 
+            const hasOwnerLabel = (latestPr.labels || []).some(
+              (label) => String(label?.name ?? "").toLowerCase() === OWNER_APPROVED_LABEL,
+            );
+
+            // Owner approval covers the commits Josh reviewed, never later ones. Revoke it
+            // BEFORE the draft early-return, so converting to draft cannot carry an approval
+            // across a push. `reopened` is included because pushes to a closed PR's branch
+            // surface on reopen rather than as `synchronize`.
+            let approvalRevoked = false;
+            if (["synchronize", "reopened"].includes(context.payload.action) && hasOwnerLabel) {
+              try {
+                await github.rest.issues.removeLabel({ ...repo, issue_number: pr.number, name: OWNER_APPROVED_LABEL });
+              } catch (error) {
+                if (error?.status !== 404) {
+                  core.setFailed(
+                    `New commits reached PR #${pr.number}, but the stale \`${OWNER_APPROVED_LABEL}\` label could not be removed: ${error instanceof Error ? error.message : String(error)}. The policy fails closed; rerun the job.`,
+                  );
+                  return;
+                }
+              }
+              approvalRevoked = true;
+              core.notice(
+                `The PR changed (${context.payload.action}), so the \`${OWNER_APPROVED_LABEL}\` label was removed. Owner approval covers only the commits Josh reviewed; he re-reviews and re-applies it.`,
+              );
+            }
+
             if (latestPr.draft) {
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
               return;
             }
 
+            // Approval counts only when the most recent `labeled` event for the label was not
+            // performed through a GitHub App (agents' connectors). A label added with the owner's
+            // personal token is indistinguishable from Josh here; that limit is documented.
+            let ownerApproval = { approved: false };
+            if (hasOwnerLabel && !approvalRevoked) {
+              let events;
+              try {
+                events = await github.paginate(github.rest.issues.listEvents, {
+                  ...repo,
+                  issue_number: pr.number,
+                  per_page: 100,
+                });
+              } catch (error) {
+                core.setFailed(
+                  `Unable to read label events for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}. Owner approval cannot be verified; rerun the job.`,
+                );
+                return;
+              }
+              const labeled = events
+                .filter(
+                  (event) =>
+                    event.event === "labeled" && String(event.label?.name ?? "").toLowerCase() === OWNER_APPROVED_LABEL,
+                )
+                .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id)
+                .at(-1);
+              if (!labeled) {
+                ownerApproval = {
+                  approved: false,
+                  rejectedReason: `${OWNER_APPROVED_LABEL} label is present but no labeled event for it was found`,
+                };
+              } else if (labeled.performed_via_github_app) {
+                const app = labeled.performed_via_github_app;
+                ownerApproval = {
+                  approved: false,
+                  rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by a GitHub App (${app.slug || app.name || "unknown"}), not by the owner`,
+                };
+              } else {
+                ownerApproval = { approved: true, actor: labeled.actor?.login ?? null };
+              }
+            }
+
+            // Applied migration versions come from the TRUSTED checkout (github.workflow_sha,
+            // the base branch), never from the PR head.
+            let baseMigrationVersions;
+            try {
+              baseMigrationVersions = migrationVersionsFromEntries(
+                fs.readdirSync(`${process.env.GITHUB_WORKSPACE}/supabase/migrations`),
+              );
+            } catch (error) {
+              core.setFailed(
+                `Unable to read supabase/migrations from the trusted checkout: ${error instanceof Error ? error.message : String(error)}. Migration history cannot be verified.`,
+              );
+              return;
+            }
+            if (baseMigrationVersions.length === 0) {
+              core.setFailed("The trusted checkout lists no migration versions; migration history cannot be verified.");
+              return;
+            }
+
             const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
+              ...repo,
               pull_number: pr.number,
               per_page: 100,
             });
+            // listFiles stops at 3000 entries. A truncated list could hide a supabase/ path,
+            // so an incomplete file list fails closed rather than evaluating a subset.
+            if (typeof latestPr.changed_files === "number" && changedFiles.length < latestPr.changed_files) {
+              core.setFailed(
+                `GitHub listed ${changedFiles.length} of ${latestPr.changed_files} changed files for PR #${pr.number}; the policy cannot classify an incomplete diff. Split the PR.`,
+              );
+              return;
+            }
             const result = evaluatePullRequestPolicy({
               title: latestPr.title,
               body: latestPr.body || "",
               headRef: latestPr.head.ref,
               files: changedFiles.map((file) => file.filename),
+              fileStatuses: changedFiles.map((file) => ({
+                filename: file.filename,
+                status: file.status,
+                previous_filename: file.previous_filename ?? null,
+              })),
+              baseMigrationVersions,
+              ownerApproval,
+              enforceOwnerMerge: true,
             });
 
             const warnings = result.warnings || [];
@@ -89,20 +193,26 @@ jobs:
               .addRaw(`Clinical risk: ${result.classification.clinicalRisk ? "yes" : "no"}<br>`)
               .addRaw(`Operational risk: ${result.classification.operationalRisk ? "yes" : "no"}<br>`)
               .addRaw(`UI change: ${result.classification.ui ? "yes" : "no"}<br>`)
+              .addRaw(
+                `Owner merge required for: ${result.ownerMergeReasons.length > 0 ? result.ownerMergeReasons.join(", ") : "none"}<br>`,
+              )
+              .addRaw(`Owner approved: ${result.ownerApproved ? "yes" : "no"}<br>`)
+              .addRaw(`Migration history violations: ${result.migrationHistoryViolations.length}<br>`)
               .addRaw(`Blocking issues: ${result.errors.length}<br>`)
               .addRaw(`Advisory warnings: ${warnings.length}<br>`)
               .write();
 
             // Advisory metadata nudges (title/summary/verification/UI/risk) are
-            // surfaced but never fail the check. Two conditions block the merge: a
-            // clinical-risk PR with an incomplete Clinical Governance Preflight, and a
-            // RAG-ranking-surface PR without an explicit `RAG impact:` declaration
-            // (docs/rag-behaviour/safeguards.md).
+            // surfaced but never fail the check. Blocking conditions: a clinical-risk PR
+            // with an incomplete Clinical Governance Preflight; a RAG-ranking-surface PR
+            // without an explicit `RAG impact:` declaration (docs/rag-behaviour/safeguards.md);
+            // a migration PR claiming a deferred deploy; an edit to applied migration history;
+            // and a database, clinical or RAG-ranking PR without the owner's approval.
             for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
               for (const error of result.errors) core.error(error);
               core.setFailed(
-                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above (Clinical Governance Preflight and/or the RAG impact declaration), fix the PR body, and rerun.`,
+                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above. Fix the PR body or revert the migration history edit, or wait for the owner's approval, then rerun.`,
               );
             }
