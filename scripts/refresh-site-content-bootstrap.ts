@@ -7,10 +7,14 @@
  * ---------------
  * Both files embed two dollar-quoted JSON blobs: the complete dynamic seed
  * population (`site_content_bootstrap_records`) and the registry baselines
- * (`site_content_registry_baselines`). Two committed tests assert that those
- * blobs equal the catalogue currently in the repository, so adding a single
- * service record makes both fail by construction. Until now there was no
- * committed generator, so the only recorded refresh was a hand edit.
+ * (`site_content_registry_baselines`).
+ *
+ * This script was written because two committed tests asserted those blobs
+ * equalled the catalogue currently in the repository, so adding a single service
+ * record made both fail by construction. That contract is gone: the blobs are
+ * frozen at 2026-08-24 and `tests/site-content-epoch-zero-freeze.test.ts` now pins
+ * their bytes. Nothing in the repository asks for a refresh any more, which is why
+ * `--write` refuses below.
  *
  * Everything this script emits is derived, and every derivation is proved
  * against the committed blob before anything is written: the run fails unless
@@ -31,11 +35,15 @@
  *
  * Usage:
  *   npm run bootstrap:refresh -- --check   report drift only, write nothing
- *   npm run bootstrap:refresh -- --write   rewrite both SQL files
  *
- * `--write` edits an applied migration. Merging it reaches the live clinical
- * database, so it belongs in an approved window under the Supabase project
- * safety rules in AGENTS.md. Run `npm run check:drift` afterwards.
+ * `--write` is REFUSED, and the reason corrects what this header used to say. Editing
+ * an applied migration does NOT reach the live database: the Supabase integration
+ * applies only versions it has not seen, so the edit changes what the repository claims
+ * live contains and nothing else. Since the release id is content-addressed, a refresh
+ * moves that identity in the repository while production keeps the old one — which is
+ * exactly what left check:drift red on 2026-09-16. Content reaches live through the
+ * publication pipeline (docs/site-content-sync-runbook.md); a lookup that must serve
+ * newer records is refreshed by a NEW forward migration.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -53,14 +61,23 @@ import { canonicalDynamicSiteContentProjection } from "@/lib/site-content/site-c
 const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
-const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
 /** Applied migrations that pin the bootstrap identity but hold none of its data.
- *  `--write` retargets their release-id and population-size pins after rewriting the
- *  bootstrap migration; a pin left on the old identity makes their functions reject the
- *  refreshed release on replay. */
+ *  A pin left on the old identity makes their functions reject the refreshed release on
+ *  replay.
+ *
+ *  `20260916103000` was missing from this list when `--write` last ran, on 2026-09-16, and
+ *  that omission is the sharpest edge of the whole incident: the three files above were
+ *  retargeted and it was not, so a replayed database got bootstrap `91ceaa8d…` while
+ *  `read_site_content_public_records` still filtered `e4a1dd29…` and the epoch-zero branch
+ *  of every public catalogue read silently matched nothing. No gate saw it — the migration
+ *  replay's self-check is internally consistent within the rewritten set, and `check:drift`
+ *  compares live rather than a replay. It is listed now because the list must be true even
+ *  though `--write` refuses; `tests/site-content-epoch-zero-freeze.test.ts` is what actually
+ *  enforces the agreement. */
 const DEPENDENT_SQL = [
   "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
   "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
+  "supabase/migrations/20260916103000_push_kind_filter_into_site_content_public_records.sql",
 ];
 
 /** The audit columns the freeze was generated with. They are part of the
@@ -353,8 +370,39 @@ function assertFaithful(entries: readonly BootstrapEntry[], baselines: Record<st
   return { frozenEntries, frozenDigest };
 }
 
+/**
+ * `--write` rewrites migrations the live database has already applied, which moves a
+ * content-addressed release identity production can never adopt. It ran once, on 2026-09-16
+ * (PR #2814), and left `check:drift` red on two constraints for a release no database has
+ * ever held. The refusal is the lesson; see `tests/site-content-epoch-zero-freeze.test.ts`.
+ */
+const WRITE_REFUSAL = [
+  "Refusing to rewrite an applied migration.",
+  "",
+  "supabase/migrations/20260824122000 was applied to the live database on 2026-09-11. The Supabase",
+  "integration only applies versions it has not seen, so editing it changes nothing on live — it",
+  "changes only what the repository CLAIMS live contains. Because the epoch-zero release id is",
+  "derived from the frozen population's digest, a refresh moves that identity in the repository",
+  "while production keeps the old one, and check:drift goes red on the two constraints that embed",
+  "it. That happened on 2026-09-16 and had to be reverted.",
+  "",
+  "Curated catalogue content reaches live through the publication pipeline in",
+  "docs/site-content-sync-runbook.md. A SQL lookup that must serve newer records is refreshed by a",
+  "NEW forward migration, which the integration does apply.",
+  "",
+  "--check still works and reports how far the catalogue has moved from the freeze. Read what it",
+  "proves precisely: it re-derives each frozen entry FROM ITS OWN FROZEN RECORD, so it shows this",
+  "script's formulas still reproduce the freeze. It does NOT prove the freeze matches the current",
+  "catalogue, and it is not a gate — nothing runs it. The bytes are pinned by",
+  "tests/site-content-epoch-zero-freeze.test.ts.",
+].join("\n");
+
 function main() {
-  const write = process.argv.includes("--write");
+  // `npm run bootstrap:refresh --write` (no `--`) never reaches argv: npm swallows it into
+  // npm_config_write and the script would have run happily in check mode, reporting success for
+  // a command the operator believed was a write. Both spellings refuse.
+  if (process.argv.includes("--write") || process.env.npm_config_write) throw new Error(WRITE_REFUSAL);
+  const write = false;
   const entries = currentEntries();
   const baselines = currentBaselines();
   const migration = readFileSync(MIGRATION, "utf8");
@@ -371,27 +419,24 @@ function main() {
   if (!migration.includes(oldId)) throw new Error("The recomputed frozen release id is not present in the migration.");
   if (frozenDigest !== oldDigest) throw new Error("Digest derivation is unstable.");
 
-  // `site-content-health.ts` decides whether the running site is on its retained
-  // bootstrap by matching the active release against a fixed set of ids. The id moves
-  // with the population, so a refresh that forgets to add the new one ships code that
-  // cannot recognise its own bootstrap. Refuse to write until it is listed.
-  const health = readFileSync(HEALTH_MODULE, "utf8");
-  if (!health.includes(newId)) {
-    throw new Error(
-      `${HEALTH_MODULE} does not list the refreshed bootstrap release id.\n` +
-        `Add this line to RETAINED_BOOTSTRAP_RELEASE_IDS, keeping the existing ids:\n` +
-        `  "${newId}",\n` +
-        "Never remove an id a live database may still hold.",
-    );
-  }
+  // There used to be a check here that refused unless `site-content-health.ts` already listed
+  // the RECOMPUTED release id, with a message telling the operator to add it. It is removed,
+  // and deliberately not replaced. It guarded a write path that no longer exists, and its
+  // advice was the opposite of the rule that module now states: a new id in that set means an
+  // applied migration was rewritten, which is the defect, not the remedy. Leaving it in place
+  // also made the set's second entry load-bearing for this script, so a tolerance list for
+  // production states was quietly keeping a generator quiet.
+  // `tests/site-content-epoch-zero-freeze.test.ts` asserts the set has exactly its two members.
 
   if (entries.length === frozenEntries.length && newDigest === oldDigest) {
     console.log("Nothing to refresh: the frozen bootstrap already matches the catalogue.");
     return;
   }
   if (!write) {
-    console.log("\nCheck only. Re-run with --write to rewrite both SQL files.");
-    console.log("Writing edits an applied migration: merge only inside an approved window.");
+    console.log("\nCheck only, and check is all this tool does now.");
+    console.log("The freeze above is what the live database holds and must not be rewritten to");
+    console.log("match the catalogue. Publish curated content through the pipeline in");
+    console.log("docs/site-content-sync-runbook.md instead.");
     return;
   }
 
