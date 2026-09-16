@@ -6,7 +6,7 @@ import { getServiceRecord, serviceRecords } from "@/lib/services";
 
 /** Mirrors the demo/public-access "full" list payload built by
  *  GET /api/registry/records (publicRegistryPayload + registryListPayload)
- *  against the real generated 235-record service catalogue, so this test
+ *  against the real generated 239-record service catalogue, so this test
  *  fails if the client parser and the server's actual shape ever diverge. */
 function buildFullListPayload() {
   const governance = Object.fromEntries(
@@ -39,8 +39,8 @@ function buildRecordPayload(slug: string) {
 }
 
 describe("registry-client-contract", () => {
-  it("parses the real generated 235-record full-view service registry payload", () => {
-    expect(serviceRecords.length).toBe(235);
+  it("parses the real generated 239-record full-view service registry payload", () => {
+    expect(serviceRecords.length).toBe(239);
     const payload = buildFullListPayload();
     const parsed = parseRegistryListResponse(payload, "full");
     expect(parsed).not.toBeNull();
