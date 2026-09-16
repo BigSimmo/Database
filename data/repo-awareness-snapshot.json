@@ -5132,6 +5132,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/dictionary-editorial-drafts.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
         "section": "superpowers",
         "catalogued": false

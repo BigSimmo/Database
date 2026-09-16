@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e19a5887-e407-479e-9dbb-230c1321dac2",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "GOVERNED_SOURCE_HOSTS: 19 dictionary sources blocked, including AIHW's METEOR registry",
+    "detail": "Nineteen sources from the 2026-09 dictionary handover are held because their canonical URL host is not in GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts. Among them are three National Outcomes and Casemix Collection metadata records on meteor.aihw.gov.au, which is AIHW's own metadata registry and carries stable content identifiers. The owner declined to widen host policy when asked on 2026-09-16, so this is recorded rather than actioned. Widening the list also requires updating the pinned host count.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTYZEQF5GHS19H1HD566V2"
+  }
+}
