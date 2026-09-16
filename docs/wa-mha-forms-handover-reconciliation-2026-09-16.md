@@ -242,14 +242,37 @@ plane, in an approved window.
 
 `npm run site-content:p03` now prints the mismatch, what it breaks and why it is not fixing it.
 
-**What would make this branch green.** `supabase/drift-manifest.json`'s `schema_sha256` is a
-plain sha256 of `schema.sql`, not a replay output, and the rest of the manifest is provably
-unaffected by this change: the diff alters string literals inside one function body and inside
-DML, so no table, view, index, policy, constraint, trigger, extension or storage bucket moves,
-and the one function whose definition changed — `site_content_registry_baseline` — was measured
-to keep its `def_hash` for the reason described above. Updating that one field is therefore
-exactly what a faithful regeneration would produce. It was not done here: editing an audit
-artifact by hand is the sort of thing that should be asked for rather than assumed.
+**`schema_sha256` was updated by hand, with the owner's approval, and here is the whole
+argument for why that is the same answer a replay would give.**
+
+`schema_sha256` is a plain sha256 of `supabase/schema.sql` — `normalizedSchemaSha256` in
+`scripts/check-drift.ts` is `sha256(text.replace(/\r\n/g, "\n"))` and nothing more. It is a
+checksum of a file in the repository, not an observation of a replayed database.
+
+The rest of the manifest is provably unaffected. The diff against the last commit to touch
+`schema.sql` (`ff1ac7b93`) is **two lines**: line 13087, a string literal inside the
+`site_content_registry_baseline` function body, and line 13398, a string literal inside a
+top-level `insert ... from jsonb_to_recordset(...)`. No `create table`, `create view`,
+`create index`, `create policy`, constraint, trigger, extension or storage bucket is touched,
+so no snapshot category except `functions` could move.
+
+And the one function that could move, does not. The snapshot hashes
+`md5(pg_get_functiondef(...))` after stripping block comments, then `--` to end of line, then
+all whitespace. Applying that normalisation to the old and new statement gives **164524
+characters both times, with the same md5** — the bytes that differ sit past the first `--`,
+which falls at offset 176107 inside a service URL, and the normaliser discards everything after
+it. That is the blind spot described below, and here it is load-bearing in this change's
+favour. It was checked against the real thing, not just asserted: replaying the function into a
+local Postgres reproduced the manifest's pinned `def_hash`
+`c2dc2183657bab3c994af7f18ddfcb9b` for the old body, and the same value for the new one.
+
+So a faithful regeneration would produce this manifest, with this one field changed.
+
+**What is deliberately NOT changed:** `generated_at` (2026-09-13) and `replay_seconds` (20).
+They describe the last real container replay and still do. Advancing them would claim a replay
+that did not happen, which is a worse falsehood than a stale timestamp beside a correct
+checksum. They will move on their own the next time `npm run drift:manifest` actually runs —
+which, per the finding above, requires the schema replay to be repaired first.
 
 ### Drift detection has a blind spot worth knowing about
 
