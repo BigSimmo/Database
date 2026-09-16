@@ -3,6 +3,7 @@
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 
 vi.mock("next/navigation", () => ({
@@ -268,5 +269,22 @@ describe("On Call home layout", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("puts a dated teaching card inside the Coming up module, as the browser board test looks for", () => {
+    // A standing double for `tests/ui-on-call-boards.spec.ts` "dates the next
+    // teaching session with a weekday". That spec went red on PR #2806 because
+    // the card's test id moved from `on-call-home-upcoming-` to
+    // `on-call-home-teaching-` when the row became a strip, and nothing offline
+    // covered it. Same corpus, same nesting, same weekday assertion, no browser.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+
+    render(<OnCallHome />);
+
+    const comingUp = screen.getByTestId("on-call-home-upcoming");
+    const cards = comingUp.querySelectorAll('[data-testid^="on-call-home-teaching-"]');
+    expect(cards.length).toBeGreaterThan(0);
+    // A date a reader can check against a roster, never a countdown.
+    expect(cards[0]).toHaveTextContent(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
   });
 });
