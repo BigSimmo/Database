@@ -77,7 +77,9 @@ export type DsmSearchMatch = {
 
 export type DsmDiagnosisSummary = Pick<DsmDiagnosis, "slug" | "title" | "icd_code" | "category"> & {
   summary: string;
+  /** Structured DSM-5-TR criteria rows only. Zero on 145 of the 146 records. */
   criteriaCount: number;
+  criteriaProvenance: DsmCriteriaProvenance;
   differentialCount: number;
   specifierCount: number;
 };
@@ -219,7 +221,67 @@ export function resolveDsmCompareIds(slugs: readonly (string | null | undefined)
   return { diagnoses, selectedIds };
 }
 
-export function dsmCriteria(diagnosis: DsmDiagnosis) {
+export type DsmCriteriaProvenance =
+  /** The record supplies structured DSM-5-TR criteria rows. */
+  | "dsm_criteria"
+  /** No criteria were supplied. The rows are the record's key-feature summary. */
+  | "key_features_summary"
+  /** The record supplies neither. No record in the current export is in this state. */
+  | "none";
+
+export type DsmCriteriaView = {
+  /** The rows to render. Never empty for a record that carries either field. */
+  rows: DsmLabeledText[];
+  provenance: DsmCriteriaProvenance;
+  /** True only when `rows` really are DSM-5-TR criteria. Gate every label on this. */
+  isDsmCriteria: boolean;
+};
+
+/**
+ * What a record actually supplies, and what it may therefore be called.
+ *
+ * 145 of the 146 records in `src/data/dsm-clinical-content.json` ship an empty
+ * `criteria_display`; only Bipolar II carries structured criteria. The old
+ * `dsmCriteria()` collapsed that distinction — `criteria_display.length > 0 ?
+ * criteria_display : key_features` — and every caller then labelled the result
+ * as criteria. So 145 diagnosis pages headed a key-feature summary "Core
+ * diagnostic criteria / All criteria are shown", the compare table read it out
+ * under "Core threshold", and the note builder emitted "Criteria met (A, B, C)"
+ * followed by "Recorded against DSM-5-TR criteria" into text meant for a
+ * patient's record.
+ *
+ * The summary is worth showing and is not removed here. What changes is that a
+ * caller can no longer state a diagnostic-standard basis it does not have: the
+ * provenance travels with the rows, and the label is chosen from it.
+ *
+ * An empty `criteria_display` means the supplied record omitted the criteria,
+ * NOT that DSM-5-TR defines none — which is why the fallback is named a summary
+ * rather than reported as zero criteria to the reader.
+ *
+ * `tests/dsm-criteria-provenance.test.ts` holds this.
+ */
+export function dsmCriteriaView(diagnosis: DsmDiagnosis): DsmCriteriaView {
+  if (diagnosis.criteria_display.length > 0) {
+    return { rows: diagnosis.criteria_display, provenance: "dsm_criteria", isDsmCriteria: true };
+  }
+  if (diagnosis.key_features.length > 0) {
+    return { rows: diagnosis.key_features, provenance: "key_features_summary", isDsmCriteria: false };
+  }
+  return { rows: [], provenance: "none", isDsmCriteria: false };
+}
+
+/**
+ * Criteria text plus the key-feature fallback, for SEARCH RANKING ONLY.
+ *
+ * Recall is the right goal when matching a query against a record: a clinician
+ * typing "hypomanic episode" should reach Bipolar II whether that phrase sits in
+ * the criteria or in the key features. Nothing here reaches the reader, so the
+ * merge states nothing.
+ *
+ * Deliberately NOT exported. Presentation, note text and counts must go through
+ * `dsmCriteriaView` so the provenance cannot be dropped on the way out.
+ */
+function dsmRankingCriteriaText(diagnosis: DsmDiagnosis) {
   return diagnosis.criteria_display.length > 0 ? diagnosis.criteria_display : diagnosis.key_features;
 }
 
@@ -259,14 +321,19 @@ export function dsmSpecifierSplit(diagnosis: DsmDiagnosis): DsmSpecifierSplit {
 }
 
 export function dsmDiagnosisSummary(diagnosis: DsmDiagnosis): DsmDiagnosisSummary {
-  const criteria = dsmCriteria(diagnosis);
+  const view = dsmCriteriaView(diagnosis);
   return {
     slug: diagnosis.slug,
     title: diagnosis.title,
     icd_code: diagnosis.icd_code,
     category: diagnosis.category,
-    summary: criteria[0]?.text ?? diagnosis.key_features[0]?.text ?? "Review the complete diagnostic record.",
-    criteriaCount: criteria.length,
+    // Prose, not a labelled claim, so the first available row is fine either way.
+    summary: view.rows[0]?.text ?? diagnosis.key_features[0]?.text ?? "Review the complete diagnostic record.",
+    // Counts only what the record really supplies as criteria. A key-feature
+    // fallback counted here is how "4 criteria" came to be shown for a record
+    // that carries none.
+    criteriaCount: view.isDsmCriteria ? view.rows.length : 0,
+    criteriaProvenance: view.provenance,
     differentialCount: diagnosis.differentials.length,
     specifierCount: dsmSpecifierSplit(diagnosis).specifiers.length,
   };
@@ -319,7 +386,7 @@ export function rankDsmDiagnoses(
         weight: 3,
         text: (diagnosis) =>
           normalizeSearchText(
-            dsmCriteria(diagnosis)
+            dsmRankingCriteriaText(diagnosis)
               .map((criterion) => criterion.text)
               .join(" "),
           ),

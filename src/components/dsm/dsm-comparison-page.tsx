@@ -10,7 +10,7 @@ import {
 import { DsmCompareChrome } from "@/components/dsm/dsm-compare-chrome";
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { cn, codeText, eyebrowText, pageContainer } from "@/components/ui-primitives";
-import { dsmCriteria, type DsmDiagnosis } from "@/lib/dsm";
+import { type DsmDiagnosis } from "@/lib/dsm";
 
 const BADGE_LETTERS = ["A", "B", "C"] as const;
 
@@ -33,18 +33,26 @@ function comparisonRows(diagnoses: DsmDiagnosis[]): ComparisonRow[] {
   return [
     { label: "ICD-10 code", values: diagnoses.map((diagnosis) => diagnosis.icd_code) },
     { label: "Category", values: diagnoses.map((diagnosis) => diagnosis.category.label) },
+    // These two rows read `criteria_display` directly rather than the old
+    // key-feature fallback. 145 of the 146 records supply no criteria, so the
+    // fallback made both rows restate the "Key features" row below under criteria
+    // headings — the same content twice, the first time labelled as the
+    // diagnostic standard. Nothing useful is lost: the key features are still the
+    // row beneath, now as the only place they appear.
     {
-      label: "Core threshold",
-      values: diagnoses.map((diagnosis) => dsmCriteria(diagnosis)[0]?.text ?? "Not supplied"),
+      label: "Core threshold (DSM-5-TR criteria)",
+      values: diagnoses.map(
+        (diagnosis) => diagnosis.criteria_display[0]?.text ?? "Full criteria not included in this record",
+      ),
     },
     {
       label: "Additional criteria",
       values: diagnoses.map(
         (diagnosis) =>
-          dsmCriteria(diagnosis)
+          diagnosis.criteria_display
             .slice(1, 4)
             .map((criterion) => `${criterion.label}. ${criterion.text}`)
-            .join(" ") || "No additional structured criteria supplied",
+            .join(" ") || "Full criteria not included in this record",
       ),
     },
     {
@@ -54,7 +62,7 @@ function comparisonRows(diagnoses: DsmDiagnosis[]): ComparisonRow[] {
           diagnosis.key_features
             .slice(0, 3)
             .map((feature) => `${feature.label}. ${feature.text}`)
-            .join(" ") || "Review the core criteria",
+            .join(" ") || "Not supplied",
       ),
     },
     {
