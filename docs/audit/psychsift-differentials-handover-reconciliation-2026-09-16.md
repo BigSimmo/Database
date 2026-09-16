@@ -311,6 +311,31 @@ The 28 passage-checked claims are additionally all `reviewStatus: requires_clini
 anchor are among the 20 held. There is nothing admissible to wire up yet. Recorded as
 outstanding rather than stubbed.
 
+## Owner decision on the three new sources — 2026-09-16
+
+The handover's verification evidence was put to the clinical owner, who decided all
+three stay `candidate` / `unverified` / `link_only` at D band. They deliberately
+declined to record a local review on the strength of the handover's checks. That
+matches the ledger's own posture: 62 of its 64 records are `unverified`.
+
+Evidence as presented, so a later session does not re-derive it:
+
+| Source                                                                    | What was actually read                                                                             | Caveat recorded                                                                                                                                                              |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WHO ICD-11 CDDR                                                           | Publisher page. Identity, publication date 2024-03-08 and ISBN confirmed                           | Landing page only. The 852-page diagnostic text was never retrieved, so no criterion set is certified from it, and it is not an Australian workflow or prescribing guideline |
+| Australian Prescriber, drug-induced movement disorders, 2019;42:56–61     | Full article. Akathisia, acute dystonic reactions and drug-induced parkinsonism sections confirmed | Older narrative review with narrow phenomenology support, not a current prescribing protocol                                                                                 |
+| Australian Prescriber, lithium therapy and its interactions, 2020;43:91–3 | Full article, including the 12 June 2020 correction notice                                         | Maintenance target concentrations are not a universal toxicity threshold, and routine 12-hour trough timing is not a reason to defer an urgent level in suspected toxicity   |
+
+Rights for all three are `public_page_read` only, with storage, reproduction and
+AI-processing permissions unknown. That is why they remain `link_only` and why no
+original bytes were fetched.
+
+The RANZCP record is no longer awaiting confirmation. `main` independently reached
+`documentStatus: outdated` from its own reading of the College page and also
+downgraded `validationStatus` to `unverified`; the merge took `main`'s version.
+
+Do not re-present this evidence to the owner without something new to add.
+
 ## Residual approvals and rollback
 
 Outstanding, none of them resolved here:
