@@ -23,6 +23,7 @@ import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
+import { preferBundledFormRecord } from "@/lib/site-content/prefer-bundled-form-record";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -221,10 +222,11 @@ export async function GET(request: Request) {
           slug: null,
           seeds,
           signal,
-          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-            record: finalRenderPayload as unknown as ServiceRecord,
-            governance: canonicalSiteContentGovernance(canonicalRecord),
-          }),
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) =>
+            preferBundledFormRecord(kind, {
+              record: finalRenderPayload as unknown as ServiceRecord,
+              governance: canonicalSiteContentGovernance(canonicalRecord),
+            }),
         });
         observed.source = result.source;
         return result.records;

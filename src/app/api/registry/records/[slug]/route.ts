@@ -16,6 +16,7 @@ import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
+import { preferBundledFormRecord } from "@/lib/site-content/prefer-bundled-form-record";
 import { getServiceRecord, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -92,11 +93,12 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       kind,
       slug: normalizedSlug,
       seeds: seed ? [seed] : [],
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as ServiceRecord,
-        governance: canonicalSiteContentGovernance(canonicalRecord),
-        linkedDocuments: [],
-      }),
+      mapRecord: ({ canonicalRecord, finalRenderPayload }) =>
+        preferBundledFormRecord(kind, {
+          record: finalRenderPayload as unknown as ServiceRecord,
+          governance: canonicalSiteContentGovernance(canonicalRecord),
+          linkedDocuments: [],
+        }),
     });
     const payload = canonical.records[0];
     if (!payload) return notFoundResponse(normalizedSlug);
