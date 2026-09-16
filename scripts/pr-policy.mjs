@@ -523,10 +523,15 @@ function migrationVersionTime(version) {
 /**
  * Binds the owner's approval to the PR's CURRENT head, without relying on any run
  * completing. `headRunCreatedAt` lists the `created_at` of every PR policy workflow run
- * recorded for the current head SHA — cancelled runs included, since a cancelled run still
- * leaves a record, and the evaluating run is always one of them. The earliest is the moment
- * GitHub first saw this head. The label covers the head only when it was applied strictly
- * after that moment; a label applied earlier was applied to an older head.
+ * whose run record names the current PR head SHA — cancelled runs included, since a
+ * cancelled run still leaves a record, and the evaluating run is always one of them. The
+ * earliest is the moment GitHub first saw this head. The label covers the head only when
+ * it was applied strictly after that moment; a label applied earlier was applied to an
+ * older head.
+ *
+ * For `pull_request_target`, `GITHUB_SHA` is the trusted base commit. Callers must collect
+ * run times from data that records the PR head (the run object's `head_sha`, and when
+ * present the run's `pull_requests[].head.sha`), never from `GITHUB_SHA` alone.
  *
  * Fails closed: no label timestamp, no runs (or the lookup failed: pass null), an
  * unparseable timestamp, or an equal timestamp all reject.
@@ -564,6 +569,101 @@ export function ownerApprovalCoversHead({ labeledAt, headRunCreatedAt }) {
 }
 
 /**
+ * The `owner-approved` label counts only when the labeled actor is the configured
+ * repository owner. A human collaborator with label permission must not unblock
+ * owner-only gates; GitHub Apps are rejected separately via performed_via_github_app.
+ */
+export function ownerActorMatches({ actorLogin, ownerLogin }) {
+  const actor = String(actorLogin ?? "")
+    .trim()
+    .toLowerCase();
+  const owner = String(ownerLogin ?? "")
+    .trim()
+    .toLowerCase();
+  return Boolean(actor && owner && actor === owner);
+}
+
+/** Strip SQL comments and single-quoted literals so CREATE INDEX inside pin strings is ignored. */
+function stripSqlCommentsAndStrings(sql) {
+  return String(sql ?? "")
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/--[^\n]*/g, " ")
+    .replace(/'(?:[^']|'')*'/g, "''");
+}
+
+/**
+ * Fail-fast validation guard predicate (AGENTS.md guard-migration contract /
+ * 20260804110240 pattern): raises, scopes timeouts with SET LOCAL, never builds indexes.
+ */
+export function isValidationGuardSql(sql) {
+  const text = String(sql ?? "");
+  if (!/raise\s+exception/i.test(text)) return false;
+  if (!/set\s+local\b/i.test(text)) return false;
+  const executable = stripSqlCommentsAndStrings(text);
+  if (/\bcreate\s+(?:unique\s+)?index\b/i.test(executable)) return false;
+  return true;
+}
+
+/**
+ * Migration-history override additionally requires an accompanying fail-fast validation
+ * guard migration in the same change (AGENTS.md L287–L296). `addedMigrationContents` maps
+ * path → file text for every added/copied migration; missing contents fail closed.
+ */
+export function migrationHistoryOverrideGuard({ fileStatuses, addedMigrationContents }) {
+  const added = [];
+  for (const file of fileStatuses ?? []) {
+    const status = String(file?.status ?? "").toLowerCase();
+    if (status !== "added" && status !== "copied") continue;
+    const path = normalizePath(file?.filename);
+    if (!migrationVersion(path)) continue;
+    added.push(path);
+  }
+  if (added.length === 0) {
+    return {
+      satisfied: false,
+      guardPaths: [],
+      reason:
+        "Migration history edit approved requires an accompanying fail-fast validation guard migration in the same change (AGENTS.md guard-migration contract).",
+    };
+  }
+  if (!addedMigrationContents || typeof addedMigrationContents !== "object") {
+    return {
+      satisfied: false,
+      guardPaths: [],
+      reason:
+        "Migration history edit approved cannot be verified because added migration contents were not supplied; the policy fails closed until it can validate the guard.",
+    };
+  }
+  const guardPaths = added.filter((path) => isValidationGuardSql(addedMigrationContents[path] ?? ""));
+  if (guardPaths.length === 0) {
+    return {
+      satisfied: false,
+      guardPaths: [],
+      reason:
+        "Migration history edit approved requires at least one added migration that is a fail-fast validation guard (raise exception, set local timeouts, never builds indexes), following 20260804110240.",
+    };
+  }
+  return { satisfied: true, guardPaths, reason: "" };
+}
+
+/**
+ * True when a workflow run record names the given PR head SHA.
+ *
+ * For `pull_request_target`, `GITHUB_SHA` is the trusted base commit. The run object's
+ * `head_sha` is the PR-head-bearing field we bind approval to. `pull_requests[].head.sha`
+ * can be rewritten to a later tip, so it is never used alone — when PR metadata is present
+ * we only require that this PR number is named.
+ */
+export function workflowRunRecordsPrHead(run, { headSha, prNumber }) {
+  const expected = String(headSha ?? "");
+  if (!expected || String(run?.head_sha ?? "") !== expected) return false;
+  const prs = run?.pull_requests;
+  if (!Array.isArray(prs) || prs.length === 0) return true;
+  if (prNumber == null) return true;
+  return prs.some((pr) => Number(pr?.number) === Number(prNumber));
+}
+
+/**
  * The only override for a migration-history violation: a body line
  * `Migration history edit approved: <reason>`. It takes effect only together with the
  * owner's approval, so neither the line nor the label is sufficient alone.
@@ -594,6 +694,7 @@ export function evaluatePullRequestPolicy({
   fileStatuses,
   baseMigrationVersions,
   ownerApproval,
+  addedMigrationContents,
   enforceOwnerMerge = false,
   now = new Date(),
 }) {
@@ -731,9 +832,15 @@ export function evaluatePullRequestPolicy({
     if (historyViolations.length > 0) {
       const override = migrationHistoryEditApproval(body);
       if (override.satisfied && ownerApproved) {
-        warnings.push(
-          `Migration history edit approved by the owner (${override.reason}); ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
-        );
+        const guard = migrationHistoryOverrideGuard({ fileStatuses, addedMigrationContents });
+        if (guard.satisfied) {
+          warnings.push(
+            `Migration history edit approved by the owner (${override.reason}); validation guard ${guard.guardPaths.join(", ")}; ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
+          );
+        } else {
+          for (const violation of historyViolations) errors.push(violation.message);
+          errors.push(guard.reason);
+        }
       } else {
         for (const violation of historyViolations) errors.push(violation.message);
         if (override.declared && !override.satisfied) {
@@ -1540,19 +1647,102 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
 
   const docsBody = completeBody;
   const editApproved = `${completeBody}\n\nMigration history edit approved: repairing a no-statements history row per the guard-migration contract`;
+  const guardPath = "supabase/migrations/20260917120000_validate_site_content_repair.sql";
+  const guardSql = `set local statement_timeout = '30s';
+set local lock_timeout = '5s';
+do $migration$
+begin
+  raise exception 'site content repair objects missing';
+end
+$migration$;
+`;
+  const nonGuardSql = `create index if not exists site_content_oops on public.documents(id);`;
   const modifiedApplied = {
     title: "fix(db): adjust site content release outbox",
     headRef: "claude/db-edit",
-    files: [applied],
-    fileStatuses: [{ filename: applied, status: "modified", previous_filename: null }],
+    files: [applied, guardPath],
+    fileStatuses: [
+      { filename: applied, status: "modified", previous_filename: null },
+      { filename: guardPath, status: "added", previous_filename: null },
+    ],
     baseMigrationVersions: base,
+    addedMigrationContents: { [guardPath]: guardSql },
     enforceOwnerMerge: true,
   };
-  // The override needs BOTH the body line and the owner's approval.
+  assert.equal(isValidationGuardSql(guardSql), true, "fixture guard SQL matches the validation predicate");
+  assert.equal(isValidationGuardSql(nonGuardSql), false, "a CREATE INDEX migration is not a validation guard");
+  assert.equal(ownerActorMatches({ actorLogin: "BigSimmo", ownerLogin: "BigSimmo" }), true);
+  assert.equal(ownerActorMatches({ actorLogin: "collaborator", ownerLogin: "BigSimmo" }), false);
+  assert.equal(ownerActorMatches({ actorLogin: "", ownerLogin: "BigSimmo" }), false);
+  assert.equal(
+    workflowRunRecordsPrHead(
+      { head_sha: "abc", pull_requests: [{ number: 1, head: { sha: "abc" } }] },
+      { headSha: "abc", prNumber: 1 },
+    ),
+    true,
+    "run head_sha matching the PR head counts",
+  );
+  assert.equal(
+    workflowRunRecordsPrHead(
+      { head_sha: "base", pull_requests: [{ number: 1, head: { sha: "abc" } }] },
+      { headSha: "abc", prNumber: 1 },
+    ),
+    false,
+    "pull_requests[].head.sha alone must not count — it can be rewritten to a later tip",
+  );
+  assert.equal(
+    workflowRunRecordsPrHead({ head_sha: "abc", pull_requests: [] }, { headSha: "abc", prNumber: 1 }),
+    true,
+    "empty pull_requests still counts when head_sha matches",
+  );
+  assert.equal(
+    workflowRunRecordsPrHead(
+      { head_sha: "abc", pull_requests: [{ number: 9, head: { sha: "abc" } }] },
+      { headSha: "abc", prNumber: 1 },
+    ),
+    false,
+    "head_sha match still requires this PR number when pull_requests is present",
+  );
+  // The override needs the body line, the owner's approval, AND a validation guard.
   assert.equal(
     evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved, ownerApproval: { approved: true } }).ok,
     true,
-    "override line + owner approval → no error",
+    "override line + owner approval + validation guard → no error",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: editApproved,
+      ownerApproval: { approved: true },
+      addedMigrationContents: undefined,
+    }).ok,
+    false,
+    "override without supplied migration contents fails closed",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: editApproved,
+      ownerApproval: { approved: true },
+      addedMigrationContents: { [guardPath]: nonGuardSql },
+    }).ok,
+    false,
+    "override with a non-guard added migration still errors",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: modifiedApplied.title,
+      headRef: modifiedApplied.headRef,
+      files: [applied],
+      fileStatuses: [{ filename: applied, status: "modified", previous_filename: null }],
+      baseMigrationVersions: base,
+      enforceOwnerMerge: true,
+      body: editApproved,
+      ownerApproval: { approved: true },
+      addedMigrationContents: {},
+    }).ok,
+    false,
+    "override without an accompanying added guard migration still errors",
   );
   const lineOnly = evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved });
   assert.equal(lineOnly.ok, false, "override line without approval → still error");

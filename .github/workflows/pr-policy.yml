@@ -53,7 +53,9 @@ jobs:
               OWNER_APPROVED_LABEL,
               evaluatePullRequestPolicy,
               migrationVersionsFromEntries,
+              ownerActorMatches,
               ownerApprovalCoversHead,
+              workflowRunRecordsPrHead,
             } = await import(moduleUrl);
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
             const pr = context.payload.pull_request;
@@ -108,14 +110,15 @@ jobs:
               return;
             }
 
-            // Approval counts only when the most recent `labeled` event for the label was not
-            // performed through a GitHub App (agents' connectors), AND that label was applied
-            // strictly after GitHub first saw the current head. A label added with the owner's
-            // personal token is indistinguishable from Josh here; that limit is documented.
+            // Approval counts only when:
+            //   1. the most recent `labeled` event was not performed through a GitHub App,
+            //   2. labeled.actor.login is the repository owner (context.repo.owner), and
+            //   3. that label was applied strictly after GitHub first saw the current PR head.
             //
-            // The head binding does not depend on the label strip above ever completing: a push
-            // cancelled mid-strip still leaves a run record for the new head, and every run for
-            // the new head was created after the push, so an older label cannot cover it.
+            // For pull_request_target, GITHUB_SHA is the trusted base. Bind approval using run
+            // records that name the PR head (run.head_sha, filtered client-side), never GITHUB_SHA
+            // alone. The head binding does not depend on the label strip completing: a push
+            // cancelled mid-strip still leaves a run record for the new head.
             let ownerApproval = { approved: false };
             if (hasOwnerLabel && !approvalRevoked) {
               let events;
@@ -149,19 +152,38 @@ jobs:
                   approved: false,
                   rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by a GitHub App (${app.slug || app.name || "unknown"}), not by the owner`,
                 };
+              } else if (
+                !ownerActorMatches({
+                  actorLogin: labeled.actor?.login,
+                  ownerLogin: context.repo.owner,
+                })
+              ) {
+                ownerApproval = {
+                  approved: false,
+                  rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by ${labeled.actor?.login || "unknown"}, not by the repository owner (${context.repo.owner})`,
+                };
               } else {
-                // Every PR policy run recorded for this head, cancelled ones included (no status
-                // filter): the earliest created_at is when GitHub first saw the head.
+                // Every PR policy run whose run record names this PR head, cancelled ones
+                // included (no status filter): the earliest created_at is when GitHub first
+                // saw the head. List by branch, then keep runs whose head_sha is the PR head
+                // (GITHUB_SHA/base must not be the binding key).
                 let headRunCreatedAt = null;
                 try {
-                  const headRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                  const branchRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
                     ...repo,
                     workflow_id: "pr-policy.yml",
                     event: "pull_request_target",
-                    head_sha: latestPr.head.sha,
+                    branch: latestPr.head.ref,
                     per_page: 100,
                   });
-                  headRunCreatedAt = headRuns.map((run) => run.created_at);
+                  headRunCreatedAt = branchRuns
+                    .filter((run) =>
+                      workflowRunRecordsPrHead(run, {
+                        headSha: latestPr.head.sha,
+                        prNumber: latestPr.number,
+                      }),
+                    )
+                    .map((run) => run.created_at);
                 } catch (error) {
                   core.warning(
                     `Unable to list PR policy runs for head ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Owner approval is rejected until the head can be bound.`,
@@ -205,6 +227,33 @@ jobs:
               );
               return;
             }
+            // Migration-history override needs the accompanying fail-fast validation guard's
+            // SQL. Read added migration blobs at the PR head via the API (contents: read);
+            // never check out or execute the PR head.
+            const addedMigrationContents = {};
+            for (const file of changedFiles) {
+              const status = String(file.status ?? "").toLowerCase();
+              if (status !== "added" && status !== "copied") continue;
+              if (!/^supabase\/migrations\/\d{14}_[^/]+\.sql$/.test(file.filename)) continue;
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  ...repo,
+                  path: file.filename,
+                  ref: latestPr.head.sha,
+                });
+                if (data && !Array.isArray(data) && typeof data.content === "string") {
+                  addedMigrationContents[file.filename] = Buffer.from(
+                    data.content,
+                    data.encoding || "base64",
+                  ).toString("utf8");
+                }
+              } catch (error) {
+                core.warning(
+                  `Unable to read added migration ${file.filename} at ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. A migration-history override will fail closed without guard contents.`,
+                );
+              }
+            }
+
             const result = evaluatePullRequestPolicy({
               title: latestPr.title,
               body: latestPr.body || "",
@@ -217,6 +266,7 @@ jobs:
               })),
               baseMigrationVersions,
               ownerApproval,
+              addedMigrationContents,
               enforceOwnerMerge: true,
             });
 

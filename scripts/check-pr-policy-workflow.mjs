@@ -162,15 +162,25 @@ function assertOwnerMergeControls(step) {
     failures.push("PR policy validation must ignore only a 404 when removing the label, and fail closed otherwise.");
   }
 
-  // Approval: the most recent labeled event, and never one performed through a GitHub App.
+  // Approval: the most recent labeled event, never a GitHub App, and only the repository owner.
   if (!step.includes("github.rest.issues.listEvents") || !step.includes('event.event === "labeled"')) {
     failures.push("PR policy validation must read the owner-approved labeled events to verify approval.");
   }
   if (!step.includes("performed_via_github_app") || !/rejectedReason:/.test(step)) {
     failures.push("PR policy validation must reject an owner-approved label applied through a GitHub App.");
   }
+  if (
+    !step.includes("ownerActorMatches({") ||
+    !/actorLogin:\s*labeled\.actor\?\.login/.test(step) ||
+    !/ownerLogin:\s*context\.repo\.owner/.test(step)
+  ) {
+    failures.push(
+      "PR policy validation must require ownerActorMatches({ actorLogin: labeled.actor?.login, ownerLogin: context.repo.owner }).",
+    );
+  }
 
-  // Approval is bound to the current head by run records, not by the label strip completing.
+  // Approval is bound to the current PR head by run records that name that head — not by
+  // GITHUB_SHA (base under pull_request_target) and not by the label strip completing.
   const runsCall = step.match(/github\.paginate\(github\.rest\.actions\.listWorkflowRuns,\s*\{([^}]*)\}\)/);
   if (!runsCall) {
     failures.push(
@@ -181,10 +191,15 @@ function assertOwnerMergeControls(step) {
     if (
       !/workflow_id:\s*"pr-policy\.yml"/.test(runArgs) ||
       !/event:\s*"pull_request_target"/.test(runArgs) ||
-      !/head_sha:\s*latestPr\.head\.sha\b/.test(runArgs)
+      !/branch:\s*latestPr\.head\.ref\b/.test(runArgs)
     ) {
       failures.push(
-        'PR policy validation must list runs for workflow_id "pr-policy.yml", event "pull_request_target", head_sha latestPr.head.sha.',
+        'PR policy validation must list runs for workflow_id "pr-policy.yml", event "pull_request_target", branch latestPr.head.ref.',
+      );
+    }
+    if (/\bhead_sha\s*:/.test(runArgs)) {
+      failures.push(
+        "PR policy validation must not pass head_sha to listWorkflowRuns; bind via workflowRunRecordsPrHead on run.head_sha instead (GITHUB_SHA is the base under pull_request_target).",
       );
     }
     if (/\b(?:status|conclusion|created|exclude_pull_requests)\s*:/.test(runArgs)) {
@@ -192,6 +207,11 @@ function assertOwnerMergeControls(step) {
         "PR policy validation must not filter head runs by status, conclusion or date — cancelled runs are part of the head's record.",
       );
     }
+  }
+  if (!step.includes("workflowRunRecordsPrHead(run,") || !/headSha:\s*latestPr\.head\.sha\b/.test(step)) {
+    failures.push(
+      "PR policy validation must filter listed runs with workflowRunRecordsPrHead(run, { headSha: latestPr.head.sha, ... }).",
+    );
   }
   if (/\bconclusion\b/.test(step)) {
     failures.push("PR policy validation must not filter head runs by conclusion; cancelled runs count.");
@@ -208,6 +228,21 @@ function assertOwnerMergeControls(step) {
     );
   } else if (!/binding\.covered\s*\?\s*\{\s*approved:\s*true\b/.test(step)) {
     failures.push("PR policy validation must grant approval only when ownerApprovalCoversHead reports covered.");
+  }
+  // Owner actor match must reject before the sole approved:true grant.
+  const actorReject = step.indexOf("ownerActorMatches({");
+  if (actorReject < 0 || actorReject > bindingIndex) {
+    failures.push("PR policy validation must check ownerActorMatches before binding approval to the head.");
+  }
+
+  // Migration-history override needs added migration contents from the PR head (API read only).
+  if (!step.includes("github.rest.repos.getContent") || !step.includes("addedMigrationContents")) {
+    failures.push(
+      "PR policy validation must fetch added migration contents via repos.getContent at the PR head and pass addedMigrationContents to the policy.",
+    );
+  }
+  if (!/ref:\s*latestPr\.head\.sha\b/.test(step)) {
+    failures.push("PR policy validation must read added migration blobs at latestPr.head.sha.");
   }
 }
 

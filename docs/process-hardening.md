@@ -851,9 +851,12 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
   the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
   RAG-ranking PRs stay red until the owner applies `owner-approved`, which agents must never add. The
-  label counts only when applied after the earliest PR policy run recorded for the current head SHA
-  (cancelled runs included), so a label from before a push never covers the new head. Drafts remain
-  non-blocking until marked ready; merge-queue runs emit the same stable `PR policy` check name.
+  label counts only when applied by the repository owner (not a collaborator or GitHub App) after the
+  earliest PR policy run whose run record names the current PR head SHA (cancelled runs included; bind
+  via `run.head_sha`, never `GITHUB_SHA` alone under `pull_request_target`), so a label from before a
+  push never covers the new head. A `Migration history edit approved:` override additionally requires
+  an accompanying fail-fast validation guard migration in the same change. Drafts remain non-blocking
+  until marked ready; merge-queue runs emit the same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
   with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
   repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains
