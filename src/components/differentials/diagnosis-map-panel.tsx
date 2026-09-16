@@ -739,6 +739,11 @@ function NodeInspector({
   const relationshipLabel = selectedIsDiagnosis ? "Focus diagnosis" : likelihoodLabels[selected.likelihood];
   const status = selectedIsDiagnosis ? record.status : detail?.status;
   const clinicalHinge = selectedIsDiagnosis ? record.clinicalHinge : detail?.clinicalHinge;
+  // Every current record's hinge is its presentation group's. Heading it
+  // "Clinical hinge" asserted it of the selected diagnosis, which is the
+  // mismatch this labelling exists to remove.
+  const hingeIsGroupScoped =
+    (selectedIsDiagnosis ? record.clinicalHingeScope : detail?.clinicalHingeScope) === "presentation";
   const safetySummary = selectedIsDiagnosis ? record.safetySnapshot.summary : detail?.safetySummary;
   const selectedSlug = selectedIsDiagnosis ? record.slug : detail?.slug;
   const inCompare = Boolean(selectedSlug && compareIds.includes(selectedSlug));
@@ -819,9 +824,14 @@ function NodeInspector({
                 <div className="rounded-lg border border-[color:var(--success)]/20 bg-[color:var(--success-soft)]/65 p-3">
                   <p className="flex items-center gap-2 text-sm font-bold text-[color:var(--success)]">
                     <CircleCheck className="h-4 w-4" aria-hidden />
-                    Clinical hinge
+                    {hingeIsGroupScoped ? "Presentation hinge" : "Clinical hinge"}
                   </p>
                   <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">{clinicalHinge}</p>
+                  {hingeIsGroupScoped ? (
+                    <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">
+                      Separates the presentation group. It is not specific to {title}.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 

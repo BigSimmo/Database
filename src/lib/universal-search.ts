@@ -9,6 +9,7 @@ import {
   rankDifferentialRecords,
   rankPresentationWorkflows,
 } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { dictionaryKindLabel, searchDictionary } from "@/lib/dictionary";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
@@ -358,7 +359,7 @@ async function searchDifferentialsDomain(args: ResolvedSearchArgs): Promise<Univ
       id: match.record.slug,
       kind: "differentials",
       title: match.record.title,
-      subtitle: match.record.clinicalHinge || match.record.subtitle || undefined,
+      subtitle: diagnosisOwnSummary(match.record) || undefined,
       href: `/differentials/diagnoses/${match.record.slug}`,
       score: match.score,
     }),

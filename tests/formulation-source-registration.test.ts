@@ -27,14 +27,41 @@ function ledgerRecord(id: string) {
  * promote a held source or claim a review nobody performed.
  */
 describe("formulation source registration", () => {
-  it("registers exactly the five candidates that clear the current native gates", () => {
+  it("registers exactly the candidates that clear the current native gates", () => {
     expect(formulationCaptures.map((record) => record.id).sort()).toEqual([
       "formulation-ranzcp-cult",
       "formulation-ranzcp-oca",
       "formulation-ranzcp-suicide",
       "formulation-wa-ocp-risk",
-      "formulation-who-cddr",
     ]);
+  });
+
+  it("reuses an existing register entry for a work already captured, rather than splitting it", () => {
+    // The handover also proposed the WHO ICD-11 CDDR. The Differentials handover
+    // registered the same work at the same URL first, so this import reuses that
+    // identity: a second row would split one work across two catalogue entries,
+    // which is exactly what the null `sourceId` on an acquisition reference
+    // exists to prevent.
+    const cddr = sourceAcquisitionRecords.filter(
+      (record) => record.canonicalUrl === "https://www.who.int/publications/i/item/9789240077263",
+    );
+    expect(cddr).toHaveLength(1);
+    expect(cddr[0].id).toBe("ps-diff-src-who-icd11-cddr-2024");
+  });
+
+  it("never registers a second row for a location the register already holds", () => {
+    // Scoped to this import on purpose. Two pre-existing pairs on main already
+    // share a URL (both Australian Prescriber articles, captured once by
+    // dictionary/factsheets and again by the Differentials handover), so a
+    // repository-wide assertion would fail on someone else's records and this
+    // content PR is not the place to adjudicate which of those rows wins.
+    const others = sourceAcquisitionRecords.filter((record) => !record.id.startsWith("formulation-"));
+    const taken = new Set(others.map((record) => record.canonicalUrl).filter(Boolean));
+    for (const record of formulationCaptures) {
+      expect(taken.has(record.canonicalUrl)).toBe(false);
+    }
+    const ours = formulationCaptures.map((record) => record.canonicalUrl).filter(Boolean);
+    expect(new Set(ours).size).toBe(ours.length);
   });
 
   it("keeps the whole ledger clean after the new captures", () => {
@@ -60,9 +87,13 @@ describe("formulation source registration", () => {
     expect(oca.datePrecision).toBe("month");
     expect(oca.publicationDate).toBe("2025-07-01");
 
-    const who = ledgerRecord("formulation-who-cddr");
-    expect(who.datePrecision).toBe("day");
-    expect(who.publicationDate).toBe("2024-03-08");
+    const cult = ledgerRecord("formulation-ranzcp-cult");
+    expect(cult.datePrecision).toBe("month");
+    expect(cult.publicationDate).toBe("2021-12-01");
+
+    const risk = ledgerRecord("formulation-wa-ocp-risk");
+    expect(risk.datePrecision).toBe("day");
+    expect(risk.publicationDate).toBe("2015-11-30");
   });
 
   it("keeps the WA risk standard separate from the existing clinical-care collection", () => {
