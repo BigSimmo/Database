@@ -12,7 +12,21 @@ const RELEASE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const CHANGE_EPOCH = /^(?:0|[1-9][0-9]*)$/;
 const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
-const RETAINED_BOOTSTRAP_RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
+/**
+ * The epoch-zero bootstrap release ids this build recognises.
+ *
+ * The id is derived from the release digest, which is derived from the frozen seed
+ * population, so refreshing that population moves the identity. An applied migration
+ * is not re-run, so a live database keeps the id it was created with while a freshly
+ * replayed one carries the refreshed id. Both denote the same logical retained
+ * bootstrap, and a deploy that recognised only one would leave the running site
+ * failing to recognise its own bootstrap. Add the new id here whenever
+ * `npm run bootstrap:refresh` changes it; never remove an id a live database may hold.
+ */
+const RETAINED_BOOTSTRAP_RELEASE_IDS: ReadonlySet<string> = new Set([
+  "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
+  "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+]);
 const RETAINED_BOOTSTRAP_REGISTRY_VERSION = "site-content-bootstrap-public-release-v1";
 const RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST = "0".repeat(64);
 
@@ -312,7 +326,7 @@ export function classifySiteContentPartition(input: SiteContentPartitionInput): 
     return { ...base, state: "unavailable", staticMatches: false, reasons: sortedReasons(reasons) };
   }
   if (
-    release.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    RETAINED_BOOTSTRAP_RELEASE_IDS.has(release.releaseId) &&
     release.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
     release.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST
   ) {
@@ -336,7 +350,7 @@ function hasExactRetainedBootstrapIdentity(input: SiteContentHealthInput): boole
   const activeRelease = input.activePublicSiteRelease;
   return (
     isRelease(activeRelease) &&
-    activeRelease.releaseId === RETAINED_BOOTSTRAP_RELEASE_ID &&
+    RETAINED_BOOTSTRAP_RELEASE_IDS.has(activeRelease.releaseId) &&
     activeRelease.registryVersion === RETAINED_BOOTSTRAP_REGISTRY_VERSION &&
     activeRelease.staticManifestDigest === RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST &&
     activeRelease.state === "active" &&
