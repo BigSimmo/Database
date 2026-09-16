@@ -147,6 +147,49 @@ not clinician sign-off.
 5. **Rendered browser acceptance.** Not run. No local server was started and no browser journey
    was exercised; the proof below is offline only.
 
+## The one blocker this change cannot clear itself
+
+**Two tests are red, and they need someone with Docker and a live-database merge decision.**
+
+`tests/supabase-schema.test.ts` and `tests/site-content-publication-route.test.ts` each pin a
+frozen copy of the site-content seed population, embedded as a dollar-quoted JSON blob inside
+`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` and mirrored in
+`supabase/schema.sql`. Every form record appears there in full. Changing the Forms catalogue
+changes the app-side seed, so the frozen copy no longer matches it:
+
+```
+Test Files  2 failed | 1362 passed | 1 skipped (1365)
+     Tests  2 failed | 20642 passed | 2 expected fail | 3 skipped (20649)
+```
+
+Both failures are that mismatch and nothing else. They pass on `66105e18` and fail here, so this
+change is the cause.
+
+Refreshing the blob is the documented maintenance action, and there is a precedent from the
+repository owner: `fb0b0279b` ("refresh P03 form PDF restriction baseline") touched the
+migration, `supabase/schema.sql` and `supabase/drift-manifest.json` together. This session could
+not do the same, for two reasons:
+
+1. **The bootstrap blob carries fields no current code produces.** Each entry has
+   `logicalDocumentId`, `logicalChunkId`, `contentHash`, `publicationFingerprint`,
+   `governanceFingerprint`, `lineageFingerprint` and `publicMetadataFingerprint` alongside
+   `record` and `renderPayload`. `canonicalDynamicSiteContentProjection` returns only the last
+   two; `logicalChunkId` appears nowhere in `src/` or `scripts/` at all, and the fingerprints are
+   only read and passed through in `site-content-sync.ts`, never computed. Regenerating the blob
+   would mean inventing those values for rows that seed the live public-records table. That is
+   the shape of silent corruption, so it was not attempted.
+2. **`supabase/drift-manifest.json` cannot be regenerated here.** `npm run drift:manifest`
+   replays `supabase/schema.sql` into a pinned Supabase Postgres container; the Docker daemon is
+   unavailable in this environment. Editing `schema.sql` without it turns
+   `tests/drift-detection.test.ts` red, which trades two failures for a third.
+
+**What the owner has to decide.** The fix touches `supabase/migrations/**`, which under
+`AGENTS.md` makes merge approval production-deploy approval for the live `Clinical KB Database`
+project. Auto-merge must stay off. A session with Docker, the seed-generation route for those
+seven derived fields, and an approved window can refresh migration, `schema.sql` and the drift
+manifest in one change, after which both tests go green. Until then this branch is complete and
+reviewable but not mergeable.
+
 ## Evidence
 
 Offline only. No provider call, no paid operation, no database or index write, no source
@@ -157,5 +200,11 @@ tests/mha-act-sections.test.ts tests/form-priority-facts.dom.test.tsx` and the r
   Forms suite — passing; see the pull request for the full run.
 - `npm run check:mha-act-sections` — `Act section data is current (79 sections cited by forms,
 0 reviewed, 79 drafted, 0 pending; Act 02-b0-01 as at 2025-09-25).`
-- `npm run check:forms-pdf-manifest`, `npm run lint`, `npm run typecheck` — passing.
+- `npm run check:forms-pdf-manifest` — `Forms PDF manifest is current (51 PDFs, 50 require a
+user password, 50 editing-restricted).`
+- `npm run check:maintainability-budgets`, `npm run check:knip`, `npm run docs:check-index`,
+  `npm run docs:check-links`, `npm run docs:check-inventory`,
+  `npm run check:ledger-write-discipline`, `npm run lint`, `npm run typecheck` — passing.
+- `npm run drift:manifest` — **not run**, Docker daemon unavailable.
+- `npm run verify:ui` and any browser journey — **not run**. No local server was started.
 - Package checks as tabulated above.
