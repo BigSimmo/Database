@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-14"
+    "committed_at": "2026-09-16"
   },
   "routes": {
     "modes": [
@@ -602,6 +602,11 @@
       {
         "path": "/mockups/document-search/search",
         "file": "src/app/mockups/document-search/search/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/development/on-call-freshness",
+        "file": "src/app/mockups/development/on-call-freshness/page.tsx",
         "area": "mockup"
       },
       {
