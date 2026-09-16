@@ -18,7 +18,10 @@ import { createPortal } from "react-dom";
 
 import {
   categoryTheme,
+  FACTSHEET_CRISIS_CONTACTS,
   FACTSHEET_DEMO_NOTICE,
+  FACTSHEET_EMERGENCY_NUMBER,
+  FACTSHEET_MEDLITE_URGENT_HELP,
   factsheetDetailHref,
   printBlocks,
   relatedFactsheets,
@@ -528,6 +531,26 @@ function FactsheetBody({
               </p>
             </section>
           ))}
+          {/* medLite has no `urgentHelp` field, but both medicine-overview
+              sheets name emergency-grade symptoms. Mirrors the medRich urgent
+              block so a reader on either sheet gets the same route out. */}
+          <div
+            id="factsheet-urgent"
+            className={cn(
+              inPageAnchor,
+              "flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5",
+            )}
+          >
+            <span className="grid h-tap w-tap shrink-0 place-items-center rounded-xl bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]">
+              <TriangleAlert className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-base font-bold text-[color:var(--danger)]">When to get urgent help</p>
+              <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
+                {FACTSHEET_MEDLITE_URGENT_HELP}
+              </p>
+            </div>
+          </div>
         </div>
       );
     case "condition":
@@ -598,10 +621,19 @@ function FactsheetBody({
             <div>
               <p className="text-base font-bold text-[color:var(--text-heading)]">You’re not alone</p>
               <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
+                {/* Numbers come from the shared constant, not a second copy:
+                    the printed handout builds its crisis line from the same
+                    source, so the two cannot drift into different advice. */}
                 {factsheet.support} In Australia you can call{" "}
-                <strong className="font-bold">Beyond Blue 1300 22 4636</strong>,{" "}
-                <strong className="font-bold">Lifeline 13 11 14</strong>, or <strong className="font-mono">000</strong>{" "}
-                in an emergency.
+                {FACTSHEET_CRISIS_CONTACTS.map((contact, index) => (
+                  <span key={contact.number}>
+                    <strong className="font-bold">
+                      {contact.name} {contact.number}
+                    </strong>
+                    {index < FACTSHEET_CRISIS_CONTACTS.length - 1 ? ", " : ", or "}
+                  </span>
+                ))}
+                <strong className="font-mono">{FACTSHEET_EMERGENCY_NUMBER}</strong> in an emergency.
               </p>
             </div>
           </div>
@@ -702,6 +734,29 @@ function FactsheetBody({
               ))}
             </div>
           </section>
+          {/* The act-now list sits above the prose callout, and in the danger
+              tone rather than warning: it is the one thing on a monitoring
+              sheet a reader must be able to find by scanning. Matches the
+              medRich "Serious — tell your doctor" list idiom. */}
+          {factsheet.warningSigns ? (
+            <div id="factsheet-warning-signs" className={cn(inPageAnchor, "rounded-2xl border p-5", toneDanger)}>
+              <div className="mb-3 flex items-center gap-2">
+                <TriangleAlert className="h-4 w-4 shrink-0 text-[color:var(--danger)]" aria-hidden="true" />
+                <span className="text-sm font-bold text-[color:var(--danger)]">{factsheet.warningSigns.heading}</span>
+              </div>
+              <ul className="grid gap-2">
+                {factsheet.warningSigns.items.map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm leading-5 text-[color:var(--danger)]">
+                    <span
+                      className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-[color:var(--danger)]"
+                      aria-hidden="true"
+                    />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           <div
             id="factsheet-staying-safe"
             className={cn(inPageAnchor, "flex gap-3.5 rounded-2xl border p-5", toneWarning)}
