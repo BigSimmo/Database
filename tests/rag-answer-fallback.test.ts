@@ -650,7 +650,7 @@ async function answerFromTextSources(
             expectedSiteStaticManifestDigest: "a".repeat(64),
             activePublicSiteRelease: {
               version: "clinical-kb-site-release-v1" as const,
-              releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+              releaseId: "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
               registryVersion: "site-content-registry-v1",
               staticManifestDigest: "a".repeat(64),
               dynamicStateDigest: "b".repeat(64),
@@ -3412,7 +3412,7 @@ describe("RAG structured-output fallback", () => {
             expectedSiteStaticManifestDigest: "a".repeat(64),
             activePublicSiteRelease: {
               version: "clinical-kb-site-release-v1",
-              releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+              releaseId: "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
               registryVersion: "site-content-registry-v1",
               staticManifestDigest: "a".repeat(64),
               dynamicStateDigest: "b".repeat(64),

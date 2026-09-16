@@ -31,11 +31,15 @@
  *
  * Usage:
  *   npm run bootstrap:refresh -- --check   report drift only, write nothing
- *   npm run bootstrap:refresh -- --write   rewrite both SQL files
  *
- * `--write` edits an applied migration. Merging it reaches the live clinical
- * database, so it belongs in an approved window under the Supabase project
- * safety rules in AGENTS.md. Run `npm run check:drift` afterwards.
+ * `--write` is REFUSED, and the reason corrects what this header used to say. Editing
+ * an applied migration does NOT reach the live database: the Supabase integration
+ * applies only versions it has not seen, so the edit changes what the repository claims
+ * live contains and nothing else. Since the release id is content-addressed, a refresh
+ * moves that identity in the repository while production keeps the old one — which is
+ * exactly what left check:drift red on 2026-09-16. Content reaches live through the
+ * publication pipeline (docs/site-content-sync-runbook.md); a lookup that must serve
+ * newer records is refreshed by a NEW forward migration.
  */
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -353,8 +357,33 @@ function assertFaithful(entries: readonly BootstrapEntry[], baselines: Record<st
   return { frozenEntries, frozenDigest };
 }
 
+/**
+ * `--write` rewrites migrations the live database has already applied, which moves a
+ * content-addressed release identity production can never adopt. It ran once, on 2026-09-16
+ * (PR #2814), and left `check:drift` red on two constraints for a release no database has
+ * ever held. The refusal is the lesson; see `tests/site-content-epoch-zero-freeze.test.ts`.
+ */
+const WRITE_REFUSAL = [
+  "Refusing to rewrite an applied migration.",
+  "",
+  "supabase/migrations/20260824122000 was applied to the live database on 2026-09-11. The Supabase",
+  "integration only applies versions it has not seen, so editing it changes nothing on live — it",
+  "changes only what the repository CLAIMS live contains. Because the epoch-zero release id is",
+  "derived from the frozen population's digest, a refresh moves that identity in the repository",
+  "while production keeps the old one, and check:drift goes red on the two constraints that embed",
+  "it. That happened on 2026-09-16 and had to be reverted.",
+  "",
+  "Curated catalogue content reaches live through the publication pipeline in",
+  "docs/site-content-sync-runbook.md. A SQL lookup that must serve newer records is refreshed by a",
+  "NEW forward migration, which the integration does apply.",
+  "",
+  "--check still works and is the useful half: it proves every frozen entry still derives from the",
+  "catalogue byte-for-byte.",
+].join("\n");
+
 function main() {
-  const write = process.argv.includes("--write");
+  if (process.argv.includes("--write")) throw new Error(WRITE_REFUSAL);
+  const write = false;
   const entries = currentEntries();
   const baselines = currentBaselines();
   const migration = readFileSync(MIGRATION, "utf8");
@@ -390,8 +419,10 @@ function main() {
     return;
   }
   if (!write) {
-    console.log("\nCheck only. Re-run with --write to rewrite both SQL files.");
-    console.log("Writing edits an applied migration: merge only inside an approved window.");
+    console.log("\nCheck only, and check is all this tool does now.");
+    console.log("The freeze above is what the live database holds and must not be rewritten to");
+    console.log("match the catalogue. Publish curated content through the pipeline in");
+    console.log("docs/site-content-sync-runbook.md instead.");
     return;
   }
 

@@ -544,10 +544,14 @@ describe("site-content health evidence parsing", () => {
 describe("bootstrap identity across a baseline refresh", () => {
   // Refreshing the frozen epoch-zero population changes the release digest, and the
   // release id is derived from that digest, so the identity moves with the content.
-  // An applied migration is not re-run, so a live database can still hold the older
-  // id while a freshly replayed one holds the newer. Both are the same logical
-  // retained bootstrap and both must be recognised, or a deploy would stop the running
-  // site recognising its own bootstrap.
+  // An applied migration is not re-run, so no live database ever adopts the refreshed
+  // id, and the 2026-09-16 refresh that produced the one below has been reverted and
+  // pinned by tests/site-content-epoch-zero-freeze.test.ts.
+  //
+  // It is still recognised here, and must stay recognised: a database replayed from
+  // the repository while that refresh was on main carries it, and a build that failed
+  // to recognise its own bootstrap would report the site unavailable. This asserts
+  // tolerance of an id already in the wild, not permission to mint another one.
   const refreshedBootstrapDigest = "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3";
   const refreshedBootstrapRelease = {
     ...retainedBootstrapRelease,

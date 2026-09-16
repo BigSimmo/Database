@@ -16,7 +16,7 @@ import { governedCorpusComponentState } from "../src/lib/rag/rag-contracts";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
 import type { ClinicalSourceMetadata, RagQueryPlan, SearchResult, SourceCorpusScope } from "../src/lib/types";
 
-const RELEASE_ID = "91ceaa8d-470c-5661-8ce6-980c2a1bb137";
+const RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
 const DIGEST = "a".repeat(64);
 
 function snapshot(state: RagContextSnapshot["publicSiteContent"]["state"] = "current"): RagContextSnapshot {

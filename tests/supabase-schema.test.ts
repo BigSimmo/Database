@@ -337,9 +337,9 @@ describe("site-content Task 4 health schema", () => {
     expect(siteContentHealthMigration).toContain("not exists (select 1 from live_events e where not exists");
     expect(siteContentHealthMigration).toContain("receipt.receipt#>>'{resource,kind}' = 'site_release'");
     expect(siteContentHealthMigration).toContain(
-      "p.target_change_epoch = 0 and p.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid",
+      "p.target_change_epoch = 0 and p.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid",
     );
-    expect(siteContentHealthMigration).toContain("p.expected_record_count = 860 and p.expected_tombstone_count = 0");
+    expect(siteContentHealthMigration).toContain("p.expected_record_count = 843 and p.expected_tombstone_count = 0");
     expect(siteContentHealthMigration).not.toContain("(select state from bootstrap) = 'valid_retained'");
     const healthStart = siteContentHealthMigration.indexOf(
       "create or replace function public.read_site_content_health()",
@@ -1693,18 +1693,62 @@ describe("site-content publication and release control plane", () => {
     );
   });
 
-  it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {
+  /**
+   * SHAPE, NOT CONTENT — and the difference is why 2026-09-16 happened.
+   *
+   * This baseline is frozen inside an APPLIED migration. Asserting it equalled the whole current
+   * catalogue made every added or edited service record fail by construction, and the only way to
+   * pass was to rewrite `20260824122000` — which changes a content-addressed release id the live
+   * database can never pick up, because an applied migration is never re-run. PR #2814 did exactly
+   * that: the repository went on to describe a bootstrap release (`91ceaa8d…`, 860 records) that no
+   * database has ever held, while live kept `e4a1dd29…` and 843, and `check:drift` went red on two
+   * constraints.
+   *
+   * Divergence from the catalogue is expected, not a defect. The baseline is a 2026-08-24 snapshot
+   * used by SQL's null and forced-field merging for the records frozen at epoch zero; curated
+   * content reaches live through the publication pipeline (`docs/site-content-sync-runbook.md`), and
+   * the lookup that serves newer or revised records is refreshed by a NEW forward migration, never
+   * by editing this one.
+   *
+   * What must not drift is the FIELD VOCABULARY the merge reads. Identity of the freeze itself is
+   * pinned in `tests/site-content-epoch-zero-freeze.test.ts`.
+   */
+  it("keeps the frozen P03 registry baseline readable as the current catalogue record shape", () => {
     const match = migrationRaw.match(
       /\$site_content_registry_baselines\$([\s\S]*?)\$site_content_registry_baselines\$/,
     );
     expect(match).not.toBeNull();
     if (!match) return;
     const sqlBaselines = JSON.parse(match[1]!) as Record<string, unknown>;
-    const expected = Object.fromEntries([
-      ...serviceRecords.map((record) => [`service:${record.slug}`, record] as const),
-      ...formRecords.map((record) => [`form:${record.slug}`, record] as const),
-    ]);
-    expect(sqlBaselines).toEqual(expected);
+    const catalogue = [
+      ...serviceRecords.map((record) => record as unknown as Record<string, unknown>),
+      ...formRecords.map((record) => record as unknown as Record<string, unknown>),
+    ];
+    // Non-vacuous: the freeze carries 281 entries, so an empty or truncated blob fails here
+    // rather than passing as "every frozen entry had the right shape".
+    expect(Object.keys(sqlBaselines).length).toBe(281);
+    expect(catalogue.length).toBeGreaterThanOrEqual(281);
+
+    // An optional field is absent from a record that has no value for it, so one record's key set
+    // cannot be compared to another's. The VOCABULARY can: every field name the catalogue emits
+    // today. A rename or a removal leaves the frozen baseline carrying a field SQL's merge can no
+    // longer resolve, and that is what this catches.
+    //
+    // Only that direction is checked. A field added to the catalogue after 2026-08-24 is absent
+    // from the freeze by definition, so requiring the freeze to carry today's mandatory fields
+    // would re-create the failure-by-construction this test was rewritten to remove.
+    const emitted = new Set(catalogue.flatMap((record) => Object.keys(record)));
+    expect(emitted.size, "the catalogue must emit fields to pin").toBeGreaterThan(0);
+
+    for (const [key, frozen] of Object.entries(sqlBaselines)) {
+      expect(frozen && typeof frozen === "object" && !Array.isArray(frozen), `baseline ${key} is not an object`).toBe(
+        true,
+      );
+      expect(
+        Object.keys(frozen as Record<string, unknown>).filter((field) => !emitted.has(field)),
+        `frozen baseline ${key} carries fields the catalogue no longer emits`,
+      ).toEqual([]);
+    }
     expect(migration).toContain("create or replace function public.site_content_registry_source_render(");
     expect(migration).toContain("p_kind <> 'form' and p_row->'summary_cards' is distinct from 'null'::jsonb");
     expect(migration).toContain("v_baseline#>'{catalogPayload,actSections}'");

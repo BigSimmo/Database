@@ -11,6 +11,19 @@ This runbook owns the source-only Task 3 control plane for public registry site 
 5. Staging writes every planned row, including unchanged carry-forward and retirement tombstones bound to their immutable retirement publications, into immutable release-scoped artifacts. The only accepted physical/provider dimension is 1536. SQL recomputes semantic fields, vector dimensions/identity, counts, provider-free checks, and dynamic/release digests; activation separately binds the complete current head population to the same immutable plan and exact content-addressed P05 recovery receipt.
 6. All seven public registry GET routes read only `read_site_content_public_records`. The migration freezes the exact P03 dynamic seed population into the content-addressed epoch-zero release. Bundled TypeScript seeds are used only if the database has no retained active release identity; an epoch-zero rollback serves the frozen database rows even though the RAG lane remains uninitialized. After initialization, a missing, pending, or inconsistent record is omitted; no owner row or seed fallback is allowed.
 
+## The epoch-zero freeze is immutable
+
+`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` froze 843 records and 281 registry baselines into the epoch-zero release, and the release id `e4a1dd29-14f6-556c-8fb7-f4f947d8b846` is derived from that population's digest. It was applied to the live database on 2026-09-11. **The Supabase integration applies only migration versions it has not seen, so editing that file — or `20260824123000` or `20260830121000`, which pin the same id — changes nothing on live.** It changes only what this repository claims live contains.
+
+That is not theoretical. On 2026-09-16 the frozen population was regenerated to take in 17 new service records (PR #2814). The identity moved to `91ceaa8d-470c-5661-8ce6-980c2a1bb137` with 860 records, production kept `e4a1dd29…` with 843, and the post-merge `live-drift` gate went red on `site_content_release_records_check1` and `site_content_sync_state_transition_pointer_check`. Every offline check still passed, because a replayed database and the schema mirror agreed with each other — the silent-divergence shape this drift programme exists to close. It was reverted.
+
+So:
+
+- Catalogue growth and revision reach live through the publication pipeline above, never by regenerating the freeze.
+- A SQL lookup that must serve records added after the freeze — `site_content_registry_baseline` is the one that matters — is refreshed by a **new forward migration**, which the integration does apply.
+- `npm run bootstrap:refresh -- --check` proves every frozen entry still derives from the catalogue byte for byte. `--write` is refused.
+- `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest and counts across the three migrations, the schema mirror and the drift manifest. If it fails, restore the migration rather than updating the constants.
+
 ## Source-only planning
 
 The CLI reads no environment or live state and is a dry run unless `--write` is supplied:

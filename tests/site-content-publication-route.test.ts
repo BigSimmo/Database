@@ -530,7 +530,28 @@ describe("canonical dynamic public projection", () => {
     expect(JSON.stringify(privateSourceProjection)).not.toContain(privateToken);
   });
 
-  it("freezes the complete current P03 dynamic seed population into epoch zero without a semantic diff", () => {
+  /**
+   * SHAPE, NOT CONTENT — and the difference is why 2026-09-16 happened.
+   *
+   * This population is frozen inside an APPLIED migration, and the epoch-zero release id is derived
+   * from its digest. The test here used to assert `frozen` equalled the whole current catalogue, so
+   * adding or editing a single record failed by construction and the only way to pass was to
+   * regenerate `20260824122000`. Regenerating it moves a release identity the live database can
+   * never adopt, because an applied migration is never re-run. PR #2814 did exactly that: the
+   * repository went on to describe a bootstrap (`91ceaa8d…`, 860 records) that no database has ever
+   * held, live kept `e4a1dd29…` and 843, and `check:drift` went red on two constraints.
+   *
+   * Content divergence is not a defect. Epoch zero is a frozen snapshot of 2026-08-24; the catalogue
+   * is curated continuously, and curated content reaches live through the publication pipeline
+   * (`docs/site-content-sync-runbook.md`), never by editing this migration. So a record whose text
+   * has since been revised SHOULD differ here.
+   *
+   * What must not drift is the projection FORMAT. If `canonicalDynamicSiteContentProjection` changes
+   * the keys it emits, the frozen bytes stop being readable as that projection, and this fails.
+   * Identity of the freeze itself (release id, digest, counts) is pinned separately in
+   * `tests/site-content-epoch-zero-freeze.test.ts`.
+   */
+  it("keeps the frozen epoch-zero seed readable as the current P03 projection format", () => {
     const migration = readFileSync(
       "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
       "utf8",
@@ -585,6 +606,48 @@ describe("canonical dynamic public projection", () => {
       .map(({ record, renderPayload }) => ({ logicalId: record.logicalId, record, renderPayload }))
       .sort((left, right) => left.logicalId.localeCompare(right.logicalId));
 
-    expect(frozen).toEqual(current);
+    // Non-vacuous: the 2026-08-24 freeze carries 843 records, so a truncated or empty blob fails
+    // here rather than passing as "every frozen record had the right shape".
+    expect(frozen.length).toBe(843);
+    expect(current.length).toBeGreaterThanOrEqual(frozen.length);
+
+    const keysOf = (value: unknown) =>
+      value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : null;
+    const universe = (pick: (entry: (typeof current)[number]) => unknown) => {
+      const all = new Set<string>();
+      for (const entry of current) {
+        const keys = keysOf(pick(entry));
+        expect(keys, "the current projection must emit objects").not.toBeNull();
+        for (const key of keys!) all.add(key);
+      }
+      return all;
+    };
+
+    // An optional field is absent from a record that has no value for it, so the key set of one
+    // record is content-dependent and cannot be compared to another record's. What is NOT
+    // content-dependent is the VOCABULARY: every key the projection can emit today. A rename or a
+    // removal leaves the frozen bytes carrying a key nothing reads, and that is what this catches.
+    //
+    // Only that direction is checked. A key added after 2026-08-24 is absent from the freeze by
+    // definition, so requiring the freeze to carry today's mandatory keys would re-create the
+    // failure-by-construction this test was rewritten to remove.
+    const recordKeyUniverse = universe((entry) => entry.record);
+    const renderKeyUniverse = universe((entry) => entry.renderPayload);
+    expect(recordKeyUniverse.size, "the projection must emit record keys to pin").toBeGreaterThan(0);
+
+    for (const entry of frozen) {
+      const recordKeys = keysOf(entry.record);
+      const renderKeys = keysOf(entry.renderPayload);
+      expect(recordKeys, `frozen seed record ${entry.logicalId} is not an object`).not.toBeNull();
+      expect(renderKeys, `frozen seed record ${entry.logicalId} render payload is not an object`).not.toBeNull();
+      expect(
+        recordKeys!.filter((key) => !recordKeyUniverse.has(key)),
+        `frozen seed record ${entry.logicalId} carries record keys the projection no longer emits`,
+      ).toEqual([]);
+      expect(
+        renderKeys!.filter((key) => !renderKeyUniverse.has(key)),
+        `frozen seed record ${entry.logicalId} carries render keys the projection no longer emits`,
+      ).toEqual([]);
+    }
   });
 });
