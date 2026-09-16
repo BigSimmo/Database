@@ -108,11 +108,20 @@ All three entered as metadata-only candidates. None was set to `adopted`, `appro
 
 ## Verification
 
-| Command                                                               | Exit | Result                                                                     |
-| --------------------------------------------------------------------- | ---- | -------------------------------------------------------------------------- |
-| `npm run check:source-acquisitions`                                   | 0    | 11 sources, 3 awaiting clinical sign-off at D band, gate passed unweakened |
-| `npm run check:source-catalogue`                                      | 0    | acquisitions 11, coverage passed                                           |
-| `npx --no-install vitest run tests/source-acquisition-ledger.test.ts` | 0    | 35 tests passed                                                            |
+| Command                                                                                                                                   | Exit  | Result                                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run check:source-acquisitions`                                                                                                       | 0     | 11 sources, 3 awaiting clinical sign-off at D band, gate passed unweakened                                                                                                     |
+| `npm run check:source-catalogue`                                                                                                          | 0     | acquisitions 11, coverage passed                                                                                                                                               |
+| `npx --no-install vitest run tests/source-acquisition-ledger.test.ts`                                                                     | 0     | 35 tests passed                                                                                                                                                                |
+| `npm run verify:cheap`                                                                                                                    | 0     | 1364 test files, 20640 passed, 2 expected fail, 3 skipped                                                                                                                      |
+| `npm run typecheck` / `npm run lint`                                                                                                      | 0 / 0 | clean                                                                                                                                                                          |
+| `npm run plan:browser`                                                                                                                    | —     | escalates to `full`, because `data/repo-awareness-snapshot.json` is unattributable. It still names the real target: `differential-detail-page.tsx` to `tests/ui-tools.spec.ts` |
+| `node scripts/run-playwright.mjs --project=chromium tests/ui-tools.spec.ts --grep "diagnosis detail actions stay tappable\|differential"` | 0     | 13 passed, including the journey asserting `differential-clinical-hinge`                                                                                                       |
+
+This is a **focused browser proof, not `verify:ui`**. The full Chromium suite is left to
+CI, which runs it on a non-draft pull request. `npm run ensure` served the app at
+`http://localhost:4598` and `/api/local-project-id` confirmed `PsychSift` /
+`clinical-kb:e641a7e2d0fd` before any browser work.
 
 No dependency was installed and no provider was called.
 
@@ -231,6 +240,52 @@ Consequence to carry forward: records seeded from `buildDefaultDifferentialRows(
 still carry unscoped payloads until that seed is refreshed. Everything the app renders
 is scoped.
 
+## Corpus census (handover task 04)
+
+Counted from `data/differentials-snapshot.json` at HEAD, not inherited from the package:
+
+| Thing                                                 | Count                         |
+| ----------------------------------------------------- | ----------------------------- |
+| Presentations                                         | 31                            |
+| Diagnoses                                             | 201                           |
+| Presentation-candidate relationships                  | 232 (124 selected by default) |
+| Diagnoses appearing in more than one presentation     | 21                            |
+| Related-diagnosis edges                               | 1232                          |
+| Scenario presets / red-flag flows / search-alias keys | 7 / 7 / 20                    |
+
+No orphans in either direction: every candidate slug resolves to a diagnosis record, and
+every diagnosis belongs to at least one presentation. No record, slug or relationship was
+added, removed or renamed by this work.
+
+## Handover task outcomes
+
+| Task                                           | Outcome                                                                                                                                                                                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 01 Validate and reconcile the handover         | Done. Four package checks green, policy drift reconciled rather than bypassed, every source carries an outcome, repeat run adds nothing                                                                                                                           |
+| 02 Reconcile source identities and metadata    | Done. 3 inserts, 1 currentness correction, native gate passes unweakened, no duplicate identity, nothing auto-adopted                                                                                                                                             |
+| 03 Differentials evidence adapter              | **Not done, and not doable as packaged.** See below                                                                                                                                                                                                               |
+| 04 Reconcile the clinical corpus               | Done. Census above, taken from the checkout                                                                                                                                                                                                                       |
+| 05 Correct discriminator leakage               | Done, and wider than the package described. Guard test written first and red on three assertions                                                                                                                                                                  |
+| 06 Preserve fail-closed governance and exports | Verified unchanged: `differentialValidationStatus()` still defaults to `unverified`, `deriveGovernanceFromSnapshot()` still fails to `unknown`/`unverified` on negative review wording, and the copy-after-review disclaimer is still the last line of the export |
+| 07 Resolve source admission holds              | Owner decision. 20 stay held, AUSPRES not re-added, no host or authority change, no ranking surface touched                                                                                                                                                       |
+| 08 Original-document acquisition               | Blocked by design. No bytes fetched, no indexing, provider budget AUD 0                                                                                                                                                                                           |
+| 09 Application and presentation tests          | Done. Offline gate plus a focused browser proof, reported separately above                                                                                                                                                                                        |
+| 10 Completion receipt                          | This document                                                                                                                                                                                                                                                     |
+
+### Why task 03 cannot be completed from this package
+
+The adapter needs a real native `recordId` and `field` per the package's own crosswalk
+entry `ps-diff-map-06`. The claims do not carry one. All 385 claims have
+`currentLocation.repository: null`, 377 of them point at an external `canonical-v2`
+artifact, and their record IDs are handover-internal (`ps-diff-block-acute-mental-state`,
+`ps-diff-entity-...`), not repository slugs. Building the adapter would mean inventing the
+claim-to-record mapping, which the package explicitly forbids.
+
+The 28 passage-checked claims are additionally all `reviewStatus: requires_clinical_review`,
+`productionEligible: false`, with no clinical reviewer, and four of the nine sources they
+anchor are among the 20 held. There is nothing admissible to wire up yet. Recorded as
+outstanding rather than stubbed.
+
 ## Residual approvals and rollback
 
 Outstanding, none of them resolved here:
@@ -239,6 +294,8 @@ Outstanding, none of them resolved here:
 - Owner confirmation of the RANZCP currentness correction.
 - A decision on how to remediate the presentation-scope finding above.
 - The 357 claims without a checked source passage, and the 20 held source records.
+- A Differentials evidence adapter, which needs a verified claim-to-record mapping this
+  package does not supply (see task 03 above).
 - Any original-byte acquisition, indexing or activation. Approved provider budget is AUD 0.
 
 Rollback targets are exactly: the three record IDs listed above, and the

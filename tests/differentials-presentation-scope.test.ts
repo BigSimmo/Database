@@ -103,6 +103,17 @@ describe("differentials presentation scope", () => {
     }
   });
 
+  it("labels every presentation-scope hinge so a surface cannot present it unqualified", () => {
+    // The detail page's headline hinge panel is the most prominent place the
+    // text appears. It reads as the diagnosis's own discriminator unless the
+    // record says otherwise, so every record carrying a group hinge must be
+    // marked. All 201 currently are.
+    const unlabelled = records.filter(
+      (record) => record.clinicalHinge.trim() && record.clinicalHingeScope === undefined,
+    );
+    expect(unlabelled.map((record) => record.slug)).toEqual([]);
+  });
+
   it("does not repeat presentation hinge text inside why-it-fits", () => {
     const offenders = records
       .filter((record) => {
