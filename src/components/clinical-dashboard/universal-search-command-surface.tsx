@@ -44,6 +44,7 @@ import {
 import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
+import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 
@@ -813,13 +814,22 @@ export function UniversalSearchCommandSurface({
         const GroupIcon = appModeIcons[targetModeId];
         const visibleItems =
           modeId === "favourites" ? group.items.filter((item) => !savedHrefs.has(item.href)) : group.items;
-        if (!visibleItems.length) continue;
+        // A degraded group with nothing in it still renders, heading and notice only. Skipping it
+        // would show a plain "no matches" for a catalogue that was never successfully read.
+        if (!visibleItems.length && !group.degraded) continue;
         const isCurrentModeGroup = universalPreferredDomains.includes(group.kind);
         built.push({
           key: `universal-${group.kind}`,
-          heading: isCurrentModeGroup
-            ? `Current mode · ${domainHeadings[group.kind]} · ${visibleItems.length}`
-            : `Also in ${targetMode.label} · ${domainHeadings[group.kind]} · ${visibleItems.length}`,
+          // A degraded group answered from the in-bundle catalogue because the published one could
+          // not be read. The results are real, so they are still shown, but the reader is told the
+          // list may lag what was published rather than being left to assume it is current. The
+          // 2026-09-16 outage is the reason this is said out loud at all.
+          heading: withCatalogueDegradedNotice(
+            isCurrentModeGroup
+              ? `Current mode · ${domainHeadings[group.kind]} · ${visibleItems.length}`
+              : `Also in ${targetMode.label} · ${domainHeadings[group.kind]} · ${visibleItems.length}`,
+            group.degraded,
+          ),
           items: [
             ...visibleItems.map((item) => ({
               id: nextId(),
