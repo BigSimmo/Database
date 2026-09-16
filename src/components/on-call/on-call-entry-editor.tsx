@@ -16,6 +16,7 @@ import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { mergeOnCallEditorDetails } from "@/lib/on-call/editor-details";
 import {
+  ON_CALL_RECURRENCE_FREQUENCIES,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   onCallEntrySchema,
@@ -38,6 +39,9 @@ import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
  * unchanged, so an ordinary edit can never reset them.
  */
 
+/** The one detail the editor writes as a nested object rather than a string. */
+const RECURRENCE_RULE_KEY = "recurrenceRule";
+
 type DetailFieldKind = "text" | "textarea" | "list" | "select";
 
 type DetailFieldSpec = {
@@ -50,6 +54,22 @@ type DetailFieldSpec = {
   type?: string;
   options?: SelectOption[];
 };
+
+/**
+ * How often a teaching session comes round.
+ *
+ * A select rather than a tick box: the schedule can compute with three
+ * frequencies, and a single tick could only ever mean "weekly". The empty value
+ * is a real choice — "does not repeat" is what most sessions are — which is why
+ * it is a listed option rather than a placeholder the reader has to guess at.
+ */
+const RECURRENCE_OPTIONS: SelectOption[] = [
+  { value: "", label: "Does not repeat" },
+  ...ON_CALL_RECURRENCE_FREQUENCIES.map((frequency) => ({
+    value: frequency,
+    label: `${frequency.charAt(0).toUpperCase()}${frequency.slice(1)}`,
+  })),
+];
 
 const LOGISTICS_CATEGORY_OPTIONS: SelectOption[] = [
   { value: "Parking", label: "Parking" },
@@ -110,6 +130,13 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       type: "date",
       hint: "YYYY-MM-DD. Needed for Coming up on the home; the free-text field above is still what Teaching shows.",
     },
+    {
+      key: RECURRENCE_RULE_KEY,
+      label: "Repeats",
+      kind: "select",
+      options: RECURRENCE_OPTIONS,
+      hint: "A repeating session rolls its date forward on its own, so Coming up does not go blank the day it passes.",
+    },
     { key: "presenter", label: "Presenter", kind: "text" },
     { key: "location", label: "Location", kind: "text" },
     { key: "recordingUrl", label: "Recording URL", kind: "text", type: "url" },
@@ -131,6 +158,14 @@ function detailStringValue(details: unknown, key: string): string {
   const value = (details as Record<string, unknown>)[key];
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
   return typeof value === "string" ? value : "";
+}
+
+/** The stored frequency, or "" for a session that does not repeat. */
+function recurrenceFrequencyValue(details: unknown): string {
+  const rule = (details as { recurrenceRule?: unknown } | null | undefined)?.recurrenceRule;
+  if (!rule || typeof rule !== "object") return "";
+  const frequency = (rule as { frequency?: unknown }).frequency;
+  return typeof frequency === "string" ? frequency : "";
 }
 
 function escalationStepsToText(details: unknown): string {
@@ -197,10 +232,13 @@ function buildInitialDraft(
 ): DraftState {
   const details: Record<string, string> = {};
   for (const field of SECTION_DETAIL_FIELDS[section]) {
-    details[field.key] =
-      field.key === "escalationSteps"
-        ? escalationStepsToText(entry?.details)
-        : detailStringValue(entry?.details, field.key);
+    if (field.key === "escalationSteps") {
+      details[field.key] = escalationStepsToText(entry?.details);
+    } else if (field.key === RECURRENCE_RULE_KEY) {
+      details[field.key] = recurrenceFrequencyValue(entry?.details);
+    } else {
+      details[field.key] = detailStringValue(entry?.details, field.key);
+    }
   }
   return {
     title: entry?.title ?? "",
@@ -267,6 +305,11 @@ function DetailField({
     // first option, so it is offered as an extra choice rather than dropped.
     const resolvedOptions =
       !value || options.some((option) => option.value === value) ? options : [...options, { value, label: value }];
+    // A field whose own options already name the empty value has said what
+    // "nothing chosen" means -- "Does not repeat" is an answer, not an absence.
+    // Adding the generic placeholder on top would offer two empty rows and make
+    // the reader guess which one is the real "none".
+    const namesItsOwnEmptyValue = options.some((option) => option.value === "");
     return (
       <Select
         label={field.label}
@@ -274,7 +317,7 @@ function DetailField({
         hint={field.hint}
         error={error}
         options={resolvedOptions}
-        placeholder="Choose one"
+        placeholder={namesItsOwnEmptyValue ? undefined : "Choose one"}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -360,8 +403,24 @@ export function OnCallEntryEditor({
     if (!trimmedTitle) nextErrors.title = "Title is required.";
 
     const formDetails: Record<string, unknown> = section === "orientation" ? { pinnedSummaryIsOwnerNote: true } : {};
+    const clearedKeys: string[] = [];
     for (const field of fieldSpecs) {
       const raw = draft.details[field.key] ?? "";
+      if (field.key === RECURRENCE_RULE_KEY) {
+        const frequency = raw.trim();
+        if (!frequency) {
+          // "Does not repeat" has to beat a stored rule, and an omitted key
+          // cannot say that — the overlay would simply keep the old one.
+          clearedKeys.push(RECURRENCE_RULE_KEY);
+        } else if (!(draft.details.nextOccurrenceDate ?? "").trim()) {
+          // A frequency with nothing to count from is a control that appears to
+          // have worked and silently does nothing, which is worse than refusing.
+          nextErrors[RECURRENCE_RULE_KEY] = "A repeating session needs a next occurrence date to count from.";
+        } else {
+          formDetails[RECURRENCE_RULE_KEY] = { frequency };
+        }
+        continue;
+      }
       if (field.key === "escalationSteps") {
         const steps = parseEscalationSteps(raw);
         if (steps === null) {
@@ -388,6 +447,7 @@ export function OnCallEntryEditor({
       formDetails,
       existingDetails: entry?.details,
       roleExplainer: section === "contacts" ? draft.isRoleExplainer : undefined,
+      clearedKeys,
     });
     const parsedDetails = onCallDetailsSchemaFor(section).safeParse(detailsInput);
     if (!parsedDetails.success) {
