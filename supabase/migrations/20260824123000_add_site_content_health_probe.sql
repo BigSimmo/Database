@@ -369,7 +369,7 @@ as $$
         and r.id = public.site_content_release_id(r.release_digest, 0, 'bootstrap-v1')
         and r.state = 'active' and s.active_release_digest = r.release_digest
         and r.expected_record_count = 860 and r.expected_tombstone_count = 0
-        and (select count(*) from active_records) = 843
+        and (select count(*) from active_records) = r.expected_record_count
         and r.release_digest = public.site_content_bootstrap_digest(r.id)
         and r.dynamic_state_digest = public.site_content_bootstrap_digest(r.id)
         and not exists (select 1 from active_records rr where rr.target_publication_id is not null
@@ -470,7 +470,7 @@ as $$
           and p.static_manifest_digest = repeat('0', 64)
           and p.id = public.site_content_release_id(p.release_digest, 0, 'bootstrap-v1')
           and p.expected_record_count = 860 and p.expected_tombstone_count = 0
-          and (select count(*) from public.site_content_release_records rr where rr.release_id = p.id) = 843
+          and (select count(*) from public.site_content_release_records rr where rr.release_id = p.id) = p.expected_record_count
           and p.release_digest = public.site_content_bootstrap_digest(p.id)
           and p.dynamic_state_digest = public.site_content_bootstrap_digest(p.id)
           and not exists (select 1 from public.site_content_release_records rr

@@ -54,9 +54,10 @@ const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_a
 const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
 const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
-/** Applied migrations that pin the bootstrap identity but hold none of its data, so this
- *  script never rewrites them. A replay installs their functions beside the refreshed
- *  release, and a pin left on the old identity makes those functions reject it. */
+/** Applied migrations that pin the bootstrap identity but hold none of its data.
+ *  `--write` retargets their release-id and population-size pins after rewriting the
+ *  bootstrap migration; a pin left on the old identity makes their functions reject the
+ *  refreshed release on replay. */
 const DEPENDENT_SQL = [
   "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
   "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
@@ -403,6 +404,18 @@ function main() {
     source = source
       .split(`, ${frozenEntries.length}, ${frozenEntries.length},`)
       .join(`, ${entries.length}, ${entries.length},`)
+      .split(`<> ${frozenEntries.length}`)
+      .join(`<> ${entries.length}`);
+    assertNoStaleCount(source, path, frozenEntries.length);
+    writeFileSync(path, source);
+    console.log(`rewrote ${path}`);
+  }
+  for (const path of DEPENDENT_SQL) {
+    let source = readFileSync(path, "utf8");
+    source = source.split(oldId).join(newId);
+    source = source
+      .split(`= ${frozenEntries.length}`)
+      .join(`= ${entries.length}`)
       .split(`<> ${frozenEntries.length}`)
       .join(`<> ${entries.length}`);
     assertNoStaleCount(source, path, frozenEntries.length);
