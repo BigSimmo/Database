@@ -107,7 +107,7 @@ class QueryBuilder implements PromiseLike<QueryResult> {
 
 function createSupabaseMock(
   resolve: QueryResolver = () => ok([]),
-  options: { canonicalRows?: unknown[]; limited?: boolean } = {},
+  options: { canonicalRows?: unknown[]; limited?: boolean; canonicalRead?: () => Promise<QueryResult> } = {},
 ) {
   const calls: QueryCall[] = [];
   const getUser = vi.fn(async (receivedToken?: string) =>
@@ -129,7 +129,9 @@ function createSupabaseMock(
           ],
           error: null,
         }
-      : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
+      : options.canonicalRead
+        ? options.canonicalRead()
+        : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
   );
   return {
     calls,
@@ -601,4 +603,43 @@ describe("medications API", () => {
     expect(consoleError).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
+});
+
+/**
+ * The same coverage the registry list route has, and for the same reason.
+ *
+ * This route read the catalogue with no budget at all, so during the 2026-09-09 outage it held the
+ * request open rather than failing. Without these two cases a regression that drops the fallback,
+ * leaves `/api/medications` hanging, or makes a degraded response publicly cacheable would pass
+ * the whole suite.
+ */
+describe("medications survive an unusable catalogue", () => {
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it.each([
+    ["rejects", () => Promise.reject(new Error("canonical read failed"))],
+    ["never settles", () => new Promise<QueryResult>(() => {})],
+  ])(
+    "serves the in-bundle catalogue when the canonical read %s",
+    async (_label, canonicalRead) => {
+      const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+      clearCatalogueSeedFallbackCooldown();
+      const client = createSupabaseMock(undefined, { canonicalRead: canonicalRead as () => Promise<QueryResult> });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/route");
+
+      const response = await GET(request("/api/medications"));
+      const payload = (await response.json()) as { records: unknown[] };
+
+      expect(response.status).toBe(200);
+      expect(payload.records.length).toBeGreaterThan(0);
+      // A degraded response must not be pinned at a CDN in front of a database that may recover
+      // inside the thirty-second cooldown.
+      expectPrivateCache(response);
+    },
+    20_000,
+  );
 });
