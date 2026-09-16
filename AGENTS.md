@@ -306,13 +306,14 @@ Three kinds of PR are **owner-merged, not agent-merged**: clinical-content PRs
 For these, the required `PR policy` check stays red until Josh adds the `owner-approved`
 label himself; any new push to the branch removes that label. Agents must never add the
 `owner-approved` label, merge one of these PRs directly, or arm or re-arm auto-merge on one
-(see the auto-merge exception above). A companion PR is expected to add mechanical
-enforcement of this; until it lands, treat this paragraph as the binding instruction.
+(see the auto-merge exception above). This is enforced by `PR policy` (#2830): the label counts
+only when the repository owner applied it, not through a GitHub App, after the PR's latest push.
 
 This does not relax existing migration discipline: **a migration already on `main` must
 never be edited.** If a change is needed, ship it as a new migration with the newest
 timestamp — never rewrite or mark-repair history in place (see the guard-migration contract
-above).
+above). `PR policy` blocks an edit, deletion or rename of an applied migration, and an added
+migration dated at or before the newest one on `main`.
 
 <!-- END:supabase-project-safety -->
 
