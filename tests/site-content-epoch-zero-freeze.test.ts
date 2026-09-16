@@ -1,10 +1,11 @@
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
  * The epoch-zero bootstrap is immutable, because the live database already holds it.
  *
- * WHAT HAPPENED, 2026-09-16. `npm run bootstrap:refresh --write` regenerated the frozen P03
+ * WHAT HAPPENED, 2026-09-16. `npm run bootstrap:refresh -- --write` regenerated the frozen P03
  * population inside three ALREADY-APPLIED migrations, because two committed tests asserted the
  * freeze equalled the current catalogue and therefore failed the moment a service record was added.
  * The regeneration moved the release identity from `e4a1dd29-14f6-556c-8fb7-f4f947d8b846` (843
@@ -24,7 +25,7 @@ import { describe, expect, it } from "vitest";
  * are not regenerable: no catalogue change, no test failure, and no generator run may alter them.
  * Curated content reaches live through the publication pipeline in
  * `docs/site-content-sync-runbook.md`; a lookup that must serve newer records is refreshed by a NEW
- * forward migration, never by editing one of these three.
+ * forward migration, never by editing one of the four that pin this identity.
  *
  * If this test fails, do not update the constants. Restore the migration.
  */
@@ -95,6 +96,23 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     // Non-vacuous: the sweep must actually have seen the release, or an accidental deletion of it
     // everywhere would read as "no offenders".
     expect(naming.sort()).toEqual([...APPLIED_MIGRATIONS].sort());
+  });
+
+  it("refuses to regenerate the freeze", () => {
+    // The lesson of the incident currently rests on one `if` in the generator. Without this,
+    // deleting that `if` leaves every other gate green and the next catalogue change rewrites
+    // applied history again. Runs the real script rather than grepping it, so a refusal that
+    // throws but still writes, or an exit code of 0, fails here too.
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/run-tsx.mjs", "scripts/refresh-site-content-bootstrap.ts", "--write"],
+      { encoding: "utf8", timeout: 120_000 },
+    );
+    expect(result.status, "bootstrap:refresh --write must exit non-zero").not.toBe(0);
+    expect(`${result.stderr}${result.stdout}`).toContain("Refusing to rewrite an applied migration");
+    // And it must not have touched the files it used to rewrite.
+    expect(read(BOOTSTRAP_MIGRATION)).toContain(APPLIED_RELEASE_DIGEST);
+    for (const path of APPLIED_MIGRATIONS) expect(read(path)).toContain(APPLIED_RELEASE_ID);
   });
 
   it("pins the frozen release digest and population counts", () => {

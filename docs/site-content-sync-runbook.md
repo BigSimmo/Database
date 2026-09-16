@@ -13,16 +13,18 @@ This runbook owns the source-only Task 3 control plane for public registry site 
 
 ## The epoch-zero freeze is immutable
 
-`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` froze 843 records and 281 registry baselines into the epoch-zero release, and the release id `e4a1dd29-14f6-556c-8fb7-f4f947d8b846` is derived from that population's digest. It was applied to the live database on 2026-09-11. **The Supabase integration applies only migration versions it has not seen, so editing that file — or `20260824123000` or `20260830121000`, which pin the same id — changes nothing on live.** It changes only what this repository claims live contains.
+`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` froze 843 records and 281 registry baselines into the epoch-zero release, and the release id `e4a1dd29-14f6-556c-8fb7-f4f947d8b846` is derived from that population's digest. It was applied to the live database on 2026-09-11. **The Supabase integration applies only migration versions it has not seen, so editing that file — or `20260824123000`, `20260830121000` or `20260916103000`, which pin the same id — changes nothing on live.** It changes only what this repository claims live contains.
 
 That is not theoretical. On 2026-09-16 the frozen population was regenerated to take in 17 new service records (PR #2814). The identity moved to `91ceaa8d-470c-5661-8ce6-980c2a1bb137` with 860 records, production kept `e4a1dd29…` with 843, and the post-merge `live-drift` gate went red on `site_content_release_records_check1` and `site_content_sync_state_transition_pointer_check`. Every offline check still passed, because a replayed database and the schema mirror agreed with each other — the silent-divergence shape this drift programme exists to close. It was reverted.
+
+The regeneration also retargeted three of the four files that pin the id and missed `20260916103000`, so a replayed database would have carried bootstrap `91ceaa8d…` while `read_site_content_public_records` still filtered `e4a1dd29…` and the epoch-zero branch of every public catalogue read matched nothing at all. No gate saw that: the replay's own self-check is consistent within the rewritten set, and `check:drift` compares live rather than a replay.
 
 So:
 
 - Catalogue growth and revision reach live through the publication pipeline above, never by regenerating the freeze.
 - A SQL lookup that must serve records added after the freeze — `site_content_registry_baseline` is the one that matters — is refreshed by a **new forward migration**, which the integration does apply.
 - `npm run bootstrap:refresh -- --check` proves every frozen entry still derives from the catalogue byte for byte. `--write` is refused.
-- `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest and counts across the three migrations, the schema mirror and the drift manifest. If it fails, restore the migration rather than updating the constants.
+- `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest and counts across all four migrations, the schema mirror and the drift manifest, and sweeps every file under `supabase/migrations/` so a migration that does not exist yet cannot introduce a second identity. If it fails, restore the migration rather than updating the constants.
 
 ## Source-only planning
 

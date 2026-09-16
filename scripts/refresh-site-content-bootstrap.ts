@@ -59,12 +59,22 @@ const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
 const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
 /** Applied migrations that pin the bootstrap identity but hold none of its data.
- *  `--write` retargets their release-id and population-size pins after rewriting the
- *  bootstrap migration; a pin left on the old identity makes their functions reject the
- *  refreshed release on replay. */
+ *  A pin left on the old identity makes their functions reject the refreshed release on
+ *  replay.
+ *
+ *  `20260916103000` was missing from this list when `--write` last ran, on 2026-09-16, and
+ *  that omission is the sharpest edge of the whole incident: the three files above were
+ *  retargeted and it was not, so a replayed database got bootstrap `91ceaa8d…` while
+ *  `read_site_content_public_records` still filtered `e4a1dd29…` and the epoch-zero branch
+ *  of every public catalogue read silently matched nothing. No gate saw it — the migration
+ *  replay's self-check is internally consistent within the rewritten set, and `check:drift`
+ *  compares live rather than a replay. It is listed now because the list must be true even
+ *  though `--write` refuses; `tests/site-content-epoch-zero-freeze.test.ts` is what actually
+ *  enforces the agreement. */
 const DEPENDENT_SQL = [
   "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
   "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
+  "supabase/migrations/20260916103000_push_kind_filter_into_site_content_public_records.sql",
 ];
 
 /** The audit columns the freeze was generated with. They are part of the
