@@ -220,34 +220,34 @@
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
     "disposition": "rejected",
-    "dispositionReason": "The publisher's page prints no publication date, so currency cannot be established without inferring one. Re-capture if WA Health publishes a dated edition or the framework PDF's own date is read directly.",
+    "dispositionReason": "The framework PDF itself was read on 2026-09-16 and prints no publication date in its imprint: no 'published', copyright year or ISBN date. The 2015-2030 in the title is a coverage period, not a publication date, and its latest references are 2014. A date cannot be established without inferring one, which the acquisition protocol forbids.",
     "supersededBy": [],
-    "notes": "Kept so the same ground is not searched again. Recoverable: the reason states exactly what must be established first."
+    "notes": "Kept so the same ground is not searched again. The landing page and the 36-page PDF have both now been checked, so re-capture needs a dated edition from WA Health rather than another read of the same document."
   },
   {
     "id": "therapy-wa-aboriginal-impact-policy",
-    "title": "Aboriginal Health Impact Statement and Declaration Policy",
+    "title": "Aboriginal Health Impact Statement and Declaration Policy (MP 0160/21)",
     "publisher": "WA Health",
     "publisherCode": "WAHEALTH",
     "canonicalUrl": "https://www.health.wa.gov.au/About-us/Policy-frameworks/Clinical-Services-and-Planning/Mandatory-requirements/Aboriginal-Health/Aboriginal-Health-Impact-Statement-and-Declaration-Policy",
     "jurisdiction": "Australia/WA",
-    "version": null,
-    "publicationDate": null,
+    "version": "MP 0160/21 v.2.1 (13 October 2025)",
+    "publicationDate": "2021-05-11",
     "datePrecision": "day",
     "reviewDate": null,
     "expiryDate": null,
-    "evidenceType": "professional_reference",
-    "documentStatus": "review_due",
+    "evidenceType": "standard",
+    "documentStatus": "current",
     "validationStatus": "unverified",
-    "contentMode": "metadata_only",
+    "contentMode": "link_only",
     "topics": ["Therapy"],
     "rung": 2,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
-    "disposition": "rejected",
-    "dispositionReason": "The policy page prints neither a publication date nor a version. Re-capture from the WA Health policy framework register, which carries the mandatory-policy effective date.",
+    "disposition": "candidate",
+    "dispositionReason": "Captured metadata only, awaiting the owner's review. Dates read from the policy PDF's own Document Control table on 2026-09-16, not from the landing page.",
     "supersededBy": [],
-    "notes": "Kept so the same ground is not searched again. Recoverable: the reason states exactly what must be established first."
+    "notes": "Upgraded from a rejection once the document itself was read. The policy PDF's Document Control table gives 'MP 0160/21, Published date 11 May 2021, Effective from 11 May 2021' for the original version, and 'MP 0160/21 v.2.1, 13 October 2025, Review date August 2028' for the current one. Compliance is mandatory for WA health entities. Review date August 2028 is recorded here in prose rather than in reviewDate, because the publisher gives a month and reviewDate asserts an exact day. Rights for reproduction and AI processing are not assessed."
   },
   {
     "id": "therapy-ranzcp-psychotherapy-ps54",
@@ -270,9 +270,9 @@
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
     "disposition": "rejected",
-    "dispositionReason": "The College prints only 'last updated June 2021' for PS #54. An update date is not a publication date, and no publication date is printed. Re-capture once the position statement PDF's own approval date is read.",
+    "dispositionReason": "The College's page for PS #54, read 2026-09-16, prints only 'Last updated: Jun 2021' and 'Published in Australia', which names a place rather than a date. No publication date is printed and the position statement PDF is not linked from the page. An update month is not a publication date.",
     "supersededBy": [],
-    "notes": "Kept so the same ground is not searched again. Recoverable: the reason states exactly what must be established first."
+    "notes": "Kept so the same ground is not searched again. Worth re-capturing: PS #54 supports psychotherapy as a core psychiatric treatment and is one of the few Australian sources bearing directly on this catalogue. It needs the statement PDF's own approval date."
   },
   {
     "id": "therapy-ranzcp-previous-cpg-status",
