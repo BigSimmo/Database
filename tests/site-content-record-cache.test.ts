@@ -19,6 +19,20 @@ function rows(state: "current" | "updating" | "unavailable", records = 1): SiteC
   }));
 }
 
+/**
+ * What production has actually returned since 2026-08-24: `state` is `unavailable` because the
+ * active release is a retained epoch-zero bootstrap, but `releaseId` is present, which SQL emits
+ * only when the release passed its validity check on that read. Records are served normally.
+ */
+function bootstrapRows(records = 1, releaseId = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846"): SiteContentRecordRows {
+  return Array.from({ length: Math.max(records, 1) }, (_unused, index) => ({
+    initialized: false,
+    record: records > 0 ? { slug: `record-${index}` } : null,
+    render_payload: records > 0 ? { slug: `record-${index}` } : null,
+    snapshot: { state: "unavailable", changeEpoch: "0", releaseId },
+  }));
+}
+
 /** A clock the tests advance deliberately, so TTL expiry is asserted rather than waited for. */
 function clock(startedAt = 1_000_000) {
   let value = startedAt;
@@ -97,6 +111,52 @@ describe("readSiteContentRecordsCached", () => {
   it.each(["updating", "unavailable"] as const)("does not cache a %s snapshot", async (state) => {
     const time = clock();
     const read = vi.fn(async () => rows(state));
+
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  // The regression this cache existed-but-did-nothing for. Production's active release is a
+  // retained epoch-zero bootstrap, which reports `unavailable`, so reading rule 1 literally meant
+  // the live site cached nothing at all and paid the full canonical read on every request.
+  it("caches a valid retained bootstrap, which is what production actually serves", async () => {
+    const time = clock();
+    const read = vi.fn(async () => bootstrapRows(2));
+
+    const first = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    const second = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    expect(first.age).toBe("miss");
+    expect(second.age).toBe("fresh");
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  // `releaseId` is the discriminator. Without it the read is genuinely degraded, not a bootstrap.
+  it("does not cache an unavailable snapshot that carries no release identity", async () => {
+    const time = clock();
+    const read = vi.fn(async () => bootstrapRows(1, "").map((row) => ({ ...row, snapshot: { state: "unavailable" } })));
+
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  // While a publication is outstanding a list read returns no records at all. Caching that would
+  // pin an empty catalogue for the fresh window, which is the mid-publication trap rule 1 exists
+  // to prevent — so an empty answer is re-read every time even on a valid bootstrap.
+  it("does not cache a bootstrap read that returned no records", async () => {
+    const time = clock();
+    const read = vi.fn(async () => [
+      {
+        initialized: false,
+        record: null,
+        render_payload: null,
+        snapshot: { state: "unavailable", changeEpoch: "0", releaseId: "e4a1dd29-14f6-556c-8fb7-f4f947d8b846" },
+      },
+    ]);
 
     await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
     await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });

@@ -125,6 +125,8 @@ export async function GET(request: Request) {
         supabase,
         kind: "presentation",
         slug: null,
+        // One public projection, no caller identity. Same reasoning as the registry list route.
+        cache: true,
         seeds: snapshot.presentations.map((workflow) => ({
           workflow,
           governance: {
@@ -154,6 +156,8 @@ export async function GET(request: Request) {
       supabase,
       kind: "differential",
       slug: null,
+      // One public projection, no caller identity. Same reasoning as the registry list route.
+      cache: true,
       seeds: differentialRecords.map((record) => ({
         record,
         governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },

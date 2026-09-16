@@ -94,13 +94,38 @@ function cacheKey(kind: string, slug: string | null) {
 }
 
 /**
- * The snapshot the RPC returns alongside every row. Only `current` is cacheable; see rule 1.
- * A payload we cannot read is treated as not cacheable rather than assumed healthy.
+ * The snapshot the RPC returns alongside every row. A payload we cannot read is treated as not
+ * cacheable rather than assumed healthy.
+ *
+ * `current` is cacheable by rule 1. So is a valid retained epoch-zero bootstrap, which needs its
+ * own paragraph because reading rule 1 literally is what made this whole cache inert.
+ *
+ * `read_site_content_public_records` collapses three different situations into the single state
+ * `unavailable`: no valid release, not initialized, and an active release that is one of the
+ * retained bootstraps. The first is genuinely degraded. The third is not — it is the frozen
+ * epoch-zero catalogue, it is what production has served since 2026-08-24, and it cannot change
+ * without a migration or a publication. Refusing to cache it meant the live site never cached
+ * anything at all, and paid the full canonical read on every request.
+ *
+ * `releaseId` is the discriminator, and it is exact rather than a heuristic: SQL emits it as
+ * `case when s.valid then s.active_release_id else null end`, and for a bootstrap `s.valid`
+ * is only true once the stored release digest matches a freshly computed one. So a non-null
+ * `releaseId` means the release passed that check on this very read.
+ *
+ * A record row must also be present. While a publication is outstanding a list read returns no
+ * records at all, and caching that would pin an empty catalogue for the fresh window — exactly
+ * the mid-publication pinning rule 1 exists to prevent. An empty answer is therefore never
+ * stored, so it is re-read every time.
  */
 function rowsAreCacheable(rows: SiteContentRecordRows) {
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot;
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return false;
-  return (snapshot as Record<string, unknown>).state === "current";
+  const state = (snapshot as Record<string, unknown>).state;
+  if (state === "current") return true;
+  if (state !== "unavailable") return false;
+  const releaseId = (snapshot as Record<string, unknown>).releaseId;
+  if (typeof releaseId !== "string" || releaseId.length === 0) return false;
+  return rows.some((row) => row.record != null);
 }
 
 /**

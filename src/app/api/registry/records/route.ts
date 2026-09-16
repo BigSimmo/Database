@@ -222,6 +222,13 @@ export async function GET(request: Request) {
           slug: null,
           seeds,
           signal,
+          // A whole-catalogue list read, which is the same public projection for every caller and
+          // changes only when an operator publishes. Search has always cached it; this route paid
+          // the full canonical read on every request, and that read currently takes about four
+          // seconds against the live database, so the page sat at the edge of its own six-second
+          // seed-fallback budget. The cache's fresh window bounds how long a published change can
+          // stay invisible here, and a degraded or mid-publication read is still never stored.
+          cache: true,
           mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
             record: finalRenderPayload as unknown as ServiceRecord,
             governance: canonicalSiteContentGovernance(canonicalRecord),

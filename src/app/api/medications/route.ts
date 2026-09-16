@@ -239,6 +239,9 @@ export async function GET(request: Request) {
           slug: null,
           seeds,
           signal,
+          // Same reasoning as the registry list route: one public projection, no caller identity,
+          // and the canonical read is the slowest thing on the page.
+          cache: true,
           mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
             record: finalRenderPayload as unknown as MedicationRecord,
             governance: {
