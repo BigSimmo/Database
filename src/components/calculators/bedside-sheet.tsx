@@ -107,7 +107,7 @@ function SheetSection({
         <div className="grid gap-3 border-t border-[color:var(--border)] p-3 sm:p-4">
           <CalculatorItems calc={calc} answers={answers} onAnswersChange={onAnswersChange} dense />
 
-          <FlagNotice flags={derived.flags} />
+          <FlagNotice flags={derived.flags} provisional={!derived.complete} />
 
           <div className="grid gap-2 rounded-lg bg-[color:var(--surface-subtle)] p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
