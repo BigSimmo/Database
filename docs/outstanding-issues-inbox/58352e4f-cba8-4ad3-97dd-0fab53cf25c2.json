@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "58352e4f-cba8-4ad3-97dd-0fab53cf25c2",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "nice-delirium: one work, two section URLs, one source id",
+    "detail": "The published dictionary uses the id nice-delirium for the NICE delirium guidance at one section URL; the 2026-09 handover proposes the same id at a different section URL. The existing identity is preserved and the handover URL recorded as an alternate locator rather than a second source, because minting a second id to make duplicate detection pass would split one work into two register entries. Owner to confirm which URL is canonical.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MRYB462R3JER2VZ3466PBQ"
+  }
+}

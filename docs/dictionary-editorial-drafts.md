@@ -89,8 +89,9 @@ entries.
 
 ## Sources: registered is not ingested
 
-Two WHO instrument manuals (AUDIT 2001, ASSIST 2010) were admitted to
-`src/data/source-acquisitions.json` as **candidates**. That is metadata and nothing else.
+Six sources were admitted to `src/data/source-acquisitions.json` as **candidates**: the WHO AUDIT
+(2001) and ASSIST (2010) manuals, WA Health MP 0155/21, RANZCP PS #74 (ECT) and PS #116
+(consultation-liaison psychiatry), and NICE NG225. That is metadata and nothing else.
 
 Eight receipt stages are tracked per source and only the first two have been attempted:
 
@@ -102,14 +103,45 @@ Eight receipt stages are tracked per source and only the first two have been att
 `originalBytesSha256`, `documentId` and `jobId` stay null until real receipts exist. Acquiring
 original documents needs a separate per-source rights, environment and cost approval.
 
-The ASSIST manual's publication date is recorded at **year** precision. WHO gives 2010 with no day;
-`2010-01-01` is the ledger's year-precision representation, not an established publication day.
+### Dates are recorded as the events they actually are
 
-The 56 held sources each name a blocker and a next action. The commonest are: no publication date
-established from the publisher's own page (56), source not re-read during preparation (43), no
-version identifier (39), publisher absent from the authority register (36), and host not in
-`GOVERNED_SOURCE_HOSTS` (19). `nice-delirium` is a genuine conflict — a dictionary source already uses
-that id at a different URL, and the existing identity is preserved rather than rewritten.
+Fifteen sources were read from their publishers' own pages on 2026-09-16. Each carries a
+`publisherCheck` with the finding and the date checked.
+
+Publication, version-release, effective, updated and review dates are different events and none was
+substituted for another:
+
+- **MP 0155/21** — 2021-08-09, the policy's stated date of effect, which is how WA Health issues a
+  mandatory policy.
+- **PS #74 / PS #116** — month precision. RANZCP states a last-updated month and no publication day;
+  day precision would assert a day the College never gave.
+- **ASSIST 2010** — year precision. WHO gives 2010 and no day.
+- **NG225** — 2022-09-07. NICE returned HTTP 403 to a direct fetch, so the date came from NICE's own
+  site index; the record says so, and says to confirm it in a browser.
+
+### Why the other 52 are held
+
+The reads changed the _character_ of most holds rather than clearing them, which is the more useful
+outcome: a source nobody had looked at is now a source with a named, specific obstacle.
+
+- **7 publish no date at all.** The WA Chief Psychiatrist's forms, AMHP and PMP pages, WA data
+  collections, and the WHO mhGAP evidence page are continuously updated registers. WA Health's
+  consent article carries `Last reviewed: 22-05-2026` and nothing else. These cannot be fixed by
+  looking harder — the ledger requires a publication date that the source does not have. Whether it
+  should represent undated live registers is an owner decision.
+- **1 is dated but blocked on governance.** The Australian Prescriber movement-disorders article is
+  now fully established (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014).
+  Its publisher is registered `catalogueIdentityOnly`, and the acquisition gate warns that changing
+  that alters retrieval selection. The date is banked for whenever the owner decides.
+- **2 publishers returned HTTP 403** to this session: RANZCP PPG #16 and the recovery framework.
+- **`nice-delirium` is one work with two section URLs and one id.** The existing dictionary identity
+  is kept and the handover URL recorded as an alternate locator. Rewriting the id to make duplicate
+  detection pass would split one source into two register entries.
+- **The remaining 42** are blocked on the authority register or `GOVERNED_SOURCE_HOSTS`. Both are
+  runtime-governance surfaces, so neither is widened as a side effect of a dictionary import.
+
+`publisherCheck.checkedOn: null` means nobody has looked, which is a weaker statement than "the
+publisher states no date". The two lead to different next actions and are kept apart.
 
 ## The link trap
 

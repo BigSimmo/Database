@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fec0cc1a-ebe8-4a11-9ec6-586a4528f3ad",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Source register cannot represent an undated live register or a review-dated page",
+    "detail": "Seven dictionary-handover sources were read from their publishers on 2026-09-16 and genuinely publish no date: the WA Chief Psychiatrist forms, AMHP and PMP pages, WA data collections, the WHO mhGAP safety-planning page, and WA Health consent (which carries only 'Last reviewed: 22-05-2026'). acquisitionLedgerIssues requires a publicationDate for every non-rejected record, so none can be admitted even though all are governed WA or WHO sources. Options: let the ledger hold a null publicationDate for a continuously updated register, or cite the dated underlying documents instead of the landing pages. Findings and next actions are per source in src/data/dictionary-source-dispositions.json under publisherCheck.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MRYARTFZYG1B2407X3B3MR"
+  }
+}

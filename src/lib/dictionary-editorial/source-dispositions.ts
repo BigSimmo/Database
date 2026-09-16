@@ -53,6 +53,14 @@ export type DictionarySourceDisposition = {
   originalBytesSha256: string | null;
   documentId: string | null;
   jobId: string | null;
+  /**
+   * What was found when the publisher's own page was read, and when.
+   *
+   * `checkedOn: null` means nobody has looked — which is a different and weaker
+   * statement than "the publisher states no date", and the two are worth telling
+   * apart before anyone decides the source is unusable.
+   */
+  publisherCheck: { checkedOn: string | null; finding: string };
 };
 
 export const dictionarySourceDispositions: readonly DictionarySourceDisposition[] = (
@@ -99,6 +107,8 @@ export function dictionarySourceDispositionIssues(
     for (const stage of SOURCE_RECEIPT_STAGES) {
       if (!disposition.stages[stage]) issues.push(`${id}: missing receipt for stage ${stage}`);
     }
+
+    if (!disposition.publisherCheck.finding.trim()) issues.push(`${id}: publisherCheck has no finding`);
     // Every claim past metadata needs a receipt to back it. None exists yet, and a
     // stage marked verified without one is exactly the overstatement to catch.
     if (disposition.stages.indexed === "verified" && !disposition.documentId) {

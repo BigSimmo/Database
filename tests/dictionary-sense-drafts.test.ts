@@ -230,8 +230,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(2);
-    expect(heldDictionarySources()).toHaveLength(56);
+    expect(admitted).toHaveLength(6);
+    expect(heldDictionarySources()).toHaveLength(52);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -256,6 +256,15 @@ describe("source dispositions", () => {
       expect(record?.contentMode).toBe("link_only");
       expect(record?.validationStatus).toBe("unverified");
     }
+  });
+
+  it("records a month-precision RANZCP date as the first of the month", () => {
+    // RANZCP states a last-updated month and no publication day. Month precision
+    // says that plainly; day precision would assert a day the College never gave.
+    const ect = sourceAcquisitionRecords.find((row) => row.id === "dictionary-ranzcp-ect-ps74");
+    expect(ect?.datePrecision).toBe("month");
+    expect(ect?.publicationDate).toBe("2019-10-01");
+    expect(ect?.version).toBe("PS #74");
   });
 
   it("records a year-precision publication date as the first of January", () => {
@@ -311,5 +320,47 @@ describe("source link routing", () => {
     for (const record of sourceAcquisitionRecords) {
       expect(senseIds.has(record.id)).toBe(false);
     }
+  });
+});
+
+describe("publisher re-reads", () => {
+  it("records a dated finding for every source read in this session", () => {
+    const read = dictionarySourceDispositions.filter((disposition) => disposition.publisherCheck.checkedOn);
+    expect(read.length).toBeGreaterThanOrEqual(15);
+    for (const disposition of read) {
+      expect(disposition.publisherCheck.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(disposition.publisherCheck.finding.trim()).not.toBe("");
+    }
+  });
+
+  it("tells 'nobody looked' apart from 'the publisher states no date'", () => {
+    // These are different facts and lead to different next actions. A source whose
+    // publisher genuinely publishes no date cannot be fixed by looking harder.
+    const unread = dictionarySourceDispositions.filter((disposition) => !disposition.publisherCheck.checkedOn);
+    for (const disposition of unread) {
+      expect(disposition.publisherCheck.finding).toMatch(/not (re-read|attempted)/i);
+    }
+  });
+
+  it("keeps every source read in this session out of the unsourced-date bucket", () => {
+    for (const disposition of dictionarySourceDispositions) {
+      if (!disposition.publisherCheck.checkedOn) continue;
+      const stale = disposition.blockers.some(
+        (blocker) => blocker.code === "publication_event_not_freshly_established_do_not_substitute_other_date",
+      );
+      expect(stale).toBe(false);
+    }
+  });
+
+  it("does not admit a source whose publisher is registered for catalogue identity only", () => {
+    // Australian Prescriber has an establishable publication date but carries
+    // `catalogueIdentityOnly: true`, so admitting it would mean changing retrieval
+    // selection. That is an owner decision, not a side effect of a dictionary import.
+    const prescriber = dictionarySourceDispositions.find(
+      (disposition) => disposition.handoverSourceId === "australian-prescriber-movement",
+    );
+    expect(prescriber?.ledgerOutcome).toBe("held");
+    expect(prescriber?.blockers[0]?.code).toBe("publisher_registered_for_catalogue_identity_only");
+    expect(sourceAcquisitionRecords.some((record) => record.publisher === "Australian Prescriber")).toBe(false);
   });
 });
