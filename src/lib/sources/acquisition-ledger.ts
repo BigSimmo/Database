@@ -40,6 +40,28 @@ export type SourceAcquisitionDisposition = "adopted" | "candidate" | "rejected";
  * precision keeps 2020-01-01 from being read as a real publication day. */
 export type SourceAcquisitionDatePrecision = "day" | "month" | "year";
 
+/**
+ * How the publisher dates a source at all.
+ *
+ * `published` is a discrete publication event with a date, which is what most
+ * guidelines, standards and manuals have.
+ *
+ * `continuously_updated` is a page the publisher maintains rather than issues, and
+ * stamps with a review date instead. Healthdirect stamps every article
+ * `Last reviewed: <Month Year>`; WA Health's articles carry a review day; the WA
+ * Chief Psychiatrist's forms, AMHP and PMP registers carry no publication date
+ * because there is no publication event to date. Requiring a publication date of
+ * these meant the register could not hold Australia's most-used official clinical
+ * web sources at all — thirteen of them, all governed WA, national or WHO
+ * publishers, blocked not for missing metadata but for having the wrong shape of it.
+ *
+ * This is deliberately not a relaxation. A `continuously_updated` record must carry
+ * a real review date and must not carry a publication date, so it asserts exactly
+ * what the publisher says and nothing more. Recording a review date in
+ * `publicationDate` would still be wrong, and is still rejected.
+ */
+export type SourceDateModel = "published" | "continuously_updated";
+
 export type SourceAcquisitionRecord = {
   id: string;
   title: string;
@@ -49,7 +71,13 @@ export type SourceAcquisitionRecord = {
   jurisdiction: string;
   version: string;
   publicationDate: string | null;
+  /**
+   * The precision of whichever date the record carries — `publicationDate` for a
+   * published source, `reviewDate` for a continuously updated one.
+   */
   datePrecision: SourceAcquisitionDatePrecision;
+  /** Omitted means `published`, which is the shape of most captures. */
+  dateModel?: SourceDateModel;
   reviewDate: string | null;
   expiryDate: string | null;
   evidenceType: Exclude<ClinicalSourceType, "unknown">;
@@ -188,12 +216,26 @@ export function acquisitionLedgerIssues(
     // rejection must stay recordable so the ground is not searched again.
     if (record.disposition !== "rejected") {
       requireText(record.version, "version", id, issues);
-      if (!record.publicationDate) issues.push(`${id}: publicationDate is required`);
-      if (record.datePrecision === "year" && !record.publicationDate?.endsWith("-01-01")) {
-        issues.push(`${id}: year-precision publicationDate must be recorded as the first of January`);
+
+      // A continuously updated page is dated by its review stamp, so that is the
+      // date the precision rules apply to — and it must not also claim a
+      // publication date it does not have.
+      const continuous = record.dateModel === "continuously_updated";
+      const datedField = continuous ? "reviewDate" : "publicationDate";
+      const dated = continuous ? record.reviewDate : record.publicationDate;
+
+      if (!dated) issues.push(`${id}: ${datedField} is required`);
+      if (continuous && record.publicationDate) {
+        issues.push(
+          `${id}: a continuously updated source has no publication event. Record the publisher's review ` +
+            `date in reviewDate and leave publicationDate null, or set dateModel to "published".`,
+        );
       }
-      if (record.datePrecision === "month" && !record.publicationDate?.endsWith("-01")) {
-        issues.push(`${id}: month-precision publicationDate must be recorded as the first of the month`);
+      if (record.datePrecision === "year" && !dated?.endsWith("-01-01")) {
+        issues.push(`${id}: year-precision ${datedField} must be recorded as the first of January`);
+      }
+      if (record.datePrecision === "month" && !dated?.endsWith("-01")) {
+        issues.push(`${id}: month-precision ${datedField} must be recorded as the first of the month`);
       }
     }
 
