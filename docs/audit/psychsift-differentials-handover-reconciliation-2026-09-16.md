@@ -98,13 +98,22 @@ All three entered as metadata-only candidates. None was set to `adopted`, `appro
 `locally_reviewed` or `indexed_content`, and no original bytes were fetched.
 
 4. `ranzcp-mood-disorders-clinical-practice-guideline` — currentness correction,
-   `documentStatus` `current` to `outdated`, with the reason recorded in `notes`.
-   The publisher's own guideline page states the guideline is no longer current
-   guidance, which the ledger contradicted. The existing identity, rung, candidate
-   disposition and the 2026-09-06 owner review (`validationStatus: locally_reviewed`)
-   are unchanged. This is a currentness correction, not a review downgrade, and no
+   `documentStatus` `current` to `outdated`. The publisher's own guideline page
+   states the guideline is no longer current guidance, which the ledger
+   contradicted. The identity, rung and candidate disposition are unchanged and no
    duplicate record was created. The acquisition gate now bands it B (outdated)
    instead of A, which is the accurate state.
+
+   **Superseded on 2026-09-16 by `main`, and corrected here.** This branch
+   originally preserved `validationStatus: locally_reviewed`, on the handover's
+   instruction to make a currentness correction rather than a review downgrade.
+   While this branch was open, `main` reached the same `documentStatus: outdated`
+   conclusion independently, from its own reading of the College page, and _also_
+   downgraded `validationStatus` to `unverified`. Merging `main` took its version
+   of the record wholesale, because it is the newer and more conservative
+   governance position and it carries its own evidence in `notes`. The record now
+   reads `outdated` / `unverified`. No earlier statement in this document should be
+   read as claiming the local review survived.
 
 ## Verification
 
@@ -314,6 +323,8 @@ Outstanding, none of them resolved here:
   package does not supply (see task 03 above).
 - Any original-byte acquisition, indexing or activation. Approved provider budget is AUD 0.
 
-Rollback targets are exactly: the three record IDs listed above, and the
-`documentStatus` and `notes` fields of `ranzcp-mood-disorders-clinical-practice-guideline`.
-Nothing else in the repository was changed by this reconciliation.
+Rollback targets for the source metadata are exactly the three record IDs listed
+above. The RANZCP record is no longer a rollback target for this branch: `main`
+independently made the same currentness correction and a further review downgrade,
+and the merge took `main`'s version, so reverting this branch does not restore it.
+Nothing else in the source ledger was changed by this reconciliation.

@@ -120,13 +120,33 @@ describe("source acquisition ledger", () => {
     expect(sourceAcquisitionRecords.length).toBeGreaterThan(0);
   });
 
-  it("captures every committed source with complete metadata, so none carries a metadata defect", () => {
+  // Scoped to sources still in play, because that is where the library applies the
+  // metadata floor. Metadata that could not be established is frequently the reason
+  // a source was rejected, so holding a rejection to the floor would make the
+  // register unable to record the searches that found nothing citable.
+  it("captures every committed source still in play with complete metadata, so none carries a metadata defect", () => {
     const defects = new Set<string>(ACQUISITION_METADATA_DEFECTS);
-    for (const entry of sourceAcquisitionRecords) {
+    const inPlay = sourceAcquisitionRecords.filter((entry) => entry.disposition !== "rejected");
+    expect(inPlay.length).toBeGreaterThan(0);
+    for (const entry of inPlay) {
       expect(
         acquisitionRecordWarnings(entry).filter((warning) => defects.has(warning)),
         `${entry.id} carries a metadata defect`,
       ).toEqual([]);
+    }
+  });
+
+  // The exemption above is only safe while a rejection stays a rejection. Every
+  // committed rejection must still carry the identity needed to recognise the same
+  // source next time, and the reason it was not used.
+  it("requires every committed rejection to record its identity and the reason it was rejected", () => {
+    const rejections = sourceAcquisitionRecords.filter((entry) => entry.disposition === "rejected");
+    for (const entry of rejections) {
+      expect(entry.title.trim(), `${entry.id} has no title`).not.toBe("");
+      expect(entry.publisher.trim(), `${entry.id} has no publisher`).not.toBe("");
+      expect(entry.jurisdiction.trim(), `${entry.id} has no jurisdiction`).not.toBe("");
+      expect(entry.dispositionReason?.trim(), `${entry.id} does not say why it was rejected`).toBeTruthy();
+      expect(acquisitionRecordGeography(entry), `${entry.id} cannot be placed in a jurisdiction`).not.toBe("unknown");
     }
   });
 
