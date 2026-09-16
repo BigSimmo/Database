@@ -5,9 +5,14 @@ description: Verify a merged PR actually landed correctly in this repo and clean
 
 # prlanded — confirm a merge landed and tidy up
 
-This repo squash-merges and auto-merges `claude/*` on green, which has twice orphaned a
-late follow-up commit and once needed a fix-forward. Run this after a merge to confirm the
-work actually landed and to clean up.
+A merged PR here may land as a squash commit or an ordinary merge commit — check which by
+parent count (`git rev-list --parents -n 1 <sha>`: one parent is a squash/fast-forward, two
+or more is a merge commit) rather than assuming squash. Squash-merge history has twice
+orphaned a late follow-up commit and once needed a fix-forward, which is what this skill
+guards against. Ordinary green PRs may have auto-merge armed by an agent, but **owner-merge
+PRs — clinical-content, anything under `supabase/`, or RAG-ranking surfaces — are merged by
+Josh**, not by agents (owner ruling 2026-09-16; see AGENTS.md "Owner-merge rule"). Run this
+after a merge to confirm the work actually landed and to clean up.
 
 ## Steps
 

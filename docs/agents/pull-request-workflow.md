@@ -54,7 +54,12 @@ Nothing else inherits this authorization. Only the user's own task message can t
 
 Hard guardrails (never, even during a sweep):
 
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it. Ordinary fast-forward commits and pushes to fix CI or review findings are allowed while auto-merge is armed — GitHub re-validates required checks against the new head before it will merge, so an additive push cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather than blocks for this case). Never force-push, rewrite history, or change the PR's base/target while auto-merge is armed — that stays hard-blocked with no override; wait for the user to change the auto-merge state first.
+- Never merge a pull request into `main` or any protected branch, and never enable auto-merge; the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it. Ordinary fast-forward commits and pushes to fix CI or review findings are allowed while auto-merge is armed — GitHub re-validates required checks against the new head before it will merge, so an additive push cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather than blocks for this case). Never force-push, rewrite history, or change the PR's base/target while auto-merge is armed — that stays hard-blocked with no override; wait for the user to change the auto-merge state first. **Exception:** an owner-merge PR (clinical-content, `supabase/`, or RAG-ranking — see AGENTS.md "Owner-merge rule") must never be armed; disarm it if you find it armed.
+- **Owner-merge rule (owner ruling 2026-09-16):** clinical-content PRs, anything under
+  `supabase/`, and RAG-ranking-surface PRs are merged by Josh, not by agents — the required
+  `PR policy` check stays red on them until he adds the `owner-approved` label, and any new
+  push removes it. Never add that label or merge one of these PRs during a sweep. Full
+  definition in AGENTS.md "Owner-merge rule".
 - Never close a pull request, delete or rename branches, force-push, or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
@@ -203,7 +208,7 @@ decision on the corrected facts; until then it stands.**
 
 Before opening a new branch, check whether the task can ride an **already-open PR you still own** or be bundled with **other currently-queued low-risk work** instead of minting a new one. If the target PR's CI is already running, wait for it to settle before pushing the addition or assemble every commit before that PR's first push (pushes mid-run cancel and restart CI).
 
-**If the target PR has auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub re-validates required checks against the new head before merging. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it, and a force-push or base/target change while armed still hard-blocks with no override. `guard-push.mjs` enforces the force-push block for locally pushed PR branches when authenticated `gh` is available; agent policy remains the backstop.
+**If the target PR has auto-merge armed, an ordinary fast-forward push is still safe to bundle onto** — GitHub re-validates required checks against the new head before merging. Per-PR auto-merge state is user-owned: automation must not disable or re-enable it, and a force-push or base/target change while armed still hard-blocks with no override. `guard-push.mjs` enforces the force-push block for locally pushed PR branches when authenticated `gh` is available; agent policy remains the backstop. **Exception:** never bundle onto, or arm auto-merge on, an owner-merge PR (clinical-content, `supabase/`, or RAG-ranking — see AGENTS.md "Owner-merge rule"); those merge only when Josh adds `owner-approved`.
 
 Bundle only when every item being combined is:
 

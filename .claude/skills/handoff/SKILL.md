@@ -54,8 +54,8 @@ force-push, or discard work.
      the test count or named check success), not only exit code 0.
 4. **Commit** with a clear message, then verify the new commit has your message, only your intended
    paths (`git show --name-only --format=fuller HEAD`), and the same branch name recorded in step 1.
-   End the message with:
-   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+   End the message with the attribution line your harness specifies (the session's own
+   `Co-Authored-By:` instruction) — do not hard-code a specific model name here.
 5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
    automation must not disable or re-enable it. If the branch already has an open PR with auto-merge
    armed, an ordinary fast-forward push (this step) is still safe — GitHub re-validates required
@@ -76,12 +76,20 @@ force-push, or discard work.
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
    attribution line. Write the body from `.github/pull_request_template.md` in full normal
    prose — exact `## Summary` / `## Verification` / `## Risk and rollout` / (when clinical-risk
-   or RAG-ranking files are touched) `## Clinical Governance Preflight` headings, every governance
-   box checked, and a satisfying `RAG impact:` line — never caveman-compressed; `pr-policy.yml`
-   parses this text verbatim and hard-blocks the merge on a paraphrased or dropped item (see
-   AGENTS.md "External skill precedence"). Enabling squash-auto-merge is the repo norm but
-   requires explicit user confirmation before enabling (`gh pr merge --squash --auto`); the
-   PR lands on green.
+   or RAG-ranking files are touched) `## Clinical Governance Preflight` headings, and a
+   satisfying `RAG impact:` line — never caveman-compressed; `pr-policy.yml` parses this text
+   verbatim and hard-blocks the merge on a paraphrased or dropped item (see AGENTS.md "External
+   skill precedence"). Complete the Clinical Governance Preflight **truthfully** — check only
+   the boxes that are actually true for this change, never tick every box to satisfy the
+   parser — and never add the `owner-approved` label yourself.
+   **Owner-merge rule (owner ruling 2026-09-16):** a PR that is clinical-content
+   (`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk`), touches anything
+   under `supabase/`, or touches a RAG-ranking surface is merged by Josh, not by agents. The
+   required `PR policy` check stays red on those PRs until Josh adds the `owner-approved`
+   label; any new push removes it. Agents may enable ordinary squash-auto-merge on other,
+   non-owner-merge PRs once green, with explicit user confirmation before enabling
+   (`gh pr merge --squash --auto`) — but never on an owner-merge PR, and never by adding the
+   `owner-approved` label.
 7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
    (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
    the row into `docs/branch-review-ledger.md`.

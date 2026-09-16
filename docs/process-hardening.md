@@ -816,8 +816,10 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): five guards.
-  The non-bypassable auto-merge ownership guard blocks a push on every PR branch when the PR's
-  auto-merge is armed. The other guards retain explicit overrides: format-before-push (closes the `verify:cheap` vs
+  The non-bypassable auto-merge ownership guard warns (but does not block) an ordinary push to a
+  PR branch whose auto-merge is armed; it blocks only when that push force-updates the branch or
+  carries a hosted migration (`autoMergeVerdict` in `scripts/guard-push.mjs`). The other guards
+  retain explicit overrides: format-before-push (closes the `verify:cheap` vs
   CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
   with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
   (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
