@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2604135c-5945-4f4a-ab84-a18e07c4a66c",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The Kids Helpline record's website points at a generic MHC suicide page rather than the service's own site",
+    "detail": "SVC-YTH-016 in src/lib/services-canonical-data/part-06.ts sets website to https://www.mhc.wa.gov.au/getting-help/your-health-and-wellbeing/suicide, because that is where the dated source came from. A clinician following it gets a general WA suicide page rather than Kids Helpline. The legacy record it supersedes carried https://kidshelpline.com.au/ as its public source URL. FIX: set website to https://kidshelpline.com.au/ and keep the MHC page as the dated source entry, which is the correct split between where a claim came from and where a young person is sent. Not a safety defect, so it was deliberately not pushed on its own: any canonical content edit moves the content-addressed bootstrap release id, so batch it with the next refresh rather than spending one on it. RELATED: removing kidshelpline.com.au from the emitted source hosts already required dropping it from GOVERNED_SOURCE_HOSTS (PR #2814), since that list is pinned by exact set equality; restoring it as a website does not put it back, because only sources[] feeds public_source_urls.",
+    "source": "PR #2814 Unit coverage failure on tests/source-catalogue-providers.test.ts; src/lib/service-governance.ts:250-251",
+    "issueUlid": "01M2N9HN1N8Y1ZXZ3ZA4J5K0FH"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5691c7b8-e30e-404c-9b06-649d43ad4e70",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Culture Care Connect (SVC-SUI-004) is live in the services catalogue with no acute-crisis exclusion",
+    "detail": "SVC-SUI-004 sits in the suicide_crisis_aftercare_postvention group at tier B_common_referral with an empty notFor array, so a suicide-related search can surface it without directing an acute crisis to MHERL, Rurallink, 13YARN or 000. Every sibling record carries the exclusion (SVC-SUI-003, SVC-POS-001 through 004) and docs/services-mode-governance.md requires it. Raised by the Copilot review of PR #2814 as a suppressed comment and confirmed against the merged catalogue on main. The rest of the catalogue was swept: no other aftercare or postvention record has the same gap, and the two AOD entries with an empty notFor (SVC-AOD-004, SVC-AOD-005) are genuine 24/7 crisis lines where an exclusion would be wrong. FIX: set notFor to [\"Not an acute crisis line. For immediate suicidal crisis use MHERL, Rurallink, 13YARN or 000.\"] on the culture-care-connect record in src/lib/services-canonical-data/part-03.ts, and add \"SVC-SUI-004\" to the id list in tests/services-safety-routing.test.ts:125 (the test that already asserts this for every sibling and silently omitted this one). Any canonical content edit moves the content-addressed bootstrap release id, so it must ship with npm run bootstrap:refresh -- --write and the dependent identity pins retargeted. Was verified to apply cleanly to the branch head before #2814 merged.",
+    "source": "Copilot review of PR #2814 (suppressed comment on part-03.ts); confirmed on origin/main after merge 2026-09-16",
+    "issueUlid": "01M2N9GN5B9P8HFMCV66PDYMPX"
+  }
+}

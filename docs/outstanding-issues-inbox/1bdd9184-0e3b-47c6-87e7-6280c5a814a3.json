@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1bdd9184-0e3b-47c6-87e7-6280c5a814a3",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "live-drift is red on main: two CHECK constraints pin the refreshed bootstrap release id that production never received",
+    "detail": "Post-merge live-drift run 35103486937 on merge commit c68c6ff41 FAILED with UNEXPECTED DRIFT (2): site_content_release_records_check1 and site_content_sync_state_transition_pointer_check each expect release_id 91ceaa8d-470c-5661-8ce6-980c2a1bb137 in the manifest while live holds e4a1dd29-14f6-556c-8fb7-f4f947d8b846. CAUSE: the epoch-zero bootstrap refresh was shipped by REWRITING three already-applied migrations (20260824122000, 20260824123000, 20260830121000). Supabase never re-runs an applied version, so the repo moved to the new identity and production stayed on the old one. Migration replay stays green because the chain still applies from empty, which is what makes this quiet. NOT INTRODUCED BY #2814 ALONE: run 35099268947 on d974ec9fc already failed the same way at 13:01Z, before #2814 merged, so the drift reached main via an earlier merge that day. Last green live-drift was 2026-09-13 (run on ab7d7d630). REMEDY IS AN OWNER DECISION IN AN APPROVED WINDOW, per check:drift's own message: either codify the live state (committed migration + schema.sql + regenerated manifest) or change live through an approved migration. Do NOT fix this with raw SQL against live; that is how the original drift incident started. NOTE the two halves are not equivalent in difficulty: the health-probe and transitions edits are function bodies a forward create-or-replace can carry, but 20260824122000 holds the epoch-zero population as two dollar-quoted JSON blobs (843 frozen vs 860 current), so reissuing it means a data migration that rewrites live release rows and the content-addressed release id, and the live-release read recorded in inbox request a5431811 has to happen first.",
+    "source": "live-drift runs 35103486937 (c68c6ff41, post-merge #2814) and 35099268947 (d974ec9fc); Codex P1 review comment 5698281620 on PR #2814; AGENTS.md Supabase project safety",
+    "issueUlid": "01M2N9H3VVEXXX33A13K9DKDXN"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3f8a31e9-8055-42ed-b9fc-28aec1bd9770",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Auto-merge re-arms itself within minutes of every disarm, defeating the owner-merge rule for supabase and clinical PRs",
+    "detail": "On PR #2814 auto-merge was disarmed three times and removed once by a draft conversion, and returned each time under the BigSimmo account: disabled 11:52:49 re-enabled 11:53:15 (26s), disabled 12:01:23 re-enabled 12:07:51, disabled 13:09:36 re-enabled 13:11:03 (87s), converted to draft 13:20:44 (which strips auto-merge) marked ready 13:24:04 and re-armed 13:24:07. That cadence is automation, not a person clicking. The PR touched supabase/migrations and clinical catalogue content, both of which AGENTS.md and the owner's 2026-09-16 standing rule say are owner-merged by hand, and it did merge 16 minutes after the last re-arm. NEXT: identify what re-arms it. Likely candidates are a Run PR style sweep or a scheduled routine that treats a green PR as one to arm. Until it is found, a disarm does not hold and converting to draft is the only reliable block. Recorded because the next supabase or clinical PR inherits the same exposure; the draft conversion protected #2814 only, and only for three minutes.",
+    "source": "PR #2814 timeline and auto_merge webhook actors, 2026-09-16; Governance Audit session relay of the owner's ruling",
+    "issueUlid": "01M2N9HCT3D0AZ4ETNC5CEF2YN"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2c6009ab-0a1b-4c7d-bef9-a242db66626f",
+  "createdOn": "2026-09-16",
+  "action": "update",
+  "payload": {
+    "id": "#QCNE6N",
+    "detail": "THIRD OCCURRENCE 2026-09-16, and the first where the mirror and the chain disagreed in BOTH directions within one PR. On PR #2814 the health-probe row-count fix landed in supabase/migrations/20260824123000 while supabase/schema.sql kept the stale '= 843' literal at lines 15183 and 15284, so the migration said expected_record_count and the mirror said 843 with every gate green. tests/drift-detection.test.ts compares schema.sql only against drift-manifest.json's sha256, so it stays green whenever the manifest is regenerated from the drifted mirror; nothing compares the mirror against the chain. Found by reading the two files side by side, not by any gate. Separately, the same PR shows the cost of the missing diff at replay time: main hardened read_site_content_public_records into two union branches while the branch carried the older body, and only a hand merge kept the hardening. This strengthens the case for the containerised two-database diff this row already proposes (replay the chain into one scratch database, schema.sql into a second, diff schema_drift_snapshot()); it remains fully offline and needs no provider access.",
+    "baseRowFingerprint": "0d52b2b99a69c7876f06fadb0993bfd5098a151160038c05e3c277dcd4117d13"
+  }
+}
