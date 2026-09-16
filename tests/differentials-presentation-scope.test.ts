@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildAdHocPresentationWorkflow,
   differentialPresentations,
   differentialRecords,
   getDifferentialDetailContext,
   scopeDifferentialRecord,
 } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import { buildDiscriminators } from "@/lib/differential-detail";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
 
@@ -193,5 +195,22 @@ describe("differentials presentation scope", () => {
       })
       .map((record) => record.slug);
     expect(offenders).toEqual([]);
+  });
+
+  it("ad-hoc compare criteria carry presentation scope so shared rows are not per-diagnosis", () => {
+    const workflow = buildAdHocPresentationWorkflow(["acute-dystonia", "delirium"]);
+    expect(workflow).not.toBeNull();
+    const presentationScoped = (workflow!.criteria ?? []).filter((criterion) => criterion.scope === "presentation");
+    expect(presentationScoped.map((criterion) => criterion.id)).toEqual(
+      expect.arrayContaining(["bedside-question", "immediate-action", "investigations", "mimics-overlap"]),
+    );
+  });
+
+  it("diagnosisOwnSummary keeps acute dystonia free of the presentation hinge", () => {
+    const dystonia = records.find((record) => record.slug === "acute-dystonia");
+    expect(dystonia).toBeDefined();
+    expect(dystonia!.clinicalHingeScope).toBe("presentation");
+    expect(diagnosisOwnSummary(dystonia!)).not.toMatch(/inner restlessness/i);
+    expect(diagnosisOwnSummary(dystonia!)).toBe(dystonia!.subtitle?.trim() || "");
   });
 });

@@ -118,6 +118,11 @@ function CandidateGlyph({ record, className }: { record: DifferentialRecord; cla
 }
 
 function comparisonCopy(workflow: DifferentialPresentationWorkflow, candidates: CandidateView[]) {
+  const criterionScope = new Map((workflow.criteria ?? []).map((criterion) => [criterion.id, criterion.scope]));
+  const qualify = (criterionId: string, value: string, diagnosisTitle: string) => {
+    if (criterionScope.get(criterionId) !== "presentation") return value;
+    return `${value} (presentation group, not specific to ${diagnosisTitle})`;
+  };
   return [
     `${workflow.title} comparison`,
     workflow.safetySnapshot.summary,
@@ -125,9 +130,18 @@ function comparisonCopy(workflow: DifferentialPresentationWorkflow, candidates: 
     ...candidates
       .filter((candidate) => candidate.selected)
       .map((candidate) => {
-        const mustNotMiss = candidate.comparison["must-not-miss"] ?? "Review must-not-miss risks.";
-        const action = candidate.comparison["immediate-action"] ?? "Review immediate action.";
-        return `${candidate.record.title} (${statusLabel(candidate.record.status)}): ${mustNotMiss} Immediate action: ${action}`;
+        const title = candidate.record.title;
+        const mustNotMiss = qualify(
+          "must-not-miss",
+          candidate.comparison["must-not-miss"] ?? "Review must-not-miss risks.",
+          title,
+        );
+        const action = qualify(
+          "immediate-action",
+          candidate.comparison["immediate-action"] ?? "Review immediate action.",
+          title,
+        );
+        return `${title} (${statusLabel(candidate.record.status)}): ${mustNotMiss} Immediate action: ${action}`;
       }),
   ].join("\n");
 }

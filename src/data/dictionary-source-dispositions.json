@@ -1,0 +1,2392 @@
+{
+  "generatedFrom": "PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+  "previewedAgainst": "src/data/source-acquisitions.json",
+  "previewedOn": "2026-09-16",
+  "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry, not clinical approval and not deployed catalogue visibility. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
+  "counts": {
+    "held": 41,
+    "admitted_as_candidate": 17
+  },
+  "sources": [
+    {
+      "handoverSourceId": "4AT-OFFICIAL",
+      "title": "4AT: rapid clinical test for delirium",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'4AT developers' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "AADPA-ADHD",
+      "title": "Australian Evidence-Based Clinical Practice Guideline for ADHD",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australasian ADHD Professionals Association' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "ACSQHC-MED-2024",
+      "title": "Recommendations for safe use of medicines terminology",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-AOD-2026",
+      "title": "Alcohol and other drug treatment services glossary",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "aihw-aod-glossary",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-NASS-2026",
+      "title": "Ambulance attendances for suicidality and self-harm",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-NOCC-2026",
+      "title": "National Outcomes and Casemix Collection NBEDS 2026-27",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-NOCC-NMDS-2026",
+      "title": "National Outcomes and Casemix Collection NMDS 2026-27",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-OAT-2026",
+      "title": "The health of people in Australia's prisons 2025 - Opioid agonist therapy",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+      }
+    },
+    {
+      "handoverSourceId": "AIHW-SUICIDE-2026",
+      "title": "Suicide and self-harm monitoring glossary",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+      }
+    },
+    {
+      "handoverSourceId": "AMHOCN-NOCC",
+      "title": "NOCC Measures",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australian Mental Health Outcomes and Classification Network' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "APA-BIPOLAR",
+      "title": "What are bipolar disorders?",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'American Psychiatric Association' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "AUS-HEALTH-ASSIST-2025",
+      "title": "ASSIST Plus",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Australian Government Department of Health, Disability and Ageing' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "COLUMBIA-CSSRS",
+      "title": "About the Columbia-Suicide Severity Rating Scale",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Columbia Lighthouse Project' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "COPE-EPDS-2026",
+      "title": "Using the EPDS as a screening tool",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Centre of Perinatal Excellence' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "DIVA-FOUNDATION",
+      "title": "DIVA Foundation: diagnostic interviews and digital-use terms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'DIVA Foundation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-BPD-2026",
+      "title": "Borderline personality disorder (BPD)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-borderline-personality-disorder-bpd",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: February 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: February 2024"
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-CBT-2024",
+      "title": "Cognitive behaviour therapy (CBT)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-cognitive-behaviour-therapy-cbt",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: October 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: October 2024"
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-DBT",
+      "title": "Dialectical behaviour therapy (DBT)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-dialectical-behaviour-therapy-dbt",
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-dbt",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: July 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: July 2024"
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-PTSD",
+      "title": "Post-traumatic stress disorder (PTSD)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-post-traumatic-stress-disorder-ptsd",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: February 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: February 2024"
+    },
+    {
+      "handoverSourceId": "METEOR-FOC-HISTORIC",
+      "title": "National Outcomes and Casemix Collection: historical Focus of Care",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
+      }
+    },
+    {
+      "handoverSourceId": "NACCHO-ACCHO-2026",
+      "title": "Aboriginal Community Controlled Health Organisations",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "NACCHO-AHW-2026",
+      "title": "First Nations Health Worker Traineeship Program",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "NACCHO-SEWB-2026",
+      "title": "Connection. Strength. Resilience: Social and Emotional Wellbeing Resources",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'National Aboriginal Community Controlled Health Organisation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "NICE-SELFHARM-NG225",
+      "title": "Self-harm: assessment, management and preventing recurrence",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-nice-selfharm-ng225",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16 via NICE's own site index; the guidance page returned HTTP 403 to a direct fetch. Published 07 September 2022, last updated 16 August 2024."
+      }
+    },
+    {
+      "handoverSourceId": "NSW-ACI-SCI",
+      "title": "Occupational therapy for people with spinal cord injury: introduction",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "RANZCP-CLP-2026",
+      "title": "Consultation-liaison psychiatry",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-ranzcp-clp-ps116",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. RANZCP gives PS #116 and 'Last updated Jul 2026'; no separate first-publication date."
+      }
+    },
+    {
+      "handoverSourceId": "RANZCP-ECT-2019",
+      "title": "Electroconvulsive therapy (ECT)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-ranzcp-ect-ps74",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. RANZCP gives PS #74 and 'Last updated Oct 2019'; no separate first-publication date."
+      }
+    },
+    {
+      "handoverSourceId": "RANZCP-RTMS-2024",
+      "title": "Administration of repetitive transcranial magnetic stimulation (rTMS)",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-ranzcp-rtms-ppg16",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16 via RANZCP's own site index; the guideline page returned HTTP 403 to a direct fetch. PPG #16, last updated May 2024."
+      }
+    },
+    {
+      "handoverSourceId": "RCH-MSE-2024",
+      "title": "Mental state examination",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher \"Royal Children's Hospital Melbourne\" is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-ABORIGINAL-TITLES-2026",
+      "title": "Aboriginal Health Standardised Titles List",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Open the PDF and record its stated version and issue date."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not attempted 2026-09-16. The canonical URL is a PDF on health.wa.gov.au; establishing its date needs the document itself rather than a page read."
+      }
+    },
+    {
+      "handoverSourceId": "WA-AHD-2026",
+      "title": "Advance Health Directives",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-AHLO",
+      "title": "Aboriginal Health Liaison Service",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'WA Health service providers' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-CONSENT-2026",
+      "title": "Consent to treatment",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-health-consent-to-treatment",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The page carries 'Last reviewed: 22-05-2026' and no publication date."
+      }
+    },
+    {
+      "handoverSourceId": "WA-HSP-ACRONYMS-2026",
+      "title": "CAHS Authorisations and Delegations Schedule - abbreviations",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-MHAS",
+      "title": "Mental Health Advocacy Service",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'Government of Western Australia' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-MHC-FORM-LIST-2022",
+      "title": "Mental Health Act 2014 - List of Forms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Mental Health Commission, Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-MHDC-2026",
+      "title": "Data collections",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_live_register",
+          "blocker": "An undated live register has no publication event to record.",
+          "nextAction": "Decide whether to cite the dated data-collection documentation rather than the undated landing page."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. No publication, update or review date appears anywhere on the page."
+      }
+    },
+    {
+      "handoverSourceId": "WA-MHERL",
+      "title": "Mental Health Emergency Response Line",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_field_is_a_description_not_an_agency",
+          "blocker": "'Mental Health Commission / WA Health' names the Crown, a category of provider, or two publishers at once. It was deliberately not registered: a catch-all authority entry would resolve every document of that kind to one publisher, which is worse than leaving this record held.",
+          "nextAction": "Establish the actual publishing agency for this source and correct the publisher field, then re-run the acquisition gate."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-MHT",
+      "title": "Mental Health Tribunal Western Australia",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Mental Health Tribunal Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-OCP-AMHP",
+      "title": "Authorised Mental Health Practitioners (AMHPs)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_live_register",
+          "blocker": "An undated live register has no publication event to record.",
+          "nextAction": "Decide whether to cite the dated register file itself rather than the undated landing page."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. No date is shown on the page. The linked AMHP register file name carries 01.08.2026, which is a file name, not page metadata."
+      }
+    },
+    {
+      "handoverSourceId": "WA-OCP-FORMS",
+      "title": "Mental Health Act 2014 Forms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_live_register",
+          "blocker": "An undated live register has no publication event to record. The ledger requires publicationDate for any non-rejected record, so it cannot be admitted as it stands.",
+          "nextAction": "Decide whether the ledger should support undated live registers, or cite the individual dated forms instead of the register page."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. No publication, update or review date appears anywhere on the page. It is a live register of approved Mental Health Act 2014 forms."
+      }
+    },
+    {
+      "handoverSourceId": "WA-OCP-MHA",
+      "title": "Mental Health Act 2014",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_is_a_continuously_updated_page",
+          "blocker": "The page is a maintained reference that carries an update stamp, not a publication event.",
+          "nextAction": "Decide whether the ledger should represent continuously updated official pages, which currently require a publication date it cannot have."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The page carries 'Last updated: 5 December 2025' and no publication date."
+      }
+    },
+    {
+      "handoverSourceId": "WA-OCP-PMP",
+      "title": "Prescribed Medical Practitioners",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_live_register",
+          "blocker": "An undated live register has no publication event to record.",
+          "nextAction": "Decide whether to cite a dated register file rather than the undated landing page."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. No date is shown on the page beyond a 2026 copyright footer, which is not a publication date."
+      }
+    },
+    {
+      "handoverSourceId": "WA-PSOLIS-HSS",
+      "title": "Major programs and projects",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Health Support Services, Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WA-SSCD",
+      "title": "MP 0155/21 - State-wide Standardised Clinical Documentation for Mental Health Services",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-wa-sscd-2021",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. WA Health gives policy number MP 0155/21 and date of effect 09 August 2021."
+      }
+    },
+    {
+      "handoverSourceId": "WHO-ASSIST-2010",
+      "title": "The Alcohol, Smoking and Substance Involvement Screening Test (ASSIST): manual for use in primary care",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-who-assist-2010",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs the native acquisition gate and clinical sign-off.",
+          "nextAction": "Run npm run check:source-acquisitions, then seek clinical sign-off before the record is cited."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "WHO-AUDIT-2001",
+      "title": "AUDIT: The Alcohol Use Disorders Identification Test - guidelines for use in primary care, second edition",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-who-audit-2001",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs the native acquisition gate and clinical sign-off.",
+          "nextAction": "Run npm run check:source-acquisitions, then seek clinical sign-off before the record is cited."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "australian-prescriber-movement",
+      "title": "Drug-induced movement disorders",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-australian-prescriber-movement-2019",
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "australian-prescriber-movement",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Published 1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014. The date and version are now established."
+      }
+    },
+    {
+      "handoverSourceId": "health-mental-rights",
+      "title": "Rights and responsibilities in mental health care",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "health-mental-rights",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Locate the current published location of this document and record its date and publisher from there."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not attempted 2026-09-16. The canonical URL points at the archived www1.health.gov.au publications site, whose stability is itself in question."
+      }
+    },
+    {
+      "handoverSourceId": "health-recovery-framework",
+      "title": "A national framework for recovery-oriented mental health services",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "health-recovery-framework",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "conflicting_publisher_and_date_in_index",
+          "blocker": "A conflicting attribution must not be resolved by picking whichever value is convenient.",
+          "nextAction": "Read the document's own title page and record the publisher and date it states."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. health.gov.au returned HTTP 403 to a direct fetch. The site index returns a 2011 date and a Victorian Department of Health attribution, which conflicts with the recorded publisher."
+      }
+    },
+    {
+      "handoverSourceId": "healthdirect-antipsychotics",
+      "title": "Antipsychotic medicines",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-antipsychotic-medicines",
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-antipsychotics",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: November 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: November 2025"
+    },
+    {
+      "handoverSourceId": "healthdirect-mental-health",
+      "title": "Mental health conditions",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-mental-health",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_hub_page",
+          "blocker": "An undated hub page has neither a publication nor a review date to record.",
+          "nextAction": "Cite the dated Healthdirect article pages this hub links to, rather than the hub itself."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. This Healthdirect hub page carries no date of any kind, unlike the article pages on the same site which stamp a review month."
+      }
+    },
+    {
+      "handoverSourceId": "healthdirect-psychosis",
+      "title": "Psychosis",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-psychosis",
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychosis",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: March 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: March 2025"
+    },
+    {
+      "handoverSourceId": "healthdirect-psychotherapy",
+      "title": "Psychotherapy",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-healthdirect-psychotherapy",
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychotherapy",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: November 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: November 2025"
+    },
+    {
+      "handoverSourceId": "nice-delirium",
+      "title": "Delirium: prevention, diagnosis and management",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-nice-delirium-cg103",
+      "catalogueIdentityOutcome": "conflict",
+      "existingDictionarySourceId": "nice-delirium",
+      "catalogueIdentityReason": "same_native_id_different_source_location_preserve_existing_identity_and_reconcile",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The apparent conflict is not one: the dictionary's /chapter/context URL and the handover's /chapter/Recommendations URL are two chapters of NICE CG103. Published 28 July 2010, updated 18 January 2023. The existing dictionary citation stays as it is, because pointing at the chapter that supports the claim is more precise than pointing at the guideline."
+      }
+    },
+    {
+      "handoverSourceId": "nsw-mental-assessment",
+      "title": "Mental health assessment",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "nsw-mental-assessment",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "nsw-mse-handbook",
+      "title": "Getting Started in Psychiatry",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "nsw-mse-handbook",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publisher_now_registered_date_still_required",
+          "blocker": "The publisher 'Western Sydney Local Health District' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
+          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": null,
+        "finding": "Not re-read in this session."
+      }
+    },
+    {
+      "handoverSourceId": "who-safety-planning",
+      "title": "Safety planning interventions",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "who-safety-planning",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "publication_event_not_stated_by_the_publisher",
+          "blocker": "A section tag and a file name are not a stated publication date.",
+          "nextAction": "Cite the dated mhGAP evidence profile document rather than the evidence-centre landing page."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The mhGAP evidence page carries no formal publication date. It is tagged '2023 new' and links an evidence profile whose file name contains 12122023."
+      }
+    }
+  ],
+  "publisherReadsPerformedOn": "2026-09-16",
+  "authorityRegistrations2026_09_16": {
+    "registered": [
+      "American Psychiatric Association",
+      "Australasian ADHD Professionals Association",
+      "Australian Government Department of Health, Disability and Ageing",
+      "Australian Mental Health Outcomes and Classification Network",
+      "Centre of Perinatal Excellence",
+      "Columbia Lighthouse Project",
+      "DIVA Foundation",
+      "Health Support Services, Western Australia",
+      "Mental Health Commission, Western Australia",
+      "Mental Health Tribunal Western Australia",
+      "NSW Agency for Clinical Innovation",
+      "National Aboriginal Community Controlled Health Organisation",
+      "Royal Children's Hospital Melbourne",
+      "Western Sydney Local Health District"
+    ],
+    "deliberatelyNotRegistered": [
+      "4AT developers",
+      "Government of Western Australia",
+      "Mental Health Commission / WA Health",
+      "WA Health service providers"
+    ],
+    "setting": "catalogueIdentityOnly, matching the Chief Psychiatrist's own entry: the catalogue can place the publisher in a jurisdiction, and runtime retrieval selection is unchanged."
+  }
+}

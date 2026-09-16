@@ -2,7 +2,8 @@ import type { ClinicalAskEvidence, ClinicalAskRequest, SourceReviewState } from 
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import { searchDifferentialRecords, searchPresentationWorkflows } from "@/lib/differentials";
-import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
+import { dsmCatalogueProvenance, dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchFormRecords } from "@/lib/forms";
 import { searchServiceRecords } from "@/lib/services";
@@ -106,7 +107,7 @@ function differentialEvidence(request: ClinicalAskRequest) {
         title: record.title,
         publisher: snapshot.governance.sourceTitle,
         href: `/differentials/diagnoses/${record.slug}`,
-        extract: text([record.subtitle, record.clinicalHinge, record.safetySnapshot.summary]),
+        extract: text([record.subtitle, diagnosisOwnSummary(record), record.safetySnapshot.summary]),
         reviewState,
         updatedAt: snapshot.exportedAt,
       }),
@@ -137,15 +138,37 @@ function formulationEvidence(request: ClinicalAskRequest) {
   );
 }
 
+/**
+ * The DSM tier used to declare `publisher: "Authorised DSM clinical catalogue"`
+ * and `reviewState: "reviewed"` on every item. Neither was derived from
+ * anything: the catalogue is a vendored upstream snapshot with no review receipt
+ * in this repository, and 145 of its 146 records carry no criteria at all.
+ *
+ * The consequence was not cosmetic. `assessEvidenceSufficiency` gates
+ * `sufficient` on `hasReviewedSupport`, so a hard-coded "reviewed" made every
+ * DSM answer register as fully supported by the catalogue alone and suppressed
+ * the external-corroboration path that exists for exactly this case.
+ *
+ * Both fields now come from `dsmCatalogueProvenance`, and the extract states
+ * when a record has no full criteria rather than letting a key-feature summary
+ * read as the diagnostic standard.
+ */
 function dsmEvidence(request: ClinicalAskRequest) {
   return rankDsmDiagnoses(request.question, RESULT_LIMIT).map(({ diagnosis }) => {
     const summary = dsmDiagnosisSummary(diagnosis);
+    const completeness =
+      summary.criteriaProvenance === "dsm_criteria"
+        ? null
+        : "The full DSM-5-TR criteria are not included in this record; the text above is a key feature summary.";
     return evidence(request, diagnosis.slug, {
       title: summary.title,
-      publisher: "Authorised DSM clinical catalogue",
+      publisher: dsmCatalogueProvenance.label,
       href: `/dsm/diagnoses/${diagnosis.slug}`,
-      extract: text([summary.category.label, summary.icd_code, summary.summary]),
-      reviewState: "reviewed",
+      extract: text([summary.category.label, summary.icd_code, summary.summary, completeness]),
+      reviewState: dsmCatalogueProvenance.reviewState,
+      // The export's generation date. It says how current the snapshot is, and
+      // is deliberately not presented as a clinical review or publication date.
+      updatedAt: dsmCatalogueProvenance.generatedOn,
     });
   });
 }
@@ -168,7 +191,9 @@ function specifierEvidence(request: ClinicalAskRequest) {
   return candidates.map(({ item }) =>
     evidence(request, item.slug, {
       title: item.label,
-      publisher: item.definition?.sourceFamily || "Authorised specifier catalogue",
+      // Same defect as the DSM label above: a fallback must not assert an
+      // authority the item does not carry. The review state below is derived.
+      publisher: item.definition?.sourceFamily || "Specifier catalogue",
       href: `/specifiers/${item.slug}`,
       extract: text([item.disorderName, item.definition?.meaning, item.definition?.clinicalNote, item.icd11Context]),
       reviewState:

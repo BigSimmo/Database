@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7151233d-68ba-43cd-93ba-583fd58e666e",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Six dictionary source pages need a browser read: four AIHW, a WA Health PDF, the recovery framework",
+    "detail": "aihw.gov.au returned HTTP 403 to this session for the alcohol and other drug treatment glossary, the suicide and self-harm monitoring glossary, ambulance attendances, and opioid agonist therapy in the prisons report. AIHW is already registered and ledger-eligible, so a release date is the only thing missing for all four. The WA Aboriginal Health Standardised Titles List is a PDF whose date needs the document itself. The national framework for recovery-oriented mental health services needs its title-page publisher and date, because the site index returns 2011 with a Victorian Department of Health attribution that conflicts with the recorded publisher. Separately, meteor.aihw.gov.au is not in GOVERNED_SOURCE_HOSTS, which blocks three NOCC metadata records regardless of date.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTDPC1X05W2VZSZ2MVAMKQ"
+  }
+}

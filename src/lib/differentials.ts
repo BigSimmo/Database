@@ -321,7 +321,7 @@ export function buildAdHocPresentationWorkflow(ids: Iterable<string>): Different
     new Set(records.flatMap((record) => record.safetySnapshot.tags.map((tag) => tag.trim()).filter(Boolean))),
   ).slice(0, 6);
 
-  return {
+  return scopePresentationWorkflow({
     id: AD_HOC_DIFFERENTIAL_COMPARE_ID,
     title: "Selected differentials",
     status,
@@ -355,7 +355,7 @@ export function buildAdHocPresentationWorkflow(ids: Iterable<string>): Different
       version: catalog().governance.version || "Local content only",
       lastUpdated: catalog().exportedAt || "Pending review",
     },
-  };
+  });
 }
 
 /**
