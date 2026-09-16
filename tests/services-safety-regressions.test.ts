@@ -62,6 +62,10 @@ describe("services safety regressions", () => {
       ...yarn!,
       confidence: "High",
       public_source_urls: [],
+      // Canonical records carry structured evidence separately, and that is a durable source
+      // in its own right. Leaving it populated made this fixture sourced, so the assertion
+      // stopped testing what it names.
+      evidence_sources: [],
       verification_flags: [],
       web_review_status: "",
     };
