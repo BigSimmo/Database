@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { FORMS_AWAITING_REVIEW_NOTE, loadFormCatalogDetails } from "@/lib/form-catalog";
 import { formRecords } from "@/lib/forms";
-import {
-  preferBundledFormRecord,
-  siteContentSnapshotReleaseId,
-} from "@/lib/site-content/prefer-bundled-form-record";
+import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
 import type { ServiceRecord } from "@/lib/services";
 
 const RETAINED_BOOTSTRAP_RELEASE_ID = "ddc94ecf-3527-5b4d-846b-af5724b428ca";
@@ -148,9 +145,7 @@ describe("preferBundledFormRecord", () => {
   it("leaves non-form kinds untouched", () => {
     const record = { slug: "svc", title: "Service" } as ServiceRecord;
     const mapped = { record, extra: 1 };
-    expect(preferBundledFormRecord("service", mapped, { activeReleaseId: RETAINED_BOOTSTRAP_RELEASE_ID })).toBe(
-      mapped,
-    );
+    expect(preferBundledFormRecord("service", mapped, { activeReleaseId: RETAINED_BOOTSTRAP_RELEASE_ID })).toBe(mapped);
   });
 
   it("keeps every drafted form's awaiting-review caveat in the bundled population the API prefers", () => {

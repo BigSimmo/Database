@@ -19,10 +19,7 @@ import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { catalogueSearchScope, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
-import {
-  preferBundledFormRecord,
-  siteContentSnapshotReleaseId,
-} from "@/lib/site-content/prefer-bundled-form-record";
+import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";

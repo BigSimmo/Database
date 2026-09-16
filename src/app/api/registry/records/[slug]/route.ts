@@ -16,10 +16,7 @@ import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
-import {
-  preferBundledFormRecord,
-  siteContentSnapshotReleaseId,
-} from "@/lib/site-content/prefer-bundled-form-record";
+import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
 import { getServiceRecord, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -103,9 +100,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       }),
     });
     const activeReleaseId = siteContentSnapshotReleaseId(canonical.snapshot);
-    const payload = canonical.records.map((entry) =>
-      preferBundledFormRecord(kind, entry, { activeReleaseId }),
-    )[0];
+    const payload = canonical.records.map((entry) => preferBundledFormRecord(kind, entry, { activeReleaseId }))[0];
     if (!payload) return notFoundResponse(normalizedSlug);
     return registryResponse(
       { ...payload, publicAccess: true, sharedCatalog: true },
