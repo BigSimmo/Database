@@ -1,15 +1,15 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "5ddee72d337d8e72f18c156474c1963d8d666162",
+  "gitSha": "782393f7737262c23529c90456d60b171de1374d",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-09-11T10:16:10.416Z",
+  "generatedAt": "2026-09-16T09:42:13.798Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
       "domain": "calculators",
       "route": "/calculators/search?calculator=auditc",
-      "contentHash": "b7259a39c83b5987497425a8887b82f5c5c7e2a5c3b79fc10f582ffd94fc80cf",
-      "lineageDigest": "b581cd62b44c18c19d82a398d7dfec5442cef139e51d5c370009ecdda2d9d4ec",
+      "contentHash": "5b6a1871b9e8daae7e9fe6363b93001f434cbcc284fa48d10f61ac6916157da5",
+      "lineageDigest": "069f0a56ba618e30ad5195bd1cf89bccb6d00244d2311e300338c1294ec0d82f",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -41,8 +41,8 @@
       "logicalId": "calculators:k10",
       "domain": "calculators",
       "route": "/calculators/search?calculator=k10",
-      "contentHash": "0a1dc972380d2202bf59a0a86627dcbb7d32b1bd189861c854757af453b1cabb",
-      "lineageDigest": "59ae59eaeda428a40359137e4b3ff6f394c4183516572bae6a4829f1ffd3f4cd",
+      "contentHash": "febeda2079a4f3d2d6bc75961ae02fb81bfaf29ba3121d39f1615a4921e385be",
+      "lineageDigest": "bd194c81be03ae4d3e2b918a690d28ab217205690345ea28364b02b51c17149f",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -11841,5 +11841,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "53f209a08e13ce8689e9b177031988dc51e19f39778b9727b6e1870b7d019494"
+  "staticManifestDigest": "71e9e392e10863cbfc8cfcb2d501ee64512655c495f494f36e5f2a902a3f3076"
 }
