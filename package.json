@@ -309,6 +309,7 @@
     "arbiter:clear": "node scripts/gate-arbiter.mjs clear",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
     "check:chain-mirror-parity": "node scripts/run-tsx.mjs scripts/check-chain-mirror-parity.ts",
+    "check:drift-manifest-freshness": "node scripts/run-tsx.mjs scripts/check-drift-manifest-freshness.ts",
     "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
     "check:site-content-control-plane": "node scripts/check-site-content-control-plane.mjs",
