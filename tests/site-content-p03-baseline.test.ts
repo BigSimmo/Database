@@ -15,25 +15,25 @@ import {
 const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const CORPUS_SYNC = "scripts/sync-site-content-corpus.ts";
 
+/** Epoch-zero freeze the live database holds (see tests/site-content-epoch-zero-freeze.test.ts). */
+const APPLIED_RELEASE_DIGEST = "57f6ec90225fc4341b446705f50a48b132f2872172d8f93888bf921fe7bfa1bc";
+const APPLIED_RECORD_COUNT = 843;
+
 const read = (path: string) => readFileSync(path, "utf8");
 const block = (sql: string, tag: string) =>
   JSON.parse(sql.match(new RegExp(`\\$${tag}\\$([\\s\\S]*?)\\$${tag}\\$`))![1]!);
 
 /**
- * `supabase/migrations/20260824122000...sql` and `supabase/schema.sql` embed the whole
- * site-content seed population as dollar-quoted JSON, and two other tests pin it to the
- * live runtime records. So any Forms or Services content edit turns those red until the
- * blobs are refreshed, and for a long time there was no supported way to refresh them:
- * `canonicalDynamicSiteContentProjection` returns `record` and `renderPayload`, while a
- * frozen entry also carries two deterministic UUIDs, the normalised text, the content hash
- * and three fingerprints. Those seven come from `sourceRecord` in
- * `scripts/sync-site-content-corpus.ts`, which only ever writes to a provider.
+ * `scripts/refresh-site-content-p03-baseline.ts` duplicates corpus-sync derivations so the
+ * frozen P03 blobs can be reasoned about offline. These tests pin those derivations and the
+ * digest math — they must NOT require the freeze to equal today's catalogue.
  *
- * `scripts/refresh-site-content-p03-baseline.ts` duplicates those derivations so the blobs
- * can be regenerated offline. Duplicated derivations drift, and a drifted one here would
- * silently reseed the live public-records table with wrong identities. These tests are what
- * stops that: the derivations are pinned against the corpus-sync source, and the generated
- * entries are pinned against what is actually committed in the migration.
+ * That trap is exactly what caused PR #2814 to rewrite already-applied migrations: two tests
+ * asserted frozen blobs equalled the current catalogue, so adding service records failed them
+ * by construction. The freeze is pinned byte-for-byte by
+ * `tests/site-content-epoch-zero-freeze.test.ts`; catalogue divergence is expected and must
+ * reach live through the publication pipeline or a NEW forward migration, never by editing
+ * `20260824122000`.
  */
 describe("P03 seed baseline refresh", () => {
   it("derives the seed identity fields exactly as the corpus sync does", () => {
@@ -60,23 +60,30 @@ describe("P03 seed baseline refresh", () => {
     }
   });
 
-  it("reproduces the committed migration blobs exactly", () => {
-    const sql = read(MIGRATION);
-    expect(block(sql, "site_content_registry_baselines")).toEqual(registryBaselines());
-    expect(block(sql, "site_content_bootstrap_records")).toEqual(bootstrapRecords());
-  });
-
   it("keeps every seed field the migration reads", () => {
     const frozen = block(read(MIGRATION), "site_content_bootstrap_records") as Array<Record<string, unknown>>;
     const generated = bootstrapRecords();
-    expect(generated).toHaveLength(frozen.length);
-    expect(Object.keys(generated[0]!)).toEqual(Object.keys(frozen[0]!));
-    // The seed's own identity, not a value copied out of the record it describes.
-    const sample = generated.find((entry) => entry.logicalId.startsWith("forms:"))!;
+    // Field vocabulary must stay aligned so a renamed seed column is caught. Length must NOT:
+    // the freeze is a 2026-08-24 snapshot and the catalogue is free to grow past it.
+    expect(frozen).toHaveLength(APPLIED_RECORD_COUNT);
+    expect(generated.length, "the generator must still project today's catalogue").toBeGreaterThan(0);
+    expect(Object.keys(generated[0]!).sort()).toEqual(Object.keys(frozen[0]!).sort());
+    // Round-trip a frozen entry through bootstrapEntry: proves the derivation still reproduces
+    // what the migration actually stores, without demanding the catalogue match the freeze.
+    const sample = frozen.find((entry) => String(entry.logicalId).startsWith("forms:"))!;
     expect(sample.logicalDocumentId).toBe(deterministicUuid(`site-content-document:${sample.logicalId}`));
     expect(sample.logicalChunkId).toBe(deterministicUuid(`site-content-chunk:${sample.logicalId}`));
     expect(sample.logicalDocumentId).not.toBe(sample.logicalChunkId);
     expect(bootstrapEntry({ record: sample.record, renderPayload: sample.renderPayload } as never)).toEqual(sample);
+  });
+
+  it("still projects registry baselines with the key shape SQL looks up", () => {
+    // Generator smoke: keeps registryBaselines() from rotting even though we refuse to write it
+    // into the applied migration. Key shape matches site_content_registry_baseline's lookup.
+    const generated = registryBaselines();
+    const keys = Object.keys(generated);
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.filter((key) => !/^(?:service|form):[a-z0-9-]+$/.test(key))).toEqual([]);
   });
 
   it("refuses a blob that would break out of its own dollar quote", () => {
@@ -90,10 +97,8 @@ describe("P03 seed baseline refresh", () => {
 /**
  * `canonicalJson` and `bootstrapDigest` reimplement two SQL functions in JavaScript so the
  * seeded release's digest can be checked without a container. They were validated against
- * real replays of the pinned supabase/postgres image on two different datasets: the blob
- * committed before this branch hashed to b3caf89c... both in SQL and here, and the blob
- * this branch generates hashes to b0ff995b... both in SQL and here. These tests keep that
- * agreement from rotting, which matters because nothing in CI replays schema.sql.
+ * real replays of the pinned supabase/postgres image. These tests keep that agreement from
+ * rotting against the COMMITTED freeze, which matters because nothing in CI replays schema.sql.
  */
 describe("bootstrap release digest", () => {
   it("canonicalises the way site_content_canonical_json does", () => {
@@ -108,22 +113,20 @@ describe("bootstrap release digest", () => {
     expect(canonicalJson({ outer: { z: [{ b: null, a: "x" }] } })).toBe('{"outer":{"z":[{"a":"x","b":null}]}}');
   });
 
-  it("reproduces the digest a container replay computes for this blob", () => {
-    // Verified against the forms-handover population (860 records). The digest is the
-    // same value pinned in the generated bootstrap-release guard after site-content:p03.
-    expect(bootstrapDigest(bootstrapRecords())).toBe(
-      "6f8149ab8980c8db80e290d16457df3b4fcd53b0f9bfeeb50dc5bb5abf195f88",
-    );
+  it("reproduces the digest a container replay computes for the frozen blob", () => {
+    const frozen = block(read(MIGRATION), "site_content_bootstrap_records") as ReturnType<typeof bootstrapRecords>;
+    expect(bootstrapDigest(frozen)).toBe(APPLIED_RELEASE_DIGEST);
   });
 
   it("keeps the seeded release identity describing the committed blob", () => {
-    // After the forms handover re-key, schema.sql and the migration share one digest,
-    // one content-addressed release id, and one population count. A mismatch here is
-    // exactly the site_content_bootstrap_population_mismatch preview branches abort on.
-    const digest = bootstrapDigest(bootstrapRecords());
-    const state = bootstrapReleaseState(read("supabase/schema.sql"), digest, 860);
-    expect(state.pinnedCount).toBe(860);
-    expect(state.computedCount).toBe(860);
+    // schema.sql and the migration share one digest, one content-addressed release id, and one
+    // population count for the freeze. A mismatch here is exactly the
+    // site_content_bootstrap_population_mismatch preview branches abort on.
+    const frozen = block(read(MIGRATION), "site_content_bootstrap_records") as ReturnType<typeof bootstrapRecords>;
+    const digest = bootstrapDigest(frozen);
+    const state = bootstrapReleaseState(read("supabase/schema.sql"), digest, frozen.length);
+    expect(state.pinnedCount).toBe(APPLIED_RECORD_COUNT);
+    expect(state.computedCount).toBe(APPLIED_RECORD_COUNT);
     expect(state.pinnedDigest).toBe(digest);
     expect(state.matches).toBe(true);
   });

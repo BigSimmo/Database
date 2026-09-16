@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { loadDifferentialSnapshot } from "../src/lib/differential-fixtures";
@@ -13,44 +13,29 @@ import { siteContentValueHash } from "../src/lib/site-content/site-content-manif
 import { canonicalDynamicSiteContentProjection } from "../src/lib/site-content/site-content-publication";
 
 /**
- * site-content:p03 — regenerates the two frozen P03 seed blobs.
+ * site-content:p03 — offline helpers for the frozen P03 seed blobs.
  *
  * `supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` and
  * `supabase/schema.sql` each embed the whole site-content seed population as dollar-quoted
- * JSON: `$site_content_registry_baselines$` (the per-record baseline
- * `site_content_registry_baseline(text,text)` reads for SQL-null and forced-field merging)
- * and `$site_content_bootstrap_records$` (the epoch-zero public-records seed).
+ * JSON: `$site_content_registry_baselines$` and `$site_content_bootstrap_records$`.
  *
- * Both are pinned to the live runtime records by `tests/supabase-schema.test.ts` and
- * `tests/site-content-publication-route.test.ts`, so ANY edit to `data/forms-catalog.json`
- * or the services snapshot turns them red. Before this script existed there was no
- * supported way to refresh them: `canonicalDynamicSiteContentProjection` returns only
- * `record` and `renderPayload`, while the frozen entries also carry `logicalDocumentId`,
- * `logicalChunkId`, `normalizedText`, `contentHash` and three fingerprints. Those seven
- * fields are derived in `scripts/sync-site-content-corpus.ts`, which is a provider-writing
- * CLI and cannot be run to produce a file. The derivations are duplicated below, and
- * `tests/site-content-p03-baseline.test.ts` pins them against that script so the two
- * cannot drift apart.
+ * The derivations below mirror `scripts/sync-site-content-corpus.ts` so digests and seed
+ * identities can be checked offline. `tests/site-content-p03-baseline.test.ts` pins those
+ * formulas; `tests/site-content-epoch-zero-freeze.test.ts` pins the frozen bytes themselves.
  *
- * WHAT THIS DOES NOT DO. It rewrites an already-applied migration, which is this
- * repository's established convention for this file (see `fb0b0279b`, "refresh P03 form
- * PDF restriction baseline"). Applying the refreshed definition to the live database is a
- * separate, approved step: a merge does not re-run an existing migration. It also does not
- * refresh `supabase/drift-manifest.json`, whose `schema_sha256` and the `def_hash` of
- * `public.site_content_registry_baseline(text,text)` both move with `schema.sql`. Run
- * `npm run drift:manifest` (requires Docker) after this, or the offline half of
- * `check:drift` fails and says so.
+ * WRITING IS REFUSED. Editing `20260824122000` (already applied 2026-09-11) changes only what
+ * the repository claims live contains. That is the PR #2814 incident. Catalogue content reaches
+ * live through the publication pipeline or a NEW forward migration — see
+ * `docs/site-content-sync-runbook.md` and `npm run bootstrap:refresh`.
  *
  * Flags:
- *   --check   exit 1 if either file is stale, writing nothing (for CI)
+ *   --check   report how far the catalogue has moved from the freeze; never rewrite
  */
 
 const repoUrl = (relative: string) => fileURLToPath(new URL(`../${relative}`, import.meta.url));
 
 const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const SCHEMA = "supabase/schema.sql";
-const TARGETS = [MIGRATION, SCHEMA] as const;
-
 /**
  * The owner the epoch-zero seed was frozen under. It is a fixture identity, not a real
  * account, and it is load-bearing: it feeds the audit columns every projection hashes.
@@ -196,9 +181,8 @@ export function bootstrapDigest(entries: ReturnType<typeof bootstrapRecords>) {
  * `r.id = site_content_release_id(r.release_digest, 0, 'bootstrap-v1')`. So the digest and
  * the identity always move together, across both SQL files, the drift manifest, the health
  * module, the control-plane check and the pinned tests. Rewriting only one of the two trades
- * one broken invariant for another, which is why `rekeyBootstrapRelease` below rewrites both
- * together or not at all. This is the same operation PR #2814 performed by hand when the
- * services handover moved the population from 843 records to 860.
+ * one broken invariant for another. This is the same operation PR #2814 performed by hand when the
+ * services handover moved the population from 843 records to 860 — a path this script now refuses.
  *
  * It changes a REPLAY only — a preview branch, CI's migration replay, a fresh database.
  * `20260824122000` is already applied to production, so editing it does not re-run there and
@@ -241,85 +225,62 @@ export function replaceBlock(sql: string, tag: string, body: string) {
   return sql.replace(pattern, (_match, open: string, close: string) => `${open}${body}${close}`);
 }
 
+/**
+ * `--write` / bare invocation rewrites migrations the live database has already applied.
+ * That is the PR #2814 defect path; refuse both spellings. See
+ * `tests/site-content-epoch-zero-freeze.test.ts` and `scripts/refresh-site-content-bootstrap.ts`.
+ */
+const WRITE_REFUSAL = [
+  "Refusing to rewrite an applied migration.",
+  "",
+  "supabase/migrations/20260824122000 was applied to the live database on 2026-09-11. Editing it",
+  "changes only what the repository claims live contains, and check:drift goes red on the release",
+  "constraints. That happened on 2026-09-16 (PR #2814) and had to be reverted.",
+  "",
+  "Curated catalogue content reaches live through the publication pipeline in",
+  "docs/site-content-sync-runbook.md. A SQL lookup that must serve newer records is refreshed by a",
+  "NEW forward migration. The freeze bytes are pinned by tests/site-content-epoch-zero-freeze.test.ts.",
+  "",
+  "npm run site-content:p03 -- --check still reports how far the catalogue has moved from the freeze.",
+].join("\n");
+
 function main() {
-  const check = process.argv.includes("--check");
-  const blobs: Array<[string, string]> = [
-    ["site_content_registry_baselines", JSON.stringify(registryBaselines())],
-    ["site_content_bootstrap_records", JSON.stringify(bootstrapRecords())],
-  ];
+  // npm run site-content:p03 --write swallows --write into npm_config_write; both spellings refuse.
+  if (!process.argv.includes("--check") || process.env.npm_config_write) {
+    throw new Error(WRITE_REFUSAL);
+  }
+
+  const frozenSql = readFileSync(repoUrl(MIGRATION), "utf8");
+  const frozenMatch = frozenSql.match(/\$site_content_bootstrap_records\$([\s\S]*?)\$site_content_bootstrap_records\$/);
+  if (!frozenMatch) throw new Error("Could not read the frozen bootstrap records blob.");
+  const frozenEntries = JSON.parse(frozenMatch[1]!) as ReturnType<typeof bootstrapRecords>;
+  const frozenDigest = bootstrapDigest(frozenEntries);
+  const frozenIdentity = bootstrapReleaseState(
+    readFileSync(repoUrl(SCHEMA), "utf8"),
+    frozenDigest,
+    frozenEntries.length,
+  );
+  if (!frozenIdentity.matches) {
+    throw new Error(
+      "The seeded bootstrap release identity no longer describes the committed freeze blob. " +
+        "Restore the migration; do not regenerate it from the catalogue.",
+    );
+  }
 
   const entries = bootstrapRecords();
   const digest = bootstrapDigest(entries);
-
-  const stale: string[] = [];
-  for (const target of TARGETS) {
-    const path = repoUrl(target);
-    const current = readFileSync(path, "utf8");
-    let next = current;
-    for (const [tag, body] of blobs) next = replaceBlock(next, tag, body);
-    if (next === current) continue;
-    stale.push(target);
-    if (!check) writeFileSync(path, next);
-  }
-
-  // Read AFTER the blob rewrite so the guard is compared against what the file now holds,
-  // not against the stale block. In --check nothing was written, so this is the committed
-  // state either way and the two failures below are reported together rather than one per run.
-  const identity = reportBootstrapRelease(readFileSync(repoUrl(SCHEMA), "utf8"), digest, entries.length, check);
-
-  if (check) {
-    const problems = [
-      stale.length ? `P03 seed baseline is stale in:\n  ${stale.join("\n  ")}` : "",
-      identity.matches ? "" : "The seeded bootstrap release identity no longer describes the blob.",
-    ].filter(Boolean);
-    if (problems.length) {
-      console.error(
-        `${problems.join("\n")}\nRun: npm run site-content:p03, then re-pin schema_sha256 in supabase/drift-manifest.json.`,
-      );
-      process.exit(1);
-    }
-    console.log("P03 seed baseline is current.");
+  console.log(`frozen records      : ${frozenEntries.length}`);
+  console.log(`catalogue records   : ${entries.length}`);
+  console.log(`frozen digest       : ${frozenDigest}`);
+  console.log(`catalogue digest    : ${digest}`);
+  if (entries.length === frozenEntries.length && digest === frozenDigest) {
+    console.log("Nothing to report: the frozen bootstrap already matches the catalogue.");
     return;
   }
-
-  if (!stale.length && identity.matches) {
-    console.log("P03 seed baseline already current; nothing written.");
-    return;
-  }
-  console.log(
-    `Refreshed the P03 seed baseline in:\n  ${stale.join("\n  ") || "  (blobs already current)"}\n` +
-      "supabase/schema.sql changed, so re-pin schema_sha256 in supabase/drift-manifest.json before pushing\n" +
-      "(npm run drift:manifest regenerates the whole manifest but requires Docker).",
-  );
+  console.log("\nCheck only. The freeze above is what the live database holds and must not be");
+  console.log("rewritten to match the catalogue. Publish curated content through the pipeline in");
+  console.log("docs/site-content-sync-runbook.md instead.");
 }
-
-/**
- * Files carrying the bootstrap release identity as a literal.
- *
- * Deliberately enumerated rather than globbed. `docs/` is excluded because the ledger inbox
- * holds immutable request records that quote an identity as historical fact; rewriting one
- * would be a false audit trail as well as a `check:ledger-write-discipline` failure.
- */
-const IDENTITY_TARGETS = [
-  "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
-  "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
-  "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
-  "supabase/schema.sql",
-  "supabase/drift-manifest.json",
-  "src/lib/site-content/site-content-health.ts",
-  "scripts/check-site-content-control-plane.mjs",
-  "tests/fixtures/site-content/site-content-control-plane-correction.sql",
-  "tests/fixtures/site-content/site-content-health-state-machine.sql",
-  "tests/fixtures/site-content/site-content-legacy-transition-race-seed.sql",
-  "tests/fixtures/site-content/site-content-transition-backfill-seed.sql",
-  "tests/rag-answer-fallback.test.ts",
-  "tests/rag-governed-corpus-retrieval.test.ts",
-  "tests/rag-governed-entrypoint.test.ts",
-  "tests/rag-site-content-freshness.test.ts",
-  "tests/rag-site-content-retrieval.test.ts",
-  "tests/site-content-health.test.ts",
-  "tests/supabase-schema.test.ts",
-] as const;
 
 /** `public.site_content_release_id(digest, 0, 'bootstrap-v1')`, computed offline. */
 export function bootstrapReleaseUuid(digest: string) {
@@ -338,54 +299,6 @@ export function bootstrapReleaseUuid(digest: string) {
   // SQL does. Verified against PR #2814's committed pair before this function was trusted.
   const value = `${hash.slice(0, 12)}5${hash.slice(13, 16)}8${hash.slice(17, 32)}`;
   return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20, 32)}`;
-}
-
-/**
- * Moves the seeded release identity onto the blob the generator just wrote.
- *
- * Digest and UUID move together and only as a pair, so a half-applied rewrite cannot be
- * committed. The previous identity is read out of the migration rather than assumed, which
- * makes this idempotent and safe to re-run after a merge brings someone else's re-key.
- */
-function rekeyBootstrapRelease(previousDigest: string, digest: string, check: boolean) {
-  const previousUuid = bootstrapReleaseUuid(previousDigest);
-  const uuid = bootstrapReleaseUuid(digest);
-  const rewritten: string[] = [];
-  for (const target of IDENTITY_TARGETS) {
-    const path = repoUrl(target);
-    const current = readFileSync(path, "utf8");
-    const next = current.replaceAll(previousDigest, digest).replaceAll(previousUuid, uuid);
-    if (next === current) continue;
-    rewritten.push(target);
-    if (!check) writeFileSync(path, next);
-  }
-  return { previousUuid, uuid, rewritten };
-}
-
-/** Says out loud whether the seeded release matched, and what moved if it did not. */
-function reportBootstrapRelease(sql: string, digest: string, count: number, check: boolean) {
-  const state = bootstrapReleaseState(sql, digest, count);
-  if (state.matches) {
-    console.log("Seeded bootstrap release matches the blob.");
-    return state;
-  }
-  if (state.pinnedDigest === digest) {
-    throw new Error(
-      `Bootstrap population count moved to ${count} with an unchanged digest, which cannot happen. Refusing to re-key.`,
-    );
-  }
-  const { previousUuid, uuid, rewritten } = rekeyBootstrapRelease(state.pinnedDigest, digest, check);
-  console.log(
-    `\nSeeded bootstrap release re-keyed onto the new blob${check ? " (dry run)" : ""}:\n` +
-      `  digest  ${state.pinnedDigest}\n       -> ${digest}\n` +
-      `  uuid    ${previousUuid}\n       -> ${uuid}\n` +
-      `  records ${state.pinnedCount} -> ${count}\n` +
-      `  rewritten in:\n    ${rewritten.join("\n    ")}\n` +
-      "  This changes a REPLAY only. 20260824122000 is already applied to production, so it\n" +
-      "  does not re-run there and the live active release is untouched. Publishing this\n" +
-      "  content into the live canonical population is a separate, deliberate operation.\n",
-  );
-  return state;
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) main();
