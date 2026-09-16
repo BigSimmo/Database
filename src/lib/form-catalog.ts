@@ -187,10 +187,27 @@ const pdfAssetByCode = new Map(formsPdfManifest.assets.map((asset) => [normalize
  * cautious one: a missing row is a gap in the record, not evidence of review.
  */
 const contentReviewStatusByCode = new Map(
-  (formsContentReview as { forms: { code: string; status: string }[] }).forms.map(
-    (entry) => [normalizeCode(entry.code), entry.status === "reviewed" ? "reviewed" : "drafted"] as const,
-  ),
+  (
+    formsContentReview as { forms: { code: string; status: string; reviewedBy?: unknown; reviewedAt?: unknown }[] }
+  ).forms.map((entry) => [normalizeCode(entry.code), formContentReviewStatus(entry)] as const),
 );
+
+/**
+ * `reviewed` requires all three of the status and both attribution fields.
+ *
+ * Status alone is not a sign-off. A hand-edit that flips `status` without naming who signed
+ * and when — or that leaves either field empty, blank, or the wrong type — would otherwise
+ * drop the awaiting-review caveat and present unsigned guidance about a statutory form as
+ * settled reference. There is no partially reviewed state to represent, so anything short of
+ * a complete attestation falls closed to `drafted`.
+ */
+export function formContentReviewStatus(entry: { status: string; reviewedBy?: unknown; reviewedAt?: unknown }) {
+  if (entry.status !== "reviewed") return "drafted";
+  const attributed = [entry.reviewedBy, entry.reviewedAt].every(
+    (value) => typeof value === "string" && value.trim().length > 0,
+  );
+  return attributed ? "reviewed" : "drafted";
+}
 
 export const FORMS_AWAITING_REVIEW_NOTE =
   "Operational guidance drafted from the Act and the approved form, awaiting clinical review";

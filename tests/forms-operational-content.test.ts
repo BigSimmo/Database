@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
 
-import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails } from "@/lib/form-catalog";
+import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails, formContentReviewStatus } from "@/lib/form-catalog";
 import { formRecords, getFormRecord } from "@/lib/forms";
 
 /**
@@ -91,6 +91,38 @@ describe("forms catalogue operational content", () => {
       const notes = record.verification?.notes ?? [];
       expect(notes.includes(FORMS_AWAITING_REVIEW_NOTE), details!.form).toBe(isDrafted);
       expect(FORMS_AWAITING_REVIEW_NOTE.toLowerCase()).toContain("awaiting clinical review");
+    }
+  });
+
+  /**
+   * Status alone is not a sign-off. Flagged by Codex review on PR #2821: a hand-edit that
+   * sets `status: "reviewed"` without naming a reviewer would otherwise drop the caveat and
+   * present unsigned guidance about a statutory form as settled reference.
+   */
+  it("falls closed to drafted when a reviewed row has no usable reviewer attribution", () => {
+    const signed = { status: "reviewed", reviewedBy: "Dr A Reviewer", reviewedAt: "2026-09-16" };
+    expect(formContentReviewStatus(signed)).toBe("reviewed");
+
+    for (const row of [
+      { ...signed, reviewedBy: null },
+      { ...signed, reviewedAt: null },
+      { ...signed, reviewedBy: undefined },
+      { ...signed, reviewedBy: "   " },
+      { ...signed, reviewedAt: "" },
+      { ...signed, reviewedBy: 12345 },
+      { ...signed, reviewedAt: { at: "2026-09-16" } },
+      { status: "reviewed" },
+      { status: "drafted", reviewedBy: "Dr A Reviewer", reviewedAt: "2026-09-16" },
+    ]) {
+      expect(formContentReviewStatus(row), JSON.stringify(row)).toBe("drafted");
+    }
+  });
+
+  it("carries a complete attestation on every row the register currently marks reviewed", () => {
+    const rows = (formsContentReview as { forms: { status: string; reviewedBy?: unknown; reviewedAt?: unknown }[] })
+      .forms;
+    for (const row of rows.filter((entry) => entry.status === "reviewed")) {
+      expect(formContentReviewStatus(row), JSON.stringify(row)).toBe("reviewed");
     }
   });
 
