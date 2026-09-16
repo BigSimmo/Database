@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { differentialRecords, differentialPresentations } from "@/lib/differentials";
+import {
+  differentialPresentations,
+  differentialRecords,
+  getDifferentialDetailContext,
+  scopeDifferentialRecord,
+} from "@/lib/differentials";
+import { buildDiscriminators } from "@/lib/differential-detail";
 import type { DifferentialRecord } from "@/lib/differential-snapshot";
 
 /**
@@ -112,6 +118,69 @@ describe("differentials presentation scope", () => {
       (record) => record.clinicalHinge.trim() && record.clinicalHingeScope === undefined,
     );
     expect(unlabelled.map((record) => record.slug)).toEqual([]);
+  });
+
+  it("marks every comparison criterion whose answer is identical across the group", () => {
+    // Codex P1 on PR #2812: the scope existed but neither comparison layout read
+    // it, so acute dystonia's column still showed the akathisia bedside question
+    // as a fact about acute dystonia. The renderer keys off criterion.scope, so
+    // an unmarked shared criterion silently reintroduces that.
+    const offenders: string[] = [];
+    for (const presentation of presentations) {
+      const candidates = presentation.candidates ?? [];
+      if (candidates.length < 2) continue;
+      for (const criterion of presentation.criteria ?? []) {
+        const values = candidates.map((candidate) => candidate.comparison?.[criterion.id]?.trim()).filter(Boolean);
+        const identical = values.length === candidates.length && new Set(values).size === 1;
+        if (identical && criterion.scope !== "presentation") {
+          offenders.push(`${presentation.title} :: ${criterion.id}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps a group hinge out of the map's tell-them-apart column", () => {
+    // Codex P2 on PR #2812: buildDiscriminators used the related record's raw
+    // hinge, which is the group's and therefore identical for every sibling — it
+    // cannot separate two of them, and printing it asserts it of that diagnosis.
+    const dystonia = records.find((record) => record.slug === "acute-dystonia");
+    expect(dystonia).toBeDefined();
+    const context = getDifferentialDetailContext(dystonia!);
+    const rows = buildDiscriminators(dystonia!, {
+      knownRelatedSlugs: context.knownRelatedSlugs,
+      relatedMapDetails: context.relatedMapDetails,
+      curated: null,
+    });
+    expect(rows.length).toBeGreaterThan(0);
+    // Pin the hinge STRING, not a phrase inside it: akathisia's own per-edge note
+    // legitimately says "inner restlessness", because that is what akathisia is.
+    // What must never appear is the group hinge presented as a discriminator.
+    const groupHinges = new Set(
+      presentations.map((presentation) => presentation.safetySnapshot?.summary?.trim()).filter(Boolean),
+    );
+    expect(groupHinges.size).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(groupHinges.has(row.favoursRelated.trim()), `${row.slug} favoursRelated`).toBe(false);
+      expect(groupHinges.has((row.favoursFocus ?? "").trim()), `${row.slug} favoursFocus`).toBe(false);
+    }
+  });
+
+  it("scopes a canonical record that was published before scope existed", () => {
+    // Codex P1 on PR #2812: canonical payloads were seeded from the deliberately
+    // unlabelled snapshot, so a production read returns no scope at all and the
+    // UI defaults it to diagnosis-specific. Every canonical reader must relabel.
+    const dystonia = records.find((record) => record.slug === "acute-dystonia");
+    expect(dystonia).toBeDefined();
+    const stripped = {
+      ...dystonia!,
+      clinicalHingeScope: undefined,
+      sections: dystonia!.sections.map((section) => ({ ...section, scope: undefined })),
+    };
+    const rescoped = scopeDifferentialRecord(stripped);
+    expect(rescoped.clinicalHingeScope).toBe("presentation");
+    expect(rescoped.sections.find((section) => section.id === "bedside-question")?.scope).toBe("presentation");
+    expect(rescoped.sections.find((section) => section.id === "why-it-fits")?.scope).toBe("diagnosis");
   });
 
   it("does not repeat presentation hinge text inside why-it-fits", () => {

@@ -72,79 +72,124 @@ const DIAGNOSIS_SCOPED_SECTION_IDS = new Set(["why-it-fits", "must-not-miss"]);
  * across every sibling in a group is group text — so the corpus is correct
  * before the next import and stays correct after it.
  *
- * Deliberately applied HERE rather than in `loadDifferentialSnapshot()`: that
- * loader also feeds `buildDefaultDifferentialRows`, whose output is pinned
- * byte-for-byte against the epoch-zero bootstrap seed frozen inside an applied
- * migration (`tests/site-content-publication-route.test.ts`). Refreshing that
- * seed edits a migration that has already reached the live database, which is
- * not this change's to make. See
- * `docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md`.
+ * Deliberately NOT applied in `loadDifferentialSnapshot()`: that loader also
+ * feeds `buildDefaultDifferentialRows`, whose output is pinned byte-for-byte
+ * against the epoch-zero bootstrap seed frozen inside an applied migration
+ * (`tests/site-content-publication-route.test.ts`). Refreshing that seed edits a
+ * migration that has already reached the live database, which is not this
+ * change's to make. The consequence is that published canonical payloads carry
+ * no scope, so {@link scopeDifferentialRecord} is exported and applied on every
+ * canonical read in `src/lib/site-content/differential-page-records.ts` too.
+ * Labelling has to happen on every path that reaches a clinician, not just the
+ * bundled one.
  *
  * Guarded by `tests/differentials-presentation-scope.test.ts`.
  */
-function withPresentationScope(snapshot: DifferentialSnapshot): DifferentialSnapshot {
-  const groupsOf = new Map<string, string[]>();
-  const sharedByGroup = new Map<string, Map<string, string>>();
-  const hinges = new Set<string>();
+type PresentationScopeIndex = {
+  /** Every hinge written about a presentation group, by exact text. */
+  groupHinges: Set<string>;
+  /** Per diagnosis slug, the comparison values shared by all of its siblings. */
+  sharedBySlug: Map<string, Map<string, string>>;
+};
+
+function buildPresentationScopeIndex(snapshot: DifferentialSnapshot): PresentationScopeIndex {
+  const groupHinges = new Set<string>();
+  const sharedBySlug = new Map<string, Map<string, string>>();
 
   for (const presentation of snapshot.presentations) {
-    const shared = new Map<string, string>();
+    const hinge = presentation.safetySnapshot?.summary?.trim();
+    if (hinge) groupHinges.add(hinge);
+
     const candidates = presentation.candidates ?? [];
+    const shared = new Map<string, string>();
     if (candidates.length > 1) {
       for (const criterion of presentation.criteria ?? []) {
         const values = candidates.map((candidate) => candidate.comparison?.[criterion.id]).filter(Boolean);
         if (values.length === candidates.length && new Set(values).size === 1) shared.set(criterion.id, values[0]!);
       }
     }
-    sharedByGroup.set(presentation.id, shared);
-    const hinge = presentation.safetySnapshot?.summary?.trim();
-    if (hinge) hinges.add(hinge);
     for (const candidate of candidates) {
-      groupsOf.set(candidate.slug, [...(groupsOf.get(candidate.slug) ?? []), presentation.id]);
+      const existing = sharedBySlug.get(candidate.slug) ?? new Map<string, string>();
+      for (const [id, value] of shared) existing.set(id, value);
+      sharedBySlug.set(candidate.slug, existing);
     }
   }
 
+  return { groupHinges, sharedBySlug };
+}
+
+let bundledScopeIndex: PresentationScopeIndex | null = null;
+
+function presentationScopeIndex(): PresentationScopeIndex {
+  if (!bundledScopeIndex) bundledScopeIndex = buildPresentationScopeIndex(loadDifferentialSnapshot());
+  return bundledScopeIndex;
+}
+
+function scopeRecordWith(record: DifferentialRecord, index: PresentationScopeIndex): DifferentialRecord {
+  const hinge = record.clinicalHinge?.trim() ?? "";
+  const hingeScope = hinge && index.groupHinges.has(hinge) ? ("presentation" as const) : ("diagnosis" as const);
+  const shared = index.sharedBySlug.get(record.slug) ?? new Map<string, string>();
+
+  return {
+    ...record,
+    clinicalHingeScope: hingeScope,
+    safetySnapshot: {
+      ...record.safetySnapshot,
+      // Never the presentation hinge: that put the akathisia discriminator in
+      // acute dystonia's safety summary.
+      summary:
+        hingeScope === "presentation" && record.safetySnapshot.summary?.trim() === hinge
+          ? (record.safetySnapshot.tags ?? []).join(", ")
+          : record.safetySnapshot.summary,
+    },
+    sections: (record.sections ?? []).map((section) => {
+      const sharedValue = shared.get(section.id);
+      const summary = section.summary?.trim() ?? "";
+      const isGroup = DIAGNOSIS_SCOPED_SECTION_IDS.has(section.id)
+        ? Boolean(sharedValue && summary && summary === sharedValue.trim())
+        : true;
+      const items =
+        section.id === "why-it-fits" && hingeScope === "presentation" && hinge
+          ? // The group hinge read as evidence for this diagnosis.
+            section.items.filter((item) => item.trim() !== hinge)
+          : section.items;
+      return { ...section, items, scope: isGroup ? ("presentation" as const) : ("diagnosis" as const) };
+    }),
+  };
+}
+
+/**
+ * Applies the scope labels to one diagnosis record from any source.
+ *
+ * Canonical published payloads were seeded from the deliberately unlabelled
+ * snapshot, so a production read returns a record with no scope at all and the
+ * UI would default it to diagnosis-specific — reinstating the exact mismatch
+ * this exists to remove. Every reader of a canonical differential record must
+ * pass it through here first.
+ */
+export function scopeDifferentialRecord(record: DifferentialRecord): DifferentialRecord {
+  return scopeRecordWith(record, presentationScopeIndex());
+}
+
+/** As {@link scopeDifferentialRecord}, for a presentation workflow's criteria. */
+export function scopePresentationWorkflow(
+  workflow: DifferentialPresentationWorkflow,
+): DifferentialPresentationWorkflow {
+  return {
+    ...workflow,
+    criteria: (workflow.criteria ?? []).map((criterion) => ({
+      ...criterion,
+      scope: DIAGNOSIS_SCOPED_SECTION_IDS.has(criterion.id) ? ("diagnosis" as const) : ("presentation" as const),
+    })),
+  };
+}
+
+function withPresentationScope(snapshot: DifferentialSnapshot): DifferentialSnapshot {
+  const index = buildPresentationScopeIndex(snapshot);
   return {
     ...snapshot,
-    presentations: snapshot.presentations.map((presentation) => ({
-      ...presentation,
-      criteria: (presentation.criteria ?? []).map((criterion) => ({
-        ...criterion,
-        scope: DIAGNOSIS_SCOPED_SECTION_IDS.has(criterion.id) ? ("diagnosis" as const) : ("presentation" as const),
-      })),
-    })),
-    diagnoses: snapshot.diagnoses.map((record) => {
-      const shared = (groupsOf.get(record.slug) ?? []).flatMap((id) => [...(sharedByGroup.get(id) ?? new Map())]);
-      const sharedByCriterion = new Map(shared);
-      const hinge = record.clinicalHinge?.trim() ?? "";
-      const hingeScope = hinge && hinges.has(hinge) ? ("presentation" as const) : ("diagnosis" as const);
-      return {
-        ...record,
-        clinicalHingeScope: hingeScope,
-        safetySnapshot: {
-          ...record.safetySnapshot,
-          // Never the presentation hinge: that put the akathisia discriminator
-          // in acute dystonia's safety summary.
-          summary:
-            hingeScope === "presentation" && record.safetySnapshot.summary?.trim() === hinge
-              ? record.safetySnapshot.tags.join(", ")
-              : record.safetySnapshot.summary,
-        },
-        sections: record.sections.map((section) => {
-          const sharedValue = sharedByCriterion.get(section.id);
-          const summary = section.summary?.trim() ?? "";
-          const isGroup = DIAGNOSIS_SCOPED_SECTION_IDS.has(section.id)
-            ? Boolean(sharedValue && summary && summary === sharedValue.trim())
-            : true;
-          const items =
-            section.id === "why-it-fits" && hingeScope === "presentation" && hinge
-              ? // The group hinge read as evidence for this diagnosis.
-                section.items.filter((item) => item.trim() !== hinge)
-              : section.items;
-          return { ...section, items, scope: isGroup ? ("presentation" as const) : ("diagnosis" as const) };
-        }),
-      };
-    }),
+    presentations: snapshot.presentations.map(scopePresentationWorkflow),
+    diagnoses: snapshot.diagnoses.map((record) => scopeRecordWith(record, index)),
   };
 }
 
@@ -517,6 +562,7 @@ export function getDifferentialDetailContext(
       title,
       status,
       clinicalHinge,
+      clinicalHingeScope: related.clinicalHingeScope,
       safetySummary,
     };
   }

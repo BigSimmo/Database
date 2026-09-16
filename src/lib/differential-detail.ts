@@ -21,6 +21,12 @@ export type DifferentialRelatedMapDetail = {
   title: string;
   status: DifferentialRecord["status"];
   clinicalHinge: string;
+  /**
+   * Scope of `clinicalHinge`. Every current record's hinge is its presentation
+   * group's, so the map must label it rather than present it as this related
+   * diagnosis's own discriminator. See `tests/differentials-presentation-scope.test.ts`.
+   */
+  clinicalHingeScope?: DifferentialRecord["clinicalHingeScope"];
   safetySummary: string;
 };
 
@@ -404,12 +410,17 @@ export function buildDiscriminators(
 ): DifferentialDiscriminatorRow[] {
   const known = new Set(options.knownRelatedSlugs);
   const curated = new Map((options.curated?.discriminators ?? []).map((entry) => [entry.relatedSlug, entry]));
-  const focusHinge = cleanDifferentialItem(record.clinicalHinge);
+  // A presentation-scoped hinge is the group's, and every candidate in the group
+  // carries the same one — it cannot tell two of them apart, and printing it in a
+  // "tell them apart" cell asserts it of that diagnosis. Fall through to the
+  // per-edge relationship note, which is authored against this exact pair.
+  const focusHinge = record.clinicalHingeScope === "presentation" ? "" : cleanDifferentialItem(record.clinicalHinge);
 
   return record.related.map((node: DifferentialMapNode) => {
     const authored = curated.get(node.id);
     const detail = options.relatedMapDetails[node.id];
-    const derivedRelated = cleanDifferentialItem(detail?.clinicalHinge || node.note || "");
+    const relatedHinge = detail?.clinicalHingeScope === "presentation" ? "" : (detail?.clinicalHinge ?? "");
+    const derivedRelated = cleanDifferentialItem(relatedHinge || node.note || "");
     const favoursRelated = authored ? authored.favoursRelated : derivedRelated;
     const favoursFocusRaw = authored ? authored.favoursFocus : focusHinge;
     const distinct =

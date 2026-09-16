@@ -165,6 +165,28 @@ function EmergencyBadge({ status }: { status: DifferentialRecord["status"] }) {
   );
 }
 
+/**
+ * A criterion whose answer is the presentation group's, not each diagnosis's.
+ *
+ * Five of the seven comparison criteria carry the identical group value for every
+ * candidate. Laying them out per diagnosis made the acute dystonia column assert
+ * the akathisia bedside question and a thyroid workup as facts about acute
+ * dystonia. Those rows are rendered once as shared context instead. See
+ * `withPresentationScope()` in `src/lib/differentials.ts` and
+ * `tests/differentials-presentation-scope.test.ts`.
+ */
+function isGroupScopedCriterion(criterion: DifferentialComparisonCriterion) {
+  return criterion.scope === "presentation";
+}
+
+/** The single value a group-scoped criterion holds, or null if candidates differ. */
+function groupScopedValue(criterion: DifferentialComparisonCriterion, candidates: readonly CandidateView[]) {
+  if (!isGroupScopedCriterion(criterion)) return null;
+  const values = candidates.map((candidate) => candidate.comparison[criterion.id]?.trim()).filter(Boolean);
+  if (values.length === 0 || new Set(values).size !== 1) return null;
+  return values[0]!;
+}
+
 function CriteriaLabel({ criterion }: { criterion: DifferentialComparisonCriterion }) {
   const Icon = criterionIcon[criterion.tone];
   return (
@@ -264,31 +286,52 @@ function DesktopComparisonTable({
             </tr>
           </thead>
           <tbody>
-            {workflow.criteria.map((criterion) => (
-              <tr key={criterion.id} className={rowTone[criterion.tone]}>
-                <th
-                  scope="row"
-                  className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top"
-                >
-                  <CriteriaLabel criterion={criterion} />
-                </th>
-                {candidates.map((candidate) => (
-                  <td
-                    key={`${candidate.record.slug}-${criterion.id}`}
-                    className={cn(
-                      "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]",
-                      !candidate.selected && "text-[color:var(--text-muted)]",
-                    )}
+            {workflow.criteria.map((criterion) => {
+              const shared = groupScopedValue(criterion, candidates);
+              return (
+                <tr key={criterion.id} className={rowTone[criterion.tone]}>
+                  <th
+                    scope="row"
+                    className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top"
                   >
-                    <ComparisonCellContent
-                      diagnosisLinks={diagnosisLinks}
-                      criterionId={criterion.id}
-                      value={candidate.comparison[criterion.id] ?? "Review locally."}
-                    />
-                  </td>
-                ))}
-              </tr>
-            ))}
+                    <CriteriaLabel criterion={criterion} />
+                  </th>
+                  {shared ? (
+                    // One cell across every column: this answer belongs to the
+                    // group, so it must not sit under any one diagnosis.
+                    <td
+                      colSpan={candidates.length}
+                      className="border-b border-r border-[color:var(--border)] bg-[color:var(--surface-subtle)]/60 px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]"
+                    >
+                      <span className="mb-1 block text-2xs font-extrabold uppercase tracking-wide text-[color:var(--text-muted)]">
+                        Applies to the whole presentation
+                      </span>
+                      <ComparisonCellContent
+                        diagnosisLinks={diagnosisLinks}
+                        criterionId={criterion.id}
+                        value={shared}
+                      />
+                    </td>
+                  ) : (
+                    candidates.map((candidate) => (
+                      <td
+                        key={`${candidate.record.slug}-${criterion.id}`}
+                        className={cn(
+                          "w-[8.5rem] border-b border-r border-[color:var(--border)] px-3 py-3 align-top text-2xs font-semibold leading-normal text-[color:var(--text-muted)]",
+                          !candidate.selected && "text-[color:var(--text-muted)]",
+                        )}
+                      >
+                        <ComparisonCellContent
+                          diagnosisLinks={diagnosisLinks}
+                          criterionId={criterion.id}
+                          value={candidate.comparison[criterion.id] ?? "Review locally."}
+                        />
+                      </td>
+                    ))
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -588,6 +631,9 @@ function MobileCandidateCard({
           </Link>
         </div>
         {workflow.criteria.map((criterion) => {
+          // Group-scoped criteria are rendered once by GroupScopedCriteria, not
+          // under each diagnosis — see isGroupScopedCriterion.
+          if (isGroupScopedCriterion(criterion)) return null;
           const Icon = criterionIcon[criterion.tone];
           return (
             <div
@@ -614,6 +660,57 @@ function MobileCandidateCard({
         })}
       </div>
     </details>
+  );
+}
+
+/** The criteria whose answer belongs to the group, shown once for the whole set. */
+function GroupScopedCriteria({
+  workflow,
+  candidates,
+  diagnosisLinks,
+}: {
+  workflow: DifferentialPresentationWorkflow;
+  candidates: CandidateView[];
+  diagnosisLinks?: ResolveDiagnosisTermOptions;
+}) {
+  const rows = workflow.criteria
+    .map((criterion) => ({ criterion, value: groupScopedValue(criterion, candidates) }))
+    .filter((row): row is { criterion: DifferentialComparisonCriterion; value: string } => Boolean(row.value));
+  if (rows.length === 0) return null;
+
+  return (
+    <section
+      data-testid="differential-presentation-group-context"
+      aria-label="Applies to the whole presentation"
+      className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2"
+    >
+      <h2 className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
+        Applies to the whole presentation, not to one diagnosis
+      </h2>
+      <div className="mt-1 grid">
+        {rows.map(({ criterion, value }) => {
+          const Icon = criterionIcon[criterion.tone];
+          return (
+            <div
+              key={criterion.id}
+              className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] py-2.5 last:border-b-0"
+            >
+              <span
+                className={cn("grid h-6 w-6 place-items-center rounded-full border", criterionTone[criterion.tone])}
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">{criterion.title}</h3>
+                <p className="mt-0.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
+                  <ComparisonCellContent diagnosisLinks={diagnosisLinks} criterionId={criterion.id} value={value} />
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -649,6 +746,7 @@ function MobileComparison({
         </Link>
       </div>
       <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
+      <GroupScopedCriteria workflow={workflow} candidates={selected} diagnosisLinks={diagnosisLinks} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (
           <MobileCandidateCard
