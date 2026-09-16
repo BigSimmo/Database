@@ -225,12 +225,13 @@ function block(source: string, tag: string) {
  * shape it does not know stays pinned to the old freeze. That happened: a `= 843` row-count
  * check outlived its `expected_record_count = 860` partner, which would have made a fresh
  * replay classify the retained bootstrap invalid. Only text outside the two data blocks is
- * examined, since the payload legitimately contains the number everywhere.
+ * examined, since the payload legitimately contains the number everywhere. The dependent
+ * migrations hold no blocks at all, so a missing one is not an error here.
  */
 function assertNoStaleCount(source: string, path: string, oldCount: number) {
   let outside = source;
   for (const tag of ["site_content_bootstrap_records", "site_content_registry_baselines"]) {
-    outside = replaceBlock(outside, tag, "");
+    if (outside.includes(`$${tag}$`)) outside = replaceBlock(outside, tag, "");
   }
   const stale = new RegExp(`(?<![0-9a-fA-F])${oldCount}(?![0-9a-fA-F])`).exec(outside);
   if (stale) {
