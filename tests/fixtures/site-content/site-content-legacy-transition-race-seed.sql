@@ -11,7 +11,7 @@ declare
   v_receipt_id text;
 begin
   select * into strict v_bootstrap from public.site_content_releases
-  where id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca';
+  where id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846';
   insert into public.site_content_releases(
     id,state,target_change_epoch,previous_release_id,registry_version,static_manifest_digest,
     dynamic_state_digest,release_digest,generation_id,plan_digest,reconciliation_plan_digest,
