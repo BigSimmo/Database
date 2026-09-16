@@ -306,9 +306,7 @@ function requestScopedAtoms(
   const seeds =
     direct.length > 0
       ? direct
-      : candidates.filter((atom) =>
-          requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue),
-        );
+      : candidates.filter((atom) => requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue));
   if (seeds.length === 0) return [];
   const seedConflictKeys = new Set(seeds.map(atomConflictKey));
   const seedSentences = new Set(seeds.map((atom) => sentenceContaining(extract, atom)));
