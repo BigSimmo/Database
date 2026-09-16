@@ -32,12 +32,12 @@ function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const LONG_DATE_FORMAT = new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" });
+
 function dateOrNull(value: string | null) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime())
-    ? value
-    : new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" }).format(date);
+  return Number.isNaN(date.getTime()) ? value : LONG_DATE_FORMAT.format(date);
 }
 
 /**

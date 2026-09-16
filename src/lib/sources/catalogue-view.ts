@@ -14,6 +14,7 @@ const BAND_ORDER = { A: 0, B: 1, C: 2, D: 3, excluded: 4 } as const;
 
 /** Shared with `browse-facets.ts` so a facet list cannot order itself differently
     from the catalogue it links into. */
+const CATALOGUE_MONTH_FORMAT = new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" });
 const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
 const FULL_COLLATOR = new Intl.Collator("en-AU");
 
@@ -180,7 +181,7 @@ export function formatCatalogueMonth(value: string | null): string | null {
   if (!value) return null;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric" }).format(date);
+  return CATALOGUE_MONTH_FORMAT.format(date);
 }
 
 export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceCatalogueEntry[]) {

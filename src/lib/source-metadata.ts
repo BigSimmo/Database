@@ -257,16 +257,19 @@ export function normalizeOptionalSourceMetadata(input: unknown): ClinicalSourceM
   });
 }
 
+/** Built once; en-AU / Australia/Perth are constants, so a shared instance formats identically. */
+const CLINICAL_DATE_FORMAT = new Intl.DateTimeFormat("en-AU", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Australia/Perth",
+});
+
 export function formatClinicalDate(value: string | null | undefined) {
   if (!value) return "Unknown";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown";
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    timeZone: "Australia/Perth",
-  }).format(date);
+  return CLINICAL_DATE_FORMAT.format(date);
 }
 
 export function sourceStatusLabel(
