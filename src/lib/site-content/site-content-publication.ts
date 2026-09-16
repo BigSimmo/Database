@@ -25,6 +25,7 @@ import {
 import { registryEntryToSiteContentRecord } from "@/lib/site-content/adapters/registry";
 import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
 import { siteContentValueHash } from "@/lib/site-content/site-content-manifest";
+import { readSiteContentRecordsCached } from "@/lib/site-content/site-content-record-cache";
 import type { SiteContentReconciliationInput } from "@/lib/site-content/site-content-reconciliation";
 import {
   parseSiteContentReleaseEvidence,
@@ -489,23 +490,42 @@ export async function readCanonicalSiteContentRecords<T>(input: {
   slug: string | null;
   seeds: readonly T[];
   signal?: AbortSignal;
+  /**
+   * Opt in to the short-lived process cache in `site-content-record-cache`. Search sets this:
+   * it reads the same catalogue once per registry domain per search and only ever renders the
+   * public projection. Publication, reconciliation and detail-page reads deliberately do not,
+   * so an operator always sees their own change immediately.
+   */
+  cache?: boolean;
   mapRecord?: (representation: {
     canonicalRecord: Record<string, unknown>;
     finalRenderPayload: Record<string, unknown>;
   }) => T;
 }): Promise<{ records: T[]; source: "canonical_public" | "seed_uninitialized"; snapshot: unknown | null }> {
-  const { data, error } = await callRpc(
-    input.supabase as RpcClient,
-    "read_site_content_public_records",
-    {
-      p_kind: input.kind,
-      p_slug: input.slug,
-    },
-    input.signal,
-  );
-  if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
-  if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
-  const rows = data as Array<Record<string, unknown>>;
+  const readRows = async (signal?: AbortSignal) => {
+    const { data, error } = await callRpc(
+      input.supabase as RpcClient,
+      "read_site_content_public_records",
+      {
+        p_kind: input.kind,
+        p_slug: input.slug,
+      },
+      signal,
+    );
+    if (error) throw new Error(`Canonical site-content read failed: ${error.message}`);
+    if (!Array.isArray(data)) throw new Error("Canonical site-content read failed: invalid RPC response.");
+    return data as Array<Record<string, unknown>>;
+  };
+  const rows = input.cache
+    ? (
+        await readSiteContentRecordsCached({
+          kind: input.kind,
+          slug: input.slug,
+          signal: input.signal,
+          read: readRows,
+        })
+      ).rows
+    : await readRows(input.signal);
   const initialized = rows.some((row) => row.initialized === true);
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot ?? null;
   const retainedReleaseId =
