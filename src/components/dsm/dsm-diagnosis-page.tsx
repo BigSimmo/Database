@@ -67,15 +67,24 @@ function SummaryTile({
   );
 }
 
-function CriteriaRow({ criterion, index }: { criterion: DsmLabeledText; index: number }) {
+function CriteriaRow({
+  criterion,
+  index,
+  isDsmCriteria,
+}: {
+  criterion: DsmLabeledText;
+  index: number;
+  isDsmCriteria: boolean;
+}) {
+  const ordinal = criterion.label || index + 1;
   return (
     <li className="grid grid-cols-[2.25rem_minmax(0,1fr)] gap-3 border-b border-[color:var(--border)] px-3 py-3.5 last:border-b-0 sm:grid-cols-[2.5rem_minmax(0,1fr)] sm:px-4">
       <span className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xs font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-        {criterion.label || index + 1}
+        {ordinal}
       </span>
       <div className="min-w-0 pt-0.5">
         <p className="text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
-          Core criterion {criterion.label || index + 1}
+          {isDsmCriteria ? `Core criterion ${ordinal}` : `Key feature ${ordinal}`}
         </p>
         <p className="mt-1 text-sm font-medium leading-6 text-[color:var(--text-heading)]">{criterion.text}</p>
       </div>
@@ -141,7 +150,11 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
         <DsmPageHeader
           eyebrow="Diagnosis information"
           title={diagnosis.title}
-          description="Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
+          description={
+            isDsmCriteria
+              ? "Core diagnostic criteria, specifiers, differential considerations, and documentation support in one open, scan-friendly view."
+              : "Key features, specifiers, differential considerations, and documentation support in one open, scan-friendly view. Full DSM-5-TR criteria are not included in this record."
+          }
           code={diagnosis.icd_code}
           copyCode
           category={diagnosis.category.label}
@@ -215,7 +228,12 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
                 {criteria.length ? (
                   <ol>
                     {criteria.map((criterion, index) => (
-                      <CriteriaRow key={`${criterion.label}-${criterion.text}`} criterion={criterion} index={index} />
+                      <CriteriaRow
+                        key={`${criterion.label}-${criterion.text}`}
+                        criterion={criterion}
+                        index={index}
+                        isDsmCriteria={isDsmCriteria}
+                      />
                     ))}
                   </ol>
                 ) : (

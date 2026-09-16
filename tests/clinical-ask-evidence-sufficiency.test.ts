@@ -77,6 +77,22 @@ describe("Clinical Ask evidence sufficiency", () => {
     );
   });
 
+  it("keeps mixed reviewed and unreviewed support insufficient", () => {
+    const evidence = [
+      source({ id: "reviewed", reviewState: "reviewed" }),
+      source({ id: "needs", reviewState: "needs_review", extract: "Occupational impairment is present." }),
+    ];
+    const inputRequest = request("adult referrals within 6 weeks with impairment");
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    // Force both items to count as direct support across required sections so the
+    // review-state gate is what decides sufficiency.
+    const forced = coverage.map((annotation) => ({ ...annotation, directlySupports: true }));
+    expect(assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage: forced })).toMatchObject({
+      sufficient: false,
+      externalFallbackReason: "needs_review",
+    });
+  });
+
   it("keeps unresolved conflicts insufficient", () => {
     const evidence = [source(), source({ id: "indexed:two", extract: "The pathway uses 12 weeks." })];
     const coverage: EvidenceCoverageAnnotation[] = profile.sectionOrder.map((sectionId) => ({

@@ -363,7 +363,8 @@ export function assessEvidenceSufficiency(input: EvidenceSufficiencyInput): Evid
     .filter((annotation) => annotation.directlySupports)
     .map((annotation) => evidenceById.get(annotation.evidenceId))
     .filter((item): item is ClinicalAskEvidence => Boolean(item));
-  const hasReviewedSupport = supportingEvidence.some((item) => item.reviewState === "reviewed");
+  const hasReviewedSupport =
+    supportingEvidence.length > 0 && supportingEvidence.every((item) => item.reviewState === "reviewed");
   // A mixture of needs_review and unknown used to satisfy neither `every` test
   // and fell through to a null reason, so the orchestrator had no ground to seek
   // corroboration even though nothing behind the answer had been reviewed. The
