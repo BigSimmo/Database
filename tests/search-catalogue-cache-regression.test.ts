@@ -136,6 +136,41 @@ describe("registry catalogue reads stay cached on the search path", () => {
     expect(catalogueReads(calls)).toHaveLength(afterFederated);
   });
 
+  // THE PRODUCTION SYMPTOM, 2026-09-16. The canonical read was outrunning the 2500ms domain budget
+  // every time, so forms/services/medications came back as errored empty groups and catalogue
+  // search returned nothing at all on the live site. A failing catalogue must degrade to the
+  // in-bundle list, never to an empty result.
+  it.each([
+    ["rejects", () => Promise.reject(new Error("Canonical site-content read failed: boom"))],
+    ["never settles", () => new Promise<never>(() => {})],
+  ])(
+    "still returns results when the catalogue read %s",
+    async (_label, rpcBehaviour) => {
+      const { runUniversalSearch } = await loadUniversalSearch();
+      const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+      clearCatalogueSeedFallbackCooldown();
+
+      const supabase = {
+        rpc: (name: string) =>
+          name === "read_site_content_public_records" ? rpcBehaviour() : Promise.resolve({ data: [], error: null }),
+      } as unknown as SearchSupabase;
+
+      const response = await runUniversalSearch({
+        query: "transport",
+        limitPerDomain: 5,
+        domains: ["forms"],
+        demo: false,
+        supabase,
+      });
+
+      const forms = response.groups.find((group) => group.kind === "forms");
+      expect(forms?.error).not.toBe(true);
+      expect(forms?.items.length ?? 0).toBeGreaterThan(0);
+      clearCatalogueSeedFallbackCooldown();
+    },
+    20_000,
+  );
+
   it("never reaches the database on the demo path", async () => {
     const calls: RpcCall[] = [];
     const { runUniversalSearch } = await loadUniversalSearch();

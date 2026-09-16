@@ -15,6 +15,7 @@ import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
+import { readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
@@ -215,13 +216,21 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
   const records =
     !args.demo && args.supabase
       ? (
-          await readCanonicalSiteContentRecords({
-            supabase: args.supabase,
+          await readCatalogueWithSeedFallback({
             kind: "medication",
-            slug: null,
-            cache: true,
             seeds: defaultMedicationRecords(),
             signal: args.signal,
+            read: async (signal) =>
+              (
+                await readCanonicalSiteContentRecords({
+                  supabase: args.supabase,
+                  kind: "medication",
+                  slug: null,
+                  cache: true,
+                  seeds: defaultMedicationRecords(),
+                  signal,
+                })
+              ).records,
           })
         ).records
       : defaultMedicationRecords();
@@ -246,13 +255,21 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
   const records =
     !args.demo && args.supabase
       ? (
-          await readCanonicalSiteContentRecords({
-            supabase: args.supabase,
+          await readCatalogueWithSeedFallback({
             kind: "service",
-            slug: null,
-            cache: true,
             seeds: serviceRecords,
             signal: args.signal,
+            read: async (signal) =>
+              (
+                await readCanonicalSiteContentRecords({
+                  supabase: args.supabase,
+                  kind: "service",
+                  slug: null,
+                  cache: true,
+                  seeds: serviceRecords,
+                  signal,
+                })
+              ).records,
           })
         ).records
       : serviceRecords;
@@ -265,13 +282,21 @@ async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   const records =
     !args.demo && args.supabase
       ? (
-          await readCanonicalSiteContentRecords({
-            supabase: args.supabase,
+          await readCatalogueWithSeedFallback({
             kind: "form",
-            slug: null,
-            cache: true,
             seeds: formRecords,
             signal: args.signal,
+            read: async (signal) =>
+              (
+                await readCanonicalSiteContentRecords({
+                  supabase: args.supabase,
+                  kind: "form",
+                  slug: null,
+                  cache: true,
+                  seeds: formRecords,
+                  signal,
+                })
+              ).records,
           })
         ).records
       : formRecords;
