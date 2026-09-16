@@ -33,7 +33,11 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: DsmCriterionStatus; label: string }
 const COPY_RESET_MS = 2200;
 
 export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderRecord }) {
-  const { criteria, differentials, specifiers: selectableSpecifiers } = record;
+  const { criteria, differentials, specifiers: selectableSpecifiers, isDsmCriteria } = record;
+  // On 145 of the 146 records these rows are the key-feature summary, not DSM-5-TR
+  // criteria. The controls say which one the clinician is actually ticking, so the
+  // wording on screen matches the wording the note will carry.
+  const rowNoun = isDsmCriteria ? "criterion" : "key feature";
 
   const [statuses, setStatuses] = useState<Record<string, DsmCriterionStatus>>({});
   const [specifiers, setSpecifiers] = useState<string[]>([]);
@@ -50,6 +54,7 @@ export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderReco
       buildDsmDiagnosisNote({
         title: record.title,
         icdCode: record.icdCode,
+        isDsmCriteria: record.isDsmCriteria,
         criteria: criteria.map((criterion, index) => ({
           label: criterionKey(criterion.label, index),
           text: criterion.text,
@@ -110,12 +115,15 @@ export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderReco
         </span>
       </div>
       <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-        Record each criterion against your assessment. The note is built from what you mark, and anything you leave
+        Record each {rowNoun} against your assessment. The note is built from what you mark, and anything you leave
         alone is written out as not assessed.
+        {isDsmCriteria
+          ? null
+          : " This record does not include the full DSM-5-TR criteria, so the note states that it was built from a key feature summary."}
       </p>
 
       <fieldset className="mt-3 grid gap-1.5">
-        <legend className="sr-only">Criteria assessment</legend>
+        <legend className="sr-only">{isDsmCriteria ? "Criteria assessment" : "Key feature assessment"}</legend>
         {criteria.map((criterion, index) => {
           const key = criterionKey(criterion.label, index);
           const status = statuses[key] ?? "not-assessed";
@@ -129,7 +137,7 @@ export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderReco
                 {criterion.text}
               </p>
               <SegmentedControl
-                label={`Criterion ${key}`}
+                label={`${isDsmCriteria ? "Criterion" : "Key feature"} ${key}`}
                 value={status}
                 onChange={(next) => setStatuses((current) => ({ ...current, [key]: next }))}
                 options={STATUS_OPTIONS}
@@ -195,7 +203,7 @@ export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderReco
           <h3 className="text-sm font-extrabold text-[color:var(--text-heading)]">Note</h3>
           <div className="ml-auto">
             <Checkbox
-              label="Include criterion wording"
+              label={`Include ${rowNoun} wording`}
               checked={includeCriterionText}
               onChange={(event) => setIncludeCriterionText(event.target.checked)}
             />
@@ -230,7 +238,7 @@ export function DsmDiagnosisNoteBuilder({ record }: { record: DsmNoteBuilderReco
           </>
         ) : (
           <p className="mt-2 rounded-lg border border-dashed border-[color:var(--border)] px-3 py-4 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Mark at least one criterion to build the note.
+            Mark at least one {rowNoun} to build the note.
           </p>
         )}
         <p className="mt-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">

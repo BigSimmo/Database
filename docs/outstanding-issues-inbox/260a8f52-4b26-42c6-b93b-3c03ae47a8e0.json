@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "260a8f52-4b26-42c6-b93b-3c03ae47a8e0",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Registry and medication list responses cannot carry the degraded flag",
+    "detail": "Search results now say 'may be out of date' when a group was served from the in-bundle catalogue (PR for the 2026-09-16 registry search outage). The mode list surfaces cannot: `/api/registry/records` and `/api/medications` fall back to seeds but their responses do not carry `degraded`, because `parseRegistryListResponse` in `src/lib/registry-client-contract.ts` validates against a strict `hasOnlyKnownKeys` allow-list — adding the field without extending the parser, the response type, `RegistryRecordsState` and the rendering component in the same change would make every degraded response parse as null and surface as an error. Thread it through all four layers together and render `withCatalogueDegradedNotice` on the Forms, Services and Medications list surfaces. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+    "source": "docs/audit/2026-09-16-registry-search-outage.md",
+    "issueUlid": "01M2MXEEVN8GB18RV3WTF80MJ8"
+  }
+}
