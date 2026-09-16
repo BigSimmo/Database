@@ -1,0 +1,160 @@
+{
+  "task": "PsychSift Dictionary + Sources handover 2026-09-16",
+  "package": "PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+  "executedOn": "2026-09-16",
+  "workspace": "/home/user/Database",
+  "repository": "BigSimmo/Database",
+  "branch": "claude/festive-galileo-kps74j",
+  "baseHead": "66105e18dc490e0e4c8ec6eb5c4f42fa506c13c3",
+  "packageBaselineHead": "66105e18dc490e0e4c8ec6eb5c4f42fa506c13c3",
+  "baselineDrift": "none \u2014 the execution checkout is exactly the commit the package was prepared against",
+  "recordAccounting": {
+    "jobs": 487,
+    "jobsUnaccounted": 0,
+    "fieldUnits": 1881,
+    "fieldUnitsUnaccounted": 0,
+    "jobOutcomes": {
+      "retained_as_draft": 333,
+      "verdict_recorded_no_change": 68,
+      "proposal_recorded_not_applied": 28,
+      "held": 41,
+      "admitted_as_candidate": 17
+    },
+    "fieldResolutions": {
+      "preserved": 235,
+      "unknown": 1618,
+      "held": 28
+    }
+  },
+  "evidenceCoverage": {
+    "fieldUnitsWithASource": 206,
+    "fieldUnitsWithoutASource": 1675,
+    "warningsWithASource": 0,
+    "warningsTotal": 292,
+    "sensesWithNoSource": 187,
+    "note": "An empty evidence list means nobody has looked, not that no source exists."
+  },
+  "sourceStages": {
+    "staged": 58,
+    "catalogued": 17,
+    "bytesAcquired": 0,
+    "extractionChecked": 0,
+    "indexed": 0,
+    "retrievalVerified": 0,
+    "clinicallyApproved": 0,
+    "activated": 0,
+    "note": "Seventeen sources admitted to the acquisition ledger as candidates. Metadata only."
+  },
+  "importPreview": {
+    "ledgerPreviewed": "src/data/source-acquisitions.json",
+    "counts": {
+      "insert": 17,
+      "reuse": 0,
+      "skip": 0,
+      "conflict": 0,
+      "held": 41
+    },
+    "catalogueIdentity": {
+      "reuse": 12,
+      "held": 45,
+      "conflict": 1
+    },
+    "repeatRun": "byte-identical \u2014 a second import proposes zero duplicates",
+    "writesPerformedByPreview": false
+  },
+  "definitionReviewReconciliation": {
+    "total": 96,
+    "baselineMatchesLive": 96,
+    "conflicts": 0,
+    "missingEntries": 0,
+    "proposalsRecorded": 28,
+    "proposalsApplied": 0
+  },
+  "defectsFoundAndFixed": [
+    "Token normalisation initially stripped punctuation, merging K10 with K10+ (two different Kessler instruments). Fixed to flatten case and spacing only; regression test pins it.",
+    "The Australian Prescriber article was added to the ledger; the acquisition gate refused it because its publisher is registered catalogueIdentityOnly and registering it would alter retrieval selection. Withdrawn rather than registered.",
+    "Fifteen sources were initially reported as blocked on the authority register. Re-checked: their publishers (AIHW, Healthdirect) are registered and ledger-eligible, and the block came from the offline planner's conservative default rather than the real gate.",
+    "nice-delirium was recorded as an identity conflict. Resolved on the facts: two chapter URLs of one NICE guideline, not two sources.",
+    "Australian Prescriber was reported as blocked on its catalogueIdentityOnly flag. That was wrong: an unrecognised publisherCode ('Aust Prescr') overrides the publisher-name match and yields unknown_jurisdiction. The register's own code AUSPRES resolves it, with no registry change at all.",
+    "Fifteen sources were reported as blocked on the authority register when their publishers (AIHW, Healthdirect) were already registered and ledger-eligible; the block came from the offline planner's conservative default, not the real gate."
+  ],
+  "protectedActionsNotTaken": [
+    "No clinical approval or activation of any record",
+    "No public dictionary route serves a draft",
+    "No database, index or vector write",
+    "No provider or paid API call",
+    "No original-document acquisition",
+    "No runtime ranking, source-host policy or authority-register change",
+    "No WardFlow or calculator change"
+  ],
+  "outstandingApprovals": [
+    {
+      "item": "Clinical sign-off of 333 sense drafts and 28 proposed definition rewrites",
+      "owner": "Clinical reviewer",
+      "blocks": "publication",
+      "whyNotDoneHere": "Signing off clinical content is not something this session can do or simulate."
+    },
+    {
+      "item": "Source evidence for 1,675 unsourced statements, including all 292 warnings",
+      "owner": "Clinical reviewer",
+      "blocks": "relying on the prose",
+      "whyNotDoneHere": "Each statement needs its own source read and clinical judgement."
+    },
+    {
+      "item": "Whether meteor.aihw.gov.au and other hosts belong in GOVERNED_SOURCE_HOSTS",
+      "owner": "Source register owner",
+      "blocks": "19 sources",
+      "whyNotDoneHere": "The owner declined this one when asked on 2026-09-16."
+    },
+    {
+      "item": "A date for 21 sources whose publisher is now registered, including four AIHW pages that returned HTTP 403",
+      "owner": "Source register owner",
+      "blocks": "21 sources",
+      "whyNotDoneHere": "None of the remaining held sources carries a date in the handover, and those publishers blocked automated reads."
+    },
+    {
+      "item": "The actual publishing agency for four records whose publisher field is a description",
+      "owner": "Source register owner",
+      "blocks": "4 sources",
+      "whyNotDoneHere": "Registering a catch-all authority would be a quality regression."
+    },
+    {
+      "item": "Original-document acquisition and indexing",
+      "owner": "Operator",
+      "blocks": "retrieval",
+      "whyNotDoneHere": "Needs per-source rights, environment and cost approval."
+    }
+  ],
+  "resumePoint": "Seventeen of 58 sources admitted. Both owner approvals from 2026-09-16 are implemented. The binding constraint on the remaining 41 is now a date: none carries one in the handover, and the publishers that still block are either unread (403) or genuinely undated. Everything else waiting is clinical judgement.",
+  "publisherReads": {
+    "performedOn": "2026-09-16",
+    "sourcesRead": 30,
+    "newlyDatedAndAdmitted": 6,
+    "publisherGivesAReviewDateOnly": 8,
+    "publisherGivesNoDateAtAll": 5,
+    "publisherPageReturned403": 6,
+    "blockedOnHostPolicy": 3,
+    "blockedOnAuthorityRegister": 1,
+    "notAttempted": 2,
+    "note": "Dates read from publishers' own pages. Review, update, effective and publication dates recorded as the different events they are; none substituted for another."
+  },
+  "structuralBlocker": {
+    "finding": "Australia's most-used official clinical web sources publish a review date, not a publication date. Healthdirect stamps a review month; WA Health's consent article stamps a review day; the WA Chief Psychiatrist registers and the WHO mhGAP page carry no date at all.",
+    "effect": "acquisitionLedgerIssues requires publicationDate for every non-rejected record, so 13 governed WA, national and WHO sources cannot be registered even though their metadata was read successfully.",
+    "whyNotFixedHere": "Relaxing the mandatory field is the weakened schema the field policy forbids. The honest alternative, a distinct state requiring a real review date, changes the clinical source register's contract and is the owner's decision.",
+    "readingBanked": "establishedReviewDate on each affected record, so the reading is not repeated."
+  },
+  "ownerApprovalsActedOn": {
+    "grantedBy": "Repository owner, in session, 2026-09-16",
+    "approved": [
+      "Let the register hold a continuously maintained page dated by its review stamp",
+      "Register the publishers the authority register did not know"
+    ],
+    "declined": ["Widen GOVERNED_SOURCE_HOSTS"],
+    "implementedAs": {
+      "dateModel": "Added SourceDateModel to src/lib/sources/acquisition-ledger.ts. A continuously_updated record must carry a real reviewDate and must not carry a publicationDate. The published rule is unchanged; three tests pin that this is an added state, not a relaxation.",
+      "authorityEntries": "Twelve entries added to src/lib/source-authority-registry.ts plus one alias, all catalogueIdentityOnly, matching the Chief Psychiatrist's own entry. Runtime retrieval selection is unchanged and a test pins it.",
+      "notRegistered": "Four publisher strings that are descriptions rather than agencies were left unregistered on purpose."
+    }
+  }
+}
