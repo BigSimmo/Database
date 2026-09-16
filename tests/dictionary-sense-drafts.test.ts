@@ -240,8 +240,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(17);
-    expect(heldDictionarySources()).toHaveLength(41);
+    expect(admitted).toHaveLength(18);
+    expect(heldDictionarySources()).toHaveLength(40);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -351,7 +351,7 @@ describe("source link routing", () => {
 describe("publisher re-reads", () => {
   it("records a dated finding for every source read in this session", () => {
     const read = dictionarySourceDispositions.filter((disposition) => disposition.publisherCheck.checkedOn);
-    expect(read.length).toBeGreaterThanOrEqual(30);
+    expect(read.length).toBeGreaterThanOrEqual(35);
     for (const disposition of read) {
       expect(disposition.publisherCheck.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(disposition.publisherCheck.finding.trim()).not.toBe("");
@@ -487,7 +487,7 @@ describe("what a candidate actually is", () => {
     // row into the catalogue. What holds is narrower and is pinned here: they render
     // at the lowest band, marked unverified, and never as approved.
     const added = sourceAcquisitionRecords.filter((record) => record.id.startsWith("dictionary-"));
-    expect(added.length).toBeGreaterThanOrEqual(17);
+    expect(added.length).toBeGreaterThanOrEqual(18);
 
     const entries = canonicalizeSourceReferences(acquisitionSourceReferences(added));
     expect(entries).toHaveLength(added.length);
@@ -524,5 +524,80 @@ describe("the handover guide states the counts the data actually holds", () => {
     expect(Number(row![1])).toBe(admitted);
     expect(Number(row![2])).toBe(held);
     expect(admitted + held).toBe(dictionarySourceDispositions.length);
+  });
+});
+
+describe("an update stamp is not a review and not a publication", () => {
+  it("banks update statements without admitting them", () => {
+    // WA's Chief Psychiatrist, RCH and AIHW's monitoring hubs all stamp a
+    // last-updated date and nothing else. The reading is recorded so it is not
+    // repeated, and the record stays held: the register has no update event, and
+    // filing one under reviewDate would claim a review nobody did.
+    const updated = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
+    expect(updated.length).toBeGreaterThanOrEqual(4);
+    for (const disposition of updated) {
+      expect(disposition.ledgerOutcome, disposition.handoverSourceId).toBe("held");
+      expect(disposition.ledgerRecordId).toBeNull();
+      expect(disposition.blockers[0]?.code).toBe("publisher_states_an_update_stamp_not_a_publication_or_review_date");
+      expect(disposition.establishedReviewDate).toBeUndefined();
+    }
+  });
+
+  // The stamps are prose ("Updated 14 Aug 2026") and the ledger's date fields are
+  // ISO strings, so comparing the two raw would pass however badly the invariant
+  // were broken: "Updated 14 Aug 2026" never equals "2026-08-14". The whole point
+  // of the guard is to catch a stamp that HAS been normalised into a date field,
+  // so the test has to normalise it the same way before comparing.
+  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+  /** Every ISO date a stamp could plausibly have been filed as, day and month precision alike. */
+  function datesAStampCouldBecome(statement: string): string[] {
+    const month = MONTHS.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
+    const year = statement.match(/\b(\d{4})\b/);
+    if (month < 0 || !year) return [];
+    const mm = String(month + 1).padStart(2, "0");
+    const dates = [`${year[1]}-${mm}`];
+    const day = statement.match(/\b(\d{1,2})\b(?!\d)/);
+    if (day && Number(day[1]) <= 31) dates.push(`${year[1]}-${mm}-${String(Number(day[1])).padStart(2, "0")}`);
+    return dates;
+  }
+
+  it("normalises each banked update stamp to a date, and finds it in no ledger date field", () => {
+    const stamps = dictionarySourceDispositions
+      .map((disposition) => disposition.establishedUpdateStatement)
+      .filter((statement): statement is string => Boolean(statement));
+    expect(stamps.length).toBeGreaterThanOrEqual(4);
+
+    // A stamp the normaliser cannot read would make the comparison below vacuous,
+    // which is the failure this test exists to stop repeating.
+    const forbidden = new Set<string>();
+    for (const stamp of stamps) {
+      const dates = datesAStampCouldBecome(stamp);
+      expect(dates.length, `no date could be read from ${JSON.stringify(stamp)}`).toBeGreaterThan(0);
+      for (const date of dates) forbidden.add(date);
+    }
+    expect(forbidden.has("2026-08-14")).toBe(true);
+
+    for (const record of sourceAcquisitionRecords) {
+      for (const field of ["publicationDate", "reviewDate"] as const) {
+        const value = record[field];
+        if (!value) continue;
+        expect(forbidden.has(value), `${record.id}.${field} carries a banked update stamp`).toBe(false);
+      }
+    }
+  });
+
+  it("gives the sources that carry an update stamp no ledger date at all", () => {
+    const byId = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
+    const stamped = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
+    expect(stamped.length).toBeGreaterThanOrEqual(4);
+    for (const disposition of stamped) {
+      // Held sources have no record; if one is ever admitted, neither date event
+      // may be filled from the update stamp that is all its publisher states.
+      const record = disposition.ledgerRecordId ? byId.get(disposition.ledgerRecordId) : undefined;
+      if (!record) continue;
+      expect(record.publicationDate, `${disposition.handoverSourceId} publicationDate`).toBeFalsy();
+      expect(record.reviewDate, `${disposition.handoverSourceId} reviewDate`).toBeFalsy();
+    }
   });
 });
