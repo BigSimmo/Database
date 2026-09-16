@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0861a8f6-55f8-4157-bfbd-5b07cd7dacc9",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2afa99ba-8585-4e69-bb83-b6a847f9afb3",
+    "reason": "Codex P2 on #2817: reconciliation note must be consumed during reconcile (close false-meter; narrow metadata), not kept as a third open row."
+  }
+}
