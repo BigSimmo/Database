@@ -17,7 +17,11 @@ export type FormRecord = ServiceRecord;
 
 export const officialFormsRegisterUrl =
   "https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legislation/mental-health-act-2014-forms/";
-export const officialFormsReviewedDate = "17 July 2026";
+// Moved 2026-09-16, when the register was read and all 54 codes, titles and availability
+// states were reconciled against it -- including Form 10G, where the register's own
+// "Revocation of expiry" is a typo this repository does not copy. Evidence:
+// docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md.
+export const officialFormsReviewedDate = "16 September 2026";
 
 const legacySlugs: Record<string, string> = {
   "3A": "detention-examination-movement",
