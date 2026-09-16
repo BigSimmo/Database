@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -44,8 +44,21 @@ const TRANSITIONS_MIGRATION = "supabase/migrations/20260830121000_bind_site_cont
 const SCHEMA_MIRROR = "supabase/schema.sql";
 const DRIFT_MANIFEST = "supabase/drift-manifest.json";
 
-const APPLIED_MIGRATIONS = [BOOTSTRAP_MIGRATION, HEALTH_PROBE_MIGRATION, TRANSITIONS_MIGRATION];
+/**
+ * Every migration that names the release. `20260916103000` matters as much as the original three:
+ * PR #2814 rewrote the first three and left it alone, so a replayed database got a bootstrap the
+ * catalogue read could never match and the epoch-zero branch of
+ * `read_site_content_public_records` silently returned nothing. Nothing detected that.
+ */
+const APPLIED_MIGRATIONS = [
+  BOOTSTRAP_MIGRATION,
+  HEALTH_PROBE_MIGRATION,
+  TRANSITIONS_MIGRATION,
+  "supabase/migrations/20260916103000_push_kind_filter_into_site_content_public_records.sql",
+];
 const QUOTED_UUID = /'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'/g;
+/** All-zero / all-one style placeholders the retrieval migrations use as owner sentinels. */
+const SENTINEL_UUID = /^'([0-9a-f])\1{7}-\1{4}-[0-9a-f]\1{3}-[0-9a-f]\1{3}-\1{12}'$/;
 
 const read = (path: string) => readFileSync(path, "utf8");
 
@@ -58,10 +71,30 @@ function blob(source: string, tag: string): string {
 describe("the epoch-zero site-content freeze matches the live database", () => {
   it.each(APPLIED_MIGRATIONS)("pins only the applied release id in %s", (path) => {
     const distinct = [...new Set(read(path).match(QUOTED_UUID) ?? [])];
-    // Non-vacuous: each of these three files really does name the release id, so an empty match
-    // cannot pass as "no foreign id found".
+    // Non-vacuous: each of these files really does name the release id, so an empty match cannot
+    // pass as "no foreign id found".
     expect(distinct.length, `${path} should quote exactly one uuid`).toBe(1);
     expect(distinct[0], `${path} names a release id the live database does not hold`).toBe(`'${APPLIED_RELEASE_ID}'`);
+  });
+
+  it("lets no migration anywhere introduce a second release identity", () => {
+    // Stronger than the per-file check above and the reason it is here: a regeneration can add a
+    // file, and a list of known files cannot see that. Across the whole migration set the only
+    // real uuid is this release; everything else is an owner sentinel.
+    const offenders: string[] = [];
+    const naming: string[] = [];
+    for (const name of readdirSync(new URL("../supabase/migrations/", import.meta.url)).sort()) {
+      if (!name.endsWith(".sql")) continue;
+      const path = `supabase/migrations/${name}`;
+      for (const quoted of new Set(read(path).match(QUOTED_UUID) ?? [])) {
+        if (quoted === `'${APPLIED_RELEASE_ID}'`) naming.push(path);
+        else if (!SENTINEL_UUID.test(quoted)) offenders.push(`${path}: ${quoted}`);
+      }
+    }
+    expect(offenders, "a migration quotes a uuid that is neither the epoch-zero release nor a sentinel").toEqual([]);
+    // Non-vacuous: the sweep must actually have seen the release, or an accidental deletion of it
+    // everywhere would read as "no offenders".
+    expect(naming.sort()).toEqual([...APPLIED_MIGRATIONS].sort());
   });
 
   it("pins the frozen release digest and population counts", () => {
@@ -80,8 +113,12 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     // live. If either names a different release, a replayed database and production disagree while
     // every offline check still passes — the exact shape of the 2026-09-16 failure.
     const mirror = read(SCHEMA_MIRROR);
-    expect(mirror).toContain(APPLIED_RELEASE_ID);
-    expect([...new Set(mirror.match(QUOTED_UUID) ?? [])]).toContain(`'${APPLIED_RELEASE_ID}'`);
+    const mirrored = [...new Set(mirror.match(QUOTED_UUID) ?? [])];
+    expect(mirrored, "the mirror must still name the applied release").toContain(`'${APPLIED_RELEASE_ID}'`);
+    expect(
+      mirrored.filter((quoted) => quoted !== `'${APPLIED_RELEASE_ID}'` && !SENTINEL_UUID.test(quoted)),
+      "the schema mirror names a release the live database does not hold",
+    ).toEqual([]);
 
     const manifest = read(DRIFT_MANIFEST);
     const constraints = ["site_content_release_records_check1", "site_content_sync_state_transition_pointer_check"];
