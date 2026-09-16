@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "085f5cc1-9347-4f4d-9df5-bb70586af828",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Search says degraded but no UI renders it",
+    "detail": "Since PR #2805/#2808 a universal-search group carries `degraded: true` when the domain was served from the in-bundle catalogue because the canonical read could not be completed (`src/lib/universal-search.ts`, `src/lib/site-content/catalogue-seed-fallback.ts`). `live-domain-monitor` asserts on it, but no component consumes it, so a clinician cannot tell that the list they are searching may lag behind what was published. Bounded by the 30 s cooldown and by every result linking to a detail page that reads canonically, so this is a clarity gap rather than a safety one. Wants a quiet inline notice on the results surface, not a modal. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+    "source": "docs/audit/2026-09-16-registry-search-outage.md",
+    "issueUlid": "01M2MTZKFQV98SPY5464XCP6C4"
+  }
+}

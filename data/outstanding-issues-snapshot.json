@@ -1,16 +1,16 @@
 {
   "version": "outstanding-issues-snapshot-v2",
   "ledger_revision": {
-    "committed_at": "2026-09-16"
+    "committed_at": "2026-09-15"
   },
   "counts": {
-    "open": 82,
+    "open": 85,
     "p1": 12,
-    "p2": 55,
+    "p2": 58,
     "p3": 15,
     "queued": 7,
     "pending": 0,
-    "resolved": 583
+    "resolved": 580
   },
   "queue": [
     {
@@ -732,6 +732,15 @@
       "added": "2026-09-13"
     },
     {
+      "id": "#V98SPY",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Search says degraded but no UI renders it",
+      "detail": "Since PR #2805/#2808 a universal-search group carries `degraded: true` when the domain was served from the in-bundle catalogue because the canonical read could not be completed (`src/lib/universal-search.ts`, `src/lib/site-content/catalogue-seed-fallback.ts`). `live-domain-monitor` asserts on it, but no component consumes it, so a clinician cannot tell that the list they are searching may lag behind what was published. Bounded by the 30 s cooldown and by every result linking to a detail page that reads canonically, so this is a clarity gap rather than a safety one. Wants a quiet inline notice on the results surface, not a modal. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
+      "added": "2026-09-16"
+    },
+    {
       "id": "#TSSF3G",
       "priority": "P1",
       "type": "task",
@@ -741,21 +750,21 @@
       "added": "2026-09-16"
     },
     {
-      "id": "#4DFNHJ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Owner re-attestation still owed on six ledger sources whose metadata corrections already landed",
-      "detail": "IMPLEMENTED 2026-09-16 by commit 2f7072e43: the six publisher-page corrections (RANZCP mood guideline documentStatus outdated; five Chief Psychiatrist guidelines publicationDate 2015-12-01 and version December 2025 revision) are applied. Residual only: all six remain validationStatus locally_reviewed from the owner's 2026-09-06 sign-off, which predates the corrections, so each still needs owner re-attestation rather than another agent edit. CORRECTION to the original claim that wrong publication dates overstated Currency by about ten years: Currency is scored from documentStatus alone in src/lib/sources/catalogue-core.ts; publicationDate contributes only a boolean to traceability. Measured: the five Chief Psychiatrist guidelines score 91 band A both before and after; only the RANZCP documentStatus change moved a score (band A to B, 89 to 74). Verify with npm run check:source-acquisitions.",
-      "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16; consumed via #8YXSQ1 on PR #2817",
-      "added": "2026-09-16"
-    },
-    {
       "id": "#YE6BZB",
       "priority": "P2",
       "type": "task",
       "summary": "read_site_content_public_records() has no EXPLAIN baseline, and it is on the search request path",
       "detail": "The search-path sibling of #458SAC, and a different function: #458SAC measured read_site_content_health() at ~7s, but that one walks site_content_sync_events and read_site_content_public_records never touches that table, so its hypothesis does not transfer and its number is not evidence here. This read IS on the request path: src/lib/universal-search.ts calls it once per registry domain per search. PR #2805 restored a cache in front of it (15s fresh, stale-while-revalidate to 10 min, single flight), which removes the repetition but not the cost of the first read in each window. Nothing has ever measured that cost. READY TO RUN, read-only, nothing writes or locks: scripts/operator-explain-site-content-public-records.sql, every profiling statement bounded by set local statement_timeout, run the whole script twice and use the second pass. Step 0 is decisive on its own and needs no EXPLAIN: pg_stat_statements gives real call counts and mean latency as production has actually been running it. A mean in single-digit milliseconds means this function is NOT the search-latency cause and the investigation belongs on the document retrieval path instead (see #8VAY97, the other unmeasured read on that path). GATE: provider-backed, so an approved operator window and explicit user confirmation per AGENTS.md API and provider confirmation boundary. STOP: do not enable pg_stat_statements if it is absent, and do not run any statement from this script unbounded.",
       "source": "Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D); search latency root-cause work, PR #2805",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#8GB18R",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Registry and medication list responses cannot carry the degraded flag",
+      "detail": "Search results now say 'may be out of date' when a group was served from the in-bundle catalogue (PR for the 2026-09-16 registry search outage). The mode list surfaces cannot: `/api/registry/records` and `/api/medications` fall back to seeds but their responses do not carry `degraded`, because `parseRegistryListResponse` in `src/lib/registry-client-contract.ts` validates against a strict `hasOnlyKnownKeys` allow-list — adding the field without extending the parser, the response type, `RegistryRecordsState` and the rendering component in the same change would make every degraded response parse as null and surface as an error. Thread it through all four layers together and render `withCatalogueDegradedNotice` on the Forms, Services and Medications list surfaces. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
       "added": "2026-09-16"
     },
     {
@@ -774,6 +783,15 @@
       "summary": "Six Australian and WA publishers are unregistered, so eight Australian sources cannot enter the ledger at all while 14 UK NICE guidelines can",
       "detail": "src/lib/source-authority-registry.ts does not contain Centre for Clinical Interventions (a WA Health service), Phoenix Australia (issuer of the national PTSD guidelines), Australasian ADHD Professionals Association, COPE Centre of Perinatal Excellence, Australian Government Department of Health Disability and Ageing, or Monash University. acquisitionLedgerIssues rejects any record whose publisher the register cannot place in a jurisdiction, so those eight reconciled Therapy sources are held entirely and can never leave D band. The register meanwhile admits the 14 NICE guidelines registered on 2026-09-16, which inverts the WA-first order docs/source-acquisition-protocol.md requires. cci.health.wa.gov.au is already a governed host, so CCI is blocked on the publisher entry alone. nhmrc.gov.au and tga.gov.au are additionally not in GOVERNED_SOURCE_HOSTS. Next action: owner decides which publishers to register, because registering one changes retrieval selection and source ranking. Proposal with per-publisher blockers in the 2026-09-16 Therapy handover work bundle (authority-register-expansion-proposal.json). Verify with npm run check:source-acquisitions and npm run check:source-catalogue.",
       "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16, branch claude/vibrant-mccarthy-bbi43k",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#4DFNHJ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Owner re-attestation still owed on six ledger sources whose metadata corrections already landed",
+      "detail": "IMPLEMENTED 2026-09-16 by commit 2f7072e43: the six publisher-page corrections (RANZCP mood guideline documentStatus outdated; five Chief Psychiatrist guidelines publicationDate 2015-12-01 and version December 2025 revision) are applied. Residual only: all six remain validationStatus locally_reviewed from the owner's 2026-09-06 sign-off, which predates the corrections, so each still needs owner re-attestation rather than another agent edit. CORRECTION to the original claim that wrong publication dates overstated Currency by about ten years: Currency is scored from documentStatus alone in src/lib/sources/catalogue-core.ts; publicationDate contributes only a boolean to traceability. Measured: the five Chief Psychiatrist guidelines score 91 band A both before and after; only the RANZCP documentStatus change moved a score (band A to B, 89 to 74). Verify with npm run check:source-acquisitions.",
+      "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16; narrowed for Codex P2 on #2817",
       "added": "2026-09-16"
     },
     {
@@ -819,6 +837,15 @@
       "summary": "GOVERNED_SOURCE_HOSTS: 19 dictionary sources blocked, including AIHW's METEOR registry",
       "detail": "Nineteen sources from the 2026-09 dictionary handover are held because their canonical URL host is not in GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts. Among them are three National Outcomes and Casemix Collection metadata records on meteor.aihw.gov.au, which is AIHW's own metadata registry and carries stable content identifiers. The owner declined to widen host policy when asked on 2026-09-16, so this is recorded rather than actioned. Widening the list also requires updating the pinned host count.",
       "source": "Claude session 2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#BDJWAH",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Orphaned owner-catalogue-cache is still invalidated by the seed writers",
+      "detail": "`src/lib/owner-catalogue-cache.ts` lost its only search-path reader on 2026-09-09 (b753ed2b1), which is the commit that caused the seven-day registry-search outage. The module is still in the tree and `invalidateOwnerCatalogueCache` is still called by `src/lib/registry-seed.ts` and `src/lib/medication-seed.ts` after a write. Those calls now clear a cache nothing reads, so anyone checking whether the catalogue cache is invalidated on publish gets a misleading yes. Two things to settle together: retire the dead module through the dead-code-deletion protocol, and decide whether the cache that replaced it (`src/lib/site-content/site-content-record-cache.ts`, 15 s fresh / 10 min stale-while-revalidate) needs an invalidation hook on publish or whether the TTL is the intended contract. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
       "added": "2026-09-16"
     },
     {

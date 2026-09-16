@@ -110,6 +110,20 @@ export function clearUniversalSearchCacheForTests() {
 }
 
 /**
+ * Which groups reach the UI.
+ *
+ * An empty group is normally noise, but an empty DEGRADED group is a false absence: the catalogue
+ * could not be read, the in-bundle list happens to hold no match for this query, and dropping it
+ * shows the reader a confident "no matches" for a question nobody actually answered. That is the
+ * same silent-absence failure the 2026-09-16 outage was, one layer up, so a degraded group is kept
+ * even with nothing in it and carries its own notice.
+ */
+export function groupIsWorthShowing(group: UniversalSearchGroup): boolean {
+  if (group.error) return false;
+  return group.items.length > 0 || group.degraded === true;
+}
+
+/**
  * Cross-entity typeahead for the command surface: debounced GET
  * /api/search/universal excluding the active mode's own domain (its results
  * already come from the mode search itself). Race handling mirrors the
@@ -196,7 +210,7 @@ export function useUniversalSearch(args: {
                   current.query === trimmedQuery && current.contextMode === args.contextMode && !current.complete
                     ? current.groups.filter((candidate) => candidate.kind !== group.kind)
                     : [];
-                if (!group.error && group.items.length > 0) groups.push(group);
+                if (groupIsWorthShowing(group)) groups.push(group);
                 return {
                   groups,
                   query: trimmedQuery,
@@ -208,7 +222,7 @@ export function useUniversalSearch(args: {
           });
           if (controller.signal.aborted || requestId !== requestSeqRef.current) return;
           const next: UniversalSearchResult = {
-            groups: (payload.groups ?? []).filter((group) => !group.error && group.items.length > 0),
+            groups: (payload.groups ?? []).filter(groupIsWorthShowing),
             query: trimmedQuery,
             complete: true,
             interpretation: payload.interpretation,
