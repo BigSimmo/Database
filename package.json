@@ -217,7 +217,9 @@
     "check:design-system-adoption": "node scripts/generate-design-system-adoption.mjs --check",
     "check:design-sync-contract": "node scripts/check-design-sync-contract.mjs",
     "check:design-system-contract": "node scripts/check-design-system-contract.mjs && node scripts/generate-gates-figures.mjs && node scripts/token-layer-divergences.mjs && npm run check:design-system-adoption && npm run check:design-sync-contract",
+    "check:migration-immutability": "node scripts/check-migration-immutability.mjs",
     "check:migration-role": "node scripts/check-hosted-migration-role.mjs",
+    "migrations:seal": "node scripts/check-migration-immutability.mjs --write",
     "check:function-grants": "node scripts/check-function-grants.mjs",
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
     "check:locality-metadata": "node scripts/run-tsx.mjs scripts/verify-locality-metadata.ts",
@@ -321,7 +323,8 @@
     "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs",
     "check:dependency-drift": "node scripts/check-dependency-drift.mjs",
     "check:mockups": "node scripts/check-mockup-retirement.mjs --self-test && node scripts/check-mockup-retirement.mjs && node scripts/check-mockup-retirement.mjs --diff auto",
-    "check:stale-docs": "node scripts/check-stale-docs.mjs"
+    "check:stale-docs": "node scripts/check-stale-docs.mjs",
+    "migrations:reseal": "node scripts/check-migration-immutability.mjs --write --allow-reseal"
   },
   "dependencies": {
     "@next/env": "16.3.3",

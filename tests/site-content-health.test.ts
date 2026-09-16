@@ -544,10 +544,14 @@ describe("site-content health evidence parsing", () => {
 describe("bootstrap identity across a baseline refresh", () => {
   // Refreshing the frozen epoch-zero population changes the release digest, and the
   // release id is derived from that digest, so the identity moves with the content.
-  // An applied migration is not re-run, so a live database can still hold the older
-  // id while a freshly replayed one holds the newer. Both are the same logical
-  // retained bootstrap and both must be recognised, or a deploy would stop the running
-  // site recognising its own bootstrap.
+  // An applied migration is not re-run, so live / replayed databases can still hold
+  // later regenerated ids (91ceaa8d from #2814, ddc94ecf from #2821) while this
+  // repository restores the production-held e4a1dd29 freeze (see
+  // tests/site-content-epoch-zero-freeze.test.ts).
+  //
+  // Those later ids must stay recognised here: a database that carried them while
+  // the rewrite was on main would otherwise report the site unavailable. This
+  // asserts tolerance of ids already in the wild, not permission to mint another.
   const refreshedBootstrapDigest = "6f8149ab8980c8db80e290d16457df3b4fcd53b0f9bfeeb50dc5bb5abf195f88";
   const refreshedBootstrapRelease = {
     ...retainedBootstrapRelease,
@@ -583,6 +587,8 @@ describe("bootstrap identity across a baseline refresh", () => {
     const previous = {
       ...retainedBootstrapRelease,
       releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+      dynamicStateDigest: "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3",
+      releaseDigest: "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3",
     };
     const partition = classifySiteContentPartition({
       expectedSiteStaticManifestDigest: "f".repeat(64),

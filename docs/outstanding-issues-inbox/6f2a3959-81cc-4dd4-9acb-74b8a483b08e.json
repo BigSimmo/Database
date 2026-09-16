@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6f2a3959-81cc-4dd4-9acb-74b8a483b08e",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Nothing makes applied migrations immutable in general, so editing any other one still passes every offline gate",
+    "detail": "The 2026-09-16 incident was an edit to three already-applied migrations. tests/site-content-epoch-zero-freeze.test.ts now pins that identity and both frozen blob hashes, which would have caught it, but the guard is specific to the site-content freeze. An edit to any OTHER applied migration's function body still passes lint, typecheck, the offline unit suite and the migration replay, because the replay only proves the chain is internally consistent and chain-vs-mirror parity in CI is report-only. Only the post-merge live check:drift notices, which is after it has reached production. STRUCTURAL FIX: record a per-version content hash for every migration recorded as applied on live, and fail when a file's hash changes without its version being new. Needs a decision on where the baseline lives (a committed manifest is the obvious place) and on the escape hatch for a legitimate correction to a migration that has NOT yet been applied. Related to the #QCNE6N drift class.",
+    "source": "Session 2026-09-16 epoch-zero freeze repair; raised by the schema-guardian review of the repair",
+    "issueUlid": "01M2NEFP12CNSDBJNNKD1QQRHW"
+  }
+}
