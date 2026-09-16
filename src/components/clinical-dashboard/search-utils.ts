@@ -394,3 +394,90 @@ export function generateQuerySuggestions(query: string): string[] {
 
   return suggestions.slice(0, 3);
 }
+
+// Document and registry search is one request and one response, not a stream, so it has no
+// heartbeat to reset an inactivity window the way createAnswerRequestWatchdog does. It gets a
+// plain deadline instead.
+//
+// Until this existed, /api/search had no client-side give-up at all. A slow search held the
+// "Searching…" band indefinitely with no notice and no error, so a slow search and a dead one
+// were indistinguishable from the reader's side — the symptom recorded in
+// docs/outstanding-issues.md #X42YJ1, where a documents search appeared to hang and later
+// completed in about 20 seconds.
+//
+// The two thresholds do different jobs. `searchSlowNoticeMs` only says so, leaving the request
+// running, because a search that is merely slow still returns something useful and cancelling it
+// would throw that away. `searchRequestTimeoutMs` is the give-up, sized above the server's own
+// federated ceiling (registry domains bail at 2.5 s, a focused documents domain at 6 s) plus
+// retrieval and transfer, so it fires on a genuinely stuck request rather than a slow one.
+export const searchSlowNoticeMs = 15_000;
+export const searchRequestTimeoutMs = 45_000;
+
+export type SearchRequestDeadline = {
+  /** Pass to fetch. Aborts when the caller aborts, or when the timeout fires. */
+  readonly signal: AbortSignal;
+  /** True only when THIS deadline aborted the request, never for a caller abort. */
+  readonly timedOut: boolean;
+  /** Disarm both timers. Safe to call more than once, and required on every path. */
+  cancel: () => void;
+};
+
+/**
+ * Bound a single search request. The returned signal also follows `signal`, so a superseded or
+ * user-stopped search still cancels immediately.
+ *
+ * `timedOut` is what lets the caller tell the two aborts apart: a caller abort is silent,
+ * because the user asked for it or a newer query replaced this one, while a timeout must
+ * surface as a visible failure.
+ */
+export function createSearchRequestDeadline({
+  signal,
+  onSlow,
+  slowMs = searchSlowNoticeMs,
+  timeoutMs = searchRequestTimeoutMs,
+}: {
+  signal?: AbortSignal;
+  onSlow?: () => void;
+  slowMs?: number;
+  timeoutMs?: number;
+} = {}): SearchRequestDeadline {
+  const controller = new AbortController();
+  let timedOut = false;
+  let cancelled = false;
+
+  const forwardCallerAbort = () => {
+    controller.abort(signal?.reason);
+  };
+
+  const slowTimer = setTimeout(() => {
+    if (!cancelled && !controller.signal.aborted) onSlow?.();
+  }, slowMs);
+
+  const timeoutTimer = setTimeout(() => {
+    if (cancelled || controller.signal.aborted) return;
+    timedOut = true;
+    controller.abort(new DOMException("Search timed out.", "TimeoutError"));
+  }, timeoutMs);
+
+  if (signal?.aborted) forwardCallerAbort();
+  else signal?.addEventListener("abort", forwardCallerAbort, { once: true });
+
+  return {
+    signal: controller.signal,
+    get timedOut() {
+      return timedOut;
+    },
+    cancel() {
+      if (cancelled) return;
+      cancelled = true;
+      clearTimeout(slowTimer);
+      clearTimeout(timeoutTimer);
+      signal?.removeEventListener("abort", forwardCallerAbort);
+    },
+  };
+}
+
+/** The message a reader sees when a search is given up on, rather than an endless spinner. */
+export function searchTimedOutMessage(label: string) {
+  return `${label} took longer than ${Math.round(searchRequestTimeoutMs / 1000)} seconds and was stopped. The service may be busy. Try again, and if it keeps happening the search index may need attention.`;
+}

@@ -181,6 +181,8 @@ import {
   isRetryableError,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
+  createSearchRequestDeadline,
+  searchTimedOutMessage,
   progressForRetry,
   searchRetryCount,
   searchRetryDelaysMs,
@@ -1649,51 +1651,89 @@ function ClinicalDashboardContent({
     signal?: AbortSignal,
   ) {
     const searchLabel = mode === "differentials" ? "Differentials search" : "Document search";
-    let response: Response;
+    // Without this deadline a slow /api/search holds the "Searching…" band forever, with no
+    // notice and no error, so the reader cannot tell a slow search from a broken one (#X42YJ1).
+    // It stays armed through the body read, because a response that never finishes streaming
+    // hangs exactly as visibly as one that never arrives.
+    let noticed = false;
+    const deadline = createSearchRequestDeadline({
+      signal,
+      onSlow: () => {
+        noticed = true;
+        setAnswerProgress("Still searching. This is taking longer than usual.");
+      },
+    });
     try {
-      response = await fetch("/api/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(clientDemoMode ? {} : authorizationHeader),
-        },
-        body: JSON.stringify({
-          query: queryText,
-          mode,
-          documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
-          filters: compactScopeFilters(filtersOverride ?? scopeFilters),
-          queryMode: queryModeOverride,
-          documentLimit: 30,
-          topK: 20,
-        }),
-        signal,
-      });
-    } catch (error) {
-      if (isAbortError(error)) throw error;
-      throw searchNetworkFailure(searchLabel);
-    }
+      let response: Response;
+      try {
+        response = await fetch("/api/search", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(clientDemoMode ? {} : authorizationHeader),
+          },
+          body: JSON.stringify({
+            query: queryText,
+            mode,
+            documentIds: selectedDocumentIds.length > 0 ? selectedDocumentIds : undefined,
+            filters: compactScopeFilters(filtersOverride ?? scopeFilters),
+            queryMode: queryModeOverride,
+            documentLimit: 30,
+            topK: 20,
+          }),
+          signal: deadline.signal,
+        });
+      } catch (error) {
+        // A timeout is OUR abort, so it must surface. A caller abort is the user stopping or a
+        // newer query superseding this one, which stays silent. Not retryable: three more 45 s
+        // attempts against a busy service is a worse experience than one honest failure.
+        if (deadline.timedOut) throw makeSearchError(searchTimedOutMessage(searchLabel), undefined, false);
+        if (isAbortError(error)) throw error;
+        throw searchNetworkFailure(searchLabel);
+      }
 
-    if (response.status === 401) {
-      markSessionExpired();
-      throw makeSearchError("Search request was not authorized by the server.", 401, false);
-    }
-    if (!response.ok) {
-      throw await parseApiErrorResponse(response);
-    }
-    const payload = await response.json();
-    if (payload.demoMode) setDemoMode(true);
+      if (response.status === 401) {
+        markSessionExpired();
+        throw makeSearchError("Search request was not authorized by the server.", 401, false);
+      }
+      if (!response.ok) {
+        throw await parseApiErrorResponse(response);
+      }
+      let payload: {
+        results?: SearchResult[];
+        documentMatches?: DocumentMatch[];
+        relevance?: EvidenceRelevance;
+        facets?: SearchFacets;
+        scope?: SearchScopeSummary;
+        sourceGovernanceWarnings?: SourceGovernanceWarning[];
+        demoMode?: boolean;
+      };
+      try {
+        payload = await response.json();
+      } catch (error) {
+        if (deadline.timedOut) throw makeSearchError(searchTimedOutMessage(searchLabel), undefined, false);
+        if (isAbortError(error)) throw error;
+        throw searchNetworkFailure(searchLabel);
+      }
+      if (payload.demoMode) setDemoMode(true);
 
-    return {
-      kind: "documents" as const,
-      query: queryText,
-      sources: (payload.results ?? []) as SearchResult[],
-      documentMatches: (payload.documentMatches ?? []) as DocumentMatch[],
-      relevance: payload.relevance as EvidenceRelevance | undefined,
-      facets: payload.facets as SearchFacets | undefined,
-      scope: payload.scope as SearchScopeSummary | undefined,
-      sourceGovernanceWarnings: payload.sourceGovernanceWarnings as SourceGovernanceWarning[] | undefined,
-      demoMode: payload.demoMode,
-    };
+      return {
+        kind: "documents" as const,
+        query: queryText,
+        sources: payload.results ?? [],
+        documentMatches: payload.documentMatches ?? [],
+        relevance: payload.relevance,
+        facets: payload.facets,
+        scope: payload.scope,
+        sourceGovernanceWarnings: payload.sourceGovernanceWarnings,
+        demoMode: payload.demoMode,
+      };
+    } finally {
+      deadline.cancel();
+      // Only clear what this request put there, so a retry message owned by runWithRetries
+      // survives the attempt it is describing.
+      if (noticed) setAnswerProgress(null);
+    }
   }
 
   function requestAnswer(

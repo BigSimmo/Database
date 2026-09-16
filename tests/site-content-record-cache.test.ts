@@ -4,6 +4,7 @@ import {
   clearSiteContentRecordCache,
   readSiteContentRecordsCached,
   siteContentRecordCacheMaxEntries,
+  siteContentRecordCacheStaleMs,
   siteContentRecordCacheTtlMs,
   type SiteContentRecordRows,
 } from "@/lib/site-content/site-content-record-cache";
@@ -51,12 +52,12 @@ describe("readSiteContentRecordsCached", () => {
     const second = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
 
     expect(read).toHaveBeenCalledTimes(1);
-    expect(first.hit).toBe(false);
-    expect(second.hit).toBe(true);
+    expect(first.age).toBe("miss");
+    expect(second.age).toBe("fresh");
     expect(second.rows).toEqual(first.rows);
   });
 
-  it("queries again once the TTL has elapsed", async () => {
+  it("holds the fresh window, then refreshes once past it", async () => {
     const time = clock();
     const read = vi.fn(async () => rows("current"));
 
@@ -128,21 +129,97 @@ describe("readSiteContentRecordsCached", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
-  it("does not serve a cached entry after a later failure evicts nothing", async () => {
+  // The point of the stale window: past the fresh TTL the reader is served immediately and the
+  // refresh happens behind them. Nobody waits for the query, which is the whole regression.
+  it("serves a stale entry at once and refreshes behind the reader", async () => {
+    const time = clock();
+    const gate = deferred<SiteContentRecordRows>();
+    const read = vi
+      .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
+      .mockResolvedValueOnce(rows("current", 1))
+      .mockImplementationOnce(() => gate.promise);
+
+    const first = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    time.advance(siteContentRecordCacheTtlMs + 1);
+
+    // Resolves while the refresh is still in flight, and returns the previous rows.
+    const second = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    expect(second.age).toBe("stale");
+    expect(second.rows).toEqual(first.rows);
+    expect(read).toHaveBeenCalledTimes(2);
+
+    gate.resolve(rows("current", 2));
+    await gate.promise;
+    const third = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    expect(third.age).toBe("fresh");
+    expect(third.rows).toHaveLength(2);
+  });
+
+  // Rule 2, second half. A failed BACKGROUND refresh must not evict: the last known-good
+  // canonical rows are a better answer than the seed catalogue, and the ceiling still bounds it.
+  it("keeps serving the last good rows when a background refresh fails", async () => {
     const time = clock();
     const read = vi
       .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
       .mockResolvedValueOnce(rows("current"))
-      .mockRejectedValueOnce(new Error("boom"));
+      .mockRejectedValue(new Error("boom"));
 
     await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
     time.advance(siteContentRecordCacheTtlMs + 1);
 
-    // The stale entry is dropped on expiry, so the failing refresh surfaces rather than
-    // silently serving content that is no longer known to be current.
+    const served = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    expect(served.age).toBe("stale");
+    expect(served.rows).toEqual(rows("current"));
+  });
+
+  // Rule 2, first half, and the ceiling that stops "stale" becoming "indefinite".
+  it("stops serving past the stale ceiling and surfaces the failure instead", async () => {
+    const time = clock();
+    const read = vi
+      .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
+      .mockResolvedValueOnce(rows("current"))
+      .mockRejectedValue(new Error("boom"));
+
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    time.advance(siteContentRecordCacheStaleMs);
+
     await expect(readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now })).rejects.toThrow(
       /boom/,
     );
+  });
+
+  it("does not let a reader who joins a background refresh cancel it", async () => {
+    const time = clock();
+    const gate = deferred<SiteContentRecordRows>();
+    let refreshSignal: AbortSignal | undefined;
+    const read = vi
+      .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
+      .mockResolvedValueOnce(rows("current"))
+      .mockImplementationOnce((signal) => {
+        refreshSignal = signal;
+        return gate.promise;
+      });
+
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+    time.advance(siteContentRecordCacheStaleMs - 1);
+    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+    // Past the ceiling this caller must block, so it joins the refresh already running.
+    time.advance(2);
+    const caller = new AbortController();
+    const blocked = readSiteContentRecordsCached({
+      kind: "form",
+      slug: null,
+      signal: caller.signal,
+      read,
+      now: time.now,
+    });
+    caller.abort();
+    await expect(blocked).rejects.toThrow();
+
+    expect(refreshSignal?.aborted).toBe(false);
+    gate.resolve(rows("current", 3));
+    await expect(gate.promise).resolves.toHaveLength(3);
   });
 
   it("keeps the retained set bounded and evicts the oldest key first", async () => {
@@ -164,17 +241,22 @@ describe("readSiteContentRecordsCached", () => {
     expect(read).toHaveBeenCalledTimes(keys + 1);
   });
 
-  it("prunes an expired key on the next store without disturbing the fresh one", async () => {
+  it("prunes a key past its stale ceiling on the next store, leaving the fresh one alone", async () => {
     const time = clock();
     const read = vi.fn(async () => rows("current"));
 
-    await readSiteContentRecordsCached({ kind: "form", slug: "stale", read, now: time.now });
-    time.advance(siteContentRecordCacheTtlMs + 1);
+    await readSiteContentRecordsCached({ kind: "form", slug: "abandoned", read, now: time.now });
+    time.advance(siteContentRecordCacheStaleMs);
+    // Storing this key runs the prune, which must drop the abandoned one and keep this one.
     await readSiteContentRecordsCached({ kind: "service", slug: null, read, now: time.now });
 
-    // Pruning the expired key must not evict or invalidate the entry just stored beside it.
     await readSiteContentRecordsCached({ kind: "service", slug: null, read, now: time.now });
     expect(read).toHaveBeenCalledTimes(2);
+
+    // The abandoned key is gone rather than merely stale, so it blocks on a real read.
+    const revisited = await readSiteContentRecordsCached({ kind: "form", slug: "abandoned", read, now: time.now });
+    expect(revisited.age).toBe("miss");
+    expect(read).toHaveBeenCalledTimes(3);
   });
 
   it("shares one flight between concurrent callers for the same key", async () => {
@@ -189,7 +271,7 @@ describe("readSiteContentRecordsCached", () => {
     const [first, second] = await Promise.all([a, b]);
     expect(read).toHaveBeenCalledTimes(1);
     expect(first.rows).toEqual(second.rows);
-    expect(second.hit).toBe(true);
+    expect(second.age).toBe("miss");
   });
 
   it("keeps the shared query running when one of several waiters aborts", async () => {
@@ -262,7 +344,7 @@ describe("readSiteContentRecordsCached", () => {
 
     const healthy = readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
     second.resolve(rows("current"));
-    await expect(healthy).resolves.toMatchObject({ hit: false });
+    await expect(healthy).resolves.toMatchObject({ age: "miss" });
     expect(read).toHaveBeenCalledTimes(2);
   });
 

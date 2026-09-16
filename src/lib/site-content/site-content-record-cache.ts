@@ -1,32 +1,58 @@
 /**
  * Short-lived process cache for the canonical site-content catalogue read.
  *
- * WHY THIS EXISTS: `read_site_content_public_records(kind, slug)` is on the search request
- * path. `src/lib/universal-search.ts` calls it once per registry domain per search with no
- * reuse between calls, so a single federated search issues three separate PostgREST round
- * trips (medications, services, forms) for a catalogue that changes only when an operator
- * publishes. Typeahead multiplies that again across a debounced keystroke sequence.
+ * WHY THIS EXISTS. Until 2026-09-09 the registry domains of universal search read their
+ * catalogue through `owner-catalogue-cache` (5 s TTL, single flight, LRU) and asked Postgres for
+ * roughly twenty named ranking columns, and only for a signed-in owner. Commit b753ed2b1
+ * replaced all of that with `read_site_content_public_records`, which is the right source of
+ * truth but arrived with no cache, the full `record` and `render_payload` JSON per row, and
+ * every caller rather than owners alone. `src/lib/universal-search.ts` calls it once per registry
+ * domain per search, so one federated search became three uncached round trips for a catalogue
+ * that changes only when an operator publishes, and a debounced typeahead multiplied that again.
+ * Search went from effectively instant to visibly slow across every catalogue mode at once.
+ *
+ * This restores the cache half. The wide payload is a property of the SQL function and cannot be
+ * narrowed from here without a migration, which reaches the live clinical database on merge.
  *
  * The rows are a pure function of (kind, slug) plus the control plane's served state, and the
  * function is the PUBLIC projection, so nothing here is owner-scoped or per-request and one
  * process-wide cache is safe. That is not incidental: never widen this to a read that takes an
  * owner, a session or any caller identity.
  *
+ * HOW STALENESS IS BOUNDED. A plain TTL still makes one unlucky reader per window wait for the
+ * whole query, which is the symptom this exists to remove. So a cached entry has two ages:
+ *
+ *   * Within `siteContentRecordCacheTtlMs` it is fresh and served as is.
+ *   * Between that and `siteContentRecordCacheStaleMs` it is served IMMEDIATELY and a refresh
+ *     runs in the background. Nobody waits, and under any continued use the served catalogue is
+ *     never more than the fresh window plus one query behind the database.
+ *   * Beyond `siteContentRecordCacheStaleMs` it is discarded and the caller waits for a real
+ *     read, so an idle process cannot serve something genuinely old.
+ *
  * CONSERVATIVE BY CONSTRUCTION. Three rules keep a cache from prolonging a degraded or
  * mid-publication state, which on clinical content matters more than the latency it buys:
  *
  *   1. Only a `current` snapshot is stored. `updating` (a publication is outstanding) and
  *      `unavailable` (no valid release) are re-read every time, so a degraded catalogue is
- *      re-checked on each request rather than pinned for the whole TTL.
- *   2. Failures are never stored and never served. There is no stale-while-error path: an
- *      error reaches the caller, which already falls back to the in-bundle seed catalogue.
- *   3. The TTL is a ceiling on how long a freshly published record can stay invisible to
- *      search. Keep it short enough that an operator publishing a change does not think the
- *      publication failed, which is what `siteContentRecordCacheTtlMs` is sized against.
+ *      re-checked on each request rather than pinned for the whole window.
+ *   2. A failed blocking read is never stored and never served. The caller's existing fallback
+ *      to the in-bundle seed catalogue stays reachable. A failed BACKGROUND refresh is
+ *      different and deliberately does not evict: the last known-good canonical rows keep
+ *      serving until their stale ceiling, because they are a better answer than seeds and the
+ *      ceiling still bounds how long that can last.
+ *   3. The windows are a ceiling on how long a freshly published record can stay invisible to
+ *      search. Keep them short enough that an operator publishing a change does not think the
+ *      publication failed.
  */
 
-/** Ceiling on how long a published catalogue change can stay invisible to search. */
+/** How long a cached catalogue is served without any refresh at all. */
 export const siteContentRecordCacheTtlMs = 15_000;
+
+/**
+ * How long a cached catalogue may still be served while a refresh runs behind it. Past this it
+ * is discarded rather than served, so an idle container cannot answer from something old.
+ */
+export const siteContentRecordCacheStaleMs = 10 * 60_000;
 
 /**
  * Hard cap on retained keys. Search caches five list reads at most (one per kind), so this is
@@ -38,13 +64,18 @@ export const siteContentRecordCacheMaxEntries = 32;
 
 export type SiteContentRecordRows = Array<Record<string, unknown>>;
 
-type CacheEntry = { rows: SiteContentRecordRows; expiresAt: number };
+/** Which of the three ages answered this call. Reported for tests and telemetry, not policy. */
+export type SiteContentRecordCacheAge = "fresh" | "stale" | "miss";
+
+type CacheEntry = { rows: SiteContentRecordRows; storedAt: number };
 
 type Inflight = {
   promise: Promise<SiteContentRecordRows>;
   controller: AbortController;
   waiters: number;
   settled: boolean;
+  /** A background refresh has no waiters by design, so last-waiter cancellation must skip it. */
+  background: boolean;
 };
 
 const entries = new Map<string, CacheEntry>();
@@ -66,15 +97,17 @@ function rowsAreCacheable(rows: SiteContentRecordRows) {
 }
 
 /**
- * Retain `rows` under `key`, dropping anything already expired and then, if the cap is still
- * exceeded, the least recently stored key. `Map` iterates in insertion order and every store
- * re-inserts, so the first key is the oldest.
+ * Retain `rows` under `key`, dropping anything past its stale ceiling and then, if the cap is
+ * still exceeded, the least recently stored key. `Map` iterates in insertion order and every
+ * store re-inserts, so the first key is the oldest.
  */
 function retain(key: string, rows: SiteContentRecordRows, now: () => number) {
   const at = now();
-  for (const [candidate, entry] of entries) if (entry.expiresAt <= at) entries.delete(candidate);
+  for (const [candidate, entry] of entries) {
+    if (at - entry.storedAt >= siteContentRecordCacheStaleMs) entries.delete(candidate);
+  }
   entries.delete(key);
-  entries.set(key, { rows, expiresAt: at + siteContentRecordCacheTtlMs });
+  entries.set(key, { rows, storedAt: at });
   while (entries.size > siteContentRecordCacheMaxEntries) {
     const oldest = entries.keys().next();
     if (oldest.done) break;
@@ -109,63 +142,89 @@ function awaitWithCallerSignal<T>(promise: Promise<T>, signal: AbortSignal | und
   });
 }
 
+type Read = (signal?: AbortSignal) => Promise<SiteContentRecordRows>;
+
 /**
- * Serve `kind`/`slug` from cache when a `current` snapshot is still fresh, otherwise run
- * `read` once and share that single flight with every concurrent caller for the same key.
+ * Start a read for `key`, or return the one already running. A background refresh and a
+ * blocking read share the same flight, so a reader arriving mid-refresh waits for that refresh
+ * rather than starting a second identical query.
+ */
+function startFlight(key: string, read: Read, now: () => number, background: boolean): Inflight {
+  const existing = inflight.get(key);
+  // Never join a flight whose last waiter already cancelled it. Otherwise join it as it is:
+  // a blocking flight stays cancellable by its last waiter, and a background refresh stays
+  // exempt, so a reader who joins a refresh and then walks away cannot cancel it.
+  if (existing && !existing.controller.signal.aborted) return existing;
+  if (existing && inflight.get(key) === existing) inflight.delete(key);
+
+  const controller = new AbortController();
+  const created: Inflight = {
+    promise: Promise.resolve([]),
+    controller,
+    waiters: 0,
+    settled: false,
+    background,
+  };
+  created.promise = (async () => {
+    const rows = await read(controller.signal);
+    // Rule 1 and rule 2: only a healthy, readable, `current` snapshot is retained, and a
+    // rejection propagates without ever reaching this line.
+    if (rowsAreCacheable(rows)) retain(key, rows, now);
+    return rows;
+  })().finally(() => {
+    created.settled = true;
+    if (inflight.get(key) === created) inflight.delete(key);
+  });
+  inflight.set(key, created);
+  return created;
+}
+
+/**
+ * Serve `kind`/`slug` from cache where possible, refreshing behind the reader when the entry is
+ * merely stale, and otherwise running `read` once and sharing that flight with every concurrent
+ * caller for the same key.
  *
  * Sharing the flight matters on a cold cache: without it the first search of a session still
  * issues one query per domain, and a burst of users on a cold container stampedes the same
- * expensive read. The shared query is cancelled only when its LAST waiter aborts, so one
+ * expensive read. A blocking flight is cancelled only when its LAST waiter aborts, so one
  * abandoned typeahead request cannot cancel the query another caller is still waiting on.
  */
 export async function readSiteContentRecordsCached(input: {
   kind: string;
   slug: string | null;
   signal?: AbortSignal;
-  read: (signal?: AbortSignal) => Promise<SiteContentRecordRows>;
+  read: Read;
   now?: () => number;
-}): Promise<{ rows: SiteContentRecordRows; hit: boolean }> {
+}): Promise<{ rows: SiteContentRecordRows; age: SiteContentRecordCacheAge }> {
   const now = input.now ?? Date.now;
   const key = cacheKey(input.kind, input.slug);
 
   const cached = entries.get(key);
-  if (cached && cached.expiresAt > now()) {
-    input.signal?.throwIfAborted();
-    return { rows: cached.rows, hit: true };
-  }
-  if (cached) entries.delete(key);
-
-  let entry = inflight.get(key);
-  // Never join a flight whose last waiter already cancelled it.
-  if (entry?.controller.signal.aborted) {
-    if (inflight.get(key) === entry) inflight.delete(key);
-    entry = undefined;
-  }
-  const hit = Boolean(entry);
-  if (!entry) {
-    const controller = new AbortController();
-    const created: Inflight = { promise: Promise.resolve([]), controller, waiters: 0, settled: false };
-    created.promise = (async () => {
-      const rows = await input.read(controller.signal);
-      // Rule 1 and rule 2: only a healthy, readable, `current` snapshot is retained, and a
-      // rejection propagates without ever reaching this line.
-      if (rowsAreCacheable(rows)) retain(key, rows, now);
-      return rows;
-    })().finally(() => {
-      created.settled = true;
-      if (inflight.get(key) === created) inflight.delete(key);
-    });
-    inflight.set(key, created);
-    entry = created;
+  if (cached) {
+    const age = now() - cached.storedAt;
+    if (age < siteContentRecordCacheTtlMs) {
+      input.signal?.throwIfAborted();
+      return { rows: cached.rows, age: "fresh" };
+    }
+    if (age < siteContentRecordCacheStaleMs) {
+      input.signal?.throwIfAborted();
+      // Refresh behind the reader. A failure here deliberately leaves the entry in place: see
+      // rule 2. The rejection is consumed so it cannot surface as an unhandled rejection.
+      void startFlight(key, input.read, now, true).promise.catch(() => {});
+      return { rows: cached.rows, age: "stale" };
+    }
+    entries.delete(key);
   }
 
+  const entry = startFlight(key, input.read, now, false);
   entry.waiters += 1;
   try {
-    return { rows: await awaitWithCallerSignal(entry.promise, input.signal), hit };
+    return { rows: await awaitWithCallerSignal(entry.promise, input.signal), age: "miss" };
   } finally {
     entry.waiters -= 1;
-    // Drop the entry before aborting so a fresh caller cannot join a dying flight.
-    if (entry.waiters === 0 && !entry.settled) {
+    // Drop the entry before aborting so a fresh caller cannot join a dying flight. A background
+    // refresh is exempt: it has no waiters by design and must be allowed to finish.
+    if (entry.waiters === 0 && !entry.settled && !entry.background) {
       if (inflight.get(key) === entry) inflight.delete(key);
       entry.controller.abort();
     }
