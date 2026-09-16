@@ -1149,7 +1149,7 @@ def _dense_length(value):
     return len(re.sub(r"\s+", "", value or ""))
 
 
-def table_aware_page_text(page, grid_candidates):
+def table_aware_page_text(page, grid_candidates, raw_text=None):
     """Assemble page text with detected table grids rendered cell by cell.
 
     `page.get_text("text", sort=True)` orders text LINES by (y, x). When a table
@@ -1164,7 +1164,7 @@ def table_aware_page_text(page, grid_candidates):
     computed for table candidates, so table regions are replaced by that grid
     rendering while surrounding prose keeps its normal reading order.
     """
-    raw = page.get_text("text", sort=True) or ""
+    raw = raw_text if raw_text is not None else (page.get_text("text", sort=True) or "")
     usable = [
         candidate
         for candidate in grid_candidates or []
@@ -1225,7 +1225,17 @@ def extract(pdf_path, output_dir, budget=None):
         # the table-aware text assembly and the table-candidate pass below, so
         # find_tables() runs once per page rather than twice.
         grid_table_candidates = likely_table_candidates(page)
-        text = table_aware_page_text(page, grid_table_candidates)
+        # The OCR-density decision stays on the RAW embedded text. should_ocr_page
+        # has hard character thresholds (40, and 220 on image-dominant pages), so
+        # feeding it table-aware text would let markdown syntax -- pipes and the
+        # separator row -- move a page across a threshold and change whether a
+        # scanned page is OCR'd at all. That is an unrelated side effect of a
+        # chunking fix, in either direction: measured on synthetic image-dominant
+        # grids the rebuilt text is SHORTER and triggers needless OCR, and on
+        # wider grids it can be longer and skip OCR that the page needs. Raw text
+        # in, table-aware text out.
+        raw_page_text = page.get_text("text", sort=True) or ""
+        text = table_aware_page_text(page, grid_table_candidates, raw_text=raw_page_text)
         ocr_used = False
         needs_ocr = False
         image_coverage = page_image_coverage_ratio(page)
@@ -1234,7 +1244,7 @@ def extract(pdf_path, output_dir, budget=None):
         # 40-char floor. Image-dominant pages with low text density (e.g. a dose table
         # rendered as an image with a short caption) are OCR'd and merged with the existing
         # text layer so caption + table contents are both retained.
-        if should_ocr_page(text, page):
+        if should_ocr_page(raw_page_text, page):
             ocr_text, ocr_warning = maybe_ocr_page(page, budget)
             if ocr_warning:
                 warnings.append(ocr_warning)

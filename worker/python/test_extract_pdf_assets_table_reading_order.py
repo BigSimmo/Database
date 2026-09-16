@@ -187,5 +187,79 @@ class TableReadingOrderTests(unittest.TestCase):
             self.assertEqual(extractor.table_aware_page_text(page, heuristic), raw)
 
 
+class OcrDecisionIndependenceTests(unittest.TestCase):
+    """The table-aware rewrite must not change whether a page is OCR'd.
+
+    Raised as P1 in review of PR #2810. `should_ocr_page` carries hard character
+    thresholds (40 always, and 220 on image-dominant pages), so passing it the
+    rebuilt text lets markdown syntax move a page across a threshold. The review
+    predicted a page SKIPPING needed OCR; measured on synthetic image-dominant
+    grids the rebuilt text is shorter and the error runs the other way, causing
+    needless OCR. Both directions are the same defect: an OCR decision changed by
+    a chunking fix. The decision is therefore taken on raw embedded text.
+    """
+
+    def build_image_dominant_grid(self, path, columns=2, rows=3, cell="Repeat FBC weekly"):
+        document = fitz.open()
+        page = document.new_page(width=560, height=400)
+        pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 560, 215))
+        pixmap.clear_with(200)
+        page.insert_image(fitz.Rect(0, 0, 560, 215), pixmap=pixmap)
+
+        xs = [20 + index * (520 // columns) for index in range(columns + 1)]
+        ys = [240 + index * 18 for index in range(rows + 1)]
+        for row in range(rows):
+            for column in range(columns):
+                page.insert_text(fitz.Point(xs[column] + 3, ys[row] + 11), cell, fontsize=7)
+        for y in ys:
+            page.draw_line(fitz.Point(xs[0], y), fitz.Point(xs[-1], y), width=0.7)
+        for x in xs:
+            page.draw_line(fitz.Point(x, ys[0]), fitz.Point(x, ys[-1]), width=0.7)
+        document.save(path)
+        document.close()
+
+    def test_raw_and_rebuilt_text_disagree_on_this_page(self):
+        """Guard the guard: if this stops disagreeing the next test proves nothing."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "image-dominant-grid.pdf")
+            self.build_image_dominant_grid(path)
+            with fitz.open(path) as document:
+                page = document[0]
+                raw = page.get_text("text", sort=True) or ""
+                rebuilt = extractor.table_aware_page_text(page, extractor.likely_table_candidates(page))
+                self.assertGreaterEqual(extractor.page_image_coverage_ratio(page), 0.45)
+                self.assertNotEqual(
+                    extractor.should_ocr_page(raw, page),
+                    extractor.should_ocr_page(rebuilt, page),
+                    "fixture no longer exercises the threshold crossing",
+                )
+
+    def test_extract_takes_the_ocr_decision_from_raw_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "image-dominant-grid.pdf")
+            self.build_image_dominant_grid(path)
+            with fitz.open(path) as document:
+                page = document[0]
+                raw = page.get_text("text", sort=True) or ""
+                expected = extractor.should_ocr_page(raw, page)
+
+            output = os.path.join(directory, "out")
+            os.makedirs(output, exist_ok=True)
+            result = extractor.extract(path, output)
+            first = result["pages"][0]
+            attempted = bool(first["ocrUsed"]) or bool(first["needsOcr"])
+            self.assertEqual(
+                attempted,
+                expected,
+                "OCR decision must follow the raw embedded text, not the table-aware rewrite",
+            )
+
+    def test_raw_text_argument_is_honoured(self):
+        with fitz.open() as document:
+            page = document.new_page(width=400, height=400)
+            page.insert_text(fitz.Point(40, 60), "Prose only.", fontsize=11)
+            self.assertEqual(extractor.table_aware_page_text(page, [], raw_text="SUPPLIED"), "SUPPLIED")
+
+
 if __name__ == "__main__":
     unittest.main()
