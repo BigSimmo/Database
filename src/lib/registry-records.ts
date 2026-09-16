@@ -194,9 +194,10 @@ export function deriveRegistrySourceFreshness(
 function outdatedCleared(row: RegistryRecordRow, referenceDate: Date): boolean {
   const reviewedAt = lastReviewEvidence(row);
   if (!reviewedAt) return false;
-  // Defence in depth, not the load-bearing guard: the caller already refuses to promote a
-  // derivation of "unknown", which is what an implausible date derives to. Kept so the
-  // predicate answers its own question honestly if a future caller reads it alone.
+  // Same bound deriveRegistrySourceFreshness applies, shared rather than restated so the
+  // two cannot drift apart again. Defence in depth rather than the load-bearing guard: the
+  // caller already refuses to promote a derivation of "unknown", which is what an
+  // implausible date derives to.
   if (!plausibleReviewDate(reviewedAt, referenceDate)) return false;
   if (reviewedAt.getTime() >= referenceDate.getTime()) return true;
   return governanceDate(row.review_due_at) !== null;
