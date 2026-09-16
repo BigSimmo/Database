@@ -73,6 +73,7 @@ repository gate. The generated inventories remain governed by their own contract
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
+- [dictionary-editorial-drafts.md](dictionary-editorial-drafts.md) — the unpublished Dictionary draft layer: sense-first abbreviation drafts, hash-reconciled definition reviews, per-source acquisition outcomes, and what a register candidate is and is not
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
