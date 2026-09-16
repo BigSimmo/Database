@@ -24,7 +24,7 @@ import {
   heldDictionarySources,
   SOURCE_RECEIPT_STAGES,
 } from "@/lib/dictionary-editorial/source-dispositions";
-import { dictionaryEntries } from "@/lib/dictionary-data";
+import { dictionaryEntries, dictionarySource, dictionarySources } from "@/lib/dictionary-data";
 import { sourceAcquisitionRecords } from "@/lib/sources/acquisition-ledger";
 import { sourceUsageHref } from "@/lib/sources/source-usage-presentation";
 
@@ -230,8 +230,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(6);
-    expect(heldDictionarySources()).toHaveLength(52);
+    expect(admitted).toHaveLength(8);
+    expect(heldDictionarySources()).toHaveLength(50);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -288,12 +288,16 @@ describe("source dispositions", () => {
   });
 
   it("preserves an existing dictionary source identity rather than rewriting it", () => {
+    // The one catalogue-identity conflict resolved on the facts rather than by
+    // minting a second id: the register row carries the guideline, the dictionary
+    // keeps its chapter citation, and `nice-delirium` still means one work.
     const conflict = dictionarySourceDispositions.find(
       (disposition) => disposition.catalogueIdentityOutcome === "conflict",
     );
     expect(conflict?.handoverSourceId).toBe("nice-delirium");
     expect(conflict?.existingDictionarySourceId).toBe("nice-delirium");
-    expect(conflict?.ledgerOutcome).toBe("held");
+    expect(dictionarySources.filter((source) => source.id === "nice-delirium")).toHaveLength(1);
+    expect(dictionarySource("nice-delirium")?.url).toContain("/chapter/context");
   });
 });
 
@@ -326,7 +330,7 @@ describe("source link routing", () => {
 describe("publisher re-reads", () => {
   it("records a dated finding for every source read in this session", () => {
     const read = dictionarySourceDispositions.filter((disposition) => disposition.publisherCheck.checkedOn);
-    expect(read.length).toBeGreaterThanOrEqual(15);
+    expect(read.length).toBeGreaterThanOrEqual(30);
     for (const disposition of read) {
       expect(disposition.publisherCheck.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(disposition.publisherCheck.finding.trim()).not.toBe("");
@@ -350,6 +354,36 @@ describe("publisher re-reads", () => {
       );
       expect(stale).toBe(false);
     }
+  });
+
+  it("keeps a review date out of the publication-date field", () => {
+    // Healthdirect, WA Health and the WHO stamp a review month on a page they
+    // maintain continuously. A review date is a different event from publication,
+    // so it is banked where it was found and never promoted into publicationDate.
+    const reviewDated = dictionarySourceDispositions.filter((disposition) => disposition.establishedReviewDate);
+    expect(reviewDated.length).toBeGreaterThanOrEqual(7);
+    for (const disposition of reviewDated) {
+      expect(disposition.ledgerOutcome).toBe("held");
+      expect(disposition.blockers[0]?.code).toBe("publisher_states_a_review_date_not_a_publication_date");
+      expect(disposition.ledgerRecordId).toBeNull();
+    }
+    const reviewStamps = new Set(reviewDated.map((disposition) => disposition.establishedReviewDate));
+    for (const record of sourceAcquisitionRecords) {
+      expect(reviewStamps.has(record.publicationDate ?? "")).toBe(false);
+    }
+  });
+
+  it("resolves nice-delirium as one work with two chapter locators", () => {
+    // Not a conflict: /chapter/context and /chapter/Recommendations are two
+    // chapters of NICE CG103. The register row points at the guideline; the
+    // dictionary keeps its chapter citation, which is the more precise locator.
+    const delirium = dictionarySourceDispositions.find(
+      (disposition) => disposition.handoverSourceId === "nice-delirium",
+    );
+    expect(delirium?.ledgerOutcome).toBe("admitted_as_candidate");
+    const record = sourceAcquisitionRecords.find((row) => row.id === "dictionary-nice-delirium-cg103");
+    expect(record?.canonicalUrl).toBe("https://www.nice.org.uk/guidance/cg103");
+    expect(record?.publicationDate).toBe("2010-07-28");
   });
 
   it("does not admit a source whose publisher is registered for catalogue identity only", () => {

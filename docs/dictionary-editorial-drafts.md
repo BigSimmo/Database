@@ -89,9 +89,9 @@ entries.
 
 ## Sources: registered is not ingested
 
-Six sources were admitted to `src/data/source-acquisitions.json` as **candidates**: the WHO AUDIT
-(2001) and ASSIST (2010) manuals, WA Health MP 0155/21, RANZCP PS #74 (ECT) and PS #116
-(consultation-liaison psychiatry), and NICE NG225. That is metadata and nothing else.
+Eight sources were admitted to `src/data/source-acquisitions.json` as **candidates**: the WHO AUDIT
+(2001) and ASSIST (2010) manuals, WA Health MP 0155/21, RANZCP PS #74, PS #116 and PPG #16, NICE
+NG225 and NICE CG103. That is metadata and nothing else.
 
 Eight receipt stages are tracked per source and only the first two have been attempted:
 
@@ -105,40 +105,57 @@ original documents needs a separate per-source rights, environment and cost appr
 
 ### Dates are recorded as the events they actually are
 
-Fifteen sources were read from their publishers' own pages on 2026-09-16. Each carries a
+Thirty sources were read from their publishers' own pages on 2026-09-16. Each carries a
 `publisherCheck` with the finding and the date checked.
 
 Publication, version-release, effective, updated and review dates are different events and none was
 substituted for another:
 
-- **MP 0155/21** — 2021-08-09, the policy's stated date of effect, which is how WA Health issues a
-  mandatory policy.
-- **PS #74 / PS #116** — month precision. RANZCP states a last-updated month and no publication day;
-  day precision would assert a day the College never gave.
+- **MP 0155/21** — 2021-08-09, the policy's stated date of effect.
+- **PS #74, PS #116, PPG #16** — month precision. RANZCP states a last-updated month and no
+  publication day; day precision would assert a day the College never gave.
 - **ASSIST 2010** — year precision. WHO gives 2010 and no day.
-- **NG225** — 2022-09-07. NICE returned HTTP 403 to a direct fetch, so the date came from NICE's own
-  site index; the record says so, and says to confirm it in a browser.
+- **NG225** — 2022-09-07; **CG103** — 2010-07-28. NICE returned HTTP 403 to direct fetches, so both
+  came from NICE's own site index; the records say so, and say to confirm in a browser.
 
-### Why the other 52 are held
+### `nice-delirium` was not a conflict
 
-The reads changed the _character_ of most holds rather than clearing them, which is the more useful
+The dictionary cites `.../cg103/chapter/context`; the handover proposed
+`.../cg103/chapter/Recommendations`. These are two chapters of one guideline, not two sources. The
+register row carries the guideline itself and the dictionary keeps its chapter URL, because pointing
+at the chapter that supports the claim is more precise than pointing at the guideline. No second id
+was minted.
+
+### The one structural blocker, now evidenced
+
+**Australia's most-used official clinical web sources publish a review date, not a publication
+date.** Healthdirect stamps `Last reviewed: <Month Year>`; WA Health's consent article stamps
+`Last reviewed: 22-05-2026`; the WA Chief Psychiatrist's forms, AMHP and PMP pages and the WHO mhGAP
+page carry no date at all because they are continuously maintained registers.
+
+`acquisitionLedgerIssues` requires a `publicationDate` for every non-rejected record. So thirteen
+governed WA, national and WHO sources cannot be registered — **not because their metadata is
+missing, but because the register cannot represent the shape of date these publishers give**. The
+review dates that were read are banked on each record in `establishedReviewDate` so the reading is
+not repeated.
+
+This was not fixed here. Relaxing the mandatory field is precisely the "weakened schema" the field
+policy forbids, and the honest alternative — a distinct state that requires a real review date
+instead — is a change to the clinical source register's contract, which is the owner's to make.
+
+### Why the other 50 are held
+
+The reads changed the character of most holds rather than clearing them, which is the more useful
 outcome: a source nobody had looked at is now a source with a named, specific obstacle.
 
-- **7 publish no date at all.** The WA Chief Psychiatrist's forms, AMHP and PMP pages, WA data
-  collections, and the WHO mhGAP evidence page are continuously updated registers. WA Health's
-  consent article carries `Last reviewed: 22-05-2026` and nothing else. These cannot be fixed by
-  looking harder — the ledger requires a publication date that the source does not have. Whether it
-  should represent undated live registers is an owner decision.
-- **1 is dated but blocked on governance.** The Australian Prescriber movement-disorders article is
-  now fully established (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014).
-  Its publisher is registered `catalogueIdentityOnly`, and the acquisition gate warns that changing
-  that alters retrieval selection. The date is banked for whenever the owner decides.
-- **2 publishers returned HTTP 403** to this session: RANZCP PPG #16 and the recovery framework.
-- **`nice-delirium` is one work with two section URLs and one id.** The existing dictionary identity
-  is kept and the handover URL recorded as an alternate locator. Rewriting the id to make duplicate
-  detection pass would split one source into two register entries.
-- **The remaining 42** are blocked on the authority register or `GOVERNED_SOURCE_HOSTS`. Both are
-  runtime-governance surfaces, so neither is widened as a side effect of a dictionary import.
+| Count | Obstacle                                                                                                                                                      | Whose call                                                  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 21    | Publisher absent from the source authority register (Mental Health Tribunal WA, Mental Health Commission WA, NSW ACI, NACCHO, AMHOCN, COPE, AADPA and others) | Owner — registering a publisher changes retrieval selection |
+| 19    | Host absent from `GOVERNED_SOURCE_HOSTS`, including `meteor.aihw.gov.au`                                                                                      | Owner — widening host policy is never a side effect         |
+| 13    | Publisher gives a review date or no date at all (see above)                                                                                                   | Owner — register contract                                   |
+| 4     | `aihw.gov.au` returned HTTP 403 to this session; publisher already registered and ledger-eligible, so the date is the only thing missing                      | Needs a browser read                                        |
+| 1     | Australian Prescriber is dated (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014) but registered `catalogueIdentityOnly`             | Owner — changing it alters retrieval selection              |
+| 2     | Not yet read: a WA Health PDF and a document on the archived `www1.health.gov.au`                                                                             | Needs a browser read                                        |
 
 `publisherCheck.checkedOn: null` means nobody has looked, which is a weaker statement than "the
 publisher states no date". The two lead to different next actions and are kept apart.

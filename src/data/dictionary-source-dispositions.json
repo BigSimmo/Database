@@ -4,8 +4,8 @@
   "previewedOn": "2026-09-16",
   "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry, not clinical approval and not deployed catalogue visibility. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
   "counts": {
-    "held": 52,
-    "admitted_as_candidate": 6
+    "held": 50,
+    "admitted_as_candidate": 8
   },
   "sources": [
     {
@@ -145,24 +145,9 @@
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -180,8 +165,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
       }
     },
     {
@@ -194,24 +179,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -229,8 +199,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
       }
     },
     {
@@ -243,19 +213,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
           "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -273,8 +233,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
       }
     },
     {
@@ -287,24 +247,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
           "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -322,8 +267,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
       }
     },
     {
@@ -336,19 +281,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -366,8 +301,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
       }
     },
     {
@@ -380,24 +315,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
+          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -415,8 +335,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
       }
     },
     {
@@ -723,24 +643,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -758,9 +663,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: February 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: February 2024"
     },
     {
       "handoverSourceId": "HEALTHDIRECT-CBT-2024",
@@ -772,24 +678,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -807,9 +698,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: October 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: October 2024"
     },
     {
       "handoverSourceId": "HEALTHDIRECT-DBT",
@@ -821,24 +713,9 @@
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -856,9 +733,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: July 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: July 2024"
     },
     {
       "handoverSourceId": "HEALTHDIRECT-PTSD",
@@ -870,24 +748,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -905,9 +768,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: February 2024' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: February 2024"
     },
     {
       "handoverSourceId": "METEOR-FOC-HISTORIC",
@@ -919,24 +783,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
           "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "blocker": "meteor.aihw.gov.au is not a governed source host. METEOR is AIHW's metadata registry and carries stable content identifiers, so this is a host-policy decision rather than a defect in the source.",
+          "nextAction": "Owner decision: whether meteor.aihw.gov.au belongs in GOVERNED_SOURCE_HOSTS, as a separate reviewed change. Widening host policy is not a side effect of a dictionary import."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -954,8 +803,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Not fetched 2026-09-16. The canonical URL is on meteor.aihw.gov.au, which is not in GOVERNED_SOURCE_HOSTS, so the URL would be rejected even with a date."
       }
     },
     {
@@ -1274,22 +1123,22 @@
     {
       "handoverSourceId": "RANZCP-RTMS-2024",
       "title": "Administration of repetitive transcranial magnetic stimulation (rTMS)",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-ranzcp-rtms-ppg16",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "The page could not be read, so no date or identifier was established. The sibling pages suggest it carries a 'Last updated' month in the same format.",
-          "nextAction": "Open the page in a browser and record the PPG #16 identifier and its last-updated month, then re-run the acquisition gate."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -1302,7 +1151,7 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Attempted 2026-09-16. RANZCP returned HTTP 403 to a direct fetch of this page from this session; the ECT and CLP pages on the same site did respond."
+        "finding": "Read 2026-09-16 via RANZCP's own site index; the guideline page returned HTTP 403 to a direct fetch. PPG #16, last updated May 2024."
       }
     },
     {
@@ -2218,205 +2067,9 @@
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
-        }
-      ],
-      "decisionOwner": "Source register owner",
-      "stages": {
-        "staged": "verified",
-        "catalogued": "blocked",
-        "bytesAcquired": "not_attempted",
-        "extractionChecked": "not_attempted",
-        "indexed": "not_attempted",
-        "retrievalVerified": "not_attempted",
-        "clinicallyApproved": "not_attempted",
-        "activated": "not_attempted"
-      },
-      "originalBytesSha256": null,
-      "documentId": null,
-      "jobId": null,
-      "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
-    },
-    {
-      "handoverSourceId": "healthdirect-mental-health",
-      "title": "Mental health conditions",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
-      "catalogueIdentityOutcome": "reuse",
-      "existingDictionarySourceId": "healthdirect-mental-health",
-      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
-      "blockers": [
-        {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
-        }
-      ],
-      "decisionOwner": "Source register owner",
-      "stages": {
-        "staged": "verified",
-        "catalogued": "blocked",
-        "bytesAcquired": "not_attempted",
-        "extractionChecked": "not_attempted",
-        "indexed": "not_attempted",
-        "retrievalVerified": "not_attempted",
-        "clinicallyApproved": "not_attempted",
-        "activated": "not_attempted"
-      },
-      "originalBytesSha256": null,
-      "documentId": null,
-      "jobId": null,
-      "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
-    },
-    {
-      "handoverSourceId": "healthdirect-psychosis",
-      "title": "Psychosis",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
-      "catalogueIdentityOutcome": "reuse",
-      "existingDictionarySourceId": "healthdirect-psychosis",
-      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
-      "blockers": [
-        {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
-        }
-      ],
-      "decisionOwner": "Source register owner",
-      "stages": {
-        "staged": "verified",
-        "catalogued": "blocked",
-        "bytesAcquired": "not_attempted",
-        "extractionChecked": "not_attempted",
-        "indexed": "not_attempted",
-        "retrievalVerified": "not_attempted",
-        "clinicallyApproved": "not_attempted",
-        "activated": "not_attempted"
-      },
-      "originalBytesSha256": null,
-      "documentId": null,
-      "jobId": null,
-      "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
-    },
-    {
-      "handoverSourceId": "healthdirect-psychotherapy",
-      "title": "Psychotherapy",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
-      "catalogueIdentityOutcome": "reuse",
-      "existingDictionarySourceId": "healthdirect-psychotherapy",
-      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
-      "blockers": [
-        {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "authority_identity_requires_native_reconciliation",
-          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
-          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
-        }
-      ],
-      "decisionOwner": "Source register owner",
-      "stages": {
-        "staged": "verified",
-        "catalogued": "blocked",
-        "bytesAcquired": "not_attempted",
-        "extractionChecked": "not_attempted",
-        "indexed": "not_attempted",
-        "retrievalVerified": "not_attempted",
-        "clinicallyApproved": "not_attempted",
-        "activated": "not_attempted"
-      },
-      "originalBytesSha256": null,
-      "documentId": null,
-      "jobId": null,
-      "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
-    },
-    {
-      "handoverSourceId": "nice-delirium",
-      "title": "Delirium: prevention, diagnosis and management",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
-      "catalogueIdentityOutcome": "conflict",
-      "existingDictionarySourceId": "nice-delirium",
-      "catalogueIdentityReason": "same_native_id_different_source_location_preserve_existing_identity_and_reconcile",
-      "blockers": [
-        {
-          "code": "same_work_two_section_urls_owner_must_pick_the_canonical_one",
-          "blocker": "One work, two section URLs, one id. Rewriting the id to make them look distinct would split a single source into two register entries.",
-          "nextAction": "Owner to confirm which URL is canonical for `nice-delirium` and record the other as an alternate locator. Do not mint a second id."
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -2435,7 +2088,146 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "The published dictionary already uses the id `nice-delirium` for the NICE delirium guidance at its own URL. The handover proposes the same id at a different section URL. The existing identity is kept; the handover URL is recorded as an alternate locator for the same work, not a second source."
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: November 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: November 2025"
+    },
+    {
+      "handoverSourceId": "healthdirect-mental-health",
+      "title": "Mental health conditions",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-mental-health",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_is_an_undated_hub_page",
+          "blocker": "An undated hub page has neither a publication nor a review date to record.",
+          "nextAction": "Cite the dated Healthdirect article pages this hub links to, rather than the hub itself."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. This Healthdirect hub page carries no date of any kind, unlike the article pages on the same site which stamp a review month."
+      }
+    },
+    {
+      "handoverSourceId": "healthdirect-psychosis",
+      "title": "Psychosis",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychosis",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: March 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: March 2025"
+    },
+    {
+      "handoverSourceId": "healthdirect-psychotherapy",
+      "title": "Psychotherapy",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychotherapy",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "publisher_states_a_review_date_not_a_publication_date",
+          "blocker": "The publisher maintains this page continuously and stamps it with a review date. The acquisition ledger requires a publicationDate for every non-rejected record, and a review date is a different event that must not be recorded as one.",
+          "nextAction": "Owner decision: whether the ledger should accept a continuously maintained page carrying a review date and a null publicationDate. The review date below is established and can be used the moment it does."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. Healthdirect states 'Last reviewed: November 2025' and gives no publication date."
+      },
+      "establishedReviewDate": "Last reviewed: November 2025"
+    },
+    {
+      "handoverSourceId": "nice-delirium",
+      "title": "Delirium: prevention, diagnosis and management",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-nice-delirium-cg103",
+      "catalogueIdentityOutcome": "conflict",
+      "existingDictionarySourceId": "nice-delirium",
+      "catalogueIdentityReason": "same_native_id_different_source_location_preserve_existing_identity_and_reconcile",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null,
+      "publisherCheck": {
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The apparent conflict is not one: the dictionary's /chapter/context URL and the handover's /chapter/Recommendations URL are two chapters of NICE CG103. Published 28 July 2010, updated 18 January 2023. The existing dictionary citation stays as it is, because pointing at the chapter that supports the claim is more precise than pointing at the guideline."
       }
     },
     {

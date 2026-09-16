@@ -17,8 +17,8 @@
       "retained_as_draft": 333,
       "verdict_recorded_no_change": 68,
       "proposal_recorded_not_applied": 28,
-      "held": 52,
-      "admitted_as_candidate": 6
+      "held": 50,
+      "admitted_as_candidate": 8
     },
     "fieldResolutions": {
       "preserved": 235,
@@ -36,23 +36,23 @@
   },
   "sourceStages": {
     "staged": 58,
-    "catalogued": 6,
+    "catalogued": 8,
     "bytesAcquired": 0,
     "extractionChecked": 0,
     "indexed": 0,
     "retrievalVerified": 0,
     "clinicallyApproved": 0,
     "activated": 0,
-    "note": "Six sources admitted to the acquisition ledger as candidates: two WHO instrument manuals, WA MP 0155/21, RANZCP PS #74 and PS #116, and NICE NG225. Metadata only \u2014 no bytes, no index entry, no deployed catalogue visibility."
+    "note": "Eight sources admitted to the acquisition ledger as candidates: WHO AUDIT and ASSIST, WA MP 0155/21, RANZCP PS #74, PS #116 and PPG #16, NICE NG225 and CG103. Metadata only."
   },
   "importPreview": {
     "ledgerPreviewed": "src/data/source-acquisitions.json",
     "counts": {
-      "insert": 6,
+      "insert": 8,
       "reuse": 0,
       "skip": 0,
       "conflict": 0,
-      "held": 52
+      "held": 50
     },
     "catalogueIdentity": {
       "reuse": 12,
@@ -71,7 +71,10 @@
     "proposalsApplied": 0
   },
   "defectsFoundAndFixed": [
-    "Token normalisation initially stripped punctuation, merging K10 with K10+ (two different Kessler instruments). Fixed to flatten case and spacing only; regression test pins it."
+    "Token normalisation initially stripped punctuation, merging K10 with K10+ (two different Kessler instruments). Fixed to flatten case and spacing only; regression test pins it.",
+    "The Australian Prescriber article was added to the ledger; the acquisition gate refused it because its publisher is registered catalogueIdentityOnly and registering it would alter retrieval selection. Withdrawn rather than registered.",
+    "Fifteen sources were initially reported as blocked on the authority register. Re-checked: their publishers (AIHW, Healthdirect) are registered and ledger-eligible, and the block came from the offline planner's conservative default rather than the real gate.",
+    "nice-delirium was recorded as an identity conflict. Resolved on the facts: two chapter URLs of one NICE guideline, not two sources."
   ],
   "protectedActionsNotTaken": [
     "No clinical approval or activation of any record",
@@ -84,46 +87,40 @@
   ],
   "outstandingApprovals": [
     {
-      "item": "Clinical sign-off of 333 sense drafts",
-      "owner": "Clinical reviewer (Josh or a delegate)",
+      "item": "Clinical sign-off of 333 sense drafts and 28 proposed definition rewrites",
+      "owner": "Clinical reviewer",
       "blocks": "publication",
       "whyNotDoneHere": "Signing off clinical content is not something this session can do or simulate."
-    },
-    {
-      "item": "Decision on 28 proposed definition rewrites",
-      "owner": "Clinical reviewer",
-      "blocks": "applying them to live entries",
-      "whyNotDoneHere": "All 28 are reconciled and ready. The decision is clinical."
     },
     {
       "item": "Source evidence for 1,675 unsourced statements, including all 292 warnings",
       "owner": "Clinical reviewer",
       "blocks": "relying on the prose",
-      "whyNotDoneHere": "Each statement needs its own source read and clinical judgement. It is a body of work, not a task."
+      "whyNotDoneHere": "Each statement needs its own source read and clinical judgement."
     },
     {
-      "item": "Ledger-eligible authority entry for Australian Prescriber",
+      "item": "Whether the register should accept a continuously maintained page carrying a review date and a null publication date",
       "owner": "Source register owner",
-      "blocks": "admitting a dated 2019 Australian Prescriber article",
-      "whyNotDoneHere": "The acquisition gate warns that registering it changes retrieval selection, which is protected."
+      "blocks": "13 governed WA, national and WHO sources",
+      "whyNotDoneHere": "Changes the clinical source register's contract. Review dates already read and banked."
     },
     {
-      "item": "Whether the ledger should represent undated live registers and review-dated pages",
+      "item": "Authority-register entries for 21 publishers (Mental Health Tribunal WA, Mental Health Commission WA, NSW ACI, NACCHO, AMHOCN, COPE, AADPA and others), plus a ledger-eligible entry for Australian Prescriber",
       "owner": "Source register owner",
-      "blocks": "7 WA and WHO sources that genuinely publish no date",
-      "whyNotDoneHere": "A schema decision, confirmed by reading each publisher page rather than assumed."
+      "blocks": "22 sources",
+      "whyNotDoneHere": "Registering a publisher changes retrieval selection, which is protected."
     },
     {
-      "item": "Canonical URL for nice-delirium",
+      "item": "Whether meteor.aihw.gov.au and 18 other hosts belong in GOVERNED_SOURCE_HOSTS",
       "owner": "Source register owner",
-      "blocks": "identity reconciliation",
-      "whyNotDoneHere": "One work with two section URLs. Picking one is an editorial call."
+      "blocks": "19 sources",
+      "whyNotDoneHere": "Widening host policy is never a side effect."
     },
     {
-      "item": "Direct read of RANZCP PPG #16 and the recovery framework title page",
+      "item": "Browser read of 4 AIHW pages, a WA Health PDF and the recovery framework",
       "owner": "Source register owner",
-      "blocks": "2 sources",
-      "whyNotDoneHere": "Both publishers returned HTTP 403 to this session."
+      "blocks": "6 sources",
+      "whyNotDoneHere": "Those publishers returned HTTP 403 to this session."
     },
     {
       "item": "Original-document acquisition and indexing",
@@ -132,15 +129,23 @@
       "whyNotDoneHere": "Needs per-source rights, environment and cost approval."
     }
   ],
-  "resumePoint": "Draft layer, reviews and source dispositions are committed and gated. Fifteen sources were re-read from their publishers on 2026-09-16 and four became admissible. What remains is clinical judgement and two owner decisions about the source register, neither of which this session can make.",
+  "resumePoint": "Thirty sources read from their publishers; eight admitted. What remains divides cleanly: clinical judgement on the drafts, three owner decisions about the source register (review-dated pages, 21 publishers, host policy), and six pages that need a browser. None is work this session can do without changing a protected surface.",
   "publisherReads": {
     "performedOn": "2026-09-16",
-    "sourcesRead": 15,
-    "newlyDatedAndAdmitted": 4,
-    "datedButBlockedOnGovernance": 1,
-    "publisherStatesNoDate": 7,
-    "publisherPageUnreadable": 2,
+    "sourcesRead": 30,
+    "newlyDatedAndAdmitted": 6,
+    "publisherGivesAReviewDateOnly": 8,
+    "publisherGivesNoDateAtAll": 5,
+    "publisherPageReturned403": 6,
+    "blockedOnHostPolicy": 3,
+    "blockedOnAuthorityRegister": 1,
     "notAttempted": 2,
-    "note": "Dates were read from the publishers' own pages. A review date, an update stamp and a publication date are recorded as the different events they are; none was substituted for another."
+    "note": "Dates read from publishers' own pages. Review, update, effective and publication dates recorded as the different events they are; none substituted for another."
+  },
+  "structuralBlocker": {
+    "finding": "Australia's most-used official clinical web sources publish a review date, not a publication date. Healthdirect stamps a review month; WA Health's consent article stamps a review day; the WA Chief Psychiatrist registers and the WHO mhGAP page carry no date at all.",
+    "effect": "acquisitionLedgerIssues requires publicationDate for every non-rejected record, so 13 governed WA, national and WHO sources cannot be registered even though their metadata was read successfully.",
+    "whyNotFixedHere": "Relaxing the mandatory field is the weakened schema the field policy forbids. The honest alternative, a distinct state requiring a real review date, changes the clinical source register's contract and is the owner's decision.",
+    "readingBanked": "establishedReviewDate on each affected record, so the reading is not repeated."
   }
 }

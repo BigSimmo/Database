@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "31a0eaec-c73c-4763-9c89-aa82101febc6",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Source register cannot hold a continuously maintained page: 13 governed sources blocked",
+    "detail": "Thirty dictionary-handover sources were read from their publishers on 2026-09-16. Australia's most-used official clinical web sources publish a review date, not a publication date: Healthdirect stamps 'Last reviewed: <Month Year>' on every article page, WA Health's consent article stamps 'Last reviewed: 22-05-2026', and the WA Chief Psychiatrist forms, AMHP and PMP pages, WA data collections and the WHO mhGAP page carry no date at all because they are continuously maintained registers. acquisitionLedgerIssues requires publicationDate for every non-rejected record, so 13 governed WA, national and WHO sources cannot be registered - not because their metadata is missing, but because the register cannot represent the shape of date these publishers give. Relaxing the mandatory field is the weakened schema docs forbid; the honest alternative is a distinct state that requires a real review date instead, which changes the register's contract. Review dates already read are banked in establishedReviewDate in src/data/dictionary-source-dispositions.json so the reading is not repeated.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTDP1RN34A7R5NYJK0XGZR"
+  }
+}

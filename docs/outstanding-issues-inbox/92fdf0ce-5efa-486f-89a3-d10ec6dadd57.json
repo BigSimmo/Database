@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "92fdf0ce-5efa-486f-89a3-d10ec6dadd57",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Authority register: 22 dictionary sources blocked on 21 unregistered publishers",
+    "detail": "Held sources from the 2026-09 dictionary handover whose publisher is absent from src/lib/source-authority-registry.ts include Mental Health Tribunal Western Australia, Mental Health Commission Western Australia, NSW Agency for Clinical Innovation, NACCHO, the Australian Mental Health Outcomes and Classification Network, Centre of Perinatal Excellence, Australasian ADHD Professionals Association, Health Support Services WA, Columbia Lighthouse Project and the 4AT developers. Separately, Australian Prescriber is registered with catalogueIdentityOnly true, so its fully dated movement-disorders article (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014) cannot enter the ledger either. Registering a publisher changes retrieval selection, so none was added. Per-source detail in src/data/dictionary-source-dispositions.json.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MTDP6Y5Z10S55KYEHDHBH5"
+  }
+}

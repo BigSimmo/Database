@@ -61,6 +61,12 @@ export type DictionarySourceDisposition = {
    * apart before anyone decides the source is unusable.
    */
   publisherCheck: { checkedOn: string | null; finding: string };
+  /**
+   * A review stamp read from the publisher, for a source the ledger cannot yet
+   * hold. Kept so the reading is not repeated when the register learns to
+   * represent a continuously maintained page.
+   */
+  establishedReviewDate?: string;
 };
 
 export const dictionarySourceDispositions: readonly DictionarySourceDisposition[] = (
