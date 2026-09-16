@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c6328d38-9be7-42b1-a125-c35b4cedfe5d",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "dfbbc8ca-e2d7-49cd-b7bf-e8b473c69fe0",
+    "reason": "Resolved later in the same branch, before reconciliation. supabase/drift-manifest.json's schema_sha256 was recomputed directly (commit 7144806e7) after establishing that no other manifest field could move: the schema.sql diff is two string literals, one in a function body and one in DML, and the only function whose text changed keeps its def_hash because the drift normaliser discards everything after the first '--'. tests/drift-detection.test.ts passes. The separate P1 about schema.sql not replaying at all remains open and is the real blocker."
+  }
+}
