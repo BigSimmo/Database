@@ -15,13 +15,21 @@ const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
 /**
  * The epoch-zero bootstrap release ids this build recognises.
  *
- * The id is derived from the release digest, which is derived from the frozen seed
- * population, so refreshing that population moves the identity. An applied migration
- * is not re-run, so a live database keeps the id it was created with while a freshly
- * replayed one carries the refreshed id. Both denote the same logical retained
- * bootstrap, and a deploy that recognised only one would leave the running site
- * failing to recognise its own bootstrap. Add the new id here whenever
- * `npm run bootstrap:refresh` changes it; never remove an id a live database may hold.
+ * The first entry is the identity the live database holds and the one the committed
+ * migrations carry. It is the only id a database should acquire from this repository.
+ *
+ * The second is the identity a regeneration of the frozen population produced on
+ * 2026-09-16 (PR #2814). The id is derived from the release digest, which is derived
+ * from the frozen seed population, so refreshing that population moves it — while an
+ * applied migration is never re-run, so no live database ever adopts the new value.
+ * The regeneration has since been reverted and pinned by
+ * `tests/site-content-epoch-zero-freeze.test.ts`, but any database replayed from the
+ * repository during the window it was on `main` (a preview branch, a scratch replay)
+ * carries it, and a build that failed to recognise its own bootstrap would report the
+ * site unavailable. So it stays.
+ *
+ * Never remove an id a database may hold, and never ADD one to make a regeneration
+ * pass: a new id here means an applied migration was rewritten, which is the defect.
  */
 const RETAINED_BOOTSTRAP_RELEASE_IDS: ReadonlySet<string> = new Set([
   "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",

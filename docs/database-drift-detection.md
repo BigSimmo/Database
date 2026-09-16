@@ -212,6 +212,32 @@ before calling a version unapplied; `npm run check:migration-history --
 pre-apply check. Do not use that flag in the post-merge gate — the pending
 versions are exactly what it exists to catch.
 
+## Applied-migration immutability (`npm run check:migration-immutability`)
+
+`supabase/applied-migration-hashes.json` records the sha256 of every migration this repository has
+shipped, newlines normalised. The guard fails when a sealed file's bytes change, when a sealed file
+disappears, and when a migration exists that has never been sealed. It runs inside the offline unit
+suite via `tests/migration-immutability.test.ts`, so it fails in review rather than after merge.
+
+**Why a separate gate was needed.** Migration replay proves the chain is internally consistent with
+itself, and `supabase/schema.sql` is regenerated from the same files, so an edit to an applied
+migration leaves both of them agreeing — with each other, and with nothing that exists. Only the
+post-merge live `check:drift` disagrees, and only for the objects that happen to embed the edited
+value. That is precisely how 2026-09-16 happened: three applied migrations were regenerated to
+absorb new catalogue records, every offline gate stayed green, and production kept definitions the
+repository had stopped describing. `tests/site-content-epoch-zero-freeze.test.ts` pins that specific
+identity; this guard covers every other migration.
+
+**A failure is not an instruction to reseal.** A migration that has landed on `main` has been
+applied, and the integration never re-runs a version it has seen, so editing the file cannot change
+the live database — it changes only what this repository claims about it. A live schema change
+belongs in a NEW migration.
+
+`npm run migrations:seal` rewrites the manifest and prints every already-shipped entry whose hash it
+changed, so the exception lands in front of a reviewer rather than passing silently. The one
+legitimate use is restoring a file to the bytes production actually holds, which is what introduced
+this guard.
+
 ## Guard-migration contract
 
 **Rule (also in `AGENTS.md`, "Supabase project safety"): any mark-applied

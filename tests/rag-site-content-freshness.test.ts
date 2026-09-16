@@ -15,7 +15,7 @@ const STATIC_DIGEST = "a".repeat(64);
 const DYNAMIC_DIGEST = "b".repeat(64);
 const RELEASE_DIGEST = "c".repeat(64);
 const RELEASE_ID = "11111111-1111-5111-8111-111111111111";
-const RETAINED_BOOTSTRAP_RELEASE_ID = "ddc94ecf-3527-5b4d-846b-af5724b428ca";
+const RETAINED_BOOTSTRAP_RELEASE_ID = "e4a1dd29-14f6-556c-8fb7-f4f947d8b846";
 const RETAINED_BOOTSTRAP_DIGEST = "57f6ec90225fc4341b446705f50a48b132f2872172d8f93888bf921fe7bfa1bc";
 
 const activeRelease: ActiveSiteContentRelease = {
