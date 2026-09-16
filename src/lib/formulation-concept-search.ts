@@ -58,6 +58,62 @@ function searchText(concept: FormulationConceptIndexEntry) {
 export type FormulationConceptResult = { concept: FormulationConceptIndexEntry; score: number };
 
 /**
+ * Tokens that must not score substring matches on their own.
+ *
+ * Natural-language prompts such as "What should I ask about housing?" otherwise
+ * award points for "a", "i", "about" and return the whole catalogue. Keep real
+ * clinical content words scorable; drop only glue words and single-character runs.
+ */
+const FORMULATION_CONCEPT_STOP_WORDS = new Set([
+  "a",
+  "about",
+  "all",
+  "an",
+  "and",
+  "are",
+  "ask",
+  "be",
+  "been",
+  "by",
+  "can",
+  "could",
+  "do",
+  "does",
+  "for",
+  "from",
+  "how",
+  "i",
+  "if",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "should",
+  "that",
+  "the",
+  "this",
+  "to",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "with",
+  "would",
+  "you",
+  "your",
+]);
+
+function contentQueryTokens(normalizedQuery: string) {
+  return normalizedQuery.split(" ").filter((token) => token.length > 1 && !FORMULATION_CONCEPT_STOP_WORDS.has(token));
+}
+
+/**
  * Deliberately a second, separate ranking rather than an extra branch inside
  * `searchFormulationMechanisms`: the mechanism weights are pinned by
  * `tests/formulation.test.ts`, and a contextual factor must never displace a
@@ -70,7 +126,7 @@ export function searchFormulationConcepts(
   const normalizedQuery = normalize(
     options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query,
   );
-  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const queryTokens = contentQueryTokens(normalizedQuery);
   const domainFacets = options.domains;
 
   return formulationConceptIndex

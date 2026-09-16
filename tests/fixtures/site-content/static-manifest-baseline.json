@@ -1,8 +1,8 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "2e396cedd16adca7d2e360e466789e51e3f9fe4b",
+  "gitSha": "a98cfc20ff57942bcf8289a0499f38689841c3b5",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-09-16T14:23:36.214Z",
+  "generatedAt": "2026-09-16T14:30:33.973Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
@@ -2848,6 +2848,72 @@
       "route": "/formulation/emotional-dysregulation",
       "contentHash": "90cb8f732fbd488d2482b3be9965043ff867f279e93e044036121529f8f533bb",
       "lineageDigest": "51fd40652b22af9cae75cdd2313c9a4ef24139298382d57e57b6a155194312ba",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-02",
+      "domain": "formulation",
+      "route": "/formulation/guide-02",
+      "contentHash": "253acf6491e9eb4e0627e50f75050e07e6f4ebf35a19bfd0f4c8cfb8a80596c4",
+      "lineageDigest": "941c8e93e4104efda8c19a25be8e830d146e5499ad2cec8f716502f8591b1f86",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-03",
+      "domain": "formulation",
+      "route": "/formulation/guide-03",
+      "contentHash": "8fd16de512d1b4fb6b178e3a6ee4f23e0df96482fb621c760a939c5e89559c70",
+      "lineageDigest": "e33c973f374cf12221dd7bc8634a771691e9d378ef8b83d64f1b33fc0ec8e573",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-04",
+      "domain": "formulation",
+      "route": "/formulation/guide-04",
+      "contentHash": "ff078e425ae2c6b44a07aa1359c1fc46d21b644578442b2043f2bc4bd268e47f",
+      "lineageDigest": "65fccfc99c58facc5d0cc7d04c7ae929d2e3e6c6f33d31ac1f052693d6f9f9cd",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-07",
+      "domain": "formulation",
+      "route": "/formulation/guide-07",
+      "contentHash": "8b14b7f6592e4d35450cddc8cade7b201335a22348daebbbc6386ac709b542dd",
+      "lineageDigest": "b3664a7566facb0053cd1f297ab930d3b1288409431a0ad5b9f3c5687075301a",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-08",
+      "domain": "formulation",
+      "route": "/formulation/guide-08",
+      "contentHash": "d8236255d2ac7c6a03a8c5e6d3eba543ed20d6923b101c0a1182ee35cc1e6a02",
+      "lineageDigest": "40681a16f993320f308316db450383a6809020246a7661e1d6f9de0394a67346",
+      "validationStatus": "unverified",
+      "sourceStatus": "review_due",
+      "eligible": false,
+      "exclusionReason": "validation_unverified"
+    },
+    {
+      "logicalId": "formulation:guide-09",
+      "domain": "formulation",
+      "route": "/formulation/guide-09",
+      "contentHash": "eb23881207ce694805ee31420ba564959b95202548d3087d8e832fae6dc66e61",
+      "lineageDigest": "2f147a58b5e200de7f35b03ee30f346b26535e3500862f2e8a5b1cb780bd84d0",
       "validationStatus": "unverified",
       "sourceStatus": "review_due",
       "eligible": false,
@@ -11841,5 +11907,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "464d6083aef7882c497a90fb458048ae19d053637cc12ed205df574623b0030d"
+  "staticManifestDigest": "a99f25199705bd96066ecb5d8a8e2ce698c48fd392275a8fe863865dbc875fb2"
 }

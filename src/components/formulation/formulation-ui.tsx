@@ -122,8 +122,15 @@ export function EvidenceList({ evidence, label = "Evidence" }: { evidence: Formu
   return (
     <div className="grid gap-3">
       {evidence.map((entry) => (
-        <article key={`${entry.sourceId}-${entry.label}`} className="grid gap-1">
+        <article
+          key={`${entry.sourceId}-${entry.label}`}
+          id={`evidence-${entry.label}`}
+          className="grid scroll-mt-24 gap-1"
+        >
           <p className="text-xs font-bold leading-5 text-[color:var(--text-heading)]">
+            <span className="mr-1.5 inline-flex min-w-8 justify-center rounded bg-[color:var(--surface-subtle)] px-1.5 py-0.5 font-extrabold text-[color:var(--clinical-accent)]">
+              {entry.label}
+            </span>
             {entry.url ? (
               <a
                 href={entry.url}

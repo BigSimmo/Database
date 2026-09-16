@@ -29,6 +29,7 @@ import {
   type FormulationConcept,
   type FormulationGuide,
   type FormulationGuideSpan,
+  publishedFormulationGuides,
 } from "@/lib/formulation-concepts";
 
 function Prose({ label, body }: { label: string; body: string | null }) {
@@ -51,7 +52,13 @@ function Spans({ spans }: { spans: FormulationGuideSpan[] }) {
           </strong>
         ) : span.citation ? (
           <sup key={index} className="ml-0.5 font-bold text-[color:var(--clinical-accent)]">
-            {span.citation}
+            <a
+              href={`#evidence-${span.citation}`}
+              className="text-[color:var(--clinical-accent)] hover:underline"
+              aria-label={`Jump to evidence ${span.citation}`}
+            >
+              {span.citation}
+            </a>
           </sup>
         ) : (
           <span key={index}>{span.text}</span>
@@ -240,6 +247,26 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                 </div>
               </section>
             ) : null}
+
+            <section className={cn(formulationCard, "overflow-hidden")} data-formulation-guide-nav>
+              <div className="border-b border-[color:var(--border)] px-4 py-3">
+                <p className={eyebrowText}>Guide modules</p>
+              </div>
+              <div className="divide-y divide-[color:var(--border)]">
+                {publishedFormulationGuides
+                  .filter((guide) => guide.id !== record.id)
+                  .map((guide) => (
+                    <Link
+                      key={guide.id}
+                      href={`/formulation/${guide.id}`}
+                      className="flex min-h-14 items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]"
+                    >
+                      {guide.title}
+                      <ArrowRight className="h-4 w-4 shrink-0" aria-hidden />
+                    </Link>
+                  ))}
+              </div>
+            </section>
 
             <section className={cn(formulationCard, "grid gap-2 p-4")}>
               <div className="flex items-center gap-2 text-[color:var(--text-muted)]">

@@ -9,6 +9,8 @@ import {
   formulationGuides,
   heldFormulationConcepts,
   publishedFormulationConcepts,
+  publishedFormulationGuides,
+  publishedFormulationRecord,
 } from "@/lib/formulation-concepts";
 import {
   formulationConceptIndex,
@@ -152,11 +154,16 @@ describe("formulation concept library", () => {
   it("keeps the client search index in step with the full records", () => {
     // The index exists so the search page does not download guide bodies,
     // evidence locators and review metadata. Drift between the two would show
-    // a card that no longer matches the record it opens.
-    expect(formulationConceptIndex).toHaveLength(publishedFormulationConcepts.length);
-    expect(formulationConceptIndexGroups).toEqual(formulationConceptGroups);
+    // a card that no longer matches the record it opens. Published guides share
+    // the same index so they are reachable from /formulation/search.
+    const published = [...publishedFormulationConcepts, ...publishedFormulationGuides];
+    expect(formulationConceptIndex).toHaveLength(published.length);
+    expect(formulationConceptIndexGroups.map((group) => group.id)).toEqual([
+      ...formulationConceptGroups.map((group) => group.id),
+      "guides",
+    ]);
     for (const entry of formulationConceptIndex) {
-      const full = findFormulationConcept(entry.id);
+      const full = publishedFormulationRecord(entry.id);
       expect(full).toBeTruthy();
       expect(full?.release).toBe("published");
       expect(entry.title).toBe(full?.title);
@@ -166,13 +173,30 @@ describe("formulation concept library", () => {
       expect(entry.domains).toEqual(full?.domains);
       expect(entry.searchTerms).toEqual(full?.searchTerms);
       // Nothing server-only may leak into the client index.
-      for (const field of ["evidence", "warnings", "review", "claimIds", "packageContentId"]) {
+      for (const field of ["evidence", "warnings", "review", "claimIds", "packageContentId", "blocks"]) {
         expect(entry).not.toHaveProperty(field);
       }
     }
     for (const held of heldFormulationConcepts) {
       expect(formulationConceptIndex.map((entry) => entry.id)).not.toContain(held.id);
     }
+  });
+
+  it("makes every published guide reachable from search and drops stop-word-only noise", () => {
+    for (const guide of publishedFormulationGuides) {
+      const hits = searchFormulationConcepts(guide.title);
+      expect(
+        hits.some((hit) => hit.concept.id === guide.id),
+        `${guide.id} missing from title search`,
+      ).toBe(true);
+    }
+    // "What should I ask about housing?" must surface housing, not all 45+ records
+    // from substring hits on a/i/about.
+    const housing = searchFormulationConcepts("What should I ask about housing?", {
+      interpretNaturalLanguage: true,
+    });
+    expect(housing[0]?.concept.id).toBe("housing-financial");
+    expect(housing.length).toBeLessThan(publishedFormulationConcepts.length);
   });
 
   it("keeps guide bodies as structured blocks rather than raw markdown", () => {

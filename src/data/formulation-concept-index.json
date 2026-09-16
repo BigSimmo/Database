@@ -30,6 +30,11 @@
       "id": "strengths-risk",
       "label": "Strengths, protection and risk",
       "description": "Strengths and protective judgement alongside dynamic risk state and scenario planning."
+    },
+    {
+      "id": "guides",
+      "label": "Guide modules",
+      "description": "Clinical formulation guide modules for assessment, documentation and risk linkage."
     }
   ],
   "concepts": [
@@ -219,7 +224,7 @@
       "kind": "Theory-linked construct",
       "group": "relational",
       "domains": ["Interpersonal", "Developmental"],
-      "summary": "Understanding one’s own and others’ behaviour in terms of mental states.",
+      "summary": "Understanding one\u2019s own and others\u2019 behaviour in terms of mental states.",
       "searchTerms": ["Mentalising / reflective functioning", "mentalising"]
     },
     {
@@ -372,7 +377,7 @@
       "kind": "Cultural context",
       "group": "cultural",
       "domains": ["Cultural"],
-      "summary": "The person’s understanding of distress, meaningful identities and acceptable ways of obtaining help.",
+      "summary": "The person\u2019s understanding of distress, meaningful identities and acceptable ways of obtaining help.",
       "searchTerms": ["Cultural explanatory model and identity", "cultural-explanatory-model"]
     },
     {
@@ -408,7 +413,7 @@
       "kind": "Risk formulation concept",
       "group": "strengths-risk",
       "domains": ["Risk"],
-      "summary": "Current safety-relevant change compared with the person’s own baseline.",
+      "summary": "Current safety-relevant change compared with the person\u2019s own baseline.",
       "searchTerms": ["Dynamic risk state and change from baseline", "risk-dynamic-state"]
     },
     {
@@ -437,6 +442,60 @@
       "domains": ["Social", "Behaviour"],
       "summary": "Capabilities, preferences, values, relationships and roles the person wants to use or preserve.",
       "searchTerms": ["Strengths, agency, values and recovery goals", "strengths-agency"]
+    },
+    {
+      "id": "guide-02",
+      "title": "Rapid clinical formulation guide",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "Explain this person\u2019s presentation now, using selected evidence and revisable hypotheses, then identify the implications for assessment and care.",
+      "searchTerms": ["Rapid clinical formulation guide", "formulation"]
+    },
+    {
+      "id": "guide-03",
+      "title": "Foundations, terminology and evidence limits",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "Foundations, terminology and evidence limits",
+      "searchTerms": ["Foundations, terminology and evidence limits", "formulation"]
+    },
+    {
+      "id": "guide-04",
+      "title": "Practical assessment-to-formulation workflow",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "The prompts below are an editorial checklist for reasoning.",
+      "searchTerms": ["Practical assessment-to-formulation workflow", "formulation"]
+    },
+    {
+      "id": "guide-07",
+      "title": "Medical, developmental, social and cultural considerations",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "This section supplies case-assessment prompts and documentation safeguards, not an exhaustive differential-diagnosis guideline.",
+      "searchTerms": ["Medical, developmental, social and cultural considerations", "formulation"]
+    },
+    {
+      "id": "guide-08",
+      "title": "Risk formulation and management linkage",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "NICE NG225 advises against using risk scales or global low/medium/high stratification to predict suicide or repeated self-harm, or to decide treatment access or discharge.",
+      "searchTerms": ["Risk formulation and management linkage", "formulation"]
+    },
+    {
+      "id": "guide-09",
+      "title": "Documentation templates and worked examples",
+      "kind": "clinical_guide_module",
+      "group": "guides",
+      "domains": [],
+      "summary": "Documentation templates and worked examples",
+      "searchTerms": ["Documentation templates and worked examples", "formulation"]
     }
   ]
 }
