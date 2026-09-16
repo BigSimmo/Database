@@ -301,16 +301,29 @@ export function detailTabCounts(record: DifferentialRecord): Record<Differential
   };
 }
 
-/** Ordered first moves for the Overview rail. Curated steps where a record has
- *  them, otherwise the record's own immediate actions. Capped because a rail
- *  block that runs past the fold stops being a summary. */
+/**
+ * Ordered first moves. Clinician-authored steps where a record has them,
+ * otherwise the record's own generated immediate actions.
+ *
+ * `generatedLimit` caps the GENERATED fallback only, which is unreviewed and
+ * often runs to a noisy list. An authored list is returned whole. That
+ * distinction was bought the hard way on 2026-09-16: the cap applied to both,
+ * seven of the ten authored records carry five steps, and in six of those the
+ * fifth is the escalation instruction — "escalate to intensive care", "involve
+ * the perinatal mental health service", "escalate for a seizure". The only
+ * surface rendering these steps was therefore dropping the escalation from
+ * every one of them. A reviewed clinical list is not the layout's to shorten;
+ * if it ever grows too long for a surface, that surface discloses the rest.
+ */
 export function resolveDoNowSteps(
   record: DifferentialRecord,
   curated: DifferentialCuratedEntry | null,
-  limit = 4,
+  generatedLimit = 4,
 ): string[] {
   const authored = curated?.doNow;
-  const source = authored?.length ? authored : record.immediateActions;
+  const isAuthored = Boolean(authored?.length);
+  const source = isAuthored ? authored! : record.immediateActions;
+  const limit = isAuthored ? Number.POSITIVE_INFINITY : generatedLimit;
   const seen = new Set<string>();
   const steps: string[] = [];
   for (const raw of source) {

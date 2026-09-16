@@ -38,6 +38,7 @@ import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import { DifferentialOverviewRail } from "@/components/differentials/differential-overview-rail";
 import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { idsCompareHref } from "@/components/compare";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { PageHeader } from "@/components/ui/page-header";
@@ -48,6 +49,7 @@ import {
   cleanDifferentialItem,
   curatedContentNote,
   curatedProvenanceLabel,
+  doNowStepsAreCurated,
   detailTabCounts,
   differentialSourceStatusLabel,
   differentialStatusLabel,
@@ -59,6 +61,7 @@ import {
   hasCuratedContent,
   isDetailTabId,
   isRedundantSafetySummary,
+  resolveDoNowSteps,
   resolveSafetyFacts,
   safetyFactCompactLabel,
   sectionBadgeLabel,
@@ -540,6 +543,47 @@ function ContentNote({ curated }: { curated: DifferentialCuratedEntry | null }) 
 }
 
 /**
+ * The authored "Do now" steps on a phone.
+ *
+ * `DifferentialOverviewRail` holds these on desktop and is `lg:block`, so until
+ * 2026-09-16 the reviewed steps had no phone surface at all: on call, the reader
+ * got the generated "Priority steps" accordion the overlay exists to replace.
+ * This is the same content at the same place in the reading order, in flow, and
+ * `lg:hidden` so exactly one of the two ever paints.
+ */
+function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: DifferentialCuratedEntry | null }) {
+  const steps = resolveDoNowSteps(record, curated);
+  if (steps.length === 0) return null;
+  const authored = doNowStepsAreCurated(curated);
+
+  return (
+    <section
+      data-testid="differential-do-now-phone"
+      aria-label="Do now"
+      className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 py-3 shadow-[var(--shadow-inset)] lg:hidden"
+    >
+      <h2 className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+        <Activity className="size-icon-sm shrink-0" aria-hidden />
+        Do now
+      </h2>
+      <ol className="mt-2 grid gap-2">
+        {steps.map((step, index) => (
+          <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+            <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
+              {index + 1}
+            </span>
+            <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">
+        {authored ? curatedProvenanceLabel : "From the source export — verify before use"}
+      </p>
+    </section>
+  );
+}
+
+/**
  * What stands in place of the clinical review when the generated body has been
  * withheld. An empty panel would read as a record with nothing in it, which is
  * a different and misleading claim, so the absence is stated and the reader is
@@ -845,29 +889,28 @@ function FooterStatus({
  * @param record - The diagnosis record whose content is copied.
  * @param saved - Whether the diagnosis is currently saved.
  * @param onToggleSaved - Called when the saved state is toggled.
- * @param onCompare - Called when comparison is requested.
+ * @param compareHref - Where the Compare control navigates.
  */
 function TopActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
 }) {
   return (
     <div className="hidden shrink-0 items-center gap-3 lg:flex">
-      <button
-        type="button"
-        onClick={onCompare}
+      <Link
+        href={compareHref}
         className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
-      </button>
+      </Link>
       <CopyAfterReviewButton text={formatDifferentialCopyText(record)} />
       <button
         type="button"
@@ -891,23 +934,24 @@ function MobilePrimaryActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
+  compareCount,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
+  compareCount: number;
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] lg:hidden">
-      <button
-        type="button"
-        onClick={onCompare}
+      <Link
+        href={compareHref}
         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
-        Compare ({record.related.length + 1})
-      </button>
+        Compare ({compareCount})
+      </Link>
       <CopyAfterReviewButton
         label="Copy"
         text={formatDifferentialCopyText(record)}
@@ -1009,21 +1053,23 @@ function DiagnosisActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
+  compareCount,
   onNavigate,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
+  compareCount: number;
   onNavigate: () => void;
 }) {
   return (
     <div className="grid gap-2">
-      <button type="button" onClick={onCompare} className={actionRowClass}>
+      <Link href={compareHref} onClick={onNavigate} className={actionRowClass}>
         <GitCompareArrows className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        Compare ({record.related.length + 1})
-      </button>
+        Compare ({compareCount})
+      </Link>
       <CopyAfterReviewButton
         label="Copy after review"
         text={formatDifferentialCopyText(record)}
@@ -1257,7 +1303,17 @@ export function DifferentialDetailPage({
     }
   }
 
-  const openCompareTab = () => changeTab("compare");
+  // One tap, and it says where it goes. "Compare (4)" on a primary button reads
+  // as "open the comparison"; it used to open a tab carrying its own button to
+  // actually open one. The ids are this diagnosis plus the related diagnoses
+  // that resolve to a reviewed page, which is also what the count must say — the
+  // record's full `related` list includes nodes with no page, and the queue drops
+  // them, so counting those promised rows that never arrive.
+  const compareIds = useMemo(
+    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])],
+    [detailContext.knownRelatedSlugs, record.slug],
+  );
+  const compareHref = idsCompareHref("/differentials/compare", compareIds);
 
   return (
     <main
@@ -1283,10 +1339,8 @@ export function DifferentialDetailPage({
               close();
               void toggleSaved();
             }}
-            onCompare={() => {
-              close();
-              openCompareTab();
-            }}
+            compareHref={compareHref}
+            compareCount={compareIds.length}
             onNavigate={close}
           />
         )}
@@ -1315,7 +1369,7 @@ export function DifferentialDetailPage({
               </span>
             </>
           }
-          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
+          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} compareHref={compareHref} />}
         />
 
         <DiagnosisDiscoveryActions sections={sections} onSelect={changeTab} />
@@ -1346,6 +1400,7 @@ export function DifferentialDetailPage({
                 <ContentNote curated={curated} />
                 <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} curated={curated} />
                 <ClinicalHinge record={record} />
+                <PhoneDoNow record={record} curated={curated} />
                 <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                   <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                     <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1416,7 +1471,13 @@ export function DifferentialDetailPage({
           ) : null}
         </div>
 
-        <MobilePrimaryActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
+        <MobilePrimaryActions
+          record={record}
+          saved={saved}
+          onToggleSaved={toggleSaved}
+          compareHref={compareHref}
+          compareCount={compareIds.length}
+        />
         <p className="rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)]">
           Clinical reference — not validated decision support. Review before use.
         </p>

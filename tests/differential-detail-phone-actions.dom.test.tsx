@@ -1,0 +1,122 @@
+import { render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: () => {} }),
+  usePathname: () => "/differentials/diagnoses/serotonin-toxicity",
+}));
+
+import { AccountDataProvider } from "@/components/account-data-provider";
+import { DifferentialDetailPage } from "@/components/differentials/differential-detail-page";
+import { curatedDifferentials, curatedEntryFor } from "@/lib/differential-curated";
+import type { DifferentialDetailContext } from "@/lib/differential-detail";
+import { getDifferentialRecord } from "@/lib/differentials";
+import { AuthProvider } from "@/lib/supabase/client";
+
+const SEROTONIN = "serotonin-toxicity";
+
+function renderRecord(slug: string, knownRelatedSlugs: string[]) {
+  const record = getDifferentialRecord(slug);
+  if (!record) throw new Error(`missing catalogue record: ${slug}`);
+  const detailContext: DifferentialDetailContext = {
+    knownRelatedSlugs,
+    relatedMapDetails: {},
+    termLinks: {},
+    overlapLinks: {},
+    comparePresentation: null,
+    curated: curatedEntryFor(slug),
+    source: {
+      version: "v10",
+      exportedAt: "2026-07-11T00:00:00.000Z",
+      reviewStatus: "Pending review",
+      sourceTitle: "Differentials",
+      sourceStatus: "review_due",
+      validationStatus: "unverified",
+    },
+  };
+  render(
+    <AuthProvider>
+      <AccountDataProvider>
+        <DifferentialDetailPage record={record} detailContext={detailContext} />
+      </AccountDataProvider>
+    </AuthProvider>,
+  );
+  return record;
+}
+
+/**
+ * The clinician-authored "Do now" steps had exactly one surface, the Overview
+ * rail, and that rail is desktop-only. On the phone this product is used on
+ * while on call, the reviewed steps for serotonin toxicity, NMS, alcohol
+ * withdrawal, catatonia, clozapine toxicity and postpartum psychosis never
+ * appeared at all — the reader got the generated list the overlay was written
+ * to replace.
+ */
+describe("the authored Do now steps on a phone", () => {
+  it("renders every authored step, escalation included", () => {
+    renderRecord(SEROTONIN, []);
+
+    const card = screen.getByTestId("differential-do-now-phone");
+    const authored = curatedDifferentials[SEROTONIN]!.doNow!;
+    expect(authored.length).toBe(5);
+    for (const step of authored) {
+      expect(within(card).getByText(step)).toBeInTheDocument();
+    }
+    expect(card).toHaveTextContent(/Escalate to intensive care/i);
+  });
+
+  it("says the steps are reviewed rather than generated", () => {
+    renderRecord(SEROTONIN, []);
+
+    expect(screen.getByTestId("differential-do-now-phone")).toHaveTextContent(/locally authored/i);
+  });
+
+  it("never shows alongside the desktop rail", () => {
+    // jsdom has no viewport, so both nodes exist in the tree. The contract that
+    // keeps them from ever painting together is the breakpoint pair, so assert
+    // that directly.
+    renderRecord(SEROTONIN, []);
+
+    expect(screen.getByTestId("differential-do-now-phone").className).toContain("lg:hidden");
+    expect(screen.getByTestId("differential-overview-rail").className).toContain("lg:block");
+    expect(screen.getByTestId("differential-overview-rail").className).toContain("hidden");
+  });
+
+  it("is absent when a record has nothing to put in it", () => {
+    // Uncurated records fall back to the generated immediate actions; a record
+    // with neither must not render an empty card.
+    const bare = getDifferentialRecord("akathisia")!;
+    expect(bare.immediateActions.length + (curatedEntryFor("akathisia")?.doNow?.length ?? 0)).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * "Compare (4)" on a primary button reads as "open the comparison". It opened a
+ * tab that then carried its own button to actually open one, and the count
+ * included related diagnoses that have no page and so cannot be compared.
+ */
+describe("the Compare control", () => {
+  it("navigates straight to the compare queue, prefilled", () => {
+    renderRecord(SEROTONIN, ["neuroleptic-malignant-syndrome", "anticholinergic-delirium"]);
+
+    for (const control of screen.getAllByRole("link", { name: /^Compare/ })) {
+      expect(control).toHaveAttribute(
+        "href",
+        "/differentials/compare?ids=serotonin-toxicity,neuroleptic-malignant-syndrome,anticholinergic-delirium",
+      );
+    }
+  });
+
+  it("counts only what it can actually compare", () => {
+    // Two routable related diagnoses plus this one. The record's own `related`
+    // list is longer, and counting that promised rows the queue would drop.
+    const record = renderRecord(SEROTONIN, ["neuroleptic-malignant-syndrome", "anticholinergic-delirium"]);
+    expect(record.related.length).toBeGreaterThan(2);
+
+    const labelled = screen.getAllByRole("link", { name: /^Compare \(/ });
+    expect(labelled.length).toBeGreaterThan(0);
+    for (const control of labelled) {
+      expect(control).toHaveAccessibleName("Compare (3)");
+    }
+  });
+});

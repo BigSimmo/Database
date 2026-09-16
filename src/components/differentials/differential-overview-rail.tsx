@@ -83,7 +83,7 @@ export function DifferentialOverviewRail({
   onOpenSource: () => void;
 }) {
   const curated = detailContext.curated ?? null;
-  const doNow = resolveDoNowSteps(record, curated, 4);
+  const doNow = resolveDoNowSteps(record, curated);
   const doNowCurated = doNowStepsAreCurated(curated);
   const investigations = record.investigations.map(cleanDifferentialItem).filter(Boolean).slice(0, 5);
   const watchFor = record.safetySnapshot.tags.map(cleanDifferentialItem).filter(Boolean);
