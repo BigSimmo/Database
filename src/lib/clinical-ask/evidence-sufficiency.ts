@@ -148,29 +148,149 @@ function sectionAddressed(sectionId: string, extract: string) {
 }
 
 /**
- * Two supporting passages that state different values of the same measurable
+ * Identity of the measurable claim an atom is making, excluding its value.
+ * Qualifiers (comparator, denominators, route, frequency) keep "2 weeks referral"
+ * from colliding with an unrelated "12 weeks programme" that shares only the unit.
+ */
+function atomPredicateKey(atom: ClinicalValueAtom) {
+  return [
+    atom.kind,
+    atom.comparator ?? "",
+    atom.canonicalUnit ?? "",
+    atom.denominatorUnit ?? "",
+    atom.denominatorTime ?? "",
+    atom.denominatorWeight ?? "",
+    atom.route ?? "",
+    atom.frequency ?? "",
+  ].join("|");
+}
+
+function requestPredicateKeys(requiredAtoms: readonly ClinicalValueAtom[]) {
+  return new Set(requiredAtoms.map(atomPredicateKey));
+}
+
+/** A passage is conflict-eligible when it speaks to a request predicate, even if
+ *  its value does not match — otherwise a 4-week contradiction is filtered away
+ *  before comparison because it failed exact request support. */
+function isPredicateRelevant(atoms: readonly ClinicalValueAtom[], requiredAtoms: readonly ClinicalValueAtom[]) {
+  if (requiredAtoms.length === 0) return false;
+  const keys = requestPredicateKeys(requiredAtoms);
+  return atoms.some((atom) => keys.has(atomPredicateKey(atom)));
+}
+
+/**
+ * Two passages that state different values of the same request-relevant measurable
  * thing. `conflictsWithEvidenceIds` was hard-coded to an empty array, so a
  * source saying two weeks and a source saying four weeks were both counted as
  * support and the answer was declared sufficient over the disagreement.
  *
- * The comparison is deliberately narrow: same atom kind, same unit, different
- * canonical value. Different units, different kinds, or a value one source
- * simply does not mention are not conflicts — they are different statements, and
- * treating them as contradictions would send every multi-source answer to the
- * external path for nothing.
+ * Comparison rules:
+ * - only predicates the request actually asks about (so an agreed referral window
+ *   plus unrelated same-unit programme/assessment durations do not conflict)
+ * - same predicate key, different canonical value
+ * - conflict pool includes exact supporters AND predicate-relevant mismatches,
+ *   so a contradictory threshold is not dropped before comparison
  */
+const CONTENT_WORD_STOP = new Set([
+  "the",
+  "and",
+  "for",
+  "with",
+  "within",
+  "that",
+  "this",
+  "from",
+  "into",
+  "over",
+  "under",
+  "than",
+  "then",
+  "also",
+  "must",
+  "last",
+  "lasts",
+  "lasting",
+  "does",
+  "week",
+  "weeks",
+  "day",
+  "days",
+  "month",
+  "months",
+  "year",
+  "years",
+  "hour",
+  "hours",
+  "minute",
+  "minutes",
+  "least",
+  "most",
+]);
+
+function contentWords(text: string) {
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .filter((word) => word && !/^\d+$/.test(word) && word.length > 2 && !CONTENT_WORD_STOP.has(word)),
+  );
+}
+
+function sharesContentWord(left: string, right: string) {
+  const rightWords = contentWords(right);
+  for (const word of contentWords(left)) {
+    if (rightWords.has(word)) return true;
+  }
+  return false;
+}
+
+function sentenceContaining(extract: string, atom: ClinicalValueAtom) {
+  const haystack = extract.toLowerCase();
+  const needle = atom.rawText.toLowerCase();
+  const index = haystack.indexOf(needle);
+  if (index < 0) return extract;
+  const start = Math.max(0, extract.lastIndexOf(".", index) + 1);
+  const end = extract.indexOf(".", index + needle.length);
+  return extract.slice(start, end < 0 ? extract.length : end);
+}
+
+/** Atoms that speak to a request predicate in a sentence that still overlaps the
+ *  request (or shares a sentence with such an atom). Unrelated same-unit facts in
+ *  other sentences are ignored. */
+function requestScopedAtoms(
+  extract: string,
+  atoms: readonly ClinicalValueAtom[],
+  requiredAtoms: readonly ClinicalValueAtom[],
+  supportText: string,
+) {
+  const requiredKeys = requestPredicateKeys(requiredAtoms);
+  const candidates = atoms.filter((atom) => requiredKeys.has(atomPredicateKey(atom)));
+  const direct = candidates.filter((atom) => sharesContentWord(sentenceContaining(extract, atom), supportText));
+  if (direct.length === 0) return candidates.filter((atom) => requiredAtoms.some((required) => atom.canonicalValue === required.canonicalValue));
+  const directSentences = new Set(direct.map((atom) => sentenceContaining(extract, atom)));
+  return candidates.filter((atom) => {
+    const sentence = sentenceContaining(extract, atom);
+    return direct.some((item) => item === atom) || directSentences.has(sentence);
+  });
+}
+
 function conflictingEvidenceIds(
   item: ClinicalAskEvidence,
   itemAtoms: readonly ClinicalValueAtom[],
   others: ReadonlyArray<{ evidence: ClinicalAskEvidence; atoms: readonly ClinicalValueAtom[] }>,
+  requiredAtoms: readonly ClinicalValueAtom[],
+  supportText: string,
 ) {
+  const itemScoped = requestScopedAtoms(item.extract, itemAtoms, requiredAtoms, supportText);
+  if (itemScoped.length === 0) return [];
   const conflicts = new Set<string>();
   for (const other of others) {
     if (other.evidence.id === item.id) continue;
-    for (const atom of itemAtoms) {
-      for (const candidate of other.atoms) {
-        if (candidate.kind !== atom.kind) continue;
-        if ((candidate.canonicalUnit ?? null) !== (atom.canonicalUnit ?? null)) continue;
+    const otherScoped = requestScopedAtoms(other.evidence.extract, other.atoms, requiredAtoms, supportText);
+    if (otherScoped.length === 0) continue;
+    for (const atom of itemScoped) {
+      for (const candidate of otherScoped) {
+        if (atomPredicateKey(candidate) !== atomPredicateKey(atom)) continue;
         if (candidate.canonicalValue === atom.canonicalValue) continue;
         conflicts.add(other.evidence.id);
       }
@@ -198,14 +318,18 @@ export function annotateEvidenceCoverage(
     return { evidence: item, atoms, matchedAtoms, unmatchedAtoms, supportsRequest };
   });
 
-  // Only passages that actually support the request can contradict one another.
-  // An unrelated passage carrying a different number is not a disagreement.
-  const supporting = scored.filter((entry) => entry.supportsRequest);
+  // Exact supporters and passages that speak to a request predicate with a
+  // different value can contradict one another. Limiting the pool to exact
+  // supporters dropped the contradictory threshold before comparison.
+  const conflictPool = scored.filter(
+    (entry) => entry.supportsRequest || isPredicateRelevant(entry.atoms, requiredAtoms),
+  );
 
   return scored.flatMap((entry) => {
-    const conflictsWithEvidenceIds = entry.supportsRequest
-      ? conflictingEvidenceIds(entry.evidence, entry.atoms, supporting)
-      : [];
+    const conflictsWithEvidenceIds =
+      entry.supportsRequest || isPredicateRelevant(entry.atoms, requiredAtoms)
+        ? conflictingEvidenceIds(entry.evidence, entry.atoms, conflictPool, requiredAtoms, supportText)
+        : [];
     return profile.sectionOrder.map((sectionId) => ({
       evidenceId: entry.evidence.id,
       sectionId,

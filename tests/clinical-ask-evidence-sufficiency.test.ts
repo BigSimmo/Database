@@ -92,4 +92,45 @@ describe("Clinical Ask evidence sufficiency", () => {
       assessEvidenceSufficiency({ profile, request: request("within 6 weeks"), evidence, coverage }),
     ).toMatchObject({ sufficient: false, externalFallbackReason: "conflict", unresolvedConflictIds: ["indexed:two"] });
   });
+
+  it("detects a contradictory threshold that fails exact request support", () => {
+    const supporting = source({
+      id: "indexed:support",
+      extract: "The example service accepts referrals for adults within 2 weeks.",
+    });
+    const contradictory = source({
+      id: "indexed:conflict",
+      extract: "The example service accepts referrals for adults within 4 weeks.",
+    });
+    const inputRequest = request("Does the example service accept adult referrals within 2 weeks?");
+    const evidence = [supporting, contradictory];
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+
+    expect(coverage.some((row) => row.evidenceId === "indexed:support" && row.conflictsWithEvidenceIds.includes("indexed:conflict"))).toBe(
+      true,
+    );
+    expect(decision).toMatchObject({ sufficient: false, externalFallbackReason: "conflict" });
+    expect(decision.unresolvedConflictIds).toContain("indexed:conflict");
+  });
+
+  it("does not treat unrelated same-unit durations as a conflict when the request predicate agrees", () => {
+    const first = source({
+      id: "indexed:one",
+      extract:
+        "The example service accepts referrals for adults within 2 weeks. The structured programme lasts 12 weeks.",
+    });
+    const second = source({
+      id: "indexed:two",
+      extract:
+        "The example service accepts referrals for adults within 2 weeks. The initial assessment takes 4 weeks.",
+    });
+    const inputRequest = request("Does the example service accept adult referrals within 2 weeks?");
+    const evidence = [first, second];
+    const coverage = annotateEvidenceCoverage(profile, inputRequest, evidence);
+    const decision = assessEvidenceSufficiency({ profile, request: inputRequest, evidence, coverage });
+
+    expect(decision.unresolvedConflictIds).toEqual([]);
+    expect(decision).toMatchObject({ sufficient: true, externalFallbackReason: null });
+  });
 });
