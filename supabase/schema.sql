@@ -12668,7 +12668,7 @@ create table public.site_content_release_records (
   unique (release_id, logical_document_id),
   unique (release_id, logical_chunk_id),
   check ((tombstone and embedding is null and not public_visible) or (not tombstone and public_visible)),
-  check ((target_publication_id is null and release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+  check ((target_publication_id is null and (release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and jsonb_typeof(record) = 'object' and jsonb_typeof(render_payload) = 'object') or
     (target_publication_id is not null and jsonb_typeof(record) = 'object' and jsonb_typeof(render_payload) = 'object')),
   foreign key (target_publication_id, logical_id)
@@ -13931,7 +13931,7 @@ as $$
     left join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
     where rr.public_visible and not rr.tombstone
       and (rr.target_publication_id is not null or
-        (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' and rr.target_publication_id is null))
+        ((rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137' or rr.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca') and rr.target_publication_id is null))
   ), requested as (
     select c.logical_id, c.record, c.render_payload
     from classified c
@@ -13941,7 +13941,7 @@ as $$
     from requested r
     cross join state s
     where s.active_release_id is not null
-      and (s.initialized or s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846')
+      and (s.initialized or s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846' or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137' or s.active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca')
       and (not s.initialized or not exists (
         select 1 from public.site_content_public_records h
         where h.head_change_epoch > s.served_change_epoch
@@ -16768,7 +16768,9 @@ $$;
 alter table public.site_content_sync_state
   add constraint site_content_sync_state_transition_pointer_check check (
     (not initialized
-      and active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+      and (active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and served_change_epoch = 0
       and active_transition_receipt_id is null)
     or (initialized and active_transition_receipt_id is not null)
@@ -16837,7 +16839,7 @@ as $$
       coalesce(r.state = 'active' and r.release_digest = s.active_release_digest and (
         s.transition_kind in ('activation','rollback')
         or (s.transition_kind = 'bootstrap'
-          and r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
           and r.target_change_epoch = 0
           and r.release_digest = public.site_content_bootstrap_digest(r.id))
       ), false) valid
@@ -16845,34 +16847,45 @@ as $$
   ), outstanding as (
     select h.* from public.site_content_public_records h cross join transition s
     where h.head_change_epoch > s.served_change_epoch
-  ), classified as (
-    select rr.logical_id, rr.record, rr.render_payload,
-      coalesce(p.kind, case
-        when rr.logical_id like 'services:%' then 'service'
-        when rr.logical_id like 'forms:%' then 'form'
-        when rr.logical_id like 'medications:%' then 'medication'
-        when rr.logical_id like 'differentials:diagnosis:%' then 'differential'
-        when rr.logical_id like 'differentials:presentation:%' then 'presentation'
-      end) as kind,
-      coalesce(p.slug, case
-        when rr.logical_id like 'services:%' then substr(rr.logical_id, length('services:') + 1)
-        when rr.logical_id like 'forms:%' then substr(rr.logical_id, length('forms:') + 1)
-        when rr.logical_id like 'medications:%' then substr(rr.logical_id, length('medications:') + 1)
-        when rr.logical_id like 'differentials:diagnosis:%' then
-          substr(rr.logical_id, length('differentials:diagnosis:') + 1)
-        when rr.logical_id like 'differentials:presentation:%' then
-          substr(rr.logical_id, length('differentials:presentation:') + 1)
-      end) as slug
+  ), kind_prefix as (
+    -- The logical-id prefix that identifies p_kind, as a value the planner can push into the
+    -- scan. Unrecognised kinds give null, which the branch below rejects — matching the old
+    -- `case` returning null and failing `c.kind = p_kind`.
+    select case p_kind
+      when 'service' then 'services:'
+      when 'form' then 'forms:'
+      when 'medication' then 'medications:'
+      when 'differential' then 'differentials:diagnosis:'
+      when 'presentation' then 'differentials:presentation:'
+    end as prefix
+  ), requested as (
+    -- Published records. The foreign key on (target_publication_id, logical_id) guarantees the
+    -- publication row exists whenever target_publication_id is not null, and publications.kind is
+    -- NOT NULL, so this inner join returns exactly the rows the old left join did and p.kind is
+    -- exactly what the old coalesce resolved to.
+    select rr.logical_id, rr.record, rr.render_payload
     from transition s
     join public.site_content_release_records rr on rr.release_id = s.active_release_id
-    left join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
+    join public.site_content_publications p on p.id = rr.target_publication_id and p.logical_id = rr.logical_id
     where rr.public_visible and not rr.tombstone
-      and (rr.target_publication_id is not null or
-        (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid and rr.target_publication_id is null))
-  ), requested as (
-    select c.logical_id, c.record, c.render_payload
-    from classified c
-    where c.kind = p_kind and (p_slug is null or c.slug = p_slug)
+      and rr.target_publication_id is not null
+      and p.kind = p_kind
+      and (p_slug is null or p.slug = p_slug)
+    union all
+    -- Bootstrap release only. The old WHERE admitted a null target_publication_id solely for this
+    -- release, and no publication row exists for it, so kind and slug came from the logical id.
+    -- Equality on the whole logical id is the same test as equality on the derived slug once the
+    -- prefix is known, and it carries no LIKE metacharacters from p_slug.
+    select rr.logical_id, rr.record, rr.render_payload
+    from transition s
+    cross join kind_prefix k
+    join public.site_content_release_records rr on rr.release_id = s.active_release_id
+    where rr.public_visible and not rr.tombstone
+      and rr.target_publication_id is null
+      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or rr.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
+      and k.prefix is not null
+      and rr.logical_id like k.prefix || '%'
+      and (p_slug is null or rr.logical_id = k.prefix || p_slug)
   ), safe_requested as (
     select r.*
     from requested r cross join transition s
@@ -16892,7 +16905,7 @@ as $$
       'state', case
         when not s.valid then 'unavailable'
         when not s.initialized then 'unavailable'
-        when s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid then 'unavailable'
+        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or s.active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid) then 'unavailable'
         when exists (select 1 from outstanding) then 'updating'
         else 'current'
       end

@@ -2087,6 +2087,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/dsm5tr-handover-reconciliation-2026-09-16.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-report.md",
         "section": "caring-contacts",
         "catalogued": true
@@ -2732,6 +2737,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/evidence/forms-operational-guidance-review.md",
+        "section": "evidence",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow/mutation-findings-2026-09-03.md",
         "section": "ward-flow",
         "catalogued": false
@@ -2739,6 +2749,11 @@
       {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-statistics-prose-report.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/audit/2026-09-16-registry-search-outage.md",
+        "section": "audit",
         "catalogued": false
       },
       {
@@ -3482,6 +3497,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md",
         "section": "superpowers",
         "catalogued": false
@@ -3489,6 +3509,11 @@
       {
         "path": "docs/archive/branch-review-ledger-2026-q3.md",
         "section": "archive",
+        "catalogued": true
+      },
+      {
+        "path": "docs/dsm5tr-approvals-queue.md",
+        "section": "root",
         "catalogued": true
       },
       {
@@ -5132,6 +5157,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/dictionary-editorial-drafts.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",
         "section": "superpowers",
         "catalogued": false
@@ -6002,6 +6032,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/design-system/SPEC.md",
         "section": "design-system",
         "catalogued": true
@@ -6184,6 +6219,11 @@
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",
         "section": "ward-flow-phase-3-workspace",
+        "catalogued": true
+      },
+      {
+        "path": "docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md",
+        "section": "evidence",
         "catalogued": true
       },
       {

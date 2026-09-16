@@ -244,7 +244,16 @@ export async function POST(request: Request) {
         source_title: title,
         publisher_code: null,
         publisher: null,
-        jurisdiction: "Australia/WA",
+        // Null, like every other field the upload cannot establish. This used to
+        // initialise to "Australia/WA", which asserted that a file the clinician
+        // happened to upload was published in Western Australia — including the
+        // APA's own PDFs. The owner sets it through the documents bulk metadata
+        // route, which resolves it against the authority register.
+        // tests/upload-jurisdiction-default.test.ts holds this, and also pins the
+        // reason it was safe to change: a fresh upload has no publisher, so
+        // authority classification is decided by `unrecognized_authority` and the
+        // jurisdiction value never reached it.
+        jurisdiction: null,
         version: null,
         publication_date: null,
         review_date: null,

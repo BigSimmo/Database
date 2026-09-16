@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { crossModeDifferentialCatalog } from "@/lib/cross-mode-differentials";
 import { differentialPresentations, differentialRecords, differentialSearchAliases } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 
 // cross-mode-differentials.ts now returns a precomputed index
 // (src/data/cross-mode-differentials-index.json) instead of projecting the full
@@ -17,10 +18,13 @@ import { differentialPresentations, differentialRecords, differentialSearchAlias
 describe("cross-mode differentials precomputed index", () => {
   it("matches the live projection over the full differentials snapshot", () => {
     const live = {
+      // `subtitle`, not `clinicalHinge`: the hinge is presentation-scoped, so
+      // projecting it here stated something false about the diagnosis. See
+      // tests/differentials-presentation-scope.test.ts.
       diagnoses: differentialRecords.map((record) => ({
         slug: record.slug,
         title: record.title,
-        clinicalHinge: record.clinicalHinge,
+        subtitle: diagnosisOwnSummary(record),
       })),
       presentations: differentialPresentations().map((presentation) => ({
         id: presentation.id,

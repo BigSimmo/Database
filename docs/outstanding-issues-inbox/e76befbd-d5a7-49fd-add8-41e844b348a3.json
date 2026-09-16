@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e76befbd-d5a7-49fd-add8-41e844b348a3",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "site_content_registry_baseline on live holds only the 281 frozen baselines, so a record published after 2026-08-24 has no baseline for SQL field merging",
+    "detail": "site_content_registry_baseline(kind, slug) is an immutable SQL lookup whose blob was frozen into migration 20260824122000 with 281 entries. site_content_registry_source_render calls it for every registry record it renders, so a service or form published after the freeze resolves to a null baseline and loses the forced-field and null merging the frozen records get. PR #2814 tried to fix this by regenerating the applied migration, which cannot reach live and was reverted on 2026-09-16. THE CORRECT MECHANISM is a NEW forward migration carrying create or replace function public.site_content_registry_baseline with the current catalogue blob: the Supabase integration applies new versions, so it reaches live, and it changes only an immutable lookup body with no data write and no lock. It must merge inside an approved Supabase window per AGENTS.md, and it is only worth doing when the publication pipeline is actually going to publish post-freeze records, so it is coupled to the P1 row about the live catalogue still serving the 2026-08-24 freeze.",
+    "source": "Session 2026-09-16 repairing the epoch-zero freeze regression from PR #2814",
+    "issueUlid": "01M2NAGY09TNYENCKDDYX9F268"
+  }
+}

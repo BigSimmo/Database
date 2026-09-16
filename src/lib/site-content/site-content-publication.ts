@@ -145,6 +145,7 @@ const publicKeys = new Set([
   "setting_flags",
   "section",
   "sectionCue",
+  "scope",
   "sections",
   "selected",
   "selectedCount",
@@ -250,6 +251,10 @@ const topLevelKeys: Record<DynamicSiteContentKind, ReadonlySet<string>> = {
     "status",
     "subtitle",
     "clinicalHinge",
+    // Whether the hinge describes this diagnosis or its presentation group. The
+    // published surface must carry it: without it a reader sees acute dystonia's
+    // record asserting the akathisia discriminator as its own.
+    "clinicalHingeScope",
     "safetySnapshot",
     "sections",
     "related",

@@ -8,7 +8,12 @@ import {
 import { deriveGovernanceFromSnapshot, normalizeDifferentialSlug } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
-import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import {
+  getDifferentialRecord,
+  getPresentationWorkflow,
+  scopeDifferentialRecord,
+  scopePresentationWorkflow,
+} from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, publicErrorResponse } from "@/lib/http";
@@ -101,7 +106,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
           ]
         : [],
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        workflow: finalRenderPayload as unknown as DifferentialPresentationWorkflow,
+        workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
         governance: canonicalSiteContentGovernance(canonicalRecord),
       }),
     });
@@ -113,7 +118,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       slug: null,
       seeds: snapshot.diagnoses.map((record) => ({ record })),
       mapRecord: ({ finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as DifferentialRecord,
+        record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
       }),
     });
     const diagnosisBySlug = new Map(diagnosisPopulation.records.map(({ record }) => [record.slug, record]));

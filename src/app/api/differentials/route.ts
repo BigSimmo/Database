@@ -13,6 +13,8 @@ import {
   differentialRecords,
   rankDifferentialRecords,
   rankPresentationWorkflows,
+  scopeDifferentialRecord,
+  scopePresentationWorkflow,
   type DifferentialPresentationMatch,
   type DifferentialRecordMatch,
 } from "@/lib/differentials";
@@ -131,7 +133,7 @@ export async function GET(request: Request) {
           },
         })),
         mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-          workflow: finalRenderPayload as unknown as DifferentialPresentationWorkflow,
+          workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
           governance: canonicalSiteContentGovernance(canonicalRecord),
         }),
       });
@@ -157,7 +159,7 @@ export async function GET(request: Request) {
         governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
       })),
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as DifferentialRecord,
+        record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
         governance: canonicalSiteContentGovernance(canonicalRecord),
       }),
     });

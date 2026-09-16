@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "471fe126-addc-410b-8434-3d1263a9cfa4",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Refresh the P03 epoch-zero bootstrap seed so published differential records carry presentation scope",
+    "detail": "The differentials corpus now labels presentation-scope text (PR on claude/bold-planck-dn3a76, commit 4628295f5), but the labelling is derived at catalogue load in withPresentationScope() rather than written into data/differentials-snapshot.json. That was deliberate: tests/site-content-publication-route.test.ts pins the P03 epoch-zero bootstrap population against a JSON block frozen inside supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql, which has already reached the live database. Consequence: rows seeded from buildDefaultDifferentialRows() still carry unscoped payloads, so a published page can present group text as a diagnosis's own. Next action: on a machine with Docker and inside an approved Supabase window, write the scope into the snapshot (or re-import from the export zip with the fixed parser), refresh the frozen block plus supabase/schema.sql and supabase/drift-manifest.json following the fb0b0279b precedent, and re-run tests/site-content-publication-route.test.ts. Needs owner approval because it edits an applied migration.",
+    "source": "PsychSift Differentials handover reconciliation 2026-09-16; docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MRFM13CHNZCWJKZM5MM2B1"
+  }
+}

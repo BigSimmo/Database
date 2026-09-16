@@ -359,6 +359,9 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
   const activeSection =
     actSheet?.mode === "section" ? (actSections.find((entry) => entry.section === actSheet.section) ?? null) : null;
   const pdfHref = details?.officialPdfUrl ?? details?.officialRegisterUrl;
+  // Defaults to true for a payload with no review state: a missing status is a gap in the
+  // record, not evidence of review, and an owner-seeded row can carry anything.
+  const contentAwaitingReview = details?.contentReviewStatus !== "reviewed";
 
   return (
     <>
@@ -370,6 +373,11 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
         <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
           Priority facts
         </h2>
+        {contentAwaitingReview ? (
+          <p className={cn("text-xs leading-5", textMuted)}>
+            Drafted from the Act and the approved form, awaiting clinical review.
+          </p>
+        ) : null}
         <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
           {cards.map((card) => {
             if (card.id === "act-sections" && actSections.length) {
@@ -405,7 +413,17 @@ export function PriorityFactsSection({ form, cards }: { form: FormRecord; cards:
         testId="form-priority-fact-sheet"
         mobilePlacement="bottom"
       >
-        {activeFact ? <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeFact.body}</p> : null}
+        {activeFact ? (
+          <div className="space-y-3">
+            <p className="text-sm leading-6 text-[color:var(--text-body)]">{activeFact.body}</p>
+            {contentAwaitingReview ? (
+              <p className={cn("text-xs leading-5", textMuted)}>
+                Drafted from the Act text and the approved form, and awaiting clinical review. Confirm against the
+                current Act and approved form before clinical or legal use.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </Sheet>
 
       <Sheet

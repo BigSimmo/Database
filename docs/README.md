@@ -73,6 +73,7 @@ repository gate. The generated inventories remain governed by their own contract
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
+- [dictionary-editorial-drafts.md](dictionary-editorial-drafts.md) — the unpublished Dictionary draft layer: sense-first abbreviation drafts, hash-reconciled definition reviews, per-source acquisition outcomes, and what a register candidate is and is not
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
@@ -316,6 +317,8 @@ Every remaining tracked document in this category (the Ward Flow developer-gated
 Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
+- [dsm5tr-handover-reconciliation-2026-09-16.md](dsm5tr-handover-reconciliation-2026-09-16.md) — DSM-5-TR and Sources handover reconciled against HEAD 66105e1: the criteria-provenance fix that shipped, the disposition of all 30 claims, the four items held for owner approval, and why 0 of the 24 supplied sources pass the native acquisition gate
+- [dsm5tr-approvals-queue.md](dsm5tr-approvals-queue.md) — what the DSM-5-TR handover leaves waiting on a person: 16 claims and 9 information concepts needing clinical sign-off, the seven rights questions per source across all 24, and the metadata 17 sources do not print
 - [audit/](audit/) — repo and UX/accessibility audits
 - [audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md) — full repository audit (25 lanes, independently verified findings, closed-off sub-projects, machine evidence, Stage-5 adversarial review; audit only, nothing acted on except one-line documentation corrections)
 - [audit/2026-07-20-repository-maturity.md](audit/2026-07-20-repository-maturity.md) — full repository maturity, mapping, and organisation audit
@@ -329,6 +332,9 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [tooling-follow-through-decisions-2026-08-12.md](tooling-follow-through-decisions-2026-08-12.md) — ledger #150 CodeRabbit cap policy and #151 GitHub Actions observation fallback
 - [staging-shutdown-and-repo-review-handover-2026-09-06.md](staging-shutdown-and-repo-review-handover-2026-09-06.md) — why shutting staging down does not block drift detection or repair (and what it does block), plus three off-ledger findings: the open SaMD classification on a live patient-specific feature, the spend threshold that alerts without enforcing, and unreachable password sign-in
+- [evidence/forms-operational-guidance-review.md](evidence/forms-operational-guidance-review.md) — generated sign-off sheet: what the Forms mode displays for each of the 54 forms, the sections and approved form it was drafted from, and how a reviewer records sign-off one form at a time (`npm run forms:review-sheet`)
+- [evidence/forms-pdf-publisher-comparison-2026-09-16.md](evidence/forms-pdf-publisher-comparison-2026-09-16.md) — byte comparison of all 51 approved-form PDFs against the Office of the Chief Psychiatrist's own URLs (51 of 51 identical), the same-day register reconciliation of all 54 codes and availability states, and the Form 10G register typo this repository does not copy
+- [wa-mha-forms-handover-reconciliation-2026-09-16.md](wa-mha-forms-handover-reconciliation-2026-09-16.md) — reconciliation receipt for the portable WA MHA Forms/Sources handover: what the Forms catalogue actually carried (40 of 54 forms on PDF-indexing scaffolding or the generic fallback), what landed, the zero-insert source preview and its single Act URL conflict, and the open clinical sign-off, Act-currency and asset gates
 - [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
 - `release-source-metadata-debt-2026-06-30.json` — captured source-metadata debt policy, consumed by `npm run audit:source-governance:release` and `npm run eval:quality:release`
 - [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder

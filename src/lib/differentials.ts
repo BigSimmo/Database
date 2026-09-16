@@ -9,6 +9,7 @@ import {
   type DifferentialPresentationMatch,
   type DifferentialRecordMatch,
 } from "@/lib/differential-search-composition";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import type {
   DifferentialComparisonCandidate,
   DifferentialComparisonCriterion,
@@ -18,6 +19,7 @@ import type {
   DifferentialRedFlagFlow,
   DifferentialScenarioPreset,
   DifferentialSection,
+  DifferentialSnapshot,
 } from "@/lib/differential-snapshot";
 
 export type DifferentialStreamType = "presentations" | "diagnoses";
@@ -50,8 +52,152 @@ export {
   type DifferentialSearchResultItem,
 } from "@/lib/differential-search-composition";
 
-function catalog() {
-  return loadDifferentialSnapshot();
+const DIAGNOSIS_SCOPED_SECTION_IDS = new Set(["why-it-fits", "must-not-miss"]);
+
+/**
+ * Labels every piece of a diagnosis record with whose text it is.
+ *
+ * The export parser derives each diagnosis from its presentation group, so the
+ * hinge, bedside question, immediate actions, investigations and mimics are
+ * written about the group and then stamped onto all of its diagnoses. Measured
+ * on the committed snapshot: 201 diagnoses share 31 distinct hinges, and five of
+ * the seven comparison fields are byte-identical for every candidate in all 31
+ * groups. Unlabelled, that makes the app assert the akathisia discriminator and
+ * a tremor workup of acute dystonia.
+ *
+ * The parser now emits `scope` itself (see
+ * `scripts/lib/parse-differentials-export.ts`), but the committed snapshot
+ * predates it and cannot be regenerated without the upstream export zip. This
+ * derives the same labels from the snapshot's own structure — a field identical
+ * across every sibling in a group is group text — so the corpus is correct
+ * before the next import and stays correct after it.
+ *
+ * Deliberately NOT applied in `loadDifferentialSnapshot()`: that loader also
+ * feeds `buildDefaultDifferentialRows`, whose output is pinned byte-for-byte
+ * against the epoch-zero bootstrap seed frozen inside an applied migration
+ * (`tests/site-content-publication-route.test.ts`). Refreshing that seed edits a
+ * migration that has already reached the live database, which is not this
+ * change's to make. The consequence is that published canonical payloads carry
+ * no scope, so {@link scopeDifferentialRecord} is exported and applied on every
+ * canonical read in `src/lib/site-content/differential-page-records.ts` too.
+ * Labelling has to happen on every path that reaches a clinician, not just the
+ * bundled one.
+ *
+ * Guarded by `tests/differentials-presentation-scope.test.ts`.
+ */
+type PresentationScopeIndex = {
+  /** Every hinge written about a presentation group, by exact text. */
+  groupHinges: Set<string>;
+  /** Per diagnosis slug, the comparison values shared by all of its siblings. */
+  sharedBySlug: Map<string, Map<string, string>>;
+};
+
+function buildPresentationScopeIndex(snapshot: DifferentialSnapshot): PresentationScopeIndex {
+  const groupHinges = new Set<string>();
+  const sharedBySlug = new Map<string, Map<string, string>>();
+
+  for (const presentation of snapshot.presentations) {
+    const hinge = presentation.safetySnapshot?.summary?.trim();
+    if (hinge) groupHinges.add(hinge);
+
+    const candidates = presentation.candidates ?? [];
+    const shared = new Map<string, string>();
+    if (candidates.length > 1) {
+      for (const criterion of presentation.criteria ?? []) {
+        const values = candidates.map((candidate) => candidate.comparison?.[criterion.id]).filter(Boolean);
+        if (values.length === candidates.length && new Set(values).size === 1) shared.set(criterion.id, values[0]!);
+      }
+    }
+    for (const candidate of candidates) {
+      const existing = sharedBySlug.get(candidate.slug) ?? new Map<string, string>();
+      for (const [id, value] of shared) existing.set(id, value);
+      sharedBySlug.set(candidate.slug, existing);
+    }
+  }
+
+  return { groupHinges, sharedBySlug };
+}
+
+let bundledScopeIndex: PresentationScopeIndex | null = null;
+
+function presentationScopeIndex(): PresentationScopeIndex {
+  if (!bundledScopeIndex) bundledScopeIndex = buildPresentationScopeIndex(loadDifferentialSnapshot());
+  return bundledScopeIndex;
+}
+
+function scopeRecordWith(record: DifferentialRecord, index: PresentationScopeIndex): DifferentialRecord {
+  const hinge = record.clinicalHinge?.trim() ?? "";
+  const hingeScope = hinge && index.groupHinges.has(hinge) ? ("presentation" as const) : ("diagnosis" as const);
+  const shared = index.sharedBySlug.get(record.slug) ?? new Map<string, string>();
+
+  return {
+    ...record,
+    clinicalHingeScope: hingeScope,
+    safetySnapshot: {
+      ...record.safetySnapshot,
+      // Never the presentation hinge: that put the akathisia discriminator in
+      // acute dystonia's safety summary.
+      summary:
+        hingeScope === "presentation" && record.safetySnapshot.summary?.trim() === hinge
+          ? (record.safetySnapshot.tags ?? []).join(", ")
+          : record.safetySnapshot.summary,
+    },
+    sections: (record.sections ?? []).map((section) => {
+      const sharedValue = shared.get(section.id);
+      const summary = section.summary?.trim() ?? "";
+      const isGroup = DIAGNOSIS_SCOPED_SECTION_IDS.has(section.id)
+        ? Boolean(sharedValue && summary && summary === sharedValue.trim())
+        : true;
+      const items =
+        section.id === "why-it-fits" && hingeScope === "presentation" && hinge
+          ? // The group hinge read as evidence for this diagnosis.
+            section.items.filter((item) => item.trim() !== hinge)
+          : section.items;
+      return { ...section, items, scope: isGroup ? ("presentation" as const) : ("diagnosis" as const) };
+    }),
+  };
+}
+
+/**
+ * Applies the scope labels to one diagnosis record from any source.
+ *
+ * Canonical published payloads were seeded from the deliberately unlabelled
+ * snapshot, so a production read returns a record with no scope at all and the
+ * UI would default it to diagnosis-specific — reinstating the exact mismatch
+ * this exists to remove. Every reader of a canonical differential record must
+ * pass it through here first.
+ */
+export function scopeDifferentialRecord(record: DifferentialRecord): DifferentialRecord {
+  return scopeRecordWith(record, presentationScopeIndex());
+}
+
+/** As {@link scopeDifferentialRecord}, for a presentation workflow's criteria. */
+export function scopePresentationWorkflow(
+  workflow: DifferentialPresentationWorkflow,
+): DifferentialPresentationWorkflow {
+  return {
+    ...workflow,
+    criteria: (workflow.criteria ?? []).map((criterion) => ({
+      ...criterion,
+      scope: DIAGNOSIS_SCOPED_SECTION_IDS.has(criterion.id) ? ("diagnosis" as const) : ("presentation" as const),
+    })),
+  };
+}
+
+function withPresentationScope(snapshot: DifferentialSnapshot): DifferentialSnapshot {
+  const index = buildPresentationScopeIndex(snapshot);
+  return {
+    ...snapshot,
+    presentations: snapshot.presentations.map(scopePresentationWorkflow),
+    diagnoses: snapshot.diagnoses.map((record) => scopeRecordWith(record, index)),
+  };
+}
+
+let scopedCatalog: DifferentialSnapshot | null = null;
+
+function catalog(): DifferentialSnapshot {
+  if (!scopedCatalog) scopedCatalog = withPresentationScope(loadDifferentialSnapshot());
+  return scopedCatalog;
 }
 
 export { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
@@ -175,7 +321,7 @@ export function buildAdHocPresentationWorkflow(ids: Iterable<string>): Different
     new Set(records.flatMap((record) => record.safetySnapshot.tags.map((tag) => tag.trim()).filter(Boolean))),
   ).slice(0, 6);
 
-  return {
+  return scopePresentationWorkflow({
     id: AD_HOC_DIFFERENTIAL_COMPARE_ID,
     title: "Selected differentials",
     status,
@@ -209,7 +355,7 @@ export function buildAdHocPresentationWorkflow(ids: Iterable<string>): Different
       version: catalog().governance.version || "Local content only",
       lastUpdated: catalog().exportedAt || "Pending review",
     },
-  };
+  });
 }
 
 /**
@@ -361,7 +507,7 @@ export const differentialPresentationsCards: DifferentialStreamCard[] = differen
 export const differentialDiagnosesCards: DifferentialStreamCard[] = differentialRecords.map((record) => ({
   id: `diagnosis-${record.slug}`,
   title: record.title,
-  description: record.clinicalHinge,
+  description: diagnosisOwnSummary(record),
   examples: record.related.slice(0, 3).map((node) => node.label),
   href: `/differentials/diagnoses/${record.slug}`,
 }));
@@ -416,6 +562,7 @@ export function getDifferentialDetailContext(
       title,
       status,
       clinicalHinge,
+      clinicalHingeScope: related.clinicalHingeScope,
       safetySummary,
     };
   }

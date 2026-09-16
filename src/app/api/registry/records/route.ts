@@ -15,9 +15,15 @@ import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
 import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
 import {
+  catalogueListFallbackBudgetMs,
+  catalogueListScope,
+  readCatalogueWithSeedFallback,
+} from "@/lib/site-content/catalogue-seed-fallback";
+import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
+import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -185,21 +191,46 @@ export async function GET(request: Request) {
     }
 
     const seedRecords = kind === "form" ? formRecords : serviceRecords;
-    const canonical = await readCanonicalSiteContentRecords({
-      supabase,
+    const seeds = seedRecords.map((record) => {
+      const derived = deriveGovernanceColumns(record);
+      return {
+        record,
+        governance: { sourceStatus: derived.source_status, validationStatus: derived.validation_status },
+      };
+    });
+    // Bounded, and degrades to the in-bundle catalogue rather than hanging. Before this the read
+    // had no budget at all: during the 2026-09-09 outage this route simply waited for a canonical
+    // read that was never going to finish in time, which is why Forms sat on "Searching…" instead
+    // of showing anything. The response says `degraded` so the surface can tell the reader the
+    // list may lag what was published.
+    // A holder, not a `let`: the assignment happens inside the read callback, which control-flow
+    // analysis cannot see, so a plain local would narrow to its initialiser and the comparison
+    // below would be flagged as impossible.
+    const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+    const canonical = await readCatalogueWithSeedFallback({
       kind,
-      slug: null,
-      seeds: seedRecords.map((record) => {
-        const derived = deriveGovernanceColumns(record);
-        return {
-          record,
-          governance: { sourceStatus: derived.source_status, validationStatus: derived.validation_status },
-        };
-      }),
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as ServiceRecord,
-        governance: canonicalSiteContentGovernance(canonicalRecord),
-      }),
+      // Its own cooldown scope. Sharing one with search meant a search giving up at 1200 ms sent
+      // this route straight to seeds for thirty seconds without ever trying the longer read it is
+      // budgeted for.
+      scope: catalogueListScope,
+      seeds,
+      budgetMs: catalogueListFallbackBudgetMs,
+      read: async (signal) => {
+        const result = await readCanonicalSiteContentRecords({
+          supabase,
+          kind,
+          slug: null,
+          seeds,
+          signal,
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+            record: finalRenderPayload as unknown as ServiceRecord,
+            governance: canonicalSiteContentGovernance(canonicalRecord),
+          }),
+        });
+        observed.source = result.source;
+        const activeReleaseId = siteContentSnapshotReleaseId(result.snapshot);
+        return result.records.map((entry) => preferBundledFormRecord(kind, entry, { activeReleaseId }));
+      },
     });
     const records = canonical.records.map((entry) => entry.record);
     const governanceBySlug = Object.fromEntries(
@@ -212,7 +243,11 @@ export async function GET(request: Request) {
       },
       {
         request,
-        fixture: canonical.source === "seed_uninitialized",
+        // Deliberately NOT widened to cover `canonical.degraded`. `fixture` makes the response
+        // publicly cacheable for longer, which is right for the uninitialised corpus and exactly
+        // wrong for a degraded read: it would pin the stale seed list in front of a database that
+        // may recover in thirty seconds.
+        fixture: observed.source === "seed_uninitialized",
       },
     );
   } catch (error) {

@@ -36,15 +36,29 @@ export type ParsedPresentation = {
   tags: string[];
 };
 
-const COMPARISON_CRITERIA: DifferentialComparisonCriterion[] = [
-  { id: "why-it-fits", title: "Why it fits", tone: "fit" },
-  { id: "what-argues-against", title: "What argues against", tone: "overlap" },
-  { id: "must-not-miss", title: "Must-not-miss", tone: "warning" },
-  { id: "bedside-question", title: "Bedside question", tone: "question" },
-  { id: "immediate-action", title: "Immediate action", tone: "action" },
-  { id: "investigations", title: "Investigations", tone: "test" },
-  { id: "mimics-overlap", title: "Mimics / overlap", tone: "overlap" },
-];
+/**
+ * Criteria the export writes per diagnosis. Everything else on a presentation is
+ * written about the group, so it is derived once and labelled
+ * `scope: "presentation"` rather than repeated as each diagnosis's own answer.
+ * See {@link DifferentialTextScope} and
+ * `tests/differentials-presentation-scope.test.ts`.
+ */
+const DIAGNOSIS_SCOPED_CRITERIA = new Set(["why-it-fits", "must-not-miss"]);
+
+const COMPARISON_CRITERIA: DifferentialComparisonCriterion[] = (
+  [
+    { id: "why-it-fits", title: "Why it fits", tone: "fit" },
+    { id: "what-argues-against", title: "What argues against", tone: "overlap" },
+    { id: "must-not-miss", title: "Must-not-miss", tone: "warning" },
+    { id: "bedside-question", title: "Bedside question", tone: "question" },
+    { id: "immediate-action", title: "Immediate action", tone: "action" },
+    { id: "investigations", title: "Investigations", tone: "test" },
+    { id: "mimics-overlap", title: "Mimics / overlap", tone: "overlap" },
+  ] satisfies Omit<DifferentialComparisonCriterion, "scope">[]
+).map((criterion) => ({
+  ...criterion,
+  scope: DIAGNOSIS_SCOPED_CRITERIA.has(criterion.id) ? ("diagnosis" as const) : ("presentation" as const),
+}));
 
 const PRESENTATION_SLUG_OVERRIDES: Record<string, string> = {
   "1": "acute-confusion-encephalopathy",
@@ -292,27 +306,34 @@ function buildPresentationWorkflow(parsed: ParsedPresentation): DifferentialPres
 }
 
 function diagnosisSections(option: ParsedOption, presentation: ParsedPresentation): DifferentialSection[] {
+  const redFlagsAreOwn = option.redFlags.length > 0;
   return [
     {
       id: "why-it-fits",
       title: "Why it fits",
       summary: option.summary || option.name,
-      items: [option.summary || option.name, presentation.clinicalHinge].filter(Boolean),
+      // The presentation hinge deliberately does NOT join these items. It
+      // describes the group, so listing it here read as evidence for this
+      // diagnosis. It stays available as the scoped bedside-question section.
+      items: [option.summary || option.name].filter(Boolean),
       tone: "fit",
+      scope: "diagnosis",
     },
     {
       id: "must-not-miss",
       title: "Must-not-miss",
-      summary: option.redFlags.join(", ") || presentation.mustNotMiss.join(", "),
-      items: option.redFlags.length ? option.redFlags : presentation.mustNotMiss,
+      summary: redFlagsAreOwn ? option.redFlags.join(", ") : presentation.mustNotMiss.join(", "),
+      items: redFlagsAreOwn ? option.redFlags : presentation.mustNotMiss,
       tone: "warning",
+      scope: redFlagsAreOwn ? "diagnosis" : "presentation",
     },
     {
       id: "bedside-question",
       title: "Bedside question",
       summary: presentation.clinicalHinge,
-      items: [presentation.clinicalHinge],
+      items: [presentation.clinicalHinge].filter(Boolean),
       tone: "question",
+      scope: "presentation",
     },
     {
       id: "immediate-action",
@@ -320,6 +341,7 @@ function diagnosisSections(option: ParsedOption, presentation: ParsedPresentatio
       summary: presentation.immediateActions.join(" "),
       items: presentation.immediateActions,
       tone: "action",
+      scope: "presentation",
     },
     {
       id: "investigations",
@@ -327,6 +349,7 @@ function diagnosisSections(option: ParsedOption, presentation: ParsedPresentatio
       summary: presentation.investigations.join(", "),
       items: presentation.investigations,
       tone: "test",
+      scope: "presentation",
     },
     {
       id: "mimics-overlap",
@@ -334,6 +357,7 @@ function diagnosisSections(option: ParsedOption, presentation: ParsedPresentatio
       summary: presentation.mimics.join(", "),
       items: presentation.mimics,
       tone: "overlap",
+      scope: "presentation",
     },
   ];
 }
@@ -345,8 +369,11 @@ function buildDiagnosisRecord(option: ParsedOption, presentation: ParsedPresenta
     status: presentation.status,
     subtitle: option.summary || presentation.triageRationale,
     clinicalHinge: presentation.clinicalHinge,
+    clinicalHingeScope: "presentation",
     safetySnapshot: {
-      summary: option.redFlags.join(", ") || presentation.clinicalHinge,
+      // Never falls back to the presentation hinge: that put the akathisia
+      // discriminator in acute dystonia's safety summary.
+      summary: option.redFlags.join(", "),
       tags: option.redFlags.slice(0, 4),
     },
     sections: diagnosisSections(option, presentation),

@@ -23,6 +23,12 @@ export type CalculatorEvidenceSource = {
 
 export type CalculatorEvidenceClaim = {
   id: string;
+  /** What the claim actually asserts, in full, so a claim id is never the only record of it. */
+  text: string;
+  /** Population and timeframe the claim holds for, which bounds where the support applies. */
+  population: string;
+  /** Where inside each supporting source the assertion is found. */
+  supportLocator: string;
   sourceIds: string[];
 };
 
