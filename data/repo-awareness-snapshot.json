@@ -2087,6 +2087,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/dsm5tr-handover-reconciliation-2026-09-16.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-4-report.md",
         "section": "caring-contacts",
         "catalogued": true
@@ -3494,6 +3499,11 @@
       {
         "path": "docs/archive/branch-review-ledger-2026-q3.md",
         "section": "archive",
+        "catalogued": true
+      },
+      {
+        "path": "docs/dsm5tr-approvals-queue.md",
+        "section": "root",
         "catalogued": true
       },
       {
