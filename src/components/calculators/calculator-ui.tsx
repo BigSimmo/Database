@@ -19,8 +19,28 @@ export const focusRing =
  */
 export type AnswerMap = Record<string, number | undefined>;
 
+/**
+ * Whether a raw answer is a response this item can actually carry.
+ *
+ * `itemScore` falls back to 0 for anything it cannot resolve, and completion used to ask only
+ * whether a value was `!== undefined`. Together those two behaviours let a malformed answer map
+ * — an out-of-range option index, a fraction, NaN, a boolean coerced to a number — count as a
+ * fully answered instrument scoring 0, and a confident final band would be published off it.
+ * `deriveCalculator` is exported and shared by every calculator surface, so the boundary belongs
+ * here rather than in whichever caller happens to be well behaved.
+ */
+export function isValidAnswer(item: CalculatorItem, selection: number | undefined): boolean {
+  if (selection === undefined) return true;
+  if (typeof selection !== "number" || !Number.isInteger(selection)) return false;
+  // Checkbox answers are exactly 0 ("No") or 1 ("Yes") — never any other integer.
+  if (item.kind === "checkbox") return selection === 0 || selection === 1;
+  const options = item.options ?? [];
+  return selection >= 0 && selection < options.length;
+}
+
 export function itemScore(item: CalculatorItem, selection: number | undefined): number {
   if (selection === undefined) return 0;
+  if (!isValidAnswer(item, selection)) return 0;
   if (item.kind === "checkbox") return selection === 1 ? (item.points ?? 0) : 0;
   return item.options?.[selection]?.points ?? 0;
 }
@@ -62,6 +82,10 @@ type CalculatorState = {
   checkedCount: number;
   checkboxItemCount: number;
   checkboxAnsweredCount: number;
+  /** Item ids whose recorded answer is not a response the item can carry. */
+  invalidItemIds: string[];
+  /** True when any answer is malformed, or the map carries an id this instrument has no item for. */
+  invalid: boolean;
   complete: boolean;
   started: boolean;
   band: ScoreBand | undefined;
@@ -112,33 +136,56 @@ export type DerivedCalculator = Omit<CalculatorState, "answers" | "toggleCheckbo
 export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): DerivedCalculator {
   const optionItems = calc.items.filter((item) => item.kind === "options");
   const checkboxItems = calc.items.filter((item) => item.kind === "checkbox");
+  const isAnswered = (item: CalculatorItem) => answers[item.id] !== undefined && isValidAnswer(item, answers[item.id]);
+  const invalidItemIds = calc.items.filter((item) => !isValidAnswer(item, answers[item.id])).map((item) => item.id);
+  // An answer keyed to an id this instrument has no item for cannot be scored or displayed, so it
+  // is a malformed map rather than a value to ignore.
+  const itemIds = new Set(calc.items.map((item) => item.id));
+  const unknownIds = Object.keys(answers).filter((id) => answers[id] !== undefined && !itemIds.has(id));
+  const invalid = invalidItemIds.length > 0 || unknownIds.length > 0;
+
   const score = calc.items.reduce((sum, item) => sum + itemScore(item, answers[item.id]), 0);
-  const answeredCount = optionItems.filter((item) => answers[item.id] !== undefined).length;
-  const checkedCount = checkboxItems.filter((item) => answers[item.id] === 1).length;
-  const checkboxAnsweredCount = checkboxItems.filter((item) => answers[item.id] !== undefined).length;
+  const answeredCount = optionItems.filter(isAnswered).length;
+  const checkedCount = checkboxItems.filter((item) => isAnswered(item) && answers[item.id] === 1).length;
+  const checkboxAnsweredCount = checkboxItems.filter(isAnswered).length;
   // A missing response is never an implicit negative. This applies equally to
   // checkbox and options items, including the 13 MDQ symptoms, co-occurrence
-  // and impairment criteria.
-  const complete = calc.items.every((item) => answers[item.id] !== undefined);
-  const started = Object.values(answers).some((value) => value !== undefined);
+  // and impairment criteria. A malformed response is not an answer either: it
+  // must never complete an instrument, because a zero-scoring fallback would
+  // otherwise publish a final band off values the instrument cannot carry.
+  const complete = !invalid && calc.items.every(isAnswered);
+  // A malformed map is started, not "Not started". Consumers gate the Clear button and the result
+  // pill on `started`, so treating an invalid entry as unstarted would disable the only control
+  // that clears it and would hide the "Invalid entry" label behind "Not started".
+  const started = invalid || calc.items.some(isAnswered);
   const band = complete ? bandForScore(calc, score) : undefined;
+  // Safety flags stay visible while an assessment is incomplete or invalid, because an endorsed
+  // risk item matters before the total does. Only flags from items whose own answer is valid are
+  // shown, and the caller labels them provisional until the instrument is complete.
   const flags = calc.items
-    .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
+    .filter((item) => item.flag && isValidAnswer(item, answers[item.id]) && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);
 
-  const result: CalculatorResult = !complete
+  const result: CalculatorResult = invalid
     ? {
-        label: "Incomplete",
-        tone: "info",
-        guidance: "Answer every item before interpreting this result.",
+        label: "Invalid entry",
+        tone: "warning",
+        guidance:
+          "One or more responses are not valid for this instrument. Clear and re-enter them before interpreting a result.",
       }
-    : calc.id === "mdq"
-      ? mdqResult(answers, score)
-      : {
-          label: band?.label ?? "Unavailable",
-          tone: band?.tone ?? "info",
-          guidance: band?.interpretation ?? "",
-        };
+    : !complete
+      ? {
+          label: "Incomplete",
+          tone: "info",
+          guidance: "Answer every item before interpreting this result.",
+        }
+      : calc.id === "mdq"
+        ? mdqResult(answers, score)
+        : {
+            label: band?.label ?? "Unavailable",
+            tone: band?.tone ?? "info",
+            guidance: band?.interpretation ?? "",
+          };
 
   return {
     score,
@@ -147,6 +194,8 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
     checkedCount,
     checkboxItemCount: checkboxItems.length,
     checkboxAnsweredCount,
+    invalidItemIds,
+    invalid,
     complete,
     started,
     band,
@@ -427,13 +476,24 @@ function OptionScale({
   );
 }
 
-export function FlagNotice({ flags }: { flags: string[] }) {
+/**
+ * Safety flags surface as soon as the item that raises them is endorsed, which is deliberately
+ * before the instrument is complete. `provisional` says so in words rather than leaving the
+ * reader to infer from the surrounding interface that the assessment is still part-finished —
+ * the flag is a prompt to assess now, not a finding from a completed instrument.
+ */
+export function FlagNotice({ flags, provisional = false }: { flags: string[]; provisional?: boolean }) {
   if (!flags.length) return null;
   return (
     <div
       role="alert"
       className="grid gap-2 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-3"
     >
+      {provisional ? (
+        <p className="text-2xs font-bold uppercase tracking-wide text-[color:var(--danger)]">
+          Provisional — assessment not complete
+        </p>
+      ) : null}
       {flags.map((flag) => (
         <p
           key={flag}
@@ -536,9 +596,13 @@ export function CopyResultButton({
  * summary in `src/lib/differential-detail.ts`, which carried the same defect.
  */
 export function formatResultSummary(calc: CalculatorFixture, state: DerivedCalculator): string {
-  const score = `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
-    state.complete ? "" : ` (${progressLabel(state)})`
-  }`;
+  // A malformed answer map has no score worth publishing, so the summary carries the state
+  // instead of a number that looks like a result.
+  const score = state.invalid
+    ? `${calc.abbrev} — ${state.result.label}`
+    : `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
+        state.complete ? "" : ` (${progressLabel(state)})`
+      }`;
   return `${score}\nClinical reference — not validated decision support. Confirm scoring and interpretation against the source instrument.`;
 }
 

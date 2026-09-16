@@ -10,6 +10,7 @@ import {
   resolveDifferentialCompareHandoff,
   resolveDifferentialCompareLaunchHref,
 } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 
 export const metadata: Metadata = {
   title: "Compare differentials | PsychSift",
@@ -46,7 +47,7 @@ export default async function DifferentialCompareRoute({ searchParams }: Differe
   const catalog: CompareCatalogItem[] = differentialRecords.map((record) => ({
     id: record.slug,
     title: record.title,
-    snippet: record.clinicalHinge,
+    snippet: diagnosisOwnSummary(record),
     tag: record.status,
   }));
   const extra = query ? { q: query } : undefined;
