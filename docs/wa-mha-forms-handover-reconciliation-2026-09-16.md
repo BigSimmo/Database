@@ -210,24 +210,57 @@ puts what the app displays, the sections it rests on, the basis it was drafted f
 to the approved PDF on one line of sight per form. A reviewer sets `status` to `reviewed` with
 `reviewedBy` and `reviewedAt` for one code at a time. Package holds H01 and H03 stay open.
 
-### What is left
+### What is left, and it is not what it looked like
 
-**One command, and it needs Docker.** `supabase/schema.sql` changed, so
-`supabase/drift-manifest.json`'s `schema_sha256` no longer matches it and
-`tests/drift-detection.test.ts` is red with the message that names the fix:
-`npm run drift:manifest`. The generator replays `schema.sql` into a pinned
-`supabase/postgres` container and no Docker daemon was available here.
+`tests/drift-detection.test.ts` is red because `supabase/schema.sql` changed and
+`supabase/drift-manifest.json` was not regenerated. Chasing that to the end found something
+bigger.
 
-The `def_hash` side was checked rather than assumed, and the check found something. Replaying
-`public.site_content_registry_baseline` into a local Postgres 16 reproduced the pinned
-`c2dc2183657bab3c994af7f18ddfcb9b` for the old body **and** for the new one, and that same
-replay reproduces the manifest value exactly for the unchanged body, so the control is sound.
-The reason the hash does not move is that `schema_drift_snapshot()` strips from any `--` to end
-of line before hashing, and these blobs are a single line whose first `--` falls at offset
-176107 inside a service URL. **91.1 per cent of that function's definition is therefore invisible
-to drift detection** — 1841007 normalised characters down to 164524. Every other function in the
-schema loses only genuine comments, which is the intended behaviour. Filed as its own issue; a
-fix changes `def_hash` for every function and needs a manifest regeneration in the same change.
+**`supabase/schema.sql` does not replay, and it did not before this branch.** Replaying the
+pristine pre-branch file into the pinned `supabase/postgres:17.6.1.127` container aborts with
+`site_content_bootstrap_population_mismatch`: the seeded bootstrap guard expects digest
+`57f6ec90...` over 843 records, and the committed blob actually computes `b3caf89c...`. Two
+independent methods agree on that — a container replay with the guard made self-reporting, and
+an offline reimplementation of `site_content_canonical_json` now committed and pinned by tests.
+
+So `npm run drift:manifest` cannot be run on `main` at all. The manifest can never be
+legitimately regenerated, `tests/drift-detection.test.ts` can only stay green while
+`schema.sql` never changes, and disaster recovery from `schema.sql` would fail. It stayed
+invisible because CI replays `supabase/migrations/**` via `supabase migration up` rather than
+`schema.sql`, and the offline drift test only compares `schema_sha256`.
+
+**The repair is not local, which is why this branch does not attempt it.**
+`site_content_retained_bootstrap_valid` asserts
+`r.id = site_content_release_id(r.release_digest, 0, 'bootstrap-v1')`, so the release UUID is
+derived from the digest. Correcting the digest re-keys the bootstrap release identity, and that
+UUID is hardcoded 36 times across the migration and `schema.sql` — including inside
+`create function` bodies already applied to the live database — and 12 more times in
+application code. A second guard, `site_content_transition_backfill_unprovable`, needs the same
+re-keying to classify at epoch zero. Rewriting the digest alone trades one broken invariant for
+another. Re-keying the release is an owner decision about the live clinical content control
+plane, in an approved window.
+
+`npm run site-content:p03` now prints the mismatch, what it breaks and why it is not fixing it.
+
+**What would make this branch green.** `supabase/drift-manifest.json`'s `schema_sha256` is a
+plain sha256 of `schema.sql`, not a replay output, and the rest of the manifest is provably
+unaffected by this change: the diff alters string literals inside one function body and inside
+DML, so no table, view, index, policy, constraint, trigger, extension or storage bucket moves,
+and the one function whose definition changed — `site_content_registry_baseline` — was measured
+to keep its `def_hash` for the reason described above. Updating that one field is therefore
+exactly what a faithful regeneration would produce. It was not done here: editing an audit
+artifact by hand is the sort of thing that should be asked for rather than assumed.
+
+### Drift detection has a blind spot worth knowing about
+
+`schema_drift_snapshot()` strips from any `--` to end of line before hashing a function
+definition, and cannot tell a real comment from `--` inside a string literal.
+`site_content_registry_baseline` embeds the registry seed as a single-line blob whose first
+`--` falls at offset 176107, inside a service URL. **91.1 per cent of that function's
+definition is invisible to drift detection** — 1841007 normalised characters down to 164524.
+Every other function in the schema loses only genuine comments, which is the intended
+behaviour. Filed; a fix moves `def_hash` for every function and needs a manifest regeneration
+in the same change.
 
 ## Evidence
 
