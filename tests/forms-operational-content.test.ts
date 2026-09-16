@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import formsCatalog from "../data/forms-catalog.json";
 import formsContentReview from "../data/forms-content-review.json";
 
-import { formCatalogDetails } from "@/lib/form-catalog";
+import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails } from "@/lib/form-catalog";
 import { formRecords, getFormRecord } from "@/lib/forms";
 
 /**
@@ -89,10 +89,8 @@ describe("forms catalogue operational content", () => {
       const isDrafted = drafted.has(details!.form.trim().toLowerCase());
       expect(details!.contentReviewStatus, details!.form).toBe(isDrafted ? "drafted" : "reviewed");
       const notes = record.verification?.notes ?? [];
-      expect(
-        notes.some((note) => note.toLowerCase().includes("awaiting clinical review")),
-        details!.form,
-      ).toBe(isDrafted);
+      expect(notes.includes(FORMS_AWAITING_REVIEW_NOTE), details!.form).toBe(isDrafted);
+      expect(FORMS_AWAITING_REVIEW_NOTE.toLowerCase()).toContain("awaiting clinical review");
     }
   });
 
