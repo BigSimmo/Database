@@ -49,6 +49,18 @@ export type DifferentialCuratedEntry = {
    * unreliable, so a reader is not quietly misled by the body of the page.
    */
   contentNote?: string;
+  /**
+   * Withhold the generated sections entirely rather than printing them under a
+   * warning.
+   *
+   * Owner ruling, 2026-09-16. A note asking the reader to distrust the body of
+   * the page is weaker than not publishing the wrong body, and these records are
+   * publicly readable with no login wall. Showing nothing degrades
+   * conservatively. Showing another diagnosis's management does not.
+   *
+   * Only set this with a `contentNote` saying why, which a test enforces.
+   */
+  generatedBodyUnreliable?: true;
 };
 
 export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
@@ -189,7 +201,7 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
       "Examine for inducible and spontaneous clonus, ocular clonus, hyperreflexia and tremor, which are lower limb predominant",
       "Apply the Hunter criteria and record which limb of them is met",
       "Send CK, U&E, LFT, coagulation profile and a venous gas, and monitor temperature continuously",
-      "Escalate to ICU for a temperature above 38.5 degrees, rigidity or altered conscious state, as this can progress within hours",
+      "Escalate to intensive care early for hyperthermia, rigidity or a falling conscious state, because this can progress within hours. Take the escalation threshold from the local protocol rather than from this page",
     ],
     discriminators: [
       {
@@ -347,9 +359,9 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
       { id: "treatable", label: "Treatable", value: "Yes" },
     ],
     doNow: [
-      "Establish whether any dose has been missed: 48 hours or more off clozapine requires retitration from the start",
+      "Establish whether any dose has been missed and for how long, because a sustained break means retitrating from the start rather than resuming the previous dose. The exact cut-off sits in the local clozapine protocol",
       "Take temperature and pulse, and send FBC with differential, CRP, troponin and an ECG in the first weeks of treatment, because myocarditis presents as a flu-like illness",
-      "Ask about constipation at every review and treat it actively, since clozapine-induced gastrointestinal hypomotility kills more patients than agranulocytosis",
+      "Ask about constipation at every review and treat it actively, because clozapine-induced gastrointestinal hypomotility is a recognised cause of death and is easier to miss than the haematological monitoring already in place",
       "Check for smoking cessation, intercurrent infection or an interacting medicine before attributing a rise in effect to the dose alone",
       "Discuss with the clozapine coordinator and the treating consultant before any change, and follow the local monitoring protocol",
     ],
@@ -423,10 +435,13 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
     // The generated record for this slug is contaminated: its clinical hinge is
     // the definition of akathisia, its "immediate actions" are four statements
     // about akathisia, parkinsonism and tardive syndromes, and its related nodes
-    // are the extrapyramidal family rather than causes of tremor. Flagged rather
-    // than silently patched, because the body of the page still shows it.
+    // are the extrapyramidal family rather than causes of tremor. The first two
+    // are withheld by the flag below. The related list is kept, because those
+    // nodes describe real conditions accurately and dropping them would take the
+    // Compare, Map and Related tabs with them, so the note names it instead.
+    generatedBodyUnreliable: true,
     contentNote:
-      "The generated sections for this record mix material from akathisia, drug-induced parkinsonism and tardive syndromes. Read the sections below with that in mind and verify against the source before use.",
+      "The generated review for this record carried material from akathisia, drug-induced parkinsonism and tardive syndromes, so it is withheld rather than shown. The related diagnoses listed are the extrapyramidal family rather than causes of tremor. The safety snapshot and the assessment steps are locally authored and stand. Open the Source tab and read the original before acting on this record.",
     doNow: [
       "Characterise the tremor: a fine postural tremor fits lithium at therapeutic level, while a coarse tremor with ataxia suggests toxicity",
       "Take a lithium level with U&E, eGFR, calcium and thyroid function, and note the time since the last dose",

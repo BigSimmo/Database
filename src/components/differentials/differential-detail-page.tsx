@@ -54,6 +54,7 @@ import {
   differentialValidationStatusLabel,
   formatDifferentialCopyText,
   formatExportedDate,
+  generatedBodyWithheld,
   groupCurrentPresentation,
   hasCuratedContent,
   isDetailTabId,
@@ -62,6 +63,7 @@ import {
   safetyFactCompactLabel,
   sectionBadgeLabel,
   visibleSectionItems,
+  withholdGeneratedBody,
   type DifferentialDetailContext,
   type DifferentialDetailTabId,
   type DifferentialSafetyFact,
@@ -534,6 +536,35 @@ function ContentNote({ curated }: { curated: DifferentialCuratedEntry | null }) 
         <span className="mt-1 block text-sm leading-6 text-[color:var(--text-heading)]">{note}</span>
       </span>
     </section>
+  );
+}
+
+/**
+ * What stands in place of the clinical review when the generated body has been
+ * withheld. An empty panel would read as a record with nothing in it, which is
+ * a different and misleading claim, so the absence is stated and the reader is
+ * sent to the original.
+ */
+function WithheldBody({ onOpenSource }: { onOpenSource: () => void }) {
+  return (
+    <div data-testid="differential-body-withheld" className="px-3 py-4 sm:px-4">
+      <p className="text-sm font-bold text-[color:var(--text-heading)]">
+        The generated review for this record is not shown
+      </p>
+      <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+        Its sections were found to describe a different diagnosis, so they are withheld rather than printed under a
+        warning. The safety snapshot, the assessment steps and the investigations above are locally authored and stand.
+        Read the original before acting on this record.
+      </p>
+      <button
+        type="button"
+        onClick={onOpenSource}
+        className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+      >
+        Open the source
+        <ChevronRight className="size-icon-sm shrink-0" aria-hidden />
+      </button>
+    </div>
   );
 }
 
@@ -1140,7 +1171,7 @@ function Tabs({
 }
 
 export function DifferentialDetailPage({
-  record,
+  record: exportedRecord,
   detailContext,
   liveGovernance = null,
 }: {
@@ -1148,6 +1179,12 @@ export function DifferentialDetailPage({
   detailContext: DifferentialDetailContext;
   liveGovernance?: DifferentialRecordGovernance | null;
 }) {
+  const curated = detailContext.curated ?? null;
+  // Done once, at the boundary, rather than guarded at each render site: a
+  // record whose generated export describes a different diagnosis loses that
+  // body here, and every panel below is already written to handle its absence.
+  const bodyWithheld = generatedBodyWithheld(curated);
+  const record = useMemo(() => withholdGeneratedBody(exportedRecord, curated), [curated, exportedRecord]);
   const [activeTab, setActiveTab] = useState<DifferentialDetailTabId>("overview");
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set<string>());
   const accountData = useAccountData();
@@ -1303,12 +1340,8 @@ export function DifferentialDetailPage({
             // the rail is desktop breathing room, not a fourth phone summary.
             <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5">
               <div className="grid min-w-0 gap-4">
-                <ContentNote curated={detailContext.curated ?? null} />
-                <SafetySnapshot
-                  record={record}
-                  termLinks={detailContext.termLinks ?? {}}
-                  curated={detailContext.curated ?? null}
-                />
+                <ContentNote curated={curated} />
+                <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} curated={curated} />
                 <ClinicalHinge record={record} />
                 <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                   <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
@@ -1331,16 +1364,20 @@ export function DifferentialDetailPage({
                       </button>
                     ) : null}
                   </div>
-                  {record.sections.map((section) => (
-                    <SectionRow
-                      key={section.id}
-                      section={section}
-                      record={record}
-                      open={openSections.has(section.id)}
-                      onOpenChange={setSectionOpen}
-                      termLinks={detailContext.termLinks ?? {}}
-                    />
-                  ))}
+                  {bodyWithheld ? (
+                    <WithheldBody onOpenSource={() => changeTab("source")} />
+                  ) : (
+                    record.sections.map((section) => (
+                      <SectionRow
+                        key={section.id}
+                        section={section}
+                        record={record}
+                        open={openSections.has(section.id)}
+                        onOpenChange={setSectionOpen}
+                        termLinks={detailContext.termLinks ?? {}}
+                      />
+                    ))
+                  )}
                 </div>
               </div>
               <DifferentialOverviewRail
@@ -1360,7 +1397,7 @@ export function DifferentialDetailPage({
               record={record}
               relatedMapDetails={detailContext.relatedMapDetails}
               knownRelatedSlugs={detailContext.knownRelatedSlugs}
-              curated={detailContext.curated ?? null}
+              curated={curated}
             />
           ) : null}
 
@@ -1372,11 +1409,7 @@ export function DifferentialDetailPage({
           ) : null}
 
           {activeTab === "source" ? (
-            <FooterStatus
-              source={detailContext.source}
-              liveGovernance={liveGovernance}
-              curated={detailContext.curated ?? null}
-            />
+            <FooterStatus source={detailContext.source} liveGovernance={liveGovernance} curated={curated} />
           ) : null}
         </div>
 

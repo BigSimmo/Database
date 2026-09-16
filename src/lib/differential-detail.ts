@@ -335,6 +335,42 @@ export function curatedContentNote(curated: DifferentialCuratedEntry | null): st
   return curated?.contentNote ?? null;
 }
 
+/**
+ * True when this record's generated sections must not be rendered at all.
+ *
+ * Distinct from `curatedContentNote`, which warns about a body that is still
+ * shown. This withholds it. See the field's own comment in
+ * `differential-curated.ts` for the ruling behind it.
+ */
+export function generatedBodyWithheld(curated: DifferentialCuratedEntry | null): boolean {
+  return curated?.generatedBodyUnreliable === true;
+}
+
+/**
+ * Strip the generated body from a record whose export is known to describe a
+ * different diagnosis.
+ *
+ * Every field emptied here is one the generated export asserts *about this
+ * diagnosis*: the sections, the clinical hinge, the immediate actions and the
+ * current-presentation list. The safety snapshot and investigations are correct
+ * for the record and stay. `related` stays too, because emptying it would take
+ * the Compare, Map and Related tabs down with it for no safety gain — the nodes
+ * describe real conditions, they are just the wrong siblings, which the content
+ * note says.
+ *
+ * Every consumer of these fields already handles the empty case, so one call at
+ * the page boundary is enough: the hinge block returns null, the section list
+ * renders nothing, and the clipboard text drops both. Records that are not
+ * withheld are returned by identity, so this costs nothing on the other 200.
+ */
+export function withholdGeneratedBody(
+  record: DifferentialRecord,
+  curated: DifferentialCuratedEntry | null,
+): DifferentialRecord {
+  if (!generatedBodyWithheld(curated)) return record;
+  return { ...record, sections: [], clinicalHinge: "", immediateActions: [], currentPresentation: [] };
+}
+
 export function hasCuratedContent(curated: DifferentialCuratedEntry | null): boolean {
   if (!curated) return false;
   return Boolean(
