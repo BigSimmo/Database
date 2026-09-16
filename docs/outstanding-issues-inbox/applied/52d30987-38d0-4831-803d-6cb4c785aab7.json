@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "52d30987-38d0-4831-803d-6cb4c785aab7",
+  "createdOn": "2026-09-07",
+  "action": "update",
+  "payload": {
+    "id": "#RA0QAH",
+    "detail": "GENERIC HALF CLOSED BY MEASUREMENT 2026-09-07; the row stays open only for three unexplained specs. This row's fixed member left a standing worry in its own text: that the Next 16 prefetch-header trap is generic to any Playwright assertion trying to tell a prefetch from a navigation, and was worth grepping for. GREPPED, on origin/main 0177bed: grep -rn 'next-router-prefetch' over tests/, src/ and scripts/ returns two hits, both inside the already-fixed tests/ui-smoke.spec.ts:1354 block (its explanatory comment and the corrected guard). There is no second occurrence anywhere in the repository, so that specific trap is not lurking elsewhere and no further code fix follows from it. WHAT REMAINS UNEXPLAINED: the other three single-spec Production UI failures of 2026-09-02. This row never named them, and the only pointers are CI runs 33610490607 and 33613433031, which are past the useful retention window for reading logs. With no spec identities and no reproduction, any fix would be a guess, and guessing at flakiness is how a real failure gets quarantined by accident. RECOMMENDATION: leave open at P3 as a watch item, not a work item. If a fourth single-spec Production UI failure appears, capture the spec identity and the run URL AT THAT MOMENT - that is the missing input - then reproduce with --repeat-each on the same SHA before touching anything. Do not quarantine; tests/flake-ledger.json still holds one entry and it is not one of these.",
+    "source": "Assessment session 2026-09-07: repository-wide grep on origin/main 0177bed; no provider access",
+    "baseRowFingerprint": "11306c58889703ac51bed66d1499c6228814fc4e21c4905cd4f2b9bd437d2062"
+  }
+}

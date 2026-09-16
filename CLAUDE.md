@@ -37,7 +37,7 @@ its rules are in force whether or not you have opened it.
 When adding to this file, add **orientation**. Policy belongs in `AGENTS.md`; deep structure
 belongs in `docs/codebase-index.md`. Keeping those three non-overlapping is what stops five
 AI systems (Claude Code, Codex, Cursor, CodeRabbit, `.agents/`) from drifting apart —
-see the AI tooling map in `docs/agents-guide.md`.
+see the AI tooling and documentation ownership map in `docs/agents-guide.md` (§ Tooling and documentation ownership).
 
 ## Highest-consequence rules
 

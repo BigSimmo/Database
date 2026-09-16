@@ -105,25 +105,6 @@ export type ResultFilterLensGroup = ResultFilterGroupBase & {
       than role alone. Omit for a sheet with no facet groups; the roving
       radiogroup already says "one active" on its own there. */
   note?: string;
-  /**
-   * How the one-of-N options are drawn. Defaults to `"chips"`, so every lens
-   * call site that predates this renders unchanged.
-   *
-   * `"segmented"` is the shape `docs/filter-contract.md` section 5 argues for
-   * once options carry counts: a counted chip is wide enough that four of them
-   * wrap one per line and leave most of each row empty, which is exactly the
-   * ragged column the counted-row renderer was added to fix for facets. A lens
-   * is an exact partition, so it gets the segmented bar rather than that
-   * two-column grid — `ChoiceChip`'s own contract sends one-of-many choices to
-   * `SegmentedControl`.
-   *
-   * Ignored for a group carrying a dead-end option. `SegmentedControl` marks a
-   * disabled option with the native `disabled` attribute, which drops it out of
-   * the tab order; this group keeps dead ends focusable and explained on
-   * purpose (see `isDeadEnd` below), and losing that is a real regression, so
-   * such a group falls back to chips.
-   */
-  renderAs?: "chips" | "segmented";
 };
 
 export type ResultFilterFacetGroup = ResultFilterGroupBase & {
@@ -158,7 +139,6 @@ export function resultFilterGroup<Value extends string>(group: {
   onChange: (value: Value) => void;
   note?: string;
   optionSections?: ReadonlyArray<ResultFilterOptionSection>;
-  renderAs?: "chips" | "segmented";
 }): ResultFilterGroup {
   return {
     kind: "lens",
@@ -169,7 +149,6 @@ export function resultFilterGroup<Value extends string>(group: {
     options: group.options,
     note: group.note,
     optionSections: group.optionSections,
-    renderAs: group.renderAs,
     // The one narrowing, isolated here rather than repeated at seven call sites.
     onChange: (value) => group.onChange(value as Value),
   };
@@ -347,11 +326,25 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
   // selectable one when the value matches no option (a stale URL param, or a
   // catalogue that dropped a category between renders).
   const tabStopValue = selectable.some((o) => o.value === group.value) ? group.value : selectable[0]?.value;
-  // See `renderAs` on ResultFilterLensGroup for why a dead end vetoes the
-  // segmented bar: SegmentedControl disables such an option natively, which
-  // takes it out of the tab order, and an unreachable dead end cannot explain
-  // itself to the reader whose selection created it.
-  const useSegmented = group.renderAs === "segmented" && selectable.length === group.options.length;
+  // Derived, never declared — see docs/filter-contract.md section 5. A lens
+  // whose options all carry a count is a segmented bar: a counted chip is wide
+  // enough that four of them wrap one per line and leave most of each row
+  // empty, and `ChoiceChip`'s own contract sends one-of-many choices to
+  // `SegmentedControl`. One condition bounds it.
+  //
+  // Five options, because that is where section 5's chip tier ends. A segmented
+  // bar is one control read left to right; past five it wraps into rows and
+  // stops reading as one, which is the ragged shape this rule exists to remove.
+  //
+  // Dead ends do NOT veto it. They used to, and that was wrong: documents'
+  // Source locality marks an option dead when its count reaches zero, so a
+  // state-dependent veto made the control morph from a segmented bar into a
+  // chip row mid-interaction. `SegmentedControl` now keeps a dead end focusable
+  // and explained itself, exactly as the chip renderer does, so the shape of the
+  // option list decides the renderer and nothing about the reader's current
+  // selection can change it.
+  const everyOptionCounted = group.options.length > 0 && group.options.every((option) => Boolean(option.hint));
+  const useSegmented = everyOptionCounted && group.options.length <= 5;
 
   const moveTo = useCallback(
     (next: ResultFilterOption<string> | undefined) => {
@@ -412,14 +405,18 @@ function FilterRadioGroup({ group, panelId }: { group: ResultFilterLensGroup; pa
             options={group.options.map((option): SegmentedControlOption<string> => ({
               value: option.value,
               label: option.label,
-              // `hint` only. SegmentedControl uses one field for both the
-              // visible count and the accessible name, whereas an option
-              // splits them into `hint` (announced, carries the unit) and
-              // `hintLabel` (displayed). Passing `hintLabel` here would
-              // strip the unit from the announced name, so a lens whose
-              // counts carry one has to stay on chips until SegmentedControl
-              // grows the second field.
+              // Both halves of the count. `hint` carries the unit and builds
+              // the accessible name; `hintLabel` is the short visible form.
+              // Documents' Source locality needs exactly this — "1 loaded
+              // source" announced, "1" displayed — and before the control took
+              // the second field, a lens whose counts carry a unit had to stay
+              // on chips.
               hint: option.hint,
+              hintLabel: option.hintLabel,
+              // `deadEnd`, not `disabled`: an option the reader's own narrowing
+              // emptied stays on the arrow path and explains itself, where
+              // `disabled` would skip it entirely.
+              deadEnd: isDeadEnd(option),
             }))}
             // Not `equal`: that stretches every segment to the same width with
             // `whitespace-nowrap` and truncates. "All priorities" and

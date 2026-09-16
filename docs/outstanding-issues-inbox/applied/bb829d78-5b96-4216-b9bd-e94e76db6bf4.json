@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bb829d78-5b96-4216-b9bd-e94e76db6bf4",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow standard states 23 wards across 17 sites, and its own reference build carries 16 across 9",
+    "detail": "FOUND 2026-09-09. Section 8.3 of the third-edition standard (artifact e7f7b6f2) states as a data rule: 'There are eight emergency departments and Joondalup Health Campus and Peel Health Campus have no inpatient ward in the data. There are twenty-three wards across seventeen sites. A page reads the collection and never carries a hard-coded nine.' MEASURED in artifact d821a155, the reference build the standard points at: UNITS holds 16 wards across 9 sites (ARM, BTY, FRE, FSH, GRY, RGH, RPH, SCGH, SJGM), and EDS holds 8 departments. The department figure is right. The ward and site figures are not. WHY IT MATTERS BEYOND A TYPO: section 6 of the standard renders every one of its component examples live from Command's own stylesheet and data, so the standard asserts a figure its own reference build contradicts on the same page. Anyone building the next mockup takes twenty-three from the prose and finds sixteen in the data. Note the standard's WACHS handling is not the defect: no WA Country ward exists in the data and that absence is deliberately and correctly stated by the 'WA Country states its absences' rule. NEXT ACTION: decide which number is the network's real size, then either extend Command's UNITS to match or restate 8.3 as the real figure with a sentence saying Command carries a subset. Check the same sentence in the repository's own ward-sites.ts before choosing, since a third figure there would make this a three-way disagreement.",
+    "source": "Artifact review 2026-09-09 (e7f7b6f2 section 8.3 vs d821a155 UNITS)",
+    "issueUlid": "01M22T8P9KA2TNT9NXNYZ2M1DA"
+  }
+}

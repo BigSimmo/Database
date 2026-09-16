@@ -5,7 +5,8 @@ import { useMemo } from "react";
 import { Phone } from "lucide-react";
 
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
-import { ON_CALL_SECTION_TITLES, OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
+import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
+import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { PrintOutput, PrintSection } from "@/components/ui/print-output";

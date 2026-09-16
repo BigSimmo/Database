@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "af28511a-e4fb-47f3-8574-26f5657cc8b8",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "ui-tools differentials compare queue navigation is intermittently slow enough to time out inside the full Production UI shard 3",
+    "detail": "Observed 2026-09-07 on PR #2721 (branch claude/rag-review-fallback-grounded-flip). tests/ui-tools.spec.ts:2928 'differentials compare queue launches presentation comparison' failed in CI Production UI (3): the compare-open click never navigated, expected /differentials/presentations/acute-confusion-encephalopathy, still on /differentials/compare?ids=wernicke-encephalopathy after the 30s toHaveURL timeout, test duration 33.5s. Measured locally four ways: same branch full shard 3 reproduced it once (1 failed, 206 passed, 8.5m), same branch full shard 3 second run 207 passed (7.7m), the test alone on the branch passed in 6.4s, origin/main 0177bed18 full shard 3 207 passed (7.6m) and the test alone passed in 6.1s. So it is nondeterministic under shard load, not caused by that PR (which changes src/lib/rag only and cannot reach differentials routing), and it is well under the three-reproductions-on-one-SHA bar for tests/flake-ledger.json. Recorded so a second sighting is recognised as a pattern rather than re-diagnosed from scratch. Next: if it recurs, capture the trace from the CI diagnostics artifact and check whether the compare-open handler waits on a client-side data load that has no deterministic settle signal in the test. Do not quarantine on a single reproduction.",
+    "source": "PR #2721 CI Production UI (3), reproduced and cleared locally against origin/main",
+    "issueUlid": "01M1XRS8BHCHPC5CF8NY75663V"
+  }
+}

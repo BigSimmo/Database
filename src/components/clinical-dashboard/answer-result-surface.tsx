@@ -115,6 +115,7 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestions,
   onPickFollowUpSuggestion,
   followUpSuggestionsDisabled = false,
+  generating = false,
   onScopeDocument,
 }: {
   answer: ClientRagAnswerPayload & { interactionId?: string };
@@ -141,6 +142,8 @@ function StagedAnswerResultSurfaceImpl({
   followUpSuggestions?: string[];
   onPickFollowUpSuggestion?: (suggestion: string) => void;
   followUpSuggestionsDisabled?: boolean;
+  /** A generation is in flight — true for a follow-up, while the prior answer is still on screen. */
+  generating?: boolean;
   /** Narrows the search to one document, from the source drawer's overflow menu. */
   onScopeDocument?: (documentId: string) => void;
 }) {
@@ -669,7 +672,22 @@ function StagedAnswerResultSurfaceImpl({
                 is one thing; removing a navigation route on the same evidence is
                 another. Still collapsed, still below the caution. */}
             {crossModeQueries?.length && onCrossModeSearch ? (
-              <CrossModeLinksSection queries={crossModeQueries} onModeSearch={onCrossModeSearch} variant="line" />
+              // `universalMode` is what lets this line reach DSM, Formulation,
+              // Specifiers, Therapy, Dictionary and Tools, which no catalogue in
+              // the browser can resolve. Answer is the only surface that may pass
+              // it: every other mode mounts `UniversalSearchAlsoMatches`, and a
+              // second lookup there would print the same records twice.
+              //
+              // Withdrawn while generating, matching the rule the sibling tray
+              // follows on this mode (`answer && !loading` in ClinicalDashboard),
+              // so the lookup never races the answer stream and the open tray
+              // never holds matches for the question being replaced.
+              <CrossModeLinksSection
+                queries={crossModeQueries}
+                onModeSearch={onCrossModeSearch}
+                variant="line"
+                universalMode={generating ? undefined : "answer"}
+              />
             ) : null}
 
             {followUpSuggestions?.length && onPickFollowUpSuggestion ? (

@@ -80,6 +80,7 @@ it("selects the real legacy/candidate-off/candidate-on generation tuple", async 
     publicSiteContentReleaseDigest: null,
     publicSiteContentChangeEpoch: null,
     publicSiteContentState: "unavailable" as const,
+    governedRetrievalEnabled: true,
     siteContentEnabled: false,
     australianAugmentationEnabled: false,
     adaptiveAnswerEnabled: false,

@@ -6,10 +6,12 @@ import { describe, expect, it } from "vitest";
 import {
   clinicalAskReadinessFindings,
   isProviderFreeCodexCloud,
+  developerAccessKeyProductionRisk,
   mockupsGateProductionRisk,
   openAIReadinessPolicy,
   validClinicalAskEvidenceArtifact,
   ragProgrammeReadinessPolicy,
+  alertDestinationReadiness,
 } from "../scripts/production-readiness";
 import { providerEnvironmentKeys } from "../scripts/test-environment.mjs";
 
@@ -28,6 +30,13 @@ describe("programme static readiness", () => {
   };
   it("accepts legacy default-off without claiming connected proof", () =>
     expect(ragProgrammeReadinessPolicy({})).toEqual([]));
+  it("does not require cohort identity for a full release but rejects a malformed supplied salt", () => {
+    const full = { ...canary, RAG_PROGRAMME_CANARY_BASIS_POINTS: "10000", RAG_PROGRAMME_ROLLOUT_SALT: undefined };
+    expect(ragProgrammeReadinessPolicy(full, { rollbackOwnerBound: true })).toEqual([]);
+    expect(
+      ragProgrammeReadinessPolicy({ ...full, RAG_PROGRAMME_ROLLOUT_SALT: "short" }, { rollbackOwnerBound: true }),
+    ).toContain("rollout_salt_missing_or_invalid");
+  });
   it("requires salt telemetry and trusted rollback ownership for canary", () => {
     expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "canary" })).toEqual(
       expect.arrayContaining([
@@ -47,6 +56,7 @@ describe("programme static readiness", () => {
   it("rejects malformed mode and flag controls", () => {
     expect(ragProgrammeReadinessPolicy({ RAG_PROGRAMME_MODE: "candidate" })).toContain("programme_mode_invalid");
     expect(ragProgrammeReadinessPolicy({ RAG_SITE_CONTENT_ENABLED: "yes" })).toContain("component_flag_invalid");
+    expect(ragProgrammeReadinessPolicy({ RAG_GOVERNED_RETRIEVAL_ENABLED: "yes" })).toContain("component_flag_invalid");
   });
   it("requires the real adaptive producer and contract before enabled readiness", () => {
     expect(ragProgrammeReadinessPolicy({ ...canary, RAG_ADAPTIVE_ANSWER_RENDER_ENABLED: "true" })).toContain(
@@ -274,6 +284,39 @@ describe("production readiness provider policy", () => {
     ).toBe("playwright-exception");
   });
 
+  it("fails a NEXT_PUBLIC_ copy of the developer-area key, which would ship the secret to every visitor", () => {
+    // Next.js inlines NEXT_PUBLIC_ values into the client bundle. The name is
+    // rejected everywhere, not only in production, because a build made with it
+    // anywhere carries the secret into whatever it is deployed as.
+    expect(developerAccessKeyProductionRisk({ NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY: "anything" })).toBe("public-name");
+    expect(
+      developerAccessKeyProductionRisk({
+        NODE_ENV: "development",
+        NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY: "anything",
+      }),
+    ).toBe("public-name");
+  });
+
+  it("states the passwordless developer link as an enabled production fact, not a failure", () => {
+    expect(
+      developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("enabled");
+    expect(
+      developerAccessKeyProductionRisk({ VERCEL_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("enabled");
+    expect(
+      developerAccessKeyProductionRisk({ NODE_ENV: "development", DEVELOPER_AREA_ACCESS_KEY: "k".repeat(32) }),
+    ).toBe("none");
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production" })).toBe("none");
+    // Whitespace is not a configured key.
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "   " })).toBe("none");
+    // The runtime resolver rejects under-strength values, so readiness must not
+    // advertise the passwordless link as active for one.
+    expect(developerAccessKeyProductionRisk({ NODE_ENV: "production", DEVELOPER_AREA_ACCESS_KEY: "short" })).toBe(
+      "none",
+    );
+  });
+
   it("reports no risk outside production or with the flag unset", () => {
     expect(mockupsGateProductionRisk({ NODE_ENV: "development", NEXT_PUBLIC_MOCKUPS_ENABLED: "true" })).toBe("none");
     expect(mockupsGateProductionRisk({ NODE_ENV: "production" })).toBe("none");
@@ -285,5 +328,40 @@ describe("production readiness provider policy", () => {
     expect(source).toContain("check:local-presence");
     expect(source).toContain("HEALTH_DEEP_PROBE_SECRET is not set");
     expect(source).toContain("OPENAI_SAFETY_IDENTIFIER_SECRET is not set");
+  });
+});
+
+/**
+ * The gate that would have caught a three-day outage before it started.
+ *
+ * Deploy alerts with no destination are discarded by a receiver that still answers 2xx, so the
+ * integration looks healthy from every angle except the one that matters. That was the live
+ * configuration on both Railway services through 24 failed production deploys in September 2026.
+ */
+describe("deploy alert destination readiness", () => {
+  it("passes on either destination alone", () => {
+    expect(alertDestinationReadiness({ SLACK_WEBHOOK_URL: "https://hooks.slack.com/services/x" }).ok).toBe(true);
+    expect(alertDestinationReadiness({ DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/x" }).ok).toBe(true);
+  });
+
+  it("warns harder when the receiver is armed, because alerts are then actively discarded", () => {
+    const armed = alertDestinationReadiness({ RAILWAY_WEBHOOK_SECRET: "railway-webhook-secret-value-123" });
+
+    expect(armed.ok).toBe(false);
+    expect(armed.message).toContain("RAILWAY_WEBHOOK_SECRET is set");
+    expect(armed.message).toContain("discard");
+  });
+
+  it("still warns when nothing at all is wired up", () => {
+    const bare = alertDestinationReadiness({});
+
+    expect(bare.ok).toBe(false);
+    expect(bare.message).toContain("no destination");
+  });
+
+  it("never echoes a configured webhook URL into the readiness output", () => {
+    const secretish = "https://hooks.slack.com/services/T000/B000/xxxxxxxxxxxx";
+
+    expect(alertDestinationReadiness({ SLACK_WEBHOOK_URL: secretish }).message).not.toContain(secretish);
   });
 });

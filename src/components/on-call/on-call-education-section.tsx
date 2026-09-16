@@ -3,12 +3,14 @@
 import { GraduationCap, Pencil } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { onCallLocalDateKey } from "@/lib/on-call/home-modules";
+import { onCallTeachingDate, onCallTeachingDateLabel } from "@/lib/on-call/teaching-schedule";
 
 export interface OnCallEducationSectionProps {
   entries: readonly OnCallEntry[];
@@ -47,18 +49,47 @@ function occurrenceSortKey(value: string | undefined): number {
   return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
 }
 
+/**
+ * Where this page orders from, and what its "Next" pill says.
+ *
+ * A session that repeats is asked for its NEXT occurrence rather than the date
+ * somebody typed into it months ago — the same roll-forward the home uses, so
+ * the two screens cannot disagree about when journal club is. Sessions with no
+ * computable date keep the old free-text key, which is what still keeps an
+ * undated session on the page instead of dropping it.
+ */
+function resolvedOccurrence(details: OnCallEducationDetails | null, entry: OnCallEntry, today: string) {
+  const date = onCallTeachingDate(entry, today);
+  const owner = details?.nextOccurrence?.trim() || null;
+  // Both, not one or the other. The computed date is the only part that can be
+  // trusted to be current, and the owner's own wording is the only part that
+  // carries a TIME — "Thursday 1pm" reduced to "Thu 17 Sep 2026" tells a reader
+  // which day to turn up and leaves them guessing when. The structured rule
+  // exists to compute with; it was never meant to speak for the free text.
+  // Codex P2 on PR #2806.
+  return {
+    date,
+    label: date ? [onCallTeachingDateLabel(date), owner].filter(Boolean).join(", ") : owner,
+    sortKey: date ? Date.parse(`${date}T00:00:00Z`) : occurrenceSortKey(details?.nextOccurrence),
+  };
+}
+
 function EducationCard({
   entry,
   now,
+  today,
   onEditEntry,
   onVerified,
 }: {
   entry: OnCallEntry;
   now: Date;
+  /** `YYYY-MM-DD`, computed once by the section so every card agrees. */
+  today: string;
   onEditEntry?: (entry: OnCallEntry) => void;
   onVerified?: (entry: OnCallEntry) => void;
 }) {
   const details = parseEducationDetails(entry.details);
+  const occurrence = resolvedOccurrence(details, entry, today);
   const freshness = onCallEntryFreshness(entry, now);
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
@@ -67,7 +98,7 @@ function EducationCard({
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
-      className={cn(cardSurface, "grid gap-3 p-4")}
+      className={cn(cardSurface, "grid grid-cols-[minmax(0,1fr)] gap-3 p-4")}
       data-testid={`on-call-education-card-${entry.slug}`}
     >
       <header className="flex items-start justify-between gap-3">
@@ -79,7 +110,7 @@ function EducationCard({
             link below is its own `<a>`, and a `<button>` inside an `<a>` is
             invalid, duplicate-interactive markup. */}
         <div className="flex shrink-0 items-center gap-1.5">
-          <OnCallFreshnessBadge freshness={freshness} />
+          <OnCallStaleFlag freshness={freshness} />
           {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
           {onEditEntry ? (
             <button
@@ -96,8 +127,8 @@ function EducationCard({
       </header>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {details?.nextOccurrence ? (
-          <span className={cn(metadataPillDensity.standard, "rounded-full")}>Next: {details.nextOccurrence}</span>
+        {occurrence.label ? (
+          <span className={cn(metadataPillDensity.standard, "rounded-full")}>Next: {occurrence.label}</span>
         ) : null}
         {details?.recurrence ? (
           <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.recurrence}</span>
@@ -130,6 +161,11 @@ function EducationCard({
  * The Teaching (`education`) section: the calendar in order of next
  * occurrence, each card naming what, when, who presents, and — once one
  * exists — a recording link explicitly marked as leaving the app.
+ *
+ * "Next occurrence" is the computed one. A session carrying a structured
+ * recurrence (`details.recurrenceRule`) is rolled forward to its next real
+ * date, so this page stops advertising a Thursday that went by in January —
+ * the same failure the home's "Coming up" block had, and the same fix.
  */
 export function OnCallEducationSection({
   entries,
@@ -151,19 +187,27 @@ export function OnCallEducationSection({
     );
   }
 
+  const today = onCallLocalDateKey(now);
   const sorted = [...educationEntries].sort((a, b) => {
-    const aDetails = parseEducationDetails(a.details);
-    const bDetails = parseEducationDetails(b.details);
-    const byOccurrence = occurrenceSortKey(aDetails?.nextOccurrence) - occurrenceSortKey(bDetails?.nextOccurrence);
+    const aKey = resolvedOccurrence(parseEducationDetails(a.details), a, today).sortKey;
+    const bKey = resolvedOccurrence(parseEducationDetails(b.details), b, today).sortKey;
+    const byOccurrence = aKey - bKey;
     if (byOccurrence !== 0) return byOccurrence;
     return a.title.localeCompare(b.title);
   });
 
   return (
-    <div data-testid={testId} className="grid gap-3">
+    <div data-testid={testId} className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <h3 className={eyebrowText}>Next occurrence first</h3>
       {sorted.map((entry) => (
-        <EducationCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+        <EducationCard
+          key={entry.id}
+          entry={entry}
+          now={now}
+          today={today}
+          onEditEntry={onEditEntry}
+          onVerified={onVerified}
+        />
       ))}
     </div>
   );

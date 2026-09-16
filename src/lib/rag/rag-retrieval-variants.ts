@@ -6,7 +6,12 @@ import {
   retrievalOwnerFilter,
   type RetrievalAccessScope,
 } from "@/lib/owner-scope";
-import { buildClinicalTextSearchQuery, normalizedClinicalSearchTokens, queriedZoneColour } from "@/lib/clinical-search";
+import {
+  buildClinicalTextSearchQuery,
+  medicationMonitoringQuerySubjects,
+  normalizedClinicalSearchTokens,
+  queriedZoneColour,
+} from "@/lib/clinical-search";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import type { SearchChunksArgs } from "@/lib/rag/rag-contracts";
 import { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
@@ -228,6 +233,23 @@ export function buildRetrievalQueryVariants(
   };
 
   addVariant(buildClinicalTextSearchQuery(query));
+  // Natural-language monitoring questions often over-conjoin narration ("taken",
+  // "give", "detailed"). Rescue them with an explicit medicine AND clinical facet
+  // before a broad OR fallback can match unrelated medicines. Keep the exact
+  // request first and retain dedicated blood-action/threshold variants below.
+  const monitoringSubjects = medicationMonitoringQuerySubjects(query);
+  if (
+    monitoringSubjects.length === 1 &&
+    /\b(?:monitor(?:ing)?|levels?|concentrations?|trough|sampling)\b/i.test(query) &&
+    !/\b(?:compare|versus|vs|interaction|interactions|anc|fbc|cbc|wbc|wcc|neutrophils?|withhold|withholding|threshold|thresholds)\b/i.test(
+      query,
+    )
+  ) {
+    const medication = monitoringSubjects[0];
+    if (/\bmonitor(?:ing)?\b/i.test(query)) addVariant(`${medication} monitoring`);
+    if (/\b(?:levels?|concentrations?|trough|sampling)\b/i.test(query)) addVariant(`${medication} level`);
+    else if (/\bbaseline\b/i.test(query)) addVariant(`${medication} baseline`);
+  }
   if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     addVariant("admission of community patients");
     addVariant("admission community patients");

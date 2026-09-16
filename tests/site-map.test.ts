@@ -3,7 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
-import { tools } from "@/components/tools-page-mockups/tool-fixtures";
+import { HUB_PANELS } from "@/lib/developer-area/hub-panels";
+import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
@@ -180,7 +181,10 @@ describe("tracked sitemap", () => {
       expectDocumentedHref(("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id));
     }
 
-    for (const tool of tools) expectDocumentedHref(tool.href);
+    for (const tool of toolCatalogRecords) expectDocumentedHref(tool.href);
+    for (const panel of HUB_PANELS) {
+      if (panel.href && !panel.external) expectDocumentedHref(panel.href);
+    }
 
     for (const href of [
       "/?mode=answer",
@@ -207,5 +211,20 @@ describe("tracked sitemap", () => {
     expect(siteMap).toContain("legacy compatibility route");
     expect(siteMap).toContain("Live user registries may contain additional service or form slugs");
     expect(siteMap).toContain("individual document IDs are private runtime data");
+  });
+
+  it("disperses alphabetically adjacent routes so concurrent page-adding branches do not collide (#X2FP2R)", () => {
+    const data = collectSiteMapData();
+    const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
+    const routes = mockupRoutes.map((entry) => entry.route);
+    const alphabetical = [...routes].sort((a, b) => a.localeCompare(b));
+    // Dispersed order is not plain alphabetical order
+    expect(routes).not.toEqual(alphabetical);
+
+    // Alphabetically adjacent routes with shared prefix are dispersed across the list
+    const toolsRoutes = routes.filter((r) => r.startsWith("/mockups/tools-"));
+    expect(toolsRoutes.length).toBeGreaterThan(3);
+    const positions = toolsRoutes.map((r) => routes.indexOf(r));
+    expect(Math.max(...positions) - Math.min(...positions)).toBeGreaterThan(toolsRoutes.length - 1);
   });
 });

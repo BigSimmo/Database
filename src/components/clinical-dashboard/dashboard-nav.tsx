@@ -11,8 +11,9 @@ import { type AppModeId, appModeSearchConfig } from "@/lib/app-modes";
 
 const ApplicationsLauncherWorkspace = dynamic(
   () => import("@/components/applications-launcher-page").then((module) => module.ApplicationsLauncherWorkspace),
-  // The retained `/?mode=tools` dashboard alias owns this legacy client-only
-  // launcher. Canonical `/tools` is rendered by ToolsSearchResultsPage.
+  // Legacy client-only launcher, now unreachable: `/?mode=tools` redirects to
+  // `/tools`, which ToolsSearchResultsPage renders. Kept only until the guest
+  // coverage in tests/favourites-auth-gate.dom.test.tsx is re-homed onto it.
   { ssr: false, loading: () => <LoadingPanel variant="skeleton" lines={6} label="Loading tools" /> },
 );
 

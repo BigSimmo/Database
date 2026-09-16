@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function OnCallPlaybookRoute() {
-  return <OnCallSectionPage section="playbook" />;
+  return <OnCallSectionPage view="playbook" />;
 }

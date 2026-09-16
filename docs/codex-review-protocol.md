@@ -22,6 +22,7 @@ PR churn and unthrottled reviews quickly exhaust review-bot spending caps and ra
 - **Enforce a single review pass per PR head (#328)**: Automated review is strictly limited to one pass per PR HEAD. Intermediate repair commits, formatting adjustments, or routine base syncs do not authorize automatic re-reviews without explicit human approval. Prevent review row thrashing or rows outliving completion (#328) by immediately appending an immutable record with `npm run ledger:append` upon completing a review.
 - **Lever 1: Skip documentation and bookkeeping paths in CodeRabbit (#KZJD4Q)**: `.coderabbit.yaml` defines `path_filters` to exclude docs, mockups, and standalone markdown (`!docs/**`, `!mockups/**`, `!**/*.md`, `!**/*.mdx`). This immediately recovers ~25% of the hourly review credit budget without reducing coverage on active code changes.
 - **Lever 2: Prohibit bookkeeping-only pull requests (#KZJD4Q)**: Standalone PRs whose sole diff is a ledger update or documentation record must not be opened as separate PRs. Fold bookkeeping updates into functional PRs or reconcile them in batches to eliminate wasted automated review cycles on non-code artifacts.
+- **CodeRabbit 10-star public repository eligibility gate (#3F76JZ)**: CodeRabbit automated code reviews on public GitHub repositories require at least 10 stars (per CodeRabbit's public open-source tier policies). In public forks, mirror repositories, or isolated staging clones with fewer than 10 stars, CodeRabbit will not run or post review comments. Developers, reviewers, and automated tooling must set expectations accordingly: the absence of CodeRabbit review comments on a fork is an eligibility gate outcome, not a sign of approval, a broken webhook, or missing review configuration.
 
 ## Review Output
 
@@ -95,3 +96,32 @@ If `gh pr checks` or the check-runs endpoint returns `Resource not accessible by
 4. For the "CI" workflow run, query its jobs (`GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs`) and require the `PR required` job. Explicitly report whether that job is missing or has a non-success conclusion. That job is this repository's single required aggregate gate; a run that completed without it does not prove required CI passed.
 5. If neither Checks nor Actions can be read, report CI as unobserved due to credential capability — never as passing, absent, or failed.
 6. An empty `GET /commits/{sha}/status` response does not prove that Actions workflows did not run.
+
+## Operational Invariants (#055, #0H0S89, #6GW95D)
+
+All reviews, readiness verifications, and release audits must uphold three core operational invariants:
+
+### Exact-SHA Release Protocol (#055)
+
+Releases, production deployments (Railway, Supabase migrations), and full-confidence handoffs must target an **exact, verified commit SHA** (full 40-character hexadecimal hash), never a floating ref (such as `main`, `HEAD`, `origin/main`, or a release branch tag):
+
+- **Floating Ref Non-Determinism:** A floating ref can advance between verification and deployment. If CI or preflight audits run against `origin/main`, but another commit lands before deployment kicks off, unverified code enters production.
+- **Verification Protocol:** Record the candidate commit SHA before starting the release gate. Execute all local, provider-backed, cross-browser (Firefox/WebKit), and hosted CI checks (`PR required`) explicitly pegged to that SHA. Stop at the first actionable failure; re-runs must verify the exact repaired commit SHA.
+- **Audit Verification:** Use `npm run audit:final-merge -- --dry-run --base-ref origin/main --head-ref HEAD --expected-head <exact-sha>` to verify exact-head match before landing.
+
+### Lighthouse Baseline Freeze and Pinned-Browser CI Refresh (#0H0S89)
+
+Performance baselines committed in `lighthouse-budget.json` are frozen:
+
+- **No Local or Ad-Hoc Updates:** Never update `lighthouse-budget.json` from a developer laptop or arbitrary local machine. Differences in operating systems, CPU throttling, and font hinting make local Lighthouse measurements non-comparable to CI.
+- **Pinned Browser Requirement:** Ambient runner-image Chrome versions float over time (e.g., HeadlessChrome/150 vs /151). All official Lighthouse measurements must resolve Playwright's pinned Chromium via `./.github/actions/setup-lighthouse-chromium` on `ubuntu-24.04`.
+- **Dedicated CI Refresh Workflow:** Baselines may ONLY be refreshed via the dedicated `workflow_dispatch` trigger in `.github/workflows/ci.yml` (`refresh_lighthouse_baseline: true`).
+- **No Self-Greening Gate:** The refresh workflow deliberately uploads the rewritten `lighthouse-budget.json` as an inspection artifact for human review. It NEVER auto-commits or auto-pushes, because a workflow that rewrites its own gate's baseline is a gate that can green itself and mask true regressions. Reviewers must reject PRs that loosen `lighthouse-budget.json` without an authorized CI refresh artifact.
+
+### Report-Only Worktree Fleet Inventory Policy (#6GW95D)
+
+All tooling and scripts for inspecting worktree fleets and checkout directories (`scripts/clean-worktree.mjs`, `scripts/worktree-inventory.mjs`, `npm run worktrees:report`, `npm run worktrees:inventory`) must operate strictly in **report-only mode**:
+
+- **Incident Precedent (#XCAX01):** On 2026-08-21, an aggressive automated cleanup sweep deleted an in-use worktree mid-session, destroying uncommitted developer work. Multi-agent workflows frequently hold open file handles across multiple roots (`.claude/worktrees`, `D:/Worktrees`, `.codex/worktrees`, `.gemini/antigravity/worktrees`).
+- **Zero Mutation Invariant:** No fleet auditing script is permitted to delete, deregister, prune, or mutate developer checkouts. Any removal or mutation flag is rejected before adapters execute. Git prune operations are permitted only as read-only dry runs (`git worktree prune --dry-run -v`).
+- **Deferred Cleanup:** Exact-path worktree removal remains deferred indefinitely. Any future cleanup must be executed via explicit human instruction targeting named, verified-dead directory paths with confirmed zero live process handles. Reviewers and agent sessions must never run or propose destructive worktree cleanup commands.

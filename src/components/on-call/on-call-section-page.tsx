@@ -1,38 +1,44 @@
 "use client";
 
-import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
-import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
-import { OnCallContactsSection } from "@/components/on-call/on-call-contacts-section";
+import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallContactsSection, type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
 import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
 import { OnCallOrientationSection } from "@/components/on-call/on-call-orientation-section";
 import { OnCallPlaybookSection } from "@/components/on-call/on-call-playbook-section";
 import { OnCallReferralsSection } from "@/components/on-call/on-call-referrals-section";
+import { OnCallWhoIsWhoSection } from "@/components/on-call/on-call-who-is-who-section";
 import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import {
-  ON_CALL_SECTION_ICONS,
-  ON_CALL_SECTION_TITLES,
-  OnCallNavHeader,
-} from "@/components/on-call/on-call-nav-header";
+  ON_CALL_VIEW_ICONS,
+  ON_CALL_VIEW_TITLES,
+  onCallViewStorageSection,
+  type OnCallPageView,
+} from "@/components/on-call/on-call-section-identity";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
+import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
+import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
+import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
+import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
- * Generic, non-owner-specific framing for each section. Shown to every reader,
- * signed in or not, above the section's entries.
+ * Generic, non-owner-specific framing for each view. Shown to every reader,
+ * signed in or not, above the entries.
  */
-const ON_CALL_SECTION_DESCRIPTIONS: Record<OnCallSection, string> = {
+const ON_CALL_VIEW_DESCRIPTIONS: Record<OnCallPageView, string> = {
   contacts:
     "Filed by role first — an after-hours registrar, Ward 4B — so an entry survives a rotation rather than leaving with the person who held it.",
   playbook:
@@ -42,173 +48,152 @@ const ON_CALL_SECTION_DESCRIPTIONS: Record<OnCallSection, string> = {
   orientation: "Manuals held as documents in your corpus, each optionally carrying your own pinned summary above it.",
   education: "The teaching calendar — what, when, who is presenting, and a link to the recording once one exists.",
   logistics: "Parking, after-hours food, call rooms, IT, rostering, payroll and leave.",
+  "who-is-who":
+    "What each role actually does, and when it is reasonable to call them. The ladder in words, and the acronyms this service uses.",
 };
 
-/** What one entry in each section is called, for the add control's label. */
-const ON_CALL_ADD_NOUN: Record<OnCallSection, string> = {
+/** What one entry in each view is called, for the add control's label. */
+const ON_CALL_ADD_NOUN: Record<OnCallPageView, string> = {
   contacts: "contact",
   playbook: "scenario",
   referrals: "service",
   orientation: "manual",
   education: "session",
   logistics: "note",
+  "who-is-who": "role",
 };
 
 /**
- * Cross-section navigation, in flow.
- *
- * The six sections had no way to reach each other: the mode registered
- * destinations in the shared header bar, but every one of these routes is an
- * information page, so `PageSecondaryNavigation` returned null and the bar was
- * never drawn. Five of the six pages were reachable only by typing the URL or
- * arriving from a search result — `tests/route-reachability.test.ts` records
- * that as orphaned routes.
- *
- * This is deliberately an in-flow strip and NOT a second sticky header:
- * `OnCallNavHeader` is this mode's single phone-header collapse owner, and
- * AGENTS.md "Search chrome behaviour" forbids stacking another fixed bar under
- * it. It scrolls inside its own container so the page body never scrolls
- * sideways.
- */
-function sectionLinkClass(isCurrent: boolean) {
-  return cn(
-    "inline-flex min-h-tap items-center rounded-full border px-3 text-sm font-semibold transition",
-    isCurrent
-      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]",
-  );
-}
-
-/**
- * Cross-section navigation, in flow.
- *
- * The six sections had no way to reach each other. The mode registered
- * destinations in the shared header bar, but every one of these routes is an
- * information page, so `PageSecondaryNavigation` returned null and the bar was
- * never drawn — five of the six pages were reachable only by typing the URL or
- * arriving from a search result, which `tests/route-reachability.test.ts`
- * records as orphaned routes.
- *
- * Deliberately an in-flow strip and NOT a second sticky header:
- * `OnCallNavHeader` is this mode's single phone-header collapse owner, and
- * AGENTS.md "Search chrome behaviour" forbids stacking another fixed bar under
- * it. It scrolls inside its own container so the page body never scrolls
- * sideways.
- *
- * The six links are written out one by one, rather than mapped over
- * `ON_CALL_SECTIONS`, because the reachability guard resolves `<Link>` targets
- * statically: a path built by interpolation — or passed down through a wrapper
- * component's prop — leaves these five routes reading as orphans, which is
- * precisely the failure this strip exists to fix.
- */
-function OnCallSectionSwitcher({ current }: { current: OnCallSection }) {
-  return (
-    <nav aria-label="On Call sections" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <ul className="flex w-max gap-1.5">
-        <li>
-          <Link
-            href="/on-call/contacts"
-            aria-current={current === "contacts" ? "page" : undefined}
-            data-testid="on-call-section-link-contacts"
-            className={sectionLinkClass(current === "contacts")}
-          >
-            {ON_CALL_SECTION_TITLES.contacts}
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/on-call/playbook"
-            aria-current={current === "playbook" ? "page" : undefined}
-            data-testid="on-call-section-link-playbook"
-            className={sectionLinkClass(current === "playbook")}
-          >
-            {ON_CALL_SECTION_TITLES.playbook}
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/on-call/referrals"
-            aria-current={current === "referrals" ? "page" : undefined}
-            data-testid="on-call-section-link-referrals"
-            className={sectionLinkClass(current === "referrals")}
-          >
-            {ON_CALL_SECTION_TITLES.referrals}
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/on-call/orientation"
-            aria-current={current === "orientation" ? "page" : undefined}
-            data-testid="on-call-section-link-orientation"
-            className={sectionLinkClass(current === "orientation")}
-          >
-            {ON_CALL_SECTION_TITLES.orientation}
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/on-call/education"
-            aria-current={current === "education" ? "page" : undefined}
-            data-testid="on-call-section-link-education"
-            className={sectionLinkClass(current === "education")}
-          >
-            {ON_CALL_SECTION_TITLES.education}
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/on-call/logistics"
-            aria-current={current === "logistics" ? "page" : undefined}
-            data-testid="on-call-section-link-logistics"
-            className={sectionLinkClass(current === "logistics")}
-          >
-            {ON_CALL_SECTION_TITLES.logistics}
-          </Link>
-        </li>
-      </ul>
-    </nav>
-  );
-}
-
-/**
- * The one module all six on-call section routes render, following
+ * The one module every On Call view route renders, following
  * `src/components/sources/sources-pages.tsx`'s factoring: peer surfaces off one
- * shared shape, so six sections cannot drift into six divergent shells.
+ * shared shape, so seven pages cannot drift into seven divergent shells.
  *
- * All six sections render their own entries through their own list component
- * and share one editor, which already carries per-section fields.
- *
- * They did not, briefly: only Contacts was wired, so the other five list
- * components were reachable from their tests and from nothing else, and five
- * of the mode's six pages said "no entries yet" no matter what the owner had
- * saved — including the Playbook, whose "no local guideline" safety state was
- * therefore unreachable. Adding a seventh section means adding one arm to
- * `renderSectionList` and one entry to the editor's field map, and nothing
- * else.
+ * Navigation is the shared `ModeNav` rail, mounted here by the page rather than
+ * by the shell. That is deliberate and is the fix for the reason On Call's
+ * destinations were deleted once: every route in this mode is an
+ * `isInformationPage`, so `PageSecondaryNavigation` returns null before it ever
+ * reaches the mode branch and the shell can never draw this mode's bar. A page
+ * that owns its own header navigation mounts it itself —
+ * `differential-presentation-workflow-page.tsx` does exactly this with the same
+ * component — and `hasLocalInformationPageNavigation` then guarantees the shell
+ * adds no second bar. Being an information page is also what keeps the search
+ * composer off these routes, so the two facts are the same fact.
  *
  * Reading needs no account. `fetchSharedOnCallEntries` has served every
  * non-personal entry to anonymous callers since the 2026-09-04 owner decision,
  * so the page renders the same list for a visitor as for the owner, minus the
  * owner's own personal entries, which the shared read never returns. What an
- * account still buys is writing: the add, edit and verify controls below are
- * the only things gated on `isAuthenticated`, because their routes require one.
+ * account still buys is writing: the add, edit and verify controls below are the
+ * only things gated on `isAuthenticated`, because their routes require one.
  */
-export function OnCallSectionPage({ section }: { section: OnCallSection }) {
+export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   const { isAuthenticated } = useAccountData();
   const [editorState, setEditorState] = useState<{ open: boolean; entry: OnCallEntry | null }>({
     open: false,
     entry: null,
   });
-  const title = ON_CALL_SECTION_TITLES[section];
-  const Icon = ON_CALL_SECTION_ICONS[section];
+  // The page menu's order control lives in the header portal and the list it
+  // orders lives in the body, so the state belongs to their common parent
+  // rather than to either of them.
+  const [contactsOrder, setContactsOrder] = useState<OnCallContactsOrder>("area");
+  const [verifyAllState, setVerifyAllState] = useState<{ running: boolean; error: string | null }>({
+    running: false,
+    error: null,
+  });
+  const title = ON_CALL_VIEW_TITLES[view];
+  const Icon = ON_CALL_VIEW_ICONS[view];
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
-  // Each list component filters `entries` to its own section itself, so the
-  // page hands over the whole set rather than six near-identical slices.
-  const sectionEntries = entries.filter((entry) => entry.section === section);
+  // Each list component filters `entries` itself — by section, and for the two
+  // contacts-backed views by `details.kind` as well — so the page hands over the
+  // whole set rather than seven near-identical slices.
+  const sectionEntries = entries;
   // Only Playbook and Orientation display linked documents; the hook is cheap
   // and returns an empty map on any failure, so it runs unconditionally rather
-  // than behind a section check that would break the rules of hooks.
+  // than behind a check that would break the rules of hooks.
   const linkedDocuments = useOnCallLinkedDocuments();
+  // The page's own groups, for the header's jump list. Declared from the same
+  // entries the list below renders, then narrowed to whichever anchors actually
+  // appear — so a flat page resolves to none and the header is just a title.
+  const pageSections = useMemo(
+    () => onCallPageSections({ view, entries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
+    [view, entries, linkedDocuments],
+  );
+  // What this page is showing, for the menu's one-line summary. Each list
+  // component narrows `entries` itself, and Who's who splits the contacts
+  // section in two, so the count is derived the same way rather than guessed
+  // from the whole set.
+  const visibleCount =
+    view === "who-is-who"
+      ? partitionContactsEntries(entries).roleExplainers.length
+      : view === "contacts"
+        ? partitionContactsEntries(entries).contacts.length
+        : entries.filter((entry) => entry.section === view).length;
+
+  // Overdue entries in THIS view, which is what "mark all as still correct"
+  // may stamp. Never the whole hub: a bulk write is only defensible when the
+  // reader can see everything it touches.
+  const staleEntries = entries.filter(
+    (entry) =>
+      entry.section === onCallViewStorageSection(view) &&
+      (view !== "who-is-who" ? !isRoleExplainerEntry(entry) : isRoleExplainerEntry(entry)) &&
+      onCallEntryFreshness(entry).state === "stale",
+  );
+
+  /**
+   * Stamp today on every overdue entry in this view.
+   *
+   * One request per entry through the existing per-entry endpoint, in series,
+   * rather than a new bulk route. `repository.ts` is in neither the owner-scope
+   * API sweep nor the tenancy scan (a known blind spot, recorded for change B),
+   * so adding a route that writes many rows at once would land the widest write
+   * in the mode exactly where neither gate looks. The reviewed single-entry
+   * route already owns the ownership check, and doing it a handful of times is
+   * the cheap, safe version of the same action — the list is the OVERDUE
+   * entries, which is a handful, not the whole section.
+   *
+   * The results accumulate in ONE list that is written to the cache once. The
+   * obvious version — calling `upsertCachedEntry` per iteration — is wrong and
+   * silently so: `entries` is the snapshot from the render that started the
+   * run, and `cacheOnCallEntries` overwrites the whole cache rather than
+   * merging, so every iteration would rebuild the list from that same stale
+   * snapshot and discard the one before it. Three successful confirmations
+   * would leave two rows still sitting under "Needs checking" until a reload,
+   * which is the worst possible outcome for this particular action: the write
+   * happened and the page says it did not.
+   *
+   * A failure stops the run and says so, keeping whatever was confirmed before
+   * it. Half a stamp reported as a success is the other way to make a stale
+   * number look checked.
+   */
+  async function verifyAllStale() {
+    setVerifyAllState({ running: true, error: null });
+    let working = [...entries];
+    const commit = () => cacheOnCallEntries(working);
+
+    for (const entry of staleEntries) {
+      try {
+        const response = await fetch(`/api/on-call/entries/${entry.id}/verify`, { method: "POST" });
+        if (!response.ok) throw new Error(`Could not confirm ${entry.title}.`);
+        const payload: unknown = await response.json();
+        const updated = (payload as { entry?: OnCallEntry } | null)?.entry;
+        if (updated) {
+          working = working.some((existing) => existing.id === updated.id)
+            ? working.map((existing) => (existing.id === updated.id ? updated : existing))
+            : [...working, updated];
+        }
+      } catch (error) {
+        commit();
+        setVerifyAllState({
+          running: false,
+          error: error instanceof Error ? error.message : "Could not confirm these entries.",
+        });
+        return;
+      }
+    }
+
+    commit();
+    setVerifyAllState({ running: false, error: null });
+  }
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -226,22 +211,28 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
   // signed-out reader is offered nothing the API would answer with a 401.
   const listProps = {
     entries: sectionEntries,
-    onEditEntry: isAuthenticated ? (entry: OnCallEntry) => setEditorState({ open: true, entry }) : undefined,
+    onEditEntry: isAuthenticated
+      ? (entry: OnCallEntry) => {
+          recordOnCallRecent({ id: entry.id, title: entry.title });
+          setEditorState({ open: true, entry });
+        }
+      : undefined,
     onVerified: isAuthenticated ? upsertCachedEntry : undefined,
   };
 
   /**
-   * The one place a section id becomes a list component. The switch has no
-   * `default`, so `OnCallSection` gaining a seventh member is a compile error
-   * here rather than a page that silently renders nothing — which is exactly
-   * how five of these six went unmounted in the first place.
+   * The one place a view id becomes a list component. The switch has no
+   * `default`, so `OnCallPageView` gaining a member is a compile error here
+   * rather than a page that silently renders nothing — which is exactly how five
+   * of the six sections went unmounted in the first place.
    */
   function renderSectionList() {
-    switch (section) {
+    switch (view) {
       case "contacts":
         return (
           <OnCallContactsSection
             {...listProps}
+            order={contactsOrder}
             onAddEntry={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
           />
         );
@@ -255,53 +246,86 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
         return <OnCallEducationSection {...listProps} />;
       case "logistics":
         return <OnCallLogisticsSection {...listProps} />;
+      case "who-is-who":
+        return <OnCallWhoIsWhoSection {...listProps} />;
     }
   }
 
   return (
     <>
-      <OnCallNavHeader section={section} />
-      <InformationPageShell testId={`on-call-${section}-main`}>
-        <section
-          id={`on-call-${section}-overview`}
-          className={cn(inPageAnchor, "grid gap-2 border-b border-[color:var(--border)] pb-5")}
-        >
-          <InformationPageHeader
-            eyebrow="On Call"
-            title={title}
-            subtitle={ON_CALL_SECTION_DESCRIPTIONS[section]}
-            icon={Icon}
-          />
-          <OnCallSectionSwitcher current={section} />
-        </section>
+      {/* Two controls, each in the one place the whole mode keeps it.
+          -----------------------------------------------------------------
+          The universal header above names this page in its pill and carries
+          the page's actions in its trailing slot — the same slot, the same
+          menu and the same trigger the mode home uses, so the two surfaces
+          cannot drift into different menus. This header is then only the bar
+          of the page's own groups, and renders nothing at all on a page that
+          has none. */}
+      <OnCallPageMenu
+        view={view}
+        entryCount={visibleCount}
+        summary={`${visibleCount} ${visibleCount === 1 ? "entry" : "entries"}. ${ON_CALL_VIEW_DESCRIPTIONS[view]}`}
+        order={view === "contacts" ? contactsOrder : undefined}
+        onOrderChange={view === "contacts" ? setContactsOrder : undefined}
+        onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
+        addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
+        onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
+        staleCount={staleEntries.length}
+      />
+      <OnCallSectionNavHeader title={title} sections={pageSections} />
+      <InformationPageShell testId={`on-call-${view}-main`}>
+        {/* No hero above the list.
+            ---------------------------------------------------------------
+            This page used to open with an eyebrow reading "On Call", a
+            display-size "Contacts", and three lines explaining how the section
+            is filed — under a sticky header already saying "Contacts", under a
+            mode pill already saying "On Call". On a 390px screen that was most
+            of the first view spent on words the reader had just read twice.
+
+            So the name is carried by the header alone and the explanation
+            moved into the actions sheet, where a thing you read once belongs.
+            The `<h1>` stays for the document outline and for a screen reader;
+            it simply is not painted. */}
+        <h1 className="sr-only">{title}</h1>
 
         <section
-          id={`on-call-${section}-entries`}
-          className={cn(inPageAnchor, "grid gap-3")}
-          aria-labelledby={`on-call-${section}-entries-heading`}
+          id={`on-call-${view}-entries`}
+          className={cn(inPageAnchor, "grid grid-cols-[minmax(0,1fr)] gap-3")}
+          aria-labelledby={`on-call-${view}-entries-heading`}
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id={`on-call-${section}-entries-heading`} className="text-xl font-semibold">
-              {title}
-            </h2>
+          {/* Named for a screen reader, not painted a third time. The sticky
+              header above says "Contacts" and the hero says it again with the
+              eyebrow and the description; a third visible copy immediately below
+              them was just noise on a 390px screen. The heading still exists and
+              still labels this region, so the landmark and the heading outline
+              are unchanged. */}
+          <h2 id={`on-call-${view}-entries-heading`} className="sr-only">
+            {title}
+          </h2>
+          <div className="flex flex-wrap items-center justify-end gap-2 empty:hidden">
             {/* Contacts carries its own add button inside its list component
-                (it also appears in that section's empty state). The other five
-                get it here, because without one an owner can reach an empty
+                (it also appears in that section's empty state). The others get
+                it here, because without one an owner can reach an empty
                 Playbook or Logistics page with no way to put anything on it. */}
-            {isAuthenticated && section !== "contacts" ? (
+            {isAuthenticated && view !== "contacts" ? (
               <Button
                 variant="secondary"
                 size="sm"
                 icon={Plus}
                 onClick={() => setEditorState({ open: true, entry: null })}
-                testId={`on-call-${section}-add`}
+                testId={`on-call-${view}-add`}
               >
-                {`Add ${ON_CALL_ADD_NOUN[section]}`}
+                {`Add ${ON_CALL_ADD_NOUN[view]}`}
               </Button>
             ) : null}
           </div>
           {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
-          {loading && sectionEntries.length === 0 ? (
+          {verifyAllState.error ? (
+            <p role="alert" className="text-sm font-semibold text-[color:var(--danger)]">
+              {verifyAllState.error}
+            </p>
+          ) : null}
+          {loading && entries.length === 0 ? (
             // Nothing cached and the first fetch still running. An empty state
             // here would assert the section holds nothing before anything has
             // been read.
@@ -309,22 +333,24 @@ export function OnCallSectionPage({ section }: { section: OnCallSection }) {
               icon={Icon}
               title={`Loading ${title.toLowerCase()}`}
               body="Fetching the entries saved to this section."
-              testId={`on-call-${section}-loading`}
+              testId={`on-call-${view}-loading`}
             />
           ) : (
             renderSectionList()
           )}
         </section>
       </InformationPageShell>
-      {/* One editor for every section: its field map is already keyed by
-          section, so there is nothing per-section to add here. */}
+      {/* One editor for every view: its field map is already keyed by section.
+          Who's who writes `contacts` rows, so it hands over the storage section
+          rather than the view. */}
       <OnCallEntryEditor
         open={editorState.open}
         onClose={() => setEditorState({ open: false, entry: null })}
-        section={section}
+        section={onCallViewStorageSection(view)}
         entry={editorState.entry}
         onSaved={upsertCachedEntry}
         onDeleted={removeCachedEntry}
+        createAsRoleExplainer={view === "who-is-who"}
       />
     </>
   );

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { invalidRequestResponse } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { CARING_CONTACTS_ROUTES } from "@/lib/caring-contacts-routes";
 import { createSearchFilterToken } from "@/lib/caring-contacts/caseload-search-token";
 import {
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   // Same production lock every other Caring Contacts demo route uses (see
   // `session/route.ts`'s `demoUnavailableResponse`): the actor this route mints a token for comes
   // from the demo role cookie, which does not exist as an authorization boundary outside the demo.
-  if (!isCaringContactsDemoEnabled()) return jsonError(new PublicApiError("Not found.", 404), 404, { log: false });
+  if (!isCaringContactsWorkspaceEnabled()) return jsonError(new PublicApiError("Not found.", 404), 404, { log: false });
 
   let body: z.infer<typeof searchRequestSchema>;
   try {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return invalidRequestResponse();
   }
 
-  const actor = await resolveDemoActor();
+  const actor = await resolveCaringContactsActor();
   const query = body.query.trim();
   // Bound to the searching actor (#HDCF2B follow-up): a token minted here can only be redeemed by
   // this same actor later holding `viewPatientRecord` -- see `caseload-search-token.ts`'s module

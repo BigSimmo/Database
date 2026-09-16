@@ -7,6 +7,9 @@ import {
   SHEET_INERT_MARKER,
   SHEET_INERT_SKIP_ATTRIBUTE,
   SHEET_PORTAL_ATTRIBUTE,
+  isTopmostSheet,
+  popSheet,
+  pushSheet,
   shouldReclaimFocus,
 } from "@/components/ui/sheet-focus";
 
@@ -292,5 +295,34 @@ describe("Sheet Tab cycle", () => {
 
     expect(document.activeElement).toBe(last);
     expect(document.activeElement).not.toBe(excluded);
+  });
+
+  describe("sheet-focus reference counted stack and escape precedence", () => {
+    it("locks body and root overflow on first push, maintains lock while stacked, and restores only when empty", () => {
+      document.body.style.overflow = "";
+      document.documentElement.style.overflowY = "";
+
+      pushSheet("calculator-sheet");
+      expect(document.body.style.overflow).toBe("hidden");
+      expect(document.documentElement.style.overflowY).toBe("hidden");
+      expect(isTopmostSheet("calculator-sheet")).toBe(true);
+
+      pushSheet("stacked-dialog");
+      expect(document.body.style.overflow).toBe("hidden");
+      expect(document.documentElement.style.overflowY).toBe("hidden");
+      expect(isTopmostSheet("calculator-sheet")).toBe(false);
+      expect(isTopmostSheet("stacked-dialog")).toBe(true);
+
+      popSheet("stacked-dialog");
+      // Body and root must remain locked because calculator-sheet is still open!
+      expect(document.body.style.overflow).toBe("hidden");
+      expect(document.documentElement.style.overflowY).toBe("hidden");
+      expect(isTopmostSheet("calculator-sheet")).toBe(true);
+
+      popSheet("calculator-sheet");
+      // Restores original overflow once the last sheet is popped
+      expect(document.body.style.overflow).toBe("");
+      expect(document.documentElement.style.overflowY).toBe("");
+    });
   });
 });

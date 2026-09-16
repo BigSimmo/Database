@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6273682d-423c-4b2f-8b99-00c5ec4e9b15",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "ward-flow-reducer.ts contradicts itself on capacity_freshness: its comment calls it a non-overridable world fact, its array lists it as overridable",
+    "detail": "FOUND 2026-09-09. In src/components/ward-management/ward-flow-reducer.ts, the classification comment at line 440 reads: 'THE WORLD — is there a bed at all? allocatable_bed, capacity_freshness, specialling. Already refused separately, above, and NOT overridable: no reason typed into a form creates a bed.' Forty-seven lines below, SUITABILITY_GATES includes capacity_freshness, carrying its own comment that it was ADDED BY OWNER RULING on 2026-09-02 and is the only gate ever moved out of the world-fact group, on the reasoning that a stale bed count is information rather than a wall and 'I have confirmed the current bed state with the ward directly' is a named person taking responsibility. The array is correct and current; the comment above it was not updated when the ruling landed. WHY IT MATTERS: the two sit in one file and give opposite answers to 'can a recorded reason get past a stale bed count'. The prose comment is the part a reader meets first and is written in the tone of a safety boundary, so it is the one that gets believed. It has already propagated: ledger row #Q6WD1M repeats the stale grouping in its reconstructed detail, which means the error is now in two places. NEXT ACTION: correct line 440 to list capacity_freshness with the suitability gates and note the ruling, then correct the same sentence in #Q6WD1M. A one-line change, but it removes a documented contradiction inside a clinical-safety classification.",
+    "source": "Artifact review 2026-09-09 (ward-flow-reducer.ts lines 440 and 487)",
+    "issueUlid": "01M22T8PEHKHGJ127YYBQ6XJQ7"
+  }
+}

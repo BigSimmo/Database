@@ -7,6 +7,7 @@ import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/i
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { SpecifierRecord } from "@/lib/specifiers";
 import type { SpecifierSourceStatus } from "@/lib/specifiers-search-index";
+import { SPECIFIERS_SAFETY_NOTE } from "@/lib/specifiers-governance";
 
 /**
  * Was a private copy of the same string `formulation-ui.tsx` also carried,
@@ -226,10 +227,7 @@ export function SpecifierSafetyNote({
       )}
     >
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden />
-      <p>
-        Use this as a structured clinical reference, not validated decision support. Confirm the current diagnostic
-        manual criteria, exclusions, episode chronology, and local clinical requirements before documenting a specifier.
-      </p>
+      <p>{SPECIFIERS_SAFETY_NOTE}</p>
     </aside>
   );
 }

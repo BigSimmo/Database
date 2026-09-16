@@ -83,11 +83,10 @@ export function UniversalSearchAlsoMatches({
   // between the composer and the results the search actually asked for. It used
   // to open itself from sm up.
   const [expanded, setExpanded] = useState(false);
-  // The sm breakpoint (640px) no longer decides whether the panel is open — the
-  // disclosure does, at every width. It still decides two things the disclosure
-  // cannot: whether the cross-mode lookup runs before the user opens anything
-  // (so the closed header can state a real count), and whether a no-match tray
-  // is dropped entirely rather than left as a header that opens onto nothing.
+  // The sm breakpoint (640px) no longer decides whether the panel is open, nor
+  // whether the lookup runs — the disclosure owns the first and the lookup is
+  // eager at every width. All it still decides is how many mode cards an opened
+  // tray may show, four on a wide viewport against three on a phone.
   const [isWide, setIsWide] = useState(false);
   const [viewportReady, setViewportReady] = useState(false);
   useEffect(() => {
@@ -106,13 +105,14 @@ export function UniversalSearchAlsoMatches({
   // arrive; a speculative phone disclosure would add dead space to short
   // answers that have no cross-mode matches.
   //
-  // Deliberately unchanged by the collapse: the lookup still runs on submit from
-  // sm up even while the tray is shut. That is what lets a closed header say
-  // "3 related modes" and lets the whole tray disappear when nothing matched. A
-  // closed control that cannot say what is behind it is a blind door, and
-  // making the fetch wait for the click would turn every desktop open into a
-  // spinner over a panel that may hold nothing.
-  const searchActive = submissionActive && (isWide || modeId === "answer" || expanded);
+  // The lookup runs on submit at every width, including phones, even while the
+  // tray is shut. That is what lets a closed header say "3 related modes" and
+  // lets the whole tray disappear when nothing matched. A closed control that
+  // cannot say what is behind it is a blind door, and the phone was the width
+  // where that bit: it showed "Tap to open" and could open onto nothing. The
+  // cost is one extra cross-mode lookup per phone search, accepted so that the
+  // closed row states a real count and an empty tray is never rendered at all.
+  const searchActive = submissionActive;
   const universal = useUniversalSearch({
     query: trimmedQuery,
     enabled: trimmedQuery.length >= 2 && searchActive,
@@ -165,18 +165,14 @@ export function UniversalSearchAlsoMatches({
     : matchCount > 0
       ? `${matchCountLabel(matchCount)} also match this search.`
       : emptyMessage;
-  const headerMeta = searchPending
-    ? "Searching…"
-    : !searchActive
-      ? "Tap to open"
-      : matchCount > 0
-        ? matchCountLabel(matchCount)
-        : "No other matches";
+  const headerMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : "No other matches";
 
   if (!submissionActive) return null;
   if (!viewportReady || trimmedQuery.length < 2) return null;
   if (modeId === "answer" && currentGroups.length === 0) return null;
-  if (isWide && !searchPending && currentGroups.length === 0) return null;
+  // At every width now, not just from sm up: the phone lookup is eager, so a
+  // header that would open onto nothing is dropped instead of offered.
+  if (!searchPending && currentGroups.length === 0) return null;
 
   return (
     <section

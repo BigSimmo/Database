@@ -129,13 +129,15 @@ explicit approval, changed API call logging and the optional hosted-tool classes
 No visible ZDR entitlement or configured retention type was present. On 2026-09-01, OpenAI
 acknowledged receipt of an `API for Enterprise` sales request for ZDR covering Responses, Embeddings,
 prompt caching, the applicable DPA, and Australia data-residency options. Submission is not approval.
-No secure ZDR or countersigned-contract reference is attached to the status authority, so those
+No secure ZDR or applicable-contract acceptance reference is attached to the status authority, so those
 OpenAI items remain pending rather than being promoted from repository prose.
 
-- [ ] **1. Attach the executed OpenAI DPA evidence** for the org behind the production `OPENAI_API_KEY`
+- [ ] **1. Attach applicable OpenAI DPA and acceptance evidence** for the org behind the production `OPENAI_API_KEY`
       â†’ [openai.com/policies/data-processing-addendum](https://openai.com/policies/data-processing-addendum/).
-      The repository records version `v.010126` and execution date 2026-08-18. Keep the countersigned
-      copy outside the public repository and add a sanitized secure reference to the manifest.
+      The repository records version `v.010126` and execution date 2026-08-18, but that claim remains
+      unverified. The public DPA forms part of the Services Agreement; confirm the actual acceptance
+      route and account scope rather than requiring a separately countersigned copy in every case.
+      Keep confidential acceptance records outside Git and add a sanitized secure reference.
 - [ ] **2. Execute Railway's DPA** with the legal entity and authorised signer. Retain the executed
       copy and record the Singapore processor/sub-processor basis. Railway's public Exhibit A says
       sensitive/special-category data is `None`; obtain written terms that cover the actual incidental
@@ -161,7 +163,7 @@ OpenAI items remain pending rather than being promoted from repository prose.
 | Field                               | Value                                                                  | Date       | Evidence                                                                    |
 | ----------------------------------- | ---------------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------- |
 | OpenAI org / production project id  | Personal org / Default project inspected; production-key match pending | 2026-09-01 | Authenticated Platform review; no secret values compared                    |
-| DPA executed (version)              | _repository claim: v.010126_                                           | 2026-08-18 | Ledger #053; countersigned-copy reference required                          |
+| DPA accepted (version)              | _repository claim: v.010126_                                           | 2026-08-18 | Ledger #053; applicable-contract and acceptance reference still required    |
 | Railway DPA executed (version)      | _no_                                                                   |            | Public DPA requires customer DocuSign + Railway execution                   |
 | Railway Singapore processor basis   | _pending_                                                              |            | Standard Exhibit A currently says sensitive/special-category data is `None` |
 | ZDR approved (project)              | _requested; approval pending_                                          | 2026-09-01 | OpenAI acknowledged the API for Enterprise sales request                    |

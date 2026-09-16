@@ -350,6 +350,11 @@ const ALLOWED_CLIENT_COMPONENTS = [
   // Permission and role denial fallback view. Takes only an optional `retry` callback function;
   // passes zero patient or service-state props across the boundary.
   "permission-unavailable.tsx",
+  // Manual hospital referral intake fallback (Hazard H-44). Client for ordinary interactive
+  // reasons: form state, prefill actions, and an audited POST. Takes NO props at all, so the
+  // ServiceState note cannot reach it; the companion test proves its module graph never names
+  // the service-state module or type. Added deliberately with persistence via the intake API.
+  "manual-intake-form.tsx",
 ];
 
 /**

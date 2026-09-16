@@ -1,6 +1,7 @@
-import { CircleAlert, WifiOff } from "lucide-react";
+import { CircleAlert, DatabaseBackup, RefreshCw, Square, WifiOff } from "lucide-react";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
+import { cn, EmptyState, primaryControl } from "@/components/ui-primitives";
 
 export function SystemNotice({
   demoMode,
@@ -54,6 +55,31 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
 }
 
 /**
+ * Shown when `readCatalogueWithSeedFallback` served the in-bundle catalogue because the
+ * canonical read failed, timed out, or is inside its cooldown. The content is real and is
+ * the same material the repository publishes from, but it can lag anything published since
+ * the last release, which is exactly why that helper returns `degraded` rather than
+ * swallowing it. Never let a caller drop that flag without telling the reader.
+ */
+export function RetainedSnapshotNotice({ className }: { className?: string }) {
+  return (
+    <UtilityDrawer
+      icon={DatabaseBackup}
+      title="Retained copy"
+      summary="The live catalogue did not answer. Showing the copy stored with this app."
+      mobileSummary="Retained copy"
+      className={className}
+    >
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
+        The live catalogue did not answer in time, so these records come from the copy stored with this app. Anything
+        published since the last release may be missing. Each record&apos;s own page still reads live, so open it to
+        confirm before relying on this list. The app retries on its own within about thirty seconds.
+      </p>
+    </UtilityDrawer>
+  );
+}
+
+/**
  * Result pages overlay the notice from a zero-height frame and must unmount
  * that node when healthy: a hidden `h-0` box still takes the parent
  * `space-y-*` gap and inflates phone geometry.
@@ -101,5 +127,35 @@ export function DegradedNoticeFrame({
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The notice shown after the reader stops answer generation.
+ *
+ * It reports on the last action rather than describing the page, so the
+ * dashboard renders it with the other top-of-content notices instead of inside
+ * the mode-home canvas. In the canvas it was centred as one group with the
+ * `SharedHomeEmptyState` hero, which on a phone left it floating in the middle
+ * of the screen under a tall empty gap (device report, 2026-08-27).
+ *
+ * Extracted from ClinicalDashboard so the notice's markup lives with its
+ * rationale rather than adding lines to a file under a no-growth budget.
+ */
+export function AnswerCancelledNotice({ onRunAgain }: { onRunAgain: () => void }) {
+  return (
+    <EmptyState
+      icon={Square}
+      title="Generation stopped"
+      body="No partial clinical answer was kept. You can safely run the same question again."
+      live="polite"
+      testId="answer-cancelled"
+      actions={
+        <button type="button" className={cn(primaryControl, "text-xs")} onClick={onRunAgain}>
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          Run again
+        </button>
+      }
+    />
   );
 }

@@ -1,5 +1,6 @@
 import { ragProgrammeHealth } from "@/lib/rag/rag-rollout";
 import { NextResponse } from "next/server";
+import { isAbortError } from "@/lib/abort-error";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
 import type { AnswerSloSnapshot, SloProbeClient } from "@/lib/observability/answer-slo";
@@ -15,17 +16,95 @@ import type { SiteContentPublicHealthProjection } from "@/lib/site-content/site-
 type HealthResponseOptions = {
   forceDeep?: boolean;
   allowUnauthenticatedDeep?: boolean;
+  /**
+   * WHAT THIS RESPONSE IS FOR, and the reason the deploy gate survives a new probe being added.
+   *
+   * "readiness" answers one question — can THIS CONTAINER serve requests — and runs the
+   * container-level checks only: configuration presence, and one bounded `select ... limit 1`
+   * against Supabase. Every optional probe below is OFF under it, whatever its individual flag
+   * says, because the gate is this one value rather than a list of exceptions.
+   *
+   * That inversion is the fix for how 24 production deploys died. `/api/health/ready` used to
+   * opt INTO the deep branch and then switch each expensive probe off by name, six `false`s
+   * long. A deny-list like that is only correct until the next probe is added, and it silently
+   * stops being correct the moment one is: whatever lands in the deep branch is live on the
+   * deploy gate until somebody remembers to write a seventh `false`. The site-content audit was
+   * that seventh thing, so a ~7 s whole-corpus integrity query ran on an endpoint Railway gives
+   * ten seconds, and every merge for three days built, started, answered too slowly and was
+   * rolled back.
+   *
+   * It had already happened once before on the same mechanism and was read as a one-probe bug:
+   * see the `includeSlo` case in `tests/health-response-deep-probe.test.ts`, whose own comment
+   * ends "one flag at one caller, not a gate". This is the gate.
+   *
+   * So: a new probe added below is diagnostic-only by construction and cannot reach the deploy
+   * gate by omission. Putting one on readiness now takes a deliberate edit here, next to this
+   * paragraph. `tests/health-response-deep-probe.test.ts` pins the readiness response shape
+   * exactly, so anything that does leak in fails a test rather than a rollout.
+   */
+  probes?: "readiness" | "diagnostic";
   includeSlo?: boolean;
   includeCache?: boolean;
   includeCoalescing?: boolean;
   includeSpend?: boolean;
+  includeOperatorDiagnostics?: boolean;
+  /** The site-content control-plane audit. See the block guarding it below. */
+  includeSiteContent?: boolean;
 };
+
+/**
+ * Deadline for readiness's one Supabase call.
+ *
+ * `probeSupabaseHealth` is a single `select id ... limit 1`, but until this existed it was the
+ * last unbounded thing on the deploy gate: on a cold container — no warm connection, no cached
+ * plan, cold PostgREST schema cache — even that can outrun Railway's ten-second window, and an
+ * unbounded call has no way to answer before the gate gives up. Five seconds leaves half the
+ * window spare, and turns the worst case from an indistinguishable timeout into a fast 503 that
+ * names the failing check and leaves room for Railway's remaining retries.
+ */
+const READINESS_SUPABASE_PROBE_TIMEOUT_MS = 5_000;
+
+/**
+ * Deadline for the site-content evidence read. It exists so a slow control-plane audit degrades
+ * one field instead of hanging a request, and it is bounded on BOTH sides by measurement rather
+ * than chosen for roundness:
+ *
+ * - It must sit well ABOVE the audit's healthy cost. Nine token-authorized deep probes against
+ *   the live warm container on 2026-09-14 took 7.18 s to 7.86 s, every one of them HTTP 200
+ *   (`docs/deployment-architecture.md` § Readiness). A deadline under that does not bound a
+ *   fault, it manufactures one — the abort
+ *   lands in the `catch` below as `checks.siteContent = "error"`, which is indistinguishable from
+ *   a genuine corpus inconsistency and drops the whole probe to 503. That would break the one
+ *   surface this endpoint still exists to provide, because `scripts/lib/deployment-rag-activation.mjs`
+ *   reads exactly this response and fails `check:production-readiness` on a non-2xx.
+ * - It must sit BELOW the readiness prober's own whole-response budget, which is
+ *   `AbortSignal.timeout(15000)` in that same file. A deadline above it would never be reached:
+ *   the caller would give up first, turning a diagnosable one-field timeout into an opaque
+ *   `health_probe_failed`.
+ *
+ * Ten seconds clears the slowest of those nine samples by about 27% and still leaves the whole
+ * deep probe comfortably inside the caller's 15 s budget. That headroom is thin, and deliberately
+ * so: it is sized for the corpus as measured, not for an arbitrary future one. The way to widen
+ * it is to make the audit cheaper — the profiling work queued in `/issues` — not to raise this
+ * number until it collides with the caller's timeout. `tests/health-response-deep-probe.test.ts`
+ * pins both bounds, because the value going in below the measured cost is the defect this replaced.
+ */
+export const SITE_CONTENT_PROBE_TIMEOUT_MS = 10_000;
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
   const deep = options.forceDeep || new URL(request.url).searchParams.get("deep") === "1";
+  const tokenAuthorized = allowDeepHealthProbe(request);
+  const readinessOnly = options.probes === "readiness";
+  /**
+   * The single gate every optional probe passes through. A probe runs only when this response is
+   * NOT a readiness check and its own flag has not been turned off. Adding a probe below without
+   * routing it through here puts it back on the deploy gate, which is the bug this replaced.
+   */
+  const probeEnabled = (flag: boolean | undefined) => !readinessOnly && flag !== false;
+  const operatorDiagnostics = tokenAuthorized && probeEnabled(options.includeOperatorDiagnostics);
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
   const openAIConfigured = Boolean(env.OPENAI_API_KEY);
-  const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
+  const checks: Record<string, "ok" | "missing" | "error" | "timeout" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
     openaiConfig: openAIConfigured ? "ok" : env.RAG_PROVIDER_MODE === "offline" ? "skipped" : "missing",
     siteContent: "skipped",
@@ -37,7 +116,6 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   let siteContent: SiteContentPublicHealthProjection | null = null;
 
   if (deep) {
-    const tokenAuthorized = allowDeepHealthProbe(request);
     if (!options.allowUnauthenticatedDeep && !tokenAuthorized) {
       checks.supabase = "unauthorized";
     } else {
@@ -47,10 +125,10 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       // readiness endpoint, which exposes no diagnostic details — and only when
       // not explicitly suppressed. Reads a cumulative counter (no DB), so it is
       // available even in demo mode. Like `slo`, it never flips liveness.
-      if (tokenAuthorized && options.includeCache !== false) {
+      if (operatorDiagnostics && probeEnabled(options.includeCache)) {
         cache = cacheMetricsSnapshot();
       }
-      if (tokenAuthorized && options.includeCoalescing !== false) {
+      if (operatorDiagnostics && probeEnabled(options.includeCoalescing)) {
         coalescing = answerCoalescingMetricsSnapshot();
       }
 
@@ -62,16 +140,33 @@ export async function healthResponse(request: Request, options: HealthResponseOp
             import("@/lib/observability/answer-slo"),
           ]);
           const admin = createAdminClient();
-          const health = await probeSupabaseHealth(admin);
+          const health = await probeSupabaseHealth(
+            admin,
+            readinessOnly ? AbortSignal.timeout(READINESS_SUPABASE_PROBE_TIMEOUT_MS) : undefined,
+          );
           checks.supabase = health.ok ? "ok" : "error";
-          if (health.ok) {
+          // NOT on the readiness path, deliberately. `read_site_content_health()` is a
+          // whole-corpus integrity audit — record counts, digest comparisons, tombstone
+          // reconciliation — and it costs about seven seconds against the live database.
+          // Railway allows each healthcheck attempt ten, so between 2026-09-11 and 2026-09-14
+          // this single call failed 24 production deploys: every merge built, started, answered
+          // this endpoint too slowly, and was rolled back, silently pinning the live site to
+          // three-day-old code. Readiness answers "can THIS CONTAINER serve requests"; whether
+          // the shared control plane is internally consistent is a monitoring question, and it
+          // keeps its home on the token-gated `/api/health?deep=1` and in
+          // `npm run check:production-readiness`. `tests/health-response-deep-probe.test.ts`
+          // pins both halves of that split.
+          if (health.ok && probeEnabled(options.includeSiteContent)) {
             try {
               const [{ readSiteContentHealthEvidence }, { classifySiteContentHealth, classifySiteContentPartition }] =
                 await Promise.all([
                   import("@/lib/site-content/site-content-publication"),
                   import("@/lib/site-content/site-content-health"),
                 ]);
-              const evidence = await readSiteContentHealthEvidence(admin);
+              const evidence = await readSiteContentHealthEvidence(
+                admin,
+                AbortSignal.timeout(SITE_CONTENT_PROBE_TIMEOUT_MS),
+              );
               const partition = classifySiteContentPartition({
                 expectedSiteStaticManifestDigest: env.SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST,
                 activePublicSiteRelease: evidence.activePublicSiteRelease,
@@ -85,17 +180,23 @@ export async function healthResponse(request: Request, options: HealthResponseOp
               });
               siteContent = classification.publicProjection;
               checks.siteContent = classification.operationStop ? "error" : "ok";
-            } catch {
-              checks.siteContent = "error";
+            } catch (error) {
+              // A deadline and a corpus inconsistency arrive through the same `catch` and call for
+              // opposite responses: one is "this query has outgrown its budget, go profile it", the
+              // other is "the control plane disagrees with itself, go look at the data". Collapsing
+              // both into "error" sent the last investigation to the wrong place, so they are named
+              // apart here. Both still fail the probe closed — an audit that did not finish is not
+              // evidence that the corpus is sound.
+              checks.siteContent = isAbortError(error) ? "timeout" : "error";
             }
           }
-          // `tokenAuthorized &&` matches `spendSnapshot` below and makes the gate real: the
+          // `operatorDiagnostics &&` matches `spendSnapshot` below and makes the gate real: the
           // SLO aggregate is a deliberate CROSS-TENANT read (see its entry in
           // scripts/lib/tenancy-scan.mjs, which states this exact gate). Without it the
           // snapshot also ran for any caller passing `allowUnauthenticatedDeep`, so the only
           // thing holding the claim true was `/api/health/ready` opting out via
           // `includeSlo: false` — one flag at one caller, not a gate.
-          if (health.ok && tokenAuthorized && options.includeSlo !== false) {
+          if (health.ok && operatorDiagnostics && probeEnabled(options.includeSlo)) {
             try {
               // Avoid recursively instantiating the full generated PostgREST
               // client type against the intentionally tiny SLO query surface.
@@ -108,7 +209,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           // + healthy Supabase). Derives USD from already-recorded token counts and
           // a configurable price; errors are swallowed to null and never flip
           // liveness. Suppressed only when explicitly disabled.
-          if (health.ok && tokenAuthorized && options.includeSpend !== false) {
+          if (health.ok && operatorDiagnostics && probeEnabled(options.includeSpend)) {
             try {
               const { spendSnapshot } = await import("@/lib/observability/spend-metrics");
               // admin is structurally a SpendProbeClient; cast avoids a deep
@@ -136,7 +237,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   }
 
   const ready = !Object.values(checks).some(
-    (value) => value === "missing" || value === "error" || value === "unauthorized",
+    (value) => value === "missing" || value === "error" || value === "timeout" || value === "unauthorized",
   );
 
   return NextResponse.json(
@@ -152,7 +253,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       ...(coalescing ? { coalescing } : {}),
       ...(spend ? { spend } : {}),
       ...(siteContent ? { siteContent } : {}),
-      ...(deep && allowDeepHealthProbe(request)
+      ...(deep && operatorDiagnostics
         ? { ragProgramme: { ...ragProgrammeHealth(), siteContentFreshness: siteContent?.state ?? "unavailable" } }
         : {}),
     },

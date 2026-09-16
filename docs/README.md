@@ -16,12 +16,39 @@ npm run docs:check-links
 
 ## Start here
 
+Choose the task and the kind of evidence before following an instruction:
+
+| Need                                 | Entry point                                                            | Read it as                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| PsychSift development                | [Repository README](../README.md), [codebase index](codebase-index.md) | Setup and architecture, subject to the current manifests and provider boundaries |
+| Agent instructions or platform setup | [Task navigator](agents-guide.md), [AGENTS.md](../AGENTS.md)           | Find the applicable rule; do not run every referenced workflow                   |
+| Current work or acceptance           | The existing task checkpoint                                           | Check its identity, scope and evidence before relying on its status              |
+| A past decision or incident          | The historical records below                                           | Evidence of what happened then, not a current completion or deployment claim     |
+
+## Documentation ownership and maintenance
+
+| Document type                                  | How to maintain it                                                                                                                  | What its presence proves                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Maintained guide or runbook                    | Correct the relevant source and necessary references when behaviour changes. Check commands against the current script definitions. | Instructions exist; current execution and access still need evidence.                 |
+| Generated index or snapshot                    | Use its named generator and inspect the resulting diff. Do not hand-edit generated facts or run unrelated generators.               | The recorded inventory or snapshot, within its declared scope and capture conditions. |
+| Task checkpoint                                | Keep one current record per task with ownership, scope, decisions, evidence, blockers and next action. Preserve concurrent work.    | Reported task status, which must be reconciled with the actual working state.         |
+| Historical report, lesson or immutable receipt | Preserve the original record; add a dated correction or superseding reference through the appropriate workflow.                     | Historical evidence, including its original failures and limitations.                 |
+
+Use `npm run docs:check-links` for maintained-document references and
+`npm run docs:check-scripts` for npm script references. These are static checks;
+they do not prove that instructions are semantically correct, providers work or a
+screen matches its design. When the checker is blocked, report that limitation
+and use a clearly scoped check for the affected documents without weakening the
+repository gate. The generated inventories remain governed by their own contracts.
+
+## Core reference map
+
 | Doc                                    | What it is                                                                                                 |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | [codebase-index.md](codebase-index.md) | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts                 |
 | [README.md](README.md)                 | This index — every tracked document under `docs/`, categorised                                             |
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run docs:update`, verify with `npm run sitemap:check`       |
-| [agents-guide.md](agents-guide.md)     | Human onboarding pointer; Cursor MCP default read path (Supabase, Railway, Context7); rules in `AGENTS.md` |
+| [agents-guide.md](agents-guide.md)     | Task navigator, platform setup and skill ownership; rules in `AGENTS.md`                                   |
 | [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                                |
 | [codex-cloud.md](codex-cloud.md)       | Codex Cloud setup, access profiles, profile-loading command shims, GitHub exception, and acceptance checks |
 | [claude-cloud.md](claude-cloud.md)     | Claude Code on the web: the tiered container provisioner and the checked-in user profile                   |
@@ -32,6 +59,7 @@ npm run docs:check-links
 - [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [search-chrome-behaviour.md](search-chrome-behaviour.md) — shared search-chrome contract: composer ownership, phone edge-to-edge dock, hide/reveal reserves
 - [mockup-retirement-policy.md](mockup-retirement-policy.md) — when a mockup may be deleted, who decides, what evidence is required, and the three tiers that keep developer-gated prototypes out of cleanup scope
+- [developer-area-access.md](developer-area-access.md) — how the four developer-gated `/mockups` subtrees are protected, the passwordless `?devkey` link and its setup, what the link deliberately does not grant, and how to revoke it
 - [search-results-bar-decisions.md](search-results-bar-decisions.md) — shared results-bar anatomy, why the filter shelf is scoped to two modes, and what is deliberately not done
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states (dated 2026-07-07 race analysis; the lease is heartbeated and fenced since 2026-07-08 — see its status banner)
@@ -45,7 +73,7 @@ npm run docs:check-links
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
 - [design-system/ADOPTION.md](design-system/ADOPTION.md) — PR 13 registration record: adoption order, per-surface file allowlists, exclusions, pins, proof shots
-- [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
+- [dictionary-editorial-drafts.md](dictionary-editorial-drafts.md) — the unpublished Dictionary draft layer: sense-first abbreviation drafts, hash-reconciled definition reviews, per-source acquisition outcomes, and what a register candidate is and is not
 - [comparison-behaviour.md](comparison-behaviour.md) — shared selection, state, responsive, and accessibility contract for comparison surfaces
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
@@ -153,7 +181,7 @@ Every remaining tracked document in this category (operations, plus the `rag-beh
 
 Every remaining tracked document in this category, one line each; the description is the document's own title, with its opening sentence where that adds something.
 
-- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-08-22 — see the sign-off at the bottom.
+- [medication-interaction-lexicon-review.md](medication-interaction-lexicon-review.md) — Medication interaction lexicon — clinical review sheet — Status: reviewed 2026-09-06 — see the sign-off at the bottom.
 - [medication-lexicon-review-worklist.md](medication-lexicon-review-worklist.md) — Medication lexicon — clinician reading worklist (#318) — This is a reading aid, not a review.
 - [services-mode-governance.md](services-mode-governance.md) — Services Mode Governance — A Services record is not “current” merely because its prose is plausible or its confidence is high.
 
@@ -195,7 +223,7 @@ Every remaining tracked document in this category (process, plus the `agents/` r
 - [agents/dead-code-deletion.md](agents/dead-code-deletion.md) — Deleting Code You Believe Is Dead — "Nothing imports it" is necessary and nowhere near sufficient.
 - [agents/external-skill-precedence.md](agents/external-skill-precedence.md) — External Skill Precedence and Evidence — User-global skills and output-style plugins are installed outside this repo and know nothing about its contracts.
 - [agents/pull-request-workflow.md](agents/pull-request-workflow.md) — Pull Request Workflow — Open PR heads go stale whenever main advances.
-- [agents/repository-skills-and-issues.md](agents/repository-skills-and-issues.md) — Repository Skills and Outstanding-Work Memory — Automatically apply repo-local skills under .agents/skills/ when their descriptions match the user's request.
+- [agents/repository-skills-and-issues.md](agents/repository-skills-and-issues.md) — Repository Skills and Outstanding-Work Memory — Select repo-local skills under `.agents/skills/` when their descriptions match the actual task and their use materially helps; read an explicitly named skill before acting.
 - [agents/test-deletion-guard.md](agents/test-deletion-guard.md) — Deleting tests, or letting a tool delete them for you — On 2026-08-31 a commit on PR #2481 titled "test(ui):
 - [agents/upload-shortcut.md](agents/upload-shortcut.md) — Upload Shortcut — When the user types exactly:
 - [agents/verification-gates.md](agents/verification-gates.md) — Verification Gates and the Gate Arbiter — check:gate-manifest enforces a one-way invariant:
@@ -289,6 +317,8 @@ Every remaining tracked document in this category (the Ward Flow developer-gated
 Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
+- [dsm5tr-handover-reconciliation-2026-09-16.md](dsm5tr-handover-reconciliation-2026-09-16.md) — DSM-5-TR and Sources handover reconciled against HEAD 66105e1: the criteria-provenance fix that shipped, the disposition of all 30 claims, the four items held for owner approval, and why 0 of the 24 supplied sources pass the native acquisition gate
+- [dsm5tr-approvals-queue.md](dsm5tr-approvals-queue.md) — what the DSM-5-TR handover leaves waiting on a person: 16 claims and 9 information concepts needing clinical sign-off, the seven rights questions per source across all 24, and the metadata 17 sources do not print
 - [audit/](audit/) — repo and UX/accessibility audits
 - [audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md) — full repository audit (25 lanes, independently verified findings, closed-off sub-projects, machine evidence, Stage-5 adversarial review; audit only, nothing acted on except one-line documentation corrections)
 - [audit/2026-07-20-repository-maturity.md](audit/2026-07-20-repository-maturity.md) — full repository maturity, mapping, and organisation audit
@@ -302,6 +332,9 @@ as it was on that date; supersede with a new dated document rather than editing.
 - [factsheets-reading-model-brief.md](factsheets-reading-model-brief.md) — ledger #041 reading-model decision (no second Factsheets mode)
 - [tooling-follow-through-decisions-2026-08-12.md](tooling-follow-through-decisions-2026-08-12.md) — ledger #150 CodeRabbit cap policy and #151 GitHub Actions observation fallback
 - [staging-shutdown-and-repo-review-handover-2026-09-06.md](staging-shutdown-and-repo-review-handover-2026-09-06.md) — why shutting staging down does not block drift detection or repair (and what it does block), plus three off-ledger findings: the open SaMD classification on a live patient-specific feature, the spend threshold that alerts without enforcing, and unreachable password sign-in
+- [evidence/forms-operational-guidance-review.md](evidence/forms-operational-guidance-review.md) — generated sign-off sheet: what the Forms mode displays for each of the 54 forms, the sections and approved form it was drafted from, and how a reviewer records sign-off one form at a time (`npm run forms:review-sheet`)
+- [evidence/forms-pdf-publisher-comparison-2026-09-16.md](evidence/forms-pdf-publisher-comparison-2026-09-16.md) — byte comparison of all 51 approved-form PDFs against the Office of the Chief Psychiatrist's own URLs (51 of 51 identical), the same-day register reconciliation of all 54 codes and availability states, and the Form 10G register typo this repository does not copy
+- [wa-mha-forms-handover-reconciliation-2026-09-16.md](wa-mha-forms-handover-reconciliation-2026-09-16.md) — reconciliation receipt for the portable WA MHA Forms/Sources handover: what the Forms catalogue actually carried (40 of 54 forms on PDF-indexing scaffolding or the generic fallback), what landed, the zero-insert source preview and its single Act URL conflict, and the open clinical sign-off, Act-currency and asset gates
 - [source-governance-refresh-worklist-2026-07-22.md](source-governance-refresh-worklist-2026-07-22.md) — ledger #022 worklist and BMJ attestation policy status
 - `release-source-metadata-debt-2026-06-30.json` — captured source-metadata debt policy, consumed by `npm run audit:source-governance:release` and `npm run eval:quality:release`
 - [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder

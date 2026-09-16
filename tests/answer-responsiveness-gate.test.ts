@@ -119,7 +119,7 @@ describe("isBareDefinitionQuestion (P3 guard)", () => {
 
 describe("generation-timeout fallback wording (P2)", () => {
   it("reads as a plain-English source pointer, not telemetry-speak", () => {
-    const text = sourceBackedGenerationTimeoutAnswer("What is the clozapine ANC threshold?");
+    const text = sourceBackedGenerationTimeoutAnswer();
     expect(text).toContain("cited below");
     expect(text).toMatch(/review them directly/i);
     expect(text).toContain("document passages");
@@ -131,22 +131,29 @@ describe("generation-timeout fallback wording (P2)", () => {
   });
 
   it("does not trip the source-inventory quality detector", () => {
-    const text = sourceBackedGenerationTimeoutAnswer("How is agitation managed in the ED?");
-    expect(hasClinicalAnswerQualityIssue(text)).toBe(false);
+    expect(hasClinicalAnswerQualityIssue(sourceBackedGenerationTimeoutAnswer())).toBe(false);
   });
 
-  it("uses canonical clinical terms instead of echoing query typos", () => {
-    const text = sourceBackedGenerationTimeoutAnswer(
-      "What agitaton and arousl dosing guidance applies to psychiatric inpatients?",
-    );
-    expect(text).toMatch(/agitation and arousal/i);
+  /**
+   * Ledger #ZK460W. Two tests here used to constrain HOW this pointer rewrote the clinician's
+   * query into its opening clause: one pinned that typos were canonicalised, the other that a
+   * "is X approved for use?" question became a neutral topic rather than an apparent affirmation.
+   * Both were guarding a sentence that should not have existed. The clause asserted the documents
+   * contained relevant guidance on the query — on a route entered precisely because that could not
+   * be established — and it carried query text into the delivered answer, which put a patient name
+   * from the adversarial harness's `scope-other-owner-document` case into the answer body.
+   *
+   * The pointer is now fixed text, so the contract is the stronger one both of those tests were
+   * approximating: nothing from the query reaches it at all.
+   */
+  it("carries no material from the query, so no typo, claim or identifier can reach the answer", () => {
+    const text = sourceBackedGenerationTimeoutAnswer();
     expect(text).not.toMatch(/agitaton|arousl/i);
-  });
-
-  it("does not echo a yes/no governance claim into the source-only fallback", () => {
-    const text = sourceBackedGenerationTimeoutAnswer("Is this protocol approved for use?");
-    expect(text).toContain("this protocol");
     expect(text).not.toMatch(/approved for use|verified current/i);
+    expect(text).not.toMatch(/contain relevant guidance/i);
+    // The function takes no query, which is what makes the guarantee structural rather than a
+    // property of the current wording.
+    expect(sourceBackedGenerationTimeoutAnswer.length).toBe(0);
   });
 });
 
@@ -204,7 +211,7 @@ describe("procedural 'what is required' is not fragment-gated (P6.3)", () => {
     // source-only answer to unsupported.
     const query = "What is required for community home visits?";
     const answer: RagAnswer = {
-      answer: sourceBackedGenerationTimeoutAnswer(query),
+      answer: sourceBackedGenerationTimeoutAnswer(),
       grounded: true,
       confidence: "medium",
       citations: [],
@@ -213,7 +220,15 @@ describe("procedural 'what is required' is not fragment-gated (P6.3)", () => {
     };
     const reason = generatedAnswerQualityFailureReason(answer, query, "broad_summary" satisfies RagQueryClass);
     expect(reason).not.toBe("fragment_like_answer");
-    expect(reason).toBeNull();
+    // Ledger #ZK460W. This used to assert `toBeNull()`, which the pointer only satisfied because
+    // its opening clause rewrote the query into itself and so shared the query's terms. With that
+    // clause gone the text shares nothing with any query and this gate returns
+    // `missing_query_overlap` for every one of them — correctly, since a pointer is not an answer
+    // to the question. It no longer decides anything on the live route: the source-backed review
+    // fallback is delivered ungrounded and unsupported and returns from
+    // `finalizeRagAnswerQualityCore` before this gate runs. What this test still holds is the
+    // fragment gate, which is what P6.3 was about.
+    expect(reason).toBe("missing_query_overlap");
   });
 
   it("still fragment-gates a genuinely truncated answer to a true definition question", () => {

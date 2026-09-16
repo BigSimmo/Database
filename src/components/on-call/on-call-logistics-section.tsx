@@ -1,14 +1,18 @@
 "use client";
 
-import { MapPinned, Pencil, Phone } from "lucide-react";
+import { Lock, MapPinned, Pencil, Phone } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
-import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
+import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
-import { cn, eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
+import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallLogisticsSectionProps {
   entries: readonly OnCallEntry[];
@@ -47,14 +51,6 @@ function logisticsCategoryFor(entry: OnCallEntry): string {
   return details?.category ?? UNGROUPED_CATEGORY;
 }
 
-function slugifyCategory(category: string): string {
-  const slug = category
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "group";
-}
-
 function LogisticsRow({
   entry,
   now,
@@ -80,6 +76,7 @@ function LogisticsRow({
             title={entry.title}
             subtitle={details?.location}
             href={href}
+            onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
             testId={`on-call-logistics-row-${entry.slug}`}
           >
             {details?.hours ? (
@@ -88,7 +85,8 @@ function LogisticsRow({
             {details?.phone && !href ? (
               <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
             ) : null}
-            <OnCallFreshnessBadge freshness={freshness} />
+            {entry.isPersonal ? <OnCallPrivateFlag compact /> : null}
+            <OnCallStaleFlag freshness={freshness} />
           </OnCallEntryRow>
         </div>
         {/* Sibling to the row, never nested inside it: the row above can
@@ -161,21 +159,61 @@ export function OnCallLogisticsSection({
   const sortEntries = (list: OnCallEntry[]) =>
     [...list].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
 
+  const takenSlugs = new Set<string>();
   const groups = Array.from(byCategory.entries())
-    .map(([category, list]) => ({ category, entries: sortEntries(list) }))
-    .sort((a, b) => a.category.localeCompare(b.category));
+    .map(([category, list]) => ({
+      category,
+      entries: sortEntries(list),
+      // Every row withheld, not merely one. A note on a mixed group would
+      // claim the visible rows beside it are private too.
+      allPrivate: list.every((entry) => entry.isPersonal),
+    }))
+    .sort((a, b) => a.category.localeCompare(b.category))
+    .map((group) => ({ ...group, slug: allocateOnCallGroupSlug(group.category, takenSlugs) }));
 
   return (
     <div data-testid={testId} className="grid gap-5">
       {groups.map((group) => {
-        const slug = slugifyCategory(group.category);
+        const slug = group.slug;
         const headingId = `on-call-logistics-category-${slug}-heading`;
         return (
-          <section key={group.category} aria-labelledby={headingId} className="grid gap-2">
-            <h3 id={headingId} className={eyebrowText}>
-              {group.category}
-            </h3>
-            <div className="grid gap-2" data-testid={`on-call-logistics-group-${slug}`}>
+          <section
+            key={group.category}
+            id={onCallGroupAnchorId(slug)}
+            aria-labelledby={headingId}
+            className={cn(inPageAnchor, "grid gap-2")}
+          >
+            <div className="flex items-center gap-1.5">
+              {group.allPrivate ? (
+                <Lock aria-hidden="true" className="size-icon-xs shrink-0 text-[color:var(--text-muted)]" />
+              ) : null}
+              <h3 id={headingId} className={eyebrowText}>
+                {group.category}
+              </h3>
+              <span aria-hidden="true" className="nums text-2xs font-bold text-[color:var(--text-muted)]">
+                {group.entries.length}
+              </span>
+            </div>
+            {group.allPrivate ? (
+              // The rule lives where it applies, not in a settings screen —
+              // board 11's own note. Stated for a group only when the whole
+              // group is private, so it can never imply that the visible rows
+              // beside it are withheld too.
+              <p
+                data-testid="on-call-logistics-private-note"
+                className={cn(
+                  "flex items-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs leading-5",
+                  textMuted,
+                )}
+              >
+                <Lock aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
+                <span>
+                  <b className="text-[color:var(--text-heading)]">Only you can see this group.</b> After-hours entry and
+                  locked-ward detail stay off the page everyone else reads.
+                </span>
+              </p>
+            ) : null}
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-logistics-group-${slug}`}>
               {group.entries.map((entry) => (
                 <LogisticsRow
                   key={entry.id}

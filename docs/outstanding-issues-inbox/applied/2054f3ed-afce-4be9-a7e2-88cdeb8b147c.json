@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2054f3ed-afce-4be9-a7e2-88cdeb8b147c",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Weekly eval canary has failed on the same three answer-quality cases since at least 2026-08-23, and nothing tracks it",
+    "detail": "Golden retrieval passes throughout: run 34099357211 (2026-09-07, repository_dispatch) recorded cases=36, document_recall@5=1, content_recall@5=1, mrr@10=0.8921, zero failing retrieval cases. The run is red only because the separate live answer-quality subset fails its blocking threshold: 'RAG source_backed_review_fallback unaccounted' on clozapine-monitoring (high_confidence_extractive_retrieval; final_quality_gate:guidance_wrapper_fragment; extractive_quality_gate:provider_source_gap), clozapine-monitoring-paraphrase (identical signature), and nocc-requirements (strong_routine_retrieval; generation_fallback:generation_quality_failed; extractive_quality_gate:guidance_wrapper_fragment). The five most recent canary runs are all red: 34099357211, 34050934409 (scheduled), 33582708071, 33327352850 (scheduled), 32656925301 (scheduled, 2026-08-23). CONSEQUENCE: the canary is the pair-comparison instrument for every protected RAG change, and a permanently red run trains readers to ignore it. A future retrieval regression would land inside an already-red signal. NEXT: this is the same failure family as #J8SJQ9 (source-backed review stub where an authoritative source exists) but names different cases, so check that row for overlap before starting. First diagnostic step is whether generation was attempted at all for these three, exactly as #J8SJQ9 sets out. STOP: do not add acceptSourceOnly to these eval cases and do not relax the threshold to get the canary green. The retrieval half of the run remains a valid baseline in the meantime.",
+    "source": "Canary run logs 34099357211 and 34050934409, read during PR #2711 (source authority register), 2026-09-07",
+    "issueUlid": "01M1XSYJ9DSXPQ0A9B1TZ8J6NY"
+  }
+}

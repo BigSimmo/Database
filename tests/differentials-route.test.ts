@@ -161,11 +161,47 @@ describe("differentials API routes", () => {
           sections: [{ title: "Features", tone: "overlap", items: ["Exact item"] }],
           related: [],
         },
+        // Canonical payloads were published before presentation scope existed, so
+        // the route relabels them on the way out (`scopeDifferentialRecord`).
+        // Asserting the scoped shape keeps this test proving two things at once:
+        // the route adds the labels, and it alters nothing else. "Exact hinge" is
+        // not one of the corpus's group hinges, so it stays diagnosis-scoped; the
+        // section is not one of the two diagnosis-scoped criteria, so it is
+        // labelled group context, which is the conservative default.
+        expectedPayload: {
+          slug: "released-diagnosis",
+          title: "Released diagnosis",
+          status: "must-not-miss",
+          subtitle: "Canonical subtitle",
+          clinicalHinge: "Exact hinge",
+          clinicalHingeScope: "diagnosis",
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          sections: [{ title: "Features", tone: "overlap", items: ["Exact item"], scope: "presentation" }],
+          related: [],
+        },
       },
       {
         kind: "presentation",
         key: "presentations",
         renderPayload: {
+          id: "released-presentation",
+          title: "Released presentation",
+          sourceTitle: "Canonical source",
+          scopeLabel: "Exact scope",
+          titleAliases: ["Alias"],
+          status: "current",
+          subtitle: "Canonical subtitle",
+          selectedCount: 1,
+          totalCount: 1,
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          criteria: [],
+          candidates: [],
+          reviewChecklist: [],
+          highestUrgencyNote: "Exact urgency",
+          sourceStatus: "current",
+        },
+        // No criteria on this fixture, so scoping is a no-op here.
+        expectedPayload: {
           id: "released-presentation",
           title: "Released presentation",
           sourceTitle: "Canonical source",
@@ -200,7 +236,7 @@ describe("differentials API routes", () => {
       const response = await GET(request(`/api/differentials?kind=${item.kind}`));
       const payload = (await response.json()) as Record<string, unknown>;
       expect({ status: response.status, payload }).toMatchObject({ status: 200, payload: { publicAccess: true } });
-      expect(payload[item.key]).toEqual([item.renderPayload]);
+      expect(payload[item.key]).toEqual([item.expectedPayload]);
     }
   });
 
@@ -349,6 +385,24 @@ describe("differentials API routes", () => {
     // Ranked records stay in ranked order and mirror the matches list.
     expect(payload.records?.[0]?.slug).toBe("delirium");
     expect(payload.records?.length).toBe(payload.matches?.length);
+  });
+
+  it("reports the catalogue size in `total`, not the size of the query's own result set", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client, { demoMode: true });
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const unfiltered = await GET(request("/api/differentials?kind=diagnosis&limit=10"));
+    const filtered = await GET(request("/api/differentials?kind=diagnosis&q=delirium&limit=10"));
+    const unfilteredPayload = (await unfiltered.json()) as { total?: number };
+    const filteredPayload = (await filtered.json()) as { records?: unknown[]; total?: number };
+
+    // `total` answers "how many differentials are there", so a query must not
+    // move it. It used to measure the returned records, which under a query are
+    // the ranked matches — so a caller asking for the catalogue figure got its
+    // own result count back and could not state the real one.
+    expect(filteredPayload.total).toBe(unfilteredPayload.total);
+    expect(filteredPayload.total ?? 0).toBeGreaterThan(filteredPayload.records?.length ?? 0);
   });
 
   it("returns scored presentation matches for a query", async () => {

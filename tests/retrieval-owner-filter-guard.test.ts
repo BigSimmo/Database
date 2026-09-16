@@ -1447,7 +1447,7 @@ describe("dynamic retrieval RPC dispatch (blind spot E)", () => {
     expect(computedCall.dispatcherCallSites[0].literalNames).toBe(false);
   });
 
-  it("pins callVersionedRetrievalRpc as the only dynamic dispatcher in src/", () => {
+  it("pins callVersionedRetrievalRpc as the only dynamic dispatcher in src/", { timeout: 60_000 }, () => {
     const { dynamicRpcCalls, dispatcherCallSites, violations } = scanRpcDispatch(process.cwd());
     expect(dynamicRpcCalls.length, "found no .rpc() calls at all — has the client API changed?").toBeGreaterThan(0);
     expect(

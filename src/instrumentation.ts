@@ -78,6 +78,40 @@ export async function register() {
   // and are gated in next.config.ts — not re-checked here.
   requireSentryEnv();
 
+  // Caring Contacts live (non-demo) sovereign mode: fail closed unless a MAC-authenticated
+  // CSO attestation is present and valid (H-00 / H-04 / H-05). Demo/staging mode skips this.
+  if (process.env.CARING_CONTACTS_DEMO_ENABLED === "false") {
+    if (!process.env.CARING_CONTACTS_DATABASE_URL?.trim()) {
+      throw new Error(
+        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_DATABASE_URL (no in-memory fallback for real-patient writes).",
+      );
+    }
+    const { createHmac, timingSafeEqual } = await import("node:crypto");
+    const { assertPilotGovernanceReady } = await import("@/lib/caring-contacts/pilot-governance");
+    const raw = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON?.trim();
+    const mac = process.env.CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC?.trim();
+    const secret = process.env.CARING_CONTACTS_GOVERNANCE_HMAC_SECRET?.trim();
+    if (!raw || !mac || !secret) {
+      throw new Error(
+        "Refusing to start: Caring Contacts live mode requires CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON, " +
+          "CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC, and CARING_CONTACTS_GOVERNANCE_HMAC_SECRET.",
+      );
+    }
+    const expectedMac = createHmac("sha256", secret).update(raw, "utf8").digest("hex");
+    const expectedBuf = Buffer.from(expectedMac, "utf8");
+    const providedBuf = Buffer.from(mac, "utf8");
+    if (expectedBuf.length !== providedBuf.length || !timingSafeEqual(expectedBuf, providedBuf)) {
+      throw new Error("Refusing to start: Caring Contacts governance attestation MAC failed authentication.");
+    }
+    let attestation: unknown;
+    try {
+      attestation = JSON.parse(raw);
+    } catch {
+      throw new Error("Refusing to start: Caring Contacts governance attestation JSON is not parseable.");
+    }
+    assertPilotGovernanceReady(false, attestation);
+  }
+
   // Warm rag_aliases so the first post-boot search skips the cold-cache DB RTT.
   // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
   const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");

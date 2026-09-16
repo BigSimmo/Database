@@ -13,6 +13,11 @@ const internalArrowControls = new Set([
   "components/clinical-dashboard/settings-dialog.tsx",
   // Previous step in the formulation builder workflow.
   "components/formulation/formulation-builder-page.tsx",
+  // Returns from a mode's own section list to the full mode list inside the
+  // same popover and the same sheet. Nothing has been navigated to, so there
+  // is no history entry to go back through — routing it that way would leave
+  // the reader's actual page and close the menu they were still using.
+  "components/clinical-dashboard/master-search-header.tsx",
 ]);
 
 function productionArrowFiles() {

@@ -114,6 +114,95 @@ export function rowToServiceRecord(row: RegistryRecordRow): ServiceRecord {
   };
 }
 
+const REVIEW_INTERVAL_DAYS = 365;
+/** A forward-dated review would otherwise read as freshly checked forever. */
+const FUTURE_DATE_TOLERANCE_DAYS = 1;
+
+/** Ordered least to most conservative, so a read-time derivation can never promote a
+ *  stored status — only confirm it or downgrade it. */
+const sourceStatusSeverity: Record<RegistrySourceStatus, number> = {
+  current: 0,
+  review_due: 1,
+  unknown: 2,
+  outdated: 3,
+};
+
+function governanceDate(value: unknown): Date | null {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function rowVerification(row: RegistryRecordRow): ServiceVerification {
+  return (row.verification && typeof row.verification === "object" ? row.verification : {}) as ServiceVerification;
+}
+
+/** The most recent date at which this row records having been reviewed or verified. */
+function lastReviewEvidence(row: RegistryRecordRow): Date | null {
+  const dates = [governanceDate(row.last_reviewed_at), governanceDate(rowVerification(row).lastVerifiedAt)].filter(
+    (date): date is Date => date !== null,
+  );
+  if (dates.length === 0) return null;
+  return dates.reduce((latest, date) => (date.getTime() > latest.getTime() ? date : latest));
+}
+
+/**
+ * Whether a review date is close enough to the reference to be real evidence.
+ *
+ * A mistyped year is the only way a review date lands meaningfully in the future, and it
+ * must not read as a fresh check. Both the freshness derivation and the outdated-clearing
+ * test bound against this, because a date one of them rejects is not evidence for the other.
+ */
+function plausibleReviewDate(reviewedAt: Date, referenceDate: Date): boolean {
+  const ageDays = (referenceDate.getTime() - reviewedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return ageDays >= -FUTURE_DATE_TOLERANCE_DAYS;
+}
+
+/**
+ * Freshness derived from the row's own review dates, ignoring the stored column.
+ *
+ * `source_status` records what was true when the row was written and never ages on its
+ * own, so a service verified in 2024 kept reading as `current`, and so did one carrying
+ * no review evidence at all. Services governance requires a recorded verification date
+ * and a future review date before a record counts as current, which is what this derives.
+ * Mirrors the medication read path in `medication-records.ts`.
+ */
+export function deriveRegistrySourceFreshness(
+  row: RegistryRecordRow,
+  referenceDate: Date = new Date(),
+): RegistrySourceStatus {
+  const reviewedAt = lastReviewEvidence(row);
+  // No recorded review is a different deficiency from a lapsed one, and neither is current.
+  if (!reviewedAt) return "unknown";
+  if (!plausibleReviewDate(reviewedAt, referenceDate)) return "unknown";
+  const ageDays = (referenceDate.getTime() - reviewedAt.getTime()) / (1000 * 60 * 60 * 24);
+
+  const dueAt = governanceDate(row.review_due_at);
+  if (dueAt) return dueAt.getTime() < referenceDate.getTime() ? "review_due" : "current";
+  return ageDays > REVIEW_INTERVAL_DAYS ? "review_due" : "current";
+}
+
+/**
+ * Whether a stored `outdated` has been cleared by a genuine re-verification.
+ *
+ * Supersession is a recorded clinical judgement, so age alone can neither establish nor
+ * refute it. A leftover review date or a truthy free-text `reviewed` note must not clear
+ * it: that is how an outdated record silently became current again. Only a review dated
+ * at or after the reference, or a complete recorded review cycle (a review date together
+ * with a review-due date), counts.
+ */
+function outdatedCleared(row: RegistryRecordRow, referenceDate: Date): boolean {
+  const reviewedAt = lastReviewEvidence(row);
+  if (!reviewedAt) return false;
+  // Same bound deriveRegistrySourceFreshness applies, shared rather than restated so the
+  // two cannot drift apart again. Defence in depth rather than the load-bearing guard: the
+  // caller already refuses to promote a derivation of "unknown", which is what an
+  // implausible date derives to.
+  if (!plausibleReviewDate(reviewedAt, referenceDate)) return false;
+  if (reviewedAt.getTime() >= referenceDate.getTime()) return true;
+  return governanceDate(row.review_due_at) !== null;
+}
+
 /** Governance metadata surfaced alongside a registry record in API responses. */
 export function rowGovernance(
   row: RegistryRecordRow,
@@ -125,43 +214,27 @@ export function rowGovernance(
   reviewDueAt: string | null;
 } {
   const storedStatus = registrySourceStatus(row.source_status);
-  let sourceStatus = storedStatus;
+  const verification = rowVerification(row);
+  const derived = deriveRegistrySourceFreshness(row, referenceDate);
 
-  const verification = (
-    row.verification && typeof row.verification === "object" ? row.verification : {}
-  ) as ServiceVerification;
-
+  let sourceStatus: RegistrySourceStatus;
   if (storedStatus === "outdated") {
-    // `outdated` asserts that guidance was superseded. Supersession is a clinical
-    // judgement, so a stored `outdated` is preserved against normal age degradation.
-    // However, if the record was subsequently updated or re-verified (e.g.
-    // `row.last_reviewed_at` is newer than reference or an explicit re-verification
-    // timestamp is present in verification or source), `sourceStatus` is re-evaluated
-    // rather than being permanently stuck in "outdated" forever.
-    const reviewedAt = row.last_reviewed_at ? new Date(row.last_reviewed_at) : null;
-    const hasValidReviewDate = reviewedAt !== null && !Number.isNaN(reviewedAt.getTime());
-    const isNewerThanReference = hasValidReviewDate && reviewedAt.getTime() >= referenceDate.getTime();
-    const sourceObj = row.source && typeof row.source === "object" ? (row.source as ServiceSource) : null;
-    const hasExplicitReverification =
-      hasValidReviewDate || Boolean(verification.lastVerifiedAt) || Boolean(sourceObj?.reviewed);
-
-    if (hasExplicitReverification || isNewerThanReference) {
-      const record = rowToServiceRecord(row);
-      const derived = deriveGovernanceColumns(record);
-      if (
-        row.review_due_at &&
-        !Number.isNaN(new Date(row.review_due_at).getTime()) &&
-        new Date(row.review_due_at).getTime() < referenceDate.getTime()
-      ) {
-        sourceStatus = "review_due";
-      } else if (derived.source_status !== "unknown") {
-        sourceStatus = derived.source_status;
-      } else {
-        sourceStatus = "current";
-      }
+    if (!outdatedCleared(row, referenceDate)) {
+      sourceStatus = "outdated";
+    } else {
+      const dueAt = governanceDate(row.review_due_at);
+      sourceStatus =
+        dueAt && dueAt.getTime() < referenceDate.getTime()
+          ? "review_due"
+          : derived === "unknown"
+            ? "outdated"
+            : derived;
     }
+  } else {
+    sourceStatus = sourceStatusSeverity[derived] > sourceStatusSeverity[storedStatus] ? derived : storedStatus;
   }
 
+  // Clinical validation is a separate axis from source freshness and never ages with it.
   const validationStatus =
     verification.locallyVerified === true ? "locally_reviewed" : registryValidationStatus(row.validation_status);
 

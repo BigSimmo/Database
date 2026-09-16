@@ -4,9 +4,11 @@
 
 # Reasoning effort calibration
 
-**Repository baseline.** Use `gpt-5.6-sol` with `high` reasoning effort unless the user explicitly
-chooses another supported model or effort. `.codex/config.toml` records this default for trusted
-Codex clients that honor repository configuration; a task-level selection can override it.
+**Picker ownership.** Model and reasoning effort are user/task choices. Do not set `model` or
+`model_reasoning_effort` in the repository `.codex/config.toml`: repository defaults override the
+Desktop picker and make new tasks snap back after an update. Use the model and effort selected for
+the task; when making an explicit recommendation, prefer `gpt-5.6-sol` with `high` reasoning unless
+the risk calibration below calls for something else.
 
 **Cloud xhigh gate.** A running Cloud task cannot raise its own reasoning effort. Before substantive
 inspection, planning, tool use, or edits, classify the request against the table and the risk rules

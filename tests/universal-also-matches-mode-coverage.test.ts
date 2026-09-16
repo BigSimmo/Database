@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { appModeIds, type AppModeId } from "../src/lib/app-modes";
+import { appModeDefinition, appModeIds, type AppModeId } from "../src/lib/app-modes";
 
 /**
  * Every mode's submitted-search surface carries the cross-mode panel.
@@ -16,16 +16,37 @@ import { appModeIds, type AppModeId } from "../src/lib/app-modes";
  *
  * The map below is the register. A mode either names the file that mounts the
  * panel, or names the surface that answers the same question differently and
- * says why. There is no third state.
+ * says why.
+ *
+ * There is one further state, and it is derived rather than declared: a mode
+ * whose `resultsSurface` is `"none"` has no submitted-search surface for the
+ * panel to sit on. That is read off the mode registry below, not asserted by
+ * hand, so a mode cannot claim the exemption without the type system agreeing
+ * that it presents no result list.
  */
+/**
+ * The reason string for a mode with no results surface. Shared so the exemption
+ * reads identically wherever it applies, and long enough to satisfy the
+ * exemption-must-carry-a-reason assertion below.
+ */
+const NO_RESULTS_SURFACE =
+  'This mode declares resultsSurface: "none" — it has no composer on any route and no results page, so ' +
+  "there is no submitted-search surface for the cross-mode panel to sit on. Cross-mode discovery reaches it " +
+  "the same way every other mode is reached from here: the universal search tray and the mode switcher. " +
+  "Putting the panel on its dashboard would answer a question the reader never asked there.";
+
 const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string; mounts: false; because: string }> = {
   answer: {
     file: "src/components/clinical-dashboard/answer-result-surface.tsx",
     mounts: false,
     because:
-      "Answer carries its cross-mode links on the answer surface's own library line (CrossModeLinksSection). " +
-      "Both rendered for a while, one directly under the other, asking the same question — the duplication " +
-      "the owner photographed on 2026-08-26. tests/ui-universal-search.spec.ts pins the panel OUT of Answer.",
+      "Answer carries its cross-mode links on the answer surface's own library line (CrossModeLinksSection), " +
+      "inside the answer thread rather than below the whole result region. Both rendered for a while, one " +
+      "directly under the other, asking the same question — the duplication the owner photographed on " +
+      "2026-08-26. tests/ui-universal-search.spec.ts pins the panel OUT of Answer. The line is not the " +
+      "narrower surface it once was: since the universalMode opt-in it runs the same /api/search/universal " +
+      "lookup the tray runs, so DSM, Formulation, Specifiers, Therapy, Dictionary and Tools are reachable " +
+      "from an answer too, on top of the four catalogues resolved in the browser.",
   },
   documents: { file: "src/components/ClinicalDashboard.tsx", mounts: true },
   services: { file: "src/components/services/services-navigator-page.tsx", mounts: true },
@@ -42,8 +63,16 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   factsheets: { file: "src/components/factsheets/factsheets-search-page.tsx", mounts: true },
   dictionary: { file: "src/components/dictionary/dictionary-catalogue-pages.tsx", mounts: true },
   sources: { file: "src/components/sources/sources-catalogue-client.tsx", mounts: true },
-  "on-call": { file: "src/components/on-call/on-call-search-page.tsx", mounts: true },
+  // On Call presents no result list at all (`resultsSurface: "none"`), so the
+  // loop below skips it before either branch. The file named here is its home,
+  // which is what the reader actually lands on; the assertion that it mounts
+  // nothing lives in its own test.
+  "on-call": { file: "src/components/on-call/on-call-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
 };
+
+function hasNoResultsSurface(modeId: AppModeId) {
+  return appModeDefinition(modeId).search.resultsSurface === "none";
+}
 
 function read(file: string) {
   return readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
@@ -56,6 +85,16 @@ describe("cross-mode also-matches coverage", () => {
 
   for (const modeId of appModeIds) {
     const entry = MOUNTS[modeId];
+
+    if (hasNoResultsSurface(modeId)) {
+      it(`records that ${modeId} has no result surface for the panel to sit on`, () => {
+        expect(entry.mounts, `${modeId} declares no results surface, so it must not claim to mount the panel`).toBe(
+          false,
+        );
+        expect(read(entry.file)).not.toContain("UniversalSearchAlsoMatches");
+      });
+      continue;
+    }
 
     if (entry.mounts) {
       it(`mounts the cross-mode panel on ${modeId}`, () => {
@@ -74,6 +113,17 @@ describe("cross-mode also-matches coverage", () => {
       expect(entry.because.length, "an exemption must carry its reason").toBeGreaterThan(80);
       expect(read(entry.file)).toContain("CrossModeLinksSection");
     });
+
+    it(`keeps ${modeId}'s own line reaching the modes no catalogue can resolve`, () => {
+      // The exemption above is only honest while the line actually reaches the
+      // other modes. Without this opt-in it falls back to four client-side
+      // catalogues, and an answer can never point at a DSM diagnosis, a
+      // dictionary term, a formulation, a specifier, a therapy or a tool —
+      // which is the coverage gap the exemption now claims is closed.
+      expect(read(entry.file), `${entry.file} must pass universalMode to CrossModeLinksSection`).toMatch(
+        /<CrossModeLinksSection[\s\S]{0,400}?universalMode=/,
+      );
+    });
   }
 
   it("lets exactly one owner mount the panel for a mode that borrows a result kind", () => {
@@ -84,7 +134,8 @@ describe("cross-mode also-matches coverage", () => {
     // Prescribing is that mode — `/?mode=prescribing` renders
     // MedicationPrescribingWorkspace inside the dashboard — and it shipped two
     // panels until ui-stress caught the count at 2.
-    const dashboard = read("src/components/ClinicalDashboard.tsx");
+    // Visibility gate lives in dashboard-mode-surface (extracted from ClinicalDashboard).
+    const dashboard = read("src/components/clinical-dashboard/dashboard-mode-surface.ts");
     const gate = dashboard.slice(
       dashboard.indexOf("const showUniversalAlsoMatches ="),
       dashboard.indexOf("const showDesktopHomeComposer ="),

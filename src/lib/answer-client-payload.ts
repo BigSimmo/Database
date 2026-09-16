@@ -116,6 +116,7 @@ const answerFieldPolicy = {
   comparisonMatrix: "client",
   comparisonEvaluationState: "client",
   preformatted: "client",
+  sourceBackedReviewFallback: "server",
   latencyTimings: "server",
   openAIRequestIds: "server",
   openAIUsage: "server",

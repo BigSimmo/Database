@@ -6,6 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 
+import { resolveDeveloperAccessKey } from "../src/lib/developer-area/link-access";
 import { checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { checkNodeRuntime as checkStrictNodeRuntime } from "./check-runtime";
 
@@ -77,6 +78,39 @@ export type RagProgrammeReadinessEvidence = {
   australian?: { sourcePolicyVersion: string | null; healthy: boolean };
 };
 
+/**
+ * Deploy alerting has somewhere to go.
+ *
+ * A receiver with no destination is worse than no receiver at all: it authenticates, answers
+ * `200 { "forwarded": false }`, and discards the alert, so from outside it is indistinguishable
+ * from a healthy integration. Both Railway services were in exactly that state while 24
+ * production deploys failed and rolled back across three days in September 2026, and the outage
+ * was found by noticing a missing UI change rather than by being told.
+ *
+ * `postChatNotification` now logs a discarded alert at runtime, but that only fires once
+ * something has already gone wrong. This check is the one that can say so beforehand, which is
+ * why it lives in the readiness gate rather than only in the receiver.
+ *
+ * An armed `RAILWAY_WEBHOOK_SECRET` makes the warning sharper rather than softer: it means
+ * deliveries are arriving and being thrown away, which is the misconfiguration that actually
+ * occurred, as opposed to an integration nobody has wired up yet.
+ */
+export function alertDestinationReadiness(environment: {
+  SLACK_WEBHOOK_URL?: string;
+  DISCORD_WEBHOOK_URL?: string;
+  RAILWAY_WEBHOOK_SECRET?: string;
+}): { ok: boolean; message: string } {
+  if (environment.SLACK_WEBHOOK_URL || environment.DISCORD_WEBHOOK_URL) {
+    return { ok: true, message: "A chat destination is set; Railway deploy alerts have somewhere to go." };
+  }
+  return {
+    ok: false,
+    message: environment.RAILWAY_WEBHOOK_SECRET
+      ? "RAILWAY_WEBHOOK_SECRET is set but neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is; the deploy-alert receiver will authenticate and then discard every alert, including failed deploys. Set one on the Railway service (see docs/webhooks.md § 1)."
+      : "Neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is set; deploy and CI alerts have no destination (see docs/webhooks.md).",
+  };
+}
+
 export function ragProgrammeReadinessPolicy(
   environment: Record<string, string | undefined>,
   evidence: RagProgrammeReadinessEvidence = {},
@@ -93,6 +127,7 @@ export function ragProgrammeReadinessPolicy(
   )
     failures.push("canary_percentage_invalid");
   const flags = [
+    "RAG_GOVERNED_RETRIEVAL_ENABLED",
     "RAG_SITE_CONTENT_ENABLED",
     "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
     "RAG_ADAPTIVE_ANSWER_ENABLED",
@@ -101,7 +136,13 @@ export function ragProgrammeReadinessPolicy(
   if (flags.some((flag) => ![undefined, "true", "false"].includes(environment[flag])))
     failures.push("component_flag_invalid");
   if (mode === "canary") {
-    if ((environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim().length ?? 0) < 32)
+    if (percentage !== 10000 && (environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim().length ?? 0) < 32)
+      failures.push("rollout_salt_missing_or_invalid");
+    if (
+      percentage === 10000 &&
+      environment.RAG_PROGRAMME_ROLLOUT_SALT?.trim() &&
+      environment.RAG_PROGRAMME_ROLLOUT_SALT.trim().length < 32
+    )
       failures.push("rollout_salt_missing_or_invalid");
     if (!evidence.rollbackOwnerBound) failures.push("rollback_ownership_unavailable");
   }
@@ -376,6 +417,45 @@ function recordMockupsGateProductionCheck() {
   }
 }
 
+/**
+ * The passwordless developer-area link (`DEVELOPER_AREA_ACCESS_KEY`, exchanged
+ * for a signed cookie by `src/proxy.ts`) is a second credential for the same
+ * subtrees the administrator claim gates. Two things about it are worth
+ * catching at release time rather than in a browser.
+ *
+ * A `NEXT_PUBLIC_`-prefixed copy is a hard failure: Next.js inlines those into
+ * the client bundle, so the secret would ship to every visitor and the
+ * developer area would be open to anyone who reads the JavaScript. That is #L30
+ * with a longer string, and there is no legitimate reason for the name to exist.
+ *
+ * A correctly-named key in production is not a failure — it is the feature
+ * working — but it IS a fact a release should state out loud, because it means
+ * the area is reachable without a sign-in by anyone holding the link.
+ */
+export function developerAccessKeyProductionRisk(
+  environment: Record<string, string | undefined> = process.env,
+): "none" | "enabled" | "public-name" {
+  if (environment.NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY?.trim()) return "public-name";
+  const productionLike = environment.NODE_ENV === "production" || environment.VERCEL_ENV === "production";
+  if (!productionLike || !resolveDeveloperAccessKey(environment)) return "none";
+  return "enabled";
+}
+
+function recordDeveloperAccessKeyCheck() {
+  const risk = developerAccessKeyProductionRisk();
+  if (risk === "public-name") {
+    result.failures.push(
+      "NEXT_PUBLIC_DEVELOPER_AREA_ACCESS_KEY is set. Next.js inlines NEXT_PUBLIC_ values into the client bundle, " +
+        "so this would publish the developer-area secret to every visitor — rename it to DEVELOPER_AREA_ACCESS_KEY (server-only).",
+    );
+  } else if (risk === "enabled") {
+    result.warnings.push(
+      "DEVELOPER_AREA_ACCESS_KEY is set: the developer area also opens for anyone holding the ?devkey link, without signing in. " +
+        "Rotate the value to revoke every device.",
+    );
+  }
+}
+
 async function checkFileForServiceRoleExposure() {
   const envFiles = [".env", ".env.production", ".env.development"];
   for (const fileName of envFiles) {
@@ -436,6 +516,7 @@ async function main() {
   recordNoAuthProductionCheck();
   recordDemoModeProductionCheck();
   recordMockupsGateProductionCheck();
+  recordDeveloperAccessKeyCheck();
   recordRawQueryPersistenceProductionCheck();
   recordAnswerPersistenceProductionCheck();
   await checkFileForServiceRoleExposure();
@@ -546,6 +627,15 @@ async function main() {
       result.warnings.push(
         "HEALTH_DEEP_PROBE_SECRET is not set; /api/health?deep=1 stays shallow. Local fill: npm run check:local-presence -- --fill.",
       );
+    }
+
+    // Suppressed under --ci like the neighbouring env-presence checks, since CI carries none of
+    // these values.
+    const alertDestination = alertDestinationReadiness(envModule.env);
+    if (alertDestination.ok) {
+      result.passes.push(alertDestination.message);
+    } else if (!isCiMode) {
+      result.warnings.push(alertDestination.message);
     }
 
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9dcfa96a-ca62-4f15-997c-f438cc673357",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#XSZ4XV",
+    "outcome": "Added robots noindex to brand preview files, updated offline mark to PS and bumped sw.js CACHE_VERSION to 2026-09-12-v1 with hash pin, and updated calculator governance source link to local docs",
+    "baseRowFingerprint": "d62578d7451d6e9634bf745a3b67b06092d59476901de2f2db307f243b77855c"
+  }
+}

@@ -272,12 +272,146 @@ check and watch patterns rather than relying on dashboard defaults.
   },
   "deploy": {
     "healthcheckPath": "/api/health/ready",
-    "healthcheckTimeout": 60,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
     "multiRegionConfig": { "asia-southeast1-eqsg3a": { "numReplicas": 1 } },
   },
 }
 ```
+
+### Readiness: what `/api/health/ready` may and may not ask
+
+**Readiness answers one question — can THIS CONTAINER serve requests?** Configuration is
+present, and Supabase answers a one-row `select`. Nothing else belongs on it.
+
+It must never carry a whole-corpus or cross-tenant audit. Railway allows each healthcheck
+attempt **ten seconds** (measured from the deploy-log retry cadence: a 10 s request timeout plus
+exponential backoff of 0.2 / 1.2 / 2.2 / 4.2 / 8.2 s), and a deployment that cannot answer inside
+the window is discarded and rolled back.
+
+Between **2026-09-11 and 2026-09-14 that is exactly what happened, 24 times.** The endpoint had
+been calling `read_site_content_health()` — the site-content control-plane integrity audit — which
+costs about seven seconds against the live database:
+
+```
+/api/health          http=200 total=0.798s   # shallow: config flags only
+/api/health/ready    http=200 total=7.884s   # with the audit, measured on the live container
+```
+
+Seven against a ten-second limit is a coin flip, and a cold container — no warm Postgres
+connection, no cached plan, cold PostgREST schema cache — loses it. Every merge built, started
+cleanly, answered too slowly and was rolled back; production sat on three-day-old code and
+nothing said so. `PR #2785`, which made that function cheaper, briefly restored deploys on
+13 September before the margin closed again — the clearest single confirmation of the mechanism.
+
+The audit itself was not weakened. It keeps its home on the token-gated `/api/health?deep=1` and
+in `npm run check:production-readiness`; only the deploy gate stopped asking, via
+`includeSiteContent: false`. Its read is additionally bounded by an `AbortSignal`, so no future
+caller can put an unbounded control-plane query back on a request path.
+
+**That deadline is derived from two measurements, not chosen.** It has to clear the audit's
+healthy cost, because an abort below that manufactures the fault it is meant to
+bound: the timeout surfaces as `checks.siteContent = "error"`, which is indistinguishable from a
+real corpus inconsistency and drops the whole probe to 503. It also has to stay under the 15-second
+whole-response budget that `scripts/lib/deployment-rag-activation.mjs` already applies when it
+reads this endpoint for `check:production-readiness`, or the caller gives up first and a
+diagnosable one-field timeout becomes an opaque `health_probe_failed`.
+
+Nine token-authorized deep probes against the live warm container on 2026-09-14 ran between
+**7.18 s and 7.86 s**, every one HTTP 200 — a tight cluster that independently confirms the
+~7-second figure above. Ten seconds clears the slowest of them by about 27% and sits well under
+the caller's 15 s budget. Widening the corpus moves the lower bound, so the fix when it is
+next approached is the profiling work queued in `/issues`, not a larger number here.
+
+[`scripts/operator-explain-site-content-health.sql`](../scripts/operator-explain-site-content-health.sql)
+is that profiling, ready to run read-only in an approved operator window. It carries one
+hypothesis worth stating up front, reached from the schema rather than from a plan: `live_events`
+filters `site_content_sync_events` by `state in ('pending','retry_pending','processing','ready')`,
+and none of that table's three indexes serves it — two are partial and cover only three of the
+four states between them, and the third has `state` as its last column. If that is right the audit
+sequentially scans an append-only event log on every call, which is a cost that only ever rises
+and matches PR #2785 buying hours rather than a fix. The script confirms or kills it in its
+Step 3.
+
+**The trade, stated plainly:** a site-content integrity fault no longer blocks a rollout. It is
+caught by monitoring instead. That is deliberate — before this, it blocked _every_ rollout,
+related or not, and did so invisibly.
+
+#### The actual root cause was the shape of the contract, not the cost of one query
+
+Taking the audit off the gate fixes the outage that happened. It does not fix the one that
+happens next, because the audit was never the defect — it was the first thing to fall through a
+hole that was already there.
+
+`/api/health/ready` used to opt **into** the deep diagnostic branch and then switch each
+expensive probe off by name:
+
+```ts
+forceDeep: true, allowUnauthenticatedDeep: true,
+includeSlo: false, includeCache: false, includeCoalescing: false,
+includeSpend: false, includeOperatorDiagnostics: false,   // and, eventually, includeSiteContent: false
+```
+
+That is a deny-list, and a deny-list is correct only until the next entry is added. Anything
+landing in the deep branch was live on Railway's healthcheck from that moment, and stayed live
+until somebody remembered to come back and add one more `false`. Nobody did. The mechanism had
+already misfired once before, on `includeSlo`, and was read as a one-probe bug — the comment on
+that case in `tests/health-response-deep-probe.test.ts` ends "one flag at one caller, not a gate".
+
+Readiness now declares what it is instead of listing what it is not:
+
+```ts
+forceDeep: true, allowUnauthenticatedDeep: true, probes: "readiness"
+```
+
+Under `probes: "readiness"` every optional probe is off regardless of its own flag, so a probe
+added later is diagnostic-only **by construction** and cannot reach the deploy gate by omission.
+Putting one on readiness is now a deliberate edit in `health-response.ts` next to the contract it
+changes.
+
+Two guards hold it:
+
+- `tests/health-route.test.ts` pins the readiness response **by shape** — the exact set of check
+  keys and body sections — rather than by naming yesterday's probe. Anything that leaks in fails
+  in CI in milliseconds instead of in production three days later.
+- The one database call readiness still makes, `probeSupabaseHealth`, now carries a 5-second
+  deadline. It was the last unbounded thing on the gate: a one-row select is cheap warm, but a
+  cold container has no warm connection, no cached plan and a cold PostgREST schema cache, and an
+  unbounded call cannot answer before a ten-second window closes. The worst case is now a fast
+  503 naming the failing check, with room left for Railway's remaining retries, instead of a
+  timeout indistinguishable from a hung container.
+
+#### A slow audit and a broken corpus are different incidents
+
+On the diagnostic probe, an expired site-content deadline reports `checks.siteContent = "timeout"`
+and a genuine control-plane inconsistency reports `"error"`. Both still fail the probe closed — an
+audit that did not finish is not evidence that the corpus is sound — but they call for opposite
+responses, and until they were named apart both read as an integrity fault. Given the deadline
+carries about 27% headroom over a cost that grows with the corpus, this is what the next person
+will see first when the margin closes, and it should point at profiling rather than at the data.
+
+#### Nothing watched the site between deployments, and the monitor that did could not see this
+
+Railway's healthcheck runs at deploy time only, by its own documentation, so it is not continuous
+monitoring. `live-domain-monitor.yml` covers that gap every six hours — and it stayed green
+through all three days of the outage. Every probe in it passed and every one was telling the
+truth: the domain served the app shell, `/api/health` answered `"ok"`, live mode was intact. The
+site was simply serving three-day-old code, and nothing compared what was **deployed** against
+what had been **merged**.
+
+That monitor now also asserts that main's head has not gone unshipped for longer than
+`LIVE_DEPLOY_MAX_LAG_HOURS` (default 12). The measurement is the age of the unshipped head, not
+the distance between the two commits — during the incident the live commit and main's head were
+56 minutes apart in authored time while the site stayed stranded for three days, so a
+commit-distance test would have read 0 h and stayed silent in exactly the case it exists for.
+
+It needs no secret, because `/api/health` reports `deploymentCommitSha` to any anonymous caller,
+and a red run already reaches chat through `notify-ci-failure.yml`. It deliberately shares nothing
+with the Railway deploy webhook: that path has its own failure modes, and a detector that depends
+on the thing it watches is not a detector.
+
+`tests/health-response-deep-probe.test.ts` pins both halves of the split, and
+`tests/railway-config.test.ts` pins the 300-second window.
 
 ## 3. Ingestion tier
 
@@ -479,3 +613,42 @@ commented entry so `npm run check:env-parity` knows the name.
   `railway metrics`) cover CPU/memory/HTTP; the app additionally emits
   `Server-Timing` and `latencyTimings` (including `supabase_rpc_latency_ms`,
   the cross-region signal from §2.1) on the answer path.
+
+### Adaptive answer release activation proof
+
+After governed publications and retrieval acceptance are verified, a full adaptive release uses
+`RAG_GOVERNED_RETRIEVAL_ENABLED=true` together with the existing server controls: `RAG_PROGRAMME_MODE=canary`,
+`RAG_PROGRAMME_CANARY_BASIS_POINTS=10000`, `RAG_ADAPTIVE_ANSWER_ENABLED=true`, and
+`RAG_ADAPTIVE_ANSWER_RENDER_ENABLED=true`. At 100%, guests and authenticated readers
+receive the same configured capabilities without a cohort identity. Partial rollouts
+retain authenticated HMAC cohorts and leave guests on legacy. Public/private access
+scope is unchanged. Site content and Australian augmentation remain independently
+controlled; an answer release does not turn them on. An installation using only the existing
+legacy library keeps `RAG_GOVERNED_RETRIEVAL_ENABLED=false` and receives shared answer fixes,
+but cannot deliver full adaptive answers through that path. Sources without governed coverage
+retain the verified legacy answer contract and must never be reported as adaptive answers.
+Do not infer governed scope or clinical approval from a public document, title or flag setting.
+An empty governed result
+never silently falls back to another corpus. `legacy` remains the answer rollback.
+
+After an authorized deployment, supply `DEPLOY_ACTIVATION_URL` (the HTTPS origin),
+`DEPLOY_EXPECTED_SHA` (the full 40-character release commit), and the existing operator
+`HEALTH_DEEP_PROBE_SECRET` through the secret store, then run:
+
+```bash
+npm run check:deployment-readiness -- --activation
+```
+
+This performs one authenticated deep-health request, which includes read-only hosted
+health probes and therefore requires provider authorization. It emits bounded JSON and
+exits nonzero on SHA, readiness, audience, producer, renderer, effective generation
+provider, or full-rollout mismatch. A configured key in offline mode cannot pass.
+It also requires the governed coverage contract. A legacy-format library can receive
+shared answer fixes, but cannot pass adaptive activation merely by enabling flags.
+It never prints the token or health payload. Without `--activation`, the existing local
+boot smoke is unchanged. Health's `ragProgramme.fullRollout` projection shows effective
+eligibility, generation/render availability, and a reason when disabled. This proves
+release activation; answer quality and per-request evidence failures still require their
+own acceptance evidence. Do not declare a guest release enabled from boot success alone.
+The shared `/api/health/ready` cache excludes operator diagnostics even when a caller
+sends a valid token; activation uses the uncached `/api/health?deep=1` endpoint.

@@ -1,5 +1,5 @@
 {
-  "$comment": "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css — the whole overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors state. The token-layer collapse must leave this file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
+  "$comment": "Resolved value of every token role that ckb-v2-tokens.css overrides in globals.css \u2014 the whole overlap, not only the roles whose values differ. Captured per colour scheme and forced-colors state. The token-layer collapse must leave this file byte-identical. Regenerate only via UPDATE_TOKEN_RESOLUTION_PIN=1 for a reviewed change.",
   "generatedBy": "tests/ui-token-layer-resolution.spec.ts",
   "capturedFrom": {
     "route": "/",
@@ -115,9 +115,9 @@
   "resolved": {
     "light": {
       "--background": "#fff",
-      "--border": "#e6ebf2",
+      "--border": "#e2e8f0",
       "--border-lux": "#dde4ee",
-      "--border-strong": "#d3dbe5",
+      "--border-strong": "#c8d2de",
       "--bp-desktop": "1024px",
       "--bp-phone": "640px",
       "--bp-tablet": "768px",
@@ -136,7 +136,7 @@
       "--danger-solid-contrast": "#fff",
       "--danger-solid-hover": "#85140d",
       "--decoration-soft": "#8894a6",
-      "--disabled": "#9aa5b5",
+      "--disabled": "#8794a8",
       "--duration-base": ".18s",
       "--duration-deliberate": ".3s",
       "--duration-fast": ".12s",
@@ -165,12 +165,12 @@
       "--radius-sm": ".375rem",
       "--radius-xl": "1rem",
       "--success": "#0c6b41",
-      "--surface": "#fff",
+      "--surface": "#fcfdfe",
       "--surface-chrome": "#fff",
       "--surface-highlight": "#ffffffb3",
       "--surface-inset": "#f4f7fa",
       "--surface-lux": "#fff",
-      "--surface-raised": "#fff",
+      "--surface-raised": "#fcfdfe",
       "--surface-subtle": "#fbfcfd",
       "--surface-wash": "#f8fafc",
       "--text": "#1b2533",

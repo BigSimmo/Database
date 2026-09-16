@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ON_CALL_RECURRENCE_FREQUENCIES,
   ON_CALL_REVIEW_INTERVAL_MONTHS,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
@@ -58,6 +59,53 @@ describe("onCallDetailsSchemaFor", () => {
     const parsed = onCallDetailsSchemaFor("contacts").safeParse({
       role: "Ward 4B",
       phne: "9999 9999",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts a teaching entry that carries no recurrence at all", () => {
+    const parsed = onCallDetailsSchemaFor("education").safeParse({
+      nextOccurrence: "Thursday 1pm",
+      nextOccurrenceDate: "2026-09-17",
+    });
+    expect(parsed.success).toBe(true);
+    // The stored rows that exist today have no structured rule, and they must
+    // keep parsing to exactly what they parsed to before it was added.
+    expect(parsed.success && parsed.data).toEqual({
+      nextOccurrence: "Thursday 1pm",
+      nextOccurrenceDate: "2026-09-17",
+      topics: [],
+    });
+  });
+
+  it("accepts a structured recurrence beside the owner's free text", () => {
+    const parsed = onCallDetailsSchemaFor("education").safeParse({
+      recurrence: "Thursday 1pm, weeks 1-10",
+      nextOccurrenceDate: "2026-09-17",
+      recurrenceRule: { frequency: "weekly" },
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && (parsed.data as { recurrenceRule?: unknown }).recurrenceRule).toEqual({
+      frequency: "weekly",
+    });
+  });
+
+  it("names the three frequencies the app can compute with", () => {
+    expect([...ON_CALL_RECURRENCE_FREQUENCIES]).toEqual(["weekly", "fortnightly", "monthly"]);
+  });
+
+  it("rejects a frequency the roll-forward has no rule for", () => {
+    const parsed = onCallDetailsSchemaFor("education").safeParse({
+      nextOccurrenceDate: "2026-09-17",
+      recurrenceRule: { frequency: "termly" },
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("rejects an unknown key inside the recurrence rule", () => {
+    const parsed = onCallDetailsSchemaFor("education").safeParse({
+      nextOccurrenceDate: "2026-09-17",
+      recurrenceRule: { frequency: "weekly", untilDate: "2026-12-01" },
     });
     expect(parsed.success).toBe(false);
   });

@@ -13,7 +13,7 @@ import {
 } from "@/lib/answer-verification";
 import { hasForeignMedicationClinicalValueBinding, medicationEntitiesInText } from "@/lib/medication-entities";
 import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
-import { appendRoutingReason, SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
+import { appendRoutingReason } from "@/lib/rag/rag-routing";
 import {
   atomicNmhsClozapineRedRangeSegment,
   reflowBoundedSourceLines,
@@ -1267,7 +1267,7 @@ function assessClaimSupportDetails(answer: RagAnswer, verificationSources: Searc
     (answer.preformatted &&
       (answer.answerSections?.length ?? 0) > 0 &&
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
-  const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
+  const sourceBackedReviewAnswer = Boolean(answer.sourceBackedReviewFallback);
   const { inputs } = claimInputs(answer);
   const claims = inputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
@@ -1303,7 +1303,7 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer, verificationSour
   const reviewOnly =
     answer.responseMode === "document_lookup" ||
     answer.queryClass === "document_lookup" ||
-    (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON) ||
+    answer.sourceBackedReviewFallback ||
     (answer.preformatted &&
       (answer.answerSections?.length ?? 0) > 0 &&
       answer.answerSections!.every((section) => section.kind === "documentation"));

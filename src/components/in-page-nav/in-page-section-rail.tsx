@@ -37,6 +37,8 @@ export function InPageSectionRail({
   testIdPrefix,
   density,
   countedLabels = false,
+  modeIdentity,
+  flush = false,
 }: {
   sections: readonly PageSection[];
   activeId: string | null;
@@ -69,6 +71,24 @@ export function InPageSectionRail({
    * roughly a third more width per slot.
    */
   countedLabels?: boolean;
+  /**
+   * An app-mode id, when this bar should carry that mode's identity hue rather
+   * than the product accent. Stamped as `data-mode-identity`, which remaps
+   * `--clinical-accent` inside this `<nav>` only — see the `--mode-identity`
+   * block in `globals.css`. A mode that declares no identity resolves to the
+   * product accent, so passing one is never a change on its own.
+   */
+  modeIdentity?: string;
+  /**
+   * `true` when the bar is the header's ONLY content, so it sits directly under
+   * the chrome above rather than under a title row.
+   *
+   * It then drops its top margin: the 8px gap exists to separate the bar from
+   * that row, and with no row it left the bar's own rule floating in space
+   * under the universal header. Measured on On Call at 390px: 73px of header
+   * for a 48px bar, against 57px with this on.
+   */
+  flush?: boolean;
 }) {
   const plan = useMemo(() => {
     const sharedPlan = planModeNavBands(sections.length);
@@ -104,7 +124,11 @@ export function InPageSectionRail({
     <nav
       aria-label={label}
       data-testid={`${testIdPrefix}-section-rail`}
-      className="mt-2 border-t border-[color:var(--border)] sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]"
+      data-mode-identity={modeIdentity}
+      className={cn(
+        "border-t border-[color:var(--border)] sm:rounded-xl sm:border sm:border-[color:var(--border-lux)] sm:bg-[color:var(--surface-raised)] sm:px-1 sm:shadow-[var(--shadow-inset)]",
+        flush ? "sm:mt-2" : "mt-2",
+      )}
     >
       <div className="mode-nav" data-density-profile={density}>
         <ul className="mode-nav__bar h-12 items-stretch px-1">

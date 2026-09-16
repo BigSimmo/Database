@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 const LEDGER_PATH = "docs/outstanding-issues.md";
 const INBOX_DIR = "docs/outstanding-issues-inbox";
 const OUTPUT_PATH = "data/outstanding-issues-snapshot.json";
-export const SNAPSHOT_VERSION = "outstanding-issues-snapshot-v1";
+export const SNAPSHOT_VERSION = "outstanding-issues-snapshot-v2";
 
 // Reuse the repo's escape-aware splitter. The ledger contains 8 escaped pipes
 // (`\|`); a naive `line.split("|")` turns each into a column boundary and the
@@ -167,12 +167,45 @@ export function readInboxRecords(dir = INBOX_DIR) {
     .map((entry) => JSON.parse(readFileSync(join(dir, entry.name), "utf8")));
 }
 
+/**
+ * A DATE, and no sha. This field is the only part of this snapshot measured
+ * changing as a side effect of another branch's work: PR #2690 ("calculators:
+ * remove directive clinical copy"), which touches no ledger file, rewrote
+ * exactly these two lines and nothing else here.
+ *
+ * The churn is structural rather than occasional. A reconciliation commit
+ * regenerates the snapshot and then becomes the ledger's newest commit, so the
+ * value it just wrote is stale the instant it lands — as the gate's own comment
+ * explains, which is why `ledger_revision` is excluded from comparison. Every
+ * later branch that regenerates (pre-commit doc sync, `docs:update`, `next
+ * build`) therefore rewrites it, stamping whichever ledger commit ITS base
+ * carries. Two branches cut either side of a reconciliation write different
+ * values into adjacent lines at the top of the file: a merge conflict in a file
+ * neither branch was editing. Excluding a field from the gate never stopped it
+ * conflicting in git, because the bytes still shipped.
+ *
+ * The sha is dropped because nothing reads it: `resolveFreshness` uses
+ * `committed_at` alone. Coarsening to a day makes two branches regenerating on
+ * the same day write identical bytes — and same-day is the measured case, the
+ * two commits behind #2690's conflict being 35 minutes apart. Branches a day
+ * apart still differ, which is deliberate residue: freshness is the one value
+ * here a reader cannot recompute.
+ *
+ * Same device and same reasoning as `captured_revision` in
+ * `repo-awareness-snapshot-v3`, which closed the identical defect in the
+ * sibling file.
+ */
+function toRevisionDate(committedAt) {
+  const match = /^(\d{4}-\d{2}-\d{2})/u.exec(committedAt);
+  return match ? match[1] : null;
+}
+
 export function readLedgerRevision(path = LEDGER_PATH) {
   try {
-    const output = execFileSync("git", ["log", "-1", "--format=%H%x09%cI", "--", path], { encoding: "utf8" }).trim();
+    const output = execFileSync("git", ["log", "-1", "--format=%cI", "--", path], { encoding: "utf8" }).trim();
     if (!output) return null;
-    const [sha, committed_at] = output.split("\t");
-    return { sha, committed_at };
+    const committed_at = toRevisionDate(output);
+    return committed_at ? { committed_at } : null;
   } catch {
     return null;
   }
@@ -188,8 +221,14 @@ export function readLedgerRevision(path = LEDGER_PATH) {
 export function readCommittedRevision(path = OUTPUT_PATH) {
   try {
     const revision = JSON.parse(readFileSync(path, "utf8")).ledger_revision;
-    if (typeof revision?.sha !== "string" || typeof revision?.committed_at !== "string") return null;
-    return { sha: revision.sha, committed_at: revision.committed_at };
+    if (typeof revision?.committed_at !== "string") return null;
+    // Normalised rather than taken verbatim: a v1 file on disk carries a full
+    // timestamp, and preserving that shape would write v1 bytes back into a v2
+    // file on the one path that preserves instead of reading git — the
+    // production image, which has no `.git`. Truncating makes the preserved
+    // value the same shape as a fresh read.
+    const committed_at = toRevisionDate(revision.committed_at);
+    return committed_at ? { committed_at } : null;
   } catch {
     return null;
   }

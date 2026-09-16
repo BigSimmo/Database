@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "443423fd-e6c5-4770-9453-c17ea545bedb",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Ward Flow: the Command mockup emits ten eligibility gates, the engine twelve, and nothing keeps the two lists together",
+    "detail": "FOUND 2026-09-09. Command's gatesFor() emits allocatable_bed, capability, security, sex_mix, acuity, specialling, authorisation, catchment, prior_decline, freshness. ELIGIBILITY_GATES in ward-eligibility.ts is age, allocatable_bed, authorisation, capacity_freshness, cohort, forensic, legal_status, prior_decline, security, sex_designation, sex_mix, specialling. THE DIFFERENCES: the engine carries age, forensic and legal_status, which the mockup has no equivalent of; it splits sex_designation out as its own gate where the mockup folds designation into sex_mix; and it has no acuity or catchment gate, both of which the mockup shows to the coordinator as first-class checks with their own sentences. 'capability' and 'cohort' are the same check under two names. WHY IT MATTERS: the third-edition standard governs colour, type, wording and behaviour in close detail and says nothing at all about the rule model, so there is no mechanism holding the mockup's clinical logic to the engine's. The two have already drifted in both directions, and the mockup is what a clinician is shown when the design is reviewed. NEXT ACTION: add a short subsection to section 8 naming ELIGIBILITY_GATES as the source of truth for what a gate is, and one line in the definition of done requiring a mockup's gate list to be a subset of it under the engine's own names. Cheap to state, and it stops the next mockup inventing an eleventh gate.",
+    "source": "Artifact review 2026-09-09 (d821a155 vs ward-eligibility.ts)",
+    "issueUlid": "01M22T8P4BS6PNK999E9RGZ79W"
+  }
+}

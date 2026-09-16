@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2e5e2bc1-25b0-43af-805c-e3f7d8c63a13",
+  "createdOn": "2026-09-07",
+  "action": "done",
+  "payload": {
+    "id": "#QSHHGK",
+    "outcome": "CLOSED 2026-09-07 by owner decision: the owner is the named refresh owner, and the weekly report-only run is sufficient. That resolves point (1), the last of the three reasons this row stayed open. Points (2) and (3) were resolved on 2026-09-06 in PR #2665: the baseline was refreshed from main at fd8156109c54ed078895610406f629f4baf282b7, a commit that resolves and is an ancestor of main, so the provenance warning this row was opened around no longer fires. Production moved 1656.0 -> 1808.2 KiB gzip, mockups 613.1 -> 746.9, route / 278.5 -> 246.2, route /documents/search 281.6 -> 249.0, with tolerances untouched at 10/10/25 percent. THE ROW'S CAUTION IS NOT UN-RECORDED BY CLOSING IT: that refresh absorbed roughly two weeks of accumulated growth that was never attributed to a reviewed change set, and the owner took that decision knowingly and explicitly. The standing mechanism is .github/workflows/bundle-budget-refresh.yml, weekly on Wednesday 04:40 UTC plus workflow_dispatch, report-only, publishing a rolling issue and a refreshed bundle-budget.json artifact; the owner applies it at their discretion. REOPEN IF: the weekly run stops producing a resolvable baselineSource, or accumulated drift again fails an unrelated PR before anyone has applied an artifact.",
+    "baseRowFingerprint": "b31c2800eec69dfc49e478f141fed32c8b6ac287f84983b5e349ea16b993fcdf"
+  }
+}

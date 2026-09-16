@@ -29,6 +29,13 @@ const siteContentHealthMigration = readFileSync(
   new URL("../supabase/migrations/20260824123000_add_site_content_health_probe.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const materializedSiteContentHealthMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260913072413_materialize_site_content_health_operational_base.sql",
+    import.meta.url,
+  ),
+  "utf8",
+).replace(/\s+/g, " ");
 const siteContentHealthSqlFixture = readFileSync(
   new URL("./fixtures/site-content/site-content-health-state-machine.sql", import.meta.url),
   "utf8",
@@ -345,6 +352,29 @@ describe("site-content Task 4 health schema", () => {
     expect(health).not.toMatch(/for update|pg_advisory|delete from|insert into|update public/i);
     const publicObject = health.slice(health.lastIndexOf("select jsonb_build_object("));
     expect(publicObject).not.toMatch(/workerId|invocationId|publishedBy|logicalId|renderPayload|providerError/);
+  });
+
+  it("mirrors the health wrapper and evaluates its operational evidence once", () => {
+    const healthFunction = /create (?:or replace )?function public\.read_site_content_health\(\).*? \$\$;/g;
+    const schemaHealth = [...schema.matchAll(healthFunction)].at(-1)?.[0];
+    const migrationHealth = materializedSiteContentHealthMigration.match(healthFunction);
+
+    expect(schemaHealth).toBeDefined();
+    expect(migrationHealth).toHaveLength(1);
+    expect(migrationHealth?.[0]).toBe(schemaHealth?.replace("create function", "create or replace function"));
+    expect(migrationHealth?.[0]).toContain(
+      "base as materialized ( select public.site_content_health_operational_base() payload )",
+    );
+    expect(migrationHealth?.[0]).toContain("language sql stable security definer set search_path = ''");
+    expect(materializedSiteContentHealthMigration).toContain(
+      "revoke all on function public.read_site_content_health() from public, anon, authenticated, service_role;",
+    );
+    expect(materializedSiteContentHealthMigration).toContain(
+      "grant execute on function public.read_site_content_health() to service_role;",
+    );
+    expect(materializedSiteContentHealthMigration).toContain(
+      "alter function public.read_site_content_health() owner to postgres;",
+    );
   });
 
   it("ships executable health-integrity and serialized invocation state fixtures", () => {
@@ -1663,18 +1693,62 @@ describe("site-content publication and release control plane", () => {
     );
   });
 
-  it("pins the exact current P03 registry baseline for SQL null and forced-field merging", () => {
+  /**
+   * SHAPE, NOT CONTENT — and the difference is why 2026-09-16 happened.
+   *
+   * This baseline is frozen inside an APPLIED migration. Asserting it equalled the whole current
+   * catalogue made every added or edited service record fail by construction, and the only way to
+   * pass was to rewrite `20260824122000` — which changes a content-addressed release id the live
+   * database can never pick up, because an applied migration is never re-run. PR #2814 did exactly
+   * that: the repository went on to describe a bootstrap release (`91ceaa8d…`, 860 records) that no
+   * database has ever held, while live kept `e4a1dd29…` and 843, and `check:drift` went red on two
+   * constraints.
+   *
+   * Divergence from the catalogue is expected, not a defect. The baseline is a 2026-08-24 snapshot
+   * used by SQL's null and forced-field merging for the records frozen at epoch zero; curated
+   * content reaches live through the publication pipeline (`docs/site-content-sync-runbook.md`), and
+   * the lookup that serves newer or revised records is refreshed by a NEW forward migration, never
+   * by editing this one.
+   *
+   * What must not drift is the FIELD VOCABULARY the merge reads. Identity of the freeze itself is
+   * pinned in `tests/site-content-epoch-zero-freeze.test.ts`.
+   */
+  it("keeps the frozen P03 registry baseline readable as the current catalogue record shape", () => {
     const match = migrationRaw.match(
       /\$site_content_registry_baselines\$([\s\S]*?)\$site_content_registry_baselines\$/,
     );
     expect(match).not.toBeNull();
     if (!match) return;
     const sqlBaselines = JSON.parse(match[1]!) as Record<string, unknown>;
-    const expected = Object.fromEntries([
-      ...serviceRecords.map((record) => [`service:${record.slug}`, record] as const),
-      ...formRecords.map((record) => [`form:${record.slug}`, record] as const),
-    ]);
-    expect(sqlBaselines).toEqual(expected);
+    const catalogue = [
+      ...serviceRecords.map((record) => record as unknown as Record<string, unknown>),
+      ...formRecords.map((record) => record as unknown as Record<string, unknown>),
+    ];
+    // Non-vacuous: the freeze carries 281 entries, so an empty or truncated blob fails here
+    // rather than passing as "every frozen entry had the right shape".
+    expect(Object.keys(sqlBaselines).length).toBe(281);
+    expect(catalogue.length).toBeGreaterThanOrEqual(281);
+
+    // An optional field is absent from a record that has no value for it, so one record's key set
+    // cannot be compared to another's. The VOCABULARY can: every field name the catalogue emits
+    // today. A rename or a removal leaves the frozen baseline carrying a field SQL's merge can no
+    // longer resolve, and that is what this catches.
+    //
+    // Only that direction is checked. A field added to the catalogue after 2026-08-24 is absent
+    // from the freeze by definition, so requiring the freeze to carry today's mandatory fields
+    // would re-create the failure-by-construction this test was rewritten to remove.
+    const emitted = new Set(catalogue.flatMap((record) => Object.keys(record)));
+    expect(emitted.size, "the catalogue must emit fields to pin").toBeGreaterThan(0);
+
+    for (const [key, frozen] of Object.entries(sqlBaselines)) {
+      expect(frozen && typeof frozen === "object" && !Array.isArray(frozen), `baseline ${key} is not an object`).toBe(
+        true,
+      );
+      expect(
+        Object.keys(frozen as Record<string, unknown>).filter((field) => !emitted.has(field)),
+        `frozen baseline ${key} carries fields the catalogue no longer emits`,
+      ).toEqual([]);
+    }
     expect(migration).toContain("create or replace function public.site_content_registry_source_render(");
     expect(migration).toContain("p_kind <> 'form' and p_row->'summary_cards' is distinct from 'null'::jsonb");
     expect(migration).toContain("v_baseline#>'{catalogPayload,actSections}'");

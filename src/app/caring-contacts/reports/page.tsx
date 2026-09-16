@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { OperationalReports } from "@/components/caring-contacts/workspace/operational-reports";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import { systemClock } from "@/lib/caring-contacts/clock";
 import {
@@ -102,8 +102,8 @@ const DISPATCH_WINDOW_DAYS = 7;
  * the data it reports on.
  */
 export default async function CaringContactsReportsPage() {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
   const now = systemClock().now();
 

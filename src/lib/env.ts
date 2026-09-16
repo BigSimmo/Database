@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { MIN_DEVELOPER_ACCESS_KEY_LENGTH } from "@/lib/developer-area/link-access";
 import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
@@ -8,6 +9,16 @@ import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 /** Treat blank/whitespace as unset so optional placeholders can remain empty without failing validation. */
 function coerceBlankEnv(value: unknown): unknown {
   return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
+/**
+ * The passwordless developer link is intentionally fail-closed when its key is
+ * unset or under-strength. Normalizing those values before schema validation
+ * keeps that runtime fallback reachable instead of preventing proxy startup.
+ */
+function coerceDeveloperAreaAccessKey(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  return value.trim().length < MIN_DEVELOPER_ACCESS_KEY_LENGTH ? undefined : value;
 }
 
 const clinicalAskDisabledModeIds = new Set([
@@ -43,6 +54,13 @@ const envSchema = z.object({
   // production. See docs/staging-setup.md and src/lib/supabase/project.ts.
   SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
   SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_REF: z.string().optional(),
+  SUPABASE_CARING_CONTACTS_PROJECT_NAME: z.string().optional(),
+  CARING_CONTACTS_DEMO_ENABLED: z.enum(["true", "false"]).optional(),
+  CARING_CONTACTS_SESSION_HMAC_SECRET: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_JSON: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_ATTESTATION_MAC: z.string().optional(),
+  CARING_CONTACTS_GOVERNANCE_HMAC_SECRET: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SITE_CONTENT_EXPECTED_STATIC_MANIFEST_DIGEST: z.preprocess(
     coerceBlankEnv,
@@ -75,6 +93,17 @@ const envSchema = z.object({
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
+  // Passwordless access to the developer-gated /mockups subtrees: the secret a
+  // bookmarked `?devkey=…` link presents once, which src/proxy.ts exchanges for a
+  // signed, long-lived cookie. Server-only and never NEXT_PUBLIC_ — a public
+  // build-time flag opening this area is precisely #L30. Optional: unset means
+  // the link route is off and the administrator sign-in is the only way in. The
+  // 32-character floor is enforced rather than advisory because this secret
+  // travels in a URL, where it is visible in browser history and screen shares.
+  DEVELOPER_AREA_ACCESS_KEY: z.preprocess(
+    coerceDeveloperAreaAccessKey,
+    z.string().min(MIN_DEVELOPER_ACCESS_KEY_LENGTH).optional(),
+  ),
   // Keep `z.` at the call site so `check-env-parity` parseEnvSchemaNames sees these names.
   NEXT_PUBLIC_SENTRY_DSN: z.preprocess(coerceBlankEnv, z.string().url().optional()),
   NEXT_PUBLIC_SENTRY_RELEASE: z.string().optional(),
@@ -193,6 +222,11 @@ const envSchema = z.object({
   RAG_PROGRAMME_MODE: z.enum(["legacy", "shadow", "canary"]).default("legacy"),
   RAG_PROGRAMME_CANARY_BASIS_POINTS: z.coerce.number().int().min(0).max(10000).default(0),
   RAG_PROGRAMME_ROLLOUT_SALT: z.preprocess(coerceBlankEnv, z.string().min(32).optional()),
+  // Corpus retrieval activation is independent of adaptive answer generation/rendering.
+  RAG_GOVERNED_RETRIEVAL_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   RAG_SITE_CONTENT_ENABLED: z
     .enum(["true", "false"])
     .default("false")
@@ -359,6 +393,7 @@ function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
   const mode = environment.RAG_PROGRAMME_MODE ?? "legacy";
   const percentage = environment.RAG_PROGRAMME_CANARY_BASIS_POINTS;
   const flags = [
+    "RAG_GOVERNED_RETRIEVAL_ENABLED",
     "RAG_SITE_CONTENT_ENABLED",
     "RAG_AUSTRALIAN_AUGMENTATION_ENABLED",
     "RAG_ADAPTIVE_ANSWER_ENABLED",
@@ -380,6 +415,7 @@ function failClosedRolloutEnvironment(environment: NodeJS.ProcessEnv) {
     RAG_PROGRAMME_MODE: "legacy",
     RAG_PROGRAMME_CANARY_BASIS_POINTS: "0",
     RAG_PROGRAMME_ROLLOUT_SALT: undefined,
+    RAG_GOVERNED_RETRIEVAL_ENABLED: "false",
     RAG_SITE_CONTENT_ENABLED: "false",
     RAG_AUSTRALIAN_AUGMENTATION_ENABLED: "false",
     RAG_ADAPTIVE_ANSWER_ENABLED: "false",

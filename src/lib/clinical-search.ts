@@ -1389,8 +1389,16 @@ const medicationDoseFrequencyQueryPattern =
 
 /** Which explicit medication evidence attributes the query requests. */
 export function medicationDoseEvidenceQueryIntent(query: string) {
+  // A dose can anchor the timing of a monitoring test without requesting a
+  // prescribed amount. Keep any separate dose/amount request in the query.
+  const amountQuery = /\b(?:monitor\w*|levels?|sampling|blood\s+test|trough)\b/i.test(query)
+    ? query.replace(
+        /\b(?:after|following)\s+(?:(?:the|each|a)\s+)?(?:last\s+dose|dose\s+changes?|(?:(?:starting|commencing)\s+or\s+)?changing\s+(?:the\s+)?dose)\b/gi,
+        " ",
+      )
+    : query;
   return {
-    asksAmount: medicationDoseAmountQueryPattern.test(query),
+    asksAmount: medicationDoseAmountQueryPattern.test(amountQuery),
     asksRoute: medicationDoseRouteQueryPattern.test(query),
     asksFrequency: medicationDoseFrequencyQueryPattern.test(query),
   };

@@ -460,6 +460,19 @@ try {
   });
   await waitForServer(baseUrl, server, LIGHTHOUSE_SERVER_READY_TIMEOUT_MS);
 
+  // Warm up runner and routes before collecting graded runs to eliminate cold-start timing bimodality
+  // across runners (especially /documents/search on GitHub Actions runners).
+  console.log("Warming up routes before measurement...");
+  const warmupRoutes = Array.from(new Set([...routes, "/documents/search"]));
+  for (const route of warmupRoutes) {
+    try {
+      await get(`${baseUrl}${routeWithLighthouseParams(route)}`, 15_000);
+    } catch {
+      // Warmup is best-effort; failures do not block the suite
+    }
+  }
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
   const chromePath = process.env.CHROME_PATH ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ?? "";
   const failures = [];
   const retried = [];

@@ -3,7 +3,7 @@
 import { CircleCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-nav-header";
+import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
@@ -14,13 +14,17 @@ import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
+import { mergeOnCallEditorDetails } from "@/lib/on-call/editor-details";
 import {
+  ON_CALL_RECURRENCE_FREQUENCIES,
   onCallDetailsSchemaFor,
   onCallEntryFreshness,
   onCallEntrySchema,
   type OnCallEntry,
+  type OnCallRecurrenceFrequency,
   type OnCallSection,
 } from "@/lib/on-call/entry-model";
+import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 
 /**
  * The owner's only way to add, correct, or retire an On Call entry. Without
@@ -36,6 +40,9 @@ import {
  * unchanged, so an ordinary edit can never reset them.
  */
 
+/** The one detail the editor writes as a nested object rather than a string. */
+const RECURRENCE_RULE_KEY = "recurrenceRule";
+
 type DetailFieldKind = "text" | "textarea" | "list" | "select";
 
 type DetailFieldSpec = {
@@ -48,6 +55,43 @@ type DetailFieldSpec = {
   type?: string;
   options?: SelectOption[];
 };
+
+/**
+ * How often a teaching session comes round.
+ *
+ * A select rather than a tick box: the schedule can compute with three
+ * frequencies, and a single tick could only ever mean "weekly". The empty value
+ * is a real choice — "does not repeat" is what most sessions are — which is why
+ * it is a listed option rather than a placeholder the reader has to guess at.
+ *
+ * Each label says what the option actually DOES, because bare "Monthly" reads as
+ * "however this meeting recurs" and means something narrower: the anchor's
+ * calendar date. A third-Sunday journal club set to Monthly walks onto a
+ * Wednesday within two months and sends someone to an empty room. Neither a
+ * weekday-of-the-month rule nor a term with an end date is representable at all,
+ * so the hint names both rather than letting the reader discover it later.
+ * Codex P2 on PR #2806.
+ *
+ * Typed as a full `Record` of the frequency union: adding a fourth frequency to
+ * the model then fails to compile here rather than quietly shipping a raw enum
+ * value into a select. A test also pins that every frequency reaches the list.
+ */
+const RECURRENCE_LABELS: Record<OnCallRecurrenceFrequency, string> = {
+  weekly: "Weekly, on the same weekday",
+  fortnightly: "Fortnightly, on the same weekday",
+  monthly: "Monthly, on the same date",
+};
+
+const RECURRENCE_HINT =
+  "Only these fixed patterns can be computed. A schedule tied to a position in the month (a third Sunday), or one that stops at the end of a term, cannot be expressed here — leave it as does not repeat and keep the date current by hand.";
+
+const RECURRENCE_OPTIONS: SelectOption[] = [
+  { value: "", label: "Does not repeat" },
+  ...ON_CALL_RECURRENCE_FREQUENCIES.map((frequency) => ({
+    value: frequency,
+    label: RECURRENCE_LABELS[frequency],
+  })),
+];
 
 const LOGISTICS_CATEGORY_OPTIONS: SelectOption[] = [
   { value: "Parking", label: "Parking" },
@@ -101,6 +145,20 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
   education: [
     { key: "recurrence", label: "Recurrence", kind: "text" },
     { key: "nextOccurrence", label: "Next occurrence", kind: "text" },
+    {
+      key: "nextOccurrenceDate",
+      label: "Next occurrence date",
+      kind: "text",
+      type: "date",
+      hint: "YYYY-MM-DD. Needed for Coming up on the home; the free-text field above is still what Teaching shows.",
+    },
+    {
+      key: RECURRENCE_RULE_KEY,
+      label: "Repeats",
+      kind: "select",
+      options: RECURRENCE_OPTIONS,
+      hint: RECURRENCE_HINT,
+    },
     { key: "presenter", label: "Presenter", kind: "text" },
     { key: "location", label: "Location", kind: "text" },
     { key: "recordingUrl", label: "Recording URL", kind: "text", type: "url" },
@@ -122,6 +180,14 @@ function detailStringValue(details: unknown, key: string): string {
   const value = (details as Record<string, unknown>)[key];
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
   return typeof value === "string" ? value : "";
+}
+
+/** The stored frequency, or "" for a session that does not repeat. */
+function recurrenceFrequencyValue(details: unknown): string {
+  const rule = (details as { recurrenceRule?: unknown } | null | undefined)?.recurrenceRule;
+  if (!rule || typeof rule !== "object") return "";
+  const frequency = (rule as { frequency?: unknown }).frequency;
+  return typeof frequency === "string" ? frequency : "";
 }
 
 function escalationStepsToText(details: unknown): string {
@@ -177,16 +243,24 @@ type DraftState = {
   tags: string;
   isPersonal: boolean;
   includeOnCard: boolean;
+  isRoleExplainer: boolean;
   details: Record<string, string>;
 };
 
-function buildInitialDraft(section: OnCallSection, entry: OnCallEntry | null | undefined): DraftState {
+function buildInitialDraft(
+  section: OnCallSection,
+  entry: OnCallEntry | null | undefined,
+  createAsRoleExplainer = false,
+): DraftState {
   const details: Record<string, string> = {};
   for (const field of SECTION_DETAIL_FIELDS[section]) {
-    details[field.key] =
-      field.key === "escalationSteps"
-        ? escalationStepsToText(entry?.details)
-        : detailStringValue(entry?.details, field.key);
+    if (field.key === "escalationSteps") {
+      details[field.key] = escalationStepsToText(entry?.details);
+    } else if (field.key === RECURRENCE_RULE_KEY) {
+      details[field.key] = recurrenceFrequencyValue(entry?.details);
+    } else {
+      details[field.key] = detailStringValue(entry?.details, field.key);
+    }
   }
   return {
     title: entry?.title ?? "",
@@ -195,6 +269,7 @@ function buildInitialDraft(section: OnCallSection, entry: OnCallEntry | null | u
     tags: entry?.tags.join(", ") ?? "",
     isPersonal: entry?.isPersonal ?? false,
     includeOnCard: entry?.includeOnCard ?? false,
+    isRoleExplainer: entry ? isRoleExplainerEntry(entry) : createAsRoleExplainer && section === "contacts",
     details,
   };
 }
@@ -252,6 +327,11 @@ function DetailField({
     // first option, so it is offered as an extra choice rather than dropped.
     const resolvedOptions =
       !value || options.some((option) => option.value === value) ? options : [...options, { value, label: value }];
+    // A field whose own options already name the empty value has said what
+    // "nothing chosen" means -- "Does not repeat" is an answer, not an absence.
+    // Adding the generic placeholder on top would offer two empty rows and make
+    // the reader guess which one is the real "none".
+    const namesItsOwnEmptyValue = options.some((option) => option.value === "");
     return (
       <Select
         label={field.label}
@@ -259,7 +339,7 @@ function DetailField({
         hint={field.hint}
         error={error}
         options={resolvedOptions}
-        placeholder="Choose one"
+        placeholder={namesItsOwnEmptyValue ? undefined : "Choose one"}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -290,6 +370,12 @@ export interface OnCallEntryEditorProps {
   onSaved: (entry: OnCallEntry) => void;
   /** Called with the deleted entry's id. Omit to disable delete (create-only use). */
   onDeleted?: (id: string) => void;
+  /**
+   * When creating a contacts entry from Who's who, seed the role-explainer
+   * discriminator. Without this, a new role cannot be told apart from a
+   * dialling contact and lands in the wrong list.
+   */
+  createAsRoleExplainer?: boolean;
 }
 
 export function OnCallEntryEditor({
@@ -299,8 +385,9 @@ export function OnCallEntryEditor({
   entry = null,
   onSaved,
   onDeleted,
+  createAsRoleExplainer = false,
 }: OnCallEntryEditorProps) {
-  const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(section, entry));
+  const [draft, setDraft] = useState<DraftState>(() => buildInitialDraft(section, entry, createAsRoleExplainer));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"saving" | "deleting" | null>(null);
@@ -315,7 +402,7 @@ export function OnCallEntryEditor({
   if (nextOpenKey !== openKey) {
     setOpenKey(nextOpenKey);
     if (nextOpenKey) {
-      setDraft(buildInitialDraft(section, entry));
+      setDraft(buildInitialDraft(section, entry, createAsRoleExplainer));
       setFieldErrors({});
       setFormError(null);
       setConfirmDeleteOpen(false);
@@ -337,15 +424,31 @@ export function OnCallEntryEditor({
     const trimmedTitle = draft.title.trim();
     if (!trimmedTitle) nextErrors.title = "Title is required.";
 
-    const detailsInput: Record<string, unknown> = section === "orientation" ? { pinnedSummaryIsOwnerNote: true } : {};
+    const formDetails: Record<string, unknown> = section === "orientation" ? { pinnedSummaryIsOwnerNote: true } : {};
+    const clearedKeys: string[] = [];
     for (const field of fieldSpecs) {
       const raw = draft.details[field.key] ?? "";
+      if (field.key === RECURRENCE_RULE_KEY) {
+        const frequency = raw.trim();
+        if (!frequency) {
+          // "Does not repeat" has to beat a stored rule, and an omitted key
+          // cannot say that — the overlay would simply keep the old one.
+          clearedKeys.push(RECURRENCE_RULE_KEY);
+        } else if (!(draft.details.nextOccurrenceDate ?? "").trim()) {
+          // A frequency with nothing to count from is a control that appears to
+          // have worked and silently does nothing, which is worse than refusing.
+          nextErrors[RECURRENCE_RULE_KEY] = "A repeating session needs a next occurrence date to count from.";
+        } else {
+          formDetails[RECURRENCE_RULE_KEY] = { frequency };
+        }
+        continue;
+      }
       if (field.key === "escalationSteps") {
         const steps = parseEscalationSteps(raw);
         if (steps === null) {
           nextErrors[field.key] = "Each step needs at least a who and a when, separated by |.";
         } else if (steps.length > 0) {
-          detailsInput[field.key] = steps;
+          formDetails[field.key] = steps;
         }
         continue;
       }
@@ -354,13 +457,20 @@ export function OnCallEntryEditor({
           .split(",")
           .map((item) => item.trim())
           .filter((item) => item.length > 0);
-        if (items.length > 0) detailsInput[field.key] = items;
+        if (items.length > 0) formDetails[field.key] = items;
         continue;
       }
       const trimmedValue = raw.trim();
-      if (trimmedValue) detailsInput[field.key] = trimmedValue;
+      if (trimmedValue) formDetails[field.key] = trimmedValue;
     }
 
+    const detailsInput = mergeOnCallEditorDetails({
+      section,
+      formDetails,
+      existingDetails: entry?.details,
+      roleExplainer: section === "contacts" ? draft.isRoleExplainer : undefined,
+      clearedKeys,
+    });
     const parsedDetails = onCallDetailsSchemaFor(section).safeParse(detailsInput);
     if (!parsedDetails.success) {
       for (const issue of parsedDetails.error.issues) {
@@ -543,6 +653,14 @@ export function OnCallEntryEditor({
           />
 
           <div className="grid gap-1">
+            {section === "contacts" ? (
+              <Checkbox
+                label="Who's who entry"
+                description="A role explainer instead of a dialling contact. The number to ring stays on Contacts."
+                checked={draft.isRoleExplainer}
+                onChange={(event) => setDraft((current) => ({ ...current, isRoleExplainer: event.target.checked }))}
+              />
+            ) : null}
             <Checkbox
               label="Personal number"
               description="Excluded from the printable card and any export."

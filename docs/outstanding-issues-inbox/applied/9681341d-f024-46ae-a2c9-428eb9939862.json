@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "9681341d-f024-46ae-a2c9-428eb9939862",
+  "createdOn": "2026-09-10",
+  "action": "cancel",
+  "payload": {
+    "requestId": "73e80866-df3e-414b-8362-b438d282ca8c",
+    "reason": "Verified 0px residual scroll on /calculators/search at 1280x1200 and pinned in tests/ui-chrome-scroll.spec.ts"
+  }
+}

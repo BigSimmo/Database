@@ -502,6 +502,63 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Comprehensive" })).toHaveFocus();
   });
 
+  // `disabled` and `deadEnd` are different states and must not converge.
+  // `disabled` is "not on offer" and leaves the keyboard path; `deadEnd` is
+  // "your own narrowing emptied this", and docs/filter-contract.md section 3
+  // requires it to stay reachable so it can say so.
+  it("keeps a dead end on the arrow path, withholding only selection", async () => {
+    function DeadEndHarness() {
+      const [value, setValue] = useState("all");
+      return (
+        <SegmentedControl
+          label="Source locality"
+          value={value}
+          onChange={setValue}
+          options={[
+            { value: "all", label: "Any locality", hint: "3 loaded sources", hintLabel: "3" },
+            { value: "local", label: "Local", hint: "0 loaded sources", hintLabel: "0", deadEnd: true },
+            { value: "non_local", label: "Non-local", hint: "3 loaded sources", hintLabel: "3" },
+          ]}
+          layout="fit"
+        />
+      );
+    }
+    render(<DeadEndHarness />);
+
+    const dead = screen.getByRole("radio", { name: /^Local/ });
+    expect(dead).toHaveAttribute("aria-disabled", "true");
+    // Never the native attribute: that would take it out of the tab order.
+    expect(dead).not.toBeDisabled();
+    expect(dead).toHaveAccessibleDescription("Not selectable from here.");
+
+    // Arrowing onto it moves focus so the description is announced, but must
+    // not commit it — nor silently commit the option before it.
+    screen.getByRole("radio", { name: /^Any locality/ }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(dead).toHaveFocus();
+    expect(dead).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("radio", { name: /^Any locality/ })).toHaveAttribute("aria-checked", "true");
+
+    // Clicking it is guarded too.
+    await userEvent.click(dead);
+    expect(screen.getByRole("radio", { name: /^Any locality/ })).toHaveAttribute("aria-checked", "true");
+  });
+
+  // The count is split: the unit is announced, the short form is displayed.
+  it("announces the hint with its unit while displaying only hintLabel", () => {
+    render(
+      <SegmentedControl
+        label="Source locality"
+        value="all"
+        onChange={() => undefined}
+        options={[{ value: "all", label: "Any locality", hint: "3 loaded sources", hintLabel: "3" }]}
+        layout="fit"
+      />,
+    );
+    const option = screen.getByRole("radio", { name: "Any locality (3 loaded sources)" });
+    expect(option).toHaveTextContent(/^Any locality3$/);
+  });
+
   // The one-of-N rails this control replaces across the modes all carry a count.
   // Baking it into `label` would fold the number into the truncating span, so it
   // gets its own slot — and it must reach the accessible name, or a screen
@@ -730,6 +787,50 @@ describe("Select", () => {
   it("keeps a hidden label a real label rather than dropping it", () => {
     render(<Select label="Jurisdiction" hideLabel options={[{ value: "wa", label: "Western Australia" }]} />);
     expect(screen.getByRole("combobox")).toHaveAccessibleName(/Jurisdiction/);
+  });
+
+  // A placeholder used to force `defaultValue=""` even when the caller drove the
+  // control with `value`, so every controlled Select with a placeholder warned
+  // that it was both controlled and uncontrolled. React resolves that by
+  // ignoring the default, so the visible behaviour was right and the warning was
+  // the only symptom -- which is exactly why it survived in a shared control.
+  it("does not claim to be both controlled and uncontrolled when a placeholder is set", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(
+        <Select
+          label="Category"
+          placeholder="Choose one"
+          value="parking"
+          onChange={() => {}}
+          options={[
+            { value: "parking", label: "Parking" },
+            { value: "food", label: "Food" },
+          ]}
+        />,
+      );
+
+      const warnings = consoleError.mock.calls.map((call) => String(call[0] ?? ""));
+      expect(warnings.filter((message) => /controlled or uncontrolled/i.test(message))).toEqual([]);
+      expect(screen.getByRole("combobox")).toHaveValue("parking");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("still starts an uncontrolled select on its placeholder", () => {
+    render(
+      <Select
+        label="Category"
+        placeholder="Choose one"
+        options={[
+          { value: "parking", label: "Parking" },
+          { value: "food", label: "Food" },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("combobox")).toHaveValue("");
   });
 });
 

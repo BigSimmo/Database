@@ -13,6 +13,7 @@ import {
   sourceAcquisitionRecords,
   type SourceAcquisitionRecord,
 } from "@/lib/sources/acquisition-ledger";
+import { sourceAuthorityForPublisher } from "@/lib/source-authority-registry";
 import { canonicalizeSourceReferences } from "@/lib/sources/catalogue-core";
 import {
   classifySourceAuthority,
@@ -46,6 +47,10 @@ const baseRecord: SourceAcquisitionRecord = {
   supersededBy: [],
   notes: null,
 };
+
+// A real Australian clinical publisher that is deliberately absent from the source authority
+// register, so the "unrecognised publisher" path has a genuine example to exercise.
+const unregisteredPublisher = "Beyond Blue";
 
 function record(overrides: Partial<SourceAcquisitionRecord> = {}): SourceAcquisitionRecord {
   return { ...baseRecord, ...overrides };
@@ -115,13 +120,33 @@ describe("source acquisition ledger", () => {
     expect(sourceAcquisitionRecords.length).toBeGreaterThan(0);
   });
 
-  it("captures every committed source with complete metadata, so none carries a metadata defect", () => {
+  // Scoped to sources still in play, because that is where the library applies the
+  // metadata floor. Metadata that could not be established is frequently the reason
+  // a source was rejected, so holding a rejection to the floor would make the
+  // register unable to record the searches that found nothing citable.
+  it("captures every committed source still in play with complete metadata, so none carries a metadata defect", () => {
     const defects = new Set<string>(ACQUISITION_METADATA_DEFECTS);
-    for (const entry of sourceAcquisitionRecords) {
+    const inPlay = sourceAcquisitionRecords.filter((entry) => entry.disposition !== "rejected");
+    expect(inPlay.length).toBeGreaterThan(0);
+    for (const entry of inPlay) {
       expect(
         acquisitionRecordWarnings(entry).filter((warning) => defects.has(warning)),
         `${entry.id} carries a metadata defect`,
       ).toEqual([]);
+    }
+  });
+
+  // The exemption above is only safe while a rejection stays a rejection. Every
+  // committed rejection must still carry the identity needed to recognise the same
+  // source next time, and the reason it was not used.
+  it("requires every committed rejection to record its identity and the reason it was rejected", () => {
+    const rejections = sourceAcquisitionRecords.filter((entry) => entry.disposition === "rejected");
+    for (const entry of rejections) {
+      expect(entry.title.trim(), `${entry.id} has no title`).not.toBe("");
+      expect(entry.publisher.trim(), `${entry.id} has no publisher`).not.toBe("");
+      expect(entry.jurisdiction.trim(), `${entry.id} has no jurisdiction`).not.toBe("");
+      expect(entry.dispositionReason?.trim(), `${entry.id} does not say why it was rejected`).toBeTruthy();
+      expect(acquisitionRecordGeography(entry), `${entry.id} cannot be placed in a jurisdiction`).not.toBe("unknown");
     }
   });
 
@@ -174,7 +199,11 @@ describe("source acquisition rungs", () => {
   });
 
   it("names the register as the blocker when a publisher is not recognised, and warns that fixing it moves retrieval", () => {
-    const [issue] = issuesFor({ publisher: "Therapeutic Guidelines Limited", publisherCode: null, canonicalUrl: null });
+    // The example publisher has to be one the register genuinely does not carry, so assert that
+    // here rather than trusting the constant: Therapeutic Guidelines used to sit in this slot and
+    // the premise silently went false the day it was registered.
+    expect(sourceAuthorityForPublisher(unregisteredPublisher)).toBeNull();
+    const [issue] = issuesFor({ publisher: unregisteredPublisher, publisherCode: null, canonicalUrl: null });
     expect(issue).toContain("is not in the source authority register");
     expect(issue).toContain("can never leave D band");
     expect(issue).toContain("changes retrieval selection");

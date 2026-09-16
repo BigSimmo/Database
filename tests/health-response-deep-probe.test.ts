@@ -21,14 +21,22 @@ function mockEnv() {
   }));
 }
 
-function mockSupabase(healthy: boolean) {
+function mockSupabase(healthy: boolean, options: { fails?: boolean; timesOut?: boolean } = {}) {
   vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin-client" })) }));
   vi.doMock("@/lib/supabase/health", () => ({
     probeSupabaseHealth: vi.fn(async () => ({ ok: healthy, checkedAt: "2026-08-01T00:00:00.000Z" })),
   }));
   const current = new Date().toISOString();
-  vi.doMock("@/lib/site-content/site-content-publication", () => ({
-    readSiteContentHealthEvidence: vi.fn(async () => ({
+  const readSiteContentHealthEvidence = vi.fn(async (client: unknown, signal?: AbortSignal) => {
+    // Mirror the real call: the admin client is forwarded, and an expired deadline aborts
+    // rather than being ignored.
+    expect(client).toEqual({ id: "admin-client" });
+    signal?.throwIfAborted();
+    if (options.timesOut) {
+      throw Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+    }
+    if (options.fails) throw new Error("private database failure");
+    return {
       initialized: true,
       bootstrapIntegrityState: "not_applicable",
       activePublicSiteRelease: {
@@ -65,8 +73,10 @@ function mockSupabase(healthy: boolean) {
       latestInvocationSucceeded: true,
       lastActivation: current,
       rollbackAvailable: false,
-    })),
-  }));
+    };
+  });
+  vi.doMock("@/lib/site-content/site-content-publication", () => ({ readSiteContentHealthEvidence }));
+  return { readSiteContentHealthEvidence };
 }
 
 async function deepProbe() {
@@ -219,5 +229,136 @@ describe("authorized deep health probe diagnostics", () => {
     expect(body.coalescing).toBeUndefined();
     expect(answerSloSnapshot).not.toHaveBeenCalled();
     expect(spendSnapshot).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The split that keeps production deployable.
+ *
+ * `read_site_content_health()` audits the whole site-content control plane — record counts,
+ * digest comparisons, tombstone reconciliation — and costs about seven seconds against the live
+ * database. Railway allows each healthcheck attempt ten, so while `/api/health/ready` called it,
+ * 24 consecutive production deploys (2026-09-11 to 2026-09-14) built, started cleanly, answered
+ * too slowly and were rolled back. The audit is not weakened here; one caller stopped asking.
+ * `docs/deployment-architecture.md` § Readiness carries the measurements.
+ */
+describe("the site-content control-plane audit", () => {
+  it("runs for the token-gated deep probe", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true);
+
+    const { response, body } = await deepProbe();
+
+    expect(response.status).toBe(200);
+    expect(readSiteContentHealthEvidence).toHaveBeenCalledTimes(1);
+    expect(body.checks).toMatchObject({ siteContent: "ok" });
+    expect(body.siteContent).toMatchObject({ state: "current" });
+  });
+
+  it("is bounded by a deadline so it can never hang a request path", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true);
+
+    await deepProbe();
+
+    const signal = readSiteContentHealthEvidence.mock.calls[0]?.[1];
+    expect(signal, "an unbounded control-plane query is what caused the outage").toBeInstanceOf(AbortSignal);
+  });
+
+  /**
+   * The deadline is a measured range, not a preference, and it went in below the range once.
+   *
+   * An abort is reported through the same `catch` as a corpus inconsistency — `checks.siteContent
+   * = "error"`, which makes the whole probe 503 — so a deadline under the audit's healthy cost
+   * does not bound a fault, it fabricates one, on every single call. That would take out
+   * `check:production-readiness` too, since `scripts/lib/deployment-rag-activation.mjs` reads this
+   * exact response and fails on a non-2xx. The opposite error is quieter but also real: a deadline
+   * above that caller's own 15 s whole-response budget can never fire, so a one-field timeout
+   * degrades into an opaque `health_probe_failed` instead.
+   */
+  it("keeps its deadline above the audit's measured cost and below the readiness prober's budget", async () => {
+    mockEnv();
+    mockSupabase(true);
+    const { SITE_CONTENT_PROBE_TIMEOUT_MS } = await import("../src/lib/health-response");
+
+    // Slowest of nine successful deep probes against the live warm container on 2026-09-14
+    // (range 7.18-7.86 s, all HTTP 200), rounded up. Pinning the worst observed case rather than
+    // the average is the point: the average is what a too-small deadline hides behind.
+    // See docs/deployment-architecture.md § Readiness.
+    const MEASURED_HEALTHY_COST_MS = 7_900;
+    // scripts/lib/deployment-rag-activation.mjs: AbortSignal.timeout(15000) around this response.
+    const READINESS_PROBER_BUDGET_MS = 15_000;
+
+    expect(
+      SITE_CONTENT_PROBE_TIMEOUT_MS,
+      "a deadline below the audit's healthy cost reports every healthy call as an integrity fault",
+    ).toBeGreaterThan(MEASURED_HEALTHY_COST_MS);
+    expect(
+      SITE_CONTENT_PROBE_TIMEOUT_MS,
+      "a deadline above the readiness prober's own budget can never be reached",
+    ).toBeLessThan(READINESS_PROBER_BUDGET_MS);
+  });
+
+  it("fails the deep probe closed, without leaking the RPC error", async () => {
+    // Migrated from `tests/health-route.test.ts`, where it asserted the same fail-closed
+    // behaviour on `/api/health/ready`. The behaviour is unchanged; only its caller moved.
+    mockEnv();
+    mockSupabase(true, { fails: true });
+
+    const { response, body } = await deepProbe();
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "error" });
+    expect(JSON.stringify(body)).not.toContain("private database failure");
+  });
+
+  it("is skipped, not failed, when a caller opts out", async () => {
+    mockEnv();
+    const { readSiteContentHealthEvidence } = mockSupabase(true, { fails: true });
+    const { healthResponse } = await import("../src/lib/health-response");
+
+    const response = await healthResponse(
+      new Request("http://localhost/api/health?deep=1", { headers: { "x-health-deep-token": DEEP_TOKEN } }),
+      { includeSiteContent: false },
+    );
+    const body = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "skipped" });
+    expect(body.siteContent).toBeUndefined();
+    expect(readSiteContentHealthEvidence).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A slow audit and a broken corpus are not the same incident.
+ *
+ * Both arrive through one `catch`, and until they were named apart both read as
+ * `checks.siteContent = "error"` — an integrity fault. The responses are opposites: a timeout
+ * means the query has outgrown its budget and wants profiling, an error means the control plane
+ * disagrees with itself and wants a look at the data. The deadline is sized with about 27%
+ * headroom over the measured cost and the cost grows with the corpus, so this distinction is not
+ * hypothetical: it is what the next person sees first when the margin closes.
+ *
+ * Both still fail closed. An audit that did not finish is not evidence that the corpus is sound.
+ */
+describe("a site-content audit that runs out of time", () => {
+  it("is reported as a timeout, not as an integrity fault", async () => {
+    mockEnv();
+    mockSupabase(true, { timesOut: true });
+
+    const { response, body } = await deepProbe();
+
+    expect(body.checks).toMatchObject({ supabase: "ok", siteContent: "timeout" });
+    expect(response.status, "an unfinished audit is not proof of a sound corpus").toBe(503);
+  });
+
+  it("still calls a genuine control-plane failure an error", async () => {
+    mockEnv();
+    mockSupabase(true, { fails: true });
+
+    const { body } = await deepProbe();
+
+    expect(body.checks).toMatchObject({ siteContent: "error" });
   });
 });

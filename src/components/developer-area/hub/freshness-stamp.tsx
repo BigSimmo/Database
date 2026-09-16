@@ -22,12 +22,70 @@ import type { Freshness } from "@/lib/developer-area/freshness";
 function formatDate(iso: string): string | null {
   const parsed = new Date(iso);
   if (Number.isNaN(parsed.getTime())) return null;
+  // A day-granularity value has no clock time to state. Formatting one with
+  // `timeStyle` renders `2026-09-07` as "7 Sept 2026, 08:00 AWST" — midnight UTC
+  // dressed as a Perth wall-clock reading, which is a fabricated instant. This
+  // component exists to stop confident-looking stamps carrying no information,
+  // so it must not manufacture one itself.
+  if (isDateOnly(iso)) {
+    return parsed.toLocaleDateString("en-AU", { dateStyle: "medium", timeZone: "Australia/Perth" });
+  }
   const formatted = parsed.toLocaleString("en-AU", {
     dateStyle: "medium",
     timeStyle: "short",
     timeZone: "Australia/Perth",
   });
   return `${formatted} AWST`;
+}
+
+/**
+ * Both committed snapshots now date their revision to the day rather than the
+ * second — `captured_revision` in `repo-awareness-snapshot-v3` and
+ * `ledger_revision` in `outstanding-issues-snapshot-v2` — because a full
+ * timestamp is a per-branch value that makes two branches conflict on a file
+ * neither is editing.
+ *
+ * That precision is genuinely gone, and the stamp has to say so rather than
+ * imply otherwise. `resolveFreshnessFrom` parses `2026-09-07` as midnight UTC,
+ * so an hour count taken from it is wrong by however far into that day the
+ * commit actually was — up to a full day for a late-evening UTC commit, always
+ * in the direction of reporting the content as older than it is.
+ */
+function isDateOnly(iso: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/u.test(iso);
+}
+
+/**
+ * Whole days between a day-granularity content date and the moment of viewing,
+ * compared as calendar days rather than elapsed milliseconds, because a day is
+ * the only claim the stored value supports.
+ *
+ * Both sides are UTC days, and that pairing is the point. The generators derive
+ * the stored date from a git commit's own `%cI`, so it is a UTC calendar date;
+ * comparing it against the reader's PERTH date mixes two zones and adds up to a
+ * further day of error on top of the day already lost to rounding. A commit at
+ * 23:59 UTC is 07:59 the next morning in Perth, so a Perth-day comparison calls
+ * it a day old the instant it lands. Rendering stays pinned to Perth like the
+ * rest of this component; only the arithmetic is UTC, and midnight UTC falls on
+ * the same calendar date in Perth either way.
+ */
+function ageInDays(contentDay: string, viewedAtIso: string): number | null {
+  const viewed = new Date(viewedAtIso);
+  if (Number.isNaN(viewed.getTime())) return null;
+  const contentMs = Date.parse(`${contentDay}T00:00:00Z`);
+  const viewedMs = Date.parse(`${viewed.toISOString().slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(contentMs) || !Number.isFinite(viewedMs)) return null;
+  return Math.max(0, Math.round((viewedMs - contentMs) / 86_400_000));
+}
+
+function describeAge(freshness: Freshness): string {
+  if (freshness.contentAt !== null && isDateOnly(freshness.contentAt)) {
+    const days = ageInDays(freshness.contentAt, freshness.viewedAt);
+    if (days === null) return "age unknown";
+    if (days === 0) return "same day";
+    return days === 1 ? "1 day old" : `${days} days old`;
+  }
+  return `${freshness.ageHours} ${freshness.ageHours === 1 ? "hour" : "hours"} old`;
 }
 
 /**
@@ -79,8 +137,7 @@ export function FreshnessStamp({
            * whole job is stating age unambiguously.
            */}
           {label} content as of {contentAt}
-          {viewedAt ? ` · viewed ${viewedAt}` : ""} · {freshness.ageHours} {freshness.ageHours === 1 ? "hour" : "hours"}{" "}
-          old
+          {viewedAt ? ` · viewed ${viewedAt}` : ""} · {describeAge(freshness)}
         </span>
       ) : isLive ? (
         <span>

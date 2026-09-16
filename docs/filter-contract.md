@@ -21,15 +21,6 @@ component decides the renderer. No call site picks chips, rows or a segmented co
 `kind` is optional and defaults to `lens`, because that is what all seven existing call sites
 are. Adding the facet kind changed no rendered output.
 
-**`renderAs` is the one exception, and it is a migration seam rather than a layout choice.** A
-counted lens should be a segmented bar (section 5), and the component could derive that on its own
-from `kind` plus "every option carries a count" — but doing so would restyle all thirteen lens call
-sites in a single change, each needing its own browser proof. So `renderAs: "segmented"` is opt-in
-per group while modes move over one at a time. It is deliberately not a free choice: it names the
-same renderer the rule would derive, the component still refuses it for a group carrying a dead end,
-and the end state is that the flag disappears and derivation takes over. Do not add a second value
-to it, and do not read it as licence for a call site to pick its own layout.
-
 **Which is which is a question about the data, not the UI.** Differentials'
 All / Presentations / Diagnoses is a lens: a result cannot be both. Formulation's twelve domains
 are facets: a mechanism routinely carries four. Rendering facets as radios — which formulation
@@ -125,8 +116,15 @@ cannot state either segment honestly. `data/differentials-snapshot.json` is 1.2 
 component deliberately never imports it — doing so to get an "all" count would put the whole snapshot
 in the bundle — while `useDifferentialSearch` only ever receives query-matched results. So the page
 can produce a constant `232`, but not "how many of the 232 survive the current urgency selection",
-and section 3 requires both counts to come from the same predicate as the filter. `/api/differentials`
-is no help either: its `total` is the _match_ count once `q` is present, not the catalogue's.
+and section 3 requires both counts to come from the same predicate as the filter.
+
+`/api/differentials` used to compound this: its `total` measured the records it was returning, which
+under a query are the ranked matches, so it reported the caller's own result count rather than the
+catalogue. That is fixed — all four branches of the route report the catalogue size, pinned by
+`tests/differentials-route.test.ts` — so the honest figure is now available. What is still missing is
+the _scoped_ count: "how many of the 232 survive the current urgency selection" needs the catalogue
+in memory, which is the megabyte this client must not import. The total alone cannot satisfy
+section 3.
 
 Differentials **browse** (`differential-stream-workspace.tsx`) does get scope, because its server
 component hands it a model carrying matched and unmatched entries together, distinguished by
@@ -167,20 +165,31 @@ still the right renderer for short bare labels.
 **The same argument applies to a counted `lens`, and the answer there is the segmented bar.** A lens
 is an exact partition, so it takes `SegmentedControl` rather than the two-column grid — which is what
 `ChoiceChip`'s own contract already says: _"Compact many-of-many selection. Use SegmentedControl for
-one-of-many choices."_ Opt in per group with `renderAs: "segmented"` on `resultFilterGroup()`; the
-default stays `"chips"` so the twelve lens call sites that predate this render unchanged, and each
-can move over with its own browser proof. Differentials is the first adopter — its Show (3) and
-Clinical urgency (4) groups were the ragged wrapping row this rule exists to stop.
+one-of-many choices."_
 
-Two constraints on that renderer, both load-bearing:
+**It is derived, never declared.** A lens whose options all carry a count renders as a segmented bar
+because of what it is, not because a call site asked. There is no renderer flag, and adding one would
+break section 1 — a mode declares semantics, and picking a layout is the thing that rule exists to
+stop. An earlier revision shipped `renderAs: "segmented"` as a migration seam so modes could move one
+at a time; it is gone, and the option list is what decides.
 
-- **A group carrying a dead-end option stays on chips.** `SegmentedControl` marks a disabled option
-  with the native `disabled` attribute, which takes it out of the tab order. A dead end has to stay
-  focusable and explained — a reader who has just narrowed to nothing needs to reach the option that
-  did it — so `renderAs` is ignored for such a group rather than silently degrading it.
-- **Counts must be unit-free.** `SegmentedControl` uses one field for both the visible count and the
-  accessible name, so it has no `hintLabel` equivalent (see the rule below). A lens whose counts
-  carry a unit keeps the chip renderer until that second field exists.
+Two conditions bound it, both load-bearing:
+
+- **At most five options.** That is where the chip tier above ends. A segmented bar is one control
+  read left to right; past five it wraps into rows and stops reading as one, which is the ragged
+  shape this rule exists to remove. A longer lens keeps the chip row.
+  A dead end does **not** send the group back to chips, and an earlier revision that made it do so was
+  wrong: documents' Source locality marks an option dead the moment its count reaches zero, so a
+  state-dependent renderer made the control morph from a segmented bar into a chip row while the reader
+  was using it. The shape of the option list decides the renderer; nothing about the current selection
+  can change it. `SegmentedControl` carries the dead end itself, on a `deadEnd` field kept deliberately
+  separate from `disabled` — `disabled` means "not on offer" and leaves the arrow path, `deadEnd` means
+  "your own narrowing emptied this" and stays on it with `aria-disabled` and a stated reason, exactly as
+  section 3 requires.
+
+Counts may carry units. `SegmentedControl` takes the same `hint`/`hintLabel` split as an option (see
+the rule below), so `"1 loaded source"` is announced while `1` is displayed. Before that split a
+counted lens with a unit had to stay on chips — which is what kept documents' Source locality there.
 
 **`hint` is announced, `hintLabel` is displayed.** `hint` carries the unit (`"1 loaded source"`) and
 is what the option's accessible name is built from; `hintLabel` is the short visible form (`"1"`).

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   dsmCategories,
-  dsmCriteria,
+  dsmCriteriaView,
   dsmDiagnoses,
   dsmStaticParams,
   getDsmDiagnosis,
@@ -30,16 +30,19 @@ describe("DSM clinical catalogue", () => {
       expect(diagnosis.title).toBeTruthy();
       expect(diagnosis.icd_code).toBeTruthy();
       expect(diagnosis.category.label).toBeTruthy();
-      expect(dsmCriteria(diagnosis).length).toBeGreaterThan(0);
+      expect(dsmCriteriaView(diagnosis).rows.length).toBeGreaterThan(0);
       expect(diagnosis.documentation_template).toBeTruthy();
     }
   });
 
-  it("falls back to key features when a separate criteria display was not supplied", () => {
+  it("shows key features when a separate criteria display was not supplied, but does not call them criteria", () => {
     const diagnosis = getDsmDiagnosis("major-depressive-disorder");
     expect(diagnosis).toBeDefined();
     expect(diagnosis?.criteria_display).toEqual([]);
-    expect(dsmCriteria(diagnosis!)).toEqual(diagnosis?.key_features);
+    const view = dsmCriteriaView(diagnosis!);
+    expect(view.rows).toEqual(diagnosis?.key_features);
+    expect(view.isDsmCriteria).toBe(false);
+    expect(view.provenance).toBe("key_features_summary");
   });
 
   it("searches titles, ICD codes, categories, and criteria", () => {

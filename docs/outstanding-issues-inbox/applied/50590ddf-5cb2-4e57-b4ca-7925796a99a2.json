@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "50590ddf-5cb2-4e57-b4ca-7925796a99a2",
+  "createdOn": "2026-09-09",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Ward Flow: enforce hospital authorisation as a candidate destination constraint",
+    "detail": "FOUND 2026-09-09 by review of artifacts d821a155 and e7f7b6f2 against src/components/ward-management/. Both artifacts omit authorisation from ABSOLUTE_GATES, and ward-flow-reducer.ts places it in SUITABILITY_GATES. The canonical destination contract in docs/ward-flow-context.md and docs/ward-management-decisions.md ADR 1 distinguishes lawful detention under Forms 3A/3B in an unauthorised general hospital emergency department from eligibility for an involuntary inpatient destination. A patient's current-location detention must not be presented as unlawful merely because that site is unauthorised. Candidate involuntary inpatient destinations must satisfy the hospital-authorisation requirement; a coordinator's recorded reason cannot waive it. NEXT ACTION: reconcile the reducer and mockup destination gates with that existing contract, keep the current-location and destination cases separate in tests, and document the distinction beside the gate. The separate security/locked-bed classification still needs assessment against the actual destination requirements; it is not resolved by this authorisation finding.",
+    "source": "Artifact review 2026-09-09 (d821a155, e7f7b6f2, ward-flow-reducer.ts)",
+    "issueUlid": "01M22T7W66MF6MZ7NDHPMMMANG"
+  }
+}

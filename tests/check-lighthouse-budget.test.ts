@@ -6,12 +6,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  BIMODAL_RUNNER_TOLERANCE_FLOORS,
   DEFAULT_TOLERANCE,
   baselineFromRows,
   compareToLighthouseBudget,
   expectedBudgetRuns,
   gradeRun,
   incompleteBudgetEvidence,
+  isBimodalRunnerVarianceRun,
   majorityBreachDecision,
   numericBreachConfirmationRuns,
   readReports,
@@ -285,9 +287,38 @@ describe("incompleteBudgetEvidence — completeness derived from what is graded"
   });
 });
 
+describe("isBimodalRunnerVarianceRun", () => {
+  it("matches only the calibrated desktop-root and documents-search run ids", () => {
+    expect(isBimodalRunnerVarianceRun("desktop-root")).toBe(true);
+    expect(isBimodalRunnerVarianceRun("mobile-documents-search")).toBe(true);
+    expect(isBimodalRunnerVarianceRun("desktop-documents-search")).toBe(true);
+    expect(BIMODAL_RUNNER_TOLERANCE_FLOORS.lcpMs).toBe(200);
+  });
+
+  it("rejects bare documents substrings and other routes (false-green guard)", () => {
+    expect(isBimodalRunnerVarianceRun("desktop-documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-documents-upload")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("documents")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("mobile-root")).toBe(false);
+    expect(isBimodalRunnerVarianceRun("")).toBe(false);
+    expect(isBimodalRunnerVarianceRun(null as unknown as string)).toBe(false);
+  });
+});
+
 describe("gradeRun", () => {
   it("records no breach without a baseline for that run", () => {
     expect(gradeRun(row("mobile-root", { lcpMs: 9000 }), undefined)).toEqual([]);
+  });
+
+  it("applies the bimodal LCP floor only on intended run ids", () => {
+    const baseline = { lcpMs: 786, cls: 0, tbtMs: 100 };
+    // +175ms clears default minAbsolute(100) + pct but stays under bimodal floor(200)
+    expect(gradeRun(row("desktop-root", { lcpMs: 961 }), baseline)).toEqual([]);
+    expect(gradeRun(row("desktop-documents-search", { lcpMs: 961 }), baseline)).toEqual([]);
+    // Unintended documents* name must still flag — closes false-green path
+    expect(gradeRun(row("desktop-documents", { lcpMs: 961 }), baseline)).toHaveLength(1);
+    expect(gradeRun(row("mobile-root", { lcpMs: 961 }), baseline)).toHaveLength(1);
   });
 
   it("ignores an improvement", () => {

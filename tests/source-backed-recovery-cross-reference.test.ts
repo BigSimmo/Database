@@ -83,9 +83,7 @@ describe("isBareCrossReferenceAnswer", () => {
   });
 
   it("does NOT flag the source-pointer generation-timeout fallback", () => {
-    expect(
-      isBareCrossReferenceAnswer(sourceBackedGenerationTimeoutAnswer("What is the clozapine ANC threshold?")),
-    ).toBe(false);
+    expect(isBareCrossReferenceAnswer(sourceBackedGenerationTimeoutAnswer())).toBe(false);
   });
 
   it("does NOT flag a real answer whose lead carries content and only a trailing sentence points onward", () => {

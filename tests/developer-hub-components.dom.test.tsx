@@ -87,6 +87,55 @@ describe("FreshnessStamp", () => {
     expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/\b1 hour old\b/);
   });
 
+  /**
+   * Both committed snapshots now date their revision to the day rather than the
+   * second, because a full timestamp is a per-branch value that made two
+   * branches conflict on a file neither was editing
+   * (`repo-awareness-snapshot-v3`, `outstanding-issues-snapshot-v2`).
+   *
+   * The stamp must not dress that day up as an instant. `new Date("2026-08-20")`
+   * is midnight UTC, which a Perth formatter renders as "08:00 AWST" — a clock
+   * reading nothing recorded — and an hour count taken from it is wrong by
+   * however far into the day the commit actually was.
+   */
+  it("states a day-granularity revision as a day, with no fabricated clock time", () => {
+    render(<FreshnessStamp freshness={{ contentAt: "2026-08-20", viewedAt: "2026-08-21T00:00:00Z", ageHours: 24 }} />);
+    const stamp = screen.getByTestId("developer-hub-freshness");
+    expect(stamp).toHaveTextContent(mediumDate("2026-08-20T00:00:00Z"));
+    // The content date carries no time and no zone. `viewedAt` is a real
+    // instant and keeps both, so AWST still appears — scope the assertion to
+    // the content half rather than the whole stamp.
+    expect(stamp.textContent).toMatch(/content as of [^·]*\d{4}\s*·/);
+    expect(stamp.textContent).not.toMatch(/content as of [^·]*\d{1,2}:\d{2}/);
+  });
+
+  it("ages a day-granularity revision in days, not in hours it cannot support", () => {
+    // The reported case, and the one a Perth-day comparison also gets wrong: a
+    // ledger commit late in a UTC day is stored as that day, and an hour count
+    // read from midnight then calls it a day old within minutes of landing.
+    // 23:59 UTC is 07:59 next morning in Perth, so the arithmetic must stay in
+    // UTC to match the zone the stored date came from.
+    render(<FreshnessStamp freshness={{ contentAt: "2026-08-20", viewedAt: "2026-08-20T23:59:00Z", ageHours: 24 }} />);
+    const stamp = screen.getByTestId("developer-hub-freshness");
+    expect(stamp).toHaveTextContent(/same day/);
+    expect(stamp).not.toHaveTextContent(/hours old/);
+  });
+
+  it("says '1 day old', not '1 days old'", () => {
+    // One UTC calendar day after the recorded content day.
+    render(<FreshnessStamp freshness={{ contentAt: "2026-08-20", viewedAt: "2026-08-21T04:00:00Z", ageHours: 28 }} />);
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/\b1 day old\b/);
+  });
+
+  it("keeps hour precision for a full timestamp, which still carries it", () => {
+    render(
+      <FreshnessStamp
+        freshness={{ contentAt: "2026-08-20T00:00:00Z", viewedAt: "2026-08-21T00:00:00Z", ageHours: 24 }}
+      />,
+    );
+    expect(screen.getByTestId("developer-hub-freshness")).toHaveTextContent(/24 hours old/);
+  });
+
   it("renders live status when freshness status is live", () => {
     render(
       <FreshnessStamp

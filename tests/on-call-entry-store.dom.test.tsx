@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -38,6 +38,7 @@ describe("useOnCallEntries", () => {
   });
 
   afterEach(() => {
+    cleanup();
     clearOnCallEntryCache();
     vi.restoreAllMocks();
   });
@@ -130,5 +131,72 @@ describe("useOnCallEntries", () => {
 
     expect(hook?.result.current.entries).toEqual([]);
     expect(hook?.result.current.cachedAt).toBeNull();
+  });
+
+  it("drops in-memory fetched rows when the cache is cleared on sign-out", async () => {
+    const personal: OnCallEntry = {
+      ...contact,
+      isPersonal: true,
+      title: "My personal registrar",
+      slug: "personal-reg",
+    };
+    const shared: OnCallEntry = {
+      ...contact,
+      id: "33333333-3333-4333-8333-333333333333",
+      title: "Shared switchboard",
+      slug: "shared-switch",
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ entries: [personal], signedOut: false }))
+      .mockResolvedValueOnce(jsonResponse({ entries: [shared], signedOut: true }));
+
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.entries.map((entry) => entry.title)).toEqual(["My personal registrar"]);
+
+    clearOnCallEntryCache();
+
+    await waitFor(() => {
+      expect(result.current.entries.map((entry) => entry.title)).toEqual(["Shared switchboard"]);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("rejects a late first-fetch response after the cache is cleared", async () => {
+    const personal: OnCallEntry = {
+      ...contact,
+      isPersonal: true,
+      title: "Account A personal",
+      slug: "acct-a",
+    };
+    const shared: OnCallEntry = {
+      ...contact,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Shared only",
+      slug: "shared-only",
+    };
+
+    let releaseFirst: ((value: Response) => void) | undefined;
+    const first = new Promise<Response>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let calls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      calls += 1;
+      if (calls === 1) return first;
+      return Promise.resolve(jsonResponse({ entries: [shared], signedOut: true }));
+    });
+
+    const { result } = renderHook(() => useOnCallEntries());
+    expect(result.current.loading).toBe(true);
+
+    clearOnCallEntryCache();
+    releaseFirst?.(jsonResponse({ entries: [personal], signedOut: false }));
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.entries.map((entry) => entry.title)).toEqual(["Shared only"]);
+    expect(result.current.entries.some((entry) => entry.isPersonal)).toBe(false);
   });
 });

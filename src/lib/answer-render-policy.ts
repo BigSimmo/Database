@@ -250,6 +250,31 @@ function candidateFromCitation(citation: ClientCitation, triggerField: string): 
   };
 }
 
+/**
+ * Ledger #ZK460W. `review_only` is the strongest statement a citation makes about itself — the
+ * answer it belongs to failed its own quality gate, so this passage is provenance to read, never
+ * accepted claim support. Any earlier candidate for the same identity (bestSource, quote card,
+ * retrieved source row) must not re-promote it with a strong sourceStrength / plan reason.
+ * Clear strength to `none` so sourceSupportLabel / copy payload stay conservative.
+ *
+ * `smartApiPlan.coreSourceLinks` are server-only and stripped by `toClientAnswerPayload`, so they
+ * no longer reach this renderer; the override still covers bestSource / quotes / retrieved rows.
+ */
+function applyReviewOnlyProvenance(candidate: SourceCandidate, reviewOnlyIdentities: Set<string>): SourceCandidate {
+  const alreadyReviewOnly = candidate.citation.provenance === "review_only";
+  const matchesReviewOnly = reviewOnlyIdentities.has(citationIdentity(candidate.citation));
+  if (!alreadyReviewOnly && !matchesReviewOnly) return candidate;
+  const citation = alreadyReviewOnly
+    ? candidate.citation
+    : { ...candidate.citation, provenance: "review_only" as const };
+  return {
+    ...candidate,
+    citation,
+    reason: candidateFromCitation(citation, candidate.triggerField).reason,
+    sourceStrength: "none",
+  };
+}
+
 function collectSourceCandidates(answer: ClientRagAnswerPayload, sources: ClientSearchResult[]) {
   const candidates: SourceCandidate[] = [];
   const supportingChunkIds = new Set([
@@ -257,13 +282,21 @@ function collectSourceCandidates(answer: ClientRagAnswerPayload, sources: Client
     ...(answer.quoteCards ?? []).map((quote) => quote.chunk_id),
     ...(answer.answerSections ?? []).flatMap((section) => section.citation_chunk_ids ?? []),
   ]);
+  const reviewOnlyIdentities = new Set(
+    (answer.citations ?? [])
+      .filter((citation) => citation.provenance === "review_only")
+      .map((citation) => citationIdentity(citation)),
+  );
+  const push = (candidate: SourceCandidate) => {
+    candidates.push(applyReviewOnlyProvenance(candidate, reviewOnlyIdentities));
+  };
   const bestSource = answer.bestSource ?? null;
   if (bestSource && supportingChunkIds.has(bestSource.chunk_id)) {
-    candidates.push(candidateFromBestSource(bestSource, "bestSource"));
+    push(candidateFromBestSource(bestSource, "bestSource"));
   }
-  for (const citation of answer.citations ?? []) candidates.push(candidateFromCitation(citation, "citations"));
+  for (const citation of answer.citations ?? []) push(candidateFromCitation(citation, "citations"));
   for (const quote of answer.quoteCards ?? []) {
-    candidates.push({
+    push({
       ...candidateFromCitation(quote, "quoteCards"),
       reason: "Exact quote card source.",
       snippet: quote.quote,
@@ -271,7 +304,7 @@ function collectSourceCandidates(answer: ClientRagAnswerPayload, sources: Client
     });
   }
   for (const source of sources) {
-    if (supportingChunkIds.has(source.id)) candidates.push(candidateFromSearchResult(source, "sources"));
+    if (supportingChunkIds.has(source.id)) push(candidateFromSearchResult(source, "sources"));
   }
 
   const sourceById = new Map(sources.map((source) => [source.id, source]));
@@ -279,7 +312,7 @@ function collectSourceCandidates(answer: ClientRagAnswerPayload, sources: Client
     for (const chunkId of section.citation_chunk_ids ?? []) {
       const source = sourceById.get(chunkId);
       if (source) {
-        candidates.push({
+        push({
           ...candidateFromSearchResult(source, "answerSections"),
           citation: citationFromClientResult(source, "section_selected"),
           reason: `Supports answer section: ${section.heading}`,

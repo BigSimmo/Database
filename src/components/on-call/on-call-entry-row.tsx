@@ -14,12 +14,26 @@ export interface OnCallEntryRowProps {
   /** Metadata pills, freshness badge, section-specific detail — rendered below the heading. */
   children?: ReactNode;
   /**
+   * A right-hand affordance inside the row — the drawing's round call disc.
+   *
+   * Decorative by contract, never a control: the whole row is already the tap
+   * target, and a real button here would be invalid markup inside the `<a>`
+   * and a second announcement of one action. Callers pass a `<span>`.
+   */
+  trailing?: ReactNode;
+  /**
    * When present, the WHOLE row is this link (e.g. a `tel:` number, so ringing
    * someone is a single tap). Mutually exclusive with `onClick`.
    */
   href?: string;
   /** Alternative to `href` for a row that opens something in place instead of navigating. */
   onClick?: () => void;
+  /**
+   * Fires when the row is activated (dial or in-place open). Used to record
+   * Recent — the list is never populated unless a production click path calls
+   * `recordOnCallRecent`.
+   */
+  onActivate?: () => void;
   testId?: string;
   anchorProps?: Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "className" | "children">;
 }
@@ -40,11 +54,16 @@ export function OnCallEntryRow({
   subtitle,
   icon: Icon,
   children,
+  trailing,
   href,
   onClick,
+  onActivate,
   testId,
   anchorProps,
 }: OnCallEntryRowProps) {
+  function handleActivate() {
+    onActivate?.();
+  }
   const content = (
     <>
       {Icon ? (
@@ -56,20 +75,37 @@ export function OnCallEntryRow({
         </span>
       ) : null}
       <span className="min-w-0 flex-1 text-left">
-        <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{title}</span>
+        {/* Wraps to two lines rather than truncating. The role IS the row —
+            "Demo bed management, after hours" cut to "Demo bed manage…" is the
+            one piece of information a reader came for, and a number wide
+            enough to squeeze it is ordinary. Still bounded, so a long title
+            cannot push the row past the edge. */}
+        <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{title}</span>
         {subtitle ? (
           <span className="mt-0.5 block truncate text-xs text-[color:var(--text-muted)]">{subtitle}</span>
         ) : null}
         {children ? <span className="mt-1.5 flex flex-wrap items-center gap-1.5">{children}</span> : null}
       </span>
+      {trailing ? <span className="mt-0.5 shrink-0">{trailing}</span> : null}
     </>
   );
 
-  const rowClassName = cn(cardInteractive, cardPadding.standard, "flex min-h-tap w-full items-start gap-3 text-left");
+  // `min-w-0` is load-bearing, not tidiness. These rows sit in a `grid`, and a
+  // grid item's default `min-width: auto` means a row that cannot shrink sets
+  // the track's width — so one long number pushed the whole page column past
+  // the viewport and every sibling, headings included, was silently clipped
+  // rather than scrolled. Found by capturing the board at 390px and looking at
+  // it; no offline gate could see it, and the horizontal-overflow check could
+  // not either, because the page never became scrollable.
+  const rowClassName = cn(
+    cardInteractive,
+    cardPadding.standard,
+    "flex min-h-tap w-full min-w-0 items-start gap-3 text-left",
+  );
 
   if (href) {
     return (
-      <a href={href} data-testid={testId} className={rowClassName} {...anchorProps}>
+      <a href={href} data-testid={testId} className={rowClassName} onClick={handleActivate} {...anchorProps}>
         {content}
       </a>
     );
@@ -77,7 +113,15 @@ export function OnCallEntryRow({
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} data-testid={testId} className={rowClassName}>
+      <button
+        type="button"
+        onClick={() => {
+          handleActivate();
+          onClick();
+        }}
+        data-testid={testId}
+        className={rowClassName}
+      >
         {content}
       </button>
     );
@@ -86,7 +130,7 @@ export function OnCallEntryRow({
   return (
     <div
       data-testid={testId}
-      className={cn(cardSurface, cardPadding.standard, "flex min-h-tap w-full items-start gap-3")}
+      className={cn(cardSurface, cardPadding.standard, "flex min-h-tap w-full min-w-0 items-start gap-3")}
     >
       {content}
     </div>

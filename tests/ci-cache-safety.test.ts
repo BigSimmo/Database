@@ -440,12 +440,12 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     DB_RESULT: "skipped",
     CARING_CONTACTS_DB_RESULT: "success",
     /*
-     * 🔴 **ADDED 2026-09-06, AND ITS ABSENCE TURNED ALL TWELVE OF THIS BLOCK'S CASES RED.** The
-     * `ui-ward-journeys` job and its two aggregate variables were added to `ci.yml` without this
-     * fixture gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script
-     * as an EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or
-     * `cancelled` as a failure, so every case — including "passes when every in-scope job
-     * succeeded" — recorded `ward-flow-journeys result was ` and exited 1.
+     * 🔴 **THIS ENTRY AND `ci.yml` MOVE TOGETHER, AND ITS ABSENCE ONCE TURNED ALL TWELVE OF THIS
+     * BLOCK'S CASES RED.** The `ui-ward-journeys` job was added to `ci.yml` without this fixture
+     * gaining the matching entry, so `WARD_JOURNEYS_RESULT` reached the extracted script as an
+     * EMPTY STRING. `record()` treats anything that is not `success`, `skipped` or `cancelled` as
+     * a failure, so every case — including "passes when every in-scope job succeeded" — recorded
+     * `ward-flow-journeys result was ` and exited 1.
      *
      * ⚠️ **AND NOTHING LOCAL COULD HAVE CAUGHT IT: this whole `describe` is `skipIf(win32)`.** It
      * runs on Linux only, so on this project's development machine it reports as SKIPPED rather
@@ -453,19 +453,16 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
      * edited alongside a workflow, guarded by a block that cannot run where the workflow is
      * edited, is the shape to watch for here.
      *
-     * `"skipped"` is what GitHub actually sets for a job whose `if:` is false, which is the state
-     * on every pull request until `WARD_JOURNEYS_BLOCKING` is turned on in repository settings —
-     * so this fixture now describes the real default rather than an omission.
+     * `WARD_JOURNEYS_BLOCKING` was removed from both this fixture and `ci.yml` on 2026-09-06 when
+     * the lane was enabled; it no longer exists in the workflow, so binding it here would test a
+     * variable the script never reads.
      *
-     * ⚠️ **BOTH VARIABLES ARE NEEDED AND THE BLOCKING FLAG FAILS FIRST.** The script runs under
-     * `set -u`, so the unbound `WARD_JOURNEYS_BLOCKING` aborts it at that line before
-     * `WARD_JOURNEYS_RESULT` is ever read — which is why every case in the block died, not only
-     * the ward one. In the real workflow `env:` binds it to `${{ vars.WARD_JOURNEYS_BLOCKING }}`,
-     * which is the EMPTY STRING when the variable is unset: bound, and not `"true"`. The empty
-     * string here is therefore the faithful default, not a placeholder — writing `"false"` would
-     * test a state the repository never actually produces.
+     * `"skipped"` is the faithful default for THIS fixture specifically, because it sets
+     * `UI_CHANGED: "false"` — the lane's `if:` is false, and GitHub reports a skipped job. It is
+     * NOT the default for a UI-changed pull request any more: there the lane runs and must
+     * succeed, which is why the `UI_CHANGED: "true"` cases below set it explicitly rather than
+     * inheriting this.
      */
-    WARD_JOURNEYS_BLOCKING: "",
     WARD_JOURNEYS_RESULT: "skipped",
   };
 
@@ -631,6 +628,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_CHANGED: "true",
         UI_FAST_RESULT: "success",
         UI_RESULT: "cancelled",
+        // The ward lane runs on every UI pull request now, so it must be green here or this
+        // case would go red for two reasons and stop isolating the cancellation it is about.
+        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
     expect(
@@ -638,6 +638,9 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
         UI_CHANGED: "true",
         UI_FAST_RESULT: "cancelled",
         UI_RESULT: "success",
+        // The ward lane runs on every UI pull request now, so it must be green here or this
+        // case would go red for two reasons and stop isolating the cancellation it is about.
+        WARD_JOURNEYS_RESULT: "success",
       }).status,
     ).not.toBe(0);
   });
@@ -646,6 +649,37 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // Guards the unsafe "fix": `if: !cancelled()` would skip this job on cancellation, and
     // GitHub treats a skipped required check as PASSING — mergeable with nothing verified.
     expect(workflow).toMatch(/pr-required:[\s\S]*?if: always\(\)/);
+  });
+
+  it("requires the Ward Flow journeys on a UI pull request, and only there", () => {
+    /*
+     * ENABLED 2026-09-06. Until then `ui-ward-journeys` was gated behind
+     * `vars.WARD_JOURNEYS_BLOCKING`, a repository variable nobody ever set, so the lane always
+     * skipped and this aggregate always took its `require_skipped_or_success` branch. Nothing
+     * could go red because of a broken ward journey — and on 2026-09-05 several did, unnoticed
+     * for a day.
+     *
+     * These four cases are the proof the lane is genuinely blocking now, which no case asserted
+     * before: the first two are the states that must FAIL, the last two the out-of-scope states
+     * that must still pass. Without the first case in particular, removing the job's `if:` and
+     * this aggregate's condition would look identical to leaving them in.
+     */
+    // `UI_CHANGED: "true"` also puts `production-ui-critical` and `production-ui` in scope, and
+    // the fixture leaves both skipped — so every in-scope case below carries them green. Without
+    // that the ward result is not the variable under test and the "in scope and green" case fails
+    // for an unrelated reason, which is exactly what this test caught while being written.
+    const uiPr = { UI_CHANGED: "true", UI_FAST_RESULT: "success", UI_RESULT: "success" } as const;
+
+    // In scope and red: the lane failed.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "failure" }).status).not.toBe(0);
+    // In scope and absent: a lane that did not run verified nothing, so it cannot pass the PR.
+    // This is the exact case that passed before the gate was removed.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "skipped" }).status).not.toBe(0);
+    // In scope and green — the ward result is the only thing that changed from the case above.
+    expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "success" }).status).toBe(0);
+    // Out of scope: no UI change, and drafts. Skipped is correct and must not fail the aggregate.
+    expect(runAggregate({ UI_CHANGED: "false", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
+    expect(runAggregate({ ...uiPr, PR_DRAFT: "true", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
   });
 
   it("never puts a status-check function anywhere but an `if:` condition", () => {

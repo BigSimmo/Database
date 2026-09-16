@@ -698,12 +698,22 @@ function LikelyPresentationCard({ lead }: { lead: DifferentialResult }) {
   );
 }
 
-function UrgencyCard({ results }: { results: DifferentialResult[] }) {
+function UrgencyCard({
+  results,
+  hiddenEmergentCount = 0,
+  onClearFilters,
+}: {
+  results: DifferentialResult[];
+  hiddenEmergentCount?: number;
+  onClearFilters?: () => void;
+}) {
   const urgentResults = results.filter((result) => result.status === "emergent").slice(0, 3);
 
-  // Nothing emergent in the result set is a real answer, but an empty bordered
-  // card reads as a failed load. Drop the card instead.
-  if (urgentResults.length === 0) return null;
+  // Nothing emergent in the unfiltered result set is a real answer, but an
+  // empty bordered card reads as a failed load. Drop the card in that case.
+  // When filters hid emergents that are still in the search, keep the card
+  // and say so — chips above the list are easy to miss on a collapsed panel.
+  if (urgentResults.length === 0 && hiddenEmergentCount === 0) return null;
 
   return (
     <section
@@ -713,22 +723,45 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
       <h2 className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Highest urgency
       </h2>
-      <div className="mt-3 grid gap-2">
-        {urgentResults.map((result) => (
-          <Link
-            key={result.id}
-            href={result.href}
-            // The badge track is content-sized, never a fixed width. A fixed
-            // 5.25rem track clipped "Emergent" mid-word in this narrow rail,
-            // which is the one label that must stay readable.
-            className="grid min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+      {urgentResults.length === 0 ? (
+        <div className="mt-3 grid gap-3">
+          <p
+            data-testid="differentials-urgency-hidden-by-filters"
+            role="status"
+            className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]"
           >
-            <StatusBadge status={result.status} />
-            <span className="truncate">{result.title}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
-          </Link>
-        ))}
-      </div>
+            {hiddenEmergentCount === 1
+              ? "1 emergent differential is hidden by the active filters."
+              : `${hiddenEmergentCount} emergent differentials are hidden by the active filters.`}
+          </p>
+          {onClearFilters ? (
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="inline-flex min-h-tap w-fit items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            >
+              Show all results
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-3 grid gap-2">
+          {urgentResults.map((result) => (
+            <Link
+              key={result.id}
+              href={result.href}
+              // The badge track is content-sized, never a fixed width. A fixed
+              // 5.25rem track clipped "Emergent" mid-word in this narrow rail,
+              // which is the one label that must stay readable.
+              className="grid min-h-tap grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            >
+              <StatusBadge status={result.status} />
+              <span className="truncate">{result.title}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--decoration-soft)]" aria-hidden />
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -872,20 +905,29 @@ function SourceStatusBanner({
 }
 
 /**
- * The two cards read different lists on purpose. Highest urgency is a safety net
- * over the whole result set, so a result-type or urgency lens must not hide an
- * emergent differential from it. Check next describes the list the clinician is
- * actually reading, so it follows the lens.
+ * Both cards read the filtered result set, so the rail always describes the list
+ * the clinician is actually looking at rather than a wider one they cannot see.
+ * A lens that hides every emergent differential empties the urgency rows, but
+ * the card stays with a notice so that disappearance is never silent.
  */
 function InterpretationRail({
   best,
   results,
-  filteredResults,
+  allResults,
+  onClearFilters,
 }: {
   best: DifferentialResult;
   results: DifferentialResult[];
-  filteredResults: DifferentialResult[];
+  allResults: DifferentialResult[];
+  onClearFilters: () => void;
 }) {
+  const visibleEmergentIds = new Set(
+    results.filter((result) => result.status === "emergent").map((result) => result.id),
+  );
+  const hiddenEmergentCount = allResults.filter(
+    (result) => result.status === "emergent" && !visibleEmergentIds.has(result.id),
+  ).length;
+
   return (
     <aside className="hidden min-w-0 gap-3 lg:grid" aria-label="Differential interpretation">
       <h2 className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
@@ -893,8 +935,12 @@ function InterpretationRail({
         <Info className="h-4 w-4" aria-hidden />
       </h2>
       {best.kind === "presentation" ? <LikelyPresentationCard lead={best} /> : null}
-      <UrgencyCard results={results} />
-      <NextStepsCard results={filteredResults} />
+      <UrgencyCard
+        results={results}
+        hiddenEmergentCount={hiddenEmergentCount}
+        onClearFilters={hiddenEmergentCount > 0 ? onClearFilters : undefined}
+      />
+      <NextStepsCard results={results} />
     </aside>
   );
 }
@@ -1200,19 +1246,17 @@ function SearchResultsView({
         panelId={filterPanelId}
         testId="differential-filter-panel"
         title="Filter differentials"
-        description="Narrow by result type, then by clinical urgency. Both narrow the same list together."
+        description="Narrow by result type, then by clinical urgency. Both narrow the same list."
         groups={[
-          // Both dimensions are exact partitions carrying counts, which is the
-          // case `ChoiceChip` itself sends to `SegmentedControl`: a counted
-          // chip is wide enough that four of them wrap one per line and leave
-          // most of each row empty.
+          // Both dimensions are exact partitions carrying counts, so the sheet
+          // derives the segmented bar for them — see docs/filter-contract.md
+          // section 5. Nothing here selects a renderer.
           resultFilterGroup({
             id: "result-type",
             label: "Show",
             value: kindFilter,
             options: kindFilterOptions,
             onChange: setKindFilter,
-            renderAs: "segmented",
           }),
           resultFilterGroup({
             id: "urgency",
@@ -1220,7 +1264,6 @@ function SearchResultsView({
             value: urgencyFilter,
             options: urgencyFilterOptions,
             onChange: setUrgencyFilter,
-            renderAs: "segmented",
           }),
         ]}
         onClearAll={activeFilterCount > 0 ? clearAllFilters : undefined}
@@ -1434,7 +1477,12 @@ function SearchResultsView({
               )}
             </section>
 
-            <InterpretationRail best={best} results={results} filteredResults={relevanceResults} />
+            <InterpretationRail
+              best={best}
+              results={relevanceResults}
+              allResults={results}
+              onClearFilters={clearAllFilters}
+            />
           </div>
         </div>
       )}

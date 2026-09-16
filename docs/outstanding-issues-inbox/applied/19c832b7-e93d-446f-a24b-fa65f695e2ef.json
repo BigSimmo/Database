@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "19c832b7-e93d-446f-a24b-fa65f695e2ef",
+  "createdOn": "2026-09-13",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3140c9c3-b3a5-4c7b-8ffa-cae937d9232b",
+    "reason": "Premature done for #QSHHGK: documenting the existing weekly schedule does not close the issue. Canonical row stays open until a first measurement produces a resolvable source and a named refresh owner is assigned. Keep issue open."
+  }
+}

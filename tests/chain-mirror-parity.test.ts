@@ -119,11 +119,10 @@ describe("an extension only the migration chain creates is a divergence, not pla
   });
 
   it("reports the real pg_cron case the reused comparator demoted to an info line", () => {
-    // 20260901033250_enable_staging_privacy_retention_schedules.sql runs
-    // `create extension if not exists pg_cron`; supabase/schema.sql never declares it.
-    // The live gate treats an extra live extension as platform provenance — correct there,
-    // where the platform provisions pg_net and pgsodium, and wrong here, where the "live"
-    // side is our own migration chain. Before the fix this pair reported nothing at all.
+    // Historical motivation: 20260901033250 created pg_cron while the mirror omitted it.
+    // The comparator must still treat an extension present only on the chain side as
+    // unexpected_live (not demote it to an info line). The committed mirror now declares
+    // pg_cron; this fixture keeps the empty-mirror pair to lock the comparator behaviour.
     const result = compareChainAgainstMirror(withExtension(), withExtension("pg_cron"), []);
     expect(result.findings).toEqual([{ category: "extensions", kind: "unexpected_live", key: "pg_cron" }]);
     expect(result.infos.filter((info) => /extra live extension/i.test(info))).toEqual([]);
@@ -151,11 +150,13 @@ describe("an extension only the migration chain creates is a divergence, not pla
     ]);
   });
 
-  it("keeps pg_cron absent from the committed mirror, so this is a live divergence and not a fixture", () => {
+  it("keeps pg_cron declared in the committed mirror so chain/mirror parity no longer treats it as a live gap", () => {
     const manifest = JSON.parse(readFileSync(join(process.cwd(), "supabase", "drift-manifest.json"), "utf8"));
     const declared = (manifest.snapshot?.extensions ?? []).map((row: { name: string }) => row.name);
     expect(declared.length).toBeGreaterThan(0);
-    expect(declared).not.toContain("pg_cron");
+    expect(declared).toContain("pg_cron");
+    const schema = readFileSync(join(process.cwd(), "supabase", "schema.sql"), "utf8");
+    expect(schema).toMatch(/create\s+extension\s+if\s+not\s+exists\s+pg_cron/i);
     const migration = readFileSync(
       join(process.cwd(), "supabase", "migrations", "20260901033250_enable_staging_privacy_retention_schedules.sql"),
       "utf8",

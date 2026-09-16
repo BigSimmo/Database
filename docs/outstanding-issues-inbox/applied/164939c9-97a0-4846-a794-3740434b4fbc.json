@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "164939c9-97a0-4846-a794-3740434b4fbc",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#4TXR6Z",
+    "outcome": "Added route warmup loop for /documents/search and search routes in scripts/run-lighthouse-budget.mjs to eliminate bimodal cold-start timing variance across runners",
+    "baseRowFingerprint": "7e77307793d97b6761544c76ea0645a27d910631140680f7e397be5d9a1401d2"
+  }
+}

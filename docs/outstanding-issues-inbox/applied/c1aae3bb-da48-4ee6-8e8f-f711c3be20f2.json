@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c1aae3bb-da48-4ee6-8e8f-f711c3be20f2",
+  "createdOn": "2026-09-12",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6388ed5a-689a-415a-92e9-d26c48a39d45",
+    "reason": "False done on PR #2774: tip ecd18a374 restored lighthouse-budget.json desktop-root LCP to main (785.647…). The 881.5ms hand-tune was reverted; a controlled pinned-runner refresh is still required. #8KXPKK is not done."
+  }
+}

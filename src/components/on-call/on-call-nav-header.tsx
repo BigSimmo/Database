@@ -1,98 +1,46 @@
 "use client";
 
-import { BookOpen, GraduationCap, ListChecks, MapPinned, Phone, Repeat } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
-import { BrowserPrintButton } from "@/components/ui/print-output";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
-import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
-import { type OnCallSection } from "@/lib/on-call/entry-model";
+import { BrowserPrintButton } from "@/components/ui/print-output";
 
 /**
- * Display title per section. `education` is titled "Teaching" everywhere a
- * reader sees it — the mode-nav label, this header, and the page's own
- * heading — even though the underlying section id (route segment, database
- * check constraint, `OnCallSection` value) stays `education`. Only the label
- * changed; renaming the id would be a migration for no functional gain.
- */
-export const ON_CALL_SECTION_TITLES: Record<OnCallSection, string> = {
-  contacts: "Contacts",
-  playbook: "Playbook",
-  referrals: "Referrals",
-  orientation: "Orientation",
-  education: "Teaching",
-  logistics: "Logistics",
-};
-
-export const ON_CALL_SECTION_ICONS: Record<OnCallSection, LucideIcon> = {
-  contacts: Phone,
-  playbook: ListChecks,
-  referrals: Repeat,
-  orientation: BookOpen,
-  education: GraduationCap,
-  logistics: MapPinned,
-};
-
-/**
- * Every section page declares the same two-anchor shape today: a generic
- * overview (always rendered, signed in or out) and the entries list (rendered
- * either way, its content depending on sign-in). Both anchors are always
- * present, so nothing here is conditional the way `specifierNavSections` is —
- * a later task that adds real per-entry grouping is free to grow this per
- * section without touching the header contract.
- */
-export function onCallSectionNavSections(section: OnCallSection): readonly PageSection[] {
-  const icon = ON_CALL_SECTION_ICONS[section];
-  return [
-    { id: `on-call-${section}-overview`, label: "Overview", icon },
-    { id: `on-call-${section}-entries`, label: ON_CALL_SECTION_TITLES[section], icon },
-  ];
-}
-
-/**
- * The client half of every on-call section page, which stays a Server-
- * Component-friendly module otherwise: sections carry `LucideIcon` values and
- * the header needs hooks, neither of which crosses the RSC boundary.
+ * The mode's in-page headers: one for the essentials card, one for the section
+ * pages.
  *
- * `back` always targets the mode's search surface, not the bare `/on-call`
- * redirect stub — the same choice `SpecifierNavHeader` makes, and for the same
- * reason: the redirect stub renders nothing to land on.
- */
-export function OnCallNavHeader({ section }: { section: OnCallSection }) {
-  const { sections, activeId, selectSection } = useInPageSectionNav(onCallSectionNavSections(section));
-
-  return (
-    <InPageNavHeader
-      back={{ href: consolidatedModeSearchPath("on-call"), label: "On Call" }}
-      title={ON_CALL_SECTION_TITLES[section]}
-      sections={sections}
-      activeId={activeId}
-      onSelectSection={selectSection}
-      testIdPrefix={`on-call-${section}`}
-    />
-  );
-}
-
-/**
- * The essentials card's header.
+ * Both live here because `tests/mode-nav-addon-slot.dom.test.tsx` pins one
+ * claimant FILE per mode — every route that claims the phone header's addon
+ * slot registers that claim in its mode's `*-nav-header.tsx` sibling, so the
+ * set of pages competing for the single collapse owner can be read off a list
+ * of files rather than discovered by grepping every page component. The card
+ * briefly mounted `InPageNavHeader` itself and turned that test red.
  *
- * It lives here rather than in `on-call-card.tsx` because
- * `tests/mode-nav-addon-slot.dom.test.tsx` pins one claimant file per mode:
- * every route that claims the phone header's addon slot registers that claim
- * in its mode's `*-nav-header.tsx` sibling, so the set of pages competing for
- * the single collapse owner can be read off a list of files rather than
- * discovered by grepping every page component. The card briefly mounted
- * `InPageNavHeader` itself and turned that test red.
+ * The section pages carried the shared `ModeNav` rail until the owner pointed
+ * out what it was doing: the mode pill already opens On Call's nine pages, and
+ * the rail listed the same nine underneath it. Two controls, one job, and
+ * nothing at all helping a reader move around the page in front of them —
+ * Contacts runs to six groups and several screens.
  *
- * The print control sits in the actions sheet, following `DictionaryTermPage`
- * — the one place every converted information page keeps its print row.
+ * The bar is back, but pointed the other way: it lists the CURRENT PAGE's
+ * groups, and cross-page navigation keeps its one home in the mode pill. Same
+ * component, opposite job — which is the distinction
+ * `tests/on-call-section-page-wiring.dom.test.tsx` pins, because "On Call has a
+ * rail again" is the sentence that would quietly undo the whole correction.
+ *
+ * `back` targets `/on-call`, the mode's dashboard. It used to target
+ * `consolidatedModeSearchPath("on-call")` because `/on-call` was a redirect stub
+ * that rendered nothing to land on; it is now the mode home, and that helper
+ * throws for a mode outside the consolidated map.
+ *
+ * The card's print control sits in its actions sheet, following
+ * `DictionaryTermPage` — the one place every converted information page keeps
+ * its print row.
  */
 export function OnCallCardNavHeader() {
   return (
     <InPageNavHeader
-      back={{ href: consolidatedModeSearchPath("on-call"), label: "On Call" }}
+      back={{ href: "/on-call", label: "On Call" }}
       title="Essentials card"
       testIdPrefix="on-call-card"
       actionsTitle="Card actions"
@@ -103,6 +51,98 @@ export function OnCallCardNavHeader() {
           <BrowserPrintButton label="Print card" />
         </div>
       }
+    />
+  );
+}
+
+/** The prefix `InPageNavHeader` composes this mode's header testids from. */
+export const ON_CALL_SECTION_HEADER_PREFIX = "on-call-section";
+
+/**
+ * The three testids that header renders, written out rather than composed.
+ *
+ * Two records outside React read them as plain text — the mockup ledger's gate
+ * scans this directory for testid literals, and the boards spec names them —
+ * and an interpolated `${prefix}-detail-header` is invisible to both.
+ * `tests/on-call-section-header-testids.test.ts` pins each one against the
+ * prefix and against the suffixes `InPageNavHeader` actually emits, so the two
+ * cannot drift apart quietly.
+ */
+export const ON_CALL_SECTION_HEADER_TEST_IDS = {
+  header: "on-call-section-detail-header",
+  sectionTrigger: "on-call-section-section-trigger",
+  sectionRail: "on-call-section-section-rail",
+  sectionOverflow: "on-call-section-section-overflow",
+  sectionSheetBack: "on-call-section-section-sheet-back",
+} as const;
+
+/**
+ * The section pages' header: the page's own groups, as a bar, and nothing else.
+ *
+ * `sections` are the page's groups, declared by `onCallPageSections` and
+ * narrowed by `useInPageSectionNav` to the ones actually rendered. Two is the
+ * floor — one group is a heading, not navigation — so a page with nothing to
+ * group by (Teaching) renders NO header at all rather than an empty band.
+ *
+ * NO TITLE, deliberately. The mode pill directly above names the current page
+ * on its main line, with a small teal "On Call" beneath it, and on a phone this
+ * bar is portaled into that same pill's collapse row. Painting "Contacts" here
+ * put the word twice in one 96px block — the duplication the owner flagged
+ * three times across this redesign.
+ *
+ * NO ACTIONS EITHER. They moved back to `OnCallPageMenu`, which portals an
+ * ellipsis into the universal header's trailing slot beside the pill. With the
+ * title gone there was nothing left for a header row to hold, and a row drawn
+ * for one ellipsis costs the 48px this redesign spent three passes recovering.
+ *
+ * NO BACK CONTROL, also deliberately. Every page in this mode is a destination
+ * in the mode pill's own list — the hub included, as "Tonight" — so an arrow
+ * pointing at the hub described a parent-child hierarchy that does not exist.
+ * It also put a control that leaves the page at the head of a row whose entire
+ * job is moving around INSIDE the page. The way out is the pill that got you
+ * here.
+ *
+ * `OnCallCardNavHeader` above keeps its arrow: the pocket card is reached by
+ * an action ("Print the pocket card") as well as by the pill, and backing out
+ * of an action is what an arrow is for.
+ */
+export function OnCallSectionNavHeader({ title, sections }: { title: string; sections: readonly PageSection[] }) {
+  const { sections: resolved, activeId, selectSection } = useInPageSectionNav(sections);
+
+  if (resolved.length === 0) return null;
+
+  return (
+    <InPageNavHeader
+      title={title}
+      titleHidden
+      sections={resolved}
+      activeId={activeId}
+      onSelectSection={selectSection}
+      // The bar Therapy already ships, pointed at THIS PAGE's groups instead of
+      // the mode's routes. It replaced a bordered pill that named the current
+      // group and hid the others behind a tap: the pill answered "where am I",
+      // which the page's own sticky headings already answered, and answered
+      // nothing about where else you could go. The bar answers both at a
+      // glance, which is the whole reason a 3am hub has navigation at all.
+      rail={{
+        label: "Sections of this page",
+        // Bare single words, no glyph, no badge — see the profile's own note in
+        // `mode-nav-bands.ts` for the measurements the bands are cut from. It
+        // is NOT `extended`: sharing Therapy's profile is exactly how a retune
+        // for one surface silently moved another's bands (PR #2686).
+        density: "wordmark-five",
+        // On Call's teal, on the bar's active underline. The same attribute is
+        // on the mode pill directly above it, and both read one token, so the
+        // two cannot end up different greens.
+        modeIdentity: "on-call",
+      }}
+      // Phone only: this bar is portaled INTO the universal header's own
+      // collapse slot, so a solid surface painted a second panel inside a glass
+      // one and the two rows read as two objects with a seam between them.
+      // Transparent lets one material carry both, and the bar's own top rule is
+      // the only edge the block needs.
+      className="max-sm:border-b-0 max-sm:bg-transparent"
+      testIdPrefix={ON_CALL_SECTION_HEADER_PREFIX}
     />
   );
 }

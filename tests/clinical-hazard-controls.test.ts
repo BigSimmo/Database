@@ -1,57 +1,18 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { validateClinicalHazardControls } from "../scripts/check-clinical-hazard-controls.mjs";
+import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(readFileSync(new URL("../docs/clinical-hazard-controls.json", import.meta.url), "utf8"));
 
-function isShallowClone(): boolean {
-  try {
-    return (
-      execFileSync("git", ["rev-parse", "--is-shallow-repository"], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim() === "true"
-    );
-  } catch {
-    return false;
-  }
-}
-
-function isCommitAvailable(commit: string): boolean {
-  try {
-    execFileSync("git", ["cat-file", "-e", `${commit}^{commit}`], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function ensureHistoryDeepened(depth = 2000): void {
-  if (!isShallowClone()) return;
-  try {
-    execFileSync("git", ["fetch", `--deepen=${depth}`], {
-      stdio: ["ignore", "ignore", "ignore"],
-    });
-  } catch {
-    // Ignore network or fetch failures
-  }
-}
-
 describe("clinical hazard controls contract", () => {
   it("validates paths, tests, dates, required hazards, and open assurance boundaries", () => {
-    let checkGit = true;
-    if (!isCommitAvailable(manifest.reviewedCommit)) {
-      ensureHistoryDeepened(2000);
-      if (!isCommitAvailable(manifest.reviewedCommit) && isShallowClone()) {
-        console.warn(
-          `CLINICAL_HAZARD_CONTROLS_SHALLOW_CLONE: reviewedCommit ${manifest.reviewedCommit} is unavailable in shallow clone and history could not be deepened; skipping commit ancestry check.`,
-        );
-        checkGit = false;
-      }
-    }
+    // The shallow-checkout decision moved to a shared helper on 2026-09-07. The guard this
+    // replaces asked only whether the commit OBJECT was present, so a session holding that
+    // object while unable to walk to it failed the ancestry check and reported eight hazard
+    // sign-off records as broken. They were not. See the helper for the full incident.
+    const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
+    if (skipReason) warnReviewedCommitSkipped("clinical hazard controls", skipReason);
     expect(validateClinicalHazardControls(manifest, { checkGit })).toEqual([]);
   });
 

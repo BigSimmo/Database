@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { releaseBand } from "../src/components/ward-management/ward-bed-availability";
+import { OVERRIDE_REASONS } from "../src/components/ward-management/ward-change-reasons";
 import { unitCapacity } from "../src/components/ward-management/ward-derivations";
+import { eligibility } from "../src/components/ward-management/ward-eligibility";
 import type { WardFlowEvent } from "../src/components/ward-management/ward-flow-events";
 import { seedWardFlowState, wardFlowReducer } from "../src/components/ward-management/ward-flow-reducer";
 import { SELECTABLE_LEGAL_FORMS } from "../src/components/ward-management/ward-legal-forms";
@@ -1585,5 +1587,86 @@ describe("bed release privacy", () => {
     for (const release of everyRelease) {
       expect(Object.keys(release).sort()).toEqual(ALLOWED_BED_RELEASE_FIELDS);
     }
+  });
+});
+
+describe("coordinator pull suitability proof (#Q6WD1M)", () => {
+  /**
+   * ⚠️ PROOF THAT THE COORDINATOR PULL PATH ENFORCES SUITABILITY GATES (LEDGER #Q6WD1M).
+   *
+   * PR #2571 introduced `SUITABILITY_GATES` and `eligibilityRefusal` to the coordinator pull
+   * path (`PULL_PATIENT`). The reducer comment at `ward-flow-reducer.ts:1355-1363` warns that
+   * testing against a pair failing both a physical gate (e.g. specialling) and an eligibility gate
+   * proves nothing, because the physical check fires first.
+   *
+   * This test constructs an unclosed movement and unit pair where `cohort` is STRICTLY the ONLY
+   * failing gate, proves that premise against `eligibility()`, and verifies that:
+   * 1. Without an override reason, `PULL_PATIENT` is refused with `'failed gate cohort:'`, the stage
+   *    does not transition to `'pulled'`, and no admission is created.
+   * 2. With a valid `overrideReason`, the pull succeeds and transitions to `'pulled'`.
+   */
+  it("refuses coordinator pull when cohort is the only failing gate and permits it with an override reason", () => {
+    const state = seeded();
+    const unit = state.units.find((u) => u.id === "alb-adult-open");
+    if (!unit) throw new Error("Seed is missing alb-adult-open");
+
+    const movement = state.movements.find((m) => {
+      if (m.closure) return false;
+      const verdict = eligibility(m, unit, NOW);
+      const failing = verdict.gates.filter((g) => !g.pass);
+      return failing.length === 1 && failing[0].gate === "cohort";
+    });
+    if (!movement) throw new Error("Seed must contain an unclosed movement whose only failing gate is cohort");
+
+    // Prove the premise: cohort is strictly the ONLY failing gate
+    const preCheck = eligibility(movement, unit, NOW);
+    expect(preCheck.gates.filter((g) => !g.pass).map((g) => g.gate)).toEqual(["cohort"]);
+
+    // Stage the movement at accepted_awaiting_bed for this unit
+    const stagedState = {
+      ...state,
+      movements: state.movements.map((m) =>
+        m.id === movement.id
+          ? {
+              ...m,
+              stage: "accepted_awaiting_bed" as const,
+              acceptedUnitId: unit.id,
+            }
+          : m,
+      ),
+    };
+
+    // 1. Without override: coordinator pull is refused on the cohort gate
+    const refused = wardFlowReducer(stagedState, {
+      type: "PULL_PATIENT",
+      role: "coordinator",
+      now: NOW,
+      movementId: movement.id,
+      unitId: unit.id,
+    });
+
+    expect(refused.rejections).toHaveLength(1);
+    expect(refused.rejections[0].reason).toContain("failed gate cohort:");
+    expect(refused.rejections[0].reason).toContain(unit.name);
+    // Transition is refused: stage remains accepted_awaiting_bed, no admission created
+    const unpulled = refused.movements.find((m) => m.id === movement.id)!;
+    expect(unpulled.stage).toBe("accepted_awaiting_bed");
+    expect(unpulled.admissionId).toBeUndefined();
+
+    // 2. With override: coordinator pull succeeds and transitions stage to pulled
+    const overrideReason = OVERRIDE_REASONS[0];
+    const permitted = wardFlowReducer(stagedState, {
+      type: "PULL_PATIENT",
+      role: "coordinator",
+      now: NOW,
+      movementId: movement.id,
+      unitId: unit.id,
+      overrideReason,
+    });
+
+    expect(permitted.rejections).toEqual([]);
+    const pulled = permitted.movements.find((m) => m.id === movement.id)!;
+    expect(pulled.stage).toBe("pulled");
+    expect(pulled.admissionId).toBeDefined();
   });
 });

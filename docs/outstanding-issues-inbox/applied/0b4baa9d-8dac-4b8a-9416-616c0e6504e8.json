@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0b4baa9d-8dac-4b8a-9416-616c0e6504e8",
+  "createdOn": "2026-09-12",
+  "action": "update",
+  "payload": {
+    "id": "#8KXPKK",
+    "detail": "DEFERRED/REVERTED 2026-09-12 on PR #2774. A done request (6388ed5a) claimed desktop-root LCP was rebaselined to 881.5ms in lighthouse-budget.json; that hand-tune was reverted at ecd18a374 and the cell is restored to main (785.647…). The close is retracted — this row is not done. NEXT ACTION: a controlled pinned-runner refresh of the home-route Lighthouse baseline, not another hand-edit of the cell. Original measurement 2026-09-05 on PR #2633: the hero heading paints ~750-880ms in because src/app/(search-app)/loading.tsx is a Suspense boundary, so React streams the real hero into a hidden div and reveals it on a later requestAnimationFrame. That is architectural, not a regression — an A/B of 9ca3b4e95 vs e09b41b6 on an identical browser build gave 881.3ms vs 881.5ms, refuting an earlier attribution to PR #2600. It sits close enough to the relative Lighthouse budget (which trips only on BOTH +20% and +100ms) that unrelated PRs keep flirting with it. Recommendation: rebaseline the Lighthouse budget for the home route rather than change first-paint behaviour, because removing the boundary changes how the first screen appears to users for a problem that is otherwise cosmetic to CI.",
+    "baseRowFingerprint": "f232ad5ea93ef4050e18f17178946f64c5ba32f9f3ab7ddc408277c0d5e95995"
+  }
+}

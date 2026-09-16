@@ -12,10 +12,11 @@ import {
   clearOnCallEntryCache,
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
+  peekOnCallEntrySessionEpoch,
 } from "@/lib/on-call/entry-cache-keys";
 import { onCallEntrySchema, type OnCallEntry } from "@/lib/on-call/entry-model";
 
-export { clearOnCallEntryCache, onCallEntryCacheChangedEvent, onCallEntryCacheStorageKey };
+export { clearOnCallEntryCache, onCallEntryCacheChangedEvent, onCallEntryCacheStorageKey, peekOnCallEntrySessionEpoch };
 
 /**
  * On-device offline cache for On Call entries (`src/lib/on-call/entry-model.ts`).
@@ -152,16 +153,36 @@ export function useOnCallEntries(): OnCallEntriesState {
   // "nothing to search", the card said "nothing is flagged". This is the
   // fallback for that browser, not a second source of truth.
   const [fetched, setFetched] = useState<OnCallEntry[] | null>(null);
+  // Advanced only when `clearOnCallEntryCache` runs (sign-out / account
+  // switch). Restarting the fetch on that number, and tagging the in-flight
+  // request with it, is what stops a late response from account A writing
+  // personal rows back after the persisted key has gone.
+  const [sessionEpoch, setSessionEpoch] = useState(peekOnCallEntrySessionEpoch);
 
   useEffect(() => {
-    // Runs once on mount only (empty deps): `loading` already starts `true`,
-    // so there is nothing to reset here — setting it synchronously inside the
-    // effect body would just cause an extra render.
+    function onCacheChanged() {
+      if (peekOnCallEntrySessionEpoch() === sessionEpoch) return;
+      // The persisted key is gone. Drop the in-memory fallback immediately —
+      // `cached?.entries ?? fetched` would otherwise keep rendering account A's
+      // personal rows once `cached` is null. Loading goes true here rather
+      // than inside the fetch effect: that effect cannot call setState
+      // synchronously (react-hooks/set-state-in-effect).
+      setFetched(null);
+      setLoading(true);
+      setSessionEpoch(peekOnCallEntrySessionEpoch());
+    }
+    window.addEventListener(onCallEntryCacheChangedEvent, onCacheChanged);
+    return () => window.removeEventListener(onCallEntryCacheChangedEvent, onCacheChanged);
+  }, [sessionEpoch]);
+
+  useEffect(() => {
+    const epochAtStart = peekOnCallEntrySessionEpoch();
     let cancelled = false;
+    const controller = new AbortController();
 
     (async () => {
       try {
-        const response = await fetch("/api/on-call/entries");
+        const response = await fetch("/api/on-call/entries", { signal: controller.signal });
         if (!response.ok) throw new Error(`On Call entries request failed: ${response.status}`);
 
         const rawBody: unknown = await response.json();
@@ -173,7 +194,7 @@ export function useOnCallEntries(): OnCallEntriesState {
           .filter((result): result is { success: true; data: OnCallEntry } => result.success)
           .map((result) => result.data);
 
-        if (cancelled) return;
+        if (cancelled || peekOnCallEntrySessionEpoch() !== epochAtStart) return;
         setIsOffline(false);
         setSignedOut(parsedResponse.data.signedOut);
         setFetched(entries);
@@ -192,20 +213,23 @@ export function useOnCallEntries(): OnCallEntriesState {
         if (entries.length > 0 || readCachedOnCallEntries() === null) {
           cacheOnCallEntries(entries);
         }
-      } catch {
+      } catch (error) {
+        // Abort is the account-transition path, not a network failure.
+        if (cancelled || peekOnCallEntrySessionEpoch() !== epochAtStart) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
         // Offline, server error, or a malformed payload: fall back to
         // whatever is already cached rather than surfacing a blank state.
-        if (cancelled) return;
         setIsOffline(true);
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && peekOnCallEntrySessionEpoch() === epochAtStart) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, []);
+  }, [sessionEpoch]);
 
   return {
     entries: cached?.entries ?? fetched ?? [],

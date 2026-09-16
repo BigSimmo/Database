@@ -1776,8 +1776,15 @@ export function scanRpcDispatch(repoRoot = process.cwd()) {
   const dynamicRpcCalls = [];
   const dispatcherCallSites = [];
   for (const file of allSourceFiles(repoRoot)) {
+    const source = readFile(file);
+    // Cheap reject before the TypeScript AST walk. Parsing every src file is ~2s
+    // cold and exceeds the 30s vitest timeout once coverage instrumentation is on
+    // (Unit coverage on PR #2782 / 1670fcc). A file that mentions neither token
+    // cannot contain a `.rpc()` PropertyAccess or a callVersionedRetrievalRpc
+    // Identifier — the same shapes analyzeRpcDispatch inspects.
+    if (!source.includes(".rpc") && !source.includes(DYNAMIC_RPC_DISPATCHER.fn)) continue;
     const relativePath = relativeToRepo(repoRoot, file);
-    const result = analyzeRpcDispatch({ relativePath, source: readFile(file) });
+    const result = analyzeRpcDispatch({ relativePath, source });
     dynamicRpcCalls.push(...result.dynamicRpcCalls);
     dispatcherCallSites.push(...result.dispatcherCallSites);
   }

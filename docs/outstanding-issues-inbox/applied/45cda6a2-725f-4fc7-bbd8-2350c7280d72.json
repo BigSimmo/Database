@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "45cda6a2-725f-4fc7-bbd8-2350c7280d72",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "PR required failed repeatedly on a UI-only branch with no cause ever identified",
+    "detail": "Session 2026-09-07, branch claude/jolly-keller-vy36h2 (the also-matches disclosure). The pr-required aggregate went red several times while every local gate was green: 15 static gates, whole-tree Prettier, 229 + 161 focused unit tests, 129 + 28 Chromium tests. A push-cancellation theory was offered and then disproved by a run with a quiet window. CI log access was blocked by the babysit marker for the whole session, so the failing job was never read and the branch merged with the cause unknown. Next action: on the next unexplained pr-required failure, unlock the marker first (CLAUDE_ALLOW_PR_FOLLOW=1) and read the failing job log before theorising. Two contributing factors worth ruling out: a second agent was pushing merge commits to the same branch concurrently, and main merged about twelve changes during the session.",
+    "source": "docs/branch-review-records + session 331c4d4d",
+    "issueUlid": "01M1XP1FE7K06J63XSYVBS40HA"
+  }
+}

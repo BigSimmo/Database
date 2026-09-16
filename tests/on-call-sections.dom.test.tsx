@@ -282,6 +282,20 @@ const AD_HOC_WORKSHOP = entry("education", {
   details: { topics: [] },
 });
 
+// A weekly session anchored on a date that has already gone by. Nothing about
+// the stored row changes as the weeks pass, so the page must do the rolling.
+const REGISTRAR_TEACHING = entry("education", {
+  id: "ffffffff-0000-0000-0000-000000000004",
+  slug: "registrar-teaching",
+  title: "Registrar teaching",
+  details: {
+    recurrence: "Third Sunday of the month",
+    nextOccurrenceDate: "2026-01-20",
+    recurrenceRule: { frequency: "monthly" },
+    topics: [],
+  },
+});
+
 describe("OnCallEducationSection", () => {
   it("orders sessions by next occurrence, soonest first, with undated sessions last", () => {
     render(<OnCallEducationSection entries={[GRAND_ROUNDS, AD_HOC_WORKSHOP, JOURNAL_CLUB]} now={NOW} />);
@@ -301,6 +315,16 @@ describe("OnCallEducationSection", () => {
     expect(recordingLink).toHaveAttribute("rel", "noopener noreferrer");
     expect(recordingLink.querySelector("svg")).not.toBeNull();
     expect(recordingLink).toHaveTextContent(/opens in a new tab/i);
+  });
+
+  it("rolls a recurring session forward instead of printing a date that has gone by", () => {
+    render(<OnCallEducationSection entries={[REGISTRAR_TEACHING]} now={NOW} />);
+    const card = screen.getByTestId("on-call-education-card-registrar-teaching");
+    // NOW is 4 September 2026; the typed anchor was 20 January.
+    expect(card).toHaveTextContent("20 Sep 2026");
+    expect(card).not.toHaveTextContent("Jan");
+    // The owner's own wording for the pattern still shows beside it.
+    expect(card).toHaveTextContent("Third Sunday of the month");
   });
 
   it("renders a real empty state when there are no teaching sessions", () => {
@@ -348,5 +372,40 @@ describe("OnCallLogisticsSection", () => {
   it("renders a real empty state when there are no logistics entries", () => {
     render(<OnCallLogisticsSection entries={[]} now={NOW} />);
     expect(screen.getByTestId("on-call-logistics-empty")).toBeInTheDocument();
+  });
+
+  it("keeps the owner's own start time beside the computed date", () => {
+    // Codex P2 on PR #2806. The roll-forward replaced `nextOccurrence` outright
+    // with a date-only label, so "Thursday 1pm" lost its only visible TIME. That
+    // free-text field is the one the reader is meant to read: the structured
+    // rule exists to compute with, not to speak for it.
+    const session = {
+      id: "55555555-5555-4555-8555-555555555555",
+      slug: "journal-club",
+      section: "education",
+      title: "Journal club",
+      subtitle: null,
+      body: null,
+      details: {
+        nextOccurrence: "Thursday 1pm",
+        nextOccurrenceDate: "2026-01-08",
+        recurrenceRule: { frequency: "weekly" },
+        topics: [],
+      },
+      linkedDocumentIds: [],
+      tags: [],
+      isPersonal: false,
+      includeOnCard: false,
+      sortOrder: 0,
+      lastVerifiedAt: new Date("2026-09-01T00:00:00.000Z").toISOString(),
+    } as unknown as OnCallEntry;
+
+    render(<OnCallEducationSection entries={[session]} now={new Date("2026-09-16T00:00:00.000Z")} />);
+
+    const card = screen.getByText("Journal club").closest("article");
+    expect(card).not.toBeNull();
+    // Both: the rolled-forward date, and the time nobody else knows.
+    expect(card).toHaveTextContent(/Sep 2026/);
+    expect(card).toHaveTextContent("Thursday 1pm");
   });
 });

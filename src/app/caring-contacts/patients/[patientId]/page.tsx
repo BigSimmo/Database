@@ -8,8 +8,8 @@ import { auditedRead } from "@/lib/caring-contacts-server/handler";
 import {
   DEMO_ROLES,
   demoActorForRole,
-  isCaringContactsDemoEnabled,
-  resolveDemoActor,
+  isCaringContactsWorkspaceEnabled,
+  resolveCaringContactsActor,
 } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { Episode } from "@/lib/caring-contacts/episode";
@@ -133,8 +133,8 @@ export default async function CaringContactsPatientOverviewPage({
   params: Promise<{ patientId: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
   const { patientId } = await params;
   const requestedPlanId = readRequestedPlanId(await searchParams);

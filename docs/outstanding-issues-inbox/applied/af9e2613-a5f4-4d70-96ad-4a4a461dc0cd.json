@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "af9e2613-a5f4-4d70-96ad-4a4a461dc0cd",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#XGKJ8D",
+    "outcome": "Declared pg_cron extension in supabase/schema.sql to match migration chain and satisfy parity gate",
+    "baseRowFingerprint": "bda82f3e227b0a74ea182ab77f4c1d4cc7ae3152645edf0e6eca86a5cd805ac8"
+  }
+}

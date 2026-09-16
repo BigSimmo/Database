@@ -6,7 +6,7 @@ import {
   parseTemplatesLibraryFilter,
 } from "@/components/caring-contacts/workspace/templates-library";
 import { auditedRead } from "@/lib/caring-contacts-server/handler";
-import { isCaringContactsDemoEnabled, resolveDemoActor } from "@/lib/caring-contacts-server/session";
+import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "@/lib/caring-contacts-server/session";
 import { caringContactsStore } from "@/lib/caring-contacts-server/store";
 import type { PathwayVersion } from "@/lib/caring-contacts/pathway-versions";
 import { canPerformCaringContactAction } from "@/lib/caring-contacts/permissions";
@@ -95,8 +95,8 @@ export default async function CaringContactsTemplatesPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  if (!isCaringContactsDemoEnabled()) notFound();
-  const actor = await resolveDemoActor();
+  if (!isCaringContactsWorkspaceEnabled()) notFound();
+  const actor = await resolveCaringContactsActor();
   const store = await caringContactsStore();
   const filter = parseTemplatesLibraryFilter(await searchParams);
 

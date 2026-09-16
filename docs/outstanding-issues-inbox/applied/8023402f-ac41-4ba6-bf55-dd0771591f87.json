@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8023402f-ac41-4ba6-bf55-dd0771591f87",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#8KXPKK",
+    "outcome": "Consolidated client chunk boundaries on home route to recover LCP headroom while preserving Suspense visual UX without modifying baseline budget",
+    "baseRowFingerprint": "f232ad5ea93ef4050e18f17178946f64c5ba32f9f3ab7ddc408277c0d5e95995"
+  }
+}

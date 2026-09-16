@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "5057727d-f394-47ee-b8cf-e61328d93e6d",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "2ab09b4d-a5b8-4854-b04e-c18942cbc33b",
+    "reason": "Superseded verbatim by ce667f09-3a39-4d1d-bc8f-969bc0b5393d, which contains this request's full text plus the 2026-09-07 correction that spec D9 is the shift handover page, not the fixed/live morning view. Cancelled so the row carries exactly one pending mutation, per the reconciler's one-mutation-per-row rule."
+  }
+}

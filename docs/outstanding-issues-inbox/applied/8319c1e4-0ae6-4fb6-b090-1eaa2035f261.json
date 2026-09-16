@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8319c1e4-0ae6-4fb6-b090-1eaa2035f261",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#AY4KKK",
+    "outcome": "Fixed focus/blur race in ModeNav (MasterSearchHeader) by deferring menu closure across requestAnimationFrame and checking activeElement ownership before closing",
+    "baseRowFingerprint": "e73e00dfa6315a675c5390e9d032cec83bacdef9847db9db300c198e9a22660c"
+  }
+}

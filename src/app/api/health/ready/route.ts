@@ -25,12 +25,23 @@ export async function GET(request: Request) {
     });
   }
 
+  // `probes: "readiness"` is the whole contract, and it replaced six `include*: false` lines.
+  //
+  // Those six were a deny-list, and a deny-list on this endpoint is a deploy outage waiting for
+  // its next entry. Whatever gets added to the deep branch is live on Railway's healthcheck
+  // until somebody remembers to come back here and switch it off by name. Nobody did, for the
+  // ~7 s site-content integrity audit, on an endpoint Railway allows ten seconds: 24 consecutive
+  // production deploys built, started cleanly, answered too slowly and were rolled back, and the
+  // live site sat on three-day-old code while `main` moved on.
+  //
+  // Now the endpoint states what it is instead of listing what it is not, so a probe added later
+  // is diagnostic-only unless someone deliberately says otherwise in `health-response.ts`.
+  // Readiness is a question about THIS CONTAINER: configuration, and one bounded Supabase
+  // `select ... limit 1`. Nothing shared, nothing whole-corpus, nothing unbounded.
   const response = await healthResponse(request, {
     forceDeep: true,
     allowUnauthenticatedDeep: true,
-    includeSlo: false,
-    includeCache: false,
-    includeCoalescing: false,
+    probes: "readiness",
   });
   const body = (await response.clone().json()) as unknown;
   cachedReady = { expiresAt: now + READY_CACHE_TTL_MS, body, status: response.status };

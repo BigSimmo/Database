@@ -133,6 +133,14 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
  * homes stay unpainted. Accents may be shared only between modes that rarely
  * sit in the same four-slot also-matches grid. The screenshot cluster —
  * prescribing, services, forms, dsm — must remain pairwise distinct.
+ *
+ * A mode that genuinely needs its own hue on its own chrome uses
+ * `--mode-identity` instead (`globals.css`, and `docs/design-system/TOKENS.md`
+ * §7.1 — owner decision, 2026-09-13). Not this channel, and the reason is
+ * structural rather than territorial: these triads carry no contrast partner,
+ * so a filled shape in one has no defined glyph colour — a white glyph on the
+ * dark-theme `purple` fails 4.5:1 badly. The rule above is unchanged: nav and
+ * mode homes stay unpainted BY THIS CHANNEL.
  */
 export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   prescribing: "rose",

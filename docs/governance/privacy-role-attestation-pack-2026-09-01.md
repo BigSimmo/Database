@@ -7,6 +7,10 @@ The named role-holder must review each remaining section, make the stated decisi
 sanitized reference to confidential material. Contracts, account screenshots, patient data, secret
 values, and personal signatures must remain outside Git.
 
+The [prepared completion drafts](privacy-completion-drafts-2026-09-13.md) contain proposed notice
+wording, provider requests and one reusable decision record. They are unsigned drafts, not evidence
+of agreement, provider approval or clinical acceptance.
+
 ## How to close an item
 
 Provide the requirement ID, decision (`verified`, `accepted_decision`, or rejected), accountable role,
@@ -43,7 +47,7 @@ Sanitized external reference: `PsychSift owner approval in Codex task 01a04af2-7
 
 Review expiry: `2026-10-01`
 
-## 2. Staging retention schedules
+## 2. Retention schedules
 
 **Requirement:** `PRIV-PROVIDER-RETENTION-SCHEDULE-PARITY`
 
@@ -77,6 +81,19 @@ This record does not claim that the owner separately restated each technical det
 Sanitized external reference: `Supabase migration 20260901033250, post-state review, and PsychSift owner approval in Codex task 01a04af2-74bf-7e40-aa14-4a9e78295b33 on 2026-09-01`
 
 Review expiry: `2026-10-01`
+
+### Production configuration recheck — 2026-09-13
+
+An operator-authorised, read-only `cron.job` check on production Clinical KB Database found exactly
+one active instance of each of the four jobs listed above. Each schedule and command matched
+`20260901033250_enable_staging_privacy_retention_schedules.sql`; the obsolete
+`purge-expired-rag-response-cache` job was absent. Command equality was evaluated inside the database;
+only job names, schedules and boolean comparison results were returned. No retained user content,
+credentials or raw job commands were exported.
+
+This closes the missing post-merge production configuration read recorded on 2026-09-04. It does not
+prove successful purge executions or row deletion, refresh staging evidence, renew the owner's
+2026-09-01 approval or extend its expiry.
 
 ## 3. OpenAI ZDR account evidence
 
@@ -134,20 +151,27 @@ Git.
 **Requirement:** `PRIV-LEGAL-OPENAI-DPA`
 
 **Role:** Authorised legal signatory
-**Prepared recommendation:** keep pending until the countersigned-copy reference is attached.
+**Prepared recommendation:** keep pending until applicable-contract and acceptance evidence is attached.
 
 Repository ledger `#053` claims DPA `v.010126` was executed on 2026-08-18. No candidate OpenAI DPA
-file was found by filename in the user's likely OneDrive, Documents, or Downloads locations. The
-authorised legal signatory must locate the countersigned copy or obtain it from the contracting
+file was found by filename in the user's likely OneDrive, Documents, or Downloads locations.
+That does not establish the absence of an agreement: the [OpenAI DPA](https://openai.com/policies/data-processing-addendum/)
+effective 2026-01-01 forms part of the [Services Agreement](https://openai.com/policies/services-agreement/).
+The applicable acceptance route may be electronic acceptance, an order form, or use under those terms.
+A separately countersigned DPA is required only where the customer's actual arrangement requires one.
+The authorised legal signatory must establish the applicable agreement from the contracting
 system/account owner and provide:
 
 - legal entity;
 - agreement version and effective date;
-- countersigned status;
+- acceptance method and supporting record, including signatures where applicable;
 - scope covering the production organisation/project; and
 - confidential record-system reference.
 
 Sanitized contract reference: `________________`
+
+Public terms explain the available contractual route; they do not establish the customer's legal
+entity, account scope or actual acceptance. This correction does not approve the pending attestation.
 
 ## 5. Railway DPA and sensitive-health-data schedule
 

@@ -281,15 +281,15 @@ which is why the query-hash approach (not raw storage) is the right primary cont
 
 ## 6. Retention and purge
 
-| Data                   | Retention              | Mechanism                                                                                                                                       | Live status                                                                                                                |
-| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `rag_queries`          | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                                              | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
-| `rag_retrieval_logs`   | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                                                | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
-| `rag_query_misses`     | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                                            | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read                                 |
-| `rag_response_cache`   | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache`                            | Expected active (migration-applied 2026-09-01); unverified since - needs a `cron.job` read; obsolete unbounded job removed |
-| `audit_logs`           | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)                                | Intentional; "do not add purge without compliance review"                                                                  |
-| Browser answer thread  | 12 h (or tab close)    | `window.sessionStorage` TTL + `New chat`, sign-out, and account-change clears ([answer-thread-storage.ts](../src/lib/answer-thread-storage.ts)) | Client-side only; no server job to verify                                                                                  |
-| Browser recent queries | Tab close              | `window.sessionStorage`; cleared by Settings > Privacy and security ([recent-query-storage.ts](../src/lib/recent-query-storage.ts))             | Client-side only; no server job to verify                                                                                  |
+| Data                   | Retention              | Mechanism                                                                                                                                       | Live status                                                                                    |
+| ---------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `rag_queries`          | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                                              | Verified configured 2026-09-13: unique active job; schedule/command match                      |
+| `rag_retrieval_logs`   | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                                                | Verified configured 2026-09-13: unique active job; schedule/command match                      |
+| `rag_query_misses`     | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                                            | Verified configured 2026-09-13: unique active job; schedule/command match                      |
+| `rag_response_cache`   | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache`                            | Verified configured 2026-09-13: unique active job; schedule/command match; obsolete job absent |
+| `audit_logs`           | Indefinite (by design) | Documented in [migration 20260702120000](../supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql)                                | Intentional; "do not add purge without compliance review"                                      |
+| Browser answer thread  | 12 h (or tab close)    | `window.sessionStorage` TTL + `New chat`, sign-out, and account-change clears ([answer-thread-storage.ts](../src/lib/answer-thread-storage.ts)) | Client-side only; no server job to verify                                                      |
+| Browser recent queries | Tab close              | `window.sessionStorage`; cleared by Settings > Privacy and security ([recent-query-storage.ts](../src/lib/recent-query-storage.ts))             | Client-side only; no server job to verify                                                      |
 
 **Historical verification (live `cron.job` query, 2026-07-06) - job ids below are superseded:**
 
@@ -327,11 +327,15 @@ and storage buckets only ([scripts/check-drift.ts](../scripts/check-drift.ts)), 
 not among those categories - so a failed or skipped apply of `20260901033250` would leave `live-drift`
 green while the purge jobs sat in whatever prior state they had. That blind spot is recorded as finding
 **M23** in [docs/audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md).
-The only proof that the four purge jobs are scheduled on production is an operator
-`select jobname, schedule from cron.job` read. That read is provider-backed and needs operator
-confirmation, so this assessment deliberately records no replacement id and no post-2026-09-01 live
-status. Any future retention attestation should cite job names, not ids, and should say which
-environments the migration reached.
+**Production configuration recheck, 2026-09-13.** An operator-authorised read-only `cron.job`
+comparison on Clinical KB Database confirmed exactly one active instance of all four jobs, with
+schedules and commands matching `20260901033250_enable_staging_privacy_retention_schedules.sql`.
+The obsolete `purge-expired-rag-response-cache` job was absent. Only job names, schedules and
+boolean comparisons were returned; no user records or raw commands were exported. This closes the
+missing post-merge configuration read. It does not prove successful purge executions or row deletion,
+recheck staging, or renew the existing role approval. See the
+[role-attestation pack section 2](governance/privacy-role-attestation-pack-2026-09-01.md#2-retention-schedules).
+Future evidence should continue to identify jobs by name and state which environment was checked.
 
 **Browser-side retention (not a server control).** A completed answer keeps the raw query text, the
 generated answer, and the source excerpts for up to 12 turns (up to 4.5 MB) in `window.sessionStorage` under

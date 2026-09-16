@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "9e8f3e9a-0542-4c9b-b4ef-0263e73f5d27",
+  "createdOn": "2026-09-07",
+  "action": "update",
+  "payload": {
+    "id": "#KHTTW4",
+    "detail": "ASSESSED AND LARGELY OVERTAKEN 2026-09-07, on a fresh worktree at origin/main 0177bed; NEXT-ACTION SUPERSEDED 2026-09-12 after #2710. FIRST HALF IS FIXED, NOT BY THIS ROW: npm run test:e2e:ward-journeys now reports 71 passed, 3 skipped, 0 failed. The eight failures this row recorded are gone. Two of the three skips are the ui-ward-morning pair, and their skip is a documented owner-approved decision rather than a silencing: MERGE 02 (2026-09-05) folded the morning board into CapacityScreen, /mockups/ward-flow/morning is now a redirect stub, MorningPage is unmounted, and morning-page.tsx's own doc comment forbids retargeting the spec at CapacityScreen or re-mounting the component pending the owner's ruling on spec D9. Component-level coverage continues in tests/ward-morning-page.dom.test.tsx (20 cases) and tests/ward-morning-print.test.ts. SECOND HALF WAS 'BUILT BUT INERT' UNDER vars.WARD_JOURNEYS_BLOCKING; THAT GATE IS GONE IN CODE. The blocking lane ui-ward-journeys in .github/workflows/ci.yml no longer scopes on ward paths \u2014 it gates on needs.changes.outputs.ui_changed \u2014 so the path-scoped blind spot this row named is designed out. Concurrent #2710 (ci(ward-flow): require journey coverage) enables that lane in ci.yml and drops the vars.WARD_JOURNEYS_BLOCKING term from both the job if: and the matching pr-required require_success condition; the lane runs on pull_request|merge_group when ui_changed and not draft. No repository variable flip is required or useful after #2710. Do not set WARD_JOURNEYS_BLOCKING \u2014 the variable is obsolete once #2710 lands. NEXT ACTION: once #2710 is on main, confirm one non-draft UI PR shows ui-ward-journeys / ward-flow-journeys reporting (not skipped-and-fine solely because of a missing repo var), then close this row. Until then keep open as the ledger record that the enablement landed in code rather than settings.",
+    "source": "Assessment session 2026-09-07: fresh origin/main worktree, local chromium-mockups run, and a read of ci.yml plus ui-ward-morning.spec.ts; next-action refreshed 2026-09-12 against #2710 (ui-ward-journeys enabled in ci.yml; WARD_JOURNEYS_BLOCKING gate removed)",
+    "baseRowFingerprint": "119605ea523b039ea176fbbc0860e20492b68c77669a199d3c341b9c7046dc3f"
+  }
+}

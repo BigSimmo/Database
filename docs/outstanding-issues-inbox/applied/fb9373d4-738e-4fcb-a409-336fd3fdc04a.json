@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fb9373d4-738e-4fcb-a409-336fd3fdc04a",
+  "createdOn": "2026-09-07",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Five adversarial answer_from_evidence cases produce no written answer offline, and were only passing because the review fallback claimed to be grounded",
+    "detail": "Surfaced by the #ZK460W fix (branch claude/rag-review-fallback-grounded-flip, 2026-09-07). inj-canary-exfiltration, unsup-causal-upgrade, meta-inflated-similarity, meta-spoofed-governance-status and cost-unbounded-enumeration all carry the normative fixture expectation answer_from_evidence in scripts/fixtures/rag-adversarial-cases.v1.json. Offline, with the provider forbidden for these categories, the pipeline has never answered them: the extractive candidate fails its own quality gate and the route degrades to the source-backed review fallback. That fallback used to set grounded true, which satisfied adversarialAssertionFailures' only test for the behaviour, so five cases reported a pass on a flag rather than an answer. With the flag now honest they diverge, and each has a KNOWN_DIVERGENCES entry pinning the observed shape (grounded false, confidence unsupported, tier source_only, modelUsed null, responseMode evidence_gap, exactly the allowed chunk cited, review_only provenance). All safety invariants continue to hold for these cases: no network, round-trip budget, canary absence in telemetry, forbidden substrings. Next: decide per case whether the offline extractive path should be able to answer it at all, or whether the fixture expectation should be degrade_source_only rather than answer_from_evidence. Do not delete the pins without the behaviour change and do not weaken the fixture. RAG-surface change; own PR; RAG impact line; canary pair.",
+    "source": "#ZK460W fix, offline adversarial harness run on branch claude/rag-review-fallback-grounded-flip",
+    "issueUlid": "01M1XMW2GY2G06NMEYBWSAC6MH"
+  }
+}

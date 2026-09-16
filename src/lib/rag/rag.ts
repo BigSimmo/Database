@@ -203,6 +203,7 @@ import { normalizeOptionalSourceMetadata } from "@/lib/source-metadata";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
+  appendRoutingReason,
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
@@ -336,6 +337,18 @@ import type {
   SearchResult,
   SmartRagApiPlan,
 } from "@/lib/types";
+
+/**
+ * Ledger #ZK460W. The source-backed review fallback is entered BECAUSE the candidate answer
+ * failed its quality gate, so nothing on that route is accepted claim support: the citations are
+ * provenance for a clinician to read for themselves. `answer-render-policy` renders `review_only`
+ * as "Added for source review; not accepted as claim support.", which is the honest label — the
+ * route previously shipped them as `deterministic_support`, rendering as "Deterministically
+ * matched claim support" on an answer the pipeline had just rejected.
+ */
+function asReviewOnlyCitations(citations: readonly Citation[]): Citation[] {
+  return citations.map((citation) => ({ ...citation, provenance: "review_only" as const }));
+}
 
 const confidenceOrder = {
   unsupported: 0,
@@ -1975,7 +1988,7 @@ async function answerQuestionWithScopeUncoalesced(
   startedAt: number,
 ): Promise<RagAnswer> {
   throwIfAborted(args.signal);
-  const answerContract = answerContractForRollout(args.ragProgrammeRollout);
+  const requestedAnswerContract = answerContractForRollout(args.ragProgrammeRollout);
   const recordQuery = (answer: RagAnswer, row: RagQueryInsert) =>
     recordRagQueryForAnswer(args.observationContext, answer, row, logRagQuery);
   assertGlobalSearchAllowed({
@@ -2098,6 +2111,31 @@ async function answerQuestionWithScopeUncoalesced(
         captureRagQueryPlan: (plan) => void (requestQueryPlan = plan),
       }),
     );
+  } catch (error) {
+    throwIfAborted(args.signal);
+    if (!isAnswerRouteDeadlineExceeded(error)) throw error;
+    // Retrieval never produced a completed, admitted evidence set. Do not claim
+    // that the corpus lacks an answer or release partially hydrated candidates.
+    return {
+      answer: "The search reached its time limit before source evidence could be confirmed. Please try again.",
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      answerSections: [],
+      modelUsed: null,
+      routingMode: "unsupported",
+      routingReason: "retrieval_deadline_exceeded",
+      fallbackReasonCode: "provider_timeout",
+      degradedMode: { active: true, reason: "The search reached its time limit." },
+      latencyTimings: {
+        search_latency_ms: Date.now() - searchStartedAt,
+        generation_latency_ms: 0,
+        route_budget_ms: retrievalDeadline.budgetMs,
+        route_deadline_exceeded: true,
+        total_latency_ms: Date.now() - startedAt,
+      },
+    };
   } finally {
     retrievalDeadline.dispose();
   }
@@ -2150,6 +2188,12 @@ async function answerQuestionWithScopeUncoalesced(
     : routeSelection;
   const answerInputResults = packedRouteSelection.results;
   let coverageSelections: CoverageEvidenceSelection[] = packedRouteSelection.coverageSelections;
+  // A rollout choice does not grant missing source-role or corpus authority.
+  // Legacy admitted evidence keeps its established verified answer contract;
+  // only an actual governed coverage plan can activate adaptive generation.
+  const adaptiveCoverageUnavailable =
+    requestedAnswerContract.adaptive && (!packedRouteSelection.coverage || coverageSelections.length === 0);
+  const answerContract = adaptiveCoverageUnavailable ? answerContractForRollout() : requestedAnswerContract;
   const searchLatencyMs = Date.now() - searchStartedAt;
   const {
     relevance,
@@ -2415,6 +2459,12 @@ async function answerQuestionWithScopeUncoalesced(
       }
     }
 
+    if (adaptiveCoverageUnavailable) {
+      finalized.routingReason = appendRoutingReason(
+        finalized.routingReason,
+        "adaptive_contract_fallback:legacy_coverage_unavailable",
+      );
+    }
     finalized.latencyTimings = {
       ...answer.latencyTimings,
       ...finalized.latencyTimings,
@@ -2693,16 +2743,25 @@ async function answerQuestionWithScopeUncoalesced(
       const priorRejectedCandidateText = finalizedAnswer.rejectedCandidateText ?? finalizedAnswer.answer;
       finalizedAnswer = finalizeAnswer({
         ...answer,
-        answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-        grounded: true,
-        confidence: deriveConfidence(finalizedAnswer.sources, extractiveReviewCitations),
-        citations: extractiveReviewCitations,
+        answer: sourceBackedGenerationTimeoutAnswer(),
+        // Ledger #ZK460W. This branch is entered BECAUSE `!finalizedAnswer.grounded` — the
+        // answer failed its own quality gate. Re-flagging it grounded, with a confidence
+        // re-derived from retrieval similarity alone, told every downstream consumer the
+        // opposite of what the gate had just decided: `deriveTrust` resolved to high, which
+        // unlocked quote cards and suppressed the source-gap warning, and
+        // `assessAndEnforceClaimSupport` ran its high-risk enforcement over claims this route
+        // force-classifies as routine, so it passed vacuously. Staying ungrounded and
+        // unsupported keeps the gate's verdict intact all the way to the clinician.
+        grounded: false,
+        confidence: "unsupported",
+        citations: asReviewOnlyCitations(extractiveReviewCitations),
         modelUsed: null,
         routingMode: "extractive",
         routingReason: reviewRouteReason,
         responseMode: reviewPlan.displayMode,
         smartApiPlan: reviewPlan,
         answerSections: [],
+        sourceBackedReviewFallback: true,
       });
       finalizedAnswer.rejectedCandidateText ??= priorRejectedCandidateText;
     }
@@ -2852,16 +2911,21 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     ? packGovernedContext
     : createGenerationContextPacker({
         ...contextPackerOptions,
-        loadLegacy: (legacyResults) =>
-          routeDeadline.race(
+        loadLegacy: (legacyResults) => {
+          throwIfAborted(routeDeadline.signal);
+          return routeDeadline.race(
             packAdjacentSourceContext(createAdminClient(), legacyResults, queryClass, {
               crossDocument: crossDocumentPlan.enabled,
             }),
-          ),
+          );
+        },
       });
 
   const generationDegradation = createGenerationDegradationRecorder({
-    enabled: args.ragQueryPlanMode === "shadow" || args.ragQueryPlanMode === "canary",
+    enabled:
+      args.ragProgrammeRollout?.servedMode === "candidate" ||
+      args.ragQueryPlanMode === "shadow" ||
+      args.ragQueryPlanMode === "canary",
     routeBudgetMs: routeDeadline.budgetMs,
     contract: answerContract,
   });
@@ -3042,30 +3106,36 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     accessScope: contextPackAccessScope,
     snapshot: args.ragRequestContext?.snapshot,
   });
-  const { served: modelContextSelection, strongRetry: strongRetryContextSelection } =
-    await packModelContextEvidencePair(selectedContextPair, packContextForGeneration, useGovernedContextPacking);
-  const modelContextResults = modelContextSelection.results;
-  const strongRetryContextResults = strongRetryContextSelection.results;
-  coverageSelections = modelContextSelection.coverageSelections;
-  const generationFallbackResults = strongRetryContextResults;
-  let responseContextResults = modelContextResults;
-  let responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
-  const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
-  await args.onProgress?.({
-    stage: "ranking",
-    message: "Selected governed source passages for answer generation.",
-    selectedContextCount: modelContextSelectionSummary.selectedCount,
-    australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
-    waSourceCount: modelContextSelectionSummary.waSelectedCount,
-    usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
-    ...buildEvidencePreviewProgress({
-      normalResults: modelContextResults,
-      fallbackResults: generationFallbackResults,
-      relevance,
-    }),
-  });
+  // The route pack is already admitted and safe to verify if optional generation
+  // packing expires. Only a completed generation pack may replace its evidence.
+  let strongRetryContextSelection = packedRouteSelection;
+  let generationFallbackResults = packedRouteSelection.results;
   let initialGenerationQualityFailure: ReturnType<typeof generationQualityFailureDiagnostics> = null;
   try {
+    const { served: modelContextSelection, strongRetry } = await routeDeadline.race(
+      packModelContextEvidencePair(selectedContextPair, packContextForGeneration, useGovernedContextPacking),
+    );
+    strongRetryContextSelection = strongRetry;
+    const modelContextResults = modelContextSelection.results;
+    const strongRetryContextResults = strongRetryContextSelection.results;
+    coverageSelections = modelContextSelection.coverageSelections;
+    generationFallbackResults = strongRetryContextResults;
+    let responseContextResults = modelContextResults;
+    let responseContextArtifacts = buildSelectedEvidenceArtifacts(answerFocusQuery, responseContextResults);
+    const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
+    await args.onProgress?.({
+      stage: "ranking",
+      message: "Selected governed source passages for answer generation.",
+      selectedContextCount: modelContextSelectionSummary.selectedCount,
+      australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
+      waSourceCount: modelContextSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
+      ...buildEvidencePreviewProgress({
+        normalResults: modelContextResults,
+        fallbackResults: generationFallbackResults,
+        relevance,
+      }),
+    });
     await args.onProgress?.({
       stage: "generating",
       message: `Generating cited answer with ${route.mode} route.`,
@@ -3392,6 +3462,17 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
     answer = finalizeAnswer(answer, numericVerificationSources);
     if (generatedWasGrounded && !answer.grounded) generationDegradation.verificationFailed();
 
+    // Let finalization apply source-selection-aware recovery first. A retry
+    // still rejected there must enter the existing evidence recovery path;
+    // rejection is not proof that the retained sources lack an answer.
+    if (answerNeedsStrongQualityRepair && !answer.grounded) {
+      const retryFailure = answer.routingReason?.match(/(?:^|;\s*)final_quality_gate:([^;]+)/)?.[1];
+      if (retryFailure) {
+        generationDegradation.retry(retryFailure, "exhausted", routeDeadline.remainingMs());
+        throw new GenerationQualityError("post_finalize", retryFailure, summarizeGenerationQualityAnswerShape(answer));
+      }
+    }
+
     // Recover a schema-valid answer that fails deterministic provenance through the same final gates.
     const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
       ? "claim_support_high_risk_gap"
@@ -3710,15 +3791,20 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
             const reviewPlan = buildCurrentSmartApiPlan("unsupported", reviewRouteReason, generationFallbackResults);
             return {
               ...baseFallbackAnswer,
-              answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-              grounded: true,
-              confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
+              answer: sourceBackedGenerationTimeoutAnswer(),
+              // Ledger #ZK460W, same defect as the extractive review fallback above. Reached
+              // only when `sourceBackedReviewReason` is set, which includes the extractive
+              // candidate being ungrounded or unsupported — so this route must not upgrade it.
+              grounded: false,
+              confidence: "unsupported",
+              citations: asReviewOnlyCitations(baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,
               responseMode: reviewPlan.displayMode,
               smartApiPlan: reviewPlan,
               answerSections: [],
+              sourceBackedReviewFallback: true,
               relevance: generationFallbackArtifacts.relevance,
               scoreExplanations: generationFallbackArtifacts.scoreExplanations,
             } satisfies RagAnswer;
@@ -3745,15 +3831,20 @@ ${buildContextSourceBlock(contextResults, { query: answerFocusQuery, queryClass 
         annotateAnswerWithDiagnostics(
           {
             ...baseFallbackAnswer,
-            answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-            grounded: true,
-            confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
+            answer: sourceBackedGenerationTimeoutAnswer(),
+            // Ledger #ZK460W, same defect again. Reached only on a claim-support high-risk gap
+            // or a material source-governance gap, which are exactly the findings that must
+            // survive to the clinician rather than be overwritten with a grounded verdict.
+            grounded: false,
+            confidence: "unsupported",
+            citations: asReviewOnlyCitations(baseFallbackAnswer.citations),
             modelUsed: null,
             routingMode: "extractive",
             routingReason: reviewRouteReason,
             responseMode: reviewPlan.displayMode,
             smartApiPlan: reviewPlan,
             answerSections: [],
+            sourceBackedReviewFallback: true,
             queryAnalysis,
             relevance: generationFallbackArtifacts.relevance,
             scoreExplanations: generationFallbackArtifacts.scoreExplanations,

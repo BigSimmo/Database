@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "80c84e2c-39b5-466c-8160-09e88c12c90b",
+  "createdOn": "2026-09-12",
+  "action": "done",
+  "payload": {
+    "id": "#6KR6BR",
+    "outcome": "Verified 0px residual scroll on /calculators/search at 1280x1200 across catalogue and submitted states, pinned by tests/ui-chrome-scroll.spec.ts",
+    "baseRowFingerprint": "827c7c2024d73b8e78fabddfb4781644258a553b56ad4d4bcb876f026d8fd61a"
+  }
+}

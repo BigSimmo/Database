@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "36a6b853-5c71-4b6c-80eb-05f468e7f92f",
+  "createdOn": "2026-09-13",
+  "action": "done",
+  "payload": {
+    "id": "#RBK2J7",
+    "outcome": "Consolidated AnswerCancelledNotice into dashboard-notices.tsx and re-exported, eliminating chunk split overhead on root route while preserving export API and maintainability budget",
+    "baseRowFingerprint": "76eae67bf2c048ff23a364bd768ac4083a75693de82e84d345fa7c57e3762ead"
+  }
+}

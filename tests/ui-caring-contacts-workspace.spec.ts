@@ -195,6 +195,7 @@ const REPORTS_ROUTE = `${WORKSPACE_ROUTE}/reports`;
  * `tests/caring-contacts-team-page.dom.test.tsx`.
  */
 const TEAM_ROUTE = `${WORKSPACE_ROUTE}/team`;
+const INTAKE_ROUTE = `${WORKSPACE_ROUTE}/intake`;
 
 /**
  * Every production screen this workspace serves, with the `h1` it must render.
@@ -260,6 +261,7 @@ const WORKSPACE_SCREENS = [
   { name: "Guidance", route: GUIDANCE_ROUTE, heading: "Guidance" },
   { name: "Reports", route: REPORTS_ROUTE, heading: "Reports" },
   { name: "Team", route: TEAM_ROUTE, heading: "Team" },
+  { name: "Intake", route: INTAKE_ROUTE, heading: "Referral intake" },
 ] as const;
 
 type WorkspaceScreen = (typeof WORKSPACE_SCREENS)[number];
@@ -1857,7 +1859,12 @@ function layoutOverflow(page: Page) {
  * `:focus-visible`, which a programmatic focus does not reliably raise.
  */
 async function tabToWorkspaceDestination(page: Page) {
-  const destination = page.getByRole("link", { name: "Today" });
+  // Scope to the rail / phone-dock nav. The Today front door also has an in-page
+  // "View today's schedule" link that Playwright's default substring name match
+  // would treat as a second "Today" and trip strict mode.
+  const destination = page
+    .locator('[data-testid="caring-contacts-rail"], [data-testid="caring-contacts-phone-dock"]')
+    .getByRole("link", { name: "Today", exact: true });
   for (let press = 0; press < 40; press += 1) {
     await page.keyboard.press("Tab");
     if (await destination.evaluate((node) => node === document.activeElement)) return destination;

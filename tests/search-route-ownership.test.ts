@@ -501,9 +501,16 @@ describe("shared-search route ownership", () => {
     expect(dashboardSource).toMatch(
       /if \(mode === "answer" \|\| mode === "documents"\) \{[\s\S]*?void executeSearch\(crossQuery, mode/,
     );
-    expect(dashboardSource).toMatch(
-      /const showSharedHome = shouldShowSharedHome\(\{[\s\S]*?pathname,[\s\S]*?mode: searchParams\.get\("mode"\),[\s\S]*?submittedAnswerSearchActive,[\s\S]*?\}\);/,
+    // showSharedHome lives in dashboard-mode-surface; ClinicalDashboard still
+    // supplies mode via searchParams.get("mode") at the call site.
+    const modeSurface = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/dashboard-mode-surface.ts"),
+      "utf8",
     );
+    expect(modeSurface).toMatch(
+      /const showSharedHome = shouldShowSharedHome\(\{[\s\S]*?pathname,[\s\S]*?mode: input\.submittedUrlMode,[\s\S]*?submittedAnswerSearchActive,[\s\S]*?\}\);/,
+    );
+    expect(dashboardSource).toMatch(/submittedUrlMode:\s*searchParams\.get\("mode"\)/);
   });
 
   it("routes a submitted shared-composer search to the selected mode's own surface", () => {

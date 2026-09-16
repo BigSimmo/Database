@@ -2,7 +2,7 @@
   "$comment": "Roles declared in BOTH globals.css and ckb-v2-tokens.css with different values. The v2 value paints; the globals.css value is dead. Reviewed set — refresh with `npm run design-system:token-divergence:update` and say in the PR why each change is right.",
   "generatedBy": "scripts/token-layer-divergences.mjs",
   "counts": {
-    "light": 29,
+    "light": 27,
     "dark": 22,
     "forcedColors": 3
   },
@@ -14,15 +14,11 @@
       },
       "--border": {
         "compat": "#e3e8ef",
-        "v2": "#e6ebf2"
+        "v2": "#e2e8f0"
       },
       "--border-lux": {
         "compat": "rgb(200 210 222 / 55%)",
         "v2": "#dde4ee"
-      },
-      "--border-strong": {
-        "compat": "#c8d2de",
-        "v2": "#d3dbe5"
       },
       "--clinical-accent-border": {
         "compat": "#c6dcf2",
@@ -43,10 +39,6 @@
       "--decoration-soft": {
         "compat": "var(--neutral-500)",
         "v2": "#8894a6"
-      },
-      "--disabled": {
-        "compat": "#8794a8",
-        "v2": "#9aa5b5"
       },
       "--e1": {
         "compat": "0 1px 2px rgb(11 42 56 / 7%)",
@@ -80,10 +72,6 @@
         "compat": "#eff5fc",
         "v2": "#f2f8fe"
       },
-      "--surface": {
-        "compat": "#fcfdfe",
-        "v2": "#ffffff"
-      },
       "--surface-chrome": {
         "compat": "#f7f9fc",
         "v2": "#ffffff"
@@ -95,6 +83,10 @@
       "--surface-inset": {
         "compat": "#eaeef4",
         "v2": "#f4f7fa"
+      },
+      "--surface-raised": {
+        "compat": "#ffffff",
+        "v2": "#fcfdfe"
       },
       "--surface-subtle": {
         "compat": "#f7f9fc",

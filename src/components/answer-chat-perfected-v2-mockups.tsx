@@ -1315,7 +1315,7 @@ function ConsecutiveLineSpecimen() {
       <p className="text-3xs font-semibold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
         Marks on consecutive lines
       </p>
-      <p style={{ maxWidth: "30ch" }} className="mt-1 text-base-minus leading-prose text-[color:var(--text-heading)]">
+      <p className="mt-1 max-w-[30ch] text-base-minus leading-prose text-[color:var(--text-heading)]">
         <MarkedText
           section={{
             id: "line-a",

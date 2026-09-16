@@ -1,3 +1,5 @@
+import { isCaringContactsWorkspaceEnabled } from "@/lib/caring-contacts-server/session";
+
 export type HubPanelGroup = "work" | "clinical" | "system" | "reference";
 
 export type HubPanel = {
@@ -62,6 +64,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
   // clinical answer problem", which it has no way to know. A panel on a clinical
   // system that implies coverage it does not have is worse than no panel, so the
   // narrower name is deliberate and should not be "improved" into a broader one.
+  // Moved here from the On Call home on the owner's instruction (2026-09-16).
+  // A strip naming overdue sections was built on that page first: it is a
+  // maintenance fact, and the person reading the On Call home is mid-shift and
+  // after a phone number. Live rather than snapshot-backed, because staleness
+  // is derived at read time and never stored.
+  {
+    id: "on-call-freshness",
+    name: "On Call freshness",
+    summary: "Entries never confirmed, or last confirmed over twelve months ago",
+    group: "clinical",
+    phase: 1,
+    href: "/mockups/development/on-call-freshness",
+  },
   {
     id: "clinical-answer-failures",
     name: "Answer failures",
@@ -158,9 +173,9 @@ export const HUB_PANELS: readonly HubPanel[] = [
     href: "/brand/preview.html",
     external: true,
   },
-  // Three real prototype cards, not one generic self-linking "Prototypes" card.
-  // This is also what preserves the Care Plan, Caring Contact, and Ward Flow entries the
-  // spec requires to survive the hub rewrite.
+  // Real prototype cards, not one generic self-linking "Prototypes" card.
+  // This is also what preserves the Care Plan, Caring Contact, full Caring Contacts
+  // workspace, and Ward Flow entries the spec requires to survive the hub rewrite.
   //
   // This module is production space (`src/lib/**`), not `src/app/mockups/**`,
   // so `eslint.config.mjs`'s `no-restricted-imports` boundary forbids importing
@@ -194,6 +209,14 @@ export const HUB_PANELS: readonly HubPanel[] = [
     href: "/mockups/caring-contacts",
   },
   {
+    id: "caring-contacts-workspace",
+    name: "Caring Contacts workspace",
+    summary: "Full synthetic operational workspace: caseload, schedules, pathways, reports, and team views",
+    group: "reference",
+    phase: 1,
+    href: "/caring-contacts",
+  },
+  {
     id: "ward-flow",
     name: "Ward flow",
     summary: "Synthetic prototype, not clinical decision support: queue, capacity, transport, movements",
@@ -203,6 +226,18 @@ export const HUB_PANELS: readonly HubPanel[] = [
   },
 ];
 
-export function panelsInGroup(group: HubPanelGroup): HubPanel[] {
-  return HUB_PANELS.filter((panel) => panel.group === group);
+export function panelsInGroup(
+  group: HubPanelGroup,
+  environment = process.env.NODE_ENV,
+  runtime: Record<string, string | undefined> = process.env,
+): HubPanel[] {
+  return HUB_PANELS.filter((panel) => {
+    if (panel.group !== group) return false;
+    // Production hubs must not advertise /caring-contacts when the workspace
+    // is locked off (every caring-contacts page calls notFound() then).
+    if (panel.id === "caring-contacts-workspace" && !isCaringContactsWorkspaceEnabled(environment, runtime)) {
+      return false;
+    }
+    return true;
+  });
 }

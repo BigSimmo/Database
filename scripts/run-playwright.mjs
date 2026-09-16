@@ -415,10 +415,30 @@ try {
   const buildResult = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
     cwd: projectRoot,
     env: offlineEnv,
-    stdio: "inherit",
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: "pipe",
   });
   const buildExitCode = childProcessExitCode(buildResult);
   if (buildExitCode !== 0) {
+    if (buildResult.stdout) {
+      console.error(`[playwright] build stdout:\n${buildResult.stdout}`);
+    }
+    if (buildResult.stderr) {
+      console.error(`[playwright] build stderr:\n${buildResult.stderr}`);
+    }
+    const combinedOutput = `${buildResult.stdout ?? ""}\n${buildResult.stderr ?? ""}`;
+    if (
+      combinedOutput.includes("EBUSY") ||
+      combinedOutput.includes("EPERM") ||
+      combinedOutput.includes("resource busy or locked") ||
+      buildResult.error?.code === "EBUSY" ||
+      buildResult.error?.code === "EPERM"
+    ) {
+      console.error(
+        `[playwright] directory lock contention detected in ${relativeRunRoot}. Another process may be accessing or locking this directory.`,
+      );
+    }
     const memory = process.memoryUsage();
     console.error(
       `[playwright] build diagnostics: status=${buildResult.status}, signal=${buildResult.signal ?? "none"}, error=${buildResult.error?.message ?? "none"}, memory(rss=${Math.round(memory.rss / (1024 * 1024))}MB, heapTotal=${Math.round(memory.heapTotal / (1024 * 1024))}MB, heapUsed=${Math.round(memory.heapUsed / (1024 * 1024))}MB)`,

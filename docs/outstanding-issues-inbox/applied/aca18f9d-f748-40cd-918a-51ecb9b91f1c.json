@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "aca18f9d-f748-40cd-918a-51ecb9b91f1c",
+  "createdOn": "2026-09-07",
+  "action": "cancel",
+  "payload": {
+    "requestId": "4d148590-e6c2-4dde-b07d-111f312c827e",
+    "reason": "Withdrawn in favour of the competing request 4036f064, a done on the same row backed by an actual implementation (outcome: mode pill now routes to dedicated mode homes). My request only re-scoped #ZKR5YK to Tools after verifying that its Sources, Documents and Medication examples are gone (all three bare paths redirect now) and that Favourites is settled by owner decision #V0EDR4. A re-scope is pointless against a close that supersedes the whole row, and two pending mutations on one row block reconciliation for everyone (#686WHW). The verified findings are recorded in the PR that carried this session's fixes instead, so they are not lost if that close is ever reopened."
+  }
+}

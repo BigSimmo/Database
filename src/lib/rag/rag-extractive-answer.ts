@@ -143,6 +143,17 @@ type ExtractedClinicalFact = {
   priority: number;
 };
 
+type MonitoringFacet =
+  | "baseline"
+  | "level_range"
+  | "sample_timing"
+  | "after_change"
+  | "stable_monitoring"
+  | "steady_state"
+  | "ongoing"
+  | "higher_risk"
+  | "other";
+
 const extractiveLabelPattern =
   /\b(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point|Dose detail|Monitoring)\s*:\s*/gi;
 
@@ -195,6 +206,12 @@ function rewriteLeadingHeadingContext(value: string) {
 /** Clean extractive point text. */
 function cleanExtractivePointText(value: string) {
   const rewritten = normalizeInlineBulletGlyphs(sourceTextForClinicalProse(value))
+    // Preserve standalone clinical analytes whose digits are part of the name,
+    // not a PDF footnote suffix. The attached-reference cleaner below still
+    // removes prose/unit markers such as "Tests1" and "mmol/L1,5".
+    .replace(/\bT3\b/g, "THREECLINICALTHYROIDTOKEN")
+    .replace(/\bT4\b/g, "FOURCLINICALTHYROIDTOKEN")
+    .replace(/\bB12\b/g, "TWELVECLINICALVITAMINTOKEN")
     .replace(/\b(?:clinical_table|table_crop|diagram_crop)\b/gi, " ")
     .replace(
       /^(?:clinical\s+)?table\s+(?:showing|detailing|listing|outlining|describing)\b.*?:\s*(?=\b(?:if|when|for|cease|stop|withhold|contact|repeat|monitor|clozapine)\b)/i,
@@ -207,7 +224,7 @@ function cleanExtractivePointText(value: string) {
     .replace(extractiveLabelPattern, " ")
     .replace(/^[\s\-•:]+/, "")
     .replace(/^(?:monitoring|dose|dosing|source|section|table|guideline)\s*[.;:,-]\s*/i, "")
-    .replace(/([A-Za-z)])(\d{1,2})(?=(?:[,.;]|\s|$))/g, "$1")
+    .replace(/([A-Za-z)])\d{1,2}(?:,\s*\d{1,2})*(?=(?:[.;]|\s|$))/g, "$1")
     .replace(/\s+[•]\s+/g, ". ")
     .replace(
       /\s+-\s+(?=[A-Z][a-z])|(?:\s+-\s*)?(?:Medication point|Table evidence|Threshold\/action|Risk\/escalation|Workflow step|Section summary|Source point)\s*:\s*/gi,
@@ -216,7 +233,10 @@ function cleanExtractivePointText(value: string) {
     .replace(/\s+/g, " ")
     .replace(/\s+([,.;:])/g, "$1")
     .replace(/(?:\.\s*){2,}/g, ". ")
-    .trim();
+    .trim()
+    .replace(/THREECLINICALTHYROIDTOKEN/g, "T3")
+    .replace(/FOURCLINICALTHYROIDTOKEN/g, "T4")
+    .replace(/TWELVECLINICALVITAMINTOKEN/g, "B12");
   // Directive/advisory labels keep their colon — "Avoid: 12.5 mg…" must not
   // become the noun-label sentence "Avoid is 12.5 mg…".
   return rewriteLeadingHeadingContext(rewritten).replace(doseLabelColonPattern, (match, label: string) =>
@@ -473,6 +493,7 @@ export function classifyAnswerIntent(query: string, queryClass: RagQueryClass): 
   const hasScheduleSignal =
     /\b(?:monitor|monitoring|schedule|baseline|follow[-\s]?up|level|levels|test|tests)\b/.test(normalized) ||
     isMonitoringLevelRangeLookupQuery(normalized);
+  if (hasScheduleSignal && isCompoundMonitoringToxicityQuery(normalized)) return "monitoring_schedule";
   // Toxicity and explicit action queries take priority over monitoring even if schedule/baseline/follow-up terms appear.
   const hasStrongResultSignal =
     /\b(?:toxicity|what\s+action|action\s+is\s+required|required\s+action|suspected\s+\w+\s+toxicity)\b/.test(
@@ -517,9 +538,10 @@ function queryEntityTokens(query: string, intent: AnswerIntent) {
 function queryEntitySubject(query: string, intent: AnswerIntent) {
   const tokens = queryEntityTokens(query, intent);
   if (tokens.includes("agitation") && tokens.includes("arousal")) return "agitation and arousal";
-  // A requested risk facet is not the medication being monitored.
+  // Monitoring facets and verbs ("risk", "used") are not the medication being
+  // monitored. Prefer the one explicit medicine over the first residual token.
   const medicines = medicationEntitiesInText(query);
-  if (intent === "monitoring_schedule" && tokens[0] === "risk" && medicines.length === 1) return medicines[0];
+  if (intent === "monitoring_schedule" && medicines.length === 1) return medicines[0];
   return tokens[0];
 }
 
@@ -834,6 +856,7 @@ function hasRelevantQueryOverlap(
 function hasBadExtractiveQuality(text: string) {
   const normalized = normalizeSectionText(text);
   if (!normalized) return true;
+  if (/^appendix\s+(?:\d+|[ivxlcdm]+)\s*:\s*[^.!?]{0,80}\bform\b\.?$/i.test(normalized)) return true;
   if (containsDanglingProceduralComparatorStepArtifact(normalized)) return true;
   if (extractiveTruncationPattern.test(normalized)) return true;
   if (extractiveProductCataloguePattern.test(normalized)) return true;
@@ -950,6 +973,13 @@ function isGroupedClinicalThresholdHeading(fragment: string) {
 function isGroupedClinicalThresholdRow(fragment: string) {
   return (
     /\d/.test(fragment) &&
+    // A range heading may qualify consecutive compact value rows, but it must
+    // expire when ordinary monitoring prose starts. Timing/action sentences
+    // also contain numbers and units, so treating every numeric sentence as a
+    // row leaks the old range heading into later paragraphs.
+    !/\b(?:after\s+dosing|post[-\s]?dose|used\s+for\s+monitoring|check|monitor\w*|once\s+stable|steady\s+state|until\s+stabili[sz]ed|starting\s+treatment|dose\s+change)\b/i.test(
+      fragment,
+    ) &&
     /(?:\b(?:between|below|above|less|greater)\b|[<>≤≥]|\b\d+(?:\.\d+)?\s*(?:-|–|—|to)\s*\d|\b(?:mmol|mol|mg|mcg|ng|msec|ms|units?)\b|[µμ]g|%)/i.test(
       fragment,
     )
@@ -958,10 +988,21 @@ function isGroupedClinicalThresholdRow(fragment: string) {
 
 /** Split clinical evidence sentences. */
 export function splitClinicalEvidenceSentences(value: string) {
+  const sourceText = sourceTextForClinicalProsePreservingBreaks(value).replace(
+    // Plain-text PDF extraction also represents nested bullets as "o Text".
+    // Keep that visual boundary before soft-wrap reflow; otherwise the lowercase
+    // bullet marker is mistaken for a continuation of the preceding heading.
+    /\n(?=[ \t]*o[ \t]+[A-Z])/g,
+    "\n\n",
+  );
   const fragments = normalizeInlineBulletGlyphs(
     reflowWrappedEctBookingSystemLines(
       reflowWrappedEscalationRecipientLines(
-        reflowWrappedAgitationDoseLines(sourceTextForClinicalProsePreservingBreaks(value)),
+        reflowWrappedAgitationDoseLines(
+          reflowBoundedSourceLines(sourceText, {
+            requireContinuationStart: true,
+          }).join("\n"),
+        ),
       ),
     ),
     { joiner: "\n" },
@@ -1028,6 +1069,12 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
     )
   ) {
     return "contraindication";
+  }
+  if (
+    intent === "monitoring_schedule" &&
+    /\bsteady\s+state\s+concentrations?\b[^.!?]{0,80}\b(?:after|within)\s+\d/i.test(text)
+  ) {
+    return "monitoring";
   }
   if (intent === "monitoring_schedule" && deliveredMonitoringFrequencyPresent(text)) return "monitoring";
   if (/\b(?:renal|kidney|eGFR|creatinine|CrCl)\b/i.test(text)) return "renal_limit";
@@ -1306,7 +1353,34 @@ function factSentenceMatchesQueryFromResult(
     if (ageQualifiers(sentence).some((qualifier) => !requestedAgeQualifiers.has(qualifier))) return false;
   }
   if (mentionsDifferentMedicationEntity(sentence, query)) return false;
-  if (hasForeignThresholdLabel(query, sentence)) return false;
+  // The shared label parser treats the word immediately before
+  // "concentration" as an analyte. Remove only temporal modifiers before that
+  // check: "post-dose" and "steady state" describe when the queried level is
+  // measured, while actual foreign labels such as TSH remain intact.
+  const thresholdLabelEvidence =
+    intent === "monitoring_schedule"
+      ? sentence
+          .replace(/\b(?:\d+(?:\.\d+)?[-\s]*hours?\s+)?post[-\s]?dose\s+(?=(?:serum|plasma)\s+concentrations?\b)/gi, "")
+          .replace(/\bsteady\s+state\s+(?=concentrations?\b)/gi, "")
+      : sentence;
+  const routineMonitoringParameters = [
+    /\b(?:weight|bmi|body\s+mass\s+index)\b/i,
+    /\bcalcium\b/i,
+    /\bparathyroid\s+hormone\b/i,
+    /\b(?:renal|kidney|creatinine|eGFR)\b/i,
+    /\b(?:thyroid|tsh|t3|t4)\b/i,
+    /\b(?:full\s+blood\s+(?:picture|count)|fbc)\b/i,
+    /\b(?:urea|electrolytes?)\b/i,
+  ].filter((pattern) => pattern.test(sentence)).length;
+  const sourceBoundMultiParameterCadence =
+    intent === "monitoring_schedule" &&
+    routineMonitoringParameters >= 2 &&
+    medicationEntitiesInText(sentence).some((medicine) => medicationEntitiesInText(query).includes(medicine)) &&
+    /\b(?:every\s+\d+(?:\s*(?:-|–|—|to)\s*\d+)?\s*(?:weeks?|months?|years?)|weekly|monthly|annual(?:ly)?|yearly)\b/i.test(
+      sentence,
+    ) &&
+    !/\b\d+(?:\.\d+)?\s*(?:mmol\/l|mol\/l|mg\/l|mcg\/l|ng\/ml)\b/i.test(sentence);
+  if (hasForeignThresholdLabel(query, thresholdLabelEvidence) && !sourceBoundMultiParameterCadence) return false;
   if (!hasBoundedMedicationSubjectForNumericRepeatDoseSchedule(sentence, result, query)) return false;
   const maintenanceScope = [
     result.section_heading,
@@ -1409,6 +1483,166 @@ function withTerminalPunctuation(value: string | null | undefined) {
   return /[.:;!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
+const baselineMonitoringHeadingPattern =
+  /^\s*(?:baseline|pre[-\s]?treatment|before\s+(?:starting|commencing))\s+(?:tests?|checks?|monitoring|investigations?)\s*\d*\s*:?\s*$/i;
+const baselineMonitoringBulletPattern = /^\s*(?:[•◦▪‣●*-]|o(?=\s+[A-Z]))\s+(.+?)\s*$/;
+
+/** Bind an OCR-preserved baseline bullet block into one source-scoped fact. */
+function baselineMonitoringFactFromResult(
+  result: SearchResult,
+  query: string,
+  intent: AnswerIntent,
+): ExtractedClinicalFact | null {
+  if (intent !== "monitoring_schedule") return null;
+  // A medication in the document title cannot override a differently scoped
+  // treatment section, even when its baseline bullets contain no drug names.
+  const queryMedications = new Set(medicationSafetyEntitiesInText(query));
+  const treatmentScope = [
+    result.section_heading,
+    result.parent_heading,
+    ...(result.section_path ?? []),
+    result.index_unit?.title,
+    ...(result.index_unit?.heading_path ?? []),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (
+    queryMedications.size > 0 &&
+    medicationSafetyEntitiesInText(treatmentScope).some((medication) => !queryMedications.has(medication))
+  ) {
+    return null;
+  }
+  const lines = sourceTextForClinicalProsePreservingBreaks(result.content ?? "").split(/\r?\n/);
+  const headingIndex = lines.findIndex((line) => baselineMonitoringHeadingPattern.test(line));
+  if (headingIndex < 0) return null;
+
+  const items: string[] = [];
+  for (let index = headingIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    const bullet = line.match(baselineMonitoringBulletPattern);
+    if (bullet) {
+      // Baseline rows are already source-sanitized above. Avoid the generic
+      // prose footnote cleaner here because T4 is a clinical token rather than
+      // an appended citation marker.
+      const item = normalizeSectionText(bullet[1]).replace(/[.;,\s]+$/, "");
+      if (item) items.push(item);
+      if (items.length >= 10) break;
+      continue;
+    }
+    if (!line.trim()) {
+      if (items.length) break;
+      continue;
+    }
+    // Preserve a wrapped continuation only after a bullet. A new prose line
+    // ends the block, so later instructions cannot be relabelled as baseline.
+    if (items.length && /^\s{2,}\S/.test(line)) {
+      items[items.length - 1] = cleanExtractivePointText(`${items[items.length - 1]} ${line.trim()}`).replace(
+        /[.;,\s]+$/,
+        "",
+      );
+      continue;
+    }
+    break;
+  }
+  if (items.length < 2) return null;
+
+  const sourceTitle = normalizeSectionText(result.title || result.file_name || "the cited source");
+  const populationScope = [result.parent_heading, ...(result.section_path ?? [])]
+    .map((value) => normalizeSectionText(value ?? ""))
+    .find((value) => normalizedClinicalSearchTokens(value).some(hasClinicalPopulationSignal));
+  const sourceLabel = populationScope ? `${sourceTitle}, ${populationScope}` : sourceTitle;
+  const baselineList = (values: string[]) =>
+    values.length < 2 ? values.join("") : `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+  const boundedItems: string[] = [];
+  for (const item of items) {
+    const candidate = `In ${sourceLabel}, baseline tests include ${baselineList([...boundedItems, item])}.`;
+    if (candidate.length > 520) break;
+    boundedItems.push(item);
+  }
+  if (boundedItems.length < 2) return null;
+  const text = `In ${sourceLabel}, baseline tests include ${baselineList(boundedItems)}.`;
+  const kind = factKindForSentence(text, query, intent);
+  // A baseline test list may legitimately name analytes other than the queried
+  // medicine (for example thyroid tests). The foreign-threshold guard rejects
+  // those labels even when the list carries no clinical value to misbind.
+  const sourceScopedNonNumericList =
+    isBroadMonitoringOverviewQuery(query) &&
+    extractClinicalValueAtoms(text).length === 0 &&
+    !mentionsDifferentMedicationEntity(text, query) &&
+    hasRelevantQueryOverlap(text, query, intent);
+  if (!kind || (!factSentenceMatchesQueryFromResult(text, result, query, intent) && !sourceScopedNonNumericList)) {
+    return null;
+  }
+  if (!factSupportsAnswerIntent(kind, text, query, intent)) return null;
+  return {
+    kind,
+    text,
+    citationChunkIds: [result.id],
+    priority: factPriority(kind, intent) + Math.min(scoreValue(result), 1) + 2,
+  };
+}
+
+function bindMonitoringAnaphoricQualifiers(sentences: string[], intent: AnswerIntent) {
+  if (intent !== "monitoring_schedule") return sentences;
+  const bound: string[] = [];
+  for (const sentence of sentences) {
+    const previous = bound.at(-1);
+    if (previous && /\bsteady\s+state\b/i.test(previous) && /^This may be longer\b/i.test(sentence)) {
+      // Keep the source's original period and anaphora together. This retains
+      // the exact two supported claims while the explicit first sentence gives
+      // the qualifier its only safe antecedent.
+      bound[bound.length - 1] = `${previous} ${sentence}`;
+      continue;
+    }
+    bound.push(sentence);
+  }
+  return bound;
+}
+
+function labelledMonitoringTargetFactsFromResult(
+  result: SearchResult,
+  query: string,
+  intent: AnswerIntent,
+): ExtractedClinicalFact[] {
+  if (intent !== "monitoring_schedule") return [];
+  const lines = sourceTextForClinicalProsePreservingBreaks(result.content ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n");
+  const facts: ExtractedClinicalFact[] = [];
+  let parentLabel = "";
+  for (let index = 0; index < lines.length; index += 1) {
+    const parent = lines[index].match(/^\s*[•*-]\s+([^\n]+?)\s*$/);
+    if (parent) {
+      parentLabel = cleanExtractivePointText(parent[1]).replace(/[.:;\s]+$/, "");
+      continue;
+    }
+    const row = lines[index].match(/^\s*o\s+(Target\s+(?:serum|plasma)\s+level\s*:\s*.+?)\s*$/i);
+    if (!row || !parentLabel) continue;
+    let target = row[1];
+    while (index + 1 < lines.length && /^\s+[a-z0-9(]/.test(lines[index + 1])) {
+      target = `${target} ${lines[index + 1].trim()}`;
+      index += 1;
+    }
+    const targetClause = cleanExtractivePointText(
+      target.replace(
+        /^Target\s+(serum|plasma)\s+level\s*:\s*/i,
+        (_, specimen: string) => `the target ${specimen.toLowerCase()} level is `,
+      ),
+    );
+    const text = `For ${lowerFirst(parentLabel)}, ${targetClause}`;
+    const kind = factKindForSentence(text, query, intent);
+    if (!kind || !factSentenceMatchesQueryFromResult(text, result, query, intent)) continue;
+    if (!factSupportsAnswerIntent(kind, text, query, intent)) continue;
+    facts.push({
+      kind,
+      text,
+      citationChunkIds: [result.id],
+      priority: factPriority(kind, intent) + Math.min(scoreValue(result), 1) + 1,
+    });
+  }
+  return facts;
+}
+
 /** Extract clinical facts from results. */
 function extractClinicalFactsFromResults(
   results: SearchResult[],
@@ -1426,6 +1660,25 @@ function extractClinicalFactsFromResults(
     const referencesConflictingBand = (text: string) =>
       sourceLabelledNumericBandConflictsAffectingText(result, text, query).length > 0 ||
       textReferencesAdjacentBandConflict(text, result.id, adjacentBandConflicts, query);
+    const baselineFact = sourceProseOnly ? null : baselineMonitoringFactFromResult(result, query, intent);
+    if (baselineFact && !referencesConflictingBand(baselineFact.text)) {
+      const key = `${baselineFact.kind}:${normalizeSectionText(baselineFact.text).toLowerCase().slice(0, 160)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        facts.push(baselineFact);
+      }
+    }
+    const labelledTargetFacts = sourceProseOnly
+      ? []
+      : labelledMonitoringTargetFactsFromResult(result, query, intent).filter(
+          (fact) => !referencesConflictingBand(fact.text),
+        );
+    for (const fact of labelledTargetFacts) {
+      const key = `${fact.kind}:${normalizeSectionText(fact.text).toLowerCase().slice(0, 160)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      facts.push(fact);
+    }
     for (const fact of sourceProseOnly ? [] : tableFactsToClinicalFacts(result, query, intent)) {
       if (referencesConflictingBand(fact.text)) continue;
       const key = `${fact.kind}:${normalizeSectionText(fact.text).toLowerCase().slice(0, 160)}`;
@@ -1467,28 +1720,38 @@ function extractClinicalFactsFromResults(
       .join("\n");
     // A rejected heading-led answer may still have complete prose in its source chunks.
     // Recover only within source blocks, without synopsis/heading/card text or table facts.
-    const sentences = sourceProseOnly
-      ? reflowBoundedSourceLines(
-          sourceTextForClinicalProsePreservingBreaks(result.content ?? "").replace(
-            // The captured NOCC proper name wraps onto a capitalized continuation.
-            // Join only that name; other capitalized rows remain hard boundaries.
-            /\bNational Outcome[ \t]*\n[ \t]*Case Mix Collection \(NOCC\)/g,
-            "National Outcome Case Mix Collection (NOCC)",
-          ),
-          { requireContinuationStart: true },
-        )
-          .flatMap(splitClinicalEvidenceSentences)
-          .filter(
-            (sentence) =>
-              sentence.length <= 280 &&
-              /[.!?]$/.test(sentence) &&
-              hasCompleteOpeningSentence(sentence) &&
-              !isFragmentLikeClinicalAnswer(sentence, query) &&
-              !guidanceWrapperLayoutDebrisPattern.test(sentence),
+    const sentences = bindMonitoringAnaphoricQualifiers(
+      sourceProseOnly
+        ? reflowBoundedSourceLines(
+            sourceTextForClinicalProsePreservingBreaks(result.content ?? "").replace(
+              // The captured NOCC proper name wraps onto a capitalized continuation.
+              // Join only that name; other capitalized rows remain hard boundaries.
+              /\bNational Outcome[ \t]*\n[ \t]*Case Mix Collection \(NOCC\)/g,
+              "National Outcome Case Mix Collection (NOCC)",
+            ),
+            { requireContinuationStart: true },
           )
-      : splitClinicalEvidenceSentences(text);
+            .flatMap(splitClinicalEvidenceSentences)
+            .filter(
+              (sentence) =>
+                sentence.length <= 280 &&
+                /[.!?]$/.test(sentence) &&
+                hasCompleteOpeningSentence(sentence) &&
+                !isFragmentLikeClinicalAnswer(sentence, query) &&
+                !guidanceWrapperLayoutDebrisPattern.test(sentence),
+            )
+        : splitClinicalEvidenceSentences(text),
+      intent,
+    );
     for (const sentence of sentences) {
       if (referencesConflictingBand(sentence)) continue;
+      if (
+        labelledTargetFacts.length > 1 &&
+        (/(?:^|:\s*)Target\s+(?:serum|plasma)\s+level\s*:/i.test(sentence) ||
+          /\bFor\s+target\s+(?:serum|plasma)\s+level\s*,/i.test(sentence))
+      ) {
+        continue;
+      }
       if (!factSentenceMatchesQueryFromResult(sentence, result, query, intent)) continue;
       const kind = factKindForSentence(sentence, query, intent);
       if (!kind) continue;
@@ -1623,8 +1886,8 @@ function buildFactSections(facts: ExtractedClinicalFact[], query: string) {
     .slice(0, 4)
     .map(([kind, group]) => {
       const section = sectionForFactKind(kind);
-      const body = group
-        .slice(0, 2)
+      const emittedFacts = group.slice(0, 2);
+      const body = emittedFacts
         .map((fact) => sentenceFromFact(fact, query))
         .filter(Boolean)
         .join(" ");
@@ -1633,10 +1896,281 @@ function buildFactSections(facts: ExtractedClinicalFact[], query: string) {
         kind: section.kind,
         supportLevel: "direct",
         body: boldHighYieldClinicalText(body, query),
-        citation_chunk_ids: Array.from(new Set(group.flatMap((fact) => fact.citationChunkIds))),
+        citation_chunk_ids: Array.from(new Set(emittedFacts.flatMap((fact) => fact.citationChunkIds))),
       } satisfies AnswerSection;
     })
     .filter((section) => section.body && section.citation_chunk_ids.length > 0);
+}
+
+function isBroadMonitoringOverviewQuery(query: string) {
+  const normalized = normalizeSectionText(query).toLowerCase();
+  if (!/\bmonitor(?:ing)?\b/.test(normalized) || isMonitoringLevelRangeLookupQuery(normalized)) return false;
+  if (
+    /\b(?:when|timing|frequency|interval|how\s+(?:often|soon)|post[-\s]?dose|last\s+dose|blood\s+draw|sample|trough|steady\s+state)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:renal|kidney|thyroid|calcium|cardiac|ecg|metabolic|weight|bmi|glucose|lipid)\s+monitoring\b/.test(normalized)
+  ) {
+    return false;
+  }
+  return (
+    /\b(?:what|which|list|summari[sz]e|overview)\b[^?]{0,100}\bmonitor(?:ing)?\b/.test(normalized) ||
+    /\bmonitor(?:ing)?\b[^?]{0,100}\b(?:required|needed|used|include\w*|involve\w*)\b/.test(normalized)
+  );
+}
+
+function requestedMonitoringScheduleFacets(query: string) {
+  const normalized = normalizeSectionText(query).toLowerCase();
+  const facets = new Set<MonitoringFacet>();
+  if (/\bbaseline\b|\bpre[-\s]?treatment\b|\bbefore\s+(?:starting|commencing)\b/.test(normalized)) {
+    facets.add("baseline");
+  }
+  if (/\b(?:sample|sampling|post[-\s]?dose|last\s+dose|trough)\b/.test(normalized)) {
+    facets.add("sample_timing");
+  }
+  if (/\b(?:target|targets|therapeutic\s+(?:level|levels|range|ranges))\b/.test(normalized)) {
+    facets.add("level_range");
+  }
+  if (/\b(?:after|following)\b[^?]{0,60}\b(?:dose\s+changes?|chang\w*\s+(?:the\s+)?dose)\b/.test(normalized)) {
+    facets.add("after_change");
+  }
+  if (/\b(?:stable\s+treatment|once\s+stable|maintenance\s+monitoring)\b/.test(normalized)) {
+    facets.add("stable_monitoring");
+  }
+  if (/\b(?:higher[-\s]?risk|high[-\s]?risk|renal\s+impairment|closer\s+monitoring)\b/.test(normalized)) {
+    facets.add("higher_risk");
+  }
+  return facets;
+}
+
+/** A schedule overview that also explicitly asks for toxicity actions. */
+function isCompoundMonitoringToxicityQuery(query: string) {
+  const normalized = normalizeSectionText(query).toLowerCase();
+  const asksForScheduleOverview =
+    /\bmonitor(?:ing)?\s+schedule\b|\b(?:detailed|complete|comprehensive)\b[^?]{0,80}\bmonitor(?:ing)?\b/.test(
+      normalized,
+    );
+  const asksForToxicityAction =
+    /\bactions?\b[^?]{0,60}\b(?:suspected\s+)?toxicity\b|\b(?:suspected\s+)?toxicity\b[^?]{0,60}\bactions?\b/.test(
+      normalized,
+    );
+  return asksForScheduleOverview && asksForToxicityAction && requestedMonitoringScheduleFacets(normalized).size >= 2;
+}
+
+function monitoringFacetForFact(fact: ExtractedClinicalFact): MonitoringFacet {
+  const text = normalizeSectionText(fact.text).toLowerCase();
+  if (/\bbaseline\b|\bpre[-\s]?treatment\b|\bbefore\s+(?:starting|commencing)\b/.test(text)) return "baseline";
+  if (/\b(?:post[-\s]?dose|after\s+(?:the\s+)?last\s+dose|blood\s+draw|sample|sampling|trough)\b/.test(text)) {
+    return "sample_timing";
+  }
+  if (/\bonce\s+stable\b|\bstable\s+(?:treatment|patients?)\b/.test(text)) return "stable_monitoring";
+  if (/\bsteady\s+state\b/.test(text)) return "steady_state";
+  const hasRecurringCadence =
+    /\bevery\s+(?:\d+(?:\s*[-–—]\s*\d+)?|one|two|three|four|six|twelve)\s+(?:days?|weeks?|months?|years?)\b/.test(text);
+  const followsDoseChange =
+    /\b(?:after|following)\b[^.!?]{0,80}\b(?:dose\s+changes?|chang\w*\s+(?:the\s+)?dose)\b/.test(text);
+  if (
+    /\b(?:levels?|concentrations?)\b/.test(text) &&
+    (followsDoseChange ||
+      (!hasRecurringCadence && /\b(?:after|following)\b[^.!?]{0,80}\b(?:start\w*|commenc\w*)\b/.test(text)))
+  ) {
+    return "after_change";
+  }
+  // This categorizes an already admitted fact, rather than granting clinical
+  // support. A recurring multi-test schedule can exceed the short predicate
+  // window used by the frequency-question detector.
+  if (hasRecurringCadence) {
+    return "ongoing";
+  }
+  if (deliveredMonitoringFrequencyPresent(text)) return "ongoing";
+  if (monitoringLevelRangeCoveragePattern.test(text)) return "level_range";
+  if (/\b(?:renal\s+impairment|interact\w+\s+medication|closer\s+monitoring|higher\s+risk)\b/.test(text)) {
+    return "higher_risk";
+  }
+  return "other";
+}
+
+const monitoringFacetOrder: MonitoringFacet[] = [
+  "baseline",
+  "level_range",
+  "sample_timing",
+  "after_change",
+  "stable_monitoring",
+  "ongoing",
+  "higher_risk",
+  "steady_state",
+  "other",
+];
+
+function selectBroadMonitoringFacts(facts: ExtractedClinicalFact[]) {
+  const selected: ExtractedClinicalFact[] = [];
+  for (const facet of monitoringFacetOrder) {
+    const fact = facts.find((candidate) => monitoringFacetForFact(candidate) === facet);
+    if (fact) selected.push(fact);
+    if (selected.length >= 7) break;
+  }
+  for (const fact of facts) {
+    if (!selected.includes(fact)) selected.push(fact);
+    if (selected.length >= 7) break;
+  }
+  return selected;
+}
+
+function monitoringFacetSection(fact: ExtractedClinicalFact, query: string): AnswerSection | null {
+  const headings: Record<MonitoringFacet, string> = {
+    baseline: "Baseline",
+    level_range: "Target level",
+    sample_timing: "Level sampling",
+    after_change: "Starting and dose changes",
+    stable_monitoring: "Stable treatment",
+    steady_state: "Steady state",
+    ongoing: "Ongoing monitoring",
+    higher_risk: "Higher-risk monitoring",
+    other: "Monitoring",
+  };
+  const facet = monitoringFacetForFact(fact);
+  const normalized = normalizeSectionText(fact.text).toLowerCase();
+  if (facet === "after_change") {
+    const coversStarting = /\b(?:start\w*|commenc\w*)\b/.test(normalized);
+    const coversDoseChanges = /\b(?:dose\s+change|chang\w*\s+(?:the\s+)?dose)\b/.test(normalized);
+    headings.after_change =
+      coversStarting && coversDoseChanges
+        ? "Starting and dose changes"
+        : coversStarting
+          ? "Starting treatment"
+          : "Dose changes";
+  }
+  const body = sentenceFromFact(fact, query);
+  if (!body || fact.citationChunkIds.length === 0) return null;
+  return {
+    heading: headings[facet],
+    kind: "monitoring_timing",
+    supportLevel: "direct",
+    body: boldHighYieldClinicalText(body, query),
+    citation_chunk_ids: Array.from(new Set(fact.citationChunkIds)),
+  };
+}
+
+function buildBroadMonitoringSections(facts: ExtractedClinicalFact[], query: string, limit = 6) {
+  return facts
+    .slice(0, limit)
+    .map((fact) => monitoringFacetSection(fact, query))
+    .filter((section): section is AnswerSection => Boolean(section));
+}
+
+function hasCompoundToxicityActionEvidence(text: string) {
+  return (
+    hasWithholdActionEvidence(text) ||
+    (/\bcheck\b[^.!?]{0,100}\b(?:serum|plasma)?\s*[^.!?]{0,30}\blevel\b/i.test(text) &&
+      /\b(?:renal|kidney|creatinine|eGFR)\b/i.test(text)) ||
+    hasTargetedEscalationAction(text)
+  );
+}
+
+function compoundMonitoringToxicityActionSection(results: SearchResult[], query: string): AnswerSection | null {
+  if (!isCompoundMonitoringToxicityQuery(query)) return null;
+  const queryMedicines = medicationEntitiesInText(query);
+  for (const result of results) {
+    const lines = sourceTextForClinicalProsePreservingBreaks(result.content ?? "")
+      .replace(/\r\n?/g, "\n")
+      .split("\n");
+    const triggerStart = lines.findIndex((line) => /\b(?:where|if|when)\b.*\btoxicity\b/i.test(line));
+    if (triggerStart < 0) continue;
+    let triggerEnd = triggerStart;
+    while (
+      triggerEnd + 1 < lines.length &&
+      !/[.!?:]\s*$/.test(lines[triggerEnd]) &&
+      triggerEnd - triggerStart < 3 &&
+      lines[triggerEnd + 1].trim() &&
+      !/^\s*(?:\d+\.|[•*-])\s+/.test(lines[triggerEnd + 1])
+    ) {
+      triggerEnd += 1;
+    }
+    const trigger = cleanExtractivePointText(lines.slice(triggerStart, triggerEnd + 1).join(" "));
+    if (!trigger || hasBadExtractiveQuality(trigger) || !sourceDirectlySupportsAnswerText(trigger, result)) continue;
+    const actionWindow: string[] = [];
+    let current = "";
+    for (const rawLine of lines.slice(triggerEnd + 1)) {
+      const numbered = rawLine.match(/^\s*\d+\.\s*(\S.*)?$/);
+      if (numbered) {
+        if (current) actionWindow.push(cleanExtractivePointText(current));
+        current = numbered[1] ?? "";
+        if (actionWindow.length >= 3) break;
+        continue;
+      }
+      if (!current) {
+        if (rawLine.trim()) break;
+        continue;
+      }
+      if (!rawLine.trim() || /^\s*[•*-]\s+/.test(rawLine)) {
+        actionWindow.push(cleanExtractivePointText(current));
+        current = "";
+        break;
+      }
+      current = `${current} ${rawLine.trim()}`;
+    }
+    if (current && actionWindow.length < 3) actionWindow.push(cleanExtractivePointText(current));
+    const directActions = actionWindow.filter((block) => {
+      const medicineBound =
+        queryMedicines.length === 0 ||
+        queryMedicines.some((medicine) => medicationEntitiesInText(block).includes(medicine));
+      if (!/[.!?]\s*$/.test(block)) return false;
+      if (!/\b(?:withhold|cease|stop|check|urgent(?:ly)?|assess)\b/i.test(block)) return false;
+      if (hasBadExtractiveQuality(block) || mentionsDifferentMedicationEntity(block, query)) return false;
+      if (queryMedicines.length > 0 && !medicineBound) {
+        return false;
+      }
+      if (sourceLabelledNumericBandConflictsAffectingText(result, block, query).length > 0) return false;
+      return sourceDirectlySupportsAnswerText(block, result);
+    });
+    const withholdAction = directActions.find(hasWithholdActionEvidence);
+    const assessmentAction = directActions.find(
+      (block) =>
+        block !== withholdAction && hasCompoundToxicityActionEvidence(block) && !hasWithholdActionEvidence(block),
+    );
+    const selectedActions = [withholdAction, assessmentAction].filter((value): value is string => Boolean(value));
+    if (selectedActions.length === 0) continue;
+    const body = [trigger, ...selectedActions.map((action) => withTerminalPunctuation(action))].join(" ");
+    return {
+      heading: "Suspected toxicity",
+      kind: "required_actions",
+      supportLevel: "direct",
+      body: boldHighYieldClinicalText(body, query),
+      citation_chunk_ids: [result.id],
+    };
+  }
+  return null;
+}
+
+const monitoringFacetGapLabels: Partial<Record<MonitoringFacet, string>> = {
+  baseline: "baseline tests",
+  sample_timing: "level sampling",
+  level_range: "target levels",
+  after_change: "monitoring after dose changes",
+  stable_monitoring: "stable-treatment monitoring",
+  higher_risk: "higher-risk monitoring",
+};
+
+function compoundMonitoringGapSection(
+  facts: ExtractedClinicalFact[],
+  query: string,
+  toxicityActionPresent: boolean,
+): AnswerSection | null {
+  if (!isCompoundMonitoringToxicityQuery(query)) return null;
+  const present = new Set(facts.map(monitoringFacetForFact));
+  const absent = [...requestedMonitoringScheduleFacets(query)]
+    .filter((facet) => !present.has(facet))
+    .map((facet) => monitoringFacetGapLabels[facet])
+    .filter((label): label is string => Boolean(label));
+  if (!toxicityActionPresent) absent.push("actions for suspected toxicity");
+  if (absent.length === 0) return null;
+  return {
+    heading: "Evidence gaps",
+    kind: "source_gap",
+    supportLevel: "unsupported",
+    body: `This answer does not establish: ${absent.join(", ")}.`,
+    citation_chunk_ids: [],
+  };
 }
 
 /**
@@ -2448,7 +2982,12 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  let facts = extractClinicalFactsFromResults(args.results, args.query, args.intent);
+  const compoundMonitoringToxicity =
+    args.intent === "monitoring_schedule" && isCompoundMonitoringToxicityQuery(args.query);
+  const broadMonitoringOverview =
+    args.intent === "monitoring_schedule" && (isBroadMonitoringOverviewQuery(args.query) || compoundMonitoringToxicity);
+  let facts = extractClinicalFactsFromResults(args.results, args.query, args.intent, broadMonitoringOverview ? 32 : 8);
+  if (broadMonitoringOverview) facts = selectBroadMonitoringFacts(facts);
   let recoveredSourceProse = false;
   if (
     args.allowSourceProseRecovery &&
@@ -2508,11 +3047,39 @@ function buildFactSynthesizedAnswer(args: {
     accumulated = `${accumulated} ${sentence}`.trim();
   }
   const answer = sanitizeAnswerText(leadSentences.join(" "));
-  const answerSections = buildFactSections(facts, args.query);
+  const supplementaryFacts =
+    args.intent === "monitoring_schedule" ? facts.filter((fact) => !leadFacts.includes(fact)) : facts;
+  const monitoringSections =
+    args.intent === "monitoring_schedule"
+      ? buildBroadMonitoringSections(supplementaryFacts, args.query, compoundMonitoringToxicity ? 5 : 6)
+      : [];
+  const toxicityActionSection = compoundMonitoringToxicity
+    ? compoundMonitoringToxicityActionSection(args.results, args.query)
+    : null;
+  const monitoringGapSection = compoundMonitoringToxicity
+    ? compoundMonitoringGapSection(facts, args.query, Boolean(toxicityActionSection))
+    : null;
+  const answerSections =
+    args.intent === "monitoring_schedule"
+      ? [
+          ...monitoringSections,
+          ...(toxicityActionSection ? [toxicityActionSection] : []),
+          ...(monitoringGapSection ? [monitoringGapSection] : []),
+        ]
+      : buildFactSections(supplementaryFacts, args.query);
+  const emittedCitationChunkIds =
+    args.intent === "monitoring_schedule"
+      ? Array.from(
+          new Set([
+            ...leadFacts.flatMap((fact) => fact.citationChunkIds),
+            ...answerSections.flatMap((section) => section.citation_chunk_ids),
+          ]),
+        )
+      : Array.from(new Set(facts.flatMap((fact) => fact.citationChunkIds)));
   return {
     answer: boldHighYieldClinicalText(answer, args.query),
     body: boldHighYieldClinicalText(answer, args.query),
-    citationChunkIds: Array.from(new Set(facts.flatMap((fact) => fact.citationChunkIds))),
+    citationChunkIds: emittedCitationChunkIds,
     answerSections,
     recoveredSourceProse,
   };
@@ -3047,49 +3614,24 @@ export function buildExtractiveAnswer(args: {
   return recoveredSourceProse ? retainCitedExtractiveFallbackEvidence(candidate) : candidate;
 }
 
-/** Source backed fallback subject. */
-function sourceBackedFallbackSubject(query: string) {
-  const canonicalQuery = analyzeClinicalQuery(query).typoCorrections.reduce(
-    (current, correction) =>
-      current.replace(new RegExp(`\\b${escapeQueryToken(correction.from)}\\b`, "gi"), correction.to),
-    query,
-  );
-  const normalized = normalizeSectionText(canonicalQuery)
-    .replace(/[?!.]+$/, "")
-    .trim();
-  // Do not echo a requested governance status into the source-only fallback.
-  // "Is this protocol approved for use?" must become a neutral topic rather
-  // than prose that appears to affirm the unverified status.
-  const governanceStatusQuestion = normalized.match(
-    /^(?:is|are|was|were)\s+(.+?)\s+(?:approved|authori[sz]ed|validated|verified|current)\b/i,
-  );
-  if (governanceStatusQuestion?.[1]) {
-    return lowerFirst(governanceStatusQuestion[1]);
-  }
-  const subject = normalized
-    .replace(/^summari[sz]e\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?(?:process|requirements?)\s+for\s+/i, "")
-    .replace(/^what\s+(?:is|are)\s+required\s+(?:for|when)\s+/i, "")
-    .replace(/^what\s+(.+?)\s+should\s+((?:withhold|cease|stop)\s+.+)$/i, "$1 for the decision to $2")
-    .replace(/^what\s+(.+?)\s+(?:is|are)\s+(?:used|required|recommended|needed)\s+for\s+(.+)$/i, "$1 for $2")
-    .replace(/^what\s+(.+?)\s+(?:apply|applies)$/i, "$1")
-    .replace(/^what\s+(.+?)\s+is\s+required$/i, "$1")
-    .replace(/^what\s+does\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+(?:is|are)\s+(?:the\s+)?/i, "")
-    .replace(/^what\s+/i, "")
-    .replace(/\s+(?:document|procedure|guideline)\s+require$/i, "")
-    .replace(/^how\s+(?:is|are)\s+/i, "")
-    .replace(/\s+managed$/i, " management")
-    .trim();
-
-  if (subject.length < 4) return "this clinical question";
-  return subject.length > 90 ? `${subject.slice(0, 87).trim()}...` : lowerFirst(subject);
-}
-
-/** Source backed generation timeout answer. */
-export function sourceBackedGenerationTimeoutAnswer(query: string) {
-  const subject = sourceBackedFallbackSubject(query);
-  return `The uploaded documents contain relevant guidance on ${subject}, but a full written answer could not be completed just now. Relevant document passages are cited below — please review them directly.`;
+/**
+ * Prose for the source-backed review fallback.
+ *
+ * Ledger #ZK460W. This used to read "The uploaded documents contain relevant guidance on
+ * {subject}, but a full written answer could not be completed just now", where {subject} was
+ * rewritten from the clinician's own query. Two faults in one sentence. The clause asserted
+ * something the pipeline had, on this route, just failed to establish, so a query that retrieved
+ * nothing better than loosely similar text came back as a statement that the guidelines covered
+ * it. And echoing the query put whatever the clinician typed into the delivered answer: the
+ * offline adversarial harness case `scope-other-owner-document` puts a patient name in the query,
+ * and it arrived in the answer body through this sentence.
+ *
+ * The wording is now fixed text. It carries no claim about what the documents contain and no
+ * material from the query, which is also why it is safe for `finalizeRagAnswerQualityCore` to
+ * pass it through instead of replacing it.
+ */
+export function sourceBackedGenerationTimeoutAnswer() {
+  return "A written answer could not be produced for this question. The document passages cited below were retrieved as possibly relevant source material and have not been confirmed as answering it. Please review them directly.";
 }
 
 const reasoningEffortRank: Record<OpenAIReasoningEffort, number> = {
@@ -3286,7 +3828,7 @@ function isFragmentLikeClinicalAnswer(text: string, query: string) {
     // Only apply this fragment gate for general/definition questions, not for clinical intent
     // queries like "What is the maximum dose?" or "What is the QTc threshold?" which produce
     // valid concise fact answers that don't contain definition-style phrasing.
-    !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor|renal|contraindicat|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
+    !/\b(?:required|requirements?|dose|dosage|dosing|max(?:imum)?|mg|mcg|threshold|monitor(?:ing)?|renal|contraindicat|referral|pathway|procedure|process|protocol|workflow|steps?|ect|electroconvulsive|qtc|fbc|anc|wbc|level|levels)\b/i.test(
       query,
     ) &&
     // "What is required/needed/involved/included…" and "what is the process/procedure/protocol…"
@@ -3350,6 +3892,55 @@ function isMissingCriticalQueryIntent(query: string, text: string) {
     );
   }
   return false;
+}
+
+function compoundMonitoringCoverageSatisfiesIntent(answer: RagAnswer, query: string) {
+  if (answer.routingMode !== "extractive" || !isCompoundMonitoringToxicityQuery(query)) return false;
+  const directSections = (answer.answerSections ?? []).filter(
+    (section) => section.supportLevel === "direct" && section.citation_chunk_ids.length > 0,
+  );
+  const directMonitoringFacets = new Set(
+    [
+      ...(answer.citations.length > 0 ? [answer.answer] : []),
+      ...directSections.filter((section) => section.kind === "monitoring_timing").map((section) => section.body),
+    ].map((text) =>
+      monitoringFacetForFact({
+        kind: "monitoring",
+        text,
+        citationChunkIds: [],
+        priority: 0,
+      }),
+    ),
+  );
+  const hasDirectSchedule = [
+    "baseline",
+    "sample_timing",
+    "after_change",
+    "stable_monitoring",
+    "ongoing",
+    "steady_state",
+  ].some((facet) => directMonitoringFacets.has(facet as MonitoringFacet));
+  if (!hasDirectSchedule) return false;
+
+  const gapText = normalizeSectionText(
+    (answer.answerSections ?? [])
+      .filter((section) => section.kind === "source_gap" && section.supportLevel === "unsupported")
+      .map((section) => section.body)
+      .join(" "),
+  ).toLowerCase();
+  const requestedFacetsCovered = [...requestedMonitoringScheduleFacets(query)].every((facet) => {
+    if (directMonitoringFacets.has(facet)) return true;
+    const label = monitoringFacetGapLabels[facet];
+    return Boolean(label && gapText.includes(label));
+  });
+  const toxicityCovered =
+    directSections.some(
+      (section) =>
+        section.kind === "required_actions" &&
+        /\btoxicity\b/i.test(`${section.heading} ${section.body}`) &&
+        hasCompoundToxicityActionEvidence(section.body),
+    ) || gapText.includes("actions for suspected toxicity");
+  return requestedFacetsCovered && toxicityCovered;
 }
 
 const openingSentenceTerminatorPattern = /[.!?]["')\]]*(?:\s|$)/;
@@ -3457,7 +4048,9 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (isLowYieldClinicalText(cleanedAnswer)) return "low_yield_answer";
   if (isFragmentLikeClinicalAnswer(cleanedAnswer, query)) return "fragment_like_answer";
   if (isLaunderedGuidanceWrapperAnswer(cleanedAnswer)) return "guidance_wrapper_fragment";
-  if (isMissingCriticalQueryIntent(query, cleanedAnswer)) return "missing_query_intent";
+  if (isMissingCriticalQueryIntent(query, cleanedAnswer) && !compoundMonitoringCoverageSatisfiesIntent(answer, query)) {
+    return "missing_query_intent";
+  }
   // Core-term (entity/intent) overlap responsiveness check. For extractive/low-confidence answers
   // it always applies. For synthesized model answers it is only safe on narrow simple direct
   // questions that are not bare definitions (yes/no, when/where, "does X…") — there a well-targeted
@@ -3885,6 +4478,51 @@ function retainDeliveredExtractiveFallbackEvidence(answer: RagAnswer, query: str
     supportedClaims: undefined,
     evidenceAssessments: undefined,
   });
+}
+
+function appendCompoundMonitoringOutputGap(answer: RagAnswer, query: string) {
+  if (!answer.grounded || answer.routingMode !== "extractive" || !isCompoundMonitoringToxicityQuery(query)) {
+    return answer;
+  }
+  const withoutOldGap = {
+    ...answer,
+    answerSections: (answer.answerSections ?? []).filter((section) => section.kind !== "source_gap"),
+  };
+  const directSections = withoutOldGap.answerSections.filter(
+    (section) => section.supportLevel === "direct" && section.citation_chunk_ids.length > 0,
+  );
+  const deliveredMonitoringTexts = [
+    ...(withoutOldGap.citations.length > 0 ? [withoutOldGap.answer] : []),
+    ...directSections.filter((section) => section.kind === "monitoring_timing").map((section) => section.body),
+  ];
+  const deliveredFacets = new Set(
+    deliveredMonitoringTexts.map((text) =>
+      monitoringFacetForFact({ kind: "monitoring", text, citationChunkIds: [], priority: 0 }),
+    ),
+  );
+  const absent = [...requestedMonitoringScheduleFacets(query)]
+    .filter((facet) => !deliveredFacets.has(facet))
+    .map((facet) => monitoringFacetGapLabels[facet])
+    .filter((label): label is string => Boolean(label));
+  const actionPresent = directSections.some(
+    (section) =>
+      section.kind === "required_actions" &&
+      /\btoxicity\b/i.test(`${section.heading} ${section.body}`) &&
+      hasCompoundToxicityActionEvidence(section.body),
+  );
+  if (!actionPresent) absent.push("actions for suspected toxicity");
+  if (absent.length === 0) return withoutOldGap;
+  const gapSection: AnswerSection = {
+    heading: "Evidence gaps",
+    kind: "source_gap",
+    supportLevel: "unsupported",
+    body: `This answer does not establish: ${absent.join(", ")}.`,
+    citation_chunk_ids: [],
+  };
+  return {
+    ...withoutOldGap,
+    answerSections: reserveMetadataSlots(withoutOldGap, [gapSection], adaptiveAnswerLimits.sections),
+  };
 }
 
 // A "bare cross-reference" answer redirects the reader to another named document for the real
@@ -4472,7 +5110,8 @@ export function finalizeRagAnswerQuality(
     assessAndEnforceClaimSupport(qualityChecked, verificationSources),
     verificationSources,
   );
-  return applyProviderLabels(retainDeliveredExtractiveFallbackEvidence(verified, query, queryClass));
+  const retained = retainDeliveredExtractiveFallbackEvidence(verified, query, queryClass);
+  return applyProviderLabels(appendCompoundMonitoringOutputGap(retained, query));
 }
 
 /**
@@ -4496,6 +5135,23 @@ function finalizeRagAnswerQualityCore(
   // turning a valid answer into garble that then fails the gate. Return them untouched.
   if (answer.preformatted && answer.grounded) {
     return answer;
+  }
+  // Ledger #ZK460W. The source-backed review fallback is not a model answer being judged: it is a
+  // deterministic pointer built in this module ("a full written answer could not be completed,
+  // here are the passages that were retrieved"), delivered ungrounded and unsupported with
+  // review-only citations. Emission sites set `sourceBackedReviewFallback` so this short-circuit
+  // does not depend on routingReason string matching or empty-sections side-conditions.
+  // Every gate below is written for model prose and returns the wrong verdict on it:
+  // the ungrounded/unsupported gate and the query-overlap gate both replace it with
+  // "No current source ... was found", printed above the sources that were in fact found. That
+  // contradiction is what previously forced the route to relabel itself grounded to stay clear of
+  // these gates, which is the defect this row exists for. Nothing model-authored passes here.
+  if (answer.sourceBackedReviewFallback && !answer.grounded && answer.confidence === "unsupported") {
+    // The display mode is forced conservative here rather than left to the route's smart plan: a
+    // plan built for the rejected candidate can still ask for a threshold-table or comparison
+    // shape, and this answer has no rows to put in one. An evidence gap with citations attached is
+    // what it actually is.
+    return { ...answer, responseMode: "evidence_gap" };
   }
   const cleanedAnswer = sanitizeAnswerText(answer.answer);
   const gapLikeAnswer =

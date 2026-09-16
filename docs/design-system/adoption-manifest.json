@@ -800,8 +800,8 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
-        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/dashboard-notices.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
@@ -816,8 +816,8 @@
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
-        "src/components/clinical-dashboard/answer-cancelled-notice.tsx",
         "src/components/clinical-dashboard/clinical-output-helpers.tsx",
+        "src/components/clinical-dashboard/dashboard-notices.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/clinical-dashboard/evidence-panels.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
@@ -931,12 +931,14 @@
       "directImportFiles": [
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
-        "src/components/on-call/on-call-referrals-section.tsx"
+        "src/components/on-call/on-call-referrals-section.tsx",
+        "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
-        "src/components/on-call/on-call-referrals-section.tsx"
+        "src/components/on-call/on-call-referrals-section.tsx",
+        "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,
@@ -1636,8 +1638,8 @@
       "source": "src/components/ui/text-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
-      "productImportFiles": [],
+      "directImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
+      "productImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
       "designSync": {
         "listedInSourceMap": true,
         "listedInDtsProps": true,
@@ -1653,8 +1655,8 @@
       },
       "built": true,
       "locallyRegistered": true,
-      "v2ShellMounted": false,
-      "v2MountMode": "none",
+      "v2ShellMounted": true,
+      "v2MountMode": "inherited-global-root",
       "proofDeclared": true,
       "baselineCommitted": false
     },
@@ -1673,6 +1675,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
@@ -1686,6 +1689,7 @@
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
         "src/components/in-page-nav/in-page-nav-header.tsx",
+        "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx",
         "src/components/therapy-compass/screens/sheets-screen.tsx",
         "src/components/tools/tools-search-results-page.tsx"
@@ -1799,6 +1803,7 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -1836,6 +1841,7 @@
         "src/components/in-page-nav/in-page-nav-header.tsx",
         "src/components/mode-nav/mode-nav.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/on-call/on-call-page-menu.tsx",
         "src/components/therapy-compass/pathway-picker-sheet.tsx",
         "src/components/therapy-compass/recommend-scenario-control.tsx",
         "src/components/therapy-compass/record/key-facts.tsx",
@@ -2512,7 +2518,7 @@
         "src/app/(search-app)/on-call/page.tsx",
         "src/app/(search-app)/on-call/playbook/page.tsx",
         "src/app/(search-app)/on-call/referrals/page.tsx",
-        "src/app/(search-app)/on-call/search/page.tsx",
+        "src/app/(search-app)/on-call/who-is-who/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
         "src/app/(search-app)/services/search/page.tsx",
@@ -2829,7 +2835,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ModeHome"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/on-call/playbook/page.tsx",
@@ -2852,14 +2858,14 @@
           "sanctionedPatternsPresent": []
         },
         {
-          "file": "src/app/(search-app)/on-call/search/page.tsx",
+          "file": "src/app/(search-app)/on-call/who-is-who/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["ModeHome", "SearchPage"]
+          "sanctionedPatternsPresent": []
         },
         {
           "file": "src/app/(search-app)/services/[slug]/page.tsx",
@@ -3741,6 +3747,7 @@
       "documentedDisposition": null,
       "routes": [
         "src/app/caring-contacts/guidance/page.tsx",
+        "src/app/caring-contacts/intake/page.tsx",
         "src/app/caring-contacts/page.tsx",
         "src/app/caring-contacts/patients/[patientId]/page.tsx",
         "src/app/caring-contacts/patients/page.tsx",
@@ -3791,6 +3798,16 @@
       "roots": [
         {
           "file": "src/app/caring-contacts/guidance/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["CaringContactsShell"]
+        },
+        {
+          "file": "src/app/caring-contacts/intake/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4199,7 +4216,7 @@
       "src/app/(search-app)/on-call/page.tsx",
       "src/app/(search-app)/on-call/playbook/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
-      "src/app/(search-app)/on-call/search/page.tsx",
+      "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -4227,6 +4244,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
+      "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
       "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
@@ -4292,7 +4310,7 @@
       "src/app/(search-app)/on-call/page.tsx",
       "src/app/(search-app)/on-call/playbook/page.tsx",
       "src/app/(search-app)/on-call/referrals/page.tsx",
-      "src/app/(search-app)/on-call/search/page.tsx",
+      "src/app/(search-app)/on-call/who-is-who/page.tsx",
       "src/app/(search-app)/page.tsx",
       "src/app/(search-app)/services/[slug]/page.tsx",
       "src/app/(search-app)/services/page.tsx",
@@ -4320,6 +4338,7 @@
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
+      "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
       "src/app/caring-contacts/patients/[patientId]/page.tsx",
       "src/app/caring-contacts/patients/page.tsx",
@@ -4339,7 +4358,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 98,
+    "inheritedCkbV2RootCount": 99,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4347,9 +4366,9 @@
   "summary": {
     "registeredComponentCount": 55,
     "previewCount": 55,
-    "productImportedComponentCount": 42,
-    "rootCount": 99,
-    "productionRouteCount": 91,
-    "nextUiEntryCount": 154
+    "productImportedComponentCount": 43,
+    "rootCount": 100,
+    "productionRouteCount": 92,
+    "nextUiEntryCount": 155
   }
 }

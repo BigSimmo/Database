@@ -452,6 +452,47 @@ test.describe("Medication responsive stress coverage", () => {
       },
       { storageKey: PATIENT_PROFILE_STORAGE_KEY },
     );
+    // The cross-mode lookup is eager at phone width, and a tray with nothing
+    // behind it is now dropped rather than shown as a header that opens onto
+    // nothing. So the panel this test is about only exists if the endpoint
+    // returns a match outside Medication — mocked here rather than left to
+    // whatever the demo corpus happens to hold for this query.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const query = new URL(route.request().url()).searchParams.get("q") ?? "";
+      const group = {
+        kind: "documents",
+        total: 1,
+        latencyMs: 2,
+        items: [
+          {
+            id: "acamprosate-guideline",
+            kind: "documents",
+            title: "Acamprosate prescribing guideline",
+            href: "/documents/acamprosate-guideline",
+            score: 0.86,
+          },
+        ],
+      };
+      const response = {
+        query,
+        tookMs: 8,
+        demoMode: true,
+        groups: [group],
+        contextMode: "prescribing",
+        preferredDomains: ["medications"],
+        domainOrder: ["medications", "documents"],
+      };
+      // The endpoint streams NDJSON, one event per line. A single JSON object
+      // parses to nothing and the panel then correctly drops itself.
+      const events = [
+        { type: "group", query, group },
+        { type: "complete", response },
+      ];
+      await route.fulfill({
+        body: `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+        contentType: "application/x-ndjson; charset=utf-8",
+      });
+    });
     await page.setViewportSize({ width: 320, height: 720 });
     await page.goto("/?mode=prescribing&q=acamprosate%20renal%20dose&run=1", { waitUntil: "domcontentloaded" });
 

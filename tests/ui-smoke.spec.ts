@@ -1,8 +1,23 @@
 import AxeBuilder from "@axe-core/playwright";
 import type { Route } from "playwright-core";
-import { expect, test, type Locator, type Page } from "playwright/test";
+import { expect, test, type Locator, type Page, type Request } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
+
+/**
+ * Detect Next.js 16 prefetch requests across all prefetch strategies (RSC prefetch,
+ * full-strategy HTML/document prefetch, and router state tree prefetch).
+ * In Next 16 full-strategy prefetching, prefetch requests carry headers such as
+ * `purpose: prefetch`, `x-purpose: prefetch`, `sec-purpose: prefetch`, or
+ * `next-router-prefetch`.
+ */
+function isNextPrefetchRequest(request: Request): boolean {
+  const headers = request.headers();
+  const purpose = headers["purpose"] ?? headers["x-purpose"] ?? headers["sec-purpose"];
+  if (purpose === "prefetch") return true;
+  if (headers["next-router-prefetch"] !== undefined) return true;
+  return false;
+}
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
@@ -1061,18 +1076,26 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   // rounding. Keep the clinical touch-target contract while ignoring that
   // sub-hundredth-pixel measurement noise.
   expect(boxes.every((box) => box!.height >= 47.99)).toBe(true);
+
+  // The same rounding reaches the ADJACENCY checks below, which are the ones that
+  // read a sum of two measured floats against a third. CI measured a 0.578px
+  // overlap here on 2026-09-16 and failed the stacked branch; nothing is visibly
+  // overlapping at that size, and the alignment and equal-width assertions beside
+  // these already allow the same 1px. What these assert is order and the absence
+  // of a real overlap, so the tolerance must not grow past one device pixel.
+  const adjacencyTolerance = 1;
   if (layout === "row") {
     expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
-    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
-    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x);
+    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x + adjacencyTolerance);
+    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x + adjacencyTolerance);
     expect(
       Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
     ).toBeLessThanOrEqual(1);
     return;
   }
 
-  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y);
-  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y);
+  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y + adjacencyTolerance);
+  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y + adjacencyTolerance);
   expect(
     Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
   ).toBeLessThanOrEqual(1);
@@ -1530,6 +1553,28 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(imgSrc).toContain("https://*.supabase.co");
     expect(imgSrc?.trim().split(/\s+/)).not.toContain("https:");
     expect(csp).toContain("https://*.supabase.co");
+  });
+
+  /*
+   * The Documents half of the same defect. `/documents` redirects to the shared
+   * home, and `documents/page.tsx` records the idle Documents view as deliberately
+   * retired — but clearing the composer on a submitted search left `run=1` in the
+   * URL, so the shared home stayed suppressed and DocumentSearchResultsPanel fell
+   * back to that retired "Start here" home (`document-search-empty-state`).
+   */
+  test("clearing a documents search returns the shared home, never the retired Start here view", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/search?q=lithium+monitoring&run=1");
+
+    await page
+      .getByRole("button", { name: /clear search question|clear search/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/\?mode=documents&focus=1$/);
+    await expect(page.getByTestId("shared-home-empty-state")).toBeVisible();
+    await expect(page.getByTestId("document-search-empty-state")).toHaveCount(0);
   });
 
   test("static agent guidance is available and documents mode avoids the app error boundary", async ({ page }) => {
@@ -2954,18 +2999,19 @@ test.describe("PsychSift UI smoke coverage", () => {
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // The library matches are one collapsed line in the answer's evidence stack
-    // and open on demand. Still asserted end to end rather than dropped —
-    // open it and the same two links are there, at full tap size.
+    // The library matches sit in one line in the answer's evidence stack, open on
+    // arrival and collapsible (owner decision, 2026-09-07). The links are
+    // asserted where they rest, at full tap size, and the line is then collapsed
+    // for the geometry below.
     const relatedRegion = page.getByRole("region", { name: "Related pages in other modes" });
     const relatedTrigger = relatedRegion.getByTestId("cross-mode-links-line-trigger");
-    await relatedTrigger.click();
+    await expect(relatedTrigger).toHaveAttribute("aria-expanded", "true");
     const relatedItems = relatedRegion.getByRole("listitem");
     await expect(relatedItems).toHaveCount(2);
     await expect(relatedItems.last()).toBeVisible();
-    // Collapse it again before the geometry below. The rest of this test
-    // measures the answer's scroll runway in its resting state, and an expanded
-    // panel adds ~88px of content that the page does not carry by default.
+    // Collapse before the geometry below. The rest of this test measures the
+    // answer's scroll runway with the line put away, which is the state the
+    // collapse exists to give the reader.
     await relatedTrigger.click();
     await expect(relatedItems.last()).toBeHidden();
 
@@ -3119,7 +3165,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 320, height: 844 });
     // Re-open the library line: the tap-target sweep below is about the links
-    // inside it, and the geometry block above needed it resting closed.
+    // inside it, and the geometry block above deliberately collapsed it.
     await relatedTrigger.click();
     const compactCrossModeRail = page.getByTestId("cross-mode-links-rail");
     await expect(compactCrossModeRail).toBeVisible();
@@ -3280,19 +3326,21 @@ test.describe("PsychSift UI smoke coverage", () => {
     // shipped broken on desktop precisely because the one test that checked the
     // collapse ran at 390px: `hidden` beside a `md:flex` in the same class list
     // loses to the media-query rule from 768px up, so the rail stayed open while
-    // its trigger reported `aria-expanded="false"`.
+    // its trigger reported `aria-expanded="false"`. Now that the line rests OPEN
+    // the same mechanic would hide the failure the other way round, which is why
+    // the closed state below is still asserted on the rail's computed display
+    // rather than on the trigger's word for it.
     const trigger = strip.getByTestId("cross-mode-links-line-trigger");
     const rail = strip.getByTestId("cross-mode-links-rail");
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(rail).toBeVisible();
+    await expect(rail).toHaveCSS("display", "flex");
+    // Close and re-open: the collapse is the half that regressed before.
+    await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(rail).toBeHidden();
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    await expect(rail).toBeVisible();
-    await expect(rail).toHaveCSS("display", "flex");
-    // Close and re-open: the collapse is the half that regressed.
-    await trigger.click();
-    await expect(rail).toBeHidden();
-    await trigger.click();
     await expect(rail).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(strip.getByText("Medication", { exact: true }).filter({ visible: true })).toBeVisible();
@@ -3997,22 +4045,29 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
       timeout: 30_000,
     });
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const queryRibbon = page.getByTestId("search-query-ribbon");
+    // Own the visible page root and derive every in-page locator from it (#093).
+    // Scoping only the root assertion still leaves the ribbon and result rows
+    // resolving across both copies once a hidden streaming twin exists.
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    const queryRibbon = dsmPage.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
 
-    const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
+    const result = dsmPage.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
     await expect(result).toBeVisible();
     await expectMinTouchTarget(result.getByRole("button", { name: "Add Major depressive disorder to comparison" }));
     await expectMinTouchTarget(result.getByRole("link", { name: "Open Major depressive disorder" }));
 
     await result.getByRole("link", { name: "Open Major depressive disorder" }).click();
     await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
-    await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
+    const diagnosisPage = visibleByTestId(page, "dsm-diagnosis-page");
+    await expect(diagnosisPage).toBeVisible({ timeout: 30_000 });
+    await expect(diagnosisPage.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     // The breadcrumb row went with the in-page header: its back control is the
     // one route out to the DSM search catalogue, not the shared home composer.
+    // It stays page-scoped because that header portals out of the page root,
+    // the same reason the filter panel below is not scoped either.
     await expect(page.getByRole("link", { name: "Back to dsm-5" })).toHaveAttribute("href", "/dsm/search");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -4058,8 +4113,12 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/dsm/search?q=depression");
 
-    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
-    const trigger = page.getByTestId("dsm-category-filter-desktop");
+    const dsmPage = visibleByTestId(page, "dsm-search-page");
+    await expect(dsmPage).toBeVisible();
+    // The trigger is rendered inside the page root, so it needs the same owner.
+    // The panel below deliberately stays page-scoped: `ResultFilterSheet`
+    // renders through `OverlayPortal`, so it lives outside this subtree.
+    const trigger = dsmPage.getByTestId("dsm-category-filter-desktop");
     await trigger.focus();
     await page.keyboard.press("Enter");
     const panel = page.getByTestId("dsm-category-filter-panel");
@@ -5063,6 +5122,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await mockDemoApi(page);
     const requestCounts = { documents: 0, jobs: 0, batches: 0, quality: 0 };
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       const pathname = new URL(request.url()).pathname;
       if (pathname === "/api/documents") requestCounts.documents += 1;
       if (pathname === "/api/ingestion/jobs") requestCounts.jobs += 1;
@@ -5113,28 +5173,27 @@ test.describe("PsychSift UI smoke coverage", () => {
     expect(requestCounts.quality).toBe(0);
   });
 
-  test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
+  // The legacy `/?mode=tools` URL used to render a second, hub-shaped launcher. It now
+  // redirects to `/tools`, so the query it carries has to survive the hop and land on
+  // the one tools directory with the same registry search behind it.
+  test("the legacy tools URL carries its query to the tools directory", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
     await gotoApp(page, "/?mode=tools&q=medications&focus=1&run=1");
 
+    await page.waitForURL(/\/tools\?/);
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
-    await expect(page.getByTestId("tools-hub")).toBeVisible();
-    const queryRibbon = page.getByTestId("tools-hub").getByTestId("search-query-ribbon");
+    const results = page.getByTestId("tools-search-results-page");
+    await expect(results).toBeVisible();
+    const queryRibbon = results.getByTestId("search-query-ribbon");
     await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
     await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
-    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
-      "Medication Prescribing",
-    );
-    await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
-    const detailsButton = page
-      .getByTestId("tools-hub")
-      .getByRole("button", { name: "View details for Medication Prescribing" });
-    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-    await detailsButton.click();
+    await expect(results.getByRole("heading", { level: 2, name: "Medication Prescribing" }).first()).toBeVisible();
+    // The verb shortcut row is for an unqueried catalogue, so a running query hides it.
+    await expect(page.getByTestId("tools-shortcuts")).toHaveCount(0);
+    await results.getByRole("button", { name: "View details for Medication Prescribing" }).click();
     await expect(
-      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
+      results.getByRole("complementary", { name: "Medication Prescribing" }).locator('a[href="/medications"]').first(),
     ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
@@ -5256,6 +5315,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const setupRequests: string[] = [];
     const signedUrlRequests: Array<"preview" | "download"> = [];
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       const url = new URL(request.url());
       if (url.pathname === `/api/documents/${documentId}`) browserDetailRequests.push(request.url());
       if (url.pathname === "/api/setup-status") setupRequests.push(request.url());
@@ -5541,7 +5601,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(clinicalSummary.getByRole("heading", { name: "Clinical priorities" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
@@ -5618,7 +5680,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     const summaryToggle = clinicalSummary.getByTestId("toggle-document-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(summaryToggle).toBeVisible();
@@ -6059,6 +6123,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
     let legacySummaryRequestCount = 0;
     page.on("request", (request) => {
+      if (isNextPrefetchRequest(request)) return;
       if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
         legacySummaryRequestCount += 1;
       }

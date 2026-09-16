@@ -34,14 +34,22 @@ describe("developer hazard register page", () => {
     );
     expect(tile).toHaveTextContent("hazards with no control");
 
-    // The uncontrolled section exists and names every one of them. A row that
-    // rendered only inside its own register's long list would be the page
-    // under-reporting exactly what it is for.
-    const blockers = screen.getByTestId("developer-hazards-unmitigated");
-    for (const { hazard } of unmitigatedHazards(snapshot)) {
+    // The uncontrolled section names every unmitigated row when any exist. A
+    // row that rendered only inside its own register's long list would be the
+    // page under-reporting exactly what it is for. When the snapshot has none,
+    // the section is omitted (count tile still leads with 0) — do not invent a
+    // list of blockers the register does not have.
+    const listed = unmitigatedHazards(snapshot);
+    const blockers = screen.queryByTestId("developer-hazards-unmitigated");
+    if (listed.length === 0) {
+      expect(blockers).toBeNull();
+      return;
+    }
+    expect(blockers).not.toBeNull();
+    for (const { hazard } of listed) {
       // Exact, not substring: "H1" appears inside "H-C01" and inside prose, so
       // a loose match would pass on text that is not the id at all.
-      expect(within(blockers).getAllByText(hazard.id, { exact: true }).length).toBeGreaterThan(0);
+      expect(within(blockers!).getAllByText(hazard.id, { exact: true }).length).toBeGreaterThan(0);
     }
   });
 

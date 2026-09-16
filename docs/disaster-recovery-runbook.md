@@ -105,9 +105,11 @@ it before you need it:
 - **Auth users** — `auth.users` is platform state; owner-scoped rows restored
   from backup reference user ids that must exist again (same project restore
   preserves them; a new project does not).
-- **12 platform-provisioned extensions** (pg_net, pgsodium, pgmq, pg_cron,
-  pg_graphql, vault, …) — present on hosted projects, absent in the bare
-  image; schema.sql only declares vector/pg_trgm/uuid-ossp.
+- **Platform-provisioned extensions** (pg_net, pgsodium, pgmq, pg_graphql,
+  vault, …) — present on hosted projects, often absent or differently provisioned
+  in the bare image. schema.sql declares vector/pg_trgm/uuid-ossp plus pg_cron
+  (matching migration 20260901033250); drift-manifest replay must succeed on the
+  pinned bare image when that declaration is present.
 - **pg_cron schedules** — the invoked functions (`invoke_ingestion_worker`,
   `invoke_indexing_v3_agent`) are codified, but the `cron.schedule(...)` rows
   themselves are live-only. After restore, re-create the cron jobs.
