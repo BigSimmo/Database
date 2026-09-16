@@ -225,7 +225,7 @@ export function CalculatorsClinicalConsoleMockup() {
             ) : null}
           </section>
 
-          <FlagNotice flags={derived.flags} />
+          <FlagNotice flags={derived.flags} provisional={!derived.complete} />
 
           <CalculatorItems calc={calc} answers={answers} onAnswersChange={setAnswers} />
 

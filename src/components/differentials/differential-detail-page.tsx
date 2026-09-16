@@ -49,6 +49,7 @@ import {
   curatedContentNote,
   curatedProvenanceLabel,
   detailTabCounts,
+  differentialGroupLabel,
   differentialSourceStatusLabel,
   differentialStatusLabel,
   differentialValidationStatusLabel,
@@ -61,6 +62,7 @@ import {
   resolveSafetyFacts,
   safetyFactCompactLabel,
   sectionBadgeLabel,
+  sectionScopeLabel,
   visibleSectionItems,
   type DifferentialDetailContext,
   type DifferentialDetailTabId,
@@ -221,6 +223,17 @@ function SectionItems({
   );
 }
 
+/**
+ * Says when a section's text describes the presentation group rather than this
+ * diagnosis. The imported corpus derives hinge, action, investigation and mimic
+ * text from the group, so acute dystonia's "Bedside question" is the akathisia
+ * discriminator. Labelling it is what keeps the page from asserting it of this
+ * diagnosis. See tests/differentials-presentation-scope.test.ts.
+ */
+function ScopeNote({ label }: { label: string }) {
+  return <p className="mt-1 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">{label}</p>;
+}
+
 function SectionRow({
   section,
   record,
@@ -238,6 +251,7 @@ function SectionRow({
   const meta = rowMeta[section.tone];
   const items = useMemo(() => visibleSectionItems(section, record), [section, record]);
   const badge = sectionBadgeLabel(section, record);
+  const scopeNote = sectionScopeLabel(section, record);
 
   const iconTile = (
     <span
@@ -257,6 +271,7 @@ function SectionRow({
         {iconTile}
         <div className="min-w-0">
           <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
+          {scopeNote ? <ScopeNote label={scopeNote} /> : null}
           <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">
             {section.summary}
           </p>
@@ -286,6 +301,7 @@ function SectionRow({
         {iconTile}
         <div className="min-w-0">
           <h2 className="text-sm font-extrabold text-[color:var(--text-heading)] sm:text-base">{section.title}</h2>
+          {scopeNote ? <ScopeNote label={scopeNote} /> : null}
           <p
             className={cn(
               "mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6",
@@ -484,15 +500,22 @@ function SafetySnapshot({
 }
 
 /**
- * The single most useful line the catalogue carries, and until now the only one
- * the page never showed. `clinicalHinge` is populated on all 201 records and was
- * reachable only through "Copy after review" — it is the discriminating question
- * the whole differential turns on, so it sits directly under the safety
- * snapshot where the eye lands next.
+ * The discriminating line the catalogue carries, sitting directly under the
+ * safety snapshot where the eye lands next.
+ *
+ * It is populated on all 201 records, but on every one of them it is the
+ * PRESENTATION GROUP's hinge, not the diagnosis's: 201 records share 31 distinct
+ * hinges. Headed plainly "Clinical hinge" it read as this diagnosis's own
+ * discriminator, so the acute dystonia page led with the akathisia one. The
+ * heading and the note below now say whose question it is. See
+ * `withPresentationScope()` in `src/lib/differentials.ts` and
+ * `tests/differentials-presentation-scope.test.ts`.
  */
 function ClinicalHinge({ record }: { record: DifferentialRecord }) {
   const hinge = cleanDifferentialItem(record.clinicalHinge);
   if (!hinge) return null;
+  const groupScoped = record.clinicalHingeScope === "presentation";
+  const group = differentialGroupLabel(record);
 
   return (
     <section
@@ -501,11 +524,21 @@ function ClinicalHinge({ record }: { record: DifferentialRecord }) {
     >
       <h2 className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
         <Target className="size-icon-sm shrink-0" aria-hidden />
-        Clinical hinge
+        {groupScoped ? "Presentation hinge" : "Clinical hinge"}
       </h2>
       <p className="mt-1 text-sm font-semibold leading-6 text-[color:var(--text-heading)] sm:text-base sm:leading-7">
         {hinge}
       </p>
+      {groupScoped ? (
+        <p
+          data-testid="differential-clinical-hinge-scope"
+          className="mt-1.5 text-xs leading-5 text-[color:var(--text-muted)]"
+        >
+          {group
+            ? `Separates the ${group} group. It is not specific to ${record.title}.`
+            : `Separates the presentation group. It is not specific to ${record.title}.`}
+        </p>
+      ) : null}
     </section>
   );
 }

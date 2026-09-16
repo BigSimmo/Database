@@ -37,8 +37,17 @@ const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 /** Mirrors CALCULATOR_EVIDENCE_LIFECYCLE in src/lib/sources/repository-providers.ts. */
 const KNOWN_EVIDENCE_STATUSES = ["reviewed", "permission_review_required", "not_for_active_use"];
 
+/**
+ * `Date.parse` alone is not calendar validation: it accepts "2026-02-30" and "2026-04-31" and
+ * silently rolls them into the following month, so an impossible review date would pass the gate
+ * and quietly move a source's next review forward. Round-tripping the parsed UTC date back to
+ * its ISO form is what makes a non-existent day fail here rather than roll over.
+ */
 function validDate(value) {
-  return typeof value === "string" && isoDate.test(value) && Number.isFinite(Date.parse(value));
+  if (typeof value !== "string" || !isoDate.test(value)) return false;
+  const parsed = Date.parse(`${value}T00:00:00Z`);
+  if (!Number.isFinite(parsed)) return false;
+  return new Date(parsed).toISOString().slice(0, 10) === value;
 }
 
 /** Pulls the quoted string ids out of `new Set([...])` for activeCalculatorIds. */
@@ -101,6 +110,50 @@ function main() {
           `${label}: status ${JSON.stringify(source.status)} is not one of ${KNOWN_EVIDENCE_STATUSES.join(", ")}. ` +
             `Add it to CALCULATOR_EVIDENCE_LIFECYCLE in src/lib/sources/repository-providers.ts with its lifecycle state.`,
         );
+      }
+    }
+  }
+
+  if (existsSync(evidencePath)) {
+    // A claim id plus a source id records an association but not the assertion itself, so a
+    // reviewer cannot tell what the source is being relied on for. Every claim therefore carries
+    // its own text, the population it holds for, and where inside the source it is supported.
+    const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+    const claimIds = new Set();
+    for (const claim of evidence.claims ?? []) {
+      const label = claim.id ?? "<missing-claim-id>";
+      if (!claim.id) errors.push("claim entry missing id");
+      else if (claimIds.has(claim.id)) errors.push(`${label}: duplicate claim id`);
+      else claimIds.add(claim.id);
+      for (const field of ["text", "population", "supportLocator"]) {
+        if (typeof claim[field] !== "string" || !claim[field].trim()) {
+          errors.push(`${label}: ${field} must be a non-empty string`);
+        }
+      }
+      const sourceIds = Array.isArray(claim.sourceIds) ? claim.sourceIds : [];
+      if (sourceIds.length === 0) errors.push(`${label}: sourceIds must list at least one source`);
+      for (const sourceId of sourceIds) {
+        const source = evidenceById.get(sourceId);
+        if (!source) {
+          errors.push(`${label}: source ${sourceId} is missing from evidence.json`);
+        } else if (!source.claimsSupported?.includes(claim.id)) {
+          errors.push(`${label}: source ${sourceId} does not list this claim in claimsSupported`);
+        }
+      }
+      // An internal governance record is provenance, not clinical evidence, so it can never be
+      // the only thing standing behind a clinical claim.
+      const clinical = sourceIds.filter(
+        (sourceId) => evidenceById.get(sourceId)?.type !== "internal_governance_record",
+      );
+      if (sourceIds.length > 0 && clinical.length === 0) {
+        errors.push(`${label}: needs at least one source that is not an internal governance record`);
+      }
+    }
+    for (const source of evidence.sources ?? []) {
+      for (const claimId of source.claimsSupported ?? []) {
+        if (!claimIds.has(claimId)) {
+          errors.push(`${source.id ?? "<missing-id>"}: claimsSupported names unknown claim ${claimId}`);
+        }
       }
     }
   }

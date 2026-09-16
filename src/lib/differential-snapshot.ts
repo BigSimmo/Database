@@ -7,12 +7,29 @@ export type DifferentialMapNode = {
   note: string;
 };
 
+/**
+ * Whether a piece of differential text describes the individual diagnosis or the
+ * presentation group it sits under.
+ *
+ * The export parser derives diagnosis records from their presentation, and
+ * several fields on that presentation — the clinical hinge, immediate actions,
+ * investigations and mimics — are written about the group. Copying them onto a
+ * diagnosis without saying so makes the app state something clinically false
+ * about that diagnosis (acute dystonia carried the akathisia hinge and a tremor
+ * workup). Absent or "diagnosis" means the text is about this diagnosis;
+ * "presentation" means it is group context and must never be rendered as this
+ * diagnosis's own discriminator. Guarded by
+ * `tests/differentials-presentation-scope.test.ts`.
+ */
+export type DifferentialTextScope = "diagnosis" | "presentation";
+
 export type DifferentialSection = {
   id: string;
   title: string;
   summary: string;
   items: string[];
   tone: "fit" | "warning" | "question" | "action" | "test" | "overlap";
+  scope?: DifferentialTextScope;
 };
 
 export type DifferentialRecord = {
@@ -21,6 +38,8 @@ export type DifferentialRecord = {
   status: "emergent" | "urgent" | "routine";
   subtitle: string;
   clinicalHinge: string;
+  /** Scope of `clinicalHinge`. See {@link DifferentialTextScope}. */
+  clinicalHingeScope?: DifferentialTextScope;
   safetySnapshot: {
     summary: string;
     tags: string[];
@@ -36,6 +55,13 @@ export type DifferentialComparisonCriterion = {
   id: string;
   title: string;
   tone: DifferentialSection["tone"];
+  /**
+   * Scope of every candidate's answer under this criterion. See
+   * {@link DifferentialTextScope}. A "presentation" criterion holds the same
+   * group-level text for every candidate, so the comparison table must present
+   * it as shared context rather than as a point of difference.
+   */
+  scope?: DifferentialTextScope;
 };
 
 export type DifferentialComparisonCandidate = {
@@ -71,6 +97,35 @@ export type DifferentialPresentationWorkflow = {
     lastUpdated: string;
   };
 };
+
+/**
+ * The hinge only where it is written about this diagnosis.
+ *
+ * Most imported hinges describe the presentation group instead, so any surface
+ * that shows a diagnosis's own description — a search subtitle, a stream card, a
+ * cross-mode link — must use this and fall back to the diagnosis's own summary.
+ * Rendering a group hinge there states something clinically false about the
+ * diagnosis, which is how acute dystonia came to read as akathisia.
+ */
+export function diagnosisScopedHinge(record: Pick<DifferentialRecord, "clinicalHinge" | "clinicalHingeScope">): string {
+  if (record.clinicalHingeScope === "presentation") return "";
+  return record.clinicalHinge?.trim() ? record.clinicalHinge : "";
+}
+
+/**
+ * The diagnosis's own one-line description, never the presentation's hinge.
+ *
+ * Returns "" when the record carries nothing diagnosis-specific. It deliberately
+ * does not fall back to the title — a subtitle that repeats the heading is noise,
+ * and callers already treat an empty value as "show nothing here". Every record
+ * in the current corpus has an own summary, so the empty case is a guard against
+ * a future sparse import rather than a state the app renders today.
+ */
+export function diagnosisOwnSummary(
+  record: Pick<DifferentialRecord, "clinicalHinge" | "clinicalHingeScope" | "subtitle">,
+): string {
+  return diagnosisScopedHinge(record) || record.subtitle?.trim() || "";
+}
 
 export type DifferentialScenarioPreset = {
   id: string;

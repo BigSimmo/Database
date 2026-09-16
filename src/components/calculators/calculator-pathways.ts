@@ -47,9 +47,21 @@ const considerationsByCalculator: Record<string, ClinicalConsideration[]> = {
   auditc: [
     {
       label:
-        "Interpret AUDIT-C with Australian standard-drink context, alcohol history and assessment of dependence or withdrawal where relevant.",
-      sourceIds: ["source:auditc"],
+        "Interpret AUDIT-C with alcohol history and assessment of dependence or withdrawal where relevant. A completed score screens reported consumption and does not diagnose an alcohol use disorder.",
+      sourceIds: ["source:auditc:validation", "source:auditc:thresholds"],
       claimIds: ["claim:auditc:interpretation"],
+    },
+    {
+      label:
+        "Read the total against a named screening convention. The registered convention is 4 or more for men and 3 or more for women, derived in United States primary care.",
+      sourceIds: ["source:auditc:thresholds"],
+      claimIds: ["claim:auditc:thresholds"],
+    },
+    {
+      label:
+        "An Australian standard drink is 10 g of alcohol, which is the unit the item wording assumes. This supports drink-size context only, not the screening threshold.",
+      sourceIds: ["source:auditc"],
+      claimIds: ["claim:auditc:units"],
     },
   ],
 };
