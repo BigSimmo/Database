@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-14"
+    "committed_at": "2026-09-16"
   },
   "routes": {
     "modes": [
@@ -2734,6 +2734,11 @@
       {
         "path": "docs/ward-flow/sdd-rescued/ward-statistics-skeleton/task-statistics-prose-report.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/audit/2026-09-16-registry-search-outage.md",
+        "section": "audit",
         "catalogued": false
       },
       {
