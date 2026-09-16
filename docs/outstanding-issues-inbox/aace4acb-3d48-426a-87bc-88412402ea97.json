@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "aace4acb-3d48-426a-87bc-88412402ea97",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "20327b84-89fa-4112-98c1-776b7330c632",
+    "reason": "Codex P2 on #2817: replace with narrowed re-attestation-only row; metadata corrections already landed in 2f7072e43 and Currency overstatement claim was false."
+  }
+}
