@@ -53,6 +53,7 @@ import { canonicalDynamicSiteContentProjection } from "@/lib/site-content/site-c
 const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
+const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
 
 /** The audit columns the freeze was generated with. They are part of the
  *  projection input, so they are pinned rather than taken from the clock. */
@@ -122,6 +123,39 @@ function bootstrapDigest(entries: readonly BootstrapEntry[]) {
   return jsonSha256({ version: "site-content-bootstrap-public-release-v1", records });
 }
 
+/**
+ * Every field of a bootstrap entry that is DERIVED from its record. Kept as one
+ * function so the same code produces a new entry and re-checks a frozen one, which
+ * is what lets `assertFaithful` tell a broken derivation from an intended edit.
+ */
+function bootstrapEntry(
+  record: Record<string, unknown> & { logicalId: string },
+  renderPayload: Record<string, unknown>,
+): BootstrapEntry {
+  const field = (key: string) => record[key] as never;
+  return {
+    logicalId: record.logicalId,
+    logicalDocumentId: deterministicUuid(`site-content-document:${record.logicalId}`),
+    logicalChunkId: deterministicUuid(`site-content-chunk:${record.logicalId}`),
+    normalizedText: canonicalSiteContentText(record.body as string),
+    contentHash: field("contentHash"),
+    publicationFingerprint: field("publicationVersion"),
+    governanceFingerprint: siteContentValueHash({
+      access: record.access,
+      validationStatus: record.validationStatus,
+      sourceStatus: record.sourceStatus,
+    }),
+    lineageFingerprint: siteContentValueHash(record.sourceLineage),
+    publicMetadataFingerprint: siteContentValueHash({
+      route: record.route,
+      title: record.title,
+      sourceRole: record.sourceRole,
+    }),
+    record,
+    renderPayload,
+  };
+}
+
 function currentEntries(): BootstrapEntry[] {
   const snapshot = loadDifferentialSnapshot();
   const projections = [
@@ -158,30 +192,8 @@ function currentEntries(): BootstrapEntry[] {
   ];
 
   return projections
-    .map(({ record, renderPayload }) => ({
-      logicalId: record.logicalId,
-      logicalDocumentId: deterministicUuid(`site-content-document:${record.logicalId}`),
-      logicalChunkId: deterministicUuid(`site-content-chunk:${record.logicalId}`),
-      normalizedText: canonicalSiteContentText(record.body),
-      contentHash: record.contentHash,
-      publicationFingerprint: record.publicationVersion,
-      governanceFingerprint: siteContentValueHash({
-        access: record.access,
-        validationStatus: record.validationStatus,
-        sourceStatus: record.sourceStatus,
-      }),
-      lineageFingerprint: siteContentValueHash(record.sourceLineage),
-      publicMetadataFingerprint: siteContentValueHash({
-        route: record.route,
-        title: record.title,
-        sourceRole: record.sourceRole,
-      }),
-      record,
-      renderPayload,
-    }))
-    .sort((left, right) =>
-      left.logicalId < right.logicalId ? -1 : left.logicalId > right.logicalId ? 1 : 0,
-    ) as BootstrapEntry[];
+    .map(({ record, renderPayload }) => bootstrapEntry(record, renderPayload))
+    .sort((left, right) => (left.logicalId < right.logicalId ? -1 : left.logicalId > right.logicalId ? 1 : 0));
 }
 
 function currentBaselines() {
@@ -214,33 +226,69 @@ function assertFaithful(entries: readonly BootstrapEntry[], baselines: Record<st
   const frozenBaselines = JSON.parse(block(migration, "site_content_registry_baselines")) as Record<string, unknown>;
   const byId = new Map(frozenEntries.map((entry) => [entry.logicalId, entry]));
 
-  const entryDrift = entries
+  // A derivation error and an intended content edit both change an entry, but only one
+  // of them is a fault. Re-derive each FROZEN entry from its own frozen record: that
+  // exercises every formula in this script against data it must already reproduce, and
+  // is unaffected by the catalogue moving underneath it. Any mismatch means a formula
+  // has drifted from the freeze, and rewriting on that basis would corrupt records this
+  // change never intended to touch.
+  const derivationDrift = frozenEntries
+    .filter((frozen) => {
+      const rederived = bootstrapEntry(frozen.record as never, frozen.renderPayload);
+      return (
+        [
+          "logicalDocumentId",
+          "logicalChunkId",
+          "normalizedText",
+          "contentHash",
+          "publicationFingerprint",
+          "governanceFingerprint",
+          "lineageFingerprint",
+          "publicMetadataFingerprint",
+        ] as const
+      ).some((key) => rederived[key] !== frozen[key]);
+    })
+    .map((frozen) => frozen.logicalId);
+
+  // Content that genuinely changed. Expected whenever a canonical record supersedes a
+  // legacy one, so these are reported for review rather than treated as faults.
+  const updatedEntries = entries
     .filter((entry) => byId.has(entry.logicalId))
     .filter((entry) => JSON.stringify(byId.get(entry.logicalId)) !== JSON.stringify(entry))
     .map((entry) => entry.logicalId);
-  const baselineDrift = Object.entries(frozenBaselines)
+  const updatedBaselines = Object.entries(frozenBaselines)
     .filter(([key, value]) => JSON.stringify(baselines[key]) !== JSON.stringify(value))
     .map(([key]) => key);
 
   const frozenDigest = bootstrapDigest(frozenEntries);
   const addedEntries = entries.filter((entry) => !byId.has(entry.logicalId)).map((entry) => entry.logicalId);
   const addedBaselines = Object.keys(baselines).filter((key) => !(key in frozenBaselines));
+  const removed = frozenEntries.filter((frozen) => !entries.some((entry) => entry.logicalId === frozen.logicalId));
 
   console.log(
     `frozen population   : ${frozenEntries.length} records, ${Object.keys(frozenBaselines).length} baselines`,
   );
   console.log(`current population  : ${entries.length} records, ${Object.keys(baselines).length} baselines`);
   console.log(
-    `reproduced exactly  : ${frozenEntries.length - entryDrift.length}/${frozenEntries.length} records, ` +
-      `${Object.keys(frozenBaselines).length - baselineDrift.length}/${Object.keys(frozenBaselines).length} baselines`,
+    `derivations re-check: ${frozenEntries.length - derivationDrift.length}/${frozenEntries.length} frozen entries re-derive exactly`,
   );
-  for (const id of [...entryDrift, ...baselineDrift].slice(0, 20)) console.log(`   DRIFT ${id}`);
-  for (const id of [...addedEntries, ...addedBaselines]) console.log(`   add   ${id}`);
+  for (const id of derivationDrift.slice(0, 20)) console.log(`   DERIVATION DRIFT ${id}`);
+  for (const id of [...updatedEntries, ...updatedBaselines]) console.log(`   update ${id}`);
+  for (const id of [...addedEntries, ...addedBaselines]) console.log(`   add    ${id}`);
+  for (const entry of removed) console.log(`   REMOVE ${entry.logicalId}`);
 
-  if (entryDrift.length || baselineDrift.length) {
+  if (derivationDrift.length) {
     throw new Error(
-      `${entryDrift.length + baselineDrift.length} pre-existing entries no longer reproduce. ` +
-        "A derivation in this script has diverged from the freeze; fix that before writing.",
+      `${derivationDrift.length} frozen entries no longer re-derive from their own records. ` +
+        "A formula in this script has diverged from the freeze; fix that before writing.",
+    );
+  }
+  // Epoch zero is the complete seed population, so losing a record silently would leave
+  // a rollback serving less than the catalogue holds.
+  if (removed.length) {
+    throw new Error(
+      `${removed.length} records present in the freeze are missing from the catalogue. ` +
+        "Removing a record from epoch zero needs a deliberate decision, not a refresh.",
     );
   }
   return { frozenEntries, frozenDigest };
@@ -263,6 +311,20 @@ function main() {
   if (!migration.includes(oldDigest)) throw new Error("The recomputed frozen digest is not present in the migration.");
   if (!migration.includes(oldId)) throw new Error("The recomputed frozen release id is not present in the migration.");
   if (frozenDigest !== oldDigest) throw new Error("Digest derivation is unstable.");
+
+  // `site-content-health.ts` decides whether the running site is on its retained
+  // bootstrap by matching the active release against a fixed set of ids. The id moves
+  // with the population, so a refresh that forgets to add the new one ships code that
+  // cannot recognise its own bootstrap. Refuse to write until it is listed.
+  const health = readFileSync(HEALTH_MODULE, "utf8");
+  if (!health.includes(newId)) {
+    throw new Error(
+      `${HEALTH_MODULE} does not list the refreshed bootstrap release id.\n` +
+        `Add this line to RETAINED_BOOTSTRAP_RELEASE_IDS, keeping the existing ids:\n` +
+        `  "${newId}",\n` +
+        "Never remove an id a live database may still hold.",
+    );
+  }
 
   if (entries.length === frozenEntries.length && newDigest === oldDigest) {
     console.log("Nothing to refresh: the frozen bootstrap already matches the catalogue.");
@@ -293,4 +355,11 @@ function main() {
   console.log("regenerate supabase/drift-manifest.json and run npm run check:drift.");
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  // A guard refusal is an expected outcome of this script, not a crash. Print the
+  // remediation it carries rather than a stack trace nobody reads.
+  console.error(`\n${error instanceof Error ? error.message : String(error)}`);
+  process.exitCode = 1;
+}

@@ -548,10 +548,10 @@ describe("bootstrap identity across a baseline refresh", () => {
   // id while a freshly replayed one holds the newer. Both are the same logical
   // retained bootstrap and both must be recognised, or a deploy would stop the running
   // site recognising its own bootstrap.
-  const refreshedBootstrapDigest = "69c0d68473c89afc6a60ffdf8a6316b466dcc1ffbad3281a387b61e20859d978";
+  const refreshedBootstrapDigest = "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3";
   const refreshedBootstrapRelease = {
     ...retainedBootstrapRelease,
-    releaseId: "c96d32f6-e42a-53b0-8cfe-cd07d4b7f963",
+    releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
     dynamicStateDigest: refreshedBootstrapDigest,
     releaseDigest: refreshedBootstrapDigest,
   };
