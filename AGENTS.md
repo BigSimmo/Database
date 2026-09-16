@@ -298,6 +298,23 @@ For the rules on pasting the decisive gate line, stating verified versus assumed
   `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
   Full contract: `docs/database-drift-detection.md`.
 
+## Owner-merge rule (owner ruling 2026-09-16)
+
+Three kinds of PR are **owner-merged, not agent-merged**: clinical-content PRs
+(`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk: true`), any PR touching
+`supabase/`, and any PR touching a RAG-ranking surface (see "RAG ranking protection" below).
+For these, the required `PR policy` check stays red until Josh adds the `owner-approved`
+label himself; any new push to the branch removes that label. Agents must never add the
+`owner-approved` label, merge one of these PRs directly, or arm or re-arm auto-merge on one
+(see the auto-merge exception above). This is enforced by `PR policy` (#2830): the label counts
+only when the repository owner applied it, not through a GitHub App, after the PR's latest push.
+
+This does not relax existing migration discipline: **a migration already on `main` must
+never be edited.** If a change is needed, ship it as a new migration with the newest
+timestamp — never rewrite or mark-repair history in place (see the guard-migration contract
+above). `PR policy` blocks an edit, deletion or rename of an applied migration, and an added
+migration dated at or before the newest one on `main`.
+
 <!-- END:supabase-project-safety -->
 
 <!-- BEGIN:rag-ranking-protection -->
@@ -407,7 +424,7 @@ Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — wi
 
 - Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule to branch syncs: for a behind-but-clean PR with required CI in flight, wait, then perform at most one late `update-branch` / `git merge origin/main` after review and fix work is assembled. Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
 - For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited file.
-- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled additions may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled additions may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first. **Exception:** an owner-merge PR (clinical-content, `supabase/`, or RAG-ranking — see "Owner-merge rule" below) must never be armed by an agent. If you find one armed, report it rather than disarming it: `PR policy` already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs explicit authorization.
 - Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
 - Triage and repair actionable review threads early; reply before resolving (`<!-- codex-thread-disposition:resolved -->`). Leave ambiguous or product-sensitive threads open for the owner.
 - Babysit dormant: observe fresh CI only at meaningful stage boundaries (at most once every 5 min, ≤30 min per run). If queued/running at limit, record run URL as deferred and continue sweep.

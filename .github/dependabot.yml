@@ -71,6 +71,13 @@ updates:
     groups:
       docker-images:
         patterns: ["*"]
+    # Hold the node base-image major: engines.node is ">=24.15.0 <25" (package.json), and
+    # both Dockerfiles pin FROM node:24-bookworm-slim. A major bump to node:25 would build
+    # an image the app's own engine-strict check rejects at container start. Minor/patch
+    # digest updates within the 24.x line are unaffected.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
 
   # The ingestion worker parses attacker-supplied PDFs and images with
   # PyMuPDF, Pillow, pytesseract and docling. Without these two entries nothing

@@ -5,9 +5,14 @@ description: Verify a merged PR actually landed correctly in this repo and clean
 
 # prlanded — confirm a merge landed and tidy up
 
-This repo squash-merges and auto-merges `claude/*` on green, which has twice orphaned a
-late follow-up commit and once needed a fix-forward. Run this after a merge to confirm the
-work actually landed and to clean up.
+A merged PR here may land as a squash commit or an ordinary merge commit — check which by
+parent count (`git rev-list --parents -n 1 <sha>`: one parent is a squash/fast-forward, two
+or more is a merge commit) rather than assuming squash. Squash-merge history has twice
+orphaned a late follow-up commit and once needed a fix-forward, which is what this skill
+guards against. Ordinary green PRs may have auto-merge armed by an agent, but **owner-merge
+PRs — clinical-content, anything under `supabase/`, or RAG-ranking surfaces — are merged by
+Josh**, not by agents (owner ruling 2026-09-16; see AGENTS.md "Owner-merge rule"). Run this
+after a merge to confirm the work actually landed and to clean up.
 
 ## Steps
 
@@ -15,8 +20,27 @@ The user's explicit request to verify a named PR authorizes the read-only PR loo
 Otherwise ask before GitHub access; never infer provider authority merely from local branch state.
 
 1. **Confirm the merge:** `gh pr view <pr> --json state,mergeCommit,mergedAt` → `MERGED`.
-2. **Verify by content, not ancestry** (squash rewrites history, so `git branch --merged`
-   is misleading). Compare trees, and compare against the squash commit:
+2. **Verify by content, and branch on the merge shape.** Read the parent count first:
+   `git rev-list --parents -n 1 <merge-commit>` (one parent after the commit's own SHA = squash;
+   two = ordinary merge commit).
+
+   **Ordinary merge commit (two parents):** do not diff the merge commit against your branch
+   tip — that also reports every change `main` had that your branch lacked, and misreads them
+   as work that failed to land. Instead confirm your tip is in the merged side, then inspect
+   only how conflicts were resolved:
+
+   ```bash
+   git fetch --quiet origin main
+   git merge-base --is-ancestor <your-branch-tip> <merge-commit>^2 && echo "tip landed"
+   git show --remerge-diff <merge-commit>
+   ```
+
+   Any hunk from `--remerge-diff` is a conflict resolution that changed the merged result;
+   review it against your intent. An empty `--remerge-diff` and a landed tip mean the work
+   landed as written.
+
+   **Squash (one parent):** squash rewrites history, so `git branch --merged` is misleading.
+   Compare trees against the squash commit:
 
    ```bash
    git fetch --quiet origin main
