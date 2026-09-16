@@ -25,8 +25,14 @@ const INVALID_EVIDENCE = "SITE_CONTENT_RELEASE_EVIDENCE_INVALID";
  */
 const RETAINED_BOOTSTRAP_RELEASE_IDS: ReadonlySet<string> = new Set([
   "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
+  "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
   "ddc94ecf-3527-5b4d-846b-af5724b428ca",
 ]);
+
+/** True when `releaseId` is one of the retained epoch-zero bootstrap identities. */
+export function isRetainedBootstrapReleaseId(releaseId: string): boolean {
+  return RETAINED_BOOTSTRAP_RELEASE_IDS.has(releaseId);
+}
 const RETAINED_BOOTSTRAP_REGISTRY_VERSION = "site-content-bootstrap-public-release-v1";
 const RETAINED_BOOTSTRAP_STATIC_MANIFEST_DIGEST = "0".repeat(64);
 

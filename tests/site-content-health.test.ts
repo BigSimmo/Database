@@ -578,4 +578,19 @@ describe("bootstrap identity across a baseline refresh", () => {
     });
     expect(partition.reasons).not.toContain("bootstrap_invalid");
   });
+
+  it("keeps recognising the previous epoch-zero id a live database may still hold", () => {
+    const previous = {
+      ...retainedBootstrapRelease,
+      releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+    };
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: "f".repeat(64),
+      activePublicSiteRelease: previous,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    expect(partition.state).toBe("unavailable");
+    expect(partition.reasons).toContain("bootstrap_invalid");
+  });
 });

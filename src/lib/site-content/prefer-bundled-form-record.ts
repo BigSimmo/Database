@@ -1,6 +1,7 @@
 import { FORMS_AWAITING_REVIEW_NOTE } from "@/lib/form-catalog";
 import { getFormRecord } from "@/lib/forms";
 import type { ServiceRecord } from "@/lib/services";
+import { isRetainedBootstrapReleaseId } from "@/lib/site-content/site-content-health";
 
 /**
  * Keep Forms mode synchronized with the in-repo catalogue when the active
@@ -17,9 +18,13 @@ import type { ServiceRecord } from "@/lib/services";
  * until that lands, the registry API would otherwise swap the SSR catalogue
  * paint for stale canonical bytes and drop `contentReviewStatus` / guidance.
  *
- * This helper prefers the bundled `formRecords` projection for `kind=form`
- * while leaving release identity to the caller. Services and other kinds are
- * unchanged.
+ * Gate
+ * ----
+ * The bundled preference applies ONLY while the served active release is still
+ * a retained epoch-zero bootstrap identity (`isRetainedBootstrapReleaseId`).
+ * Once an operator publishes and activates a non-bootstrap release, that
+ * release's form projections win and this helper becomes a no-op — otherwise
+ * every future clinician-reviewed publish would keep losing to the bundle.
  *
  * Governance must follow the content it describes
  * -----------------------------------------------
@@ -41,8 +46,23 @@ function awaitsClinicalReview(record: ServiceRecord) {
   return (record.verification?.notes ?? []).includes(FORMS_AWAITING_REVIEW_NOTE);
 }
 
-export function preferBundledFormRecord<T extends MappedFormEntry>(kind: string, mapped: T): T {
+/** Pull `releaseId` from a `read_site_content_public_records` snapshot object. */
+export function siteContentSnapshotReleaseId(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const releaseId = (snapshot as Record<string, unknown>).releaseId;
+  return typeof releaseId === "string" ? releaseId : null;
+}
+
+export function preferBundledFormRecord<T extends MappedFormEntry>(
+  kind: string,
+  mapped: T,
+  options?: { activeReleaseId?: string | null },
+): T {
   if (kind !== "form") return mapped;
+  const activeReleaseId = options?.activeReleaseId;
+  // Strict retained-bootstrap gate: without a recognised bootstrap release id,
+  // leave the canonical projection alone so post-publish updates can win.
+  if (!activeReleaseId || !isRetainedBootstrapReleaseId(activeReleaseId)) return mapped;
   const bundled = getFormRecord(mapped.record.slug);
   if (!bundled) return mapped;
   const swapped = { ...mapped, record: bundled };
