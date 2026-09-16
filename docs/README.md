@@ -317,6 +317,7 @@ Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
 - [dsm5tr-handover-reconciliation-2026-09-16.md](dsm5tr-handover-reconciliation-2026-09-16.md) — DSM-5-TR and Sources handover reconciled against HEAD 66105e1: the criteria-provenance fix that shipped, the disposition of all 30 claims, the four items held for owner approval, and why 0 of the 24 supplied sources pass the native acquisition gate
+- [dsm5tr-approvals-queue.md](dsm5tr-approvals-queue.md) — what the DSM-5-TR handover leaves waiting on a person: 16 claims and 9 information concepts needing clinical sign-off, the seven rights questions per source across all 24, and the metadata 17 sources do not print
 - [audit/](audit/) — repo and UX/accessibility audits
 - [audit/full-repository-audit-2026-09-02.md](audit/full-repository-audit-2026-09-02.md) — full repository audit (25 lanes, independently verified findings, closed-off sub-projects, machine evidence, Stage-5 adversarial review; audit only, nothing acted on except one-line documentation corrections)
 - [audit/2026-07-20-repository-maturity.md](audit/2026-07-20-repository-maturity.md) — full repository maturity, mapping, and organisation audit

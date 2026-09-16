@@ -118,7 +118,8 @@ function minimalSearchResult(evidence: ClinicalAskEvidence): SearchResult {
  * request-level support is still required as well.
  */
 const SECTION_TOPIC_CUES: Readonly<Record<string, RegExp>> = {
-  duration: /\b(?:durat|lasts?\b|lasted\b|lasting\b|persist|weeks?\b|months?\b|years?\b|days?\b|hours?\b|minutes?\b|at least \d)/i,
+  duration:
+    /\b(?:durat|lasts?\b|lasted\b|lasting\b|persist|weeks?\b|months?\b|years?\b|days?\b|hours?\b|minutes?\b|at least \d)/i,
   impairment: /\b(?:impair|function|distress|disabilit|interfere|occupational|social)/i,
   exclusions: /\b(?:exclu|not better explained|ruled? out\b|attributable|due to another|never been|absence of)/i,
   eligibility: /\b(?:eligib|accepts? referral|accepting referral|inclusion|exclusion|age range|catchment|qualif)/i,
@@ -130,8 +131,10 @@ const SECTION_TOPIC_CUES: Readonly<Record<string, RegExp>> = {
   purpose: /\b(?:purpose|used to\b|is for\b|intended|in order to\b|enables?\b)/i,
   cautions: /\b(?:caution|contraindicat|adverse|side.effect|risk|warning|monitor|avoid|not recommended)/i,
   practical_requirements: /\b(?:sessions?\b|training|supervis|resource|costs?\b|fund|frequency|per week\b|deliver)/i,
-  population_setting_fit: /\b(?:adults?\b|child|adolescen|older\b|inpatient|outpatient|community|setting|population|aged?\b)/i,
-  base_diagnosis_applicability: /\b(?:applies\b|applicable\b|only (?:in|for|when)\b|requires the diagnosis|specifier for)/i,
+  population_setting_fit:
+    /\b(?:adults?\b|child|adolescen|older\b|inpatient|outpatient|community|setting|population|aged?\b)/i,
+  base_diagnosis_applicability:
+    /\b(?:applies\b|applicable\b|only (?:in|for|when)\b|requires the diagnosis|specifier for)/i,
   must_not_miss: /\b(?:emergenc|urgent|life.threatening|red flag|must not (?:be )?miss|deteriorat|immediate)/i,
   discriminators: /\b(?:distinguish|differentiat|discriminat|versus\b|unlike\b|in contrast\b|rather than\b|whereas\b)/i,
   incompatibilities: /\b(?:incompatib|cannot (?:be|co-?occur)|mutually exclusive|not (?:be )?(?:used|applied) with)/i,

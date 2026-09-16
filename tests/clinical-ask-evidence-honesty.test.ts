@@ -44,7 +44,10 @@ function evidenceItem(overrides: Partial<ClinicalAskEvidence> = {}): ClinicalAsk
  */
 describe("DSM catalogue evidence review state", () => {
   it("does not claim the DSM catalogue is reviewed or authorised", async () => {
-    const evidence = await retrieveCatalogueEvidence(dsmRequest("major depressive disorder"), new AbortController().signal);
+    const evidence = await retrieveCatalogueEvidence(
+      dsmRequest("major depressive disorder"),
+      new AbortController().signal,
+    );
     expect(evidence.length).toBeGreaterThan(0);
     for (const item of evidence) {
       expect(item.reviewState).not.toBe("reviewed");
@@ -53,7 +56,10 @@ describe("DSM catalogue evidence review state", () => {
   });
 
   it("says in the extract when a record carries no full criteria", async () => {
-    const evidence = await retrieveCatalogueEvidence(dsmRequest("major depressive disorder"), new AbortController().signal);
+    const evidence = await retrieveCatalogueEvidence(
+      dsmRequest("major depressive disorder"),
+      new AbortController().signal,
+    );
     const mdd = evidence.find((item) => item.href.endsWith("/major-depressive-disorder"));
     expect(mdd).toBeDefined();
     expect(mdd!.extract.toLowerCase()).toContain("full dsm-5-tr criteria are not included");
