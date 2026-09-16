@@ -200,13 +200,36 @@ const contentReviewStatusByCode = new Map(
  * drop the awaiting-review caveat and present unsigned guidance about a statutory form as
  * settled reference. There is no partially reviewed state to represent, so anything short of
  * a complete attestation falls closed to `drafted`.
+ *
+ * `reviewedAt` must also be a real calendar date that has already happened. A non-empty
+ * string check alone accepted `"not-a-date"` and dates in the future, either of which is an
+ * unverifiable sign-off on statutory guidance rather than a record of one.
  */
-export function formContentReviewStatus(entry: { status: string; reviewedBy?: unknown; reviewedAt?: unknown }) {
+export function formContentReviewStatus(
+  entry: { status: string; reviewedBy?: unknown; reviewedAt?: unknown },
+  today = new Date(),
+) {
   if (entry.status !== "reviewed") return "drafted";
-  const attributed = [entry.reviewedBy, entry.reviewedAt].every(
-    (value) => typeof value === "string" && value.trim().length > 0,
-  );
-  return attributed ? "reviewed" : "drafted";
+  if (typeof entry.reviewedBy !== "string" || entry.reviewedBy.trim().length === 0) return "drafted";
+  return isPastCalendarDate(entry.reviewedAt, today) ? "reviewed" : "drafted";
+}
+
+/**
+ * A `YYYY-MM-DD` date that exists and is not in the future.
+ *
+ * Parsed by parts rather than `Date.parse`, which accepts `2026-02-31` and rolls it into
+ * March. Compared at day resolution in UTC so a reviewer signing off today is never rejected
+ * for being a few hours ahead of the server.
+ */
+function isPastCalendarDate(value: unknown, today: Date) {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return false;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const exists = parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+  if (!exists) return false;
+  return parsed.getTime() <= Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
 }
 
 export const FORMS_AWAITING_REVIEW_NOTE =

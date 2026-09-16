@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import {
   SITE_CONTENT_ACTIVATION_SLO_MS,
@@ -566,6 +567,31 @@ describe("bootstrap identity across a baseline refresh", () => {
     expect(partition.state).toBe("unavailable");
     expect(partition.staticMatches).toBe(false);
     expect(partition.reasons).toContain("bootstrap_invalid");
+  });
+
+  /**
+   * Flagged by Copilot on #2821. The forms re-key rewrote this allowlist with a blind
+   * find-and-replace and dropped #2814's id, which a database created between that merge
+   * and the re-key still holds. The module's own comment says never to remove an id a live
+   * database may hold, so the set is asserted by value rather than by whichever id happens
+   * to be newest.
+   */
+  it("still recognises every bootstrap identity a live database may hold", () => {
+    const source = readFileSync("src/lib/site-content/site-content-health.ts", "utf8");
+    const declared = source
+      .slice(source.indexOf("RETAINED_BOOTSTRAP_RELEASE_IDS"), source.indexOf("RETAINED_BOOTSTRAP_REGISTRY_VERSION"))
+      .match(/[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/g);
+
+    expect(declared).toEqual(
+      expect.arrayContaining([
+        // Original epoch zero.
+        "e4a1dd29-14f6-556c-8fb7-f4f947d8b846",
+        // #2814, services handover, 843 -> 860 records.
+        "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+        // #2821, forms handover.
+        "ddc94ecf-3527-5b4d-846b-af5724b428ca",
+      ]),
+    );
   });
 
   it("still refuses a release that merely looks like a bootstrap", () => {

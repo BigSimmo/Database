@@ -73,7 +73,7 @@ export function RetainedSnapshotNotice({ className }: { className?: string }) {
       <p className="text-base-minus leading-6 text-[color:var(--warning)]">
         The live catalogue did not answer in time, so these records come from the copy stored with this app. Anything
         published since the last release may be missing. Each record&apos;s own page still reads live, so open it to
-        confirm before relying on this list. The app retries on its own within about thirty seconds.
+        confirm before relying on this list. Reload the page to try the live catalogue again.
       </p>
     </UtilityDrawer>
   );

@@ -347,6 +347,25 @@ export function bootstrapReleaseUuid(digest: string) {
  * committed. The previous identity is read out of the migration rather than assumed, which
  * makes this idempotent and safe to re-run after a merge brings someone else's re-key.
  */
+/**
+ * The one file a re-key must ADD to rather than rewrite.
+ *
+ * `RETAINED_BOOTSTRAP_RELEASE_IDS` is the set of bootstrap identities this build still
+ * recognises, and its own comment says never to remove an id a live database may hold: an
+ * applied migration is not re-run, so a database created under an earlier re-key keeps that
+ * id forever. A blind find-and-replace dropped #2814's id here once and would have made a
+ * running site fail to recognise its own bootstrap. Pinned by
+ * `tests/site-content-health.test.ts`.
+ */
+const HEALTH_IDENTITY_SET = "src/lib/site-content/site-content-health.ts";
+
+function appendRetainedBootstrapId(source: string, uuid: string) {
+  if (source.includes(uuid)) return source;
+  const anchor = /(const RETAINED_BOOTSTRAP_RELEASE_IDS: ReadonlySet<string> = new Set\(\[\n)/;
+  if (!anchor.test(source)) throw new Error(`Could not find RETAINED_BOOTSTRAP_RELEASE_IDS in ${HEALTH_IDENTITY_SET}.`);
+  return source.replace(anchor, `$1  "${uuid}",\n`);
+}
+
 function rekeyBootstrapRelease(previousDigest: string, digest: string, check: boolean) {
   const previousUuid = bootstrapReleaseUuid(previousDigest);
   const uuid = bootstrapReleaseUuid(digest);
@@ -354,7 +373,10 @@ function rekeyBootstrapRelease(previousDigest: string, digest: string, check: bo
   for (const target of IDENTITY_TARGETS) {
     const path = repoUrl(target);
     const current = readFileSync(path, "utf8");
-    const next = current.replaceAll(previousDigest, digest).replaceAll(previousUuid, uuid);
+    const next =
+      target === HEALTH_IDENTITY_SET
+        ? appendRetainedBootstrapId(current, uuid)
+        : current.replaceAll(previousDigest, digest).replaceAll(previousUuid, uuid);
     if (next === current) continue;
     rewritten.push(target);
     if (!check) writeFileSync(path, next);

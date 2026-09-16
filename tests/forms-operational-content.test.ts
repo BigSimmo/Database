@@ -113,8 +113,28 @@ describe("forms catalogue operational content", () => {
       { ...signed, reviewedAt: { at: "2026-09-16" } },
       { status: "reviewed" },
       { status: "drafted", reviewedBy: "Dr A Reviewer", reviewedAt: "2026-09-16" },
+      // Flagged by Copilot on #2821: a non-empty string is not a date.
+      { ...signed, reviewedAt: "not-a-date" },
+      { ...signed, reviewedAt: "16/09/2026" },
+      { ...signed, reviewedAt: "2026-09-16T00:00:00Z" },
+      // Exists as text, never as a day.
+      { ...signed, reviewedAt: "2026-02-31" },
+      { ...signed, reviewedAt: "2026-13-01" },
+      // A sign-off cannot have happened tomorrow.
+      { ...signed, reviewedAt: "2026-09-17" },
+      { ...signed, reviewedAt: "2099-01-01" },
     ]) {
-      expect(formContentReviewStatus(row), JSON.stringify(row)).toBe("drafted");
+      expect(formContentReviewStatus(row, new Date("2026-09-16T10:00:00Z")), JSON.stringify(row)).toBe("drafted");
+    }
+  });
+
+  it("accepts a sign-off dated today or earlier", () => {
+    const today = new Date("2026-09-16T02:00:00Z");
+    for (const reviewedAt of ["2026-09-16", "2026-09-15", "2020-02-29"]) {
+      expect(
+        formContentReviewStatus({ status: "reviewed", reviewedBy: "Dr A Reviewer", reviewedAt }, today),
+        reviewedAt,
+      ).toBe("reviewed");
     }
   });
 
