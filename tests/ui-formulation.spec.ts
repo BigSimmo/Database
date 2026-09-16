@@ -315,3 +315,34 @@ test("compares supported alternatives and groups mechanisms without implying cau
   await expect(page.getByRole("heading", { name: "Shame", exact: true })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
+
+// The 2026-09-16 handover import shipped three rendering defects to the live
+// app: a guide module never stated its own scope limit, twelve mechanisms
+// awaiting sign-off carried no review marker, and five guide tables reached the
+// page as run-on pipe characters. All three are visible faults, so the proof
+// that they are fixed belongs in the browser.
+test("states scope and review position on every formulation record, and draws guide tables as tables", async ({
+  page,
+}) => {
+  await gotoApp(page, "/formulation/guide-08");
+  await expect(page.getByRole("heading", { name: "Risk formulation and management linkage" }).first()).toBeVisible();
+  await expect(visibleByText(page, "Scope of this record", { exact: true })).toBeVisible();
+  await expect(
+    visibleByText(page, /Not a substitute for assessment, consent\/capacity decision, diagnosis/),
+  ).toBeVisible();
+  await expect(page.getByText(/Treat each mechanism as a hypothesis/)).toHaveCount(0);
+
+  // Two tables, drawn as tables, with no pipe characters left in the prose.
+  await expect(page.locator("main table")).toHaveCount(2);
+  await expect(page.locator("main table").first().getByRole("columnheader")).toHaveCount(2);
+  await expect(page.getByText("|---|")).toHaveCount(0);
+  await expectNoHorizontalOverflow(page);
+
+  await gotoApp(page, "/formulation/rumination");
+  await expect(visibleByText(page, /No named reviewer has signed this record off/)).toBeVisible();
+
+  await gotoApp(page, "/formulation/housing-financial");
+  await expect(visibleByText(page, "Scope of this record", { exact: true })).toBeVisible();
+  await expect(page.getByText("Check alternatives", { exact: true })).toHaveCount(0);
+  await expect(visibleByText(page, /No named reviewer has signed this record off/)).toBeVisible();
+});
