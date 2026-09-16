@@ -4,10 +4,10 @@
     "committed_at": "2026-09-15"
   },
   "counts": {
-    "open": 71,
-    "p1": 10,
-    "p2": 48,
-    "p3": 13,
+    "open": 85,
+    "p1": 12,
+    "p2": 58,
+    "p3": 15,
     "queued": 7,
     "pending": 0,
     "resolved": 580
@@ -681,8 +681,8 @@
       "id": "#4WR2XZ",
       "priority": "P2",
       "type": "issue",
-      "summary": "Clozapine withhold-threshold canary answers are generated then discarded, and the two obvious explanations are both disproved",
-      "detail": "SCOPE: eval canary cases quality-clozapine-red-result-action, quality-clozapine-fbc-monitoring, clozapine-anc-withhold-threshold and clozapine-fbc-acronym-threshold, all pinned to CG.MHSP.ClozapinePresAdminMonitor.pdf. An answer IS produced (the ANC case spends roughly 17 seconds generating) and is then rejected by verification, so the cost is paid and thrown away. THIS ROW EXISTS MAINLY TO STOP TWO WRONG THEORIES BEING RE-TESTED. DISPROVED THEORY 1, chunk splitting fires the band-conflict guard: adjacentLabelledNumericBandConflicts was run offline against the real code over a realistic clozapine monitoring table (green/amber/red bands plus a withhold instruction), both intact and split across two adjacent chunks. Result was 0 conflicts in BOTH arrangements, including 0 adjacent-boundary conflicts. The guard is not what rejects these answers, so the ingestion re-chunking fix that was drafted for it was NOT implemented, because its premise is false. DISPROVED THEORY 2, the extractive figure predicate is too strict: extractiveAnswerCarriesIntentFigure was run offline on six realistic phrasings of the ANC answer. Four passed, including the plain form 'If the absolute neutrophil count falls below 1.5 x10^9/L, clozapine must be withheld'. The two that failed were genuinely incomplete answers, which is the predicate working as designed. REMAINING HYPOTHESIS, unconfirmed: the corpus holds several overlapping clozapine guidelines (CAMHS, Fiona Stanley, AKG, MHSP) and the highest-ranked passages may come from the ones that do not state a numeric threshold and its action together, in which case generation is working from evidence that cannot support a threshold claim and verification is correctly refusing. That is a corpus and ranking question answerable only against the live index. NEXT STEP, ready and read-only: run scripts/operator-clozapine-retrieval-diagnosis.sql in an approved operator window. Step 2 is decisive (does any single stored chunk bind a blood-count figure to a withhold action), Step 3 separates a figure/action chunk split, Steps 4 and 5 separate 'outranked' from 'not retrievable' using match_document_chunks_text_v3. The file carries a branch table mapping each outcome to ranking, ingestion or source-OCR. Run it in the Supabase SQL Editor: execute on that function is granted to service_role only. STOP RULE: do not relax the canary case, the verification predicate or adjacentLabelledNumericBandConflicts to make these pass. A red case here is the system correctly refusing to state a clozapine withhold threshold it cannot support from a source. Any fix touches a protected RAG surface, so flag it before editing and follow AGENTS.md RAG ranking protection, including the live canary before/after pair.",
+      "summary": "Clozapine canary answers were discarded because table extraction interleaved the columns; extractor fixed, corpus re-index outstanding",
+      "detail": "RESOLVED AS TO CAUSE 2026-09-16, by a live guest search of the production public corpus (read-only, user-authorised). CAUSE: page text came from page.get_text('text', sort=True), which orders text LINES by (y, x). A table whose cells wrap over several lines is therefore read straight ACROSS the columns. The served chunk from Clozapine Therapy - Initiation, Continuation and Ceasing Policy and Procedure (RKPG).pdf p16 reads 'Neutropenia Requires medical review. Stop clozapine. Contact WBC < 1.5 x 10 9/L. Flu-like symptoms such 3.2% haematologist ...', binding the withhold threshold to the word 'Contact' rather than to 'Neutropenia'. Answer verification correctly refused to state a clozapine threshold from that text. Nothing was wrong with retrieval, ranking, chunk splitting or any guard. EVIDENCE: the live search returned 12 chunks across 7 WA clozapine guidelines (FSH, CAMHS, RKPG, NMHS x2, AKG, FSH GP Shared Care), so the documents are retrievable and admitted; exactly one of the 12 bound a blood-count threshold to a stop instruction, and that one was the scrambled chunk. CORRECTION TO THIS ROW'S OWN EARLIER REPORTING: an interim analysis in the same session stated 'zero of twelve chunks bind a figure to an action'. That was WRONG. The detector used only ANC and neutrophil, while these WA guidelines say WBC, neutropenia and agranulocytosis. The correct count is one of twelve. The wrong count briefly supported a corpus-gap reading; it is recorded here so the number is not re-quoted. FOURTH DISPROVED THEORY, added to the two already in this row: 'the expected document is scoped uploaded_local and is unretrievable by design' is FALSE - retrieval returned these documents to an unauthenticated caller. The alias tables also already absorb the corpus renames, so a stale expectedFiles entry is not the cause either. FIXED IN CODE: extract_pdf_assets.table_aware_page_text substitutes the cell-by-cell rendering find_tables() already computes for detected grid regions, leaving surrounding prose in reading order, with a retention guard that keeps the raw text if detection would swallow the page and an ignore rule for heuristic non-grid candidates. Reproduced on a synthetic three-column table with wrapped cells, mutation-tested (removing the fix reproduces the exact production string), covered by worker/python/test_extract_pdf_assets_table_reading_order.py (5 tests) with the full worker suite green at 27 passed. STILL OUTSTANDING AND OPERATOR-ONLY: the fix only applies to documents ingested after it ships, so every already-indexed chunk keeps the scrambled wording until re-ingested. Step 6 of scripts/operator-clozapine-retrieval-diagnosis.sql lists the affected chunks and collapses them into a per-document re-index worklist, using two fingerprints validated against the real production text. The eval cases stay red until that re-index runs. DO NOT relax the cases, the verification predicate or adjacentLabelledNumericBandConflicts - the refusal is correct behaviour on corrupted evidence.",
       "source": "Claude Code session 2026-09-15 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), offline experiments against src/lib/rag/rag-extractive-answer.ts and src/lib/answer-verification.ts; branch claude/review-and-implement-mzd0t5",
       "added": "2026-09-15"
     },
@@ -730,6 +730,132 @@
       "detail": "/calculators/search?q=anxiety+screening returned 0 matches while GAD-7 is reachable via depression-severity browsing. Synonym/index gap. Next: add aliases for anxiety screening → GAD-7 and audit similar gaps. Also note document title on calculators route showed Differential Diagnosis | PsychSift while UI said Clinical Calculators (metadata bug).",
       "source": "session 2026-09-13 live QA reverify",
       "added": "2026-09-13"
+    },
+    {
+      "id": "#V98SPY",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Search says degraded but no UI renders it",
+      "detail": "Since PR #2805/#2808 a universal-search group carries `degraded: true` when the domain was served from the in-bundle catalogue because the canonical read could not be completed (`src/lib/universal-search.ts`, `src/lib/site-content/catalogue-seed-fallback.ts`). `live-domain-monitor` asserts on it, but no component consumes it, so a clinician cannot tell that the list they are searching may lag behind what was published. Bounded by the 30 s cooldown and by every result linking to a detail page that reads canonically, so this is a clarity gap rather than a safety one. Wants a quiet inline notice on the results surface, not a modal. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#TSSF3G",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Dictionary handover: 333 sense drafts and 28 definition rewrites await clinical sign-off",
+      "detail": "The 2026-09 handover landed as an unpublished editorial draft layer (src/data/dictionary-sense-drafts.json, src/data/dictionary-definition-reviews.json). All 333 senses are clinicalApproval pending and publicationAllowed false, and assertNoDraftIsPublished keeps them that way. All 96 definition-review baselines hash-match the live entries, so the 28 proposed rewrites apply cleanly - none is applied because none is signed off. Evidence coverage is the governing fact: 206 of 1,881 statements carry a source and none of the 292 safety warnings does. Nothing publishes until a named clinician signs records off, and a public route for sense ids does not exist yet. See docs/dictionary-editorial-drafts.md.",
+      "source": "Claude session 2026-09-16, handover package PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#YE6BZB",
+      "priority": "P2",
+      "type": "task",
+      "summary": "read_site_content_public_records() has no EXPLAIN baseline, and it is on the search request path",
+      "detail": "The search-path sibling of #458SAC, and a different function: #458SAC measured read_site_content_health() at ~7s, but that one walks site_content_sync_events and read_site_content_public_records never touches that table, so its hypothesis does not transfer and its number is not evidence here. This read IS on the request path: src/lib/universal-search.ts calls it once per registry domain per search. PR #2805 restored a cache in front of it (15s fresh, stale-while-revalidate to 10 min, single flight), which removes the repetition but not the cost of the first read in each window. Nothing has ever measured that cost. READY TO RUN, read-only, nothing writes or locks: scripts/operator-explain-site-content-public-records.sql, every profiling statement bounded by set local statement_timeout, run the whole script twice and use the second pass. Step 0 is decisive on its own and needs no EXPLAIN: pg_stat_statements gives real call counts and mean latency as production has actually been running it. A mean in single-digit milliseconds means this function is NOT the search-latency cause and the investigation belongs on the document retrieval path instead (see #8VAY97, the other unmeasured read on that path). GATE: provider-backed, so an approved operator window and explicit user confirmation per AGENTS.md API and provider confirmation boundary. STOP: do not enable pg_stat_statements if it is absent, and do not run any statement from this script unbounded.",
+      "source": "Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D); search latency root-cause work, PR #2805",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#8GB18R",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Registry and medication list responses cannot carry the degraded flag",
+      "detail": "Search results now say 'may be out of date' when a group was served from the in-bundle catalogue (PR for the 2026-09-16 registry search outage). The mode list surfaces cannot: `/api/registry/records` and `/api/medications` fall back to seeds but their responses do not carry `degraded`, because `parseRegistryListResponse` in `src/lib/registry-client-contract.ts` validates against a strict `hasOnlyKnownKeys` allow-list — adding the field without extending the parser, the response type, `RegistryRecordsState` and the rendering component in the same change would make every degraded response parse as null and surface as an error. Thread it through all four layers together and render `withCatalogueDegradedNotice` on the Forms, Services and Medications list surfaces. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#SCYQAE",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Re-ingest documents whose tables were extracted with interleaved columns, and have a clinician check the RKPG ANC/WBC labels",
+      "detail": "TWO OPERATOR ACTIONS, both outstanding after the 2026-09-16 extraction fix. ACTION 1, RE-INGEST. extract_pdf_assets.table_aware_page_text now renders detected grid tables cell by cell instead of letting page.get_text('text', sort=True) read line-major across the columns. The fix applies only at ingestion, so every chunk already in the corpus keeps its scrambled wording. Scope the backlog with Step 6 of scripts/operator-clozapine-retrieval-diagnosis.sql, which is read-only and returns both a chunk-level list and a per-document re-index worklist. Its two fingerprints were validated against real production text and fired on exactly the known-corrupted chunk out of 12 live results: (A) an action verb followed within 40 characters by a blood-count comparison, crossing a full stop, which is the clozapine signature 'Stop clozapine. Contact WBC < 1.5'; (B) a bare percentage wedged between two lowercase words, 'such 3.2% haematologist', which is an incidence column spliced into a prose column and needs no clozapine vocabulary. Treat rows as candidates and read the excerpt before re-ingesting, since a percentage can legitimately sit mid-sentence. The four clozapine eval cases stay red until this runs, and that is expected rather than a new defect. ACTION 2, CLINICAL, AND IT IS NOT A SOFTWARE TASK. The RKPG clozapine table as extracted labels 1.5 and 0.5 x10^9/L as WBC thresholds. Those are ANC figures. The Australian thresholds are ANC below 1.5 for a red result requiring cessation and ANC below 0.5 for agranulocytosis, with the WBC red threshold at 3.0. It cannot be told from the extracted text whether the source PDF mislabels them or the interleaving moved ANC values under a WBC heading, so a clinician must read the source PDF. If the document itself is wrong this is a clinical governance issue wider than this repository and the document should be flagged at its owning service, Rockingham Peel Group. Until then the system refusing to answer clozapine threshold questions is the safe outcome and must not be worked around.",
+      "source": "Claude Code session 2026-09-16 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), live public-corpus search plus PyMuPDF reproduction; extraction fix in worker/python/extract_pdf_assets.py",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#RR3N4H",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Six Australian and WA publishers are unregistered, so eight Australian sources cannot enter the ledger at all while 14 UK NICE guidelines can",
+      "detail": "src/lib/source-authority-registry.ts does not contain Centre for Clinical Interventions (a WA Health service), Phoenix Australia (issuer of the national PTSD guidelines), Australasian ADHD Professionals Association, COPE Centre of Perinatal Excellence, Australian Government Department of Health Disability and Ageing, or Monash University. acquisitionLedgerIssues rejects any record whose publisher the register cannot place in a jurisdiction, so those eight reconciled Therapy sources are held entirely and can never leave D band. The register meanwhile admits the 14 NICE guidelines registered on 2026-09-16, which inverts the WA-first order docs/source-acquisition-protocol.md requires. cci.health.wa.gov.au is already a governed host, so CCI is blocked on the publisher entry alone. nhmrc.gov.au and tga.gov.au are additionally not in GOVERNED_SOURCE_HOSTS. Next action: owner decides which publishers to register, because registering one changes retrieval selection and source ranking. Proposal with per-publisher blockers in the 2026-09-16 Therapy handover work bundle (authority-register-expansion-proposal.json). Verify with npm run check:source-acquisitions and npm run check:source-catalogue.",
+      "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16, branch claude/vibrant-mccarthy-bbi43k",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#4DFNHJ",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Owner re-attestation still owed on six ledger sources whose metadata corrections already landed",
+      "detail": "IMPLEMENTED 2026-09-16 by commit 2f7072e43: the six publisher-page corrections (RANZCP mood guideline documentStatus outdated; five Chief Psychiatrist guidelines publicationDate 2015-12-01 and version December 2025 revision) are applied. Residual only: all six remain validationStatus locally_reviewed from the owner's 2026-09-06 sign-off, which predates the corrections, so each still needs owner re-attestation rather than another agent edit. CORRECTION to the original claim that wrong publication dates overstated Currency by about ten years: Currency is scored from documentStatus alone in src/lib/sources/catalogue-core.ts; publicationDate contributes only a boolean to traceability. Measured: the five Chief Psychiatrist guidelines score 91 band A both before and after; only the RANZCP documentStatus change moved a score (band A to B, 89 to 74). Verify with npm run check:source-acquisitions.",
+      "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16; narrowed for Codex P2 on #2817",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#V3E3BV",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Sixteen candidate clinical sources await owner review; until one is adopted, 47 Therapy records can cite nothing",
+      "detail": "Commit 88dd7aaea registered 23 reconciled Therapy sources in src/data/source-acquisitions.json, taking the ledger from 8 to 31. Sixteen are disposition candidate with validationStatus unverified: 14 NICE guidelines at rung 5, one RANZCP president's update at rung 3, and therapy-wa-aboriginal-impact-policy (WA Aboriginal Health Impact Statement and Declaration Policy). Publication dates and current status were re-read from each publisher's own page on 2026-09-16 and all matched the handover; nine NICE guidelines are filed review_due because the publisher's most recent date for them is over five years old. Nothing is adopted, so no Therapy record may cite any of them yet. This is the gate on the 47 records that currently have null references and null evidenceNotes. Distinct from #SBKXZ7, which tracks clinician sign-off of the 205 therapy records themselves rather than source adoption. Seven further sources were recorded as rejections with the reason each would need resolved before re-capture; five are blocked because the publisher prints an update date but no publication date. Next action: owner reviews the 16 candidates and decides adoption. npm run check:source-acquisitions lists them under 'Awaiting clinical sign-off'.",
+      "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16, branch claude/vibrant-mccarthy-bbi43k",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#MTY1J2",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Owner decision: ledger-eligible authority entry for Australian Prescriber",
+      "detail": "The Australian Prescriber movement-disorders article is fully established (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014) and is already cited by the published dictionary for the extrapyramidal side-effect terms. It cannot enter the acquisition ledger because src/lib/source-authority-registry.ts registers australian-prescriber with catalogueIdentityOnly true, and the acquisition gate warns that changing that alters retrieval selection. The date work is banked in src/data/dictionary-source-dispositions.json; only the governance decision remains.",
+      "source": "Claude session 2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#JHT39N",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Four dictionary sources record a publisher that is a description, not an agency",
+      "detail": "WA-MHAS records 'Government of Western Australia', WA-AHLO records 'WA Health service providers', WA-MHERL records 'Mental Health Commission / WA Health' (two publishers in one field), and 4AT-OFFICIAL records '4AT developers'. None was registered in src/lib/source-authority-registry.ts on purpose: a catch-all entry for the Crown would resolve every WA government document to a single authority, which is worse than leaving the records held. Establish the actual publishing agency for each and correct the publisher field, then re-run npm run check:source-acquisitions.",
+      "source": "Claude session 2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#WY625D",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Twenty-one dictionary sources need a date; four AIHW pages block automated reads",
+      "detail": "After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
+      "source": "Claude session 2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#F5GHS1",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "GOVERNED_SOURCE_HOSTS: 19 dictionary sources blocked, including AIHW's METEOR registry",
+      "detail": "Nineteen sources from the 2026-09 dictionary handover are held because their canonical URL host is not in GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts. Among them are three National Outcomes and Casemix Collection metadata records on meteor.aihw.gov.au, which is AIHW's own metadata registry and carries stable content identifiers. The owner declined to widen host policy when asked on 2026-09-16, so this is recorded rather than actioned. Widening the list also requires updating the pinned host count.",
+      "source": "Claude session 2026-09-16",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#BDJWAH",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Orphaned owner-catalogue-cache is still invalidated by the seed writers",
+      "detail": "`src/lib/owner-catalogue-cache.ts` lost its only search-path reader on 2026-09-09 (b753ed2b1), which is the commit that caused the seven-day registry-search outage. The module is still in the tree and `invalidateOwnerCatalogueCache` is still called by `src/lib/registry-seed.ts` and `src/lib/medication-seed.ts` after a write. Those calls now clear a cache nothing reads, so anyone checking whether the catalogue cache is invalidated on publish gets a misleading yes. Two things to settle together: retire the dead module through the dead-code-deletion protocol, and decide whether the cache that replaced it (`src/lib/site-content/site-content-record-cache.ts`, 15 s fresh / 10 min stale-while-revalidate) needs an invalidation hook on publish or whether the TTL is the intended contract. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+      "source": "docs/audit/2026-09-16-registry-search-outage.md",
+      "added": "2026-09-16"
+    },
+    {
+      "id": "#PX8N86",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Every catalogue search reads the whole release payload because the kind filter cannot reach the scan",
+      "detail": "MECHANISM, read from the SQL on 2026-09-16, not measured. Inside read_site_content_public_records the classified CTE computes kind as coalesce(p.kind, case when rr.logical_id like ...) from site_content_release_records rr LEFT JOIN site_content_publications p, and only the NEXT CTE applies where c.kind = p_kind. Because kind is a coalesce over a column from the nullable side of a left join, the planner cannot push that predicate beneath the join: it must join every public-visible record in the active release, across all five kinds, compute kind for each, then discard the four nobody asked for. There is no index on the computed kind because it is computed. The function also returns the whole record and render_payload JSON per row where the pre-2026-09-09 read asked for roughly twenty named ranking columns. WHY IT IS STILL OPEN AFTER PR #2805: that PR restored the cache half, which was the regression; this half is a property of the SQL function and cannot be narrowed from application code. THE FIX, when justified: a stored, indexed kind column on site_content_release_records so the filter can reach the scan, plus a narrower return for the ranking callers. CONFIRM FIRST, do not build on this reading: Step 3 of scripts/operator-explain-site-content-public-records.sql compares the full join against a logical_id-prefixed scan and settles whether the push-down actually fails. GATE: this ships as a migration, and merging a migration reaches the live clinical database within seconds with no deploy step to hold it back, so it needs an approved window and CREATE INDEX CONCURRENTLY cannot run in that transaction, per AGENTS.md Supabase project safety: operator-prebuild plus a validate-only guard migration. STOP: do not change the functions return columns without checking every caller of readCanonicalSiteContentRecords, including the detail-page and differential-page readers that use mapRecord.",
+      "source": "Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D); offline read of supabase/migrations/20260830121000, PR #2805",
+      "added": "2026-09-16"
     }
   ],
   "pending": []
