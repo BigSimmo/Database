@@ -222,6 +222,7 @@
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
     "check:locality-metadata": "node scripts/run-tsx.mjs scripts/verify-locality-metadata.ts",
     "recover:ingestion": "node scripts/run-tsx.mjs scripts/recover-ingestion-queue.ts",
+    "bootstrap:refresh": "node scripts/run-tsx.mjs scripts/refresh-site-content-bootstrap.ts",
     "registry:seed": "node scripts/run-tsx.mjs scripts/seed-registry-records.ts",
     "registry:embed": "node scripts/run-tsx.mjs scripts/embed-registry-records.ts",
     "registry:reconcile-governance": "node scripts/run-tsx.mjs scripts/reconcile-registry-governance.ts",

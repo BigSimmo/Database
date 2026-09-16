@@ -15,6 +15,7 @@ import {
   type DifferentialRecord,
   getPresentationWorkflowSelectionForDiagnosisIds,
 } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import type {
   DifferentialStreamChapter,
   DifferentialStreamItem,
@@ -96,7 +97,7 @@ function diagnosisItemFromRecord(
     id: `diagnosis-${record.slug}`,
     slug: record.slug,
     title: record.title,
-    description: record.clinicalHinge,
+    description: diagnosisOwnSummary(record),
     examples: record.related.slice(0, 3).map((node) => node.label),
     href: `/differentials/diagnoses/${record.slug}`,
     status: record.status,

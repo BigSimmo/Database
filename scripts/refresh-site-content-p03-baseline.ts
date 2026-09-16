@@ -191,17 +191,19 @@ export function bootstrapDigest(entries: ReturnType<typeof bootstrapRecords>) {
 /**
  * Reports whether the seeded bootstrap release still describes the blob.
  *
- * It deliberately does NOT repair a mismatch, because the repair is not local. The release
- * digest appears five times in the generated block, and the release's own UUID is derived
- * from it: `site_content_retained_bootstrap_valid` asserts
- * `r.id = site_content_release_id(r.release_digest, 0, 'bootstrap-v1')`. So moving the
- * digest re-keys the release identity, and that UUID is hardcoded 36 times across the
- * migration and schema.sql — including inside `create function` bodies already applied to
- * the live database — and another 12 times in application code. Rewriting the digest alone
- * trades one broken invariant for another; rewriting the identity is an owner decision
- * about the live clinical content control plane, in an approved window.
+ * Any change to the seeded population moves the digest, and the release's own UUID is
+ * derived from it: `site_content_retained_bootstrap_valid` asserts
+ * `r.id = site_content_release_id(r.release_digest, 0, 'bootstrap-v1')`. So the digest and
+ * the identity always move together, across both SQL files, the drift manifest, the health
+ * module, the control-plane check and the pinned tests. Rewriting only one of the two trades
+ * one broken invariant for another, which is why `rekeyBootstrapRelease` below rewrites both
+ * together or not at all. This is the same operation PR #2814 performed by hand when the
+ * services handover moved the population from 843 records to 860.
  *
- * So this returns the facts and the caller says them out loud.
+ * It changes a REPLAY only — a preview branch, CI's migration replay, a fresh database.
+ * `20260824122000` is already applied to production, so editing it does not re-run there and
+ * does not move the live active release. Publishing this content into the live canonical
+ * population is a separate, deliberate operation.
  */
 export function bootstrapReleaseState(sql: string, digest: string, count: number) {
   const begin = sql.indexOf("-- BEGIN GENERATED SITE CONTENT BOOTSTRAP RELEASE");
@@ -260,11 +262,19 @@ function main() {
     if (!check) writeFileSync(path, next);
   }
 
+  // Read AFTER the blob rewrite so the guard is compared against what the file now holds,
+  // not against the stale block. In --check nothing was written, so this is the committed
+  // state either way and the two failures below are reported together rather than one per run.
+  const identity = reportBootstrapRelease(readFileSync(repoUrl(SCHEMA), "utf8"), digest, entries.length, check);
+
   if (check) {
-    if (stale.length) {
+    const problems = [
+      stale.length ? `P03 seed baseline is stale in:\n  ${stale.join("\n  ")}` : "",
+      identity.matches ? "" : "The seeded bootstrap release identity no longer describes the blob.",
+    ].filter(Boolean);
+    if (problems.length) {
       console.error(
-        `P03 seed baseline is stale in:\n  ${stale.join("\n  ")}\n` +
-          "Run: npm run site-content:p03, then npm run drift:manifest (requires Docker).",
+        `${problems.join("\n")}\nRun: npm run site-content:p03, then re-pin schema_sha256 in supabase/drift-manifest.json.`,
       );
       process.exit(1);
     }
@@ -272,34 +282,110 @@ function main() {
     return;
   }
 
-  if (!stale.length) {
+  if (!stale.length && identity.matches) {
     console.log("P03 seed baseline already current; nothing written.");
-  } else {
-    console.log(
-      `Refreshed the P03 seed baseline in:\n  ${stale.join("\n  ")}\n` +
-        "supabase/schema.sql changed, so run npm run drift:manifest (requires Docker) before pushing.",
-    );
+    return;
   }
-  reportBootstrapRelease(readFileSync(repoUrl(SCHEMA), "utf8"), digest, entries.length);
+  console.log(
+    `Refreshed the P03 seed baseline in:\n  ${stale.join("\n  ") || "  (blobs already current)"}\n` +
+      "supabase/schema.sql changed, so re-pin schema_sha256 in supabase/drift-manifest.json before pushing\n" +
+      "(npm run drift:manifest regenerates the whole manifest but requires Docker).",
+  );
 }
 
-/** Says out loud whether the seeded release still matches, and what it means if not. */
-function reportBootstrapRelease(sql: string, digest: string, count: number) {
+/**
+ * Files carrying the bootstrap release identity as a literal.
+ *
+ * Deliberately enumerated rather than globbed. `docs/` is excluded because the ledger inbox
+ * holds immutable request records that quote an identity as historical fact; rewriting one
+ * would be a false audit trail as well as a `check:ledger-write-discipline` failure.
+ */
+const IDENTITY_TARGETS = [
+  "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql",
+  "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
+  "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
+  "supabase/schema.sql",
+  "supabase/drift-manifest.json",
+  "src/lib/site-content/site-content-health.ts",
+  "scripts/check-site-content-control-plane.mjs",
+  "tests/fixtures/site-content/site-content-control-plane-correction.sql",
+  "tests/fixtures/site-content/site-content-health-state-machine.sql",
+  "tests/fixtures/site-content/site-content-legacy-transition-race-seed.sql",
+  "tests/fixtures/site-content/site-content-transition-backfill-seed.sql",
+  "tests/rag-answer-fallback.test.ts",
+  "tests/rag-governed-corpus-retrieval.test.ts",
+  "tests/rag-governed-entrypoint.test.ts",
+  "tests/rag-site-content-freshness.test.ts",
+  "tests/rag-site-content-retrieval.test.ts",
+  "tests/site-content-health.test.ts",
+  "tests/supabase-schema.test.ts",
+] as const;
+
+/** `public.site_content_release_id(digest, 0, 'bootstrap-v1')`, computed offline. */
+export function bootstrapReleaseUuid(digest: string) {
+  const hash = createHash("sha256")
+    .update(
+      canonicalJson({
+        version: "site-content-release-instance-v1",
+        releaseDigest: digest,
+        targetChangeEpoch: "0",
+        generationId: "bootstrap-v1",
+      }),
+      "utf8",
+    )
+    .digest("hex");
+  // Pins the UUID version nibble to 5 and the RFC 4122 variant nibble to 8, exactly as the
+  // SQL does. Verified against PR #2814's committed pair before this function was trusted.
+  const value = `${hash.slice(0, 12)}5${hash.slice(13, 16)}8${hash.slice(17, 32)}`;
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20, 32)}`;
+}
+
+/**
+ * Moves the seeded release identity onto the blob the generator just wrote.
+ *
+ * Digest and UUID move together and only as a pair, so a half-applied rewrite cannot be
+ * committed. The previous identity is read out of the migration rather than assumed, which
+ * makes this idempotent and safe to re-run after a merge brings someone else's re-key.
+ */
+function rekeyBootstrapRelease(previousDigest: string, digest: string, check: boolean) {
+  const previousUuid = bootstrapReleaseUuid(previousDigest);
+  const uuid = bootstrapReleaseUuid(digest);
+  const rewritten: string[] = [];
+  for (const target of IDENTITY_TARGETS) {
+    const path = repoUrl(target);
+    const current = readFileSync(path, "utf8");
+    const next = current.replaceAll(previousDigest, digest).replaceAll(previousUuid, uuid);
+    if (next === current) continue;
+    rewritten.push(target);
+    if (!check) writeFileSync(path, next);
+  }
+  return { previousUuid, uuid, rewritten };
+}
+
+/** Says out loud whether the seeded release matched, and what moved if it did not. */
+function reportBootstrapRelease(sql: string, digest: string, count: number, check: boolean) {
   const state = bootstrapReleaseState(sql, digest, count);
   if (state.matches) {
     console.log("Seeded bootstrap release matches the blob.");
-    return;
+    return state;
   }
-  console.warn(
-    "\nWARNING: the seeded bootstrap release no longer describes this blob.\n" +
-      `  guard expects digest ${state.pinnedDigest} over ${state.pinnedCount} records\n` +
-      `  this blob computes  ${state.computedDigest} over ${state.computedCount} records\n` +
-      "  supabase/schema.sql therefore will not replay: it aborts with\n" +
-      "  site_content_bootstrap_population_mismatch, so npm run drift:manifest cannot run.\n" +
-      "  This is NOT repaired here. The release UUID is derived from the digest, so moving it\n" +
-      "  re-keys the bootstrap release identity across both SQL files and application code.\n" +
-      "  That is an owner decision about the live clinical content control plane.\n",
+  if (state.pinnedDigest === digest) {
+    throw new Error(
+      `Bootstrap population count moved to ${count} with an unchanged digest, which cannot happen. Refusing to re-key.`,
+    );
+  }
+  const { previousUuid, uuid, rewritten } = rekeyBootstrapRelease(state.pinnedDigest, digest, check);
+  console.log(
+    `\nSeeded bootstrap release re-keyed onto the new blob${check ? " (dry run)" : ""}:\n` +
+      `  digest  ${state.pinnedDigest}\n       -> ${digest}\n` +
+      `  uuid    ${previousUuid}\n       -> ${uuid}\n` +
+      `  records ${state.pinnedCount} -> ${count}\n` +
+      `  rewritten in:\n    ${rewritten.join("\n    ")}\n` +
+      "  This changes a REPLAY only. 20260824122000 is already applied to production, so it\n" +
+      "  does not re-run there and the live active release is untouched. Publishing this\n" +
+      "  content into the live canonical population is a separate, deliberate operation.\n",
   );
+  return state;
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) main();

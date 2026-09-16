@@ -3497,6 +3497,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md",
         "section": "superpowers",
         "catalogued": false
