@@ -34,7 +34,14 @@
 -- NOT MEASURED. The reasoning above is read from the SQL and the constraints, not from a plan.
 -- scripts/operator-explain-site-content-public-records.sql is the read-only EXPLAIN that confirms
 -- it on real data and has not been run. Nothing here builds an index or rewrites a table: it is a
--- single transactional function replacement, reversible by replaying the previous definition.
+-- single transactional function replacement.
+--
+-- HOW TO UNDO IT, precisely. Reverting this FILE does not undo anything: once merged, the
+-- integration records version 20260916103000 as applied, so deleting the file leaves the live
+-- function exactly as this migration left it and re-adding 20260830121000 will not re-run. Undoing
+-- it means a NEW forward migration carrying the previous definition verbatim — copy the function
+-- body from 20260830121000_bind_site_content_release_transitions.sql — and updating
+-- supabase/schema.sql to match in the same change.
 
 set local search_path = public, pg_catalog;
 set local lock_timeout = '5s';

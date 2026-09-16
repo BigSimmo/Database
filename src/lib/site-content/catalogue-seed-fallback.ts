@@ -50,6 +50,16 @@ export const catalogueListFallbackBudgetMs = 6_000;
 /** How long to skip the canonical read entirely after it fails, before probing again. */
 export const catalogueSeedFallbackCooldownMs = 30_000;
 
+/**
+ * Cooldown scopes. A cooldown says "a read under THIS budget failed recently", so it cannot be
+ * shared across callers whose budgets differ by five seconds: a search giving up at 1200 ms is no
+ * evidence that a list read allowed 6000 ms would also fail, and keying the cooldown on kind alone
+ * meant one search timeout sent every list request straight to seeds without trying, silently
+ * bypassing the longer budget the list routes were given.
+ */
+export const catalogueSearchScope = "search";
+export const catalogueListScope = "list";
+
 type Outcome<T> = {
   /** Mutable so the per-domain rankers can sort in place; the seed path is copied, never aliased. */
   records: T[];
@@ -58,6 +68,11 @@ type Outcome<T> = {
 };
 
 const cooldownUntil = new Map<string, number>();
+
+/** Cooldowns are per (scope, kind): see the scope constants for why kind alone was wrong. */
+function cooldownKey(scope: string, kind: string) {
+  return `${scope}::${kind}`;
+}
 
 /**
  * Falling back MUST be loud. The 2026-09-16 outage lasted seven days because degradation was
@@ -101,6 +116,8 @@ function abortReason(signal: AbortSignal): Error {
  */
 export async function readCatalogueWithSeedFallback<T>(input: {
   kind: string;
+  /** Which caller's budget this read runs under. Defaults to search, the tighter of the two. */
+  scope?: string;
   seeds: readonly T[];
   signal?: AbortSignal;
   read: (signal: AbortSignal) => Promise<T[]>;
@@ -111,17 +128,18 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   const now = input.now ?? Date.now;
   const budgetMs = input.budgetMs ?? catalogueSeedFallbackBudgetMs;
   const cooldownMs = input.cooldownMs ?? catalogueSeedFallbackCooldownMs;
+  const key = cooldownKey(input.scope ?? catalogueSearchScope, input.kind);
 
   input.signal?.throwIfAborted();
 
-  const coolingUntil = cooldownUntil.get(input.kind);
+  const coolingUntil = cooldownUntil.get(key);
   // Reaching past this point with a cooldown recorded means it has just expired, so this read is
   // the re-probe — which is what makes a success below a recovery worth reporting rather than an
   // ordinary read.
   const probing = coolingUntil !== undefined;
   if (coolingUntil !== undefined) {
     if (coolingUntil > now()) return { records: [...input.seeds], degraded: true };
-    cooldownUntil.delete(input.kind);
+    cooldownUntil.delete(key);
   }
 
   const budget = new AbortController();
@@ -147,13 +165,13 @@ export async function readCatalogueWithSeedFallback<T>(input: {
 
   try {
     const records = await Promise.race([input.read(budget.signal), abandoned]);
-    cooldownUntil.delete(input.kind);
+    cooldownUntil.delete(key);
     if (probing) reportRecovery(input.kind);
     return { records, degraded: false };
   } catch (error) {
     // The caller gave up on the whole search; nothing here is a catalogue-health signal.
     if (input.signal?.aborted) throw abortReason(input.signal);
-    cooldownUntil.set(input.kind, now() + cooldownMs);
+    cooldownUntil.set(key, now() + cooldownMs);
     reportFallback(input.kind, error, budgetMs, cooldownMs);
     return { records: [...input.seeds], degraded: true };
   } finally {
@@ -161,22 +179,6 @@ export async function readCatalogueWithSeedFallback<T>(input: {
     input.signal?.removeEventListener("abort", forwardCallerAbort);
     budget.signal.removeEventListener("abort", onAbort);
   }
-}
-
-/**
- * Whether this catalogue is currently being served from seeds.
- *
- * The open cooldown IS the degraded state: it is set the moment a read fails and every read
- * skipped while it is open returns seeds. Reading it after the fan-out therefore reports the same
- * answer the request itself got, without threading a flag back through every adapter signature.
- *
- * This is what lets the response say `degraded`, which is what an external monitor can assert on.
- * Without it the seed fallback would make the next occurrence of this outage invisible from
- * outside — results on screen, canonical data unreachable, nobody told.
- */
-export function catalogueKindIsDegraded(kind: string, now: () => number = Date.now): boolean {
-  const coolingUntil = cooldownUntil.get(kind);
-  return coolingUntil !== undefined && coolingUntil > now();
 }
 
 /**

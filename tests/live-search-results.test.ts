@@ -76,6 +76,22 @@ describe("assessSearchProbe", () => {
     });
     expect(verdict.ok).toBe(true);
   });
+
+  // A string has a truthy `.length`, so counting it blind let a malformed body pass as healthy —
+  // an unreadable live response is precisely what this monitor exists to catch.
+  it.each([
+    ["a string", "ok"],
+    ["an object", { length: 3 }],
+    ["null", null],
+  ])("does not count %s as results when total is absent", (_label, items) => {
+    const verdict = assessSearchProbe({
+      domain: "forms",
+      status: 200,
+      body: { groups: [{ kind: "forms", items, latencyMs: 90 }] },
+    });
+    expect(verdict.ok).toBe(false);
+    expect(verdict.code).toBe("no_results");
+  });
 });
 
 describe("the probe set", () => {

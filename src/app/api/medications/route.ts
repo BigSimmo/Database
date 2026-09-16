@@ -23,6 +23,7 @@ import {
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
   catalogueListFallbackBudgetMs,
+  catalogueListScope,
   readCatalogueWithSeedFallback,
 } from "@/lib/site-content/catalogue-seed-fallback";
 import {
@@ -225,6 +226,10 @@ export async function GET(request: Request) {
     const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
     const canonical = await readCatalogueWithSeedFallback({
       kind: "medication",
+      // Its own cooldown scope. Sharing one with search meant a search giving up at 1200 ms sent
+      // this route straight to seeds for thirty seconds without ever trying the longer read it is
+      // budgeted for.
+      scope: catalogueListScope,
       seeds,
       budgetMs: catalogueListFallbackBudgetMs,
       read: async (signal) => {

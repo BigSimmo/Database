@@ -814,7 +814,9 @@ export function UniversalSearchCommandSurface({
         const GroupIcon = appModeIcons[targetModeId];
         const visibleItems =
           modeId === "favourites" ? group.items.filter((item) => !savedHrefs.has(item.href)) : group.items;
-        if (!visibleItems.length) continue;
+        // A degraded group with nothing in it still renders, heading and notice only. Skipping it
+        // would show a plain "no matches" for a catalogue that was never successfully read.
+        if (!visibleItems.length && !group.degraded) continue;
         const isCurrentModeGroup = universalPreferredDomains.includes(group.kind);
         built.push({
           key: `universal-${group.kind}`,

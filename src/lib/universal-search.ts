@@ -16,7 +16,7 @@ import { logger } from "@/lib/logger";
 import { defaultMedicationRecords } from "@/lib/medication-seed";
 import { analyzeMedicationCatalogQuery } from "@/lib/medication-query";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
-import { catalogueKindIsDegraded, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
+import { catalogueSearchScope, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
@@ -134,6 +134,17 @@ export type RunUniversalSearchArgs = {
 type ResolvedSearchArgs = RunUniversalSearchArgs & {
   baseQuery: string;
   expansions: string[];
+  /**
+   * Domains that answered THIS request from the in-bundle catalogue. Created per call and written
+   * by the adapter that actually fell back.
+   *
+   * It has to be per-request. The first version read the fallback's process-wide cooldown after
+   * the adapter returned, which is shared state and races both ways: a concurrent request that
+   * recovered could clear the cooldown before this one read it, so a response built from seeds
+   * would claim to be canonical — and the live monitor, whose whole job is to catch exactly that,
+   * would be told the catalogue was healthy.
+   */
+  degradedDomains: Set<UniversalSearchDomain>;
 };
 
 const registryDomainTimeoutMs = 2500;
@@ -220,12 +231,32 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
   };
 }
 
+/**
+ * Record that this domain answered from seeds, and hand the outcome straight back.
+ *
+ * Written where the fallback actually happened, for this request only. Reading the fallback's
+ * shared cooldown afterwards instead was wrong in both directions: a concurrent recovery could
+ * clear it before this request looked, marking a seed-built response canonical, and a concurrent
+ * failure could mark a genuinely canonical response degraded.
+ */
+function recordDegraded<T>(
+  args: ResolvedSearchArgs,
+  domain: UniversalSearchDomain,
+  outcome: { records: T[]; degraded: boolean },
+): { records: T[] } {
+  if (outcome.degraded) args.degradedDomains.add(domain);
+  return outcome;
+}
+
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase
-      ? (
+      ? recordDegraded(
+          args,
+          "medications",
           await readCatalogueWithSeedFallback({
             kind: "medication",
+            scope: catalogueSearchScope,
             seeds: defaultMedicationRecords(),
             signal: args.signal,
             read: async (signal) =>
@@ -239,7 +270,7 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
                   signal,
                 })
               ).records,
-          })
+          }),
         ).records
       : defaultMedicationRecords();
   // Catalog-local typo/brand understanding (not clinical-search / RAG analysis).
@@ -262,9 +293,12 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase
-      ? (
+      ? recordDegraded(
+          args,
+          "services",
           await readCatalogueWithSeedFallback({
             kind: "service",
+            scope: catalogueSearchScope,
             seeds: serviceRecords,
             signal: args.signal,
             read: async (signal) =>
@@ -278,7 +312,7 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
                   signal,
                 })
               ).records,
-          })
+          }),
         ).records
       : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
@@ -289,9 +323,12 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase
-      ? (
+      ? recordDegraded(
+          args,
+          "forms",
           await readCatalogueWithSeedFallback({
             kind: "form",
+            scope: catalogueSearchScope,
             seeds: formRecords,
             signal: args.signal,
             read: async (signal) =>
@@ -305,7 +342,7 @@ async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
                   signal,
                 })
               ).records,
-          })
+          }),
         ).records
       : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
@@ -674,18 +711,6 @@ function buildInterpretation(
 }
 
 /**
- * The three domains whose records come from the published catalogue, mapped to the site-content
- * kind they read. Everything else is in-bundle or retrieval-backed and cannot be degraded in this
- * sense. Marked on the group inside the fan-out, not after it, so the streamed NDJSON group and
- * the final response agree.
- */
-const registryCatalogueKind: Partial<Record<UniversalSearchDomain, string>> = {
-  medications: "medication",
-  services: "service",
-  forms: "form",
-};
-
-/**
  * A search where EVERY requested domain failed is an outage, not graceful degradation.
  *
  * Per-domain tolerance (one broken adapter must never blank the response) is right, but on
@@ -734,7 +759,7 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
       ...deriveExpansions(analysis, baseQuery),
     ]),
   ).slice(0, maxExpansions);
-  const resolved: ResolvedSearchArgs = { ...args, baseQuery, expansions };
+  const resolved: ResolvedSearchArgs = { ...args, baseQuery, expansions, degradedDomains: new Set() };
 
   const groups = await Promise.all(
     requested.map(async (domain): Promise<UniversalSearchGroup> => {
@@ -760,9 +785,10 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
           total: tagged.length,
           items: tagged,
           latencyMs: Date.now() - domainStartedAt,
-          ...(registryCatalogueKind[domain] && catalogueKindIsDegraded(registryCatalogueKind[domain])
-            ? { degraded: true }
-            : {}),
+          // Read after the adapter has run, from the set that adapter wrote for THIS request, so
+          // the streamed NDJSON group and the final response agree and neither depends on what a
+          // concurrent request did to the shared cooldown.
+          ...(resolved.degradedDomains.has(domain) ? { degraded: true } : {}),
         };
       } catch {
         // A failed/timed-out domain yields an empty errored group — one slow or broken adapter

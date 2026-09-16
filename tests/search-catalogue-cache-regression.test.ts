@@ -249,3 +249,75 @@ describe("a total search blackout is reported", () => {
     vi.restoreAllMocks();
   });
 });
+
+/**
+ * The `degraded` flag must describe THIS response, not the process.
+ *
+ * The first implementation read the fallback's shared cooldown after the adapter returned. A
+ * concurrent request that recovered could clear that cooldown first, so a response actually built
+ * from seeds would come back unmarked — and the live monitor, whose entire purpose is to catch a
+ * catalogue serving seeds, would be told everything was fine.
+ */
+describe("the degraded flag is per request, not shared state", () => {
+  it("does not mark a canonical response degraded because another kind failed", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+
+    // Forms fails; services and medications answer canonically in the same fan-out.
+    const supabase = {
+      rpc: (name: string, args: Record<string, unknown>) => {
+        if (name !== "read_site_content_public_records") return Promise.resolve({ data: [], error: null });
+        if (args?.p_kind === "form") return Promise.reject(new Error("canonical read failed"));
+        const kind = typeof args?.p_kind === "string" ? args.p_kind : "service";
+        return Promise.resolve({ data: [catalogueRow(kind)], error: null });
+      },
+    } as unknown as SearchSupabase;
+
+    const response = await runUniversalSearch({
+      query: "transport",
+      limitPerDomain: 5,
+      domains: ["forms", "services", "medications"],
+      demo: false,
+      supabase,
+    });
+
+    const byKind = new Map(response.groups.map((group) => [group.kind, group]));
+    expect(byKind.get("forms")?.degraded).toBe(true);
+    expect(byKind.get("services")?.degraded).toBeUndefined();
+    expect(byKind.get("medications")?.degraded).toBeUndefined();
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  // The race the shared-state version lost: the cooldown is cleared between the fallback and the
+  // point the group is built. A per-request flag is unaffected; a shared read would report
+  // seed-built items as canonical.
+  it("still reports degraded when the cooldown is cleared before the group is built", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const fallback = await import("@/lib/site-content/catalogue-seed-fallback");
+    fallback.clearCatalogueSeedFallbackCooldown();
+
+    const supabase = {
+      rpc: (name: string) => {
+        if (name !== "read_site_content_public_records") return Promise.resolve({ data: [], error: null });
+        // Simulates the concurrent recovery: the cooldown this request opened is wiped while the
+        // rest of the fan-out is still running.
+        queueMicrotask(() => fallback.clearCatalogueSeedFallbackCooldown());
+        return Promise.reject(new Error("canonical read failed"));
+      },
+    } as unknown as SearchSupabase;
+
+    const response = await runUniversalSearch({
+      query: "transport",
+      limitPerDomain: 5,
+      domains: ["forms"],
+      demo: false,
+      supabase,
+    });
+
+    const forms = response.groups.find((group) => group.kind === "forms");
+    expect(forms?.items.length ?? 0).toBeGreaterThan(0);
+    expect(forms?.degraded).toBe(true);
+    fallback.clearCatalogueSeedFallbackCooldown();
+  });
+});

@@ -4,6 +4,8 @@ import { logger } from "@/lib/logger";
 import {
   catalogueDegradedNotice,
   catalogueListFallbackBudgetMs,
+  catalogueListScope,
+  catalogueSearchScope,
   catalogueSeedFallbackBudgetMs,
   catalogueSeedFallbackCooldownMs,
   clearCatalogueSeedFallbackCooldown,
@@ -291,5 +293,95 @@ describe("withCatalogueDegradedNotice", () => {
   // Plain words a clinician reads once. No jargon, no "degraded", nothing decorative.
   it("says what it means in plain language", () => {
     expect(catalogueDegradedNotice).toBe("may be out of date");
+  });
+});
+
+/**
+ * A cooldown records that a read failed UNDER A PARTICULAR BUDGET. Keying it on kind alone meant a
+ * search giving up at 1200 ms sent every list request straight to seeds for the next thirty
+ * seconds without ever attempting the 6000 ms read it was budgeted for — silently discarding the
+ * longer budget and serving a stale list while the database was merely slow rather than broken.
+ */
+describe("cooldowns are scoped to the caller's budget", () => {
+  it("does not let a search timeout send the list route to seeds", async () => {
+    const time = clock();
+    const searchRead = vi.fn(async () => {
+      throw new Error("search budget exceeded");
+    });
+    const listRead = vi.fn(async () => canonical);
+
+    const search = await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueSearchScope,
+      seeds,
+      read: searchRead,
+      now: time.now,
+    });
+    expect(search.degraded).toBe(true);
+
+    const list = await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueListScope,
+      seeds,
+      read: listRead,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+
+    expect(listRead).toHaveBeenCalledTimes(1);
+    expect(list).toEqual({ records: canonical, degraded: false });
+  });
+
+  it("still cools down within a scope, and the other scope is unaffected", async () => {
+    const time = clock();
+    const failing = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const healthy = vi.fn(async () => canonical);
+
+    await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueListScope,
+      seeds,
+      read: failing,
+      now: time.now,
+    });
+    await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueListScope,
+      seeds,
+      read: failing,
+      now: time.now,
+    });
+    expect(failing).toHaveBeenCalledTimes(1);
+
+    const search = await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueSearchScope,
+      seeds,
+      read: healthy,
+      now: time.now,
+    });
+    expect(search.degraded).toBe(false);
+  });
+
+  it("defaults to the search scope when none is given", async () => {
+    const time = clock();
+    const failing = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const healthy = vi.fn(async () => canonical);
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read: failing, now: time.now });
+    const explicit = await readCatalogueWithSeedFallback({
+      kind: "form",
+      scope: catalogueSearchScope,
+      seeds,
+      read: healthy,
+      now: time.now,
+    });
+
+    expect(explicit.degraded).toBe(true);
+    expect(healthy).not.toHaveBeenCalled();
   });
 });

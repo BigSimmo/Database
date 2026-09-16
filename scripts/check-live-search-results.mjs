@@ -81,7 +81,10 @@ export function assessSearchProbe({ domain, status, body }) {
       message: `${domain}: answering from the in-bundle catalogue because the published one could not be read.`,
     };
   }
-  const total = typeof group.total === "number" ? group.total : (group.items?.length ?? 0);
+  // `items` is only a count when it is actually an array. A malformed body carrying
+  // `items: "ok"` has a truthy `.length` of 2, which would let this monitor call an unreadable
+  // response healthy — the one failure mode it exists to catch.
+  const total = typeof group.total === "number" ? group.total : Array.isArray(group.items) ? group.items.length : 0;
   if (total <= 0) {
     return {
       ok: false,
