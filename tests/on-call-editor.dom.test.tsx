@@ -7,7 +7,7 @@ import { useState } from "react";
 
 import { OnCallEntryEditor, OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { ON_CALL_RECURRENCE_FREQUENCIES, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
 afterEach(() => {
@@ -385,5 +385,120 @@ describe("OnCallEntryEditor — accessible name", () => {
   it("names itself after the section when creating", () => {
     render(<OnCallEntryEditor open section="contacts" entry={null} onSaved={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "Add to Contacts" })).toBeInTheDocument();
+  });
+});
+
+const JOURNAL_CLUB: OnCallEntry = {
+  id: "44444444-4444-4444-8444-444444444444",
+  section: "education",
+  slug: "journal-club",
+  title: "Journal club",
+  subtitle: null,
+  body: null,
+  details: { nextOccurrence: "Thursday 1pm", nextOccurrenceDate: "2026-09-17", topics: [] },
+  linkedDocumentIds: [],
+  tags: [],
+  isPersonal: false,
+  includeOnCard: false,
+  sortOrder: 0,
+  lastVerifiedAt: new Date("2026-06-01T00:00:00.000Z").toISOString(),
+};
+
+describe("OnCallEntryEditor — a teaching session that repeats", () => {
+  // Codex P2 on PR #2806: bare "Weekly" and "Monthly" promise more than the
+  // schedule can do. Monthly repeats on the anchor's calendar DATE, so a "third
+  // Sunday of the month" session drifts onto a weekday, and nothing here can
+  // express a term that ends. The labels now say what each option actually does,
+  // and the hint names what cannot be expressed at all.
+  it("says what each frequency actually does, rather than promising more than it can", () => {
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const control = screen.getByLabelText(/^Repeats/);
+    const options = within(control)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual([
+      "Does not repeat",
+      "Weekly, on the same weekday",
+      "Fortnightly, on the same weekday",
+      "Monthly, on the same date",
+    ]);
+  });
+
+  it("warns that a weekday-of-the-month or a term that ends cannot be expressed", () => {
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const control = screen.getByLabelText(/^Repeats/);
+    const hintId = (control.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean)[0];
+    const hint = hintId ? document.getElementById(hintId) : null;
+    expect(hint).toHaveTextContent(/third Sunday/i);
+    expect(hint).toHaveTextContent(/stops/i);
+  });
+
+  it("gives every frequency the model has a label, so adding one cannot be forgotten", () => {
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const control = screen.getByLabelText(/^Repeats/);
+    const values = within(control)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value)
+      .filter(Boolean);
+    expect(values).toEqual([...ON_CALL_RECURRENCE_FREQUENCIES]);
+  });
+
+  it("saves the chosen frequency as a structured rule beside the owner's free text", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: JOURNAL_CLUB }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="education" entry={JOURNAL_CLUB} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.selectOptions(screen.getByLabelText(/^Repeats/), "weekly");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.details.recurrenceRule).toEqual({ frequency: "weekly" });
+    // The owner's own wording is not replaced by the rule.
+    expect(body.details.nextOccurrence).toBe("Thursday 1pm");
+  });
+
+  it("clears a stored rule when the owner says it no longer repeats", async () => {
+    const user = userEvent.setup();
+    const repeating: OnCallEntry = {
+      ...JOURNAL_CLUB,
+      details: { ...(JOURNAL_CLUB.details as Record<string, unknown>), recurrenceRule: { frequency: "monthly" } },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: repeating }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="education" entry={repeating} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    // The stored rule is what the control opens on, rather than a blank.
+    expect(screen.getByLabelText(/^Repeats/)).toHaveValue("monthly");
+
+    await user.selectOptions(screen.getByLabelText(/^Repeats/), "");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.details.recurrenceRule).toBeUndefined();
+  });
+
+  it("refuses a frequency with no date to count from, rather than saving a rule that does nothing", async () => {
+    const user = userEvent.setup();
+    const undated: OnCallEntry = { ...JOURNAL_CLUB, details: { nextOccurrence: "Thursday 1pm", topics: [] } };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="education" entry={undated} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.selectOptions(screen.getByLabelText(/^Repeats/), "weekly");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    expect(await screen.findByText(/needs a next occurrence date/i)).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
