@@ -1,5 +1,6 @@
 export const GOVERNED_SOURCE_HOSTS = [
   "aci.health.nsw.gov.au",
+  "alcoholtreatmentguidelines.com.au",
   "admhss.mhc.wa.gov.au",
   "australianprescriber.tg.org.au",
   "cahs.health.wa.gov.au",
