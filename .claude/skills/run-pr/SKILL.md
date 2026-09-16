@@ -23,6 +23,13 @@ Never, even during a sweep:
 - Never merge a pull request into `main` or any protected branch, and never enable auto-merge;
   the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned:
   automation must not disable or re-enable it.
+- **Owner-merge rule (owner ruling 2026-09-16):** a PR that is clinical-content, touches
+  anything under `supabase/`, or touches a RAG-ranking surface is merged by Josh, not by
+  agents — its required `PR policy` check stays red until Josh adds the `owner-approved`
+  label, and any new push removes that label. Never add the `owner-approved` label, never
+  arm or re-arm auto-merge on one of these PRs. If you find one armed, report it in the sweep
+  summary and do not disarm it: disarming is a GitHub mutation outside this sweep's
+  authorization, and `PR policy` already blocks the merge until the owner approves. See AGENTS.md "Owner-merge rule" for the full definition.
 - Never close a pull request, delete or rename branches, force-push (no `--force`, no
   `--force-with-lease`), or rebase.
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`,
@@ -113,9 +120,10 @@ Reply before resolving; leave ambiguous, product-sensitive, or provider-gated th
 ### Step 3 — CI diagnosis and fix
 
 - From the check runs on the head SHA, list failing jobs that feed the required `pr-required`
-  aggregate: `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`,
-  `db-reset-verify`. Ignore advisory jobs: `ui-advisory` and `release-browser-matrix` (known
-  cancel-in-progress livelock — never chase it).
+  aggregate — read the current list from the `needs:` array of the `pr-required` job in
+  `.github/workflows/ci.yml` rather than assuming a fixed set; it has grown and changed shape
+  over time and a hard-coded list here goes stale. Ignore advisory jobs: `ui-advisory` and
+  `release-browser-matrix` (known cancel-in-progress livelock — never chase it).
 - `mcp__github__actions_list` to find the CI run for the SHA, then `mcp__github__get_job_logs`
   with `failed_only` and a bounded tail to get the exact failing step.
 - Check known flakes first: the `pdf-extraction-budget` python ENOENT is a container-only local
