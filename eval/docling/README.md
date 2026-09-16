@@ -99,7 +99,7 @@ report key imported from `scripts/rag-adversarial-contract.mjs` (see
 `docs/rag-improvement/baseline-record.md` §1), scans the serialised report for
 canary tokens and real-source names, and fails closed on any hit — printing
 counts, never tokens. Extractor identities (`docling==2.120.2`,
-`pymupdf==1.28.0`) travel outside the key, like S4's `promptVersion`.
+`pymupdf==1.28.2`) travel outside the key, like S4's `promptVersion`.
 
 ## Running
 
