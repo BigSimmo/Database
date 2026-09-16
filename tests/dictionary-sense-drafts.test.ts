@@ -240,8 +240,8 @@ describe("source dispositions", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
-    expect(admitted).toHaveLength(17);
-    expect(heldDictionarySources()).toHaveLength(41);
+    expect(admitted).toHaveLength(18);
+    expect(heldDictionarySources()).toHaveLength(40);
   });
 
   it("names a blocker and a next action for every held source", () => {
@@ -351,7 +351,7 @@ describe("source link routing", () => {
 describe("publisher re-reads", () => {
   it("records a dated finding for every source read in this session", () => {
     const read = dictionarySourceDispositions.filter((disposition) => disposition.publisherCheck.checkedOn);
-    expect(read.length).toBeGreaterThanOrEqual(30);
+    expect(read.length).toBeGreaterThanOrEqual(35);
     for (const disposition of read) {
       expect(disposition.publisherCheck.checkedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(disposition.publisherCheck.finding.trim()).not.toBe("");
@@ -487,7 +487,7 @@ describe("what a candidate actually is", () => {
     // row into the catalogue. What holds is narrower and is pinned here: they render
     // at the lowest band, marked unverified, and never as approved.
     const added = sourceAcquisitionRecords.filter((record) => record.id.startsWith("dictionary-"));
-    expect(added.length).toBeGreaterThanOrEqual(17);
+    expect(added.length).toBeGreaterThanOrEqual(18);
 
     const entries = canonicalizeSourceReferences(acquisitionSourceReferences(added));
     expect(entries).toHaveLength(added.length);
@@ -524,5 +524,34 @@ describe("the handover guide states the counts the data actually holds", () => {
     expect(Number(row![1])).toBe(admitted);
     expect(Number(row![2])).toBe(held);
     expect(admitted + held).toBe(dictionarySourceDispositions.length);
+  });
+});
+
+describe("an update stamp is not a review and not a publication", () => {
+  it("banks update statements without admitting them", () => {
+    // WA's Chief Psychiatrist, RCH and AIHW's monitoring hubs all stamp a
+    // last-updated date and nothing else. The reading is recorded so it is not
+    // repeated, and the record stays held: the register has no update event, and
+    // filing one under reviewDate would claim a review nobody did.
+    const updated = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
+    expect(updated.length).toBeGreaterThanOrEqual(4);
+    for (const disposition of updated) {
+      expect(disposition.ledgerOutcome, disposition.handoverSourceId).toBe("held");
+      expect(disposition.ledgerRecordId).toBeNull();
+      expect(disposition.blockers[0]?.code).toBe("publisher_states_an_update_stamp_not_a_publication_or_review_date");
+      expect(disposition.establishedReviewDate).toBeUndefined();
+    }
+  });
+
+  it("keeps every banked update stamp out of the ledger's date fields", () => {
+    const stamps = dictionarySourceDispositions
+      .map((disposition) => disposition.establishedUpdateStatement)
+      .filter((statement): statement is string => Boolean(statement));
+    for (const record of sourceAcquisitionRecords) {
+      for (const stamp of stamps) {
+        expect(stamp).not.toBe(record.publicationDate);
+        expect(stamp).not.toBe(record.reviewDate);
+      }
+    }
   });
 });

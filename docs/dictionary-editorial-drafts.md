@@ -19,7 +19,7 @@ into the published entries would lose the distinction that makes them worth havi
 | ------------------ | ---------------------------------------------- | ----------------------------------------------------- |
 | Sense drafts       | `src/data/dictionary-sense-drafts.json`        | 333 records, all pending approval                     |
 | Definition reviews | `src/data/dictionary-definition-reviews.json`  | 96 verdicts, 28 with proposed wording, none applied   |
-| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 17 admitted as ledger candidates, 41 held |
+| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 18 admitted as ledger candidates, 40 held |
 
 The typed readers are in `src/lib/dictionary-editorial/`. Re-import with
 `node scripts/import-dictionary-handover.mjs --package <dir>`; `--check` proves the committed files
@@ -89,8 +89,8 @@ entries.
 
 ## Sources: registered is not ingested
 
-**Seventeen of the 58 sources are admitted to `src/data/source-acquisitions.json` as candidates**,
-up from two: the WHO AUDIT and ASSIST manuals, WA Health MP 0155/21 and its consent article, RANZCP
+**Eighteen of the 58 sources are admitted to `src/data/source-acquisitions.json` as candidates**,
+up from two: the WHO AUDIT and ASSIST manuals, AIHW's 2025 prisons health report, WA Health MP 0155/21 and its consent article, RANZCP
 PS #74, PS #116 and PPG #16, NICE NG225 and CG103, Australian Prescriber's movement-disorders
 article, and seven Healthdirect articles. They are metadata rows, not indexed documents — see exactly what that does and does not mean below.
 
@@ -98,7 +98,7 @@ article, and seven Healthdirect articles. They are metadata rows, not indexed do
 
 An earlier draft of this document said they had "no deployed catalogue visibility". **That was
 wrong**, and a review caught it. `acquisitionProvider` feeds every non-rejected ledger row into
-`repositorySourceReferences()`, which `/sources/search` renders with a detail page each. All 17 rows
+`repositorySourceReferences()`, which `/sources/search` renders with a detail page each. All 18 rows
 appear there.
 
 That is the register working as designed — the eight rows already in the ledger before this change
@@ -153,7 +153,7 @@ both is rejected. Recording a review date in `publicationDate` remains wrong and
 
 ### Dates are recorded as the events they actually are
 
-Thirty sources were read from their publishers' own pages on 2026-09-16, each carrying a
+Thirty-five sources were read from their publishers' own pages on 2026-09-16, each carrying a
 `publisherCheck` with the finding and the date checked. Publication, version-release, effective,
 updated and review dates are different events and none was substituted for another:
 
@@ -166,6 +166,30 @@ updated and review dates are different events and none was substituted for anoth
 
 A page stamped only `Last updated` stays held. An update is a third event, and the register has no
 field for it — the WA Chief Psychiatrist's Mental Health Act page is the case in point.
+
+### The third date event, which the register still cannot hold
+
+A page stamped only `Last updated` stays held, and after 35 publisher reads that turns out to be a
+larger category than it first looked. The WA Chief Psychiatrist's Mental Health Act page says
+`Last updated: 5 December 2025`; the Royal Children's Hospital MSE guideline says
+`Last updated December 2024`; AIHW's suicide and self-harm monitoring says `Updated 14 Aug 2026`.
+
+An update is a **third event**. It is not a publication and it is not a review: a page can be updated
+for a data refresh, a broken link or a typo without anyone reviewing the clinical content. The
+register has `publicationDate` and `reviewDate` and no field for this, so these records cannot be
+admitted without asserting a check that nobody performed.
+
+The statements are banked verbatim in `establishedUpdateStatement` so the reading is not repeated,
+and a test keeps them out of both date fields. Whether the register should carry an update event is
+an owner decision, and a wider one than the review-date model: `ClinicalSourceReferenceInput` has no
+update field either, so the catalogue projection would have to grow one rather than quietly folding
+an update into `reviewDate`.
+
+**A dated edition is different from a maintained hub.** AIHW's 2025 prisons health report carries a
+release date (27 Aug 2026) and is admitted; AIHW's monitoring hubs carry only an update stamp and are
+not. Where a handover record cites an undated topic landing page whose content actually lives in a
+dated edition — `AIHW-AOD-2026` is the case — the fix is to repoint the record at the edition, not to
+date the landing page.
 
 ### `nice-delirium` was not a conflict
 

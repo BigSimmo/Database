@@ -4,8 +4,8 @@
   "previewedOn": "2026-09-16",
   "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry, not clinical approval and not deployed catalogue visibility. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
   "counts": {
-    "held": 41,
-    "admitted_as_candidate": 17
+    "held": 40,
+    "admitted_as_candidate": 18
   },
   "sources": [
     {
@@ -145,9 +145,9 @@
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
-          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+          "code": "handover_cites_an_undated_landing_page_not_the_dated_edition",
+          "blocker": "The cited URL is AIHW's undated topic landing page. The glossary content sits inside a dated report edition, which is the citable artefact.",
+          "nextAction": "Repoint the record at the dated report edition (alcohol-drug-treatment-services-2023-24) and record that edition's release date."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -166,7 +166,7 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+        "finding": "Read 2026-09-16 via AIHW's own site index. The handover cites an undated topic landing page; the glossary itself lives inside the dated report edition 'Alcohol and other drug treatment services in Australia 2023-24'."
       }
     },
     {
@@ -179,9 +179,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
-          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -200,8 +200,9 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
-      }
+        "finding": "Read 2026-09-16. The publisher states 'Updated 14 Aug 2026 (National Suicide and Self-harm Monitoring, of which this page is a section)' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Updated 14 Aug 2026 (National Suicide and Self-harm Monitoring, of which this page is a section)"
     },
     {
       "handoverSourceId": "AIHW-NOCC-2026",
@@ -274,22 +275,22 @@
     {
       "handoverSourceId": "AIHW-OAT-2026",
       "title": "The health of people in Australia's prisons 2025 - Opioid agonist therapy",
-      "ledgerOutcome": "held",
-      "ledgerRecordId": null,
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-aihw-prisons-health-2025",
       "catalogueIdentityOutcome": "held",
       "existingDictionarySourceId": null,
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
-          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs clinical sign-off.",
+          "nextAction": "Clinical reviewer to confirm the source is appropriate to cite before any content relies on it."
         }
       ],
-      "decisionOwner": "Source register owner",
+      "decisionOwner": "Clinical reviewer",
       "stages": {
         "staged": "verified",
-        "catalogued": "blocked",
+        "catalogued": "verified",
         "bytesAcquired": "not_attempted",
         "extractionChecked": "not_attempted",
         "indexed": "not_attempted",
@@ -302,7 +303,7 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
+        "finding": "Read 2026-09-16 via AIHW's own site index. The topic listing dates this web report 27 Aug 2026 and the report page carries the same date as its last-updated stamp."
       }
     },
     {
@@ -315,9 +316,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "The page could not be read. AIHW pages normally carry a release or last-updated date, so this is expected to be resolvable.",
-          "nextAction": "Open the page in a browser and record its release date and report edition, then re-run the acquisition gate. The publisher is already registered and ledger-eligible, so the date is the only thing missing."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -336,8 +337,9 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Attempted 2026-09-16. aihw.gov.au returned HTTP 403 to a direct fetch from this session, so no date or version was established."
-      }
+        "finding": "Read 2026-09-16. The publisher states 'Updated 14 Aug 2026' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Updated 14 Aug 2026"
     },
     {
       "handoverSourceId": "AMHOCN-NOCC",
@@ -550,24 +552,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_now_registered_date_still_required",
-          "blocker": "The publisher 'Centre of Perinatal Excellence' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
-          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
-        },
-        {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "cope.org.au blocks automated reading. The publisher is registered, so a date is the only thing missing.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -585,8 +572,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. cope.org.au returned HTTP 403 to a direct fetch from this session, so no date was established."
       }
     },
     {
@@ -1013,24 +1000,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "publisher_now_registered_date_still_required",
-          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
-          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "aci.health.nsw.gov.au blocks automated reading. The publisher is registered, so a date is the only thing missing.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1048,8 +1020,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aci.health.nsw.gov.au returned HTTP 403 to a direct fetch from this session, so no date was established."
       }
     },
     {
@@ -1164,19 +1136,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "publisher_now_registered_date_still_required",
-          "blocker": "The publisher \"Royal Children's Hospital Melbourne\" is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
-          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
-        },
-        {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1194,9 +1156,10 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
-      }
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. The publisher states 'Last updated December 2024' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Last updated December 2024"
     },
     {
       "handoverSourceId": "WA-ABORIGINAL-TITLES-2026",
@@ -1609,29 +1572,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "publisher_now_registered_date_still_required",
-          "blocker": "The publisher 'Mental Health Tribunal Western Australia' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
-          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
-        },
-        {
-          "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "source_is_an_undated_live_register",
+          "blocker": "An undated institutional landing page has no publication event to record.",
+          "nextAction": "Cite a dated Tribunal publication rather than the site landing page."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1649,8 +1592,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Read 2026-09-16. No publication, update or review date appears anywhere on the Mental Health Tribunal WA site's landing page; the only year shown is a 2026 copyright footer."
       }
     },
     {
@@ -1731,9 +1674,9 @@
       "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
       "blockers": [
         {
-          "code": "source_is_a_continuously_updated_page",
-          "blocker": "The page is a maintained reference that carries an update stamp, not a publication event.",
-          "nextAction": "Decide whether the ledger should represent continuously updated official pages, which currently require a publication date it cannot have."
+          "code": "publisher_states_an_update_stamp_not_a_publication_or_review_date",
+          "blocker": "The publisher maintains this page and stamps it with a last-updated date. An update is a third event: it is neither a publication nor a review, and the register has no field for it. Recording it as either would assert something the publisher does not say.",
+          "nextAction": "Owner decision: whether the register should carry an update event for a continuously maintained page. The statement below is established and can be used the moment it does."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1752,8 +1695,9 @@
       "jobId": null,
       "publisherCheck": {
         "checkedOn": "2026-09-16",
-        "finding": "Read 2026-09-16. The page carries 'Last updated: 5 December 2025' and no publication date."
-      }
+        "finding": "Read 2026-09-16. The publisher states 'Last updated: 5 December 2025' and gives no publication or review date."
+      },
+      "establishedUpdateStatement": "Last updated: 5 December 2025"
     },
     {
       "handoverSourceId": "WA-OCP-PMP",
@@ -2240,24 +2184,9 @@
       "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
       "blockers": [
         {
-          "code": "source_not_rechecked_in_this_preparation",
-          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
-          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
-        },
-        {
-          "code": "publisher_now_registered_date_still_required",
-          "blocker": "The publisher 'NSW Agency for Clinical Innovation' is now in the source authority register, so jurisdiction resolves. What remains is that no publication or review date has been established for this source.",
-          "nextAction": "Read the publisher's own page and record whichever date it states, with its true precision and event type."
-        },
-        {
-          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
-          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
-          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
-        },
-        {
-          "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "code": "publisher_page_unreadable_from_this_session",
+          "blocker": "aci.health.nsw.gov.au blocks automated reading. The publisher is registered, so a date is the only thing missing.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -2275,8 +2204,8 @@
       "documentId": null,
       "jobId": null,
       "publisherCheck": {
-        "checkedOn": null,
-        "finding": "Not re-read in this session."
+        "checkedOn": "2026-09-16",
+        "finding": "Attempted 2026-09-16. aci.health.nsw.gov.au returned HTTP 403 to a direct fetch from this session, so no date was established."
       }
     },
     {
