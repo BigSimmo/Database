@@ -10,6 +10,7 @@ import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { Button } from "@/components/ui/button";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
+import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
@@ -139,7 +140,10 @@ function ContactRow({
   // it, and the row would not dial — while the home's ward strip, reading the
   // shared helper, dialled the same contact happily. Two answers to "what does
   // this row ring".
-  const primary = entry.isPersonal ? null : onCallPrimaryNumber(entry);
+  // `now` is passed through, not left to default: which number is primary now
+  // depends on whether it is in or out of hours, and this page already injects a
+  // clock so its rendering is deterministic under test.
+  const primary = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
   const href = telHref(primary?.value);
 
   const otherNumbers =
@@ -201,9 +205,21 @@ function ContactRow({
       </div>
       {/* Sibling to the row, never nested inside it: the row's own tap target is
           already a `tel:` link, and a `<button>` inside an `<a>` is invalid,
-          duplicate-interactive markup. */}
-      {onEdit || showVerify ? (
+          duplicate-interactive markup. The copy control joins this column for
+          the same reason — it is a real `<button>` and the row is a real `<a>`.
+          A personal entry gets no copy control at all: the page withholds those
+          digits from the room, and a control that copies them hands them out. */}
+      {onEdit || showVerify || primary ? (
         <div className="flex shrink-0 flex-col items-stretch justify-center gap-1.5">
+          {primary ? (
+            <OnCallCopyNumber
+              value={primary.value}
+              // Names the number AND the contact, because the glyph alone tells
+              // a screen-reader user neither.
+              label={`Copy ${primary.label} number for ${entry.title}`}
+              testId={`on-call-contact-copy-${entry.slug}`}
+            />
+          ) : null}
           {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
           {onEdit ? (
             <button
