@@ -543,15 +543,61 @@ describe("an update stamp is not a review and not a publication", () => {
     }
   });
 
-  it("keeps every banked update stamp out of the ledger's date fields", () => {
+  // The stamps are prose ("Updated 14 Aug 2026") and the ledger's date fields are
+  // ISO strings, so comparing the two raw would pass however badly the invariant
+  // were broken: "Updated 14 Aug 2026" never equals "2026-08-14". The whole point
+  // of the guard is to catch a stamp that HAS been normalised into a date field,
+  // so the test has to normalise it the same way before comparing.
+  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+  /** Every ISO date a stamp could plausibly have been filed as, day and month precision alike. */
+  function datesAStampCouldBecome(statement: string): string[] {
+    const month = MONTHS.findIndex((m) => new RegExp(`\\b${m}`, "i").test(statement));
+    const year = statement.match(/\b(\d{4})\b/);
+    if (month < 0 || !year) return [];
+    const mm = String(month + 1).padStart(2, "0");
+    const dates = [`${year[1]}-${mm}`];
+    const day = statement.match(/\b(\d{1,2})\b(?!\d)/);
+    if (day && Number(day[1]) <= 31) dates.push(`${year[1]}-${mm}-${String(Number(day[1])).padStart(2, "0")}`);
+    return dates;
+  }
+
+  it("normalises each banked update stamp to a date, and finds it in no ledger date field", () => {
     const stamps = dictionarySourceDispositions
       .map((disposition) => disposition.establishedUpdateStatement)
       .filter((statement): statement is string => Boolean(statement));
+    expect(stamps.length).toBeGreaterThanOrEqual(4);
+
+    // A stamp the normaliser cannot read would make the comparison below vacuous,
+    // which is the failure this test exists to stop repeating.
+    const forbidden = new Set<string>();
+    for (const stamp of stamps) {
+      const dates = datesAStampCouldBecome(stamp);
+      expect(dates.length, `no date could be read from ${JSON.stringify(stamp)}`).toBeGreaterThan(0);
+      for (const date of dates) forbidden.add(date);
+    }
+    expect(forbidden.has("2026-08-14")).toBe(true);
+
     for (const record of sourceAcquisitionRecords) {
-      for (const stamp of stamps) {
-        expect(stamp).not.toBe(record.publicationDate);
-        expect(stamp).not.toBe(record.reviewDate);
+      for (const field of ["publicationDate", "reviewDate"] as const) {
+        const value = record[field];
+        if (!value) continue;
+        expect(forbidden.has(value), `${record.id}.${field} carries a banked update stamp`).toBe(false);
       }
+    }
+  });
+
+  it("gives the sources that carry an update stamp no ledger date at all", () => {
+    const byId = new Map(sourceAcquisitionRecords.map((record) => [record.id, record]));
+    const stamped = dictionarySourceDispositions.filter((disposition) => disposition.establishedUpdateStatement);
+    expect(stamped.length).toBeGreaterThanOrEqual(4);
+    for (const disposition of stamped) {
+      // Held sources have no record; if one is ever admitted, neither date event
+      // may be filled from the update stamp that is all its publisher states.
+      const record = disposition.ledgerRecordId ? byId.get(disposition.ledgerRecordId) : undefined;
+      if (!record) continue;
+      expect(record.publicationDate, `${disposition.handoverSourceId} publicationDate`).toBeFalsy();
+      expect(record.reviewDate, `${disposition.handoverSourceId} reviewDate`).toBeFalsy();
     }
   });
 });
