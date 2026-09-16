@@ -456,36 +456,9 @@ const SOURCES: Record<string, FactsheetSource[]> = {
       tag: "Reference",
       url: "https://www.healthdirect.gov.au/bipolar-disorder",
     },
-    {
-      // Staged draft evidence, not adopted authority. This is the source
-      // behind the steady-state interval, the wider monitoring panel and the
-      // interacting classes on this sheet; citing only the two consumer pages
-      // left those claims with no trace. Its register entry stays
-      // `candidate` / `unverified` until the owner reviews it.
-      n: "3",
-      title: "Lithium therapy and its interactions",
-      org: "Australian Prescriber",
-      year: "2020",
-      tag: "Reference",
-      url: "https://australianprescriber.tg.org.au/articles/lithium-therapy-and-its-interactions.html",
-      version: "Aust Prescr 2020;43:91-3",
-      publicationDate: "2020-06-02",
-      evidenceType: "professional_reference",
-    },
-    {
-      // A correction is a distinct work. It is what changes the diuretic
-      // statement from "increase" to "may alter", so it cannot be folded into
-      // the article above.
-      n: "4",
-      title: "Lithium therapy and its interactions [correction]",
-      org: "Australian Prescriber",
-      year: "2020",
-      tag: "Reference",
-      url: "https://australianprescriber.tg.org.au/articles/lithium-therapy-and-its-interactions-correction.html",
-      version: "2020 correction",
-      publicationDate: "2020-06-12",
-      evidenceType: "professional_reference",
-    },
+    // Australian Prescriber lithium article + correction stay in the
+    // acquisition register as candidate/unverified only. They must not
+    // appear in the patient-facing `sources` projection until adopted.
   ],
 };
 
@@ -821,17 +794,18 @@ export const factsheets: Factsheet[] = [
       },
     ],
     warningSigns: {
-      heading: "Signs your level may be too high — get advice the same day",
+      heading: "Signs your level may be too high — get urgent advice now",
       items: [
         "New or worsening vomiting or diarrhoea",
         "A coarse, shaky tremor",
         "Feeling unsteady on your feet",
         "Slurred speech",
         "Confusion, or feeling much more drowsy than usual",
-        "Do not wait for all of these to appear, and do not wait for your next blood test",
+        "Do not take the next dose until you have spoken to a clinician or the Poisons Information Centre",
+        "Call the Poisons Information Centre on 13 11 26 now (even if you feel only mildly unwell), or call 000 for a collapse, a seizure or any immediate danger — do not wait for your next blood test",
       ],
     },
-    safe: "Keep your fluid and salt intake reasonably steady and avoid sudden changes. Being unwell with vomiting, diarrhoea, fever or dehydration can push your lithium level up, so get advice when that happens rather than waiting for the next test. Check with your doctor or pharmacist before starting or changing any medicine, including anti-inflammatories bought over the counter, and medicines for blood pressure or fluid — these can change your lithium level. Tell your doctor if you are pregnant or planning a pregnancy, and never switch to a different lithium product without advice. For a suspected overdose, call the Poisons Information Centre on 13 11 26 straight away even if you feel well, and call 000 for a collapse, a seizure or any immediate danger.",
+    safe: "Keep your fluid and salt intake reasonably steady and avoid sudden changes. Being unwell with vomiting, diarrhoea, fever or dehydration can push your lithium level up — treat that as urgent: call your doctor, pharmacist, or the Poisons Information Centre on 13 11 26, and do not take the next dose until advised. Check with your doctor or pharmacist before starting or changing any medicine, including anti-inflammatories bought over the counter, and medicines for blood pressure or fluid — these can change your lithium level. Tell your doctor if you are pregnant or planning a pregnancy, and never switch to a different lithium product without advice. For a suspected overdose, call the Poisons Information Centre on 13 11 26 straight away even if you feel well, and call 000 for a collapse, a seizure or any immediate danger.",
   },
 ];
 
