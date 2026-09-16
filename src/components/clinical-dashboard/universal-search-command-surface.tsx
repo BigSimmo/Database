@@ -44,6 +44,7 @@ import {
 import { useCommandDropdownDisplayable } from "@/components/clinical-dashboard/use-command-dropdown-displayable";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
+import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 import { interpretSmartSearch, isSmartLocalOnlyMode } from "@/lib/smart-search-intent";
 
@@ -817,9 +818,16 @@ export function UniversalSearchCommandSurface({
         const isCurrentModeGroup = universalPreferredDomains.includes(group.kind);
         built.push({
           key: `universal-${group.kind}`,
-          heading: isCurrentModeGroup
-            ? `Current mode · ${domainHeadings[group.kind]} · ${visibleItems.length}`
-            : `Also in ${targetMode.label} · ${domainHeadings[group.kind]} · ${visibleItems.length}`,
+          // A degraded group answered from the in-bundle catalogue because the published one could
+          // not be read. The results are real, so they are still shown, but the reader is told the
+          // list may lag what was published rather than being left to assume it is current. The
+          // 2026-09-16 outage is the reason this is said out loud at all.
+          heading: withCatalogueDegradedNotice(
+            isCurrentModeGroup
+              ? `Current mode · ${domainHeadings[group.kind]} · ${visibleItems.length}`
+              : `Also in ${targetMode.label} · ${domainHeadings[group.kind]} · ${visibleItems.length}`,
+            group.degraded,
+          ),
           items: [
             ...visibleItems.map((item) => ({
               id: nextId(),

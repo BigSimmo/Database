@@ -2,10 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { logger } from "@/lib/logger";
 import {
+  catalogueDegradedNotice,
+  catalogueListFallbackBudgetMs,
   catalogueSeedFallbackBudgetMs,
   catalogueSeedFallbackCooldownMs,
   clearCatalogueSeedFallbackCooldown,
   readCatalogueWithSeedFallback,
+  withCatalogueDegradedNotice,
 } from "@/lib/site-content/catalogue-seed-fallback";
 
 type CatalogueRecord = { slug: string };
@@ -237,5 +240,56 @@ describe("readCatalogueWithSeedFallback reports the degradation it absorbs", () 
       "detail",
       "failure",
     ]);
+  });
+});
+
+describe("the budgets the callers choose between", () => {
+  // A list route has no 2500 ms domain timeout above it and legitimately reads more, so reusing
+  // the search budget would abandon healthy reads and pin those routes to seeds permanently.
+  it("gives a whole-catalogue list read more room than a search read", () => {
+    expect(catalogueListFallbackBudgetMs).toBeGreaterThan(catalogueSeedFallbackBudgetMs);
+    // Still short enough to matter to someone waiting for the page.
+    expect(catalogueListFallbackBudgetMs).toBeLessThanOrEqual(10_000);
+  });
+
+  it("honours a caller-supplied budget rather than the search default", async () => {
+    vi.useFakeTimers();
+    const time = clock();
+    const read = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
+
+    const pending = readCatalogueWithSeedFallback({
+      kind: "medication",
+      seeds,
+      read,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+
+    // Past the search budget, still waiting: the list budget is what applies.
+    await vi.advanceTimersByTimeAsync(catalogueSeedFallbackBudgetMs + 1);
+    let settled = false;
+    void pending.then(() => {
+      settled = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(settled).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(catalogueListFallbackBudgetMs);
+    await expect(pending).resolves.toEqual({ records: seeds, degraded: true });
+  });
+});
+
+describe("withCatalogueDegradedNotice", () => {
+  it("tells the reader only when the list actually came from seeds", () => {
+    expect(withCatalogueDegradedNotice("Current mode · Forms · 3", true)).toBe(
+      `Current mode · Forms · 3 · ${catalogueDegradedNotice}`,
+    );
+    expect(withCatalogueDegradedNotice("Current mode · Forms · 3", false)).toBe("Current mode · Forms · 3");
+    expect(withCatalogueDegradedNotice("Current mode · Forms · 3", undefined)).toBe("Current mode · Forms · 3");
+  });
+
+  // Plain words a clinician reads once. No jargon, no "degraded", nothing decorative.
+  it("says what it means in plain language", () => {
+    expect(catalogueDegradedNotice).toBe("may be out of date");
   });
 });

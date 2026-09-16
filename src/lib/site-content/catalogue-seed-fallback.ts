@@ -36,6 +36,17 @@ import { logger } from "@/lib/logger";
 /** How long one canonical read may take before the reader is served seeds instead. */
 export const catalogueSeedFallbackBudgetMs = 1_200;
 
+/**
+ * The budget for a whole-catalogue LIST read, which is a different job from a search read.
+ *
+ * Search sits under a 2500 ms per-domain timeout, so 1200 ms is generous there. A list route has
+ * no such ceiling and legitimately takes longer — the medication catalogue alone is megabytes — so
+ * reusing the search budget would abandon healthy reads and pin those routes to seeds. A read that
+ * takes longer than this is unhealthy by any reading, which is why it is still short enough to
+ * matter to someone waiting for the page.
+ */
+export const catalogueListFallbackBudgetMs = 6_000;
+
 /** How long to skip the canonical read entirely after it fails, before probing again. */
 export const catalogueSeedFallbackCooldownMs = 30_000;
 
@@ -166,6 +177,23 @@ export async function readCatalogueWithSeedFallback<T>(input: {
 export function catalogueKindIsDegraded(kind: string, now: () => number = Date.now): boolean {
   const coolingUntil = cooldownUntil.get(kind);
   return coolingUntil !== undefined && coolingUntil > now();
+}
+
+/**
+ * What a reader is told when a list came from the in-bundle catalogue rather than the published
+ * one. Plain, short, and honest about the only thing that matters clinically: the entries are real
+ * but the list may not include the most recent publication. Kept here beside the mechanism so
+ * every surface says the same words.
+ */
+export const catalogueDegradedNotice = "may be out of date";
+
+/**
+ * Append the notice to a results heading when, and only when, the group was served from seeds.
+ * A helper rather than an inline ternary so the wording is asserted in one place and cannot drift
+ * between the surfaces that show it.
+ */
+export function withCatalogueDegradedNotice(heading: string, degraded: boolean | undefined): string {
+  return degraded ? `${heading} · ${catalogueDegradedNotice}` : heading;
 }
 
 /** Test seam, and the hook an operator-triggered "try the database again now" would use. */
