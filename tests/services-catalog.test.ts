@@ -28,7 +28,7 @@ describe("services catalogue", () => {
     expect(loadServiceRecords()).toHaveLength(244);
   });
 
-  it("maps 13yarn with phone and medium confidence", () => {
+  it("maps 13yarn with phone and the confidence its evidence now supports", () => {
     const snapshot = loadServicesSnapshot();
     const yarn = snapshot.services.find((service) => service.canonical_name_key === "13yarn");
     expect(yarn).toBeTruthy();
@@ -37,7 +37,11 @@ describe("services catalogue", () => {
     expect(record.slug).toBe("13yarn");
     expect(record.title).toBe("13YARN");
     expect(record.primaryContact?.value).toContain("13 92 76");
-    expect(record.verification?.confidence).toBe("Medium");
+    // Was Medium while the record was carried over from research with no hours and no
+    // page check. A canonical record now supersedes it with 24/7 hours taken from the
+    // Mental Health Commission page of 11 August 2026, so the confidence follows the
+    // evidence. If this drops back to Medium the canonical record has stopped merging.
+    expect(record.verification?.confidence).toBe("High");
   });
 
   it("compacts pipe-joined best-use blobs on summary cards", () => {

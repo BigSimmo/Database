@@ -3,6 +3,7 @@ import canonicalPart02 from "@/lib/services-canonical-data/part-02";
 import canonicalPart03 from "@/lib/services-canonical-data/part-03";
 import canonicalPart04 from "@/lib/services-canonical-data/part-04";
 import canonicalPart05 from "@/lib/services-canonical-data/part-05";
+import canonicalPart06 from "@/lib/services-canonical-data/part-06";
 
 import type {
   CatalogService,
@@ -76,6 +77,7 @@ const canonicalRecords = [
   ...canonicalPart03,
   ...canonicalPart04,
   ...canonicalPart05,
+  ...canonicalPart06,
 ] as unknown as readonly CanonicalServiceInput[];
 
 const URL_PATTERN = /^https?:\/\/[^\s]+$/i;
