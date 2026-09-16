@@ -167,15 +167,23 @@ const ragRankingPatterns = [
   // did not ask.
   /^src\/lib\/(?:source-authority-registry|australian-source-priority)\.ts$/,
   // Ingestion decides the TEXT that becomes chunks, embeddings and cited evidence, so it
-  // moves retrieval outcomes one step further back than ranking does. AGENTS.md § RAG ranking
-  // protection names CHUNKING explicitly, yet none of these files matched any pattern here --
-  // src/lib/chunking.ts classified as neither ragRanking nor clinicalRisk. Added 2026-09-16
-  // after PR #2810 changed PDF table extraction, altering the text served as clinical
-  // evidence, and had to declare its RAG impact voluntarily because this gate did not ask.
-  // Same remedy, and same reason, as the 2026-09-07 source-authority addition above.
+  // moves retrieval outcomes one step further back than ranking does. None of these files
+  // matched any pattern here -- src/lib/chunking.ts classified as neither ragRanking nor
+  // clinicalRisk -- and the AGENTS.md "Flag it" list did not name them either, so nothing
+  // asked at either end. Added 2026-09-16 after PR #2810 changed PDF table extraction,
+  // altering the text served as clinical evidence, and had to declare its RAG impact
+  // voluntarily because this gate did not ask. Same remedy, and same reason, as the
+  // 2026-09-07 source-authority addition above; AGENTS.md was corrected in the same change.
   /^src\/lib\/chunking\.ts$/,
   /^src\/lib\/extractors\//,
   /^worker\/python\/extract_pdf_assets\.py$/,
+  // The other producer of retrieval inputs, missed by src/lib/rag/** only because these three
+  // sit one directory up. searchIndexUnitCandidates queries match_document_index_units_hybrid_v2
+  // unconditionally in the candidate fan-out, so the index units built and embedded here --
+  // tables, workflows, algorithms, aliases, typed signals -- decide what that branch can surface.
+  // deep-memory.ts also exports applyMemoryCardBoosts, which rescores SearchResult[] in that same
+  // path, so it is a ranking surface outright. Added 2026-09-16 on Codex review of PR #2832.
+  /^src\/lib\/(?:document-index-units|model-index-extraction|deep-memory)\.ts$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -715,8 +723,16 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["worker/python/extract_pdf_assets.py"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/extractors/document.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/extractors/pdf-extraction-budget.ts"]).ragRanking, true);
-  // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT stays out.
+  // Structured-evidence producers: index units are queried directly by the candidate fan-out,
+  // and deep-memory.ts rescores results outright via applyMemoryCardBoosts.
+  assert.equal(classifyPullRequestFiles(["src/lib/document-index-units.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/model-index-extraction.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/deep-memory.ts"]).ragRanking, true);
+  // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT, index-unit
+  // content, or a score stays out. Orchestration that only calls the producers is not itself
+  // a producer.
   assert.equal(classifyPullRequestFiles(["src/lib/ingestion-audit.ts"]).ragRanking, false);
+  assert.equal(classifyPullRequestFiles(["src/lib/reindex-pipeline.ts"]).ragRanking, false);
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
