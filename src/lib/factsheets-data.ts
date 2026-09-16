@@ -32,8 +32,25 @@ import { smartSearchContentTerms } from "@/lib/smart-search-intent";
  * that names self-harm, a seizure or serotonin toxicity and then offers no way
  * to act on it is worse than one that never raised the symptom.
  */
-export const FACTSHEET_CRISIS_LINE =
-  "In Australia you can call Beyond Blue 1300 22 4636, Lifeline 13 11 14, or 000 in an emergency.";
+export const FACTSHEET_CRISIS_CONTACTS = [
+  { name: "Beyond Blue", number: "1300 22 4636" },
+  { name: "Lifeline", number: "13 11 14" },
+] as const;
+
+/** The emergency number, kept beside the contacts it is rendered with. */
+export const FACTSHEET_EMERGENCY_NUMBER = "000";
+
+/**
+ * Plain-text crisis line for the printed projection.
+ *
+ * Derived from `FACTSHEET_CRISIS_CONTACTS` rather than written out, because the
+ * screen renders the same numbers with its own markup. Two hand-written copies
+ * is how a printed handout and a screen come to give a reader different
+ * emergency instructions.
+ */
+export const FACTSHEET_CRISIS_LINE = `In Australia you can call ${FACTSHEET_CRISIS_CONTACTS.map(
+  (contact) => `${contact.name} ${contact.number}`,
+).join(", ")}, or ${FACTSHEET_EMERGENCY_NUMBER} in an emergency.`;
 
 /**
  * Urgent-help block for the two medicine-overview sheets. `medLite` has no
@@ -821,17 +838,21 @@ export const factsheets: Factsheet[] = [
       },
     ],
     warningSigns: {
-      heading: "Signs your level may be too high — get advice the same day",
+      heading: "Signs of lithium toxicity — get medical help straight away",
       items: [
         "New or worsening vomiting or diarrhoea",
         "A coarse, shaky tremor",
         "Feeling unsteady on your feet",
         "Slurred speech",
         "Confusion, or feeling much more drowsy than usual",
+        "Blurred vision, or muscle twitching or jerking",
         "Do not wait for all of these to appear, and do not wait for your next blood test",
+        "Go to an emergency department or call 000 if you are confused, unsteady, slurring your speech or very drowsy",
+        "Otherwise contact your doctor or team urgently the same day, and ask them whether to take your next dose before you take it",
+        "The Poisons Information Centre on 13 11 26 can advise at any hour, whether or not you think you have taken too much",
       ],
     },
-    safe: "Keep your fluid and salt intake reasonably steady and avoid sudden changes. Being unwell with vomiting, diarrhoea, fever or dehydration can push your lithium level up, so get advice when that happens rather than waiting for the next test. Check with your doctor or pharmacist before starting or changing any medicine, including anti-inflammatories bought over the counter, and medicines for blood pressure or fluid — these can change your lithium level. Tell your doctor if you are pregnant or planning a pregnancy, and never switch to a different lithium product without advice. For a suspected overdose, call the Poisons Information Centre on 13 11 26 straight away even if you feel well, and call 000 for a collapse, a seizure or any immediate danger.",
+    safe: "Keep your fluid and salt intake reasonably steady and avoid sudden changes. Being unwell with vomiting, diarrhoea, fever or dehydration can push your lithium level up, so get advice when that happens rather than waiting for the next test. Check with your doctor or pharmacist before starting or changing any medicine, including anti-inflammatories bought over the counter, and medicines for blood pressure or fluid — these can change your lithium level. Tell your doctor if you are pregnant or planning a pregnancy, and never switch to a different lithium product without advice. For a suspected overdose, call the Poisons Information Centre on 13 11 26 straight away even if you feel well, and call 000 for a collapse, a seizure or any immediate danger. If you have any of the toxicity signs listed above, treat that as urgent too, not as something to raise at your next appointment.",
   },
 ];
 

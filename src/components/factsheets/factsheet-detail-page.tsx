@@ -18,7 +18,9 @@ import { createPortal } from "react-dom";
 
 import {
   categoryTheme,
+  FACTSHEET_CRISIS_CONTACTS,
   FACTSHEET_DEMO_NOTICE,
+  FACTSHEET_EMERGENCY_NUMBER,
   FACTSHEET_MEDLITE_URGENT_HELP,
   factsheetDetailHref,
   printBlocks,
@@ -619,10 +621,19 @@ function FactsheetBody({
             <div>
               <p className="text-base font-bold text-[color:var(--text-heading)]">You’re not alone</p>
               <p className="mt-1.5 max-w-[60ch] text-pretty text-sm leading-6 text-[color:var(--text)]">
+                {/* Numbers come from the shared constant, not a second copy:
+                    the printed handout builds its crisis line from the same
+                    source, so the two cannot drift into different advice. */}
                 {factsheet.support} In Australia you can call{" "}
-                <strong className="font-bold">Beyond Blue 1300 22 4636</strong>,{" "}
-                <strong className="font-bold">Lifeline 13 11 14</strong>, or <strong className="font-mono">000</strong>{" "}
-                in an emergency.
+                {FACTSHEET_CRISIS_CONTACTS.map((contact, index) => (
+                  <span key={contact.number}>
+                    <strong className="font-bold">
+                      {contact.name} {contact.number}
+                    </strong>
+                    {index < FACTSHEET_CRISIS_CONTACTS.length - 1 ? ", " : ", or "}
+                  </span>
+                ))}
+                <strong className="font-mono">{FACTSHEET_EMERGENCY_NUMBER}</strong> in an emergency.
               </p>
             </div>
           </div>
