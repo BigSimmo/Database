@@ -7,7 +7,6 @@ export const GOVERNED_SOURCE_HOSTS = [
   "headspace.org.au",
   "helpingminds.org.au",
   "icd.who.int",
-  "kidshelpline.com.au",
   "mensline.org.au",
   "pmc.ncbi.nlm.nih.gov",
   "pubmed.ncbi.nlm.nih.gov",
