@@ -1,4 +1,5 @@
 import formsCatalog from "../../data/forms-catalog.json";
+import formsContentReview from "../../data/forms-content-review.json";
 import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 
 import { actSectionsForCue, sectionCueForForm } from "@/lib/mha-act-sections";
@@ -167,6 +168,29 @@ const archivedByCode = new Map(
 );
 const pdfAssetByCode = new Map(formsPdfManifest.assets.map((asset) => [normalizeCode(asset.code), asset] as const));
 
+/**
+ * Review state for each form's operational guidance, from `data/forms-content-review.json`.
+ *
+ * Every entry there is `drafted`: written from the Act text and the approved form, with no
+ * clinician sign-off. That is the same bargain the Act-section summaries already strike --
+ * the alternative was leaving forty of the fifty-four forms with the PDF-indexing
+ * scaffolding they used to carry ("Official form source: <title>. Review the source
+ * snippets and approved form before use."), which named no maker, no clock origin and no
+ * authority boundary while reading like settled reference. A named reviewer signs a form
+ * off by setting `status` to `reviewed`, and only then does the caveat drop.
+ *
+ * A form absent from the register is treated as drafted too. The default has to be the
+ * cautious one: a missing row is a gap in the record, not evidence of review.
+ */
+const contentReviewStatusByCode = new Map(
+  (formsContentReview as { forms: { code: string; status: string }[] }).forms.map(
+    (entry) => [normalizeCode(entry.code), entry.status === "reviewed" ? "reviewed" : "drafted"] as const,
+  ),
+);
+
+export const FORMS_AWAITING_REVIEW_NOTE =
+  "Operational guidance drafted from the Act and the approved form, awaiting clinical review";
+
 function fallbackDetails(form: OfficialForm): Partial<FormCatalogDetails> {
   const action = form.availability === "unavailable" ? "is currently unavailable" : "must be obtained from the OCP";
   return {
@@ -222,6 +246,7 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     destination: text(raw.destination, fallback.destination),
     authorises: text(raw.authorises, fallback.authorises),
     doesNotAuthorise: text(raw.doesNotAuthorise, fallback.doesNotAuthorise),
+    boundaries: stringArray(raw.boundaries),
     before: stringArray(raw.before),
     parallel: stringArray(raw.parallel),
     after: stringArray(raw.after),
@@ -258,6 +283,7 @@ function detailsFor(form: OfficialForm): FormCatalogDetails {
     officialPdfEditingRestricted: pdfAsset?.editingRestricted,
     officialTitleCheckedAt: officialFormsReviewedDate,
     archiveGeneratedAt: archiveGeneratedAt || undefined,
+    contentReviewStatus: contentReviewStatusByCode.get(normalizeCode(form.code)) ?? "drafted",
   };
   return details;
 }
@@ -282,6 +308,7 @@ function detailRows(details: FormCatalogDetails) {
     { label: "Purpose", value: details.purpose },
     { label: "Authorises", value: details.authorises },
     { label: "Does not authorise", value: details.doesNotAuthorise },
+    { label: "Authority boundaries", value: details.boundaries?.join(" ") ?? "" },
     { label: "Before", value: details.before.join(", ") },
     { label: "Parallel", value: details.parallel.join(", ") },
     { label: "After", value: details.after.join(", ") },
@@ -353,6 +380,7 @@ function toFormRecord(details: FormCatalogDetails): ServiceRecord {
       confidence: "Medium",
       notes: [
         `Official title and availability checked ${officialFormsReviewedDate}`,
+        ...(details.contentReviewStatus === "drafted" ? [FORMS_AWAITING_REVIEW_NOTE] : []),
         "Archive guidance remains a prototype reference aid and requires local clinical/legal governance review",
         "Use the current approved PDF or PSOLIS form; do not modify approved form content",
       ],
