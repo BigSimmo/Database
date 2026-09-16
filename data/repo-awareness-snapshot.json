@@ -605,6 +605,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/on-call-freshness",
+        "file": "src/app/mockups/development/on-call-freshness/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/therapy-compass/[slug]/sheet",
         "file": "src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
         "area": "product"
@@ -5129,6 +5134,11 @@
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-brief.md",
         "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
+        "path": "docs/dictionary-editorial-drafts.md",
+        "section": "root",
         "catalogued": true
       },
       {

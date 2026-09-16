@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3f4db3fc-1a15-4f7b-8781-26c5b0c896db",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Therapy shows a false Source 100% meter on all 205 records; the field has no calculation anywhere",
+    "detail": "Every Therapy record stores sourceCompleteness 100 and the review queue renders it as a Source 100% meter (src/components/therapy-compass/screens/other-screen.tsx). A repository-wide search finds the field only in the type declaration and in that meter - no code computes it, so the value has no basis. For the 47 records that carry no references and whose only source object has a null reference, 100 is demonstrably false. All 205 records cite a single Notion export filename (Single Therapies 3497889e8a228045b290cedd09a905bf.md) as their only source. Next action: apply the prepared patch setting sourceCompleteness to null on all 205 records, which the Meter primitive already renders as Unknown and which its own code comment describes as the intended state for a record whose completeness the generator could not produce. Owner decision because it changes what every Therapy row displays. Patch and rationale in the 2026-09-16 Therapy handover work bundle (sourcecompleteness-patch.json). Verify with node scripts/build-therapies-index.mjs --check.",
+    "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16, branch claude/vibrant-mccarthy-bbi43k",
+    "issueUlid": "01M2MR5NXJK8CWRG6J6TRBQ0HT"
+  }
+}
