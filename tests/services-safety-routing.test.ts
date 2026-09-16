@@ -5,6 +5,7 @@ import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
+import { serviceCatalogTags } from "@/lib/service-facets";
 import { canonicalServiceRecords } from "@/lib/service-governance";
 
 function titles(query: string, limit = 8) {
@@ -153,6 +154,23 @@ describe("sexual assault, family violence and postvention records", () => {
         expect(source.accessed).toBe("2026-09-16");
         expect(source.date).toMatch(/\b(19|20)\d{2}\b/);
       }
+    }
+  });
+});
+
+describe("canonical records that must not merge into a legacy entry", () => {
+  it("keeps the KEMH Mother Baby Unit separate from the Fiona Stanley record", () => {
+    const slugs = new Set(serviceRecords.map((record) => record.slug));
+    // The legacy Fiona Stanley entry carries "Mother Baby Unit" as a merged alias, so a
+    // generic match key on the KEMH record silently merged the two and union-ed their
+    // tags, producing a record that named one hospital and dialled the other.
+    expect(slugs.has("kemh-mother-baby-unit")).toBe(true);
+    expect(slugs.has("mother-and-baby-mental-health-unit-fiona-stanley-hospital")).toBe(true);
+  });
+
+  it("gives every service exactly one substance flag, which a silent merge breaks", () => {
+    for (const record of serviceRecords) {
+      expect(serviceCatalogTags(record).substance_flags, `${record.slug} substance flags`).toHaveLength(1);
     }
   });
 });
