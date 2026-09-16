@@ -38,7 +38,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Statutory compliance"],
     "rung": 2,
@@ -47,7 +47,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
   },
   {
     "id": "ocp-wa-guideline-inpatient-and-community-treatment-orders",
@@ -63,7 +63,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Community treatment orders", "Involuntary treatment"],
     "rung": 2,
@@ -72,7 +72,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
   },
   {
     "id": "ocp-wa-guideline-examination-locations",
@@ -88,7 +88,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Psychiatric examination"],
     "rung": 2,
@@ -97,7 +97,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
   },
   {
     "id": "ocp-wa-guideline-treatment-support-and-discharge-plans",
@@ -113,7 +113,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Treatment support and discharge plans"],
     "rung": 2,
@@ -122,7 +122,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
   },
   {
     "id": "ocp-wa-guideline-further-opinions",
@@ -138,7 +138,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "current",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mental Health Act 2014", "Further opinions"],
     "rung": 2,
@@ -147,7 +147,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
+    "notes": "Publication date read from the publisher's own page on 2026-09-16, which prints 'Date published 1 December 2015' and 'Last updated 17 December 2025'. The record previously carried 2025-12-19, which is the revision rather than the publication and matched neither date. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. Quality band and score are unaffected: currency is scored from documentStatus, not from publicationDate."
   },
   {
     "id": "ocp-wa-standards-for-clinical-care",
@@ -188,7 +188,7 @@
     "expiryDate": null,
     "evidenceType": "guideline",
     "documentStatus": "outdated",
-    "validationStatus": "locally_reviewed",
+    "validationStatus": "unverified",
     "contentMode": "link_only",
     "topics": ["Mood disorders", "Major depressive disorder", "Bipolar disorder"],
     "rung": 3,
@@ -197,7 +197,7 @@
     "disposition": "candidate",
     "dispositionReason": "Reviewed and signed off by the owner on 2026-09-06 against the publisher's own page. Held as a candidate until clinical content cites it",
     "supersededBy": [],
-    "notes": "The College states on this guideline's own page, read 2026-09-16, that it is 'more than five years old and no longer considered current guidance' and 'remains accessible for reference use only'. The record previously said current. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction and the record awaits re-attestation. This moves the entry from band A to band B (currency 15 to 0), which is the intended effect of recording a retired guideline honestly."
+    "notes": "The College states on this guideline's own page, read 2026-09-16, that it is 'more than five years old and no longer considered current guidance' and 'remains accessible for reference use only'. The record previously said current. Corrected on 2026-09-16; the owner's 2026-09-06 review predates this correction, so validationStatus is reset to unverified and the record re-enters acquisitionReviewQueue for re-attestation. This moves the entry from band A to band B (currency 15 to 0), which is the intended effect of recording a retired guideline honestly."
   },
   {
     "id": "therapy-wa-aboriginal-hw-framework",
