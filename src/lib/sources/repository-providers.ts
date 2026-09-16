@@ -8,7 +8,7 @@ import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
 import { calculatorEvidence, type CalculatorEvidenceSource } from "@/lib/calculators/calculator-evidence";
 import { allCalculatorFixtures } from "@/lib/calculators/calculator-fixtures";
-import { factsheets } from "@/lib/factsheets-data";
+import { factsheets, type FactsheetSource } from "@/lib/factsheets-data";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -158,10 +158,32 @@ const dictionaryProvider: ClinicalSourceProvider = {
   },
 };
 
-function factsheetEvidenceType(tag: string): ClinicalSourceType {
-  if (tag === "Consumer") return "consumer_reference";
-  if (tag === "Reference") return "professional_reference";
+/**
+ * The display tag is a reader-facing badge, not a catalogue classification. It
+ * recognises two values, so a citation whose tag is neither — a guideline, a
+ * standard, a regulatory document — would land in the catalogue's `unknown`
+ * band purely because the badge vocabulary is short. `source.evidenceType`
+ * lets a citation state its real type; the tag remains the fallback.
+ */
+function factsheetEvidenceType(source: FactsheetSource): ClinicalSourceType {
+  if (source.evidenceType) return source.evidenceType;
+  if (source.tag === "Consumer") return "consumer_reference";
+  if (source.tag === "Reference") return "professional_reference";
   return "unknown";
+}
+
+/**
+ * `source.year` is a display string ("2025", "Jun 2026") and is rejected by
+ * `strictSourceDate`, which is why this provider used to send `null`. That
+ * dropped the exact dates the publishers *do* state. `publicationDate` carries
+ * those; a source without one still sends `null` rather than a fabricated day.
+ */
+function factsheetPublicationDate(source: FactsheetSource): string | null {
+  const exact = source.publicationDate;
+  if (!exact) return null;
+  // `strictSourceDate` already returns null for anything `hasInvalidStructuredSourceDate`
+  // would reject, so testing both was redundant.
+  return strictSourceDate(exact) ?? null;
 }
 
 const factsheetProvider: ClinicalSourceProvider = {
@@ -176,8 +198,9 @@ const factsheetProvider: ClinicalSourceProvider = {
             title: source.title,
             publisher: source.org,
             canonicalUrl: source.url ?? null,
-            publicationDate: null,
-            evidenceType: factsheetEvidenceType(source.tag),
+            version: source.version ?? null,
+            publicationDate: factsheetPublicationDate(source),
+            evidenceType: factsheetEvidenceType(source),
             contentMode: source.url ? "link_only" : "metadata_only",
             topics: [sheet.category],
           },
