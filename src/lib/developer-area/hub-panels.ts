@@ -64,6 +64,19 @@ export const HUB_PANELS: readonly HubPanel[] = [
   // clinical answer problem", which it has no way to know. A panel on a clinical
   // system that implies coverage it does not have is worse than no panel, so the
   // narrower name is deliberate and should not be "improved" into a broader one.
+  // Moved here from the On Call home on the owner's instruction (2026-09-16).
+  // A strip naming overdue sections was built on that page first: it is a
+  // maintenance fact, and the person reading the On Call home is mid-shift and
+  // after a phone number. Live rather than snapshot-backed, because staleness
+  // is derived at read time and never stored.
+  {
+    id: "on-call-freshness",
+    name: "On Call freshness",
+    summary: "Entries never confirmed, or last confirmed over twelve months ago",
+    group: "clinical",
+    phase: 1,
+    href: "/mockups/development/on-call-freshness",
+  },
   {
     id: "clinical-answer-failures",
     name: "Answer failures",

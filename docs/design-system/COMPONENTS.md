@@ -1032,7 +1032,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 42
+Components with product imports: 43
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1058,7 +1058,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              14 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
-| `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
+| `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
@@ -1076,7 +1076,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `RadioGroup`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `RetrievalStateBanner`   | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `SafeBoldText`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
-| `SearchField`            | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `SearchField`            | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `SegmentedControl`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
 | `Select`                 | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `Sheet`                  | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              35 |
