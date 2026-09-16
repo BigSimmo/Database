@@ -1133,6 +1133,83 @@ def fallback_visual_region(page, image_coverage=0.0, ocr_used=False):
     )
 
 
+# Fraction of a text block's area that must fall inside a detected table grid
+# before the block is treated as table content rather than surrounding prose.
+TABLE_BLOCK_CONTAINMENT_RATIO = 0.6
+# If table-aware assembly drops more than this share of the page's characters,
+# detection is assumed to have misfired and the raw reading-order text is kept.
+TABLE_TEXT_MIN_RETENTION_RATIO = 0.6
+
+
+def _rect_area(rect):
+    return max(0.0, rect.x1 - rect.x0) * max(0.0, rect.y1 - rect.y0)
+
+
+def _dense_length(value):
+    return len(re.sub(r"\s+", "", value or ""))
+
+
+def table_aware_page_text(page, grid_candidates):
+    """Assemble page text with detected table grids rendered cell by cell.
+
+    `page.get_text("text", sort=True)` orders text LINES by (y, x). When a table
+    cell wraps onto several lines that reads straight across the columns, so a
+    figure in column one lands mid-sentence in column three. A real WA clozapine
+    table extracted this way reads "Stop clozapine. Contact WBC < 1.5 x 10 9/L",
+    which binds the threshold to "Contact" instead of to "Neutropenia" and makes
+    the passage unusable as evidence for a threshold claim -- the cause of the
+    clozapine answer-quality failures investigated on 2026-09-16.
+
+    find_tables() already recovers those cells intact and the result is already
+    computed for table candidates, so table regions are replaced by that grid
+    rendering while surrounding prose keeps its normal reading order.
+    """
+    raw = page.get_text("text", sort=True) or ""
+    usable = [
+        candidate
+        for candidate in grid_candidates or []
+        if candidate.get("extraction_method") == "pymupdf_find_tables"
+        and (candidate.get("accessible_table_markdown") or "").strip()
+    ]
+    if not usable:
+        return raw
+
+    try:
+        table_rects = [fitz.Rect(candidate["rect"]) for candidate in usable]
+        pieces = []
+        for block in page.get_text("blocks") or []:
+            if len(block) < 5:
+                continue
+            rect = fitz.Rect(block[:4])
+            body = str(block[4]).strip()
+            if not body:
+                continue
+            area = _rect_area(rect)
+            if area > 0 and any(
+                _rect_area(rect & table_rect) / area >= TABLE_BLOCK_CONTAINMENT_RATIO
+                for table_rect in table_rects
+            ):
+                continue
+            pieces.append((rect.y0, rect.x0, body))
+        for candidate, table_rect in zip(usable, table_rects):
+            markdown = (candidate.get("accessible_table_markdown") or "").strip()
+            if markdown:
+                pieces.append((table_rect.y0, table_rect.x0, markdown))
+        pieces.sort(key=lambda piece: (piece[0], piece[1]))
+        rebuilt = "\n".join(piece[2] for piece in pieces if piece[2]).strip()
+    except Exception:
+        return raw
+
+    if not rebuilt:
+        return raw
+    # Never trade a populated page for a sparse one. A misdetected grid that
+    # swallows prose is a worse failure than the interleaving fixed here.
+    raw_dense = _dense_length(raw)
+    if raw_dense and _dense_length(rebuilt) < TABLE_TEXT_MIN_RETENTION_RATIO * raw_dense:
+        return raw
+    return rebuilt
+
+
 def extract(pdf_path, output_dir, budget=None):
     budget = budget or ExtractionBudget()
     os.makedirs(output_dir, exist_ok=True)
@@ -1144,7 +1221,11 @@ def extract(pdf_path, output_dir, budget=None):
 
     for page_index, page in enumerate(document):
         page_number = page_index + 1
-        text = page.get_text("text", sort=True) or ""
+        # Detect grid tables BEFORE assembling page text: the same candidates feed
+        # the table-aware text assembly and the table-candidate pass below, so
+        # find_tables() runs once per page rather than twice.
+        grid_table_candidates = likely_table_candidates(page)
+        text = table_aware_page_text(page, grid_table_candidates)
         ocr_used = False
         needs_ocr = False
         image_coverage = page_image_coverage_ratio(page)
@@ -1233,7 +1314,7 @@ def extract(pdf_path, output_dir, budget=None):
 
         crop_index = 1
         table_rects = []
-        table_candidates = likely_table_candidates(page)
+        table_candidates = list(grid_table_candidates)
         table_candidates.extend(fallback_table_candidates(page, [candidate["rect"] for candidate in table_candidates]))
         table_candidates = merge_related_table_candidates(table_candidates, page.rect)
         for table_candidate in table_candidates:
