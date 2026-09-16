@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3c5ee306-cc20-4d9c-a02e-637957208ae9",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Re-import the differentials corpus once the fixed export parser can read the source zip",
+    "detail": "scripts/lib/parse-differentials-export.ts now emits presentation scope directly (commit 4628295f5), but the committed data/differentials-snapshot.json predates it and cannot be regenerated in a cloud session: scripts/import-differentials-export.ts reads a Windows workstation path (C:/Users/joshs/AppData/Local/Temp/differentials-data.zip). Until then withPresentationScope() in src/lib/differentials.ts derives the same labels at load time, which keeps the app correct but means the file and the runtime describe the record differently. Next action: re-run npm-equivalent 'node scripts/run-tsx.mjs scripts/import-differentials-export.ts --zip=<path> --write' on the workstation, confirm the emitted scope matches the derivation, then consider retiring the derivation.",
+    "source": "PsychSift Differentials handover reconciliation 2026-09-16",
+    "issueUlid": "01M2MRG1VYN9XFVNBNV3JV666P"
+  }
+}

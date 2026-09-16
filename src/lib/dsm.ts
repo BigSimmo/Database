@@ -470,15 +470,16 @@ export type DsmDifferentialParts = {
  * buried that behind the name, so the sidebar read as a list of labels rather
  * than something that helps separate two candidates.
  *
- * DELIBERATELY NOT sourced from `cross-mode-differentials-index.json`, which was
- * the obvious candidate and is wrong for this. Its `clinicalHinge` is per
- * PRESENTATION GROUP, not per differential: 201 entries share just 31 distinct
- * hinge strings, so `social-anxiety-disorder` carries "Abrupt peak over minutes,
+ * DELIBERATELY NOT sourced from `cross-mode-differentials-index.json`. That index
+ * used to project each diagnosis's `clinicalHinge`, which is written per
+ * PRESENTATION GROUP, not per differential: 201 entries shared just 31 distinct
+ * hinge strings, so `social-anxiety-disorder` carried "Abrupt peak over minutes,
  * recurrent unexpected attacks, anticipatory anxiety or avoidance" — which
- * describes panic disorder, the presentation, not social anxiety. Rendering that
- * under a differential's name would state something clinically false about that
- * diagnosis. The parenthetical here is authored on the record itself, against
- * that exact differential, so it cannot be mismatched.
+ * describes panic disorder, the presentation, not social anxiety. The index now
+ * projects the diagnosis's own `subtitle` instead, and the corpus labels
+ * presentation-scope text (see `tests/differentials-presentation-scope.test.ts`),
+ * but the parenthetical here is still the better source: it is authored on the
+ * record itself, against that exact differential, so it cannot be mismatched.
  *
  * Only a trailing parenthetical counts. An inline one is part of the name
  * ("Premenstrual dysphoric disorder (PMDD)" is a name, not a discriminator) —
