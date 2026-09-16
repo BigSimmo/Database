@@ -1,5 +1,6 @@
 import canonicalPart01 from "@/lib/services-canonical-data/part-01";
 import canonicalPart02 from "@/lib/services-canonical-data/part-02";
+import canonicalPart03 from "@/lib/services-canonical-data/part-03";
 
 import type {
   CatalogService,
@@ -67,7 +68,11 @@ export type CanonicalServiceInput = {
   sources: readonly CanonicalServiceSourceInput[];
 };
 
-const canonicalRecords = [...canonicalPart01, ...canonicalPart02] as unknown as readonly CanonicalServiceInput[];
+const canonicalRecords = [
+  ...canonicalPart01,
+  ...canonicalPart02,
+  ...canonicalPart03,
+] as unknown as readonly CanonicalServiceInput[];
 
 const URL_PATTERN = /^https?:\/\/[^\s]+$/i;
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

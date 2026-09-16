@@ -5,6 +5,7 @@ import { loadServicesSnapshot } from "@/lib/service-catalog";
 import { detectServiceUrgentIntents } from "@/lib/service-urgent-routing";
 import { rankServiceRecords } from "@/lib/service-ranker";
 import { serviceRecords } from "@/lib/services";
+import { canonicalServiceRecords } from "@/lib/service-governance";
 
 function titles(query: string, limit = 8) {
   return rankServiceRecords(serviceRecords, query, limit, [], true).map(({ service }) => service.title);
@@ -102,5 +103,56 @@ describe("services provenance presentation", () => {
     expect(phoneContacts.length).toBe(2);
     const compact = phoneContacts.map((contact) => contact.value?.replace(/[^\d+]/g, ""));
     expect(compact).toEqual(["0894425000", "1800198024"]);
+  });
+});
+
+describe("sexual assault, family violence and postvention records", () => {
+  const byId = new Map(canonicalServiceRecords().map((record) => [record.id, record]));
+
+  it("carries the sexual assault and family violence crisis routes the catalogue was missing", () => {
+    for (const id of ["SVC-SV-001", "SVC-FDV-003"]) {
+      const record = byId.get(id);
+      expect(record, `${id} is missing from the canonical catalogue`).toBeDefined();
+      expect(record?.tier).toBe("A_immediate");
+      expect(record?.status).toBe("active");
+      expect(record?.contacts.some((contact) => contact.value.trim())).toBe(true);
+      expect(record?.hours.display.trim()).not.toBe("");
+    }
+  });
+
+  it("keeps postvention and aftercare off the immediate tier and says so in the record", () => {
+    for (const id of ["SVC-SUI-003", "SVC-POS-001", "SVC-POS-002", "SVC-POS-003", "SVC-POS-004"]) {
+      const record = byId.get(id);
+      expect(record, `${id} is missing from the canonical catalogue`).toBeDefined();
+      expect(record?.tier).toBe("B_common_referral");
+      expect(record?.notFor.some((value) => /not an acute crisis line/i.test(value))).toBe(true);
+    }
+  });
+
+  it("does not claim hours a source page never stated", () => {
+    for (const id of ["SVC-SUI-003", "SVC-SUI-004", "SVC-POS-001", "SVC-POS-002", "SVC-POS-003", "SVC-POS-004"]) {
+      expect(byId.get(id)?.hours.verification_status).toBe("unable_to_verify");
+    }
+  });
+
+  it("gives every new record a dated source from the publisher's own page", () => {
+    for (const id of [
+      "SVC-SV-001",
+      "SVC-FDV-003",
+      "SVC-SUI-003",
+      "SVC-SUI-004",
+      "SVC-POS-001",
+      "SVC-POS-002",
+      "SVC-POS-003",
+      "SVC-POS-004",
+    ]) {
+      const sources = byId.get(id)?.sources ?? [];
+      expect(sources.length).toBeGreaterThan(0);
+      for (const source of sources) {
+        expect(source.url).toMatch(/^https:\/\//);
+        expect(source.accessed).toBe("2026-09-16");
+        expect(source.date).toMatch(/\b(19|20)\d{2}\b/);
+      }
+    }
   });
 });
