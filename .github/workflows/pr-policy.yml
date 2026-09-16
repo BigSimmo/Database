@@ -11,10 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 # pull-requests: write exists for ONE call: removing the `owner-approved` label when new
-# commits land. Nothing else here writes. The PR head is never checked out or executed.
+# commits land. actions: read lists this workflow's own run records, which bind the owner's
+# approval to the current head. Nothing else here writes. The PR head is never checked out
+# or executed.
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
   policy:
@@ -46,7 +49,12 @@ jobs:
             const fs = require("node:fs");
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
-            const { OWNER_APPROVED_LABEL, evaluatePullRequestPolicy, migrationVersionsFromEntries } = await import(moduleUrl);
+            const {
+              OWNER_APPROVED_LABEL,
+              evaluatePullRequestPolicy,
+              migrationVersionsFromEntries,
+              ownerApprovalCoversHead,
+            } = await import(moduleUrl);
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
             const pr = context.payload.pull_request;
             if (!pr?.number) {
@@ -101,8 +109,13 @@ jobs:
             }
 
             // Approval counts only when the most recent `labeled` event for the label was not
-            // performed through a GitHub App (agents' connectors). A label added with the owner's
+            // performed through a GitHub App (agents' connectors), AND that label was applied
+            // strictly after GitHub first saw the current head. A label added with the owner's
             // personal token is indistinguishable from Josh here; that limit is documented.
+            //
+            // The head binding does not depend on the label strip above ever completing: a push
+            // cancelled mid-strip still leaves a run record for the new head, and every run for
+            // the new head was created after the push, so an older label cannot cover it.
             let ownerApproval = { approved: false };
             if (hasOwnerLabel && !approvalRevoked) {
               let events;
@@ -137,7 +150,27 @@ jobs:
                   rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by a GitHub App (${app.slug || app.name || "unknown"}), not by the owner`,
                 };
               } else {
-                ownerApproval = { approved: true, actor: labeled.actor?.login ?? null };
+                // Every PR policy run recorded for this head, cancelled ones included (no status
+                // filter): the earliest created_at is when GitHub first saw the head.
+                let headRunCreatedAt = null;
+                try {
+                  const headRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                    ...repo,
+                    workflow_id: "pr-policy.yml",
+                    event: "pull_request_target",
+                    head_sha: latestPr.head.sha,
+                    per_page: 100,
+                  });
+                  headRunCreatedAt = headRuns.map((run) => run.created_at);
+                } catch (error) {
+                  core.warning(
+                    `Unable to list PR policy runs for head ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Owner approval is rejected until the head can be bound.`,
+                  );
+                }
+                const binding = ownerApprovalCoversHead({ labeledAt: labeled.created_at, headRunCreatedAt });
+                ownerApproval = binding.covered
+                  ? { approved: true, actor: labeled.actor?.login ?? null, headFirstSeenAt: binding.headFirstSeenAt }
+                  : { approved: false, rejectedReason: binding.reason };
               }
             }
 

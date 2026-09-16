@@ -81,13 +81,14 @@ if (!policyJob) {
   }
 
   // The only write scope is pull-requests: write, for removing the stale owner-approved
-  // label. It is declared once, at workflow level, where this guard can see all of it.
+  // label; actions: read lists this workflow's run records to bind approval to the head.
+  // Exactly three, declared once at workflow level, where this guard can see all of them.
   const permissionLines = yamlBlock(workflow, "permissions:", 0)
     .split(/\r?\n/)
     .slice(1)
     .map((line) => line.replace(/#.*$/, "").trim())
     .filter(Boolean);
-  const expectedPermissions = ["contents: read", "pull-requests: write"];
+  const expectedPermissions = ["contents: read", "pull-requests: write", "actions: read"];
   if (
     permissionLines.length !== expectedPermissions.length ||
     !expectedPermissions.every((permission) => permissionLines.includes(permission))
@@ -167,6 +168,46 @@ function assertOwnerMergeControls(step) {
   }
   if (!step.includes("performed_via_github_app") || !/rejectedReason:/.test(step)) {
     failures.push("PR policy validation must reject an owner-approved label applied through a GitHub App.");
+  }
+
+  // Approval is bound to the current head by run records, not by the label strip completing.
+  const runsCall = step.match(/github\.paginate\(github\.rest\.actions\.listWorkflowRuns,\s*\{([^}]*)\}\)/);
+  if (!runsCall) {
+    failures.push(
+      "PR policy validation must list PR policy workflow runs with github.paginate(github.rest.actions.listWorkflowRuns, { ... }).",
+    );
+  } else {
+    const runArgs = runsCall[1];
+    if (
+      !/workflow_id:\s*"pr-policy\.yml"/.test(runArgs) ||
+      !/event:\s*"pull_request_target"/.test(runArgs) ||
+      !/head_sha:\s*latestPr\.head\.sha\b/.test(runArgs)
+    ) {
+      failures.push(
+        'PR policy validation must list runs for workflow_id "pr-policy.yml", event "pull_request_target", head_sha latestPr.head.sha.',
+      );
+    }
+    if (/\b(?:status|conclusion|created|exclude_pull_requests)\s*:/.test(runArgs)) {
+      failures.push(
+        "PR policy validation must not filter head runs by status, conclusion or date — cancelled runs are part of the head's record.",
+      );
+    }
+  }
+  if (/\bconclusion\b/.test(step)) {
+    failures.push("PR policy validation must not filter head runs by conclusion; cancelled runs count.");
+  }
+  const bindingIndex = step.indexOf("ownerApprovalCoversHead({");
+  const approvals = step.match(/approved:\s*true\b/g) ?? [];
+  if (bindingIndex < 0 || !/labeledAt:\s*labeled\.created_at\b/.test(step)) {
+    failures.push(
+      "PR policy validation must bind approval with ownerApprovalCoversHead({ labeledAt: labeled.created_at, ... }).",
+    );
+  } else if (approvals.length !== 1 || step.indexOf(approvals[0]) < bindingIndex) {
+    failures.push(
+      "PR policy validation may grant approval in exactly one place, after ownerApprovalCoversHead has bound it to the current head.",
+    );
+  } else if (!/binding\.covered\s*\?\s*\{\s*approved:\s*true\b/.test(step)) {
+    failures.push("PR policy validation must grant approval only when ownerApprovalCoversHead reports covered.");
   }
 }
 

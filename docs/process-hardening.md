@@ -845,12 +845,15 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   checklist. `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
   warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
   The `pull_request_target` job checks out the trusted `github.workflow_sha` revision and never executes
-  PR-head code. Its only write scope is `pull-requests: write`, used solely to remove the `owner-approved`
-  label when new commits land. Two further blocking controls (C0, 2026-09-17): an edit, removal or rename
-  of an applied migration, or a new migration dated at or before the newest one on main, fails the check
-  (applied migrations never re-run on live); and database, clinical-risk and RAG-ranking PRs stay red until
-  the owner applies `owner-approved`, which agents must never add. Drafts remain non-blocking until marked
-  ready; merge-queue runs emit the same stable `PR policy` check name.
+  PR-head code. Its permissions are exactly `contents: read`, `pull-requests: write` (used solely to remove
+  the `owner-approved` label when new commits land) and `actions: read` (to list this workflow's own run
+  records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
+  migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
+  the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
+  RAG-ranking PRs stay red until the owner applies `owner-approved`, which agents must never add. The
+  label counts only when applied after the earliest PR policy run recorded for the current head SHA
+  (cancelled runs included), so a label from before a push never covers the new head. Drafts remain
+  non-blocking until marked ready; merge-queue runs emit the same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
   with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
   repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains

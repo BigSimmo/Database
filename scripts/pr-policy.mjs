@@ -412,8 +412,10 @@ function newMigrationAdvice(newestBase) {
  * `baseMigrationVersions` are the versions present on the trusted base checkout.
  *
  * Unknown or missing statuses are treated as a modification (fail closed).
+ * `now` is injectable for tests; it defaults to the run's current time.
  */
-export function migrationHistoryViolations({ files, baseMigrationVersions }) {
+export function migrationHistoryViolations({ files, baseMigrationVersions, now = new Date() }) {
+  const nowMs = now instanceof Date ? now.getTime() : Date.parse(String(now));
   const base = new Set((baseMigrationVersions ?? []).map(String));
   // Fixed-width digit strings sort lexically in numeric order.
   const newestBase = [...base].sort().at(-1) ?? null;
@@ -492,9 +494,73 @@ export function migrationHistoryViolations({ files, baseMigrationVersions }) {
           message: `${path} (version ${version}) is dated before ${newestBase}, the newest migration already on main, so live would treat it as out-of-order history. ${appliedHistoryRule} Rename it with a version newer than ${newestBase}.`,
         });
       }
+      // Independent of ordering: a version far in the future becomes the newest applied
+      // version on merge, and every later migration would then have to be dated after it.
+      const versionMs = migrationVersionTime(version);
+      if (!Number.isFinite(nowMs) || !Number.isFinite(versionMs) || versionMs - nowMs > futureMigrationToleranceMs) {
+        violations.push({
+          kind: "future-dated",
+          path,
+          version,
+          message: `${path} (version ${version}) is dated more than 2 days after the current UTC time${Number.isFinite(nowMs) ? ` (${new Date(nowMs).toISOString()})` : ""}. A future-dated migration would force every later migration after it. Rename it with a version at the current UTC time (\`YYYYMMDDHHMMSS\`).`,
+        });
+      }
     }
   }
   return violations;
+}
+
+const futureMigrationToleranceMs = 2 * 24 * 60 * 60 * 1000;
+
+/** UTC epoch milliseconds for a 14-digit `YYYYMMDDHHMMSS` version, else NaN. */
+function migrationVersionTime(version) {
+  const match = String(version ?? "").match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+  if (!match) return Number.NaN;
+  const [year, month, day, hour, minute, second] = match.slice(1).map(Number);
+  return Date.UTC(year, month - 1, day, hour, minute, second);
+}
+
+/**
+ * Binds the owner's approval to the PR's CURRENT head, without relying on any run
+ * completing. `headRunCreatedAt` lists the `created_at` of every PR policy workflow run
+ * recorded for the current head SHA — cancelled runs included, since a cancelled run still
+ * leaves a record, and the evaluating run is always one of them. The earliest is the moment
+ * GitHub first saw this head. The label covers the head only when it was applied strictly
+ * after that moment; a label applied earlier was applied to an older head.
+ *
+ * Fails closed: no label timestamp, no runs (or the lookup failed: pass null), an
+ * unparseable timestamp, or an equal timestamp all reject.
+ */
+export function ownerApprovalCoversHead({ labeledAt, headRunCreatedAt }) {
+  const labeledMs = Date.parse(String(labeledAt ?? ""));
+  if (!Number.isFinite(labeledMs)) {
+    return { covered: false, headFirstSeenAt: null, reason: "the owner-approved label has no usable labeled time" };
+  }
+  if (!Array.isArray(headRunCreatedAt) || headRunCreatedAt.length === 0) {
+    return {
+      covered: false,
+      headFirstSeenAt: null,
+      reason: "no PR policy runs could be found for the current head, so the approval cannot be bound to it",
+    };
+  }
+  const runTimes = headRunCreatedAt.map((createdAt) => Date.parse(String(createdAt ?? "")));
+  if (runTimes.some((time) => !Number.isFinite(time))) {
+    return {
+      covered: false,
+      headFirstSeenAt: null,
+      reason: "a PR policy run for the current head has no usable created time",
+    };
+  }
+  const headFirstSeenMs = Math.min(...runTimes);
+  const headFirstSeenAt = new Date(headFirstSeenMs).toISOString();
+  if (labeledMs <= headFirstSeenMs) {
+    return {
+      covered: false,
+      headFirstSeenAt,
+      reason: `the owner-approved label was applied at ${new Date(labeledMs).toISOString()}, not after the current head was first seen at ${headFirstSeenAt}, so it approved an earlier head; Josh re-applies it`,
+    };
+  }
+  return { covered: true, headFirstSeenAt, reason: "" };
 }
 
 /**
@@ -529,6 +595,7 @@ export function evaluatePullRequestPolicy({
   baseMigrationVersions,
   ownerApproval,
   enforceOwnerMerge = false,
+  now = new Date(),
 }) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
   // complete Clinical Governance Preflight, a RAG-ranking-surface diff without an
@@ -660,7 +727,7 @@ export function evaluatePullRequestPolicy({
   const migrationInputsSupplied =
     Array.isArray(fileStatuses) && Array.isArray(baseMigrationVersions) && baseMigrationVersions.length > 0;
   if (migrationInputsSupplied) {
-    historyViolations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions });
+    historyViolations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions, now });
     if (historyViolations.length > 0) {
       const override = migrationHistoryEditApproval(body);
       if (override.satisfied && ownerApproved) {
@@ -1281,8 +1348,10 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
   const base = ["20260824122000", "20260830121000", "20260916160000"];
   const applied = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
   const newest = "supabase/migrations/20260916160000_triple_pin_retained_bootstrap_release_ids.sql";
-  const kinds = (fileStatuses, versions = base) =>
-    migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions: versions }).map((v) => v.kind);
+  // A fixed clock keeps every dated case deterministic.
+  const clock = new Date("2026-09-17T00:00:00Z");
+  const kinds = (fileStatuses, versions = base, now = clock) =>
+    migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions: versions, now }).map((v) => v.kind);
 
   // Parsing: only top-level `<14 digits>_<name>.sql` entries carry a version.
   assert.equal(migrationVersion(applied), "20260824122000");
@@ -1364,6 +1433,104 @@ function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
     [],
     "the ordinary shape of a correct migration PR carries no history violation",
   );
+  // Future-dated versions (limit #4): more than 2 days after the injected clock blocks.
+  const added = (version) => [{ filename: `supabase/migrations/${version}_future.sql`, status: "added" }];
+  assert.deepEqual(kinds(added("20260919000000")), [], "exactly 2 days ahead → allowed (clock skew tolerance)");
+  assert.deepEqual(kinds(added("20260919000001")), ["future-dated"], "2 days and 1 second ahead → error");
+  assert.deepEqual(kinds(added("29990101000000")), ["future-dated"], "far-future version → error");
+  assert.deepEqual(
+    kinds(added("20260919000001"), base, new Date("2026-09-18T00:00:00Z")),
+    [],
+    "the same version is fine once the clock has caught up — the check reads the injected clock",
+  );
+  assert.deepEqual(
+    kinds([
+      { filename: "docs/archive/20990101000000_moved.sql", status: "renamed", previous_filename: "docs/x.sql" },
+      {
+        filename: "supabase/migrations/20990101000000_moved_in.sql",
+        status: "renamed",
+        previous_filename: "docs/y.sql",
+      },
+    ]),
+    ["future-dated"],
+    "a migration renamed into the directory is dated like an added one; paths outside it are not",
+  );
+  assert.deepEqual(
+    kinds(added("20260919000001"), base, new Date("not a date")),
+    ["future-dated"],
+    "an unusable clock fails closed",
+  );
+  const futureError = migrationHistoryViolations({
+    files: added("29990101000000"),
+    baseMigrationVersions: base,
+    now: clock,
+  })[0].message;
+  assert.match(futureError, /future-dated migration would force every later migration after it/);
+  assert.match(futureError, /2026-09-17T00:00:00\.000Z/);
+  // Through evaluatePullRequestPolicy, with a version that is future ONLY relative to the
+  // injected clock (it is in the past by the real clock), so dropping `now` is detectable.
+  const clockedPr = (now) =>
+    evaluatePullRequestPolicy({
+      title: "feat(db): add a new migration",
+      body: completeBody,
+      headRef: "claude/db",
+      files: ["supabase/migrations/20260301000000_future.sql"],
+      fileStatuses: added("20260301000000"),
+      baseMigrationVersions: ["20251201000000"],
+      ownerApproval: { approved: true },
+      enforceOwnerMerge: true,
+      now,
+    });
+  assert.equal(
+    clockedPr(new Date("2026-01-01T00:00:00Z")).ok,
+    false,
+    "evaluatePullRequestPolicy threads its clock into the future-date check",
+  );
+  assert.equal(clockedPr(new Date("2026-03-01T00:00:00Z")).ok, true, "the same PR passes once the clock catches up");
+
+  // --- Owner approval bound to the current head (limit #2) ---------------------------
+  const headRuns = ["2026-09-17T01:00:05Z", "2026-09-17T01:00:00Z", "2026-09-17T01:02:00Z"];
+  const labelBefore = ownerApprovalCoversHead({ labeledAt: "2026-09-17T00:59:59Z", headRunCreatedAt: headRuns });
+  assert.equal(labelBefore.covered, false, "label before head → rejected");
+  assert.match(labelBefore.reason, /approved an earlier head/);
+  assert.equal(
+    labelBefore.headFirstSeenAt,
+    "2026-09-17T01:00:00.000Z",
+    "the EARLIEST run defines when the head appeared",
+  );
+  const labelAfter = ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:00:01Z", headRunCreatedAt: headRuns });
+  assert.equal(labelAfter.covered, true, "label after head → approved");
+  assert.equal(labelAfter.reason, "");
+  assert.equal(
+    ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:01:00Z", headRunCreatedAt: headRuns }).covered,
+    true,
+    "a label after the earliest run but before later runs (e.g. its own labeled run) still covers the head",
+  );
+  for (const [runs, why] of [
+    [[], "empty"],
+    [null, "lookup failed"],
+    [undefined, "missing"],
+  ]) {
+    const missing = ownerApprovalCoversHead({ labeledAt: "2026-09-17T09:00:00Z", headRunCreatedAt: runs });
+    assert.equal(missing.covered, false, `missing runs (${why}) → rejected`);
+    assert.match(missing.reason, /no PR policy runs could be found/);
+  }
+  assert.equal(
+    ownerApprovalCoversHead({ labeledAt: "2026-09-17T01:00:00Z", headRunCreatedAt: headRuns }).covered,
+    false,
+    "equal timestamps → rejected",
+  );
+  assert.equal(
+    ownerApprovalCoversHead({ labeledAt: "2026-09-17T09:00:00Z", headRunCreatedAt: ["garbage", ...headRuns] }).covered,
+    false,
+    "an unparseable run time fails closed rather than being skipped",
+  );
+  assert.equal(
+    ownerApprovalCoversHead({ labeledAt: undefined, headRunCreatedAt: headRuns }).covered,
+    false,
+    "no label time → rejected",
+  );
+
   const historyError = migrationHistoryViolations({
     files: [{ filename: applied, status: "modified" }],
     baseMigrationVersions: base,
