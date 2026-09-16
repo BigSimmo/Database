@@ -147,6 +147,81 @@ export function bootstrapRecords() {
     .sort((left, right) => left.logicalId.localeCompare(right.logicalId));
 }
 
+/**
+ * `public.site_content_canonical_json` in JavaScript.
+ *
+ * The seed insert is followed by a guard that recomputes
+ * `site_content_bootstrap_digest` over what actually landed in
+ * `site_content_release_records` and aborts the replay on a mismatch. The digest is a
+ * sha256 over this canonical rendering of `{logicalId, record, renderPayload}` for all 843
+ * rows, ordered by `logical_id` under the C collation — so refreshing the blob without
+ * refreshing the digest leaves a `schema.sql` that cannot be replayed at all.
+ *
+ * The SQL rules, mirrored exactly: null renders as `null`; an object renders its entries
+ * sorted by key under C collation, which is byte order; an array keeps its order; a scalar
+ * renders as jsonb's own text. `tests/site-content-p03-baseline.test.ts` pins this against
+ * two digests taken from real container replays, on two different datasets, so a
+ * divergence here fails offline rather than in a replay nobody runs.
+ */
+export function canonicalJson(value: unknown): string {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      // Byte order, not locale order: `collate "C"` compares the UTF-8 encoding.
+      .sort(([left], [right]) => (Buffer.from(left, "utf8") < Buffer.from(right, "utf8") ? -1 : 1));
+    return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+/** `public.site_content_bootstrap_digest` for a generated bootstrap population. */
+export function bootstrapDigest(entries: ReturnType<typeof bootstrapRecords>) {
+  const records = [...entries]
+    .sort((left, right) => (Buffer.from(left.logicalId, "utf8") < Buffer.from(right.logicalId, "utf8") ? -1 : 1))
+    .map((entry) => ({
+      logicalId: entry.logicalId,
+      record: entry.record,
+      renderPayload: entry.renderPayload,
+    }));
+  const canonical = canonicalJson({ version: "site-content-bootstrap-public-release-v1", records });
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+/**
+ * Reports whether the seeded bootstrap release still describes the blob.
+ *
+ * It deliberately does NOT repair a mismatch, because the repair is not local. The release
+ * digest appears five times in the generated block, and the release's own UUID is derived
+ * from it: `site_content_retained_bootstrap_valid` asserts
+ * `r.id = site_content_release_id(r.release_digest, 0, 'bootstrap-v1')`. So moving the
+ * digest re-keys the release identity, and that UUID is hardcoded 36 times across the
+ * migration and schema.sql — including inside `create function` bodies already applied to
+ * the live database — and another 12 times in application code. Rewriting the digest alone
+ * trades one broken invariant for another; rewriting the identity is an owner decision
+ * about the live clinical content control plane, in an approved window.
+ *
+ * So this returns the facts and the caller says them out loud.
+ */
+export function bootstrapReleaseState(sql: string, digest: string, count: number) {
+  const begin = sql.indexOf("-- BEGIN GENERATED SITE CONTENT BOOTSTRAP RELEASE");
+  const end = sql.indexOf("-- END GENERATED SITE CONTENT BOOTSTRAP RELEASE");
+  if (begin < 0 || end < 0 || end < begin) throw new Error("Could not find the generated bootstrap-release block.");
+  const block = sql.slice(begin, end);
+  const pinnedDigest = block.match(
+    /site_content_bootstrap_digest\('[0-9a-f-]+'\) is distinct from '([0-9a-f]{64})'/,
+  )?.[1];
+  const pinnedCount = block.match(/site_content_release_records where release_id = '[0-9a-f-]+'\) <> (\d+)/)?.[1];
+  if (!pinnedDigest || !pinnedCount) throw new Error("Could not read the bootstrap population guard.");
+  return {
+    pinnedDigest,
+    computedDigest: digest,
+    pinnedCount: Number(pinnedCount),
+    computedCount: count,
+    matches: pinnedDigest === digest && Number(pinnedCount) === count,
+  };
+}
+
 function blockPattern(tag: string) {
   return new RegExp(`(\\$${tag}\\$)[\\s\\S]*?(\\$${tag}\\$)`);
 }
@@ -170,6 +245,9 @@ function main() {
     ["site_content_registry_baselines", JSON.stringify(registryBaselines())],
     ["site_content_bootstrap_records", JSON.stringify(bootstrapRecords())],
   ];
+
+  const entries = bootstrapRecords();
+  const digest = bootstrapDigest(entries);
 
   const stale: string[] = [];
   for (const target of TARGETS) {
@@ -196,11 +274,31 @@ function main() {
 
   if (!stale.length) {
     console.log("P03 seed baseline already current; nothing written.");
+  } else {
+    console.log(
+      `Refreshed the P03 seed baseline in:\n  ${stale.join("\n  ")}\n` +
+        "supabase/schema.sql changed, so run npm run drift:manifest (requires Docker) before pushing.",
+    );
+  }
+  reportBootstrapRelease(readFileSync(repoUrl(SCHEMA), "utf8"), digest, entries.length);
+}
+
+/** Says out loud whether the seeded release still matches, and what it means if not. */
+function reportBootstrapRelease(sql: string, digest: string, count: number) {
+  const state = bootstrapReleaseState(sql, digest, count);
+  if (state.matches) {
+    console.log("Seeded bootstrap release matches the blob.");
     return;
   }
-  console.log(
-    `Refreshed the P03 seed baseline in:\n  ${stale.join("\n  ")}\n` +
-      "supabase/schema.sql changed, so run npm run drift:manifest (requires Docker) before pushing.",
+  console.warn(
+    "\nWARNING: the seeded bootstrap release no longer describes this blob.\n" +
+      `  guard expects digest ${state.pinnedDigest} over ${state.pinnedCount} records\n` +
+      `  this blob computes  ${state.computedDigest} over ${state.computedCount} records\n` +
+      "  supabase/schema.sql therefore will not replay: it aborts with\n" +
+      "  site_content_bootstrap_population_mismatch, so npm run drift:manifest cannot run.\n" +
+      "  This is NOT repaired here. The release UUID is derived from the digest, so moving it\n" +
+      "  re-keys the bootstrap release identity across both SQL files and application code.\n" +
+      "  That is an owner decision about the live clinical content control plane.\n",
   );
 }
 

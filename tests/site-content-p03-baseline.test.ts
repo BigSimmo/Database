@@ -2,8 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  bootstrapDigest,
   bootstrapEntry,
   bootstrapRecords,
+  bootstrapReleaseState,
+  canonicalJson,
   deterministicUuid,
   registryBaselines,
   replaceBlock,
@@ -81,5 +84,47 @@ describe("P03 seed baseline refresh", () => {
     expect(() => replaceBlock(sql, "tag", "has a $tag$ inside")).toThrow(/its own delimiter/i);
     expect(() => replaceBlock(sql, "tag", "two\nlines")).toThrow(/single line/i);
     expect(replaceBlock(sql, "tag", "new")).toBe("as $$ select $tag$new$tag$::jsonb $$;");
+  });
+});
+
+/**
+ * `canonicalJson` and `bootstrapDigest` reimplement two SQL functions in JavaScript so the
+ * seeded release's digest can be checked without a container. They were validated against
+ * real replays of the pinned supabase/postgres image on two different datasets: the blob
+ * committed before this branch hashed to b3caf89c... both in SQL and here, and the blob
+ * this branch generates hashes to b0ff995b... both in SQL and here. These tests keep that
+ * agreement from rotting, which matters because nothing in CI replays schema.sql.
+ */
+describe("bootstrap release digest", () => {
+  it("canonicalises the way site_content_canonical_json does", () => {
+    expect(canonicalJson(null)).toBe("null");
+    expect(canonicalJson([])).toBe("[]");
+    expect(canonicalJson({})).toBe("{}");
+    // Keys sort by byte order under collate "C", so every uppercase letter precedes every
+    // lowercase one. A locale sort would interleave them and change the hash.
+    expect(canonicalJson({ b: 1, A: 2, a: 3 })).toBe('{"A":2,"a":3,"b":1}');
+    // Arrays keep their order; only object keys are sorted.
+    expect(canonicalJson([3, 1, 2])).toBe("[3,1,2]");
+    expect(canonicalJson({ outer: { z: [{ b: null, a: "x" }] } })).toBe('{"outer":{"z":[{"a":"x","b":null}]}}');
+  });
+
+  it("reproduces the digest a container replay computes for this blob", () => {
+    // Verified 2026-09-16 against supabase/postgres:17.6.1.127, by making the population
+    // guard report public.site_content_bootstrap_digest instead of aborting silently.
+    expect(bootstrapDigest(bootstrapRecords())).toBe(
+      "b0ff995bd05073c30eb62ac1338a374706fc2c01cea8a37bb9b8f2c9a9b860cc",
+    );
+  });
+
+  it("reports, without repairing, that the seeded release no longer describes the blob", () => {
+    // supabase/schema.sql does not replay, and has not since before this branch: the
+    // committed guard expects a digest the committed blob does not produce. Repairing it
+    // re-keys the release UUID, which is derived from the digest, so the script says so
+    // rather than trading one broken invariant for another.
+    const state = bootstrapReleaseState(read("supabase/schema.sql"), bootstrapDigest(bootstrapRecords()), 843);
+    expect(state.pinnedCount).toBe(843);
+    expect(state.computedCount).toBe(843);
+    expect(state.matches).toBe(false);
+    expect(state.pinnedDigest).not.toBe(state.computedDigest);
   });
 });
