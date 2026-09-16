@@ -24,7 +24,8 @@ So:
 - Catalogue growth and revision reach live through the publication pipeline above, never by regenerating the freeze.
 - A SQL lookup that must serve records added after the freeze — `site_content_registry_baseline` is the one that matters — is refreshed by a **new forward migration**, which the integration does apply.
 - `npm run bootstrap:refresh -- --check` reports how far the catalogue has moved from the freeze, and `--write` is refused. Read what `--check` proves precisely: it re-derives each frozen entry **from its own frozen record**, so it shows the script's formulas still reproduce the freeze. It does not prove the freeze matches the catalogue, and no gate runs it.
-- `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest and counts across all four migrations, the schema mirror and the drift manifest, and sweeps every file under `supabase/migrations/` so a migration that does not exist yet cannot introduce a second identity. If it fails, restore the migration rather than updating the constants.
+- `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest, counts and both frozen blob hashes across all four migrations, the schema mirror and the drift manifest, and sweeps every file under `supabase/migrations/` so a migration that does not exist yet cannot introduce a second identity. If it fails, restore the migration rather than updating the constants.
+- `npm run check:migration-immutability` is the general form of the same rule, covering every migration rather than this one: see [`docs/database-drift-detection.md`](database-drift-detection.md) § Applied-migration immutability.
 
 ## Source-only planning
 
