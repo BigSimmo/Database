@@ -15,10 +15,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Authorised hospitals"
-    ],
+    "topics": ["Mental Health Act 2014", "Authorised hospitals"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -43,10 +40,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Statutory compliance"
-    ],
+    "topics": ["Mental Health Act 2014", "Statutory compliance"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -71,11 +65,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Community treatment orders",
-      "Involuntary treatment"
-    ],
+    "topics": ["Mental Health Act 2014", "Community treatment orders", "Involuntary treatment"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -100,10 +90,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Psychiatric examination"
-    ],
+    "topics": ["Mental Health Act 2014", "Psychiatric examination"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -128,10 +115,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Treatment support and discharge plans"
-    ],
+    "topics": ["Mental Health Act 2014", "Treatment support and discharge plans"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -156,10 +140,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Further opinions"
-    ],
+    "topics": ["Mental Health Act 2014", "Further opinions"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -184,10 +165,7 @@
     "documentStatus": "review_due",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Clinical care standards",
-      "Mental Health Act 2014"
-    ],
+    "topics": ["Clinical care standards", "Mental Health Act 2014"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -212,11 +190,7 @@
     "documentStatus": "outdated",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Mood disorders",
-      "Major depressive disorder",
-      "Bipolar disorder"
-    ],
+    "topics": ["Mood disorders", "Major depressive disorder", "Bipolar disorder"],
     "rung": 3,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -241,9 +215,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 2,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -268,9 +240,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 2,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -295,9 +265,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -322,9 +290,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -349,9 +315,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -376,9 +340,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -403,9 +365,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -430,9 +390,7 @@
     "documentStatus": "outdated",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "Therapy"
-    ],
+    "topics": ["Therapy"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -457,10 +415,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Adult depression therapy selection/delivery."
-    ],
+    "topics": ["Therapy", "Adult depression therapy selection/delivery."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -485,10 +440,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Youth depression."
-    ],
+    "topics": ["Therapy", "Youth depression."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -513,10 +465,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "GAD/panic CBT/applied relaxation."
-    ],
+    "topics": ["Therapy", "GAD/panic CBT/applied relaxation."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -541,10 +490,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Disorder-specific CBT."
-    ],
+    "topics": ["Therapy", "Disorder-specific CBT."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -569,10 +515,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "CBT/ERP."
-    ],
+    "topics": ["Therapy", "CBT/ERP."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -597,10 +540,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Detailed corroboration for PTSD; Phoenix first for Australia."
-    ],
+    "topics": ["Therapy", "Detailed corroboration for PTSD; Phoenix first for Australia."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -653,10 +593,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Phase-specific bipolar psychotherapy."
-    ],
+    "topics": ["Therapy", "Phase-specific bipolar psychotherapy."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -681,10 +618,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Adult CBT-informed intervention and DBT-A subgroup."
-    ],
+    "topics": ["Therapy", "Adult CBT-informed intervention and DBT-A subgroup."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -709,10 +643,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Structured therapy/comprehensive DBT in defined subgroup."
-    ],
+    "topics": ["Therapy", "Structured therapy/comprehensive DBT in defined subgroup."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -737,10 +668,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "AN/BN/BED diagnosis-age specific treatment."
-    ],
+    "topics": ["Therapy", "AN/BN/BED diagnosis-age specific treatment."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -765,10 +693,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "ACT/CBT for chronic primary pain."
-    ],
+    "topics": ["Therapy", "ACT/CBT for chronic primary pain."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -793,10 +718,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Motivational and alcohol-focused psychological interventions."
-    ],
+    "topics": ["Therapy", "Motivational and alcohol-focused psychological interventions."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -821,10 +743,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Therapy",
-      "Adult ADHD structured psychological interventions."
-    ],
+    "topics": ["Therapy", "Adult ADHD structured psychological interventions."],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "PsychSift Therapy source reconciliation: the Therapy catalogue's 205 records cite one uploaded Markdown export and no traceable clinical source",
@@ -877,10 +796,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Generalised anxiety disorder",
-      "Panic disorder"
-    ],
+    "topics": ["Generalised anxiety disorder", "Panic disorder"],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
@@ -905,9 +821,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Bipolar disorder"
-    ],
+    "topics": ["Bipolar disorder"],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
@@ -932,11 +846,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Withdrawal",
-      "Dependence",
-      "Antidepressants"
-    ],
+    "topics": ["Withdrawal", "Dependence", "Antidepressants"],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
@@ -961,9 +871,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Depression"
-    ],
+    "topics": ["Depression"],
     "rung": 5,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
@@ -988,11 +896,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Lithium",
-      "Monitoring",
-      "Drug interactions"
-    ],
+    "topics": ["Lithium", "Monitoring", "Drug interactions"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
@@ -1017,10 +921,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Lithium",
-      "Drug interactions"
-    ],
+    "topics": ["Lithium", "Drug interactions"],
     "rung": 3,
     "capturedAt": "2026-09-16",
     "capturedFor": "Factsheets evidence reconciliation: sources cited by the 2026-09-14 source-checked claim review that were not yet in the register",
