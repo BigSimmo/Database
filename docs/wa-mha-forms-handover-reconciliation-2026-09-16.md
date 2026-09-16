@@ -147,48 +147,87 @@ not clinician sign-off.
 5. **Rendered browser acceptance.** Not run. No local server was started and no browser journey
    was exercised; the proof below is offline only.
 
-## The one blocker this change cannot clear itself
+## Second pass, same day: the holds that could be closed, were
 
-**Two tests are red, and they need someone with Docker and a live-database merge decision.**
+The first pass left four gates open and two tests red. Three of the four are now closed with
+evidence, and the P03 blocker turned out to be tractable.
 
-`tests/supabase-schema.test.ts` and `tests/site-content-publication-route.test.ts` each pin a
-frozen copy of the site-content seed population, embedded as a dollar-quoted JSON blob inside
-`supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql` and mirrored in
-`supabase/schema.sql`. Every form record appears there in full. Changing the Forms catalogue
-changes the app-side seed, so the frozen copy no longer matches it:
+### The P03 seed baseline now has a supported refresh route
 
-```
-Test Files  2 failed | 1362 passed | 1 skipped (1365)
-     Tests  2 failed | 20642 passed | 2 expected fail | 3 skipped (20649)
-```
+`supabase/migrations/20260824122000_...sql` and `supabase/schema.sql` embed the whole
+site-content seed as dollar-quoted JSON, pinned to the live runtime records, so any Forms or
+Services content change turned two tests red. The first pass could not refresh it because a
+frozen entry carries seven fields `canonicalDynamicSiteContentProjection` does not return.
 
-Both failures are that mismatch and nothing else. They pass on `66105e18` and fail here, so this
-change is the cause.
+Those seven are derived in `scripts/sync-site-content-corpus.ts`, which only ever writes to a
+provider. `scripts/refresh-site-content-p03-baseline.ts` now duplicates the derivations and
+rewrites both blobs, with `--check` for stale detection and
+`tests/site-content-p03-baseline.test.ts` pinning the duplication against the corpus-sync
+source so the two cannot drift apart.
 
-Refreshing the blob is the documented maintenance action, and there is a precedent from the
-repository owner: `fb0b0279b` ("refresh P03 form PDF restriction baseline") touched the
-migration, `supabase/schema.sql` and `supabase/drift-manifest.json` together. This session could
-not do the same, for two reasons:
+Before regenerating anything, the refresh was proved to be a value change rather than a
+reshuffle: 843 entries before and after, none added, none removed, exactly the 54 form records
+different. Rewriting this applied migration in place is the established convention for the file
+(`fb0b0279b`). **Applying the new definition to the live database is a separate approved step:
+a merge does not re-run an existing migration.**
 
-1. **The bootstrap blob carries fields no current code produces.** Each entry has
-   `logicalDocumentId`, `logicalChunkId`, `contentHash`, `publicationFingerprint`,
-   `governanceFingerprint`, `lineageFingerprint` and `publicMetadataFingerprint` alongside
-   `record` and `renderPayload`. `canonicalDynamicSiteContentProjection` returns only the last
-   two; `logicalChunkId` appears nowhere in `src/` or `scripts/` at all, and the fingerprints are
-   only read and passed through in `site-content-sync.ts`, never computed. Regenerating the blob
-   would mean inventing those values for rows that seed the live public-records table. That is
-   the shape of silent corruption, so it was not attempted.
-2. **`supabase/drift-manifest.json` cannot be regenerated here.** `npm run drift:manifest`
-   replays `supabase/schema.sql` into a pinned Supabase Postgres container; the Docker daemon is
-   unavailable in this environment. Editing `schema.sql` without it turns
-   `tests/drift-detection.test.ts` red, which trades two failures for a third.
+### The Act citation was pointing at a withdrawn document
 
-**What the owner has to decide.** The fix touches `supabase/migrations/**`, which under
-`AGENTS.md` makes merge approval production-deploy approval for the live `Clinical KB Database`
-project. Auto-merge must stay off. A session with Docker, the seed-generation route for those
-seven derived fields, and an approved window can refresh migration, `schema.sql` and the drift
-manifest in one change, after which both tests go green. Until then this branch is complete and
-reviewable but not mergeable.
+Chased to the end rather than left as an open question, and it was worse than "a suffix looks
+different". `02-b0-01` has been **withdrawn**: its filestore URL returns HTTP 404, and it does
+not appear among the versions of the Act at all. Every Act-section sheet in the app rendered
+that URL as a link, so that link was dead.
+
+`02-b0-02` replaced it at the **same** currency start, 25 September 2025. The trailing pair is
+the revision of one consolidation at one currency point, and the versions page shows no period
+between them, so the in-force law never changed — the publisher reissued the document and
+retired the old file.
+
+The pin moved through the designed route. `--refresh` re-fetched and re-extracted; all 79 cited
+sections came back **byte-identical**, so no `sourceTextSha256` moved, no summary was
+invalidated and nothing flipped to `pending`. `--draft` then synced the curated metadata,
+leaving all 79 entries and their drafted status untouched. `ACT_AS_AT` does not move, because
+the law did not. Package hold H02 is closed.
+
+### The asset dates now rest on an actual comparison
+
+All 51 downloadable approved-form PDFs were fetched from their OCP URLs and hashed: **51 of 51
+byte-identical**, no digest moved, no fetch failed. The register was read the same day and all
+54 codes, titles and availability states reconcile. `data/forms-pdf-manifest.json`'s
+`generatedAt` and the UI's "Official register checked" date both move to 16 September 2026 on
+that evidence rather than by assertion. Per-asset table:
+[`docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md`](evidence/forms-pdf-publisher-comparison-2026-09-16.md).
+Package holds H04 and H06 are closed — H06 with the register's own Form 10G typo preserved and
+explained rather than copied.
+
+### Clinical sign-off is not closed, and could not be
+
+All 54 forms remain `drafted`. No AI signs off clinical content, and neither the package nor
+this repository's governance would permit it. What this pass could do is make the sign-off a
+reading task instead of an archaeology task:
+[`docs/evidence/forms-operational-guidance-review.md`](evidence/forms-operational-guidance-review.md)
+puts what the app displays, the sections it rests on, the basis it was drafted from and a link
+to the approved PDF on one line of sight per form. A reviewer sets `status` to `reviewed` with
+`reviewedBy` and `reviewedAt` for one code at a time. Package holds H01 and H03 stay open.
+
+### What is left
+
+**One command, and it needs Docker.** `supabase/schema.sql` changed, so
+`supabase/drift-manifest.json`'s `schema_sha256` no longer matches it and
+`tests/drift-detection.test.ts` is red with the message that names the fix:
+`npm run drift:manifest`. The generator replays `schema.sql` into a pinned
+`supabase/postgres` container and no Docker daemon was available here.
+
+The `def_hash` side was checked rather than assumed, and the check found something. Replaying
+`public.site_content_registry_baseline` into a local Postgres 16 reproduced the pinned
+`c2dc2183657bab3c994af7f18ddfcb9b` for the old body **and** for the new one, and that same
+replay reproduces the manifest value exactly for the unchanged body, so the control is sound.
+The reason the hash does not move is that `schema_drift_snapshot()` strips from any `--` to end
+of line before hashing, and these blobs are a single line whose first `--` falls at offset
+176107 inside a service URL. **91.1 per cent of that function's definition is therefore invisible
+to drift detection** — 1841007 normalised characters down to 164524. Every other function in the
+schema loses only genuine comments, which is the intended behaviour. Filed as its own issue; a
+fix changes `def_hash` for every function and needs a manifest regeneration in the same change.
 
 ## Evidence
 
@@ -202,9 +241,14 @@ tests/mha-act-sections.test.ts tests/form-priority-facts.dom.test.tsx` and the r
 0 reviewed, 79 drafted, 0 pending; Act 02-b0-01 as at 2025-09-25).`
 - `npm run check:forms-pdf-manifest` — `Forms PDF manifest is current (51 PDFs, 50 require a
 user password, 50 editing-restricted).`
+- `npm run check:mha-act-sections` — `Act section data is current (79 sections cited by forms,
+0 reviewed, 79 drafted, 0 pending; Act 02-b0-02 as at 2025-09-25).`
+- `npm run check:site-content-p03` — `P03 seed baseline is current.`
+- `npm run check:forms-review-sheet`, `npm run check:repo-awareness-snapshot` — passing.
 - `npm run check:maintainability-budgets`, `npm run check:knip`, `npm run docs:check-index`,
   `npm run docs:check-links`, `npm run docs:check-inventory`,
   `npm run check:ledger-write-discipline`, `npm run lint`, `npm run typecheck` — passing.
-- `npm run drift:manifest` — **not run**, Docker daemon unavailable.
+- `npm run drift:manifest` — **not run**, Docker daemon unavailable. This is the one
+  outstanding command.
 - `npm run verify:ui` and any browser journey — **not run**. No local server was started.
 - Package checks as tabulated above.
