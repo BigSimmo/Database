@@ -1,5 +1,4 @@
 import formulationConceptsJson from "@/data/formulation-concepts.json";
-import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
 /**
  * The contextual half of the Formulation library, imported from the
@@ -97,11 +96,9 @@ export type FormulationGuide = FormulationRecordBase & {
   blocks: FormulationGuideBlock[];
 };
 
-export type FormulationConceptGroup = {
-  id: string;
-  label: string;
-  description: string;
-};
+export type { FormulationConceptIndexGroup as FormulationConceptGroup } from "@/lib/formulation-concept-search";
+
+type FormulationConceptGroupRecord = { id: string; label: string; description: string };
 
 type FormulationConceptBundle = {
   metadata: {
@@ -111,7 +108,7 @@ type FormulationConceptBundle = {
     confirmationNote: string;
     firstNationsGovernanceNote: string;
   };
-  groups: FormulationConceptGroup[];
+  groups: FormulationConceptGroupRecord[];
   concepts: FormulationConcept[];
   guides: FormulationGuide[];
 };
@@ -152,81 +149,6 @@ export function formulationConceptGroup(id: string) {
 
 export function formulationConceptsInGroup(groupId: string) {
   return publishedFormulationConcepts.filter((concept) => concept.group === groupId);
-}
-
-export const formulationConceptDomainsInUse = Array.from(
-  new Set(publishedFormulationConcepts.flatMap((concept) => concept.domains)),
-);
-
-function normalize(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function searchText(concept: FormulationConcept) {
-  return normalize(
-    [
-      concept.title,
-      concept.kind,
-      concept.summary,
-      concept.qualification ?? "",
-      concept.whenApplies ?? "",
-      concept.alternatives ?? "",
-      concept.candidateLoop ?? "",
-      concept.clinicalQuestion ?? "",
-      ...concept.domains,
-      ...concept.searchTerms,
-    ].join(" "),
-  );
-}
-
-export type FormulationConceptResult = { concept: FormulationConcept; score: number };
-
-/**
- * Deliberately a second, separate ranking rather than an extra branch inside
- * `searchFormulationMechanisms`: the mechanism weights are pinned by
- * `tests/formulation.test.ts` and a concept must never displace a mechanism
- * from the top of the mechanism list. Held records are filtered before scoring,
- * so nothing awaiting governance can be reached by guessing its title.
- */
-export function searchFormulationConcepts(
-  query: string,
-  options: { domains?: ReadonlySet<string>; group?: string; interpretNaturalLanguage?: boolean } = {},
-): FormulationConceptResult[] {
-  const normalizedQuery = normalize(
-    options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query,
-  );
-  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
-  const domainFacets = options.domains;
-
-  return publishedFormulationConcepts
-    .map((concept, index) => {
-      if (options.group && concept.group !== options.group) return null;
-      if (domainFacets?.size && !concept.domains.some((domain) => domainFacets.has(domain))) return null;
-
-      const haystack = searchText(concept);
-      const title = normalize(concept.title);
-      const terms = normalize(concept.searchTerms.join(" "));
-      let score = normalizedQuery ? 0 : publishedFormulationConcepts.length - index;
-
-      if (normalizedQuery) {
-        if (title === normalizedQuery) score += 80;
-        else if (title.includes(normalizedQuery)) score += 48;
-        if (terms.includes(normalizedQuery)) score += 30;
-        for (const token of queryTokens) {
-          if (title.includes(token)) score += 14;
-          if (terms.includes(token)) score += 8;
-          if (haystack.includes(token)) score += 3;
-        }
-      }
-
-      return score > 0 ? { concept, score } : null;
-    })
-    .filter((result): result is FormulationConceptResult => Boolean(result))
-    .sort((left, right) => right.score - left.score || left.concept.title.localeCompare(right.concept.title, "en-AU"));
 }
 
 /** Citations that can be rendered as an outbound link, in reading order. */

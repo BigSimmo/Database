@@ -9,8 +9,12 @@ import {
   formulationGuides,
   heldFormulationConcepts,
   publishedFormulationConcepts,
-  searchFormulationConcepts,
 } from "@/lib/formulation-concepts";
+import {
+  formulationConceptIndex,
+  formulationConceptIndexGroups,
+  searchFormulationConcepts,
+} from "@/lib/formulation-concept-search";
 
 /**
  * The Formulation content handover of 2026-09-16 added 46 contextual concepts
@@ -122,6 +126,19 @@ describe("formulation concept library", () => {
     }
   });
 
+  it("offers every declared domain as a filter once the concepts carry the last three", () => {
+    const carried = new Set([
+      ...formulationMechanisms.flatMap((mechanism) => mechanism.domains),
+      ...publishedFormulationConcepts.flatMap((concept) => concept.domains),
+    ]);
+    // Before the concept import this was 9 of 12: Biological, Social and
+    // Cultural were declared and carried by nothing, so the filter derived them
+    // away. They are now reachable, and the filter must not hide content the
+    // same page lists.
+    for (const domain of formulationContent.domains) expect(carried.has(domain)).toBe(true);
+    expect(carried.size).toBe(formulationContent.domains.length);
+  });
+
   it("groups every published concept under a named browse group", () => {
     const groupIds = new Set(formulationConceptGroups.map((group) => group.id));
     for (const concept of publishedFormulationConcepts) {
@@ -129,6 +146,32 @@ describe("formulation concept library", () => {
     }
     for (const group of formulationConceptGroups) {
       expect(publishedFormulationConcepts.some((concept) => concept.group === group.id)).toBe(true);
+    }
+  });
+
+  it("keeps the client search index in step with the full records", () => {
+    // The index exists so the search page does not download guide bodies,
+    // evidence locators and review metadata. Drift between the two would show
+    // a card that no longer matches the record it opens.
+    expect(formulationConceptIndex).toHaveLength(publishedFormulationConcepts.length);
+    expect(formulationConceptIndexGroups).toEqual(formulationConceptGroups);
+    for (const entry of formulationConceptIndex) {
+      const full = findFormulationConcept(entry.id);
+      expect(full).toBeTruthy();
+      expect(full?.release).toBe("published");
+      expect(entry.title).toBe(full?.title);
+      expect(entry.summary).toBe(full?.summary);
+      expect(entry.kind).toBe(full?.kind);
+      expect(entry.group).toBe(full?.group);
+      expect(entry.domains).toEqual(full?.domains);
+      expect(entry.searchTerms).toEqual(full?.searchTerms);
+      // Nothing server-only may leak into the client index.
+      for (const field of ["evidence", "warnings", "review", "claimIds", "packageContentId"]) {
+        expect(entry).not.toHaveProperty(field);
+      }
+    }
+    for (const held of heldFormulationConcepts) {
+      expect(formulationConceptIndex.map((entry) => entry.id)).not.toContain(held.id);
     }
   });
 

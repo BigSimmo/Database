@@ -25,12 +25,25 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
+  formulationDomains,
   formulationDomainsInUse,
   formulationDomainGroups,
   formulationSearchPresets,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
-import { searchFormulationConcepts } from "@/lib/formulation-concepts";
+import { formulationConceptDomainsInUse, searchFormulationConcepts } from "@/lib/formulation-concept-search";
+
+/**
+ * Every domain something in the library actually carries.
+ *
+ * Before the contextual concepts arrived this was nine of the twelve declared
+ * domains, because no mechanism carried Biological, Social or Cultural. Those
+ * three are now carried by concept records, so hiding them would offer a filter
+ * that cannot reach content the same page is showing. Taxonomy order is kept.
+ */
+const formulationLibraryDomainsInUse = formulationDomains.filter(
+  (domain) => formulationDomainsInUse.includes(domain) || formulationConceptDomainsInUse.includes(domain),
+);
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
@@ -67,7 +80,7 @@ function FormulationResults({ query }: { query: string }) {
   const searchParams = useSearchParams();
   // Many-of-N. A mechanism carries 3.92 domains on average, so a radio set
   // claimed the reader could not hold Affect and Risk at once, which is false.
-  const domainValues = useMemo(() => new Set(formulationDomainsInUse), []);
+  const domainValues = useMemo(() => new Set(formulationLibraryDomainsInUse), []);
   const domains = useMemo(
     () => new Set(readResultFilterValues(searchParams, "domain", domainValues)),
     [domainValues, searchParams],
@@ -130,11 +143,20 @@ function FormulationResults({ query }: { query: string }) {
           description: section.description,
           optionValues: section.domains.filter((domain) => domainValues.has(domain)),
         })),
-        options: formulationDomainsInUse.map((item) => {
+        options: formulationLibraryDomainsInUse.map((item) => {
+          // Counts both halves of the result list, because ticking the option
+          // widens both. A count derived from the mechanisms alone would
+          // disagree with what the click actually does on every concept-only
+          // domain — see docs/filter-contract.md section 3.
+          const candidateDomains = new Set([...domains, item]);
           const withCandidate = pendingRanking
             ? 0
             : searchFormulationMechanisms(searchQuery, {
-                domains: new Set([...domains, item]),
+                domains: candidateDomains,
+                interpretNaturalLanguage: true,
+              }).length +
+              searchFormulationConcepts(searchQuery, {
+                domains: candidateDomains,
                 interpretNaturalLanguage: true,
               }).length;
           return {
@@ -173,7 +195,11 @@ function FormulationResults({ query }: { query: string }) {
       <SearchResultsHeaderBand
         modeId="formulation"
         query={query}
-        matchCount={results.length}
+        // Both halves: the domain filter narrows mechanisms and contextual
+        // concepts alike, so a count of mechanisms alone would shrink by less
+        // than the list the reader is looking at.
+        matchCount={results.length + conceptResults.length}
+        resultNoun={results.length + conceptResults.length === 1 ? "record" : "records"}
         // This is `useDeferredValue` lag over static data, not a network request:
         // the previous count is still on screen and still correct, so it stays
         // visible with a pulse rather than collapsing to a skeleton. Safe here
@@ -226,7 +252,10 @@ function FormulationResults({ query }: { query: string }) {
         title="Filter formulation mechanisms"
         groups={[domainGroup]}
         onClearAll={domains.size === 0 ? undefined : clearDomains}
-        summary={{ count: results.length, noun: results.length === 1 ? "mechanism" : "mechanisms" }}
+        summary={{
+          count: results.length + conceptResults.length,
+          noun: results.length + conceptResults.length === 1 ? "record" : "records",
+        }}
       />
 
       {/* Evicted from the filter sheet, and all five rather than the first four:

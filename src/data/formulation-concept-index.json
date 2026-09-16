@@ -1,0 +1,442 @@
+{
+  "$comment": "Generated from formulation-concepts.json. Client-safe search index: published concepts only, card and haystack fields only. tests/formulation-concepts.test.ts pins it against the full records.",
+  "groups": [
+    {
+      "id": "process",
+      "label": "Processes and mechanisms",
+      "description": "Behavioural, cognitive and affective processes that sit beside the twelve core mechanisms."
+    },
+    {
+      "id": "relational",
+      "label": "Relational and defensive patterns",
+      "description": "Attachment strategies, interpersonal processes and the defence constructs used in psychodynamic formulation."
+    },
+    {
+      "id": "biological",
+      "label": "Biological and physical contributors",
+      "description": "Medical, neurological, developmental and treatment-related contributors that must be excluded or accounted for before a psychological mechanism is adopted."
+    },
+    {
+      "id": "social",
+      "label": "Social and structural context",
+      "description": "Circumstances outside the person that shape presentation, access and recovery."
+    },
+    {
+      "id": "cultural",
+      "label": "Cultural and identity context",
+      "description": "Explanatory models, discrimination, faith and displacement as formulation content rather than background."
+    },
+    {
+      "id": "strengths-risk",
+      "label": "Strengths, protection and risk",
+      "description": "Strengths and protective judgement alongside dynamic risk state and scenario planning."
+    }
+  ],
+  "concepts": [
+    {
+      "id": "affect-intolerance",
+      "title": "Affect intolerance",
+      "kind": "Formulation hypothesis",
+      "group": "process",
+      "domains": ["Affect"],
+      "summary": "Distress about having an emotion, possibly followed by efforts to escape it.",
+      "searchTerms": ["Affect intolerance", "affect-intolerance"]
+    },
+    {
+      "id": "checking-compulsion",
+      "title": "Checking / compulsive response",
+      "kind": "Behaviour/diagnostic interface",
+      "group": "process",
+      "domains": ["Behaviour", "Cognition"],
+      "summary": "Repeated checking or ritualised responses that may relate to doubt or an intrusive concern.",
+      "searchTerms": ["Checking / compulsive response", "checking-compulsion"]
+    },
+    {
+      "id": "conditioning",
+      "title": "Conditioning / learned associations",
+      "kind": "Learning concept",
+      "group": "process",
+      "domains": ["Behaviour", "Cognition"],
+      "summary": "A learned relation between cues, responses and consequences.",
+      "searchTerms": ["Conditioning / learned associations", "conditioning"]
+    },
+    {
+      "id": "distress-impulsivity",
+      "title": "Distress-driven impulsivity / negative urgency",
+      "kind": "Behaviour/dimensional construct",
+      "group": "process",
+      "domains": ["Behaviour", "Affect", "Risk"],
+      "summary": "Rapid action during distress with limited opportunity for deliberation.",
+      "searchTerms": ["Distress-driven impulsivity / negative urgency", "distress-impulsivity"]
+    },
+    {
+      "id": "guilt",
+      "title": "Guilt",
+      "kind": "Affect/meaning",
+      "group": "process",
+      "domains": ["Affect", "Cognition"],
+      "summary": "Concern about an action or responsibility for harm, distinct from but overlapping with global shame.",
+      "searchTerms": ["Guilt", "guilt"]
+    },
+    {
+      "id": "hopelessness",
+      "title": "Hopelessness / future constriction",
+      "kind": "Cognitive/affective state",
+      "group": "process",
+      "domains": ["Cognition", "Affect", "Risk"],
+      "summary": "Expectation that improvement or workable alternatives are unavailable.",
+      "searchTerms": ["Hopelessness / future constriction", "hopelessness"]
+    },
+    {
+      "id": "intolerance-uncertainty",
+      "title": "Intolerance of uncertainty",
+      "kind": "Model-linked process",
+      "group": "process",
+      "domains": ["Cognition"],
+      "summary": "Difficulty tolerating not knowing what will happen, with associated distress or control efforts.",
+      "searchTerms": ["Intolerance of uncertainty", "intolerance-uncertainty"]
+    },
+    {
+      "id": "negative-reinforcement",
+      "title": "Negative reinforcement",
+      "kind": "Learning concept",
+      "group": "process",
+      "domains": ["Behaviour", "Cognition"],
+      "summary": "An aversive state decreases after a response, potentially making that response more likely.",
+      "searchTerms": ["Negative reinforcement", "negative-reinforcement"]
+    },
+    {
+      "id": "safety-behaviour",
+      "title": "Safety behaviours",
+      "kind": "Behaviour/process",
+      "group": "process",
+      "domains": ["Behaviour"],
+      "summary": "An action intended to prevent or reduce a feared outcome or distress.",
+      "searchTerms": ["Safety behaviours", "safety-behaviour"]
+    },
+    {
+      "id": "self-criticism",
+      "title": "Self-criticism",
+      "kind": "Cognitive/affective process",
+      "group": "process",
+      "domains": ["Cognition", "Affect"],
+      "summary": "Harsh or punitive self-evaluation.",
+      "searchTerms": ["Self-criticism", "self-criticism"]
+    },
+    {
+      "id": "threat-appraisal",
+      "title": "Threat appraisal",
+      "kind": "Model-linked process",
+      "group": "process",
+      "domains": ["Cognition"],
+      "summary": "An interpretation that an event, sensation or interaction signals danger.",
+      "searchTerms": ["Threat appraisal", "threat-appraisal"]
+    },
+    {
+      "id": "trauma-threat",
+      "title": "Trauma-related threat processing",
+      "kind": "Context plus proposed process",
+      "group": "process",
+      "domains": ["Trauma", "Cognition"],
+      "summary": "A possible relationship between trauma exposure, cues, threat processing and current responses.",
+      "searchTerms": ["Trauma-related threat processing", "trauma-threat"]
+    },
+    {
+      "id": "acting-out",
+      "title": "Acting out",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Expressing conflict through action rather than reflection.",
+      "searchTerms": ["Acting out", "acting-out"]
+    },
+    {
+      "id": "attachment-anxiety",
+      "title": "Attachment anxiety / hyperactivation",
+      "kind": "Attachment construct",
+      "group": "relational",
+      "domains": ["Attachment", "Interpersonal"],
+      "summary": "Concern about availability or loss of attachment figures, potentially accompanied by intensified proximity seeking.",
+      "searchTerms": ["Attachment anxiety / hyperactivation", "attachment-anxiety"]
+    },
+    {
+      "id": "denial",
+      "title": "Denial",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Not acknowledging a distressing aspect of reality or experience.",
+      "searchTerms": ["Denial", "denial"]
+    },
+    {
+      "id": "displacement",
+      "title": "Displacement",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Redirecting an affect towards a different target.",
+      "searchTerms": ["Displacement", "displacement"]
+    },
+    {
+      "id": "family-accommodation",
+      "title": "Family/system accommodation",
+      "kind": "Interpersonal behaviour",
+      "group": "relational",
+      "domains": ["Interpersonal", "Social"],
+      "summary": "Family or support responses that participate in symptoms or repeated avoidance.",
+      "searchTerms": ["Family/system accommodation", "family-accommodation"]
+    },
+    {
+      "id": "idealisation-devaluation",
+      "title": "Idealisation / devaluation",
+      "kind": "Psychodynamic/descriptive construct",
+      "group": "relational",
+      "domains": ["Defence", "Interpersonal"],
+      "summary": "Exaggerated positive or negative appraisal of self or others.",
+      "searchTerms": ["Idealisation / devaluation", "idealisation-devaluation"]
+    },
+    {
+      "id": "intellectualisation",
+      "title": "Intellectualisation",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Using abstraction to distance from affect.",
+      "searchTerms": ["Intellectualisation", "intellectualisation"]
+    },
+    {
+      "id": "isolation-affect",
+      "title": "Isolation of affect",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Representing an event with reduced connection to its affect.",
+      "searchTerms": ["Isolation of affect", "isolation-affect"]
+    },
+    {
+      "id": "mentalising",
+      "title": "Mentalising / reflective functioning",
+      "kind": "Theory-linked construct",
+      "group": "relational",
+      "domains": ["Interpersonal", "Developmental"],
+      "summary": "Understanding one’s own and others’ behaviour in terms of mental states.",
+      "searchTerms": ["Mentalising / reflective functioning", "mentalising"]
+    },
+    {
+      "id": "reaction-formation",
+      "title": "Reaction formation",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Expressing an attitude opposite to a difficult impulse.",
+      "searchTerms": ["Reaction formation", "reaction-formation"]
+    },
+    {
+      "id": "rejection-sensitivity",
+      "title": "Rejection sensitivity",
+      "kind": "Descriptive hypothesis",
+      "group": "relational",
+      "domains": ["Interpersonal", "Affect"],
+      "summary": "Recurrent expectation or detection of rejection with a marked response.",
+      "searchTerms": ["Rejection sensitivity", "rejection-sensitivity"]
+    },
+    {
+      "id": "rupture-repair",
+      "title": "Therapeutic rupture and repair",
+      "kind": "Therapeutic relationship process",
+      "group": "relational",
+      "domains": ["Interpersonal"],
+      "summary": "A difficulty in collaboration, goals, tasks or trust, followed by efforts to understand and address it.",
+      "searchTerms": ["Therapeutic rupture and repair", "rupture-repair"]
+    },
+    {
+      "id": "undoing",
+      "title": "Undoing",
+      "kind": "Psychodynamic construct",
+      "group": "relational",
+      "domains": ["Defence"],
+      "summary": "Attempting to symbolically cancel an unacceptable act or feeling.",
+      "searchTerms": ["Undoing", "undoing"]
+    },
+    {
+      "id": "cognitive-impairment",
+      "title": "Cognitive impairment / delirium",
+      "kind": "Phenomenology/medical context",
+      "group": "biological",
+      "domains": ["Biological", "Cognition"],
+      "summary": "Change or difficulty in attention, memory, orientation, reasoning or other cognitive functions.",
+      "searchTerms": ["Cognitive impairment / delirium", "cognitive-impairment"]
+    },
+    {
+      "id": "medical-neurological",
+      "title": "Medical, neurological and endocrine contributors",
+      "kind": "Medical context",
+      "group": "biological",
+      "domains": ["Biological"],
+      "summary": "Relevant physical disease, neurological change, endocrine disturbance or other medical contributors.",
+      "searchTerms": ["Medical, neurological and endocrine contributors", "medical-neurological"]
+    },
+    {
+      "id": "medication-iatrogenic",
+      "title": "Medication and iatrogenic effects",
+      "kind": "Treatment context",
+      "group": "biological",
+      "domains": ["Biological"],
+      "summary": "Symptoms temporally related to medication, adverse effects, interactions, withdrawal or treatment experiences.",
+      "searchTerms": ["Medication and iatrogenic effects", "medication-iatrogenic"]
+    },
+    {
+      "id": "neurodevelopmental",
+      "title": "Neurodevelopmental and executive-function factors",
+      "kind": "Developmental context",
+      "group": "biological",
+      "domains": ["Developmental", "Biological"],
+      "summary": "Lifelong attention, learning, communication, sensory or executive-function differences and their environmental fit.",
+      "searchTerms": ["Neurodevelopmental and executive-function factors", "neurodevelopmental"]
+    },
+    {
+      "id": "pain-physical-distress",
+      "title": "Pain and physical symptom burden",
+      "kind": "Medical/functional context",
+      "group": "biological",
+      "domains": ["Biological"],
+      "summary": "Physical symptom burden, its meaning, activity effects and treatment consequences.",
+      "searchTerms": ["Pain and physical symptom burden", "pain-physical-distress"]
+    },
+    {
+      "id": "sleep-circadian",
+      "title": "Sleep and circadian disruption",
+      "kind": "Biological/behavioural factor",
+      "group": "biological",
+      "domains": ["Biological", "Behaviour"],
+      "summary": "Timing, continuity, quantity and subjective need for sleep, and changes from baseline.",
+      "searchTerms": ["Sleep and circadian disruption", "sleep-circadian"]
+    },
+    {
+      "id": "substance",
+      "title": "Substance intoxication, withdrawal and reinforcement",
+      "kind": "Biological/behavioural factor",
+      "group": "biological",
+      "domains": ["Biological", "Behaviour"],
+      "summary": "Intoxication, withdrawal, craving, patterns of use and consequences in relation to symptoms.",
+      "searchTerms": ["Substance intoxication, withdrawal and reinforcement", "substance"]
+    },
+    {
+      "id": "caregiving-role",
+      "title": "Caregiving, parenting and role strain",
+      "kind": "Social role/context",
+      "group": "social",
+      "domains": ["Social", "Interpersonal"],
+      "summary": "Responsibilities, relationships, identity and demands connected with care or parenting.",
+      "searchTerms": ["Caregiving, parenting and role strain", "caregiving-role"]
+    },
+    {
+      "id": "housing-financial",
+      "title": "Housing, financial and occupational instability",
+      "kind": "Structural context",
+      "group": "social",
+      "domains": ["Social"],
+      "summary": "Housing, financial, occupational or educational conditions affecting daily life and access to care.",
+      "searchTerms": ["Housing, financial and occupational instability", "housing-financial"]
+    },
+    {
+      "id": "justice-legal",
+      "title": "Justice/legal context",
+      "kind": "Structural context",
+      "group": "social",
+      "domains": ["Social"],
+      "summary": "Relevant legal uncertainty, restrictions, justice contact or advocacy needs.",
+      "searchTerms": ["Justice/legal context", "justice-legal"]
+    },
+    {
+      "id": "service-fragmentation",
+      "title": "Service fragmentation / access barriers",
+      "kind": "Service context",
+      "group": "social",
+      "domains": ["Social"],
+      "summary": "Discontinuity, access barriers, inconsistent messages or mismatched care.",
+      "searchTerms": ["Service fragmentation / access barriers", "service-fragmentation"]
+    },
+    {
+      "id": "social-isolation",
+      "title": "Social isolation / loneliness",
+      "kind": "Social context",
+      "group": "social",
+      "domains": ["Social", "Interpersonal"],
+      "summary": "Limited contact or connection; loneliness is the subjective experience of insufficient connection.",
+      "searchTerms": ["Social isolation / loneliness", "social-isolation"]
+    },
+    {
+      "id": "cultural-explanatory-model",
+      "title": "Cultural explanatory model and identity",
+      "kind": "Cultural context",
+      "group": "cultural",
+      "domains": ["Cultural"],
+      "summary": "The person’s understanding of distress, meaningful identities and acceptable ways of obtaining help.",
+      "searchTerms": ["Cultural explanatory model and identity", "cultural-explanatory-model"]
+    },
+    {
+      "id": "migration-refugee",
+      "title": "Migration, refugee and displacement context",
+      "kind": "Life-course/cultural context",
+      "group": "cultural",
+      "domains": ["Cultural", "Social"],
+      "summary": "Movement, displacement, separation, language and related social or legal circumstances.",
+      "searchTerms": ["Migration, refugee and displacement context", "migration-refugee"]
+    },
+    {
+      "id": "racism-discrimination",
+      "title": "Racism, discrimination and minority stress",
+      "kind": "Structural/cultural context",
+      "group": "cultural",
+      "domains": ["Cultural", "Social"],
+      "summary": "Experiences of inequity, exclusion or threat related to identity or social position.",
+      "searchTerms": ["Racism, discrimination and minority stress", "racism-discrimination"]
+    },
+    {
+      "id": "religion-spirituality",
+      "title": "Religion and spirituality",
+      "kind": "Cultural/meaning context",
+      "group": "cultural",
+      "domains": ["Cultural"],
+      "summary": "Beliefs, practices and communities that influence meaning, coping or help-seeking.",
+      "searchTerms": ["Religion and spirituality", "religion-spirituality"]
+    },
+    {
+      "id": "risk-dynamic-state",
+      "title": "Dynamic risk state and change from baseline",
+      "kind": "Risk formulation concept",
+      "group": "strengths-risk",
+      "domains": ["Risk"],
+      "summary": "Current safety-relevant change compared with the person’s own baseline.",
+      "searchTerms": ["Dynamic risk state and change from baseline", "risk-dynamic-state"]
+    },
+    {
+      "id": "risk-scenarios",
+      "title": "Foreseeable scenarios, means/opportunity and mitigations",
+      "kind": "Risk formulation concept",
+      "group": "strengths-risk",
+      "domains": ["Risk"],
+      "summary": "Plausible future circumstances, relevant access or opportunity, and preventive actions.",
+      "searchTerms": ["Foreseeable scenarios, means/opportunity and mitigations", "risk-scenarios"]
+    },
+    {
+      "id": "protective-reliability",
+      "title": "Protective factors and reliability",
+      "kind": "Risk/recovery judgement",
+      "group": "strengths-risk",
+      "domains": ["Risk"],
+      "summary": "Whether a proposed support or resource is actually available and usable in the relevant scenario.",
+      "searchTerms": ["Protective factors and reliability", "protective-reliability"]
+    },
+    {
+      "id": "strengths-agency",
+      "title": "Strengths, agency, values and recovery goals",
+      "kind": "Strength/recovery context",
+      "group": "strengths-risk",
+      "domains": ["Social", "Behaviour"],
+      "summary": "Capabilities, preferences, values, relationships and roles the person wants to use or preserve.",
+      "searchTerms": ["Strengths, agency, values and recovery goals", "strengths-agency"]
+    }
+  ]
+}
