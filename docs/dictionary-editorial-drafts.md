@@ -19,7 +19,7 @@ into the published entries would lose the distinction that makes them worth havi
 | ------------------ | ---------------------------------------------- | ---------------------------------------------------- |
 | Sense drafts       | `src/data/dictionary-sense-drafts.json`        | 333 records, all pending approval                    |
 | Definition reviews | `src/data/dictionary-definition-reviews.json`  | 96 verdicts, 28 with proposed wording, none applied  |
-| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 2 admitted as ledger candidates, 56 held |
+| Source outcomes    | `src/data/dictionary-source-dispositions.json` | 58 records: 6 admitted as ledger candidates, 52 held |
 
 The typed readers are in `src/lib/dictionary-editorial/`. Re-import with
 `node scripts/import-dictionary-handover.mjs --package <dir>`; `--check` proves the committed files
@@ -221,3 +221,4 @@ page and an implied citation at the same time.
 No draft emits a source usage, and a test pins both halves of that: the href the helper _would_
 build, and the absence of any sense id in the catalogue. Publishing drafts later means giving them a
 real route first, not reusing the term-slug helper.
+
