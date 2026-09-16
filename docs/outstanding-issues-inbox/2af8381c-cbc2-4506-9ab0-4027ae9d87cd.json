@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2af8381c-cbc2-4506-9ab0-4027ae9d87cd",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Re-ingest documents whose tables were extracted with interleaved columns, and have a clinician check the RKPG ANC/WBC labels",
+    "detail": "TWO OPERATOR ACTIONS, both outstanding after the 2026-09-16 extraction fix. ACTION 1, RE-INGEST. extract_pdf_assets.table_aware_page_text now renders detected grid tables cell by cell instead of letting page.get_text('text', sort=True) read line-major across the columns. The fix applies only at ingestion, so every chunk already in the corpus keeps its scrambled wording. Scope the backlog with Step 6 of scripts/operator-clozapine-retrieval-diagnosis.sql, which is read-only and returns both a chunk-level list and a per-document re-index worklist. Its two fingerprints were validated against real production text and fired on exactly the known-corrupted chunk out of 12 live results: (A) an action verb followed within 40 characters by a blood-count comparison, crossing a full stop, which is the clozapine signature 'Stop clozapine. Contact WBC < 1.5'; (B) a bare percentage wedged between two lowercase words, 'such 3.2% haematologist', which is an incidence column spliced into a prose column and needs no clozapine vocabulary. Treat rows as candidates and read the excerpt before re-ingesting, since a percentage can legitimately sit mid-sentence. The four clozapine eval cases stay red until this runs, and that is expected rather than a new defect. ACTION 2, CLINICAL, AND IT IS NOT A SOFTWARE TASK. The RKPG clozapine table as extracted labels 1.5 and 0.5 x10^9/L as WBC thresholds. Those are ANC figures. The Australian thresholds are ANC below 1.5 for a red result requiring cessation and ANC below 0.5 for agranulocytosis, with the WBC red threshold at 3.0. It cannot be told from the extracted text whether the source PDF mislabels them or the interleaving moved ANC values under a WBC heading, so a clinician must read the source PDF. If the document itself is wrong this is a clinical governance issue wider than this repository and the document should be flagged at its owning service, Rockingham Peel Group. Until then the system refusing to answer clozapine threshold questions is the safe outcome and must not be worked around.",
+    "source": "Claude Code session 2026-09-16 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), live public-corpus search plus PyMuPDF reproduction; extraction fix in worker/python/extract_pdf_assets.py",
+    "issueUlid": "01M2MSSSYHSCYQAE2W8YSM5VZY"
+  }
+}
