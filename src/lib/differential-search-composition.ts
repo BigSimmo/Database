@@ -1,4 +1,8 @@
-import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
+import {
+  diagnosisOwnSummary,
+  type DifferentialPresentationWorkflow,
+  type DifferentialRecord,
+} from "@/lib/differential-snapshot";
 
 export type DifferentialRecordMatch = {
   record: DifferentialRecord;
@@ -40,7 +44,7 @@ function diagnosisResultItem(match: DifferentialRecordMatch): Omit<DifferentialS
     kind: "diagnosis",
     slug: record.slug,
     title: record.title,
-    subtitle: record.clinicalHinge || record.subtitle,
+    subtitle: diagnosisOwnSummary(record),
     href: `/differentials/diagnoses/${record.slug}`,
     status: record.status,
     score,

@@ -6,7 +6,7 @@
     "sourceGeneratedAt": "2026-06-04T18:14:09.35701+08:00",
     "purpose": "Portable data package for the Forms page and a database-backed implementation.",
     "counts": {
-      "forms": 47,
+      "forms": 54,
       "pathways": 5,
       "checklistGroups": 4,
       "sourceDocuments": 84,
@@ -127,7 +127,48 @@
           "title": "Providing information contained in referral to person referred",
           "summary": "The practitioner must give the referred person the required referral information (section 41(a) and (b), and usually section 41(c)) in the approved form, subject to the Act’s exception for information supplied by someone else on condition it not be disclosed to the person."
         }
+      ],
+      "boundaries": [
+        "Does not itself authorise treatment.",
+        "Do not treat the referral as a substitute for a separate detention or transport power."
       ]
+    },
+    {
+      "id": "form-1a-attachment",
+      "form": "1A attachment",
+      "name": "Information provided by another person in confidence",
+      "category": "Referral and detention",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "Not a standalone referral.",
+        "Information meeting the statutory non-disclosure condition must not be supplied to the referred person."
+      ],
+      "purpose": "Records information provided by another person in confidence as an attachment to Form 1A.",
+      "maker": "Completed only as part of the Form 1A referral process by the authorised referring practitioner.",
+      "threshold": "Use when third-party information was provided on the statutory condition that it not be disclosed to the referred person.",
+      "safetyPearl": "Confidential third-party information can create a direct disclosure hazard.",
+      "traps": [
+        "Using the attachment without Form 1A.",
+        "Copying confidential information into the disclosed part of the referral or routine handover."
+      ],
+      "preUseChecks": [
+        "Link it unmistakably to the correct Form 1A.",
+        "Separate disclosed referral information from confidential third-party information.",
+        "Restrict access and handover consistently with s42."
+      ],
+      "copies": "File and handle with the approved Form 1A workflow and local privacy/access controls.",
+      "clock": "Confirm any time limit, expiry or review point on the current approved form and local policy.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review."
     },
     {
       "id": "form-1b",
@@ -138,7 +179,7 @@
       "maker": "Authorised maker specified by the form pathway.",
       "involved": "Receiving hospital, transport lead, referring team.",
       "threshold": "Existing referral remains live and variation or extension criteria are met.",
-      "clock": "Extension must be actioned before referral expiry where applicable.",
+      "clock": "Non-metropolitan referral extension: one further 72-hour period, measured from end of the ordinary referral period. Referral can be extended only once. Cannot revive an expired referral.",
       "destination": "Updated destination must be visible to the receiving team.",
       "authorises": "Variation or extension of the referral pathway as specified.",
       "doesNotAuthorise": "A new detention or transport power by itself.",
@@ -189,6 +230,14 @@
         "timings": ["72 hours"],
         "sectionCue": "sections 45, 46",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": ["Does not create a new referral.", "Does not itself create detention or transport authority."],
+      "priorityFacts": {
+        "clock": {
+          "title": "Non-metropolitan referral extension: one further 72-hour period",
+          "detail": "from end of the ordinary referral period",
+          "body": "Non-metropolitan referral extension: one further 72-hour period, measured from end of the ordinary referral period. Referral can be extended only once. Cannot revive an expired referral."
+        }
       }
     },
     {
@@ -200,7 +249,7 @@
       "maker": "Authorised clinician specified by the Act pathway.",
       "involved": "Ward medical team, nursing coordinator, psychiatrist or registrar.",
       "threshold": "Assessment is required and no lawful next step has yet been completed.",
-      "clock": "Maximum 6 hours. Treat as a hard stop.",
+      "clock": "Assessment detention: up to 6 hours, measured from time Form 2 is made. Detention ends if assessment is incomplete at 6 hours or no s36 referral is made after assessment.",
       "destination": "Adult inpatient ward or relevant hospital setting.",
       "authorises": "Short assessment hold for the voluntary inpatient pathway.",
       "doesNotAuthorise": "Ongoing detention beyond the maximum period or treatment without separate authority.",
@@ -253,6 +302,17 @@
         "timings": ["6 hours", "up to 6 hours"],
         "sectionCue": "sections 34, 35",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Not a generic six-hour ward hold.",
+        "Does not authorise treatment or continuing detention beyond the statutory off-ramp."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Assessment detention: up to 6 hours",
+          "detail": "from time Form 2 is made",
+          "body": "Assessment detention: up to 6 hours, measured from time Form 2 is made. Detention ends if assessment is incomplete at 6 hours or no s36 referral is made after assessment."
+        }
       }
     },
     {
@@ -319,18 +379,19 @@
         "timings": ["Up to 24 hours", "24 hours", "72 hours", "144 hours"],
         "sectionCue": "sections 28",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": ["Does not authorise treatment.", "A detention order is not a transport order."]
     },
     {
       "id": "form-3b",
       "form": "3B",
       "name": "Continuation Of Detention",
       "category": "Detention",
-      "purpose": "Official form source: Continuation Of Detention. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Continues detention under one of the statutory continuation pathways used before or during psychiatrist examination/movement.",
+      "maker": "Authorised practitioner specified by the applicable section.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "24 hours, 72 hours, 144 hours, 48 hours, up to 24 hours",
+      "threshold": "Use only after identifying whether the continuation is under s28, s59 or s62.",
+      "clock": "S28 continuation: up to 24 hours, measured from end of the current s28 block. Immediate reassessment required; cumulative ceiling 72 hours metro/144 hours non-metro. S59 non-metropolitan examination: up to a further 48 hours, measured from end of the initial examination detention outside metro. S62 continuation: up to 24 hours, measured from end of current s62 block. Immediate reassessment required; cumulative ceiling 72 hours.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -339,11 +400,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 3B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Treating all 3B uses as the same clock.", "Starting a new cumulative period with each form."],
+      "safetyPearl": "Form 3B is pathway-dependent. A single generic clock is unsafe.",
       "sourceNote": "Indexed from 📋 Form 3B.pdf.",
       "aliases": ["3b", "continuation of detention", "detention"],
       "searchTerms": [
@@ -365,16 +423,14 @@
       "sourceDocumentId": "3b-14cf5c36",
       "legalNote": "Detention authority must match the live referral or examination pathway, place, duration and expiry; do not use detention wording as treatment or transport authority. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The lawful clock and destination are the safety-critical parts of detention forms.",
         "Clock cue: 24 hours, 72 hours, 144 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 28, 59, 62."
       ],
       "preUseChecks": [
-        "Before use: confirm live referral/order, detention place, expiry, receiving service and release/off-ramp trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Name the enabling section in the record.",
+        "Carry forward the original clock and cumulative total.",
+        "Document reassessment and expiry/off-ramp."
       ],
       "sourceFacts": {
         "documentTitle": "Continuation Of Detention",
@@ -383,6 +439,17 @@
         "timings": ["24 hours", "72 hours", "144 hours", "48 hours", "up to 24 hours"],
         "sectionCue": "sections 28, 59, 62",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Does not reset or extend the underlying referral/order beyond what the Act permits.",
+        "Does not authorise treatment."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "S28 continuation: up to 24 hours",
+          "detail": "from end of the current s28 block · 2 further clocks",
+          "body": "S28 continuation: up to 24 hours, measured from end of the current s28 block. Immediate reassessment required; cumulative ceiling 72 hours metro/144 hours non-metro. S59 non-metropolitan examination: up to a further 48 hours, measured from end of the initial examination detention outside metro. S62 continuation: up to 24 hours, measured from end of current s62 block. Immediate reassessment required; cumulative ceiling 72 hours."
+        }
       }
     },
     {
@@ -390,11 +457,11 @@
       "form": "3C",
       "name": "Continuation Of Detention To Enable A Further Examination By A Psychiatrist",
       "category": "Detention",
-      "purpose": "Official form source: Continuation Of Detention To Enable A Further Examination By A Psychiatrist. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Continues detention at an authorised hospital so a further psychiatrist examination can occur.",
+      "maker": "Psychiatrist completing the preceding examination and making the s55 order.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "24 hours, up to 72 hours, 72 hours",
+      "threshold": "Use only for the s55(1)(c) further-examination pathway.",
+      "clock": "Absolute detention ceiling: the period specified cannot extend beyond 72 hours from that original start, measured from reception/detention start specified by ss52-53. Cannot be extended. Ends earlier when the further examination results in another lawful order.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -403,11 +470,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 3C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Adding 72 hours to the Form 3C signing time.", "Failing to account for time already detained."],
+      "safetyPearl": "This is the highest-risk clock error in the mode: the 72-hour ceiling does not reset.",
       "sourceNote": "Indexed from 📋 Form 3C.pdf.",
       "aliases": ["3c", "continuation of detention to enable a further examination by a psychiatrist", "detention"],
       "searchTerms": [
@@ -427,16 +491,14 @@
       "sourceDocumentId": "3c-7ed82248",
       "legalNote": "Detention authority must match the live referral or examination pathway, place, duration and expiry; do not use detention wording as treatment or transport authority. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The lawful clock and destination are the safety-critical parts of detention forms.",
         "Clock cue: 24 hours, up to 72 hours, 72 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 55, 56."
       ],
       "preUseChecks": [
-        "Before use: confirm live referral/order, detention place, expiry, receiving service and release/off-ramp trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Calculate the original reception/detention start.",
+        "Record the absolute expiry, not merely form time.",
+        "Arrange the further psychiatrist examination and statutory outcome."
       ],
       "sourceFacts": {
         "documentTitle": "Continuation Of Detention To Enable A Further Examination By A Psychiatrist",
@@ -445,6 +507,14 @@
         "timings": ["24 hours", "up to 72 hours", "72 hours"],
         "sectionCue": "sections 55, 56",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": ["Signing Form 3C does not start a fresh 72-hour period.", "Does not itself authorise treatment."],
+      "priorityFacts": {
+        "clock": {
+          "title": "The period specified cannot extend beyond 72 hours from that original start",
+          "detail": "from reception/detention start specified by ss52-53",
+          "body": "Absolute detention ceiling: the period specified cannot extend beyond 72 hours from that original start, measured from reception/detention start specified by ss52-53. Cannot be extended. Ends earlier when the further examination results in another lawful order."
+        }
       }
     },
     {
@@ -452,11 +522,11 @@
       "form": "3D",
       "name": "Order Authorising Reception And Detention In An Authorised Hospital For Further Examination",
       "category": "Detention",
-      "purpose": "Official form source: Order Authorising Reception And Detention In An Authorised Hospital For Further Examination. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Authorises reception at an authorised hospital and detention there for further psychiatrist examination after examination at a non-authorised-hospital place.",
+      "maker": "Psychiatrist making the s61(1)(c) order.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use only following the applicable s61 examination outcome.",
+      "clock": "Movement detention: up to 24-hour blocks, cumulative maximum 72 hours, measured from applicable s62 order. Immediate reassessment before each continuation. Post-reception examination: apply the separate statutory examination detention clock; do not merge it with movement time, measured from reception at authorised hospital.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -466,10 +536,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 3D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Treating one 72-hour period as covering every stage.",
+        "Assuming reception authority itself supplies transport power."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Display the movement clock and post-reception examination clock separately.",
       "sourceNote": "Indexed from 📋 Form 3D.pdf.",
       "aliases": [
         "3d",
@@ -490,16 +560,14 @@
       "sourceDocumentId": "3d-b4189f11",
       "legalNote": "Detention authority must match the live referral or examination pathway, place, duration and expiry; do not use detention wording as treatment or transport authority. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The lawful clock and destination are the safety-critical parts of detention forms.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 61."
       ],
       "preUseChecks": [
-        "Before use: confirm live referral/order, detention place, expiry, receiving service and release/off-ramp trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record the authorised hospital destination.",
+        "Make separate detention/transport orders if required.",
+        "Handover both movement expiry and post-reception examination requirements."
       ],
       "sourceFacts": {
         "documentTitle": "Order Authorising Reception And Detention In An Authorised Hospital For Further Examination",
@@ -508,6 +576,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 61",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Form 3D is not itself a transport order.",
+        "Movement detention and post-reception examination detention are separate clocks."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Movement detention: up to 24-hour blocks, cumulative maximum 72 hours",
+          "detail": "from applicable s62 order · 1 further clock",
+          "body": "Movement detention: up to 24-hour blocks, cumulative maximum 72 hours, measured from applicable s62 order. Immediate reassessment before each continuation. Post-reception examination: apply the separate statutory examination detention clock; do not merge it with movement time, measured from reception at authorised hospital."
+        }
       }
     },
     {
@@ -515,10 +594,10 @@
       "form": "3E",
       "name": "Order That Person Cannot Continue To Be Detained",
       "category": "Detention",
-      "purpose": "Official form source: Order That Person Cannot Continue To Be Detained. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records the psychiatrist’s decision that the person cannot continue to be detained after the relevant examination pathway.",
+      "maker": "Psychiatrist completing the examination under the applicable section.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use where the statutory examination outcome is release rather than an involuntary treatment order or further detention.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -529,10 +608,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 3E: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Continuing detention while administrative tasks are completed.",
+        "Treating release from detention as automatic discharge from all clinical care."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "The legal off-ramp should be operationally immediate.",
       "sourceNote": "Indexed from 📋 Form 3E.pdf.",
       "aliases": ["3e", "order that person cannot continue to be detained", "detention"],
       "searchTerms": [
@@ -549,16 +628,15 @@
       "sourceDocumentId": "3e-9d0eb22c",
       "legalNote": "Detention authority must match the live referral or examination pathway, place, duration and expiry; do not use detention wording as treatment or transport authority. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The lawful clock and destination are the safety-critical parts of detention forms.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 72."
       ],
       "preUseChecks": [
-        "Before use: confirm live referral/order, detention place, expiry, receiving service and release/off-ramp trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Stop detention and document the time.",
+        "Give/file the required copy.",
+        "Record voluntary treatment/discharge planning and any safety arrangements.",
+        "Notify any responsible transport/ward staff immediately."
       ],
       "sourceFacts": {
         "documentTitle": "Order That Person Cannot Continue To Be Detained",
@@ -567,7 +645,11 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 72",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Detention must cease; Form 3E does not create a new power.",
+        "Release from statutory detention does not remove the need for voluntary care, capacity, risk and discharge planning."
+      ]
     },
     {
       "id": "form-4a",
@@ -630,18 +712,22 @@
         "timings": ["72 hours"],
         "sectionCue": "sections 29,63,67,92,112,129,133,148, 154",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "There is no universal 'Form 4A lasts 72 hours' rule.",
+        "Transport authority is separate from detention, treatment, restraint and seclusion authority."
+      ]
     },
     {
       "id": "form-4b",
       "form": "4B",
       "name": "Extension Of Transport Order",
       "category": "Transport and transfer",
-      "purpose": "Official form source: Extension Of Transport Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records extension of an eligible non-metropolitan transport order where it would otherwise expire before arrival.",
+      "maker": "MP or mental health practitioner responding to the transporting officer’s request under s152.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "72 hours",
+      "threshold": "Use only for transport orders under ss63, 67, 92, 112, 129 or 133 being carried out from outside the metropolitan area.",
+      "clock": "S152 extension: a further period up to 72 hours, measured from expiry of the eligible transport order. May be extended once only. Cannot revive an already expired or ineligible order.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -650,11 +736,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 4B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Extending the wrong type of Form 4A.", "Treating the maximum as automatic."],
+      "safetyPearl": "Eligibility is section-specific, not form-code-specific.",
       "sourceNote": "Indexed from 📋 Form 4B.pdf.",
       "aliases": ["4b", "extension of transport order", "transport and transfer"],
       "searchTerms": [
@@ -672,16 +755,14 @@
       "sourceDocumentId": "4b-93095b32",
       "legalNote": "Transport or transfer authority should be specific to the journey, destination and linked live authority, with no safer less restrictive option available. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "A transport form should make the route, destination and linked authority easy to audit.",
         "Clock cue: 72 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 152."
       ],
       "preUseChecks": [
-        "Before use: confirm origin, destination, transport provider, linked form, expiry and less restrictive travel options.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Verify enabling section and non-metropolitan origin.",
+        "Record oral request/order details and new expiry.",
+        "Give/file the required copy with the transporting officer."
       ],
       "sourceFacts": {
         "documentTitle": "Extension Of Transport Order",
@@ -690,6 +771,17 @@
         "timings": ["72 hours"],
         "sectionCue": "sections 152",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Does not extend a s29 transport order.",
+        "Does not extend the underlying treatment/referral authority unless the Act separately provides for it."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "S152 extension: a further period up to 72 hours",
+          "detail": "from expiry of the eligible transport order",
+          "body": "S152 extension: a further period up to 72 hours, measured from expiry of the eligible transport order. May be extended once only. Cannot revive an already expired or ineligible order."
+        }
       }
     },
     {
@@ -697,10 +789,10 @@
       "form": "4C",
       "name": "Transfer Order",
       "category": "Transport and transfer",
-      "purpose": "Official form source: Transfer Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Transfers an involuntary inpatient from a general hospital to an authorised hospital under s66 or between authorised hospitals under s91.",
+      "maker": "Treating psychiatrist or other psychiatrist permitted by the applicable section.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use when the statutory transfer criteria and receiving-hospital destination are satisfied.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -708,13 +800,13 @@
       "before": [],
       "parallel": [],
       "after": [],
-      "copies": "Follow the approved distribution and filing fields on the form.",
+      "copies": "Making the transfer order is a Part 9 notifiable event.",
       "documentationStem": "Source-backed note for Form 4C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Using authorised-to-authorised workflow for a general-hospital transfer.",
+        "Assuming transfer automatically supplies transport power."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Display transfer and transport as separate actions.",
       "sourceNote": "Indexed from 📋 Form 4C.pdf.",
       "aliases": ["4c", "transfer order", "transport and transfer"],
       "searchTerms": [
@@ -731,16 +823,15 @@
       "sourceDocumentId": "4c-163bdaf1",
       "legalNote": "Transport or transfer authority should be specific to the journey, destination and linked live authority, with no safer less restrictive option available. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "A transport form should make the route, destination and linked authority easy to audit.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 66, 91."
       ],
       "preUseChecks": [
-        "Before use: confirm origin, destination, transport provider, linked form, expiry and less restrictive travel options.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "State whether s66 or s91 applies.",
+        "Confirm receiving hospital and clinical handover.",
+        "Make separate transport authority if no other safe means exists.",
+        "File/give the required copy."
       ],
       "sourceFacts": {
         "documentTitle": "Transfer Order",
@@ -749,7 +840,82 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 66, 91",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "A transfer order does not itself authorise transport; Form 4A may be required separately.",
+        "s66 and s91 are different pathways."
+      ]
+    },
+    {
+      "id": "form-4d",
+      "form": "4D",
+      "name": "Interstate transfer order",
+      "category": "Transport and transfer",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "The current OCP register marks Form 4D unavailable.",
+        "Do not serve an archived local copy as a current approved form."
+      ],
+      "purpose": "Interstate transfer order for a State inpatient to an interstate mental health service.",
+      "maker": "Person in charge of a hospital, with the Chief Psychiatrist’s written approval under s555.",
+      "threshold": "Use only through the interstate-transfer governance pathway.",
+      "safetyPearl": "Unavailable form: route to OCP rather than presenting an actionable PDF.",
+      "traps": ["Using a historical form because the code still exists.", "Treating approval as implicit."],
+      "preUseChecks": [
+        "Contact OCP and obtain current approval/process.",
+        "Confirm interstate service acceptance and transmit required documents.",
+        "Record notifiable-event and copy requirements."
+      ],
+      "copies": "Making the order is a Part 9 notifiable event.",
+      "clock": "Confirm any time limit, expiry or review point on the current approved form and local policy.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review."
+    },
+    {
+      "id": "form-4e",
+      "form": "4E",
+      "name": "Approval of interstate transfer order",
+      "category": "Transport and transfer",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "The current OCP register marks Form 4E unavailable.",
+        "Do not present an archived copy as current."
+      ],
+      "purpose": "Approves transfer of an interstate inpatient to a WA hospital.",
+      "maker": "Person in charge of the receiving hospital, with the Chief Psychiatrist’s written consent under s557.",
+      "threshold": "Use only through the interstate-transfer governance pathway.",
+      "safetyPearl": "Unavailable form: contact OCP.",
+      "traps": [
+        "Confusing Form 4E with the outbound Form 4D.",
+        "Proceeding without written Chief Psychiatrist consent."
+      ],
+      "preUseChecks": [
+        "Contact OCP for the current consent/order pathway.",
+        "Confirm receiving hospital readiness and transmit documents.",
+        "On admission, file and give the required copies."
+      ],
+      "copies": "Making the approval order is a Part 9 notifiable event.",
+      "clock": "Confirm any time limit, expiry or review point on the current approved form and local policy.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review."
     },
     {
       "id": "form-5a",
@@ -760,7 +926,7 @@
       "maker": "Psychiatrist or authorised pathway decision-maker.",
       "involved": "Community mental health team, treating psychiatrist, support persons where required.",
       "threshold": "Treatment order criteria met and community treatment is the least restrictive suitable pathway.",
-      "clock": "Review and continuation dates must be diarised.",
+      "clock": "Initial treatment period: up to 3 months, measured from date/order period specified. No-referral CTO confirmation: must be confirmed within 72 hours, measured from time a s75 CTO is made. By another psychiatrist, or permitted alternative if none reasonably available. Ceases if not confirmed in time. Monthly examination: on or within 14 days before that day, measured from end of each monthly review period. Continuation window: on or within 7 days before expiry; further period up to 3 months, measured from end of current CTO treatment period.",
       "destination": "Community treatment setting and responsible service must be clear.",
       "authorises": "Compulsory treatment in the community according to CTO conditions.",
       "doesNotAuthorise": "Inpatient detention unless a separate pathway applies.",
@@ -820,6 +986,17 @@
         ],
         "sectionCue": "sections 55, 56, 61, 72, 75, 76, 89, 90, 120, 123, 131",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "CTO is not inpatient detention authority.",
+        "A treatment period, commencement/appointment obligations and confirmation are separate clocks."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Initial treatment period: up to 3 months",
+          "detail": "from date/order period specified · 3 further clocks",
+          "body": "Initial treatment period: up to 3 months, measured from date/order period specified. No-referral CTO confirmation: must be confirmed within 72 hours, measured from time a s75 CTO is made. By another psychiatrist, or permitted alternative if none reasonably available. Ceases if not confirmed in time. Monthly examination: on or within 14 days before that day, measured from end of each monthly review period. Continuation window: on or within 7 days before expiry; further period up to 3 months, measured from end of current CTO treatment period."
+        }
       }
     },
     {
@@ -827,11 +1004,11 @@
       "form": "5B",
       "name": "Continuation Of Community Treatment Order",
       "category": "Community treatment order",
-      "purpose": "Official form source: Continuation Of Community Treatment Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Continues a Community Treatment Order after the required examination and review.",
+      "maker": "Supervising psychiatrist.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Up to 3 months, within 7 days, 3 months, within 14 days",
+      "threshold": "Use only within the statutory pre-expiry window and after examining the patient.",
+      "clock": "Continuation order: made on or within 7 days before expiry; further period up to 3 months, measured from end of current treatment period. Requested further opinion: opinion generally must be obtained within 14 days, measured from patient’s written request. Continuation may not come into force or may cease if the statutory confirmation is not obtained.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -841,10 +1018,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 5B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Routine administrative renewal without examination.",
+        "Missing the seven-day window.",
+        "Ignoring a requested further opinion."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "The continuation window is narrow and the further-opinion pathway can determine validity.",
       "sourceNote": "Indexed from 📋 Form 5B.pdf.",
       "aliases": ["5b", "continuation of community treatment order", "community treatment order"],
       "searchTerms": [
@@ -865,16 +1043,14 @@
       "sourceDocumentId": "5b-50198dd6",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Community treatment logic depends on least restrictive reasoning and clear conditions, not just order status.",
         "Clock cue: Up to 3 months, within 7 days, 3 months. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 121."
       ],
       "preUseChecks": [
-        "Before use: confirm conditions, supervising psychiatrist/service, review date, notices and breach response pathway.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Complete the pre-expiry examination.",
+        "Record new period and expiry.",
+        "Advise of further-opinion rights and track any request."
       ],
       "sourceFacts": {
         "documentTitle": "Continuation Of Community Treatment Order",
@@ -883,6 +1059,14 @@
         "timings": ["Up to 3 months", "within 7 days", "3 months", "within 14 days"],
         "sectionCue": "sections 121",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": ["Cannot be made after the CTO has expired.", "Does not cure a missed examination or review."],
+      "priorityFacts": {
+        "clock": {
+          "title": "Continuation order: made on or within 7 days before expiry; further period up to 3 months",
+          "detail": "from end of current treatment period · 1 further clock",
+          "body": "Continuation order: made on or within 7 days before expiry; further period up to 3 months, measured from end of current treatment period. Requested further opinion: opinion generally must be obtained within 14 days, measured from patient’s written request. Continuation may not come into force or may cease if the statutory confirmation is not obtained."
+        }
       }
     },
     {
@@ -890,10 +1074,10 @@
       "form": "5C",
       "name": "Variation Of Terms Of Community Treatment Order",
       "category": "Community treatment order",
-      "purpose": "Official form source: Variation Of Terms Of Community Treatment Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Varies the terms of a Community Treatment Order while it remains in force.",
+      "maker": "Supervising psychiatrist under s122.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use when terms need lawful alteration consistent with s115.",
       "clock": "within 7 days, 3 months, 7 days",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -903,11 +1087,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 5C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Using variation to change expiry.", "Conflating terms with transfer of clinician responsibility."],
+      "safetyPearl": "Variation changes terms, not duration or legal status.",
       "sourceNote": "Indexed from 📋 Form 5C.pdf.",
       "aliases": ["5c", "variation of terms of community treatment order", "community treatment order"],
       "searchTerms": [
@@ -927,16 +1108,15 @@
       "sourceDocumentId": "5c-3b0b1f4f",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Community treatment logic depends on least restrictive reasoning and clear conditions, not just order status.",
         "Clock cue: within 7 days, 3 months, 7 days. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 122, 135, 137."
       ],
       "preUseChecks": [
-        "Before use: confirm conditions, supervising psychiatrist/service, review date, notices and breach response pathway.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Confirm the CTO is live.",
+        "Specify each variation and reasons.",
+        "Update patient, treating team and service records.",
+        "File/give the required copy."
       ],
       "sourceFacts": {
         "documentTitle": "Variation Of Terms Of Community Treatment Order",
@@ -945,18 +1125,23 @@
         "timings": ["within 7 days", "3 months", "7 days"],
         "sectionCue": "sections 122, 135, 137",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Cannot extend the treatment period.",
+        "Cannot revive an expired CTO.",
+        "Change of supervising psychiatrist or treating practitioner is governed separately."
+      ]
     },
     {
       "id": "form-5d",
       "form": "5D",
       "name": "Request For Practitioner To Conduct Monthly Examination Of A Patient",
       "category": "Community treatment order",
-      "purpose": "Official form source: Request For Practitioner To Conduct Monthly Examination Of A Patient. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Requests another permitted practitioner to conduct a monthly examination of an involuntary community patient.",
+      "maker": "Supervising psychiatrist under s119.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 14 days, 2 MONTHS",
+      "threshold": "Use when the supervising psychiatrist requests another MP or mental health practitioner to perform the s118 examination.",
+      "clock": "Monthly examination window: on or within 14 days before the period ends, measured from end of each monthly review period. A substitute examiner cannot be used if more than 2 months have passed since the supervising psychiatrist last personally examined the patient.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -965,11 +1150,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 5D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Delegating beyond the two-month limit.", "Treating the report as the continuation decision."],
+      "safetyPearl": "Track both the monthly review window and the supervising psychiatrist’s two-month personal-examination limit.",
       "sourceNote": "Indexed from 📋 Form 5D.pdf.",
       "aliases": [
         "5d",
@@ -992,16 +1174,14 @@
       "sourceDocumentId": "5d-259eb89f",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Community treatment logic depends on least restrictive reasoning and clear conditions, not just order status.",
         "Clock cue: within 14 days, 2 MONTHS. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 118, 119."
       ],
       "preUseChecks": [
-        "Before use: confirm conditions, supervising psychiatrist/service, review date, notices and breach response pathway.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Set examination/report requirements.",
+        "Check the supervising psychiatrist’s last personal examination date.",
+        "Receive, review and file the report."
       ],
       "sourceFacts": {
         "documentTitle": "Request For Practitioner To Conduct Monthly Examination Of A Patient",
@@ -1010,6 +1190,17 @@
         "timings": ["within 14 days", "2 MONTHS"],
         "sectionCue": "sections 118, 119",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "The substitute practitioner reports; the supervising psychiatrist retains the statutory decision role.",
+        "The form does not itself continue the CTO."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Monthly examination window: on or within 14 days before the period ends",
+          "detail": "from end of each monthly review period",
+          "body": "Monthly examination window: on or within 14 days before the period ends, measured from end of each monthly review period. A substitute examiner cannot be used if more than 2 months have passed since the supervising psychiatrist last personally examined the patient."
+        }
       }
     },
     {
@@ -1017,10 +1208,10 @@
       "form": "5E",
       "name": "Notice And Record Of Breach Of Community Treatment Order",
       "category": "Community treatment order",
-      "purpose": "Official form source: Notice And Record Of Breach Of Community Treatment Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records a breach of a Community Treatment Order and gives the patient the statutory breach notice.",
+      "maker": "Supervising psychiatrist.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use after the statutory breach conditions and attempts to obtain compliance are satisfied.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -1031,10 +1222,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 5E: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Skipping efforts to obtain compliance.",
+        "Moving directly to transport without the statutory sequence."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Breach, attendance and transport are three separate steps.",
       "sourceNote": "Indexed from 📋 Form 5E.pdf.",
       "aliases": ["5e", "notice and record of breach of community treatment order", "community treatment order"],
       "searchTerms": ["community", "treatment", "patient", "notice", "breach", "psychiatrist", "record", "your"],
@@ -1042,16 +1233,15 @@
       "sourceDocumentId": "5e-71586edc",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Community treatment logic depends on least restrictive reasoning and clear conditions, not just order status.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 127."
       ],
       "preUseChecks": [
-        "Before use: confirm conditions, supervising psychiatrist/service, review date, notices and breach response pathway.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record the non-compliance and steps taken to obtain compliance.",
+        "Tell the patient what is required and the possible consequence.",
+        "File both record and notice as soon as practicable.",
+        "Notify MIRT where the patient is supervised."
       ],
       "sourceFacts": {
         "documentTitle": "Notice And Record Of Breach Of Community Treatment Order",
@@ -1060,17 +1250,21 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 127",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "A breach notice is not an order to attend or transport authority.",
+        "Further escalation requires separate Forms 5F and, if needed, 4A."
+      ]
     },
     {
       "id": "form-5f",
       "form": "5F",
       "name": "Order To Attend",
       "category": "Community treatment order",
-      "purpose": "Official form source: Order To Attend. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Orders an involuntary community patient to attend a specified place for treatment after continued non-compliance following a breach notice.",
+      "maker": "Supervising psychiatrist under s128.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use only after the patient has been given the Form 5E breach notice and non-compliance continues.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -1080,11 +1274,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 5F: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Issuing before Form 5E process.", "Treating it as immediate transport authority."],
+      "safetyPearl": "Preserve the statutory escalation sequence.",
       "sourceNote": "Indexed from 📋 Form 5F.pdf.",
       "aliases": ["5f", "order to attend", "community treatment order"],
       "searchTerms": [
@@ -1101,16 +1292,15 @@
       "sourceDocumentId": "5f-478fda8a",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Community treatment logic depends on least restrictive reasoning and clear conditions, not just order status.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 128."
       ],
       "preUseChecks": [
-        "Before use: confirm conditions, supervising psychiatrist/service, review date, notices and breach response pathway.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Specify time/place and treatment.",
+        "Include the statutory warning about possible transport.",
+        "File/give copy and coordinate attendance.",
+        "If non-compliance continues, assess the separate transport criteria."
       ],
       "sourceFacts": {
         "documentTitle": "Order To Attend",
@@ -1119,7 +1309,11 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 128",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Does not itself authorise apprehension or transport.",
+        "A Form 4A under s129 requires a further no-other-safe-means assessment."
+      ]
     },
     {
       "id": "form-6a",
@@ -1130,7 +1324,7 @@
       "maker": "Psychiatrist via treatment order pathway.",
       "involved": "Authorised hospital, treating team, personal support contacts where required.",
       "threshold": "Inpatient treatment order criteria met and less restrictive options are insufficient.",
-      "clock": "Order and review timing must be visible in handover.",
+      "clock": "Initial adult detention period: up to 21 days, measured from day the order is made. Initial child detention period: up to 14 days, measured from day the order is made. Pre-expiry examination: on or within 7 days before the period ends, measured from end of current detention period.",
       "destination": "Authorised hospital.",
       "authorises": "Inpatient compulsory treatment according to the order.",
       "doesNotAuthorise": "General hospital pathway unless 6B criteria and consent pathway apply.",
@@ -1181,6 +1375,17 @@
         "timings": ["Up to 21 days", "14 days", "21 days", "within 7 days"],
         "sectionCue": "sections 55, 56, 72, 89, 90, 120, 123, 131",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Adult and child periods must not be collapsed into one value.",
+        "The order authorises detention/treatment only within the Act and does not replace separate transport authority."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Initial adult detention period: up to 21 days",
+          "detail": "from day the order is made · 2 further clocks",
+          "body": "Initial adult detention period: up to 21 days, measured from day the order is made. Initial child detention period: up to 14 days, measured from day the order is made. Pre-expiry examination: on or within 7 days before the period ends, measured from end of current detention period."
+        }
       }
     },
     {
@@ -1244,6 +1449,17 @@
         "timings": ["Up to 21 days", "14 days", "21 days", "within 7 days", "7 days"],
         "sectionCue": "sections 61, 89, 90, 131",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "General-hospital detention is an exceptional pathway, not a routine bed-availability solution.",
+        "Transport to an authorised hospital requires separate authority if no other safe means exists."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Initial adult detention period: up to 21 days",
+          "detail": "from day the order is made · 3 further clocks",
+          "body": "Report/attachment pathway reviewed every 7 days while continuing."
+        }
       }
     },
     {
@@ -1251,11 +1467,11 @@
       "form": "6B Attachment",
       "name": "Inpatient Treatment Order In General Hospital Attachment",
       "category": "Inpatient treatment order",
-      "purpose": "Official form source: Inpatient Treatment Order In General Hospital Attachment. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Reports the mental and physical condition and treatment of an involuntary inpatient detained at a general hospital.",
+      "maker": "Treating psychiatrist under s65.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "7 days",
+      "threshold": "Use at the end of every successive seven-day period of general-hospital detention.",
+      "clock": "Regular report: report to the Chief Psychiatrist, measured from end of each successive 7-day period detained at the general hospital.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1264,11 +1480,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 6B Attachment: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Treating the attachment as optional.", "Using it as authority for continued detention."],
+      "safetyPearl": "Primary statutory anchor is s65; the earlier package incorrectly treated it mainly as a duplicate of Form 6B.",
       "sourceNote": "Indexed from 📋 Form 6B Attachment.pdf.",
       "aliases": [
         "6b attachment",
@@ -1290,16 +1503,14 @@
       "sourceDocumentId": "6b-attachment-fa9f080c",
       "legalNote": "Treatment order forms should show criteria, least restrictive reasoning, authorised setting, review timing and required notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Name why this setting is needed now and what review point changes the plan.",
         "Clock cue: 7 days. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 65."
       ],
       "preUseChecks": [
-        "Before use: confirm criteria, capacity/consent reasoning where relevant, authorised setting, review date and notifications.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Report mental condition, physical condition, psychiatric treatment and other medical/surgical treatment.",
+        "Track due dates from the detention timeline.",
+        "File and transmit through the current OCP process."
       ],
       "sourceFacts": {
         "documentTitle": "Inpatient Treatment Order In General Hospital Attachment",
@@ -1308,6 +1519,17 @@
         "timings": ["7 days"],
         "sectionCue": "sections 65",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "This is a report, not an inpatient treatment order or continuation order.",
+        "It does not itself extend detention."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Regular report: report to the Chief Psychiatrist",
+          "detail": "from end of each successive 7-day period detained at the general hospital",
+          "body": "Regular report: report to the Chief Psychiatrist, measured from end of each successive 7-day period detained at the general hospital."
+        }
       }
     },
     {
@@ -1315,11 +1537,11 @@
       "form": "6C",
       "name": "Continuation Of Inpatient Treatment Order",
       "category": "Inpatient treatment order",
-      "purpose": "Official form source: Continuation Of Inpatient Treatment Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Continues an inpatient treatment order after the statutory pre-expiry psychiatrist examination.",
+      "maker": "Psychiatrist completing the s89 examination.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Up to 3 months, 28 days, within 7 days, 7 days, 3 months",
+      "threshold": "Use when s25 criteria continue to require inpatient treatment.",
+      "clock": "Pre-expiry examination: on or within 7 days before expiry, measured from end of current detention period. Adult further detention period: up to 3 months, measured from new continuation period. Child further detention period: up to 28 days, measured from new continuation period.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1329,10 +1551,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 6C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Copy-forward renewal without examination.",
+        "Using three months for a child.",
+        "Missing the pre-expiry window."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Continuation is a clinical decision with age-specific limits, not an administrative extension.",
       "sourceNote": "Indexed from 📋 Form 6C.pdf.",
       "aliases": ["6c", "continuation of inpatient treatment order", "inpatient treatment order"],
       "searchTerms": [
@@ -1354,16 +1577,14 @@
       "sourceDocumentId": "6c-e3166feb",
       "legalNote": "Treatment order forms should show criteria, least restrictive reasoning, authorised setting, review timing and required notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Name why this setting is needed now and what review point changes the plan.",
         "Clock cue: Up to 3 months, 28 days, within 7 days. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 89."
       ],
       "preUseChecks": [
-        "Before use: confirm criteria, capacity/consent reasoning where relevant, authorised setting, review date and notifications.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Complete the examination within the statutory window.",
+        "Record reasons, age category, new period and expiry.",
+        "Consider CTO or revocation where inpatient criteria are no longer met."
       ],
       "sourceFacts": {
         "documentTitle": "Continuation Of Inpatient Treatment Order",
@@ -1372,6 +1593,14 @@
         "timings": ["Up to 3 months", "28 days", "within 7 days", "7 days", "3 months"],
         "sectionCue": "sections 89",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": ["Cannot be used after the existing order expires.", "Adult and child limits differ."],
+      "priorityFacts": {
+        "clock": {
+          "title": "Pre-expiry examination: on or within 7 days before expiry",
+          "detail": "from end of current detention period · 2 further clocks",
+          "body": "Pre-expiry examination: on or within 7 days before expiry, measured from end of current detention period. Adult further detention period: up to 3 months, measured from new continuation period. Child further detention period: up to 28 days, measured from new continuation period."
+        }
       }
     },
     {
@@ -1379,11 +1608,11 @@
       "form": "6D",
       "name": "Confirmation Of Inpatient Treatment Order",
       "category": "Inpatient treatment order",
-      "purpose": "Official form source: Confirmation Of Inpatient Treatment Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Confirms an inpatient treatment order where the qualifying examination was not conducted in the psychiatrist’s and patient’s physical presence and no in-person psychiatrist examination has occurred since.",
+      "maker": "Psychiatrist at the authorised hospital.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 24 hours, within 24 hour",
+      "threshold": "Use in the specific s68 or s124 remote-examination/admission circumstances.",
+      "clock": "Confirmation: within 24 hours, measured from admission to the authorised hospital. Requires in-person psychiatrist examination. Order ceases if not confirmed in time.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1393,10 +1622,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 6D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Treating as a routine countersignature.",
+        "Starting the clock from form completion rather than admission."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Late confirmation causes the inpatient treatment order to cease.",
       "sourceNote": "Indexed from 📋 Form 6D.pdf.",
       "aliases": ["6d", "confirmation of inpatient treatment order", "inpatient treatment order"],
       "searchTerms": [
@@ -1415,16 +1644,14 @@
       "sourceDocumentId": "6d-66d39844",
       "legalNote": "Treatment order forms should show criteria, least restrictive reasoning, authorised setting, review timing and required notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Name why this setting is needed now and what review point changes the plan.",
         "Clock cue: within 24 hours, within 24 hour. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 68, 124."
       ],
       "preUseChecks": [
-        "Before use: confirm criteria, capacity/consent reasoning where relevant, authorised setting, review date and notifications.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Identify whether s68 or s124 applies.",
+        "Record admission time and 24-hour deadline.",
+        "Perform the in-person examination and file/give the confirmation."
       ],
       "sourceFacts": {
         "documentTitle": "Confirmation Of Inpatient Treatment Order",
@@ -1433,6 +1660,17 @@
         "timings": ["within 24 hours", "within 24 hour"],
         "sectionCue": "sections 68, 124",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Not required for every inpatient treatment order; applicability is conditional.",
+        "Does not cure an order that has already ceased."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Confirmation: within 24 hours",
+          "detail": "from admission to the authorised hospital",
+          "body": "Confirmation: within 24 hours, measured from admission to the authorised hospital. Requires in-person psychiatrist examination. Order ceases if not confirmed in time."
+        }
       }
     },
     {
@@ -1482,17 +1720,21 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 105",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Leave is not discharge or revocation of inpatient status.",
+        "The psychiatrist must consider whether changing status under s90 is more appropriate."
+      ]
     },
     {
       "id": "form-7b",
       "form": "7B",
       "name": "Extension And/Or Variation Of Grant Of Leave",
       "category": "Leave and absent patient",
-      "purpose": "Official form source: Extension And/Or Variation Of Grant Of Leave. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Extends the period of leave or varies its conditions while the grant of leave remains live.",
+      "maker": "Psychiatrist under s106.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use before expiry where extension or variation is clinically and legally appropriate.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -1502,11 +1744,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 7B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Adding s110 cancellation content to this form’s primary authority.", "Using after leave has expired."],
+      "safetyPearl": "Primary authority is s106. Cancellation is a separate Form 7C pathway.",
       "sourceNote": "Indexed from 📋 Form 7B.pdf.",
       "aliases": ["7b", "extension and/or variation of grant of leave", "leave and absent patient"],
       "searchTerms": [
@@ -1523,16 +1762,14 @@
       "sourceDocumentId": "7b-3d874305",
       "legalNote": "Leave and absent-patient forms should state the episode, dates/times, conditions, destination, return plan and escalation path. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Leave is safest when the return time, conditions and responsible contact are unambiguous.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 106."
       ],
       "preUseChecks": [
-        "Before use: confirm leave purpose, destination, conditions, return time, contact plan and review/escalation trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Confirm the current leave is live.",
+        "State the new period or varied conditions and reasons.",
+        "Update patient, carers/support persons and service records."
       ],
       "sourceFacts": {
         "documentTitle": "Extension And/Or Variation Of Grant Of Leave",
@@ -1541,18 +1778,58 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 106",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Does not cancel leave; use Form 7C.",
+        "Cannot revive expired leave.",
+        "Does not change the underlying inpatient treatment order."
+      ]
+    },
+    {
+      "id": "form-7c",
+      "form": "7C",
+      "name": "Cancellation of grant of leave",
+      "category": "Leave and absence without leave",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "Cancellation does not itself supply apprehension/transport authority.",
+        "Return arrangements may require Form 4A under s112."
+      ],
+      "purpose": "Cancels an involuntary inpatient’s leave when a psychiatrist reasonably believes it is inappropriate for the patient to remain away.",
+      "maker": "Psychiatrist under s110.",
+      "threshold": "Use when the statutory cancellation threshold is met.",
+      "safetyPearl": "Leave cancellation and return transport are separate legal steps.",
+      "traps": ["Assuming cancellation automatically authorises force or transport.", "Failing to notify the patient."],
+      "preUseChecks": [
+        "Record reasons and cancellation time.",
+        "Tell the patient orally as soon as practicable.",
+        "File/give copy and coordinate safe return.",
+        "Assess separate transport authority if needed."
+      ],
+      "copies": "Making the order is a Part 9 notifiable event.",
+      "clock": "Confirm any time limit, expiry or review point on the current approved form and local policy.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review."
     },
     {
       "id": "form-7d",
       "form": "7D",
       "name": "Apprehension And Return Order",
       "category": "Leave and absent patient",
-      "purpose": "Official form source: Apprehension And Return Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Authorises apprehension and return of a person absent without leave where no other safe means of ensuring return is reasonably available.",
+      "maker": "Person in charge of the relevant place or a medical practitioner under s98.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "14 days",
+      "threshold": "Use only for the statutory AWOL pathway and while the order remains live.",
+      "clock": "Order validity: use the exact expiry recorded on the current form; do not infer a generic period, measured from date/time specified in the approved order. Revoke if no longer needed and notify the executor.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1562,10 +1839,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 7D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "No explicit expiry handover.",
+        "Using after revocation/expiry.",
+        "Assuming any staff member is a prescribed executor."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Check current Regulations and the named executor.",
       "sourceNote": "Indexed from 📋 Form 7D.pdf.",
       "aliases": ["7d", "apprehension and return order", "leave and absent patient"],
       "searchTerms": ["place", "hospital", "other", "apprehension", "return", "leave", "without", "date", "14 days"],
@@ -1573,16 +1851,14 @@
       "sourceDocumentId": "7d-79cf7001",
       "legalNote": "Leave and absent-patient forms should state the episode, dates/times, conditions, destination, return plan and escalation path. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Leave is safest when the return time, conditions and responsible contact are unambiguous.",
         "Clock cue: 14 days. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 98, 101."
       ],
       "preUseChecks": [
-        "Before use: confirm leave purpose, destination, conditions, return time, contact plan and review/escalation trigger.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record place absent from, destination, expiry, reasons and executor.",
+        "Give copy to police/prescribed person carrying it out.",
+        "If revoked, promptly notify the executor and file the advice."
       ],
       "sourceFacts": {
         "documentTitle": "Apprehension And Return Order",
@@ -1591,6 +1867,17 @@
         "timings": ["14 days"],
         "sectionCue": "sections 98, 101",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Does not itself authorise treatment.",
+        "The class of prescribed persons able to execute may depend on the current Regulations."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Order validity: use the exact expiry recorded on the current form",
+          "detail": "from date/time specified in the approved order",
+          "body": "Order validity: use the exact expiry recorded on the current form; do not infer a generic period, measured from date/time specified in the approved order. Revoke if no longer needed and notify the executor."
+        }
       }
     },
     {
@@ -1598,11 +1885,11 @@
       "form": "8A",
       "name": "Record Of Search And Seizure",
       "category": "Treatment, ECT and psychosurgery",
-      "purpose": "Official form source: Record Of Search And Seizure. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records a lawful search and any seizure undertaken under the Act.",
+      "maker": "Person who conducted the search.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use after a search under the relevant apprehension/service-entry power.",
+      "clock": "Recording: as soon as practicable, measured from completion of the search.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1611,11 +1898,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 8A: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Searching because the form is available.", "Missing chain-of-custody information."],
+      "safetyPearl": "Always identify the separate statutory search power.",
       "sourceNote": "Indexed from 📋 Form 8A.pdf.",
       "aliases": ["8a", "record of search and seizure", "treatment, ect and psychosurgery"],
       "searchTerms": ["search", "record", "seized", "article", "service", "seizure", "conducted", "place"],
@@ -1623,16 +1907,14 @@
       "sourceDocumentId": "8a-81fd9e32",
       "legalNote": "Check the approved form wording, Act sections, maker authority, time limit, copies and local policy before relying on this reference. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Treat this app as a workflow aid; the approved form and current policy remain the authority.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 165, 166."
       ],
       "preUseChecks": [
-        "Before use: confirm maker authority, required fields, expiry/review point, copies and linked forms.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record time, reason, articles seized and searcher details.",
+        "Deliver the record to the required recipient.",
+        "Ensure filing and a copy to the person searched."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Search And Seizure",
@@ -1641,6 +1923,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 165, 166",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "The form records a search; it does not create search authority.",
+        "Only articles lawfully seized under the enabling power should be listed."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Recording: as soon as practicable",
+          "detail": "from completion of the search",
+          "body": "Recording: as soon as practicable, measured from completion of the search."
+        }
       }
     },
     {
@@ -1648,11 +1941,11 @@
       "form": "8B",
       "name": "Record Of Dealing With Seized Article",
       "category": "Treatment, ECT and psychosurgery",
-      "purpose": "Official form source: Record Of Dealing With Seized Article. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records how an article seized by or given to a mental health service is returned, handed over, stored, destroyed or disposed of.",
+      "maker": "Person dealing with the article under s167.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "6 months",
+      "threshold": "Use when resolving custody of an article covered by the Act.",
+      "clock": "Stored article disposal: destruction/disposal only after 6 months if it has not otherwise been returned or handed over, measured from time the article became stored under the statutory pathway.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1662,10 +1955,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 8B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Destroying before six months.",
+        "Poor chain of custody.",
+        "Failing to document why direct return was unsafe."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Property disposal is a statutory process, not a local convenience.",
       "sourceNote": "Indexed from 📋 Form 8B.pdf.",
       "aliases": ["8b", "record of dealing with seized article", "treatment, ect and psychosurgery"],
       "searchTerms": ["article", "other", "returned", "seized", "service", "place", "time", "record", "6 months"],
@@ -1673,16 +1967,14 @@
       "sourceDocumentId": "8b-a0b2379a",
       "legalNote": "Check the approved form wording, Act sections, maker authority, time limit, copies and local policy before relying on this reference. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Treat this app as a workflow aid; the approved form and current policy remain the authority.",
         "Clock cue: 6 months. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 167."
       ],
       "preUseChecks": [
-        "Before use: confirm maker authority, required fields, expiry/review point, copies and linked forms.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Assess return safety at release/discharge/departure.",
+        "Prefer return or appropriate handover.",
+        "Record dates, reasons, storage and any destruction/disposal."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Dealing With Seized Article",
@@ -1691,6 +1983,17 @@
         "timings": ["6 months"],
         "sectionCue": "sections 167",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Property handling must follow the statutory hierarchy and other applicable law.",
+        "The form does not authorise disposal before the conditions are met."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Stored article disposal: after 6 months",
+          "detail": "from time the article became stored under the statutory pathway",
+          "body": "Stored article disposal: destruction/disposal only after 6 months if it has not otherwise been returned or handed over, measured from time the article became stored under the statutory pathway."
+        }
       }
     },
     {
@@ -1749,6 +2052,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 204",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "The form is a retrospective record, not prospective treatment authority.",
+        "Emergency psychiatric treatment criteria must be independently met."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Record/copies: as soon as practicable",
+          "detail": "from after treatment",
+          "body": "Document event time, review, aftercare and any required follow-up."
+        }
       }
     },
     {
@@ -1756,11 +2070,11 @@
       "form": "9B",
       "name": "Report To Chief Psychiatrist About Provision Of Urgent Non-Psychiatric Treatment",
       "category": "Emergency psychiatric treatment",
-      "purpose": "Official form source: Report To Chief Psychiatrist About Provision Of Urgent Non-Psychiatric Treatment. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Reports urgent non-psychiatric treatment provided to a person within the statutory hospital pathway.",
+      "maker": "Person in charge of the authorised hospital.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use after urgent non-psychiatric treatment covered by s242.",
+      "clock": "Report: as soon as practicable, measured from provision of urgent non-psychiatric treatment.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1769,11 +2083,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 9B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Treating the report as consent/authority.", "Omitting supervised-person notification."],
+      "safetyPearl": "Separate urgent-treatment authority/consent from reporting duties.",
       "sourceNote": "Indexed from 📋 Form 9B.pdf.",
       "aliases": [
         "9b",
@@ -1794,16 +2105,14 @@
       "sourceDocumentId": "9b-19832d2b",
       "legalNote": "Emergency psychiatric treatment records should be time-specific and explain why delay or ordinary consent pathways were not safe. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Emergency treatment documentation should read as an event record, not a routine treatment note.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 242."
       ],
       "preUseChecks": [
-        "Before use: confirm event time, emergency basis, treatment given, alternatives considered, review and aftercare.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record practitioner, others involved, time/place, circumstances and treatment.",
+        "Report to the Chief Psychiatrist and MIRT where applicable.",
+        "Complete Part 9 notification."
       ],
       "sourceFacts": {
         "documentTitle": "Report To Chief Psychiatrist About Provision Of Urgent Non-Psychiatric Treatment",
@@ -1812,6 +2121,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 242",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "A reporting form is not treatment authority.",
+        "MIRT reporting also applies for a supervised person."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Report: as soon as practicable",
+          "detail": "from provision of urgent non-psychiatric treatment",
+          "body": "Report: as soon as practicable, measured from provision of urgent non-psychiatric treatment."
+        }
       }
     },
     {
@@ -1871,6 +2191,17 @@
         "timings": ["within 30 minutes"],
         "sectionCue": "sections 230",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Oral authorisation is temporary and method-specific.",
+        "It does not authorise restraint beyond the 30-minute total without a lawful written order."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Oral-to-written conversion: written Form 10B must be made within 30 minutes",
+          "detail": "from time restraint first begins",
+          "body": "Oral to written order within 30 minutes; post-restraint examination within required window where applicable."
+        }
       }
     },
     {
@@ -1878,24 +2209,24 @@
       "form": "10B",
       "name": "Written Bodily Restraint Order",
       "category": "Search and seizure",
-      "purpose": "Official form source: Written Bodily Restraint Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Makes the written bodily restraint order.",
+      "maker": "Medical practitioner at the authorised hospital. A mental health practitioner or person in charge of the ward may act only if the additional urgency and medical-practitioner-unavailability conditions in s232 are met.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "30 minutes, within 30 minutes",
+      "threshold": "Use when statutory bodily-restraint criteria are met and written authority is required.",
+      "clock": "Initial order: total period cannot exceed 30 minutes, measured from time restraint first began, including oral-authorisation time.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
       "before": [],
       "parallel": [],
       "after": [],
-      "copies": "Follow the approved distribution and filing fields on the form.",
+      "copies": "Report the event through the current OCP restraint workflow.",
       "documentationStem": "Source-backed note for Form 10B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Adding 30 minutes from written signing after oral restraint already occurred.",
+        "Generic 'mechanical restraint' without device/application detail."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "The initial 30-minute maximum includes any oral-authorisation period.",
       "sourceNote": "Indexed from 📋 Form 10B.pdf.",
       "aliases": ["10b", "written bodily restraint order", "search and seizure"],
       "searchTerms": [
@@ -1914,16 +2245,14 @@
       "sourceDocumentId": "10b-8c73338f",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: 30 minutes, within 30 minutes. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 231."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record start, expiry, method/device, reasons, observations and care directions.",
+        "Notify the medical practitioner/treating psychiatrist as required.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Written Bodily Restraint Order",
@@ -1932,6 +2261,17 @@
         "timings": ["30 minutes", "within 30 minutes"],
         "sectionCue": "sections 231",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Every extension requires the separate s234 process and immediate prior MP examination.",
+        "Order must specify authorised method/device."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Initial order: total period cannot exceed 30 minutes",
+          "detail": "from time restraint first began, including oral-authorisation time",
+          "body": "Initial order: total period cannot exceed 30 minutes, measured from time restraint first began, including oral-authorisation time."
+        }
       }
     },
     {
@@ -1939,11 +2279,11 @@
       "form": "10C",
       "name": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Bodily Restraint",
       "category": "Search and seizure",
-      "purpose": "Official form source: Record Of Informing Medical Practitioner And Treating Psychiatrist Of Bodily Restraint. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records notification of the medical practitioner and treating psychiatrist about bodily restraint.",
+      "maker": "Person who gave the oral authorisation or made the restraint order, where the statutory notification duties apply.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 30 minutes",
+      "threshold": "Use whenever the relevant medical practitioner/treating psychiatrist was not already the authorising/order-making practitioner.",
+      "clock": "Treating psychiatrist notification: as soon as practicable and in any event within 30 minutes, measured from time restraint began.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -1953,10 +2293,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Documenting notification without actually completing it.",
+        "Assuming notification can wait until restraint ends."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Notification deadlines run from first restraint.",
       "sourceNote": "Indexed from 📋 Form 10C.pdf.",
       "aliases": [
         "10c",
@@ -1978,16 +2318,14 @@
       "sourceDocumentId": "10c-8eb302d5",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: within 30 minutes. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 230, 231, 233."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record who was informed, qualifications and exact time.",
+        "Escalate immediately if the deadline is at risk.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Bodily Restraint",
@@ -1996,6 +2334,17 @@
         "timings": ["within 30 minutes"],
         "sectionCue": "sections 230, 231, 233",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Notification does not validate an otherwise unlawful restraint.",
+        "Medical-practitioner notification must occur in time for statutory examinations."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "As soon as practicable and in any event within 30 minutes",
+          "detail": "from time restraint began",
+          "body": "Treating psychiatrist notification: as soon as practicable and in any event within 30 minutes, measured from time restraint began."
+        }
       }
     },
     {
@@ -2003,11 +2352,11 @@
       "form": "10D",
       "name": "Record Of Observations Made Of Restrained Person",
       "category": "Search and seizure",
-      "purpose": "Official form source: Record Of Observations Made Of Restrained Person. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records observations made while a person is under bodily restraint.",
+      "maker": "Mental health practitioner or nurse physically attending the person.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use continuously while restraint remains in force.",
+      "clock": "Attendance: physical attendance at all times, measured from entire restraint period. Medical examination: at least every 30 minutes, measured from time restraint begins/last examination.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2017,10 +2366,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Remote monitoring instead of physical attendance.",
+        "Gaps between forms/orders that obscure continuous duration."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Continuous attendance and 30-minute medical examination are concurrent safeguards.",
       "sourceNote": "Indexed from 📋 Form 10D.pdf.",
       "aliases": ["10d", "record of observations made of restrained person", "search and seizure"],
       "searchTerms": ["restraint", "record", "observations", "position", "name", "restrained", "designation", "time"],
@@ -2028,16 +2377,14 @@
       "sourceDocumentId": "10d-4e1aa095",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 238."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Maintain continuous physical attendance.",
+        "Document observations and care.",
+        "Track 30-minute medical examinations and deterioration."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Observations Made Of Restrained Person",
@@ -2046,6 +2393,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 238",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Observation recording does not replace medical examination.",
+        "Do not reduce observation because the person appears settled."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Attendance: physical attendance at all times",
+          "detail": "from entire restraint period · 1 further clock",
+          "body": "Attendance: physical attendance at all times, measured from entire restraint period. Medical examination: at least every 30 minutes, measured from time restraint begins/last examination."
+        }
       }
     },
     {
@@ -2053,11 +2411,11 @@
       "form": "10E",
       "name": "Record Of Examination Of Restrained Person",
       "category": "Search and seizure",
-      "purpose": "Official form source: Record Of Examination Of Restrained Person. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records medical examination during restraint and any lawful extension of the restraint order.",
+      "maker": "Medical practitioner.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 30 minutes, 6 hours, 30 minutes",
+      "threshold": "Use for each required examination and immediately before any extension under s234.",
+      "clock": "Medical examination: at least every 30 minutes, measured from time restraint begins/last examination. Extension: further period up to 30 minutes, measured from end of current restraint order. Immediate prior MP examination required.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2067,10 +2425,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10E: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Retrospective extension.",
+        "Paper extension without examination.",
+        "Resetting total duration tracking."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Each 30-minute extension requires a fresh immediate medical examination.",
       "sourceNote": "Indexed from 📋 Form 10E.pdf.",
       "aliases": ["10e", "record of examination of restrained person", "search and seizure"],
       "searchTerms": [
@@ -2090,16 +2449,14 @@
       "sourceDocumentId": "10e-98d6381d",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: within 30 minutes, 6 hours, 30 minutes. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 234, 238."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Examine immediately before extension.",
+        "Record results, continuation criteria, new expiry and complications.",
+        "Ensure care/observation requirements continue."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Examination Of Restrained Person",
@@ -2108,6 +2465,17 @@
         "timings": ["within 30 minutes", "6 hours", "30 minutes"],
         "sectionCue": "sections 234, 238",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "An extension cannot be made after the order has expired.",
+        "Examination must address whether s232 criteria continue."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Medical examination: at least every 30 minutes",
+          "detail": "from time restraint begins/last examination · 1 further clock",
+          "body": "Medical examination: at least every 30 minutes, measured from time restraint begins/last examination. Extension: further period up to 30 minutes, measured from end of current restraint order. Immediate prior MP examination required."
+        }
       }
     },
     {
@@ -2115,11 +2483,11 @@
       "form": "10F",
       "name": "Variation Of Bodily Restraint Order",
       "category": "Search and seizure",
-      "purpose": "Official form source: Variation Of Bodily Restraint Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Varies a bodily restraint order by extending, shortening or changing the authorised device/application.",
+      "maker": "Medical practitioner for extension; MP or mental health practitioner for permitted non-extension variations.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use only while the current restraint order is in force.",
+      "clock": "Extension: up to 30 minutes, measured from end of current live order. Immediate prior MP examination required. Cannot revive an expired order.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2129,10 +2497,11 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10F: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Mental health practitioner extending duration.",
+        "Varying after expiry.",
+        "Treating a device change as clerical."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Extension and other variation have different maker requirements.",
       "sourceNote": "Indexed from 📋 Form 10F.pdf.",
       "aliases": ["10f", "variation of bodily restraint order", "search and seizure"],
       "searchTerms": ["variation", "bodily", "restraint", "practitioner", "time", "date", "device", "authorised"],
@@ -2140,16 +2509,14 @@
       "sourceDocumentId": "10f-091d5490",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 234."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Confirm order is live and maker is authorised for the change.",
+        "Document variation, reasons and new expiry.",
+        "Give/file copy."
       ],
       "sourceFacts": {
         "documentTitle": "Variation Of Bodily Restraint Order",
@@ -2158,6 +2525,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 234",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Role depends on the type of variation.",
+        "Changing device/application must remain within s232 criteria."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Extension: up to 30 minutes",
+          "detail": "from end of current live order",
+          "body": "Extension: up to 30 minutes, measured from end of current live order. Immediate prior MP examination required. Cannot revive an expired order."
+        }
       }
     },
     {
@@ -2165,10 +2543,10 @@
       "form": "10G",
       "name": "Revocation Or Expiry Of Bodily Restraint Order",
       "category": "Search and seizure",
-      "purpose": "Official form source: Revocation Or Expiry Of Bodily Restraint Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records revocation of a bodily restraint order or the fact that it expired.",
+      "maker": "Authorised revoking practitioner/person in charge, or MP/mental health practitioner recording expiry.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use immediately when restraint authority ends by revocation or expiry.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -2179,10 +2557,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10G: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Continuing restraint after recorded expiry.",
+        "Using the live-register typo 'Revocation of expiry' as the title."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Approved title is 'Revocation or expiry of bodily restraint order'; the current OCP register appears to contain a typo.",
       "sourceNote": "Indexed from 📋 Form 10G.pdf.",
       "aliases": ["10g", "revocation or expiry of bodily restraint order", "search and seizure"],
       "searchTerms": ["bodily", "restraint", "practitioner", "expiry", "record", "revocation", "medical", "date"],
@@ -2190,16 +2568,15 @@
       "sourceDocumentId": "10g-28b7c8a4",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 235, 237."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record actual cessation time and basis.",
+        "Release the person from restraint.",
+        "Arrange Form 10I examination and document care/debrief.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Revocation Or Expiry Of Bodily Restraint Order",
@@ -2208,6 +2585,53 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 235, 237",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Restraint must end unless another live lawful order independently applies.",
+        "This form triggers, but does not replace, the post-restraint examination."
+      ]
+    },
+    {
+      "id": "form-10h",
+      "form": "10H",
+      "name": "Review of bodily restraint order by a psychiatrist",
+      "category": "Restraint",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "Does not replace 30-minute medical examinations or continuous attendance.",
+        "Review does not authorise indefinite restraint."
+      ],
+      "purpose": "Records psychiatrist review when bodily restraint has continued beyond six hours.",
+      "maker": "Psychiatrist.",
+      "threshold": "Use once continuous restraint exceeds six hours.",
+      "safetyPearl": "Track continuous restraint across every 30-minute order/variation.",
+      "traps": [
+        "Treating six-hour review as the only medical review.",
+        "Restarting the six-hour clock with paperwork changes."
+      ],
+      "preUseChecks": [
+        "Review necessity, duration, alternatives, care and complications.",
+        "Record date/time/results.",
+        "Continue normal observation/examination safeguards."
+      ],
+      "clock": "Psychiatrist review: required when restraint lasts more than 6 hours, measured from first restraint in the continuous episode.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review.",
+      "priorityFacts": {
+        "clock": {
+          "title": "Psychiatrist review: required when restraint lasts more than 6 hours",
+          "detail": "from first restraint in the continuous episode",
+          "body": "Psychiatrist review: required when restraint lasts more than 6 hours, measured from first restraint in the continuous episode."
+        }
       }
     },
     {
@@ -2215,11 +2639,11 @@
       "form": "10I",
       "name": "Record Of Post-Bodily Restraint Examination",
       "category": "Search and seizure",
-      "purpose": "Official form source: Record Of Post-Bodily Restraint Examination. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records the medical examination after release from bodily restraint.",
+      "maker": "Medical practitioner.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 6 hours",
+      "threshold": "Use whenever the person is released from restraint.",
+      "clock": "Post-restraint examination: as soon as practicable and in any event within 6 hours, measured from release from restraint. If the person will leave earlier, offer examination before departure.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2229,10 +2653,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 10I: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Scheduling routinely at six hours rather than as soon as practicable.",
+        "Missing examination because the person leaves earlier."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Examination is due as soon as practicable, not simply by the six-hour outer limit.",
       "sourceNote": "Indexed from 📋 Form 10I.pdf.",
       "aliases": ["10i", "record of post-bodily restraint examination", "search and seizure"],
       "searchTerms": [
@@ -2250,16 +2674,15 @@
       "sourceDocumentId": "10i-87f16c0f",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "Make the item trail auditable: reason, search scope, seizure, storage, return or disposal.",
         "Clock cue: within 6 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 239."
       ],
       "preUseChecks": [
-        "Before use: confirm search basis, scope, witnesses/supports, item handling, receipts/notices and filing.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Examine physical and mental state.",
+        "Record complications, injuries and deterioration.",
+        "Give/file copy and escalate care.",
+        "Offer before early discharge/AMA."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Post-Bodily Restraint Examination",
@@ -2268,6 +2691,17 @@
         "timings": ["within 6 hours"],
         "sectionCue": "sections 239",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Post-event review does not replace acute medical assessment during restraint.",
+        "Document complications or deterioration potentially caused by restraint."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Post-restraint examination: as soon as practicable and in any event within 6 hours",
+          "detail": "from release from restraint",
+          "body": "Post-restraint examination: as soon as practicable and in any event within 6 hours, measured from release from restraint. If the person will leave earlier, offer examination before departure."
+        }
       }
     },
     {
@@ -2327,6 +2761,17 @@
         "timings": ["within 2 hours"],
         "sectionCue": "sections 214",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Oral authorisation is temporary and location-specific.",
+        "It does not support seclusion beyond the two-hour total without a written order."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Oral-to-written conversion: written Form 11B must be made within 2 hours",
+          "detail": "from time seclusion first begins",
+          "body": "Oral to written order within 2 hours; ongoing review requirements apply."
+        }
       }
     },
     {
@@ -2334,24 +2779,21 @@
       "form": "11B",
       "name": "Written Seclusion Order",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Written Seclusion Order. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Makes the written seclusion order.",
+      "maker": "Medical practitioner at the authorised hospital. A mental health practitioner or person in charge of the ward may act only if the additional urgency and medical-practitioner-unavailability conditions in s216 are met.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "2 hours, within 2 hours",
+      "threshold": "Use when statutory seclusion criteria continue to be met.",
+      "clock": "Initial seclusion order: total period cannot exceed 2 hours, measured from time seclusion first began, including oral-authorisation time.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
       "before": [],
       "parallel": [],
       "after": [],
-      "copies": "Follow the approved distribution and filing fields on the form.",
+      "copies": "Report the event through the current OCP seclusion workflow.",
       "documentationStem": "Source-backed note for Form 11B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Adding two hours from written signing.", "Generic order without statutory criteria."],
+      "safetyPearl": "The initial two-hour maximum includes oral-authorisation time.",
       "sourceNote": "Indexed from 📋 Form 11B.pdf.",
       "aliases": ["11b", "written seclusion order", "restrictive practices"],
       "searchTerms": [
@@ -2370,16 +2812,14 @@
       "sourceDocumentId": "11b-9d5533a6",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: 2 hours, within 2 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 215."
       ],
       "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record start, expiry, reasons, observations and care.",
+        "Notify medical practitioner/treating psychiatrist as required.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Written Seclusion Order",
@@ -2388,6 +2828,17 @@
         "timings": ["2 hours", "within 2 hours"],
         "sectionCue": "sections 215",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Extension requires s218 and an immediate prior MP examination.",
+        "Order must specify room/area and care directions."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Initial seclusion order: total period cannot exceed 2 hours",
+          "detail": "from time seclusion first began, including oral-authorisation time",
+          "body": "Initial seclusion order: total period cannot exceed 2 hours, measured from time seclusion first began, including oral-authorisation time."
+        }
       }
     },
     {
@@ -2395,11 +2846,11 @@
       "form": "11C",
       "name": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Seclusion",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Record Of Informing Medical Practitioner And Treating Psychiatrist Of Seclusion. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records notification of the medical practitioner and treating psychiatrist about seclusion.",
+      "maker": "Person who gave oral authorisation or made the order, where notification duties apply.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 2 hours",
+      "threshold": "Use when the relevant medical practitioner/treating psychiatrist was not already the authorising/order-making practitioner.",
+      "clock": "Treating psychiatrist notification: as soon as practicable and in any event within 2 hours, measured from time seclusion began.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2409,10 +2860,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 11C: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Waiting until seclusion ends.",
+        "Documenting attempted rather than completed notification without escalation."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "Deadline runs from first seclusion.",
       "sourceNote": "Indexed from 📋 Form 11C.pdf.",
       "aliases": [
         "11c",
@@ -2434,17 +2885,11 @@
       "sourceDocumentId": "11c-49f4487b",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: within 2 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 214, 215, 217."
       ],
-      "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
-      ],
+      "preUseChecks": ["Record who was informed and exact time.", "Escalate if deadline at risk.", "File/give copy."],
       "sourceFacts": {
         "documentTitle": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Seclusion",
         "fileName": "📋 Form 11C.pdf",
@@ -2452,6 +2897,17 @@
         "timings": ["within 2 hours"],
         "sectionCue": "sections 214, 215, 217",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Notification does not validate unlawful seclusion.",
+        "Medical-practitioner notification must allow timely statutory examination."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Treating psychiatrist notification: as soon as practicable and in any event within 2 hours",
+          "detail": "from time seclusion began",
+          "body": "Treating psychiatrist notification: as soon as practicable and in any event within 2 hours, measured from time seclusion began."
+        }
       }
     },
     {
@@ -2459,11 +2915,11 @@
       "form": "11D",
       "name": "Record Of Observations Made Of Secluded Person",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Record Of Observations Made Of Secluded Person. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records observations made while a person is secluded.",
+      "maker": "Mental health practitioner or nurse.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "15 minutes",
+      "threshold": "Use throughout the seclusion episode.",
+      "clock": "Observation: at least every 15 minutes, measured from time of last observation. Medical examination: at least every 2 hours, measured from time seclusion began/last examination.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2472,11 +2928,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 11D: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Back-filling observations.", "Treating the statutory minimum as a target when risk requires more."],
+      "safetyPearl": "Fifteen-minute observation and two-hour medical examination are separate safeguards.",
       "sourceNote": "Indexed from 📋 Form 11D.pdf.",
       "aliases": ["11d", "record of observations made of secluded person", "restrictive practices"],
       "searchTerms": [
@@ -2494,16 +2947,14 @@
       "sourceDocumentId": "11d-7eeb97b2",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: 15 minutes. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 222."
       ],
       "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record observations at least every 15 minutes.",
+        "Track two-hour MP examinations and care needs.",
+        "Document food, drink, toileting, bedding/clothing and deterioration."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Observations Made Of Secluded Person",
@@ -2512,6 +2963,17 @@
         "timings": ["15 minutes"],
         "sectionCue": "sections 222",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Observations do not replace medical examinations.",
+        "Clinical need may require more frequent observation."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Observation: at least every 15 minutes",
+          "detail": "from time of last observation · 1 further clock",
+          "body": "Observation: at least every 15 minutes, measured from time of last observation. Medical examination: at least every 2 hours, measured from time seclusion began/last examination."
+        }
       }
     },
     {
@@ -2519,11 +2981,11 @@
       "form": "11E",
       "name": "Record Of Examination Of Secluded Person",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Record Of Examination Of Secluded Person. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records medical examination during seclusion and any lawful extension.",
+      "maker": "Medical practitioner.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 2 hours, 2 hours",
+      "threshold": "Use for each required examination and immediately before an extension under s218.",
+      "clock": "Medical examination: at least every 2 hours, measured from time seclusion began/last examination. Extension: further period up to 2 hours, measured from end of current seclusion order. Immediate prior MP examination required.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2532,11 +2994,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 11E: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Retrospective extension.", "Paper extension without examination."],
+      "safetyPearl": "Every extension needs an immediate medical examination.",
       "sourceNote": "Indexed from 📋 Form 11E.pdf.",
       "aliases": ["11e", "record of examination of secluded person", "restrictive practices"],
       "searchTerms": [
@@ -2555,16 +3014,14 @@
       "sourceDocumentId": "11e-e87516a7",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: within 2 hours, 2 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 218, 222."
       ],
       "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Examine immediately before extension.",
+        "Record results, criteria and new expiry.",
+        "Continue 15-minute observations and care safeguards."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Examination Of Secluded Person",
@@ -2573,6 +3030,14 @@
         "timings": ["within 2 hours", "2 hours"],
         "sectionCue": "sections 218, 222",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": ["Cannot extend after expiry.", "Examination must address whether s216 criteria still apply."],
+      "priorityFacts": {
+        "clock": {
+          "title": "Medical examination: at least every 2 hours",
+          "detail": "from time seclusion began/last examination · 1 further clock",
+          "body": "Medical examination: at least every 2 hours, measured from time seclusion began/last examination. Extension: further period up to 2 hours, measured from end of current seclusion order. Immediate prior MP examination required."
+        }
       }
     },
     {
@@ -2580,10 +3045,10 @@
       "form": "11F",
       "name": "Revocation Or Expiry Of Seclusion",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Revocation Or Expiry Of Seclusion. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records revocation or expiry of a seclusion order.",
+      "maker": "Authorised revoking practitioner/person in charge, or MP/mental health practitioner recording expiry.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
+      "threshold": "Use when seclusion authority ends.",
       "clock": "Check timing, expiry and review requirements in the source.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
@@ -2593,11 +3058,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 11F: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Continuing after expiry.", "Failing to transition to post-event care."],
+      "safetyPearl": "End authority and physical release must align.",
       "sourceNote": "Indexed from 📋 Form 11F.pdf.",
       "aliases": ["11f", "revocation or expiry of seclusion", "restrictive practices"],
       "searchTerms": ["seclusion", "practitioner", "expiry", "record", "revocation", "medical", "date", "time"],
@@ -2605,16 +3067,15 @@
       "sourceDocumentId": "11f-7fda3297",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 219, 221."
       ],
       "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Record actual cessation time and basis.",
+        "Release the person from seclusion.",
+        "Arrange Form 11G examination and debrief/care.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Revocation Or Expiry Of Seclusion",
@@ -2623,18 +3084,22 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 219, 221",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Seclusion must end unless another live lawful order applies.",
+        "Post-seclusion examination is separate."
+      ]
     },
     {
       "id": "form-11g",
       "form": "11G",
       "name": "Record Of Post-Seclusion Examination",
       "category": "Restrictive practices",
-      "purpose": "Official form source: Record Of Post-Seclusion Examination. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records the medical examination after release from seclusion.",
+      "maker": "Medical practitioner.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "within 6 hours",
+      "threshold": "Use whenever the person is released from seclusion.",
+      "clock": "Post-seclusion examination: within 6 hours, measured from release from seclusion. If the person will leave earlier, offer examination before departure.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2643,11 +3108,8 @@
       "after": [],
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 11G: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
-      "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
-      ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "traps": ["Missing the examination because the patient leaves.", "Omitting physical-health review."],
+      "safetyPearl": "Arrange early; six hours is the outer limit.",
       "sourceNote": "Indexed from 📋 Form 11G.pdf.",
       "aliases": ["11g", "record of post-seclusion examination", "restrictive practices"],
       "searchTerms": [
@@ -2665,16 +3127,15 @@
       "sourceDocumentId": "11g-5bc29450",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "The order, observation record and post-event review are one safety workflow.",
         "Clock cue: within 6 hours. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 223."
       ],
       "preUseChecks": [
-        "Before use: confirm reason, start time, written confirmation deadline, observation plan, review and post-event examination.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Examine mental and physical condition.",
+        "Document complications/injury and ongoing care.",
+        "Offer before early discharge/AMA.",
+        "File/give copy."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Post-Seclusion Examination",
@@ -2683,6 +3144,17 @@
         "timings": ["within 6 hours"],
         "sectionCue": "sections 223",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Does not replace assessment during seclusion.",
+        "Record complications or deterioration potentially related to seclusion."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Post-seclusion examination: within 6 hours",
+          "detail": "from release from seclusion",
+          "body": "Post-seclusion examination: within 6 hours, measured from release from seclusion. If the person will leave earlier, offer examination before departure."
+        }
       }
     },
     {
@@ -2766,18 +3238,22 @@
         "timings": ["18 years"],
         "sectionCue": "sections 275",
         "indexedAt": "Official form PDF indexed locally"
-      }
+      },
+      "boundaries": [
+        "Does not confer substitute decision-making, guardianship or treatment-consent authority.",
+        "A person may have only one nominated person at a time."
+      ]
     },
     {
       "id": "form-12b",
       "form": "12B",
       "name": "Record Of Refusal Of Patient's Request To Access Document",
       "category": "Rights and notifications",
-      "purpose": "Official form source: Record Of Refusal Of Patient's Request To Access Document. Review the source snippets and approved form before use.",
-      "maker": "Check the official form signature block and Act sections.",
+      "purpose": "Records refusal of a person’s request to inspect or receive a copy of a document about them held by a mental health service.",
+      "maker": "Person in charge of the service, applying the document-access provisions.",
       "involved": "Confirm patient, maker, receiving service, support contacts and required notifications from the form.",
-      "threshold": "Use the threshold stated in the official form and any linked guidance.",
-      "clock": "Check timing, expiry and review requirements in the source.",
+      "threshold": "Use only after a request under s248 is refused under a lawful s249 exception.",
+      "clock": "Request/refusal record: deal with the request and, if refused, record reasons as soon as practicable, measured from request and decision.",
       "destination": "Confirm destination/place fields on the approved form.",
       "authorises": "Authority is limited to what the approved form and Act section state.",
       "doesNotAuthorise": "Does not replace linked forms, consent, notification or reporting duties unless the source says so.",
@@ -2787,10 +3263,10 @@
       "copies": "Follow the approved distribution and filing fields on the form.",
       "documentationStem": "Source-backed note for Form 12B: document maker, section, threshold facts, clock, destination/place, notifications and next owner.",
       "traps": [
-        "Do not infer powers beyond the form wording.",
-        "Check linked forms, attachments, notifications and clock limits."
+        "Using s262 communication-restriction criteria.",
+        "Blanket refusal of the whole record when only part is restricted."
       ],
-      "safetyPearl": "Open the source snippets before relying on the pathway.",
+      "safetyPearl": "The previous package incorrectly mapped Form 12B to s262; the correct domain is ss248-249.",
       "sourceNote": "Indexed from 📋 Form 12B.pdf.",
       "aliases": ["12b", "record of refusal of patient's request to access document", "rights and notifications"],
       "searchTerms": ["document", "information", "access", "request", "relevant", "refusal", "refused", "disclosure"],
@@ -2798,16 +3274,15 @@
       "sourceDocumentId": "12b-50bb9524",
       "legalNote": "Rights, notification and communication forms should be specific about the right affected, reason, review time, copies and advocacy/support-person communication. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
-        "Open the source snippets before relying on the pathway.",
         "For rights forms, the review time and notification trail are part of the safeguard.",
         "Clock cue: Check timing, expiry and review requirements in the source.. Record the start time, expiry or review point, and next owner.",
         "Source cue: sections 248."
       ],
       "preUseChecks": [
-        "Before use: confirm the right or notice, reason, recipient, copy pathway, review time and support/advocacy information.",
-        "Confirm the patient/person identifiers, maker, date, time, place and signature fields are complete.",
-        "Confirm copies, notices, support-person communication and filing/PSOLIS requirements before handover.",
-        "Open the official PDF when the form wording or authority boundary matters."
+        "Identify the exact document and s249 basis.",
+        "Consider partial access/redaction where the Act permits.",
+        "File the refusal record and give a copy to the person.",
+        "Explain review/complaint pathways according to current governance."
       ],
       "sourceFacts": {
         "documentTitle": "Record Of Refusal Of Patient's Request To Access Document",
@@ -2816,6 +3291,17 @@
         "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 248",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "This is a document-access refusal, not a restriction on freedom of communication.",
+        "The refusal must be grounded in the statutory exceptions, not general clinical preference."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Deal with the request and, if refused, record reasons as soon as practicable",
+          "detail": "from request and decision",
+          "body": "Request/refusal record: deal with the request and, if refused, record reasons as soon as practicable, measured from request and decision."
+        }
       }
     },
     {
@@ -2827,7 +3313,7 @@
       "maker": "Authorised decision-maker specified by the rights restriction pathway.",
       "involved": "Patient, treating team, relevant support persons where required.",
       "threshold": "Restriction basis and reasons are documented for the specific communication right.",
-      "clock": "Review before each 24-hour period ends.",
+      "clock": "Review cycle: review before the end of each 24-hour period, measured from time the restriction order is made/last reviewed. Confirm, amend or revoke. Order ceases if not reviewed in time. Chief Mental Health Advocate notification: within 24 hours, measured from time order is made.",
       "destination": "Current care setting.",
       "authorises": "Specified communication restriction for the relevant period.",
       "doesNotAuthorise": "Blanket or indefinite restriction without review.",
@@ -2880,6 +3366,105 @@
         "timings": ["24 HOURS", "Within 24 hours"],
         "sectionCue": "sections 262",
         "indexedAt": "Official form PDF indexed locally"
+      },
+      "boundaries": [
+        "Contact with a legal practitioner or mental health advocate by other means cannot be restricted.",
+        "The form is not a document-access refusal; that is Form 12B/ss248-249."
+      ],
+      "priorityFacts": {
+        "clock": {
+          "title": "Review cycle: review before the end of each 24-hour period",
+          "detail": "from time the restriction order is made/last reviewed · 1 further clock",
+          "body": "Review cycle: review before the end of each 24-hour period, measured from time the restriction order is made/last reviewed. Confirm, amend or revoke. Order ceases if not reviewed in time. Chief Mental Health Advocate notification: within 24 hours, measured from time order is made."
+        }
+      }
+    },
+    {
+      "id": "form-12c-attachment",
+      "form": "12C attachment",
+      "name": "Record of confirmation, amendment or revocation of restriction of freedom of communication",
+      "category": "Access to information and communication",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "Review must be substantive, not a clerical rollover.",
+        "Any amendment remains subject to the same statutory limits."
+      ],
+      "purpose": "Records the psychiatrist’s 24-hour review outcome: confirmation, amendment or revocation of a communication-restriction order.",
+      "maker": "Psychiatrist reviewing under s262.",
+      "threshold": "Use before the end of each 24-hour period while the restriction remains in force.",
+      "safetyPearl": "A late review cannot retrospectively preserve the restriction.",
+      "traps": [
+        "Backdating review.",
+        "Confirming without reassessment.",
+        "Using the attachment after lapse to revive authority."
+      ],
+      "preUseChecks": [
+        "Reassess every restricted right and current evidence.",
+        "Record outcome/reasons and advise the patient.",
+        "File and distribute as required.",
+        "If late, treat the prior order as ceased."
+      ],
+      "clock": "Review record: before the end of each 24-hour period, measured from time current restriction/review period began. Confirm, amend or revoke. Cannot revive an order that has already ceased.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review.",
+      "priorityFacts": {
+        "clock": {
+          "title": "Review record: before the end of each 24-hour period",
+          "detail": "from time current restriction/review period began",
+          "body": "Review record: before the end of each 24-hour period, measured from time current restriction/review period began. Confirm, amend or revoke. Cannot revive an order that has already ceased."
+        }
+      }
+    },
+    {
+      "id": "form-13",
+      "form": "13",
+      "name": "Statistics about ECT",
+      "category": "Electroconvulsive therapy",
+      "involved": "Confirm the required recipients, support persons, records and local PSOLIS workflow on the current approved form.",
+      "destination": "Confirm any required place or destination on the approved form.",
+      "before": [],
+      "parallel": [],
+      "after": [],
+      "documentationStem": "",
+      "aliases": [],
+      "searchTerms": [],
+      "indexedTerms": [],
+      "riskLevel": "high",
+      "boundaries": [
+        "This is a service statistics report, not patient-level ECT treatment authority or consent.",
+        "The current OCP Forms register directs users to contact OCP monitoring if required."
+      ],
+      "purpose": "Reports monthly statistics about ECT performed by a mental health service.",
+      "maker": "Person in charge of a mental health service where ECT is performed.",
+      "threshold": "Use after each month in which ECT reporting obligations arise.",
+      "safetyPearl": "Keep 'Contact OCP' status until OCP publishes a current public approved Form 13.",
+      "traps": [
+        "Using an old archived Form 13 as current.",
+        "Confusing annual public statistics with the service’s monthly duty."
+      ],
+      "preUseChecks": [
+        "Use current OCP reporting process.",
+        "Report course completion/discontinuation, patient categories, treatment counts, emergency ECT and serious adverse events as required.",
+        "Align with current 2025 standards and 2026 guidelines."
+      ],
+      "clock": "Monthly statistics: report to the Chief Psychiatrist as soon as practicable, measured from end of each month.",
+      "practicePearls": [],
+      "sourceNote": "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review.",
+      "priorityFacts": {
+        "clock": {
+          "title": "Monthly statistics: report to the Chief Psychiatrist as soon as practicable",
+          "detail": "from end of each month",
+          "body": "Monthly statistics: report to the Chief Psychiatrist as soon as practicable, measured from end of each month."
+        }
       }
     }
   ],

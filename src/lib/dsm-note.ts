@@ -1,4 +1,10 @@
-import { dsmCriteria, dsmSpecifierSplit, type DsmDiagnosis, type DsmLabeledText, type DsmSpecifier } from "@/lib/dsm";
+import {
+  dsmCriteriaView,
+  dsmSpecifierSplit,
+  type DsmDiagnosis,
+  type DsmLabeledText,
+  type DsmSpecifier,
+} from "@/lib/dsm";
 import { plainClinicalText } from "@/lib/plain-clinical-text";
 
 export { plainClinicalText };
@@ -28,6 +34,13 @@ export type DsmNoteCriterion = {
 export type DsmNoteInput = {
   title: string;
   icdCode: string;
+  /**
+   * Whether `criteria` really are DSM-5-TR criteria rows, or the record's
+   * key-feature summary standing in for them. It decides every heading and the
+   * closing basis line, because the note is pasted into a patient's record and
+   * must not assert a diagnostic standard the record never supplied.
+   */
+  isDsmCriteria: boolean;
   criteria: DsmNoteCriterion[];
   /** Ticked specifier names, verbatim from the record. */
   specifiers: string[];
@@ -101,14 +114,24 @@ export function buildDsmDiagnosisNote(input: DsmNoteInput): string {
   const headingParts = [`${plainClinicalText(input.title)} (${input.icdCode})`, ...specifiers];
   const blocks: string[] = [headingParts.join(", ")];
 
-  if (met.length > 0) blocks.push(criteriaBlock("Criteria met", met, input.includeCriterionText));
-  if (notMet.length > 0) blocks.push(criteriaBlock("Criteria not met", notMet, input.includeCriterionText));
+  // 145 of the 146 records supply no criteria, so on almost every diagnosis these
+  // rows are the key-feature summary. Saying "Criteria met" over them put a claim
+  // about the diagnostic standard into a clinical record that the record did not
+  // support. The wording follows the provenance instead.
+  const metHeading = input.isDsmCriteria ? "Criteria met" : "Key features present";
+  const notMetHeading = input.isDsmCriteria ? "Criteria not met" : "Key features absent";
+  if (met.length > 0) blocks.push(criteriaBlock(metHeading, met, input.includeCriterionText));
+  if (notMet.length > 0) blocks.push(criteriaBlock(notMetHeading, notMet, input.includeCriterionText));
   // Always full text: the point of this block is that the reader can see exactly
   // what remains open, which a bare letter does not convey.
   if (notAssessed.length > 0) blocks.push(criteriaBlock("Not assessed", notAssessed, true));
   if (excluded.length > 0) blocks.push(`Differentials considered and excluded: ${excluded.join(", ")}.`);
 
-  blocks.push("Recorded against DSM-5-TR criteria. Confirm against the full assessment.");
+  blocks.push(
+    input.isDsmCriteria
+      ? "Recorded against DSM-5-TR criteria. Confirm against the full assessment."
+      : "Recorded against a key feature summary, not the full DSM-5-TR criteria. Confirm against DSM-5-TR and the full assessment before relying on this diagnosis.",
+  );
   return blocks.join("\n\n");
 }
 
@@ -128,6 +151,8 @@ export function buildDsmDiagnosisNote(input: DsmNoteInput): string {
 export type DsmNoteBuilderRecord = {
   title: string;
   icdCode: string;
+  /** False when `criteria` are the record's key-feature summary. See DsmNoteInput. */
+  isDsmCriteria: boolean;
   criteria: DsmLabeledText[];
   /** Already filtered to the rows that are safe to offer as a tick box. */
   specifiers: DsmSpecifier[];
@@ -135,10 +160,12 @@ export type DsmNoteBuilderRecord = {
 };
 
 export function dsmNoteBuilderRecord(diagnosis: DsmDiagnosis): DsmNoteBuilderRecord {
+  const view = dsmCriteriaView(diagnosis);
   return {
     title: diagnosis.title,
     icdCode: diagnosis.icd_code,
-    criteria: dsmCriteria(diagnosis).map(({ label, text }) => ({ label, text })),
+    isDsmCriteria: view.isDsmCriteria,
+    criteria: view.rows.map(({ label, text }) => ({ label, text })),
     specifiers: dsmSelectableSpecifiers(dsmSpecifierSplit(diagnosis).specifiers).map(({ name, description }) => ({
       name,
       description,

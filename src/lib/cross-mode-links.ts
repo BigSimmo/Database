@@ -60,7 +60,7 @@ export type CrossModeLink = {
 };
 
 export type CrossModeDifferentialCatalog = {
-  diagnoses: Array<{ slug: string; title: string; clinicalHinge: string }>;
+  diagnoses: Array<{ slug: string; title: string; subtitle: string }>;
   presentations: Array<{ id: string; title: string; subtitle: string; titleAliases?: string[] }>;
   aliases: Record<string, string[]>;
 };
@@ -221,7 +221,7 @@ function differentialLinks(terms: string[], catalog: CrossModeDifferentialCatalo
     candidates.push({
       ...crossModeLinkBase("differentials", record.title),
       slug: record.slug,
-      subtitle: record.clinicalHinge,
+      subtitle: record.subtitle,
       badges: [],
       detailHref: `/differentials/diagnoses/${record.slug}`,
       score,

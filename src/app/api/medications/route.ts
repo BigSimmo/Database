@@ -22,6 +22,11 @@ import {
 } from "@/lib/medications";
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
+  catalogueListFallbackBudgetMs,
+  catalogueListScope,
+  readCatalogueWithSeedFallback,
+} from "@/lib/site-content/catalogue-seed-fallback";
+import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
@@ -210,21 +215,41 @@ export async function GET(request: Request) {
     }
 
     const seedRecords = defaultMedicationRecords();
-    const canonical = await readCanonicalSiteContentRecords({
-      supabase,
+    const seeds = seedRecords.map((record) => ({
+      record,
+      governance: publicMedicationGovernance(record),
+    }));
+    // Bounded, and degrades to the in-bundle catalogue rather than hanging — the same treatment
+    // the registry list route gets, and for the same reason: this read had no budget at all, so
+    // the 2026-09-09 outage left the mode surfaces waiting indefinitely rather than showing
+    // anything. See src/lib/site-content/catalogue-seed-fallback.ts.
+    const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+    const canonical = await readCatalogueWithSeedFallback({
       kind: "medication",
-      slug: null,
-      seeds: seedRecords.map((record) => ({
-        record,
-        governance: publicMedicationGovernance(record),
-      })),
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as MedicationRecord,
-        governance: {
-          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
-          ...canonicalSiteContentGovernance(canonicalRecord),
-        },
-      }),
+      // Its own cooldown scope. Sharing one with search meant a search giving up at 1200 ms sent
+      // this route straight to seeds for thirty seconds without ever trying the longer read it is
+      // budgeted for.
+      scope: catalogueListScope,
+      seeds,
+      budgetMs: catalogueListFallbackBudgetMs,
+      read: async (signal) => {
+        const result = await readCanonicalSiteContentRecords({
+          supabase,
+          kind: "medication",
+          slug: null,
+          seeds,
+          signal,
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+            record: finalRenderPayload as unknown as MedicationRecord,
+            governance: {
+              ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+              ...canonicalSiteContentGovernance(canonicalRecord),
+            },
+          }),
+        });
+        observed.source = result.source;
+        return result.records;
+      },
     });
     const fullRecords = canonical.records.map((entry) => entry.record);
     const records = fields === "index" ? toIndexRecords(fullRecords) : fullRecords;
@@ -241,8 +266,15 @@ export async function GET(request: Request) {
         interpretation: ranked?.interpretation,
         total: fullRecords.length,
         governance: governanceBySlug,
+        // `catalogue-seed-fallback` is explicit that `degraded` must never be dropped on the
+        // floor: seeds can lag anything published since the last release, so the reader has to be
+        // told the list may be stale. This route was still dropping it. `MedicationResultsView`
+        // turns it into the "Retained copy" notice.
+        ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
       },
-      { request, fixture: canonical.source === "seed_uninitialized" },
+      // Not widened to cover `canonical.degraded`: `fixture` lengthens public caching, which would
+      // pin a stale seed list in front of a database that may recover in thirty seconds.
+      { request, fixture: observed.source === "seed_uninitialized" },
     );
   } catch (error) {
     if (error instanceof AuthenticationError) {

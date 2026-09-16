@@ -262,7 +262,7 @@ export const calculators: CalculatorFixture[] = [
     domain: "distress",
     icon: Activity,
     indication:
-      "Measure non-specific psychological distress over the past 4 weeks; standard for Australian mental-health care plans.",
+      "Measure non-specific psychological distress over the past 4 weeks as a screening and monitoring measure, not a diagnostic instrument.",
     summary: "10-item distress measure scored 10–50, widely used across Australian primary care.",
     stem: "In the past 4 weeks, about how often did you feel:",
     timeEstimate: "2–3 min",
@@ -468,12 +468,13 @@ export const calculators: CalculatorFixture[] = [
     domain: "substance",
     icon: GlassWater,
     indication: "Brief consumption screen for hazardous drinking — the first three AUDIT items.",
-    summary: "3 consumption questions scored 0–4 each; sex-specific positive thresholds.",
+    summary: "3 consumption questions scored 0–4 each, total 0–12, read against a named screening convention.",
     timeEstimate: "1 min",
     minScore: 0,
     maxScore: 12,
-    scoringNote: "Positive screen at ≥3 for women and ≥4 for men. Higher totals track hazard severity.",
-    source: "Bush et al. 1998",
+    scoringNote:
+      "Sum of 3 items (0–4 each), range 0–12. The registered convention is Bradley et al. 2007: 4 or more for men and 3 or more for women, derived in United States primary care. Confirm the convention your service uses.",
+    source: "Bush et al. 1998 (derivation, men only) · Bradley et al. 2007 (thresholds)",
     items: [
       {
         id: "a1",
@@ -516,23 +517,24 @@ export const calculators: CalculatorFixture[] = [
       {
         min: 0,
         max: 2,
-        label: "Lower risk",
+        label: "Below both thresholds",
         tone: "success",
-        guidance: "Lower-risk screening score band; interpret in clinical context.",
+        guidance: "Below the registered screening thresholds for men and for women; interpret in clinical context.",
       },
       {
         min: 3,
-        max: 4,
-        label: "At threshold",
+        max: 3,
+        label: "At the threshold for women",
         tone: "warning",
-        guidance: "Positive screening score band; interpret in clinical context.",
+        guidance: "At the registered threshold for women and below it for men; interpret in clinical context.",
       },
       {
-        min: 5,
+        min: 4,
         max: 12,
-        label: "Higher risk",
+        label: "At or above both thresholds",
         tone: "danger",
-        guidance: "Higher screening score band; interpret in clinical context.",
+        guidance:
+          "At or above the registered screening thresholds for men and for women; interpret in clinical context.",
       },
     ],
   },

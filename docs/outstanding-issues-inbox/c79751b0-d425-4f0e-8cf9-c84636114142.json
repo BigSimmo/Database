@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c79751b0-d425-4f0e-8cf9-c84636114142",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Clinical sign-off outstanding on all 54 WA MHA form guidance records",
+    "detail": "data/forms-content-review.json carries 54 rows, every one status=drafted. The Forms UI labels them 'Drafted from the Act and the approved form, awaiting clinical review'. Sign-off is a named WA clinician or legal reviewer setting status=reviewed with reviewedBy and reviewedAt, per form, after checking the text against the Act provision and the approved form. Suggested order by consequence: 3C (72-hour ceiling that does not reset), 10B, 10E, 11B, 11E (restraint and seclusion extension clocks), 6C (adult 3 months vs child 28 days), 12C attachment (24-hour review lapse), 5A, 2, 3B, 3D, 4B, 10A, 10H, 11A. Until then the caveat must stay. Package hold H01/H03.",
+    "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MQ0Z5EA6WAESS2Y9PVC8YM"
+  }
+}

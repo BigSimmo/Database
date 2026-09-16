@@ -1,4 +1,4 @@
-import { CircleAlert, RefreshCw, Square, WifiOff } from "lucide-react";
+import { CircleAlert, DatabaseBackup, RefreshCw, Square, WifiOff } from "lucide-react";
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, primaryControl } from "@/components/ui-primitives";
@@ -49,6 +49,31 @@ export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
           : isDeployedClinicalKb()
             ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
             : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
+      </p>
+    </UtilityDrawer>
+  );
+}
+
+/**
+ * Shown when `readCatalogueWithSeedFallback` served the in-bundle catalogue because the
+ * canonical read failed, timed out, or is inside its cooldown. The content is real and is
+ * the same material the repository publishes from, but it can lag anything published since
+ * the last release, which is exactly why that helper returns `degraded` rather than
+ * swallowing it. Never let a caller drop that flag without telling the reader.
+ */
+export function RetainedSnapshotNotice({ className }: { className?: string }) {
+  return (
+    <UtilityDrawer
+      icon={DatabaseBackup}
+      title="Retained copy"
+      summary="The live catalogue did not answer. Showing the copy stored with this app."
+      mobileSummary="Retained copy"
+      className={className}
+    >
+      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
+        The live catalogue did not answer in time, so these records come from the copy stored with this app. Anything
+        published since the last release may be missing. Each record&apos;s own page still reads live, so open it to
+        confirm before relying on this list. The app retries on its own within about thirty seconds.
       </p>
     </UtilityDrawer>
   );

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "959f9349-e653-4509-93d0-ce724a5631ab",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "The live public catalogue is still the 2026-08-24 epoch-zero freeze, so curated service records are not on the site",
+    "detail": "INFERRED FROM CODE AND CI EVIDENCE, NOT FROM A LIVE READ. read_site_content_public_records serves the retained epoch-zero release (843 records, id e4a1dd29-14f6-556c-8fb7-f4f947d8b846) and site-content-publication.ts only falls back to the bundled TypeScript seeds when there is no retained active release identity (rows.length > 0 && !initialized && snapshot === null && typeof retainedReleaseId !== 'string'). The 2026-09-16 live-drift run proves live still carries the constraints naming that release. If the snapshot carries a releaseId, the seed fallback does not fire and the public site serves the frozen 2026-08-24 bytes. That means the 17 new WA service records and 9 verified updates from PR #2814, and every catalogue revision since 2026-08-24, are in the repository and not on psychiatry.tools. NEXT ACTION: read site_content_sync_state and the served release from live to confirm or refute this, then decide whether to run the publication pipeline in docs/site-content-sync-runbook.md in an approved window. Clinical relevance: service contact details and eligibility that were corrected in the repository may still read as the older text to users.",
+    "source": "Session 2026-09-16 repairing the epoch-zero freeze regression from PR #2814",
+    "issueUlid": "01M2NAGJVFHTZPQ8ZAXJP3WYAM"
+  }
+}

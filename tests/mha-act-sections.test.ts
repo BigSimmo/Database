@@ -84,6 +84,32 @@ describe("Act section coverage", () => {
       }),
     ).toEqual([]);
   });
+
+  it("does not call a catalogue row without its own cue a duplicate of the supplemental map", () => {
+    // The seven forms the archive never indexed now have catalogue rows, for their
+    // operational guidance. Their section mapping still comes from the supplemental map,
+    // which is where the checkable basis for it lives. A catalogue row is a conflict only
+    // when it carries a sourceFacts.sectionCue of its own.
+    const problems = checkProblems({
+      source: sourceSections,
+      curated: curatedSections,
+      catalog: { forms: [{ form: "7C" }] },
+      supplemental: { forms: [{ code: "7C", sections: ["110"], status: "drafted", basis: "s 110 cancels leave." }] },
+    });
+    expect(problems.filter((problem: string) => problem.includes("supplemental"))).toEqual([]);
+  });
+
+  it("still catches a catalogue row and a supplemental entry both claiming the mapping", () => {
+    const problems = checkProblems({
+      source: sourceSections,
+      curated: curatedSections,
+      catalog: { forms: [{ form: "7C", sourceFacts: { sectionCue: "sections 110" } }] },
+      supplemental: { forms: [{ code: "7C", sections: ["110"], status: "drafted", basis: "s 110 cancels leave." }] },
+    });
+    expect(problems).toContain(
+      "Form 7C has both a catalogue section cue and a supplemental one \u2014 remove the supplemental entry.",
+    );
+  });
 });
 
 describe("actSectionsForCue", () => {
