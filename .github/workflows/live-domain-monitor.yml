@@ -87,3 +87,56 @@ jobs:
             echo "::error::www.psychiatry.tools returned $code"
             exit 1
           fi
+
+      # The check the three-day outage actually needed, and the one nobody had.
+      #
+      # Between 2026-09-11 and 2026-09-14, 24 consecutive production deploys were rejected at
+      # Railway's healthcheck and rolled back. This workflow stayed green throughout. Every probe
+      # above passed and each was telling the truth: the domain served the app shell, /api/health
+      # answered "ok", live mode was intact. The site was simply serving three-day-old code, and
+      # nothing here compared what was DEPLOYED against what had been MERGED. It was found by
+      # someone noticing that an expected UI change was missing from the live site.
+      #
+      # The logic lives in a script rather than inline shell so the metric can be unit-tested. That
+      # is not tidiness: the first version of this check measured the age of main's head, which
+      # resets on every merge, and main moved every 0-57 minutes throughout the real outage. It
+      # would have stayed green for all three days. tests/live-deployment-freshness.test.ts pins
+      # that false negative with a case that advances main while holding the deployment fixed.
+      # Only the two script steps below need the repository on disk; the probes above are pure
+      # curl. Sparse and
+      # shallow so the monitor stays cheap enough never to be worth disabling, which is the
+      # standing contract in this file's header.
+      - name: Check out the monitor scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            scripts/check-live-deployment-freshness.mjs
+            scripts/check-live-search-results.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Live deployment has not been stranded behind main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # Tolerates ordinary deploy lag, which is minutes. Raise via repository variable only
+          # with a reason: this number is how long a silent rollback loop may run undetected.
+          MAX_LAG_HOURS: ${{ vars.LIVE_DEPLOY_MAX_LAG_HOURS || '12' }}
+        run: node scripts/check-live-deployment-freshness.mjs
+
+      # The check the seven-day search outage actually needed, and the one nobody had.
+      #
+      # Between 2026-09-09 and 2026-09-16, Forms, Medications and Services search returned zero
+      # results on the live site for every query, for every user. This workflow stayed green the
+      # whole time and every probe above was telling the truth: /forms returned 200, the shell
+      # rendered, /api/health said ok. A search returning nothing is an HTTP 200 carrying a
+      # well-formed body, so status codes cannot see it. An operator found it, seven days in.
+      #
+      # The script asserts a degraded domain as hard as an empty one. Since the fix, a broken
+      # catalogue serves the in-bundle list instead of nothing, which keeps the reader working and
+      # would hide the next occurrence from any monitor that only counts results.
+      #
+      # It probes only the catalogue domains, never `documents`, so the monitor triggers no
+      # embedding call and stays inside this file's no-providers contract.
+      - name: Catalogue search returns live results
+        run: node scripts/check-live-search-results.mjs

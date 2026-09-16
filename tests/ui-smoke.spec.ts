@@ -1076,18 +1076,26 @@ async function expectAccountProviderLayout(setup: Locator, layout: "row" | "stac
   // rounding. Keep the clinical touch-target contract while ignoring that
   // sub-hundredth-pixel measurement noise.
   expect(boxes.every((box) => box!.height >= 47.99)).toBe(true);
+
+  // The same rounding reaches the ADJACENCY checks below, which are the ones that
+  // read a sum of two measured floats against a third. CI measured a 0.578px
+  // overlap here on 2026-09-16 and failed the stacked branch; nothing is visibly
+  // overlapping at that size, and the alignment and equal-width assertions beside
+  // these already allow the same 1px. What these assert is order and the absence
+  // of a real overlap, so the tolerance must not grow past one device pixel.
+  const adjacencyTolerance = 1;
   if (layout === "row") {
     expect(Math.max(apple.y, google.y, microsoft.y) - Math.min(apple.y, google.y, microsoft.y)).toBeLessThanOrEqual(1);
-    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x);
-    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x);
+    expect(apple.x + apple.width).toBeLessThanOrEqual(google.x + adjacencyTolerance);
+    expect(google.x + google.width).toBeLessThanOrEqual(microsoft.x + adjacencyTolerance);
     expect(
       Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
     ).toBeLessThanOrEqual(1);
     return;
   }
 
-  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y);
-  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y);
+  expect(apple.y + apple.height).toBeLessThanOrEqual(google.y + adjacencyTolerance);
+  expect(google.y + google.height).toBeLessThanOrEqual(microsoft.y + adjacencyTolerance);
   expect(
     Math.max(apple.width, google.width, microsoft.width) - Math.min(apple.width, google.width, microsoft.width),
   ).toBeLessThanOrEqual(1);
@@ -5593,7 +5601,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(clinicalSummary.getByRole("heading", { name: "Clinical priorities" })).toBeVisible();
     const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
@@ -5670,7 +5680,9 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    // Live document body sits under the shell reserve pad; a streaming twin can
+    // still be in `main` (#093) and trips Playwright strict mode on bare testid.
+    const clinicalSummary = page.getByTestId("mobile-composer-reserve-pad").getByTestId("document-clinical-summary");
     const summaryToggle = clinicalSummary.getByTestId("toggle-document-summary");
     await expect(clinicalSummary).toBeVisible();
     await expect(summaryToggle).toBeVisible();

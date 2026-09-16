@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   formatSupabaseUnavailableError,
   isSupabaseUnavailableError,
@@ -106,5 +106,56 @@ describe("Supabase health helpers", () => {
       message: "Supabase API is timing out with a 522 response.",
       rawMessage: message,
     });
+  });
+});
+
+/**
+ * The deadline that keeps the deploy gate answerable.
+ *
+ * This probe is the only database call left on `/api/health/ready`, which is Railway's
+ * healthcheck target, and Railway allows each attempt ten seconds. A one-row select is cheap
+ * warm, but a cold container has no warm connection, no cached plan and a cold PostgREST schema
+ * cache, and an unbounded call has no way to answer before the gate gives up — a deployment that
+ * cannot answer is discarded and rolled back.
+ *
+ * The classification matters as much as the bound. An abort matches none of the provider error
+ * patterns, so without explicit handling a deadline would be filed as a query fault and send the
+ * next investigation looking for a broken table.
+ */
+describe("the probe's optional deadline", () => {
+  const clientWith = (limit: () => unknown) => ({
+    from: () => ({ select: () => ({ limit }) }),
+  });
+
+  it("cancels the in-flight request when the client can, rather than abandoning the promise", async () => {
+    const controller = new AbortController();
+    const abortSignal = vi.fn(async () => ({ error: null }));
+    const limit = () => Object.assign(Promise.resolve({ error: null }), { abortSignal });
+
+    const result = await probeSupabaseHealth(clientWith(limit) as never, controller.signal);
+
+    expect(result.ok).toBe(true);
+    expect(abortSignal, "an abandoned promise leaves the query running on the database").toHaveBeenCalledWith(
+      controller.signal,
+    );
+  });
+
+  it("reports an expired deadline as unavailable, not as a query fault", async () => {
+    const signal = AbortSignal.abort(
+      Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }),
+    );
+
+    const result = await probeSupabaseHealth(clientWith(async () => ({ error: null })) as never, signal);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.failureKind, "a deadline is not a broken table").toBe("unavailable");
+    expect(result.message).toContain("deadline");
+  });
+
+  it("still works for the many callers that pass no deadline at all", async () => {
+    const result = await probeSupabaseHealth(clientWith(async () => ({ error: null })) as never);
+
+    expect(result.ok).toBe(true);
   });
 });

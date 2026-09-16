@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f16aa1bc-cf94-4f70-a91b-6555590f2d42",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Orphaned owner-catalogue-cache is still invalidated by the seed writers",
+    "detail": "`src/lib/owner-catalogue-cache.ts` lost its only search-path reader on 2026-09-09 (b753ed2b1), which is the commit that caused the seven-day registry-search outage. The module is still in the tree and `invalidateOwnerCatalogueCache` is still called by `src/lib/registry-seed.ts` and `src/lib/medication-seed.ts` after a write. Those calls now clear a cache nothing reads, so anyone checking whether the catalogue cache is invalidated on publish gets a misleading yes. Two things to settle together: retire the dead module through the dead-code-deletion protocol, and decide whether the cache that replaced it (`src/lib/site-content/site-content-record-cache.ts`, 15 s fresh / 10 min stale-while-revalidate) needs an invalidation hook on publish or whether the TTL is the intended contract. Context: docs/audit/2026-09-16-registry-search-outage.md.",
+    "source": "docs/audit/2026-09-16-registry-search-outage.md",
+    "issueUlid": "01M2MTZVRQBDJWAHRSVRA2FCM4"
+  }
+}

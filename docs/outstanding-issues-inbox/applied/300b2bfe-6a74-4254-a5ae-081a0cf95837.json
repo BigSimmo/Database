@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "300b2bfe-6a74-4254-a5ae-081a0cf95837",
+  "createdOn": "2026-09-15",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CI on main was observed red from 2026-09-13 without blocking merges, so the branch gate and the main gate disagree",
+    "detail": "OBSERVATION, not a confirmed diagnosis. During the 2026-09-11..14 deploy-rollback investigation, the main-branch CI run was red from 2026-09-13 while PRs continued to merge, because the always-reporting required aggregate is pr-required and a post-merge failure on main has nothing to block. That is by design for the PR gate, but it means a defect that only appears once branches are combined on main can sit red indefinitely and nobody is paged. This sat alongside two other silent-failure findings from the same incident that are already recorded separately: the deploy-alert webhook answering 401 for three days with no log line (fixed on branch claude/review-and-implement-mzd0t5), and the weekly eval canary red on the same answer-quality cases since 2026-08-23 with nothing tracking it. NOT RE-VERIFIED. This row was written from the incident session's reading of the Actions history and has not been re-checked against GitHub since, because a live CI read is provider-backed and needs explicit approval per AGENTS.md API and provider confirmation boundary. FIRST STEP: confirm whether the main workflow is still failing and on which job. If it is, decide the policy question this row really raises, which is whether a red main is allowed to be silent. The options are a scheduled or on-push notification into the same Sentry path the webhook logging now uses, or promoting the main run to something that visibly blocks. Do not widen required checks on PRs to fix it, since that pays the cost on every branch for a signal that only matters on main.",
+    "source": "Claude Code session 2026-09-15 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), deploy-rollback incident audit; branch claude/review-and-implement-mzd0t5",
+    "issueUlid": "01M2JQWYYGT82ND3WFSMVRA299"
+  }
+}

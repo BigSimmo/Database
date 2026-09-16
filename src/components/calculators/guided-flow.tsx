@@ -276,7 +276,7 @@ function ResultScreen({
             {derived.result.guidance}
           </p>
         ) : null}
-        <FlagNotice flags={derived.flags} />
+        <FlagNotice flags={derived.flags} provisional={!derived.complete} />
         <div className="text-left">
           <BandLegend calc={calc} activeBand={derived.band} />
         </div>

@@ -1,12 +1,19 @@
+import { isAbortError } from "@/lib/abort-error";
+
+type ProbeError = { message?: string; code?: string; details?: string; hint?: string } | null;
+type ProbeResult = PromiseLike<{ error: ProbeError }> & {
+  // PostgREST's builder carries this; the structural type keeps it optional so a hand-rolled
+  // test double is not forced to implement cancellation it never needs.
+  abortSignal?: (signal: AbortSignal) => PromiseLike<{ error: ProbeError }>;
+};
+
 type SupabaseProbeClient = {
   from(table: string): {
     select(
       columns: string,
       options?: Record<string, unknown>,
     ): {
-      limit(
-        count: number,
-      ): PromiseLike<{ error: { message?: string; code?: string; details?: string; hint?: string } | null }>;
+      limit(count: number): ProbeResult;
     };
   };
 };
@@ -54,10 +61,31 @@ export function formatSupabaseUnavailableError(error: unknown) {
     : "Supabase is temporarily unavailable.";
 }
 
-export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promise<SupabaseHealthResult> {
+/**
+ * `signal` bounds the probe. It is optional because most callers are scripts and workers with no
+ * deadline to keep, but `/api/health/ready` must always pass one: it is Railway's healthcheck
+ * target, Railway allows each attempt ten seconds, and an unbounded call cannot answer before
+ * that window closes. A deployment that cannot answer is discarded and rolled back, which is how
+ * this project lost three days of releases (`docs/deployment-architecture.md` § Readiness).
+ *
+ * An expired deadline is reported as an ordinary unhealthy result rather than thrown, so every
+ * caller's existing failure handling is unchanged. It is classified explicitly below rather than
+ * left to the string matching in `isSupabaseUnavailableError`, whose patterns are provider error
+ * text and do not match an abort — silently mislabelling a deadline as a query fault is the sort
+ * of thing that sends the next investigation to the wrong place.
+ */
+export async function probeSupabaseHealth(
+  supabase: SupabaseProbeClient,
+  signal?: AbortSignal,
+): Promise<SupabaseHealthResult> {
   const checkedAt = new Date().toISOString();
   try {
-    const { error } = await supabase.from("import_batches").select("id").limit(1);
+    signal?.throwIfAborted();
+    const request = supabase.from("import_batches").select("id").limit(1);
+    // Cancel the in-flight PostgREST request where the client supports it, rather than
+    // abandoning the promise and leaving the query running against the database.
+    const { error } = await (signal && request.abortSignal ? request.abortSignal(signal) : request);
+    signal?.throwIfAborted();
     if (!error) return { ok: true, checkedAt };
     return {
       ok: false,
@@ -69,6 +97,15 @@ export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promis
       rawMessage: errorMessage(error),
     };
   } catch (error) {
+    if (isAbortError(error)) {
+      return {
+        ok: false,
+        checkedAt,
+        failureKind: "unavailable",
+        message: "Supabase did not answer the health probe within its deadline.",
+        rawMessage: errorMessage(error),
+      };
+    }
     return {
       ok: false,
       checkedAt,

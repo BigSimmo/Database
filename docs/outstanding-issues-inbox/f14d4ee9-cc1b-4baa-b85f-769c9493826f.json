@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f14d4ee9-cc1b-4baa-b85f-769c9493826f",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Formulation: 52 imported clinical records are unsigned, and 12 live mechanisms were rewritten",
+    "detail": "PR #2824 added 46 contextual concepts and six guide modules to Formulation, and revised the definition, core process, alternatives, treatment implications and caveats of all 12 existing mechanisms. Every imported record carries clinical_review_required with a null reviewer, and the page states that. The source checks behind the content went to abstract and landing-page depth only, not full text, so no clause has been verified against a primary source. The guide modules are the highest-consequence part because they instruct rather than define: guide-08 makes a specific claim about NICE NG225 advising against risk stratification for predicting suicide or repeat self-harm. Next action: consultant psychiatrist reads the review pack produced with the PR (12 mechanisms before/after, six guides in full, 46 concepts, about 65 minutes) and records a sign-off per record. This extends the same debt as #87GR24.",
+    "source": "PR #2824; src/data/formulation-concepts.json; src/data/formulation-content.json",
+    "issueUlid": "01M2N7NHTKDXJ70PZ885B34D63"
+  }
+}

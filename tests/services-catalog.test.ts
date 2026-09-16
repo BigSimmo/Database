@@ -20,15 +20,15 @@ import {
 } from "@/lib/services";
 
 describe("services catalogue", () => {
-  it("loads the governed 227-service catalogue from snapshot", () => {
+  it("loads the governed 244-service catalogue from snapshot", () => {
     const snapshot = loadServicesSnapshot();
-    expect(snapshot.service_count).toBe(227);
-    expect(snapshot.services).toHaveLength(227);
-    expect(serviceRecords).toHaveLength(227);
-    expect(loadServiceRecords()).toHaveLength(227);
+    expect(snapshot.service_count).toBe(244);
+    expect(snapshot.services).toHaveLength(244);
+    expect(serviceRecords).toHaveLength(244);
+    expect(loadServiceRecords()).toHaveLength(244);
   });
 
-  it("maps 13yarn with phone and medium confidence", () => {
+  it("maps 13yarn with phone and the confidence its evidence now supports", () => {
     const snapshot = loadServicesSnapshot();
     const yarn = snapshot.services.find((service) => service.canonical_name_key === "13yarn");
     expect(yarn).toBeTruthy();
@@ -37,7 +37,11 @@ describe("services catalogue", () => {
     expect(record.slug).toBe("13yarn");
     expect(record.title).toBe("13YARN");
     expect(record.primaryContact?.value).toContain("13 92 76");
-    expect(record.verification?.confidence).toBe("Medium");
+    // Was Medium while the record was carried over from research with no hours and no
+    // page check. A canonical record now supersedes it with 24/7 hours taken from the
+    // Mental Health Commission page of 11 August 2026, so the confidence follows the
+    // evidence. If this drops back to Medium the canonical record has stopped merging.
+    expect(record.verification?.confidence).toBe("High");
   });
 
   it("compacts pipe-joined best-use blobs on summary cards", () => {
@@ -295,7 +299,7 @@ describe("services catalogue", () => {
   it("normalizes raw catalog services consistently", () => {
     const snapshot = loadServicesSnapshot();
     const normalized = normalizeCatalogServices(snapshot);
-    expect(normalized).toHaveLength(227);
+    expect(normalized).toHaveLength(244);
     expect(normalized[0]?.id).toMatch(/^S\d{3}$/);
   });
 });

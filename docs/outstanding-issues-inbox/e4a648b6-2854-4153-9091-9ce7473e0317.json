@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e4a648b6-2854-4153-9091-9ce7473e0317",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Drift def_hash normaliser strips from any '--' to end of line, hiding 91 percent of the P03 seed function",
+    "detail": "schema_drift_snapshot() computes a function def_hash as md5 of pg_get_functiondef with block comments, then '--[^\\n]*', then all whitespace removed (supabase/migrations/20260706200000_schema_drift_snapshot.sql:89 and the 20260818090000 history-probe rewrite:97). The line-comment regex cannot tell a real comment from '--' inside a string literal. public.site_content_registry_baseline embeds the whole registry seed as a single-line dollar-quoted JSON blob, and the first '--' falls at offset 176107 inside a service URL (Next-Step---Drug-and-Alcohol-Services), so 91.1 percent of the definition - 1841007 normalised chars down to 164524 - is stripped before hashing. Measured, not inferred: replaying both the old and the new function body into a local Postgres 16 produced the identical pinned hash c2dc2183657bab3c994af7f18ddfcb9b even though the bodies differ, and that same replay reproduces the manifest value exactly for the unchanged body, so the control is sound. Consequence: check:drift and the post-merge live-drift workflow cannot see a change to that function's seed data after the first '--'. Every other function loses only genuine comments, which is the intended behaviour. A fix has to distinguish a comment from a literal - dollar-quoted bodies could be hashed unstripped, or the strip applied only outside string literals - and it changes def_hash for every function, so it needs a manifest regeneration in the same change.",
+    "source": "scripts/refresh-site-content-p03-baseline.ts",
+    "issueUlid": "01M2MS3DGS81A3YJQTS5FQ6G9Y"
+  }
+}

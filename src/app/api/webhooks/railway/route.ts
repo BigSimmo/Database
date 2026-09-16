@@ -4,7 +4,7 @@ import { env } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { postChatNotification, type ChatSeverity } from "@/lib/webhooks/chat-notify";
-import { verifyWebhookSecret } from "@/lib/webhooks/secret-auth";
+import { presentedWebhookSecret, verifyWebhookSecret } from "@/lib/webhooks/secret-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,10 +57,28 @@ export async function POST(request: Request) {
     const auth = verifyWebhookSecret(request, env.RAILWAY_WEBHOOK_SECRET, { allowQueryToken: true });
     if (!auth.ok) {
       if (auth.reason === "misconfigured") {
+        logger.error("Railway webhook rejected: RAILWAY_WEBHOOK_SECRET is not set on this service");
         return publicErrorResponse("Railway webhook receiver is not configured.", 503, {
           code: "webhook_not_configured",
         });
       }
+      // A rejection here used to be completely silent, and that silence cost three days.
+      // On 2026-09-13 this endpoint answered 401 to eighteen consecutive Railway deliveries —
+      // three retries each for six deploy events, including the two failed production deploys at
+      // 17:24 and 18:04 — and wrote nothing anywhere. The alert never reached the chat forwarder
+      // to be dropped for want of a destination; it was turned away at the door. From the outside
+      // a misconfigured shared secret and an internet scanner looked identical.
+      //
+      // `warn` rather than `error` because this path is publicly reachable and will catch stray
+      // probes; the logger forwards warn to Sentry either way, so a real misconfiguration still
+      // surfaces without a scanner being able to raise an error-level alert.
+      //
+      // `tokenPresented` is the field that separates the two cases — a scanner sends nothing, a
+      // Railway webhook whose `?token=` has drifted from the service variable sends something
+      // that does not match. The token itself is never logged.
+      logger.warn("Railway webhook rejected: presented secret did not match RAILWAY_WEBHOOK_SECRET", {
+        tokenPresented: Boolean(presentedWebhookSecret(request, { allowQueryToken: true })),
+      });
       return publicErrorResponse("Unauthorized.", 401);
     }
 

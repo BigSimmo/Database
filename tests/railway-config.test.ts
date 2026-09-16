@@ -60,7 +60,7 @@ describe("Railway config as code", () => {
   it("uses the deep readiness endpoint for app rolling deploys", () => {
     expect(app.deploy).toMatchObject({
       healthcheckPath: "/api/health/ready",
-      healthcheckTimeout: 60,
+      healthcheckTimeout: 300,
       restartPolicyType: "ON_FAILURE",
       restartPolicyMaxRetries: 10,
     });

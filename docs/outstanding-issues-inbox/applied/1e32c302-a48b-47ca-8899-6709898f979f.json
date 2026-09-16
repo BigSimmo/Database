@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1e32c302-a48b-47ca-8899-6709898f979f",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Dictionary handover: 333 sense drafts and 28 definition rewrites await clinical sign-off",
+    "detail": "The 2026-09 handover landed as an unpublished editorial draft layer (src/data/dictionary-sense-drafts.json, src/data/dictionary-definition-reviews.json). All 333 senses are clinicalApproval pending and publicationAllowed false, and assertNoDraftIsPublished keeps them that way. All 96 definition-review baselines hash-match the live entries, so the 28 proposed rewrites apply cleanly - none is applied because none is signed off. Evidence coverage is the governing fact: 206 of 1,881 statements carry a source and none of the 292 safety warnings does. Nothing publishes until a named clinician signs records off, and a public route for sense ids does not exist yet. See docs/dictionary-editorial-drafts.md.",
+    "source": "Claude session 2026-09-16, handover package PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+    "issueUlid": "01M2MRXW80TSSF3GKTP18XY67R"
+  }
+}

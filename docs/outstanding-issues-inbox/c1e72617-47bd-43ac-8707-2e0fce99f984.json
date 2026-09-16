@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c1e72617-47bd-43ac-8707-2e0fce99f984",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Forms PDF manifest asserts a 17 July 2026 generation date with no re-fetch of the original bytes",
+    "detail": "data/forms-pdf-manifest.json generatedAt is 2026-07-17, and repository-providers.ts derives both the Forms source version and its reviewDate from that date. No original PDF bytes have been re-fetched or compared since. That makes the provider's 'locally_reviewed' status an assurance about the manifest, not about the current published asset. Resolution is an approved fetch of the 51 official PDFs, a digest comparison against the recorded sha256, and regeneration through scripts/build-forms-pdf-manifest.mjs - never a cosmetic date advance. Package hold H04/H10.",
+    "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MQ1AZXZFZVH1K4H4XEWQYT"
+  }
+}

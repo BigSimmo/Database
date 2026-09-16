@@ -120,8 +120,34 @@ const orientationDetails = z
   })
   .strict();
 
+/**
+ * The repeat patterns the roll-forward knows how to compute.
+ *
+ * Three, deliberately, and each one is a fixed step from a known anchor:
+ * add seven days, add fourteen days, add a month. "First Tuesday of term",
+ * "every second Thursday except school holidays" and the rest of a real
+ * teaching calendar are not in here and must not be — a half-right repeat rule
+ * puts a junior doctor outside a locked seminar room, which is worse than the
+ * owner's own sentence saying when it runs.
+ */
+export const ON_CALL_RECURRENCE_FREQUENCIES = ["weekly", "fortnightly", "monthly"] as const;
+
+export type OnCallRecurrenceFrequency = (typeof ON_CALL_RECURRENCE_FREQUENCIES)[number];
+
 const educationDetails = z
   .object({
+    /**
+     * How the owner describes the pattern, in their own words — "Thursday 1pm",
+     * "first Tuesday of term", "fortnightly, weeks 1-10".
+     *
+     * This is the field a reader reads, and it is NOT the same thing as
+     * `recurrenceRule` below and never becomes redundant to it. Free text
+     * carries the exceptions and the qualifications a three-value enum cannot
+     * hold, and it is the owner's own wording, which this app does not rewrite.
+     * Nothing computes with it: `new Date("Thursday")` is `Invalid Date` on some
+     * engines and a real date on others, which is exactly the class of bug that
+     * puts a session on the wrong day.
+     */
     recurrence: trimmed.optional(),
     nextOccurrence: trimmed.optional(),
     /**
@@ -140,6 +166,27 @@ const educationDetails = z
     nextOccurrenceDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
+    /**
+     * How the session repeats, as something the app can actually step forward.
+     *
+     * The counterpart to the free-text `recurrence` above, not a replacement
+     * for it: this one exists only so a session that runs every week stops
+     * vanishing off the home the moment its typed date passes, which is what
+     * happened every Thursday afternoon before this field existed. It holds a
+     * frequency and nothing else, because the anchor it counts from is already
+     * stored — `nextOccurrenceDate` is that anchor.
+     *
+     * Optional, and an entry that has never had one parses exactly as it did
+     * before it was added: no structured rule means no repeat, and the stored
+     * date is read as a one-off, which is today's behaviour unchanged.
+     * `src/lib/on-call/teaching-schedule.ts` does the rolling.
+     */
+    recurrenceRule: z
+      .object({
+        frequency: z.enum(ON_CALL_RECURRENCE_FREQUENCIES),
+      })
+      .strict()
       .optional(),
     presenter: trimmed.optional(),
     location: trimmed.optional(),

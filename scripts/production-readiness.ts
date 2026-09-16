@@ -78,6 +78,39 @@ export type RagProgrammeReadinessEvidence = {
   australian?: { sourcePolicyVersion: string | null; healthy: boolean };
 };
 
+/**
+ * Deploy alerting has somewhere to go.
+ *
+ * A receiver with no destination is worse than no receiver at all: it authenticates, answers
+ * `200 { "forwarded": false }`, and discards the alert, so from outside it is indistinguishable
+ * from a healthy integration. Both Railway services were in exactly that state while 24
+ * production deploys failed and rolled back across three days in September 2026, and the outage
+ * was found by noticing a missing UI change rather than by being told.
+ *
+ * `postChatNotification` now logs a discarded alert at runtime, but that only fires once
+ * something has already gone wrong. This check is the one that can say so beforehand, which is
+ * why it lives in the readiness gate rather than only in the receiver.
+ *
+ * An armed `RAILWAY_WEBHOOK_SECRET` makes the warning sharper rather than softer: it means
+ * deliveries are arriving and being thrown away, which is the misconfiguration that actually
+ * occurred, as opposed to an integration nobody has wired up yet.
+ */
+export function alertDestinationReadiness(environment: {
+  SLACK_WEBHOOK_URL?: string;
+  DISCORD_WEBHOOK_URL?: string;
+  RAILWAY_WEBHOOK_SECRET?: string;
+}): { ok: boolean; message: string } {
+  if (environment.SLACK_WEBHOOK_URL || environment.DISCORD_WEBHOOK_URL) {
+    return { ok: true, message: "A chat destination is set; Railway deploy alerts have somewhere to go." };
+  }
+  return {
+    ok: false,
+    message: environment.RAILWAY_WEBHOOK_SECRET
+      ? "RAILWAY_WEBHOOK_SECRET is set but neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is; the deploy-alert receiver will authenticate and then discard every alert, including failed deploys. Set one on the Railway service (see docs/webhooks.md § 1)."
+      : "Neither SLACK_WEBHOOK_URL nor DISCORD_WEBHOOK_URL is set; deploy and CI alerts have no destination (see docs/webhooks.md).",
+  };
+}
+
 export function ragProgrammeReadinessPolicy(
   environment: Record<string, string | undefined>,
   evidence: RagProgrammeReadinessEvidence = {},
@@ -594,6 +627,15 @@ async function main() {
       result.warnings.push(
         "HEALTH_DEEP_PROBE_SECRET is not set; /api/health?deep=1 stays shallow. Local fill: npm run check:local-presence -- --fill.",
       );
+    }
+
+    // Suppressed under --ci like the neighbouring env-presence checks, since CI carries none of
+    // these values.
+    const alertDestination = alertDestinationReadiness(envModule.env);
+    if (alertDestination.ok) {
+      result.passes.push(alertDestination.message);
+    } else if (!isCiMode) {
+      result.warnings.push(alertDestination.message);
     }
 
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {

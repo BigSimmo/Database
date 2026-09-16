@@ -8,7 +8,7 @@ import dsmClinicalContent from "../../data/dsm-clinical-content.json";
 import therapiesSource from "../../data/therapies-source.json";
 import { calculatorEvidence, type CalculatorEvidenceSource } from "@/lib/calculators/calculator-evidence";
 import { allCalculatorFixtures } from "@/lib/calculators/calculator-fixtures";
-import { factsheets } from "@/lib/factsheets-data";
+import { factsheets, type FactsheetSource } from "@/lib/factsheets-data";
 import {
   dictionaryComparisonPairs,
   dictionaryEntries,
@@ -21,6 +21,7 @@ import {
   type FormulationMechanism,
   type FormulationSource,
 } from "@/lib/formulation";
+import { linkableEvidence, publishedFormulationConcepts, publishedFormulationGuides } from "@/lib/formulation-concepts";
 import { officialFormsRegisterUrl } from "@/lib/form-catalog";
 import { normalizeCode, officialForms } from "@/lib/form-register";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
@@ -158,10 +159,32 @@ const dictionaryProvider: ClinicalSourceProvider = {
   },
 };
 
-function factsheetEvidenceType(tag: string): ClinicalSourceType {
-  if (tag === "Consumer") return "consumer_reference";
-  if (tag === "Reference") return "professional_reference";
+/**
+ * The display tag is a reader-facing badge, not a catalogue classification. It
+ * recognises two values, so a citation whose tag is neither — a guideline, a
+ * standard, a regulatory document — would land in the catalogue's `unknown`
+ * band purely because the badge vocabulary is short. `source.evidenceType`
+ * lets a citation state its real type; the tag remains the fallback.
+ */
+function factsheetEvidenceType(source: FactsheetSource): ClinicalSourceType {
+  if (source.evidenceType) return source.evidenceType;
+  if (source.tag === "Consumer") return "consumer_reference";
+  if (source.tag === "Reference") return "professional_reference";
   return "unknown";
+}
+
+/**
+ * `source.year` is a display string ("2025", "Jun 2026") and is rejected by
+ * `strictSourceDate`, which is why this provider used to send `null`. That
+ * dropped the exact dates the publishers *do* state. `publicationDate` carries
+ * those; a source without one still sends `null` rather than a fabricated day.
+ */
+function factsheetPublicationDate(source: FactsheetSource): string | null {
+  const exact = source.publicationDate;
+  if (!exact) return null;
+  // `strictSourceDate` already returns null for anything `hasInvalidStructuredSourceDate`
+  // would reject, so testing both was redundant.
+  return strictSourceDate(exact) ?? null;
 }
 
 const factsheetProvider: ClinicalSourceProvider = {
@@ -176,8 +199,9 @@ const factsheetProvider: ClinicalSourceProvider = {
             title: source.title,
             publisher: source.org,
             canonicalUrl: source.url ?? null,
-            publicationDate: null,
-            evidenceType: factsheetEvidenceType(source.tag),
+            version: source.version ?? null,
+            publicationDate: factsheetPublicationDate(source),
+            evidenceType: factsheetEvidenceType(source),
             contentMode: source.url ? "link_only" : "metadata_only",
             topics: [sheet.category],
           },
@@ -188,9 +212,9 @@ const factsheetProvider: ClinicalSourceProvider = {
 
 const formulationProvider: ClinicalSourceProvider = {
   id: "formulation",
-  sourcePaths: ["src/data/formulation-content.json"],
-  references: () =>
-    formulationMechanisms.flatMap((mechanism) =>
+  sourcePaths: ["src/data/formulation-content.json", "src/data/formulation-concepts.json"],
+  references: () => [
+    ...formulationMechanisms.flatMap((mechanism) =>
       mechanism.sources.flatMap((sourceId) => {
         const source = formulationSourceLibrary[sourceId];
         if (!source) return [];
@@ -213,6 +237,34 @@ const formulationProvider: ClinicalSourceProvider = {
         ];
       }),
     ),
+    // Concept and guide citations, projected from the records that actually
+    // carry them. A held record contributes nothing, and neither does a
+    // citation whose host `source-url-policy.ts` does not govern: the
+    // catalogue would have to trust a location this repository has not
+    // admitted. `sourceId` stays null so a capture of the same URL merges with
+    // this usage instead of splitting into a second catalogue entry.
+    ...[...publishedFormulationConcepts, ...publishedFormulationGuides].flatMap((record) =>
+      linkableEvidence(record.evidence).map((evidence) =>
+        reference(
+          {
+            modeId: "formulation",
+            recordId: record.id,
+            recordLabel: record.title,
+            field: "evidence",
+          },
+          {
+            sourceId: evidence.nativeSourceId,
+            title: evidence.title,
+            publisher: evidence.issuer,
+            canonicalUrl: evidence.url,
+            contentMode: "link_only",
+            validationStatus: "unverified",
+            topics: record.domains.length ? [...record.domains] : ["Psychiatric formulation"],
+          },
+        ),
+      ),
+    ),
+  ],
 };
 
 type TherapySourceRecord = {

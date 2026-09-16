@@ -111,3 +111,30 @@ c3bb25828022355cbc27ac3262c285725d5bda0c:tests/instrumentation.test.ts:generic-a
 # same two reviewed clinical `key` fields at their new generated line numbers.
 f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0:supabase/schema.sql:generic-api-key:13397
 f8da9503bdd4b8bcaa87871f75d8f6bf6764edf0:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+# False positives: medication indication labels embedded as JSON "key" fields inside
+# the refreshed P03 bootstrap blobs (e.g. "Opiate/Alcohol Withdrawal",
+# "Vulvovaginal Candidiasis (Thrush)"). Clinical catalogue text, not credentials.
+d80752962a611cd6d2ee5bc0f11595c78c175916:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+d80752962a611cd6d2ee5bc0f11595c78c175916:supabase/schema.sql:generic-api-key:13398
+# Same reviewed clinical `key` labels (Withdrawal / Thrush indication text) as the
+# d8075296 / f8da9503 pins above. These two commits on #2821 refreshed the P03
+# bootstrap blobs; generic-api-key still misclassifies the JSON key fields.
+# DESCRIBED, NEVER QUOTED. Both the migration and the mirrored schema.sql line.
+7096ceef0eb531835fd3d13a0de0d0878a6fe6fb:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+7096ceef0eb531835fd3d13a0de0d0878a6fe6fb:supabase/schema.sql:generic-api-key:13398
+2d05eb0aadbb917b65d7f8fdd13a6dc330961d02:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
+2d05eb0aadbb917b65d7f8fdd13a6dc330961d02:supabase/schema.sql:generic-api-key:13398
+# Reviewed false positives on #2828: sha256 hex digests in the applied-migration seal
+# map (generic-api-key on high-entropy hex next to a .sql filename). Content-addressed
+# migration fingerprints, not credentials. DESCRIBED, NEVER QUOTED.
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:13
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:41
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:49
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:51
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:224
+b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:generic-api-key:226
+# Same reviewed clinical JSON `key` labels (Withdrawal / Thrush indication text) as the
+# earlier P03 pins above. Commit 2135b4aba restores the epoch-zero freeze blobs; generic-
+# api-key still misclassifies those fields. DESCRIBED, NEVER QUOTED.
+2135b4aba3d2182a27944fce7b201f84de69cf8c:supabase/schema.sql:generic-api-key:13398
+2135b4aba3d2182a27944fce7b201f84de69cf8c:supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:generic-api-key:894
