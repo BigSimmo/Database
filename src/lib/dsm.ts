@@ -86,6 +86,30 @@ export type DsmDiagnosisSummary = Pick<DsmDiagnosis, "slug" | "title" | "icd_cod
 
 const exportData = dsmClinicalContent as DsmClinicalContentExport;
 
+/**
+ * What the DSM catalogue actually is, for any surface that has to describe it.
+ *
+ * It is a vendored snapshot of the upstream `dsm-5-diagnosis` export, not a
+ * reviewed clinical work. Nothing in this repository carries a clinical review
+ * receipt for it, and 145 of its 146 records supply no criteria at all. Clinical
+ * Ask used to describe it as an "Authorised DSM clinical catalogue" whose
+ * evidence was "reviewed", which made an answer built on it register as
+ * sufficient without corroboration. Any surface naming the catalogue reads these
+ * values instead of asserting a review state of its own.
+ *
+ * `reviewState` stays `unknown` until a review receipt exists to derive it from.
+ * Raising it is a clinical governance decision, not a code change.
+ */
+export const dsmCatalogueProvenance = {
+  label: "Unverified DSM-5-TR reference catalogue",
+  sourceRepository: exportData.source_repository,
+  exportFormatVersion: exportData.export_format_version,
+  /** The export's own generation date, YYYY-MM-DD. Not a clinical review date. */
+  generatedOn: exportData.generated_at.slice(0, 10),
+  reviewState: "unknown",
+  clinicallyReviewed: false,
+} as const;
+
 function slugFromRecordId(recordId: string) {
   return recordId.replace(/^DSM-[^-]+-/, "").toLowerCase();
 }
