@@ -80,11 +80,15 @@ describe("migration sealing is append-only", () => {
   });
 
   it("allows exceptional restoration only with an explicit reseal opt-in", () => {
-    expect(resealAllowed({ argv: ["node", "script", "--write"], env: {} })).toBe(false);
-    expect(resealAllowed({ argv: ["node", "script", "--write", "--allow-reseal"], env: {} })).toBe(true);
-    expect(resealAllowed({ argv: ["node", "script", "--write"], env: { ALLOW_MIGRATION_RESEAL: "true" } })).toBe(
-      true,
-    );
+    const emptyEnv = { NODE_ENV: "test" } as NodeJS.ProcessEnv;
+    expect(resealAllowed({ argv: ["node", "script", "--write"], env: emptyEnv })).toBe(false);
+    expect(resealAllowed({ argv: ["node", "script", "--write", "--allow-reseal"], env: emptyEnv })).toBe(true);
+    expect(
+      resealAllowed({
+        argv: ["node", "script", "--write"],
+        env: { ...emptyEnv, ALLOW_MIGRATION_RESEAL: "true" },
+      }),
+    ).toBe(true);
 
     const plan = planSeal(previous, { a: "1", b: "restored" }, { allowReseal: true });
     expect(plan.refused).toBe(false);

@@ -143,10 +143,9 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
         }
       }
     }
-    expect(
-      offenders,
-      "a migration quotes a uuid that is neither a retained bootstrap release nor a sentinel",
-    ).toEqual([]);
+    expect(offenders, "a migration quotes a uuid that is neither a retained bootstrap release nor a sentinel").toEqual(
+      [],
+    );
     // Non-vacuous: the sweep must actually have seen the release, or an accidental deletion of it
     // everywhere would read as "no offenders". A NEW forward migration that legitimately names the
     // release belongs in APPLIED_MIGRATIONS — see the exception in this file's header.
