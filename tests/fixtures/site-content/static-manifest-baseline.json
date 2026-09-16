@@ -1,8 +1,8 @@
 {
   "version": "clinical-kb-site-static-manifest-v1",
-  "gitSha": "ba73bfb17ff00062e1d80381d368649bb6ca473e",
+  "gitSha": "b84ccf875c096b61a3dd5b93fafd64b29ac05607",
   "registryVersion": "site-content-registry-v1",
-  "generatedAt": "2026-09-16T11:22:33.774Z",
+  "generatedAt": "2026-09-16T11:36:59.131Z",
   "records": [
     {
       "logicalId": "calculators:auditc",
@@ -2781,7 +2781,7 @@
       "domain": "factsheets",
       "route": "/factsheets/lithium-monitoring",
       "contentHash": "ed1486067712961fcf401462f53f882270604649d370f5d4060e9480c377fd79",
-      "lineageDigest": "d4d2de8215f9e902955bf3099c40c52a5634ba0e36041fb83f9aa4a6cde112c4",
+      "lineageDigest": "da0ce7940af767645ee14202b20632be33cc646c442ddd836bcf7d26e1a919af",
       "validationStatus": "locally_reviewed",
       "sourceStatus": "current",
       "eligible": true,
@@ -11841,5 +11841,5 @@
       "exclusionReason": null
     }
   ],
-  "staticManifestDigest": "6a5264a4828f372b770ca452f592365fbcbbec974caa47aee5a7b38ba570ac0e"
+  "staticManifestDigest": "b83488f344c47a01ff435d9e2dd929fa7f7f0369bae31597a0f34d2311c4eec7"
 }

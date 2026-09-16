@@ -75,8 +75,16 @@ describe("the emergency route renders on screen, not just in print", () => {
     expect(body).toMatch(/13\s*11\s*26/); // Poisons Information Centre
     expect(body).toMatch(/straight away|call 000/i);
     // "Same day" alone is too slow for confusion, unsteadiness or slurred
-    // speech; the page must offer an immediate route as well.
-    expect(body).toMatch(/emergency department or call 000/i);
+    // speech, so the list must name an immediate route and must not send a
+    // symptomatic reader away with a next-appointment answer. Asserted on the
+    // act-now list itself rather than the whole page, so unrelated prose
+    // elsewhere on the sheet cannot satisfy it.
+    const actNow = document.querySelector("#factsheet-warning-signs")?.textContent ?? "";
+    expect(actNow).toMatch(/emergency department/i);
+    expect(actNow).toMatch(/\b000\b/);
+    expect(actNow).toMatch(/13\s*11\s*26/);
+    expect(actNow).toMatch(/do not take the next dose/i);
+    expect(actNow).not.toMatch(/next appointment/i);
   });
 
   it("does not leave a sheet naming an emergency symptom without a route on screen", () => {
