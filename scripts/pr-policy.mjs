@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 export const requiredClinicalGovernanceItems = [
@@ -352,7 +352,184 @@ export function deployDeferralClaim(title, body) {
   return { claimed: false, phrase: "" };
 }
 
-export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
+// ---------------------------------------------------------------------------
+// Owner-merge hold and migration history guard (C0, 2026-09-17).
+//
+// Agents acting as the owner's GitHub identity repeatedly merged clinical and database
+// PRs, and PRs #2814 and #2821 MODIFIED already-applied migrations (20260824122000,
+// 20260824123000, 20260830121000). Supabase records each version once and never re-runs
+// it, so the edits reached the repository but never the live database, and live drifted.
+// Two mechanical controls follow, both evaluated inside the required `PR policy` check:
+//
+//   1. migrationHistoryViolations — an applied migration is immutable history. Editing,
+//      removing or renaming one, or adding a migration dated at or before the newest one
+//      already on main, is a blocking error.
+//   2. ownerMergeReasons — database, clinical-risk and RAG-ranking PRs stay red until the
+//      owner applies the `owner-approved` label, which the workflow removes on any push.
+// ---------------------------------------------------------------------------
+
+export const OWNER_APPROVED_LABEL = "owner-approved";
+
+// Supabase CLI reads top-level `<version>_<name>.sql` files only. This repository's
+// versions are 14-digit UTC timestamps, and every file on main follows that shape.
+const migrationDirectoryPrefix = "supabase/migrations/";
+const migrationEntryPattern = /^(\d{14})_[^/]+\.sql$/;
+
+function topLevelMigrationEntry(filePath) {
+  const normalized = normalizePath(filePath);
+  if (!normalized.startsWith(migrationDirectoryPrefix)) return null;
+  const entry = normalized.slice(migrationDirectoryPrefix.length);
+  return entry && !entry.includes("/") ? entry : null;
+}
+
+/** The 14-digit version of a `supabase/migrations/<version>_<name>.sql` path, else null. */
+export function migrationVersion(filePath) {
+  const entry = topLevelMigrationEntry(filePath);
+  return entry?.match(migrationEntryPattern)?.[1] ?? null;
+}
+
+/** Versions from bare directory entries, as `fs.readdirSync("supabase/migrations")` returns them. */
+export function migrationVersionsFromEntries(entries) {
+  return [
+    ...new Set((entries ?? []).map((entry) => String(entry).match(migrationEntryPattern)?.[1]).filter(Boolean)),
+  ].sort();
+}
+
+const appliedHistoryRule =
+  "Applied migrations never re-run on live: Supabase records each version once, so an edit here reaches the repository but never the live clinical database, and live drifts.";
+
+function newMigrationAdvice(newestBase) {
+  return newestBase
+    ? `Ship the change as a NEW migration whose version is newer than ${newestBase}.`
+    : "Ship the change as a NEW newest-dated migration.";
+}
+
+/**
+ * Blocking migration-history violations for a PR's changed files.
+ *
+ * `files` are GitHub `pulls.listFiles` entries: `{ filename, status, previous_filename }`,
+ * status one of added, modified, removed, renamed, copied, changed, unchanged.
+ * `baseMigrationVersions` are the versions present on the trusted base checkout.
+ *
+ * Unknown or missing statuses are treated as a modification (fail closed).
+ */
+export function migrationHistoryViolations({ files, baseMigrationVersions }) {
+  const base = new Set((baseMigrationVersions ?? []).map(String));
+  // Fixed-width digit strings sort lexically in numeric order.
+  const newestBase = [...base].sort().at(-1) ?? null;
+  const violations = [];
+  const addedByVersion = new Map();
+
+  const recordAdded = (path) => {
+    const entry = topLevelMigrationEntry(path);
+    if (!entry || !entry.endsWith(".sql")) return;
+    const version = migrationVersion(path);
+    if (!version) {
+      violations.push({
+        kind: "unversioned",
+        path,
+        version: null,
+        message: `${path} is a new migration without a 14-digit version prefix (\`YYYYMMDDHHMMSS_name.sql\`), so its order against applied history cannot be checked. ${newMigrationAdvice(newestBase)}`,
+      });
+      return;
+    }
+    addedByVersion.set(version, [...(addedByVersion.get(version) ?? []), path]);
+  };
+
+  for (const file of files ?? []) {
+    const path = normalizePath(file?.filename);
+    const previousPath = file?.previous_filename ? normalizePath(file.previous_filename) : "";
+    const status = String(file?.status ?? "").toLowerCase();
+    if (!path || status === "unchanged") continue;
+
+    if (status === "added" || status === "copied") {
+      recordAdded(path);
+      continue;
+    }
+
+    if (status === "renamed") {
+      const previousVersion = migrationVersion(previousPath);
+      if (previousVersion && base.has(previousVersion)) {
+        violations.push({
+          kind: "renamed",
+          path: previousPath,
+          version: previousVersion,
+          message: `${previousPath} (version ${previousVersion}) is already applied on main and this PR renames it to ${path}. ${appliedHistoryRule} Restore the original file. ${newMigrationAdvice(newestBase)}`,
+        });
+      } else {
+        // Moved in from elsewhere (or from a never-applied name): the new path is a new migration.
+        recordAdded(path);
+      }
+      continue;
+    }
+
+    // modified, changed, removed, and anything unrecognised.
+    const version = migrationVersion(path);
+    if (!version || !base.has(version)) continue;
+    const verb = status === "removed" ? "deletes" : "modifies";
+    violations.push({
+      kind: status === "removed" ? "removed" : "modified",
+      path,
+      version,
+      message: `${path} (version ${version}) is already applied on main and this PR ${verb} it. ${appliedHistoryRule} Revert the change to this file. ${newMigrationAdvice(newestBase)}`,
+    });
+  }
+
+  for (const [version, paths] of [...addedByVersion.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    for (const path of paths) {
+      if (base.has(version) || paths.length > 1) {
+        violations.push({
+          kind: "duplicate-version",
+          path,
+          version,
+          message: `${path} reuses migration version ${version}, which ${base.has(version) ? "already exists on main" : "another migration in this PR also uses"}. ${appliedHistoryRule} ${newMigrationAdvice(newestBase)}`,
+        });
+      } else if (newestBase && version < newestBase) {
+        violations.push({
+          kind: "out-of-order",
+          path,
+          version,
+          message: `${path} (version ${version}) is dated before ${newestBase}, the newest migration already on main, so live would treat it as out-of-order history. ${appliedHistoryRule} Rename it with a version newer than ${newestBase}.`,
+        });
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * The only override for a migration-history violation: a body line
+ * `Migration history edit approved: <reason>`. It takes effect only together with the
+ * owner's approval, so neither the line nor the label is sufficient alone.
+ */
+export function migrationHistoryEditApproval(body) {
+  const withoutComments = String(body ?? "").replace(/<!--[^]*?-->/g, "");
+  const match = withoutComments.match(/^[\s>*-]*\*{0,2}Migration history edit approved\*{0,2}:\s*(\S[^\n]*)$/im);
+  if (!match) return { declared: false, satisfied: false, reason: "" };
+  const reason = match[1].trim();
+  const placeholder = /^<[^>]*>$|^(?:n\/?a|none|todo|tbd|-)$/i.test(reason);
+  return { declared: true, satisfied: !placeholder && reason.length >= 12, reason };
+}
+
+/** Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed. */
+export function ownerMergeReasons(classification, filenames) {
+  const reasons = [];
+  if ((filenames ?? []).some((file) => normalizePath(file).startsWith("supabase/"))) reasons.push("database");
+  if (classification?.clinicalRisk) reasons.push("clinical");
+  if (classification?.ragRanking) reasons.push("rag-ranking");
+  return reasons;
+}
+
+export function evaluatePullRequestPolicy({
+  title,
+  body,
+  headRef,
+  files,
+  fileStatuses,
+  baseMigrationVersions,
+  ownerApproval,
+  enforceOwnerMerge = false,
+}) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
   // complete Clinical Governance Preflight, a RAG-ranking-surface diff without an
   // explicit `RAG impact:` declaration, and a Supabase-migration diff whose metadata
@@ -364,7 +541,12 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   // but it never fails the check or blocks a merge.
   const errors = [];
   const warnings = [];
-  const classification = classifyPullRequestFiles(files);
+  // A rename's previous path is part of the change too: moving a file OUT of a protected
+  // tree must classify exactly like editing it in place.
+  const renamedFromPaths = Array.isArray(fileStatuses)
+    ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
+    : [];
+  const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
   const summary = section(body, "Summary");
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
@@ -469,7 +651,66 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     );
   }
 
-  return { classification, errors, warnings, ok: errors.length === 0 };
+  // Owner approval counts only when it is explicitly true AND nothing rejected it.
+  const ownerApproved = ownerApproval?.approved === true && !ownerApproval?.rejectedReason;
+
+  // Blocking gate: applied migrations are immutable history. The only override is the
+  // body line AND the owner's approval together — never a label alone, never a line alone.
+  let historyViolations = [];
+  const migrationInputsSupplied =
+    Array.isArray(fileStatuses) && Array.isArray(baseMigrationVersions) && baseMigrationVersions.length > 0;
+  if (migrationInputsSupplied) {
+    historyViolations = migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions });
+    if (historyViolations.length > 0) {
+      const override = migrationHistoryEditApproval(body);
+      if (override.satisfied && ownerApproved) {
+        warnings.push(
+          `Migration history edit approved by the owner (${override.reason}); ${historyViolations.length} violation(s) accepted: ${historyViolations.map((violation) => violation.path).join(", ")}.`,
+        );
+      } else {
+        for (const violation of historyViolations) errors.push(violation.message);
+        if (override.declared && !override.satisfied) {
+          errors.push(
+            "`Migration history edit approved:` needs a specific reason (at least 12 characters, not a placeholder).",
+          );
+        } else if (override.declared && !ownerApproved) {
+          errors.push(
+            `\`Migration history edit approved:\` takes effect only after the owner approves this PR with the \`${OWNER_APPROVED_LABEL}\` label. The body line alone does not override the migration history guard.`,
+          );
+        }
+      }
+    }
+  } else if (enforceOwnerMerge && classification.migration) {
+    errors.push(
+      "This PR touches supabase/migrations, but migration history could not be verified (file statuses or the trusted base migration versions were not supplied). Rerun the check; the policy fails closed until it can verify history.",
+    );
+  }
+
+  // Blocking gate (opt-in via enforceOwnerMerge): owner-only merge for database,
+  // clinical-risk and RAG-ranking PRs.
+  const mergeReasons = ownerMergeReasons(classification, classification.files);
+  if (enforceOwnerMerge && mergeReasons.length > 0) {
+    if (ownerApproval?.rejectedReason) errors.push(`Owner approval rejected: ${ownerApproval.rejectedReason}.`);
+    if (!ownerApproved) {
+      errors.push(
+        `Owner merge required (${mergeReasons.join(", ")}). Josh reviews this PR and adds the \`${OWNER_APPROVED_LABEL}\` label; any new push removes it. Agents must never add this label.`,
+      );
+    }
+  } else if (enforceOwnerMerge && ownerApproval?.rejectedReason) {
+    warnings.push(
+      `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Agents must never add this label.`,
+    );
+  }
+
+  return {
+    classification,
+    errors,
+    warnings,
+    ok: errors.length === 0,
+    ownerMergeReasons: mergeReasons,
+    ownerApproved,
+    migrationHistoryViolations: historyViolations,
+  };
 }
 
 function selfTest() {
@@ -959,6 +1200,7 @@ function selfTest() {
     true,
     "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
+  migrationHistoryAndOwnerMergeSelfTest(completeBody);
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
     assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
@@ -979,6 +1221,352 @@ function selfTest() {
     "PR policy workflow must not checkout a potentially stale pull_request.base.sha.",
   );
   console.error("[pr-policy] self-test passed");
+}
+
+// PR #2814's changed files, exactly as `gh api repos/BigSimmo/Database/pulls/2814/files`
+// listed them on 2026-09-17 (status, filename). It merged with three applied migrations
+// modified in place, which is the incident the history guard exists for.
+const pr2814FileStatuses = `modified .gitleaksignore
+added docs/outstanding-issues-inbox/2eaa0a92-8764-4d7d-9a3b-6ffa1c4081a7.json
+added docs/outstanding-issues-inbox/5366da08-1cf3-4cd3-91dd-d500d8e9b575.json
+added docs/outstanding-issues-inbox/a5431811-3418-4ae7-8406-752d41f95bc8.json
+added docs/outstanding-issues-inbox/ccf0e1fd-35e6-4f13-bfaa-07a2612a676e.json
+added docs/outstanding-issues-inbox/e8065c36-f46c-4275-b67f-4de32a15341e.json
+modified docs/scripts-index.md
+modified docs/site-map.md
+modified package.json
+modified scripts/check-site-content-control-plane.mjs
+added scripts/refresh-site-content-bootstrap.ts
+modified src/data/source-acquisitions.json
+modified src/lib/registry-records.ts
+modified src/lib/service-governance.ts
+added src/lib/services-canonical-data/part-03.ts
+added src/lib/services-canonical-data/part-04.ts
+added src/lib/services-canonical-data/part-05.ts
+added src/lib/services-canonical-data/part-06.ts
+added src/lib/services-canonical-data/part-07.ts
+modified src/lib/site-content/site-content-health.ts
+modified src/lib/sources/source-url-policy.ts
+modified supabase/drift-manifest.json
+modified supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql
+modified supabase/migrations/20260824123000_add_site_content_health_probe.sql
+modified supabase/migrations/20260830121000_bind_site_content_release_transitions.sql
+modified supabase/schema.sql
+modified tests/fixtures/site-content/site-content-control-plane-correction.sql
+modified tests/fixtures/site-content/site-content-health-state-machine.sql
+modified tests/fixtures/site-content/site-content-legacy-transition-race-seed.sql
+modified tests/fixtures/site-content/site-content-transition-backfill-seed.sql
+modified tests/rag-answer-fallback.test.ts
+modified tests/rag-governed-corpus-retrieval.test.ts
+modified tests/rag-governed-entrypoint.test.ts
+modified tests/rag-site-content-freshness.test.ts
+modified tests/rag-site-content-retrieval.test.ts
+modified tests/registry-client-contract.test.ts
+modified tests/registry-governance-derivation.test.ts
+modified tests/registry-service-facets.test.ts
+modified tests/service-facets.test.ts
+modified tests/services-catalog.test.ts
+modified tests/services-safety-regressions.test.ts
+modified tests/services-safety-routing.test.ts
+modified tests/services.test.ts
+modified tests/site-content-health.test.ts
+modified tests/supabase-schema.test.ts`
+  .split("\n")
+  .map((line) => {
+    const [status, filename] = line.trim().split(/\s+/);
+    return { filename, status, previous_filename: null };
+  });
+
+function migrationHistoryAndOwnerMergeSelfTest(completeBody) {
+  const base = ["20260824122000", "20260830121000", "20260916160000"];
+  const applied = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
+  const newest = "supabase/migrations/20260916160000_triple_pin_retained_bootstrap_release_ids.sql";
+  const kinds = (fileStatuses, versions = base) =>
+    migrationHistoryViolations({ files: fileStatuses, baseMigrationVersions: versions }).map((v) => v.kind);
+
+  // Parsing: only top-level `<14 digits>_<name>.sql` entries carry a version.
+  assert.equal(migrationVersion(applied), "20260824122000");
+  assert.equal(migrationVersion("supabase/migrations/nested/20260824122000_x.sql"), null);
+  assert.equal(migrationVersion("supabase/schema.sql"), null);
+  assert.deepEqual(
+    migrationVersionsFromEntries([
+      "20260830121000_b.sql",
+      "README.md",
+      "20260824122000_a.sql",
+      "2026082412200_short.sql",
+    ]),
+    ["20260824122000", "20260830121000"],
+  );
+
+  // --- Migration history guard -------------------------------------------------------
+  assert.deepEqual(kinds([{ filename: applied, status: "modified" }]), ["modified"], "modified applied → error");
+  assert.deepEqual(kinds([{ filename: applied, status: "changed" }]), ["modified"], "changed applied → error");
+  assert.deepEqual(kinds([{ filename: applied, status: "removed" }]), ["removed"], "removed applied → error");
+  assert.deepEqual(
+    kinds([
+      { filename: "supabase/migrations/20260917000000_renamed.sql", status: "renamed", previous_filename: applied },
+    ]),
+    ["renamed"],
+    "renamed from an applied migration → error",
+  );
+  assert.deepEqual(
+    kinds([{ filename: "supabase/archive/old.sql", status: "renamed", previous_filename: applied }]),
+    ["renamed"],
+    "renamed out of the migrations directory → error",
+  );
+  assert.deepEqual(
+    kinds([{ filename: applied, status: "" }]),
+    ["modified"],
+    "an unknown status on an applied migration fails closed as a modification",
+  );
+  assert.deepEqual(
+    kinds([{ filename: "supabase/migrations/20260901000000_backdated.sql", status: "added" }]),
+    ["out-of-order"],
+    "added older than the newest base version → error",
+  );
+  assert.deepEqual(
+    kinds([{ filename: "supabase/migrations/20260830121000_same_version_new_name.sql", status: "added" }]),
+    ["duplicate-version"],
+    "added duplicate of an existing version → error",
+  );
+  assert.deepEqual(
+    kinds([
+      { filename: "supabase/migrations/20260917010000_one.sql", status: "added" },
+      { filename: "supabase/migrations/20260917010000_two.sql", status: "added" },
+    ]),
+    ["duplicate-version", "duplicate-version"],
+    "two added migrations sharing a version → error",
+  );
+  assert.deepEqual(
+    kinds([{ filename: "supabase/migrations/20260917_short_version.sql", status: "added" }]),
+    ["unversioned"],
+    "an added migration without a 14-digit version cannot be ordered → error",
+  );
+  assert.deepEqual(
+    kinds([
+      { filename: "supabase/migrations/20260801000000_copied.sql", status: "copied", previous_filename: applied },
+    ]),
+    ["out-of-order"],
+    "a copy is a new file and is ordered like one",
+  );
+  assert.deepEqual(
+    kinds([{ filename: "supabase/migrations/20260917020000_newest.sql", status: "added" }]),
+    [],
+    "added newest migration → no error",
+  );
+  assert.deepEqual(
+    kinds([
+      { filename: "supabase/migrations/20260917020000_newest.sql", status: "added" },
+      { filename: "supabase/schema.sql", status: "modified" },
+      { filename: "supabase/drift-manifest.json", status: "modified" },
+      { filename: newest, status: "unchanged" },
+    ]),
+    [],
+    "the ordinary shape of a correct migration PR carries no history violation",
+  );
+  const historyError = migrationHistoryViolations({
+    files: [{ filename: applied, status: "modified" }],
+    baseMigrationVersions: base,
+  })[0].message;
+  assert.match(historyError, /Applied migrations never re-run on live/);
+  assert.match(historyError, /NEW migration whose version is newer than 20260916160000/);
+
+  const docsBody = completeBody;
+  const editApproved = `${completeBody}\n\nMigration history edit approved: repairing a no-statements history row per the guard-migration contract`;
+  const modifiedApplied = {
+    title: "fix(db): adjust site content release outbox",
+    headRef: "claude/db-edit",
+    files: [applied],
+    fileStatuses: [{ filename: applied, status: "modified", previous_filename: null }],
+    baseMigrationVersions: base,
+    enforceOwnerMerge: true,
+  };
+  // The override needs BOTH the body line and the owner's approval.
+  assert.equal(
+    evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved, ownerApproval: { approved: true } }).ok,
+    true,
+    "override line + owner approval → no error",
+  );
+  const lineOnly = evaluatePullRequestPolicy({ ...modifiedApplied, body: editApproved });
+  assert.equal(lineOnly.ok, false, "override line without approval → still error");
+  assert.match(lineOnly.errors.join(" "), /Applied migrations never re-run on live/);
+  assert.match(lineOnly.errors.join(" "), /takes effect only after the owner approves/);
+  const labelOnly = evaluatePullRequestPolicy({
+    ...modifiedApplied,
+    body: docsBody,
+    ownerApproval: { approved: true },
+  });
+  assert.equal(
+    labelOnly.ok,
+    false,
+    "owner approval without the override line → still error (not bypassable by label alone)",
+  );
+  assert.equal(labelOnly.migrationHistoryViolations.length, 1);
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: `${completeBody}\n\nMigration history edit approved: <reason>`,
+      ownerApproval: { approved: true },
+    }).ok,
+    false,
+    "a placeholder reason does not satisfy the override",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: `${completeBody}\n\n<!-- Migration history edit approved: copied from a template comment -->`,
+      ownerApproval: { approved: true },
+    }).ok,
+    false,
+    "an override inside an HTML comment does not count",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: editApproved,
+      ownerApproval: {
+        approved: true,
+        rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
+      },
+    }).ok,
+    false,
+    "an App-applied label is not approval, even with the override line",
+  );
+  // Fail closed: an enforcing caller that cannot supply history inputs is blocked.
+  assert.match(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: editApproved,
+      fileStatuses: undefined,
+      ownerApproval: { approved: true },
+    }).errors.join(" "),
+    /migration history could not be verified/,
+  );
+  assert.match(
+    evaluatePullRequestPolicy({
+      ...modifiedApplied,
+      body: editApproved,
+      baseMigrationVersions: [],
+      ownerApproval: { approved: true },
+    }).errors.join(" "),
+    /migration history could not be verified/,
+  );
+
+  // --- Owner-merge hold --------------------------------------------------------------
+  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["docs/a.md"]), ["docs/a.md"]), []);
+  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["supabase/schema.sql"]), ["supabase/schema.sql"]), [
+    "database",
+    "clinical",
+  ]);
+  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), [
+    "clinical",
+    "rag-ranking",
+  ]);
+  const clinical = {
+    title: "fix: adjust clinical search tie-break",
+    body: completeBody,
+    headRef: "claude/clinical-fix",
+    files: ["src/lib/answer-synthesis.ts"],
+  };
+  const clinicalHeld = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
+  assert.equal(clinicalHeld.ok, false, "clinical + no approval + enforce → error");
+  assert.match(clinicalHeld.errors.join(" "), /Owner merge required \(clinical\)/);
+  assert.match(clinicalHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
+  assert.deepEqual(clinicalHeld.ownerMergeReasons, ["clinical"]);
+  assert.equal(clinicalHeld.ownerApproved, false);
+  assert.equal(
+    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
+    true,
+    "clinical + owner approval → ok",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
+    false,
+    "approval must be the boolean true, not a truthy value",
+  );
+  const appLabel = evaluatePullRequestPolicy({
+    ...clinical,
+    enforceOwnerMerge: true,
+    ownerApproval: {
+      approved: true,
+      rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
+    },
+  });
+  assert.equal(appLabel.ok, false, "rejectedReason → error even when approved is claimed");
+  assert.match(
+    appLabel.errors.join(" "),
+    /Owner approval rejected: owner-approved label was applied by a GitHub App \(codex\)/,
+  );
+  const docsPr = {
+    title: "docs: explain the review process",
+    body: completeBody,
+    headRef: "claude/docs",
+    files: ["docs/process-hardening.md"],
+  };
+  assert.equal(evaluatePullRequestPolicy({ ...docsPr, enforceOwnerMerge: true }).ok, true, "non-clinical docs PR → ok");
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...docsPr,
+      enforceOwnerMerge: true,
+      ownerApproval: {
+        approved: false,
+        rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
+      },
+    }).ok,
+    true,
+    "a rejected label on a PR that needs no owner merge is a warning, not a block",
+  );
+  // enforceOwnerMerge defaults to false, so existing callers keep today's behaviour.
+  assert.equal(evaluatePullRequestPolicy(clinical).ok, true, "enforce false → today's behaviour");
+  assert.equal(evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: false }).ok, true);
+  // A rename's previous path is classified: moving a file out of supabase/ still needs the owner.
+  assert.deepEqual(
+    evaluatePullRequestPolicy({
+      ...docsPr,
+      files: ["docs/archive/drift-manifest.json"],
+      fileStatuses: [
+        {
+          filename: "docs/archive/drift-manifest.json",
+          status: "renamed",
+          previous_filename: "supabase/drift-manifest.json",
+        },
+      ],
+      baseMigrationVersions: base,
+      enforceOwnerMerge: true,
+    }).ownerMergeReasons,
+    ["database", "clinical"],
+  );
+
+  // --- Replay: PR #2814 must fail, and must fail on history even with owner approval ----
+  const trustedVersions = migrationVersionsFromEntries(
+    readdirSync(new URL("../supabase/migrations/", import.meta.url)),
+  );
+  for (const version of ["20260824122000", "20260824123000", "20260830121000"])
+    assert.ok(trustedVersions.includes(version), `replay needs applied version ${version} on this tree`);
+  const replay = {
+    title: "Site content: services catalogue and control-plane correction",
+    body: completeBody,
+    headRef: "codex/site-content",
+    files: pr2814FileStatuses.map((file) => file.filename),
+    fileStatuses: pr2814FileStatuses,
+    baseMigrationVersions: trustedVersions,
+    enforceOwnerMerge: true,
+  };
+  const replayUnapproved = evaluatePullRequestPolicy(replay);
+  assert.equal(replayUnapproved.ok, false, "PR #2814 replay must fail");
+  assert.deepEqual(
+    replayUnapproved.migrationHistoryViolations.map((violation) => violation.version),
+    ["20260824122000", "20260824123000", "20260830121000"],
+  );
+  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database", "clinical"]);
+  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database, clinical\)/);
+  const replayApproved = evaluatePullRequestPolicy({ ...replay, ownerApproval: { approved: true } });
+  assert.equal(replayApproved.ok, false, "PR #2814 replay must fail on migration history even with owner approval");
+  assert.equal(
+    replayApproved.errors.filter((error) => /Applied migrations never re-run on live/.test(error)).length,
+    3,
+  );
+  assert.doesNotMatch(replayApproved.errors.join(" "), /Owner merge required/);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
