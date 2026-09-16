@@ -2,6 +2,7 @@ import type { ClinicalAskEvidence, ClinicalAskRequest, SourceReviewState } from 
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import { searchDifferentialRecords, searchPresentationWorkflows } from "@/lib/differentials";
+import { diagnosisOwnSummary } from "@/lib/differential-snapshot";
 import { dsmCatalogueProvenance, dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchFormRecords } from "@/lib/forms";
@@ -106,7 +107,7 @@ function differentialEvidence(request: ClinicalAskRequest) {
         title: record.title,
         publisher: snapshot.governance.sourceTitle,
         href: `/differentials/diagnoses/${record.slug}`,
-        extract: text([record.subtitle, record.clinicalHinge, record.safetySnapshot.summary]),
+        extract: text([record.subtitle, diagnosisOwnSummary(record), record.safetySnapshot.summary]),
         reviewState,
         updatedAt: snapshot.exportedAt,
       }),

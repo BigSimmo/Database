@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9f7175ba-66b8-4463-b124-d6338e8067aa",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Clinical owner sign-off for three new candidate sources and the RANZCP currentness correction",
+    "detail": "Commit d3f29a95f added three metadata-only candidates to src/data/source-acquisitions.json from the 2026-09-16 Differentials handover: ps-diff-src-who-icd11-cddr-2024 (WHO ICD-11 CDDR), ps-diff-src-au-ausprescr-movement-2019 and ps-diff-src-au-ausprescr-lithium-2020 (Australian Prescriber). All three sit at D band as candidate/unverified/link_only and cannot be cited by clinical content until reviewed. The same commit corrected ranzcp-mood-disorders-clinical-practice-guideline from documentStatus current to outdated against the publisher's own page, preserving the 2026-09-06 review. Next action: owner reviews each of the three against its publisher page and records the outcome, and confirms the RANZCP currentness correction. Also outstanding from the same handover and NOT applied: 20 held source records awaiting publication evidence, and 357 of 385 staged claims with no checked source passage.",
+    "source": "PsychSift Differentials handover reconciliation 2026-09-16; docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MRG1PCQP7H3XF4ZHWBSNXS"
+  }
+}

@@ -2,7 +2,7 @@
 // data/differentials-snapshot.json for the cross-mode "Also in your library" strip.
 //
 // The full ~1.2 MB snapshot backs the Differentials mode. The cross-mode links only
-// need a tiny {slug,title,clinicalHinge} diagnosis catalog plus presentation identity
+// need a tiny {slug,title,subtitle} diagnosis catalog plus presentation identity
 // and the search-alias map. Importing this precomputed index (instead of
 // @/lib/differentials) keeps the lazily-loaded cross-mode chunk from pulling the whole
 // snapshot. Re-run after editing the snapshot, then run Prettier (which owns the
@@ -43,12 +43,31 @@ const distinctTerms = (values) => {
   });
 };
 
+// Hinges written about a presentation group, keyed by their exact text. A
+// diagnosis carrying one of these is repeating its group, not describing itself.
+const presentationHinges = new Set(
+  snapshot.presentations.map((presentation) => presentation.safetySnapshot?.summary?.trim()).filter(Boolean),
+);
+
 const catalog = {
-  diagnoses: snapshot.diagnoses.map((diagnosis) => ({
-    slug: diagnosis.slug,
-    title: diagnosis.title,
-    clinicalHinge: diagnosis.clinicalHinge,
-  })),
+  // `subtitle` is the diagnosis's OWN one-line summary, never its presentation's
+  // clinical hinge. The hinge is written about the group — 201 diagnoses share
+  // just 31 hinges — so projecting it here made `social-anxiety-disorder` read as
+  // panic disorder and `acute-dystonia` read as akathisia. See the note in
+  // src/lib/dsm.ts and tests/differentials-presentation-scope.test.ts.
+  //
+  // This repeats the rule in withPresentationScope() in src/lib/differentials.ts
+  // because this generator is plain JS and cannot import it; the index test holds
+  // the two to the same answer.
+  diagnoses: snapshot.diagnoses.map((diagnosis) => {
+    const hinge = diagnosis.clinicalHinge?.trim() ?? "";
+    const ownHinge = hinge && !presentationHinges.has(hinge) ? hinge : "";
+    return {
+      slug: diagnosis.slug,
+      title: diagnosis.title,
+      subtitle: ownHinge || diagnosis.subtitle?.trim() || "",
+    };
+  }),
   presentations: snapshot.presentations.map((presentation) => {
     const metadata = presentationDisplayMetadata[presentation.id];
     const titleAliases = metadata

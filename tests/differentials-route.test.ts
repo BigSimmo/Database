@@ -161,11 +161,47 @@ describe("differentials API routes", () => {
           sections: [{ title: "Features", tone: "overlap", items: ["Exact item"] }],
           related: [],
         },
+        // Canonical payloads were published before presentation scope existed, so
+        // the route relabels them on the way out (`scopeDifferentialRecord`).
+        // Asserting the scoped shape keeps this test proving two things at once:
+        // the route adds the labels, and it alters nothing else. "Exact hinge" is
+        // not one of the corpus's group hinges, so it stays diagnosis-scoped; the
+        // section is not one of the two diagnosis-scoped criteria, so it is
+        // labelled group context, which is the conservative default.
+        expectedPayload: {
+          slug: "released-diagnosis",
+          title: "Released diagnosis",
+          status: "must-not-miss",
+          subtitle: "Canonical subtitle",
+          clinicalHinge: "Exact hinge",
+          clinicalHingeScope: "diagnosis",
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          sections: [{ title: "Features", tone: "overlap", items: ["Exact item"], scope: "presentation" }],
+          related: [],
+        },
       },
       {
         kind: "presentation",
         key: "presentations",
         renderPayload: {
+          id: "released-presentation",
+          title: "Released presentation",
+          sourceTitle: "Canonical source",
+          scopeLabel: "Exact scope",
+          titleAliases: ["Alias"],
+          status: "current",
+          subtitle: "Canonical subtitle",
+          selectedCount: 1,
+          totalCount: 1,
+          safetySnapshot: { summary: "Exact safety", tags: ["urgent"] },
+          criteria: [],
+          candidates: [],
+          reviewChecklist: [],
+          highestUrgencyNote: "Exact urgency",
+          sourceStatus: "current",
+        },
+        // No criteria on this fixture, so scoping is a no-op here.
+        expectedPayload: {
           id: "released-presentation",
           title: "Released presentation",
           sourceTitle: "Canonical source",
@@ -200,7 +236,7 @@ describe("differentials API routes", () => {
       const response = await GET(request(`/api/differentials?kind=${item.kind}`));
       const payload = (await response.json()) as Record<string, unknown>;
       expect({ status: response.status, payload }).toMatchObject({ status: 200, payload: { publicAccess: true } });
-      expect(payload[item.key]).toEqual([item.renderPayload]);
+      expect(payload[item.key]).toEqual([item.expectedPayload]);
     }
   });
 
