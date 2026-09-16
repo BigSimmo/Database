@@ -527,6 +527,90 @@ describe("the handover guide states the counts the data actually holds", () => {
   });
 });
 
+// A blocker list is a promise to an operator: do these things and the source becomes
+// admissible. Nothing checked that promise, so on 2026-09-16 two reviewers and I between
+// us recorded a version blocker that does not exist (`acquisitionLedgerIssues` accepts
+// "Not established" as text) while missing the one that does (a jurisdiction written as
+// "New South Wales; spinal cord injury" instead of the register's "Australia/NSW"). This
+// test does what none of us did: it hands the gate a record with the blockers cleared and
+// insists nothing is left over.
+describe("a blocker list is a complete remediation path", () => {
+  const candidates = JSON.parse(readFileSync("src/data/dictionary-source-candidates.json", "utf8")) as
+    Record<string, unknown>[] | { sources: Record<string, unknown>[] };
+  const candidateRecords = (Array.isArray(candidates) ? candidates : candidates.sources) as Record<string, unknown>[];
+
+  /** What the operator supplies once every recorded blocker is cleared. */
+  const REMEDIATION: Record<string, Record<string, unknown>> = {
+    "COPE-EPDS-2026": { version: "2026 edition", rung: 3 },
+    "NSW-ACI-SCI": { version: "2026 edition", rung: 4, jurisdiction: "Australia/NSW" },
+    "nsw-mental-assessment": { version: "2026 edition", rung: 4, jurisdiction: "Australia/NSW" },
+  };
+
+  /** Blockers that a record's own metadata cannot clear — an owner decision, not an operator's. */
+  const OWNER_DECISION = new Set(["host_not_in_inspected_governed_url_policy"]);
+
+  for (const [handoverSourceId, remediation] of Object.entries(REMEDIATION)) {
+    it(`leaves nothing unnamed for ${handoverSourceId}`, () => {
+      const disposition = dictionarySourceDispositions.find((entry) => entry.handoverSourceId === handoverSourceId);
+      expect(disposition, handoverSourceId).toBeDefined();
+      const candidate = candidateRecords.find((entry) => (entry.handoverSourceId ?? entry.id) === handoverSourceId);
+      expect(candidate, `${handoverSourceId} candidate`).toBeDefined();
+
+      const simulated = {
+        ...candidate,
+        id: `remediation-sim-${handoverSourceId.toLowerCase()}`,
+        disposition: "candidate",
+        dispositionReason: "remediation simulation",
+        capturedFor: "remediation simulation",
+        capturedAt: "2026-09-16",
+        publicationDate: "2026-01-15",
+        datePrecision: "day",
+        reviewDate: null,
+        expiryDate: null,
+        supersededBy: [],
+        topics: (candidate as { topics?: string[] }).topics ?? ["Simulation"],
+        ...remediation,
+      } as Record<string, unknown>;
+      delete simulated.handoverSourceId;
+
+      const remaining = acquisitionLedgerIssues([
+        simulated as unknown as (typeof sourceAcquisitionRecords)[number],
+      ]).map((issue) => issue.replace(`${simulated.id as string}: `, ""));
+
+      // Whatever survives must be a blocker the disposition already names, or the
+      // operator was promised something the register will not honour.
+      const ownerBlocked = disposition!.blockers.some((blocker) => OWNER_DECISION.has(blocker.code));
+      if (ownerBlocked) {
+        expect(remaining.length, `${handoverSourceId}: ${remaining.join(" | ")}`).toBeGreaterThan(0);
+      } else {
+        expect(remaining, `${handoverSourceId} has unnamed blockers`).toEqual([]);
+      }
+    });
+  }
+
+  it("does not tell an operator the ledger rejects a version the ledger accepts", () => {
+    // The falsehood this was written after, which sat on 16 records: "No version or
+    // edition identifier is established, which the ledger requires of a non-rejected
+    // record." acquisitionLedgerIssues requires only NON-EMPTY TEXT, and every one of
+    // those 16 has non-empty text ("Not established", "Live official reference"), so the
+    // gate accepts them all. The governance point is real; the stated mechanism was not.
+    const byHandoverId = new Map(
+      candidateRecords.map((entry) => [(entry.handoverSourceId ?? entry.id) as string, entry]),
+    );
+    for (const disposition of dictionarySourceDispositions) {
+      const blocker = disposition.blockers.find((entry) => entry.code === "version_unknown");
+      if (!blocker) continue;
+      const version = (byHandoverId.get(disposition.handoverSourceId) as { version?: unknown } | undefined)?.version;
+      const empty = version === null || version === undefined || String(version).trim() === "";
+      if (empty) continue; // then the ledger really does reject it, and saying so is correct
+      expect(
+        blocker.blocker,
+        `${disposition.handoverSourceId} claims the ledger requires a version it already accepts`,
+      ).not.toMatch(/ledger requires|requires of a non-rejected record/i);
+    }
+  });
+});
+
 describe("an update stamp is not a review and not a publication", () => {
   it("banks update statements without admitting them", () => {
     // WA's Chief Psychiatrist, RCH and AIHW's monitoring hubs all stamp a
