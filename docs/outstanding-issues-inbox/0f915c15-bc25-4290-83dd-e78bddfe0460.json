@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0f915c15-bc25-4290-83dd-e78bddfe0460",
+  "createdOn": "2026-09-16",
+  "action": "done",
+  "payload": {
+    "id": "#K8CWRG",
+    "outcome": "RESOLVED 2026-09-16 by commit 37d6eddf6: sourceCompleteness is null on all 205 Therapy records; catalogue asset and site-content manifest baseline regenerated; Meter already renders null as Unknown. Consumed from reconciliation note #8YXSQ1 on PR #2817 rather than leaving the completed patch as an open P1.",
+    "baseRowFingerprint": "ed0cebeb2c4028090de23cf5f8cb6a28b6b4fca27e37a70e3f312a395512bca2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f7fca8ed-45d4-4038-864d-88a49078b087",
+  "createdOn": "2026-09-16",
+  "action": "done",
+  "payload": {
+    "id": "#X05W2V",
+    "outcome": "RESOLVED 2026-09-16 on PR #2817 as duplicate: the same four AIHW pages, WA Health PDF, and recovery-framework browser reads are already owned by broader date task #WY625D; METEOR host blocker remains separately on #F5GHS1. Folded rather than keeping a second open browser pass.",
+    "baseRowFingerprint": "d1a83cb4e55523af0bd4385a6d8705de1f50b2b1e42a7bdf5fd3c423d6f800cb"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "b6cf2d1f-baf3-426a-8bbd-f46e226ed1ad",
+  "createdOn": "2026-09-16",
+  "action": "update",
+  "payload": {
+    "id": "#4DFNHJ",
+    "summary": "Owner re-attestation still owed on six ledger sources whose metadata corrections already landed",
+    "detail": "IMPLEMENTED 2026-09-16 by commit 2f7072e43: the six publisher-page corrections (RANZCP mood guideline documentStatus outdated; five Chief Psychiatrist guidelines publicationDate 2015-12-01 and version December 2025 revision) are applied. Residual only: all six remain validationStatus locally_reviewed from the owner's 2026-09-06 sign-off, which predates the corrections, so each still needs owner re-attestation rather than another agent edit. CORRECTION to the original claim that wrong publication dates overstated Currency by about ten years: Currency is scored from documentStatus alone in src/lib/sources/catalogue-core.ts; publicationDate contributes only a boolean to traceability. Measured: the five Chief Psychiatrist guidelines score 91 band A both before and after; only the RANZCP documentStatus change moved a score (band A to B, 89 to 74). Verify with npm run check:source-acquisitions.",
+    "source": "PsychSift Therapy Claude cloud handover session, 2026-09-16; consumed via #8YXSQ1 on PR #2817",
+    "baseRowFingerprint": "10177714e78b35b4dfaa041e5fcd773ce78991afc1c6d2c07a03b2e7aca8bde8"
+  }
+}
