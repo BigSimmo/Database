@@ -118,6 +118,22 @@ All three entered as metadata-only candidates. None was set to `adopted`, `appro
 | `npm run plan:browser`                                                                                                                    | —     | escalates to `full`, because `data/repo-awareness-snapshot.json` is unattributable. It still names the real target: `differential-detail-page.tsx` to `tests/ui-tools.spec.ts` |
 | `node scripts/run-playwright.mjs --project=chromium tests/ui-tools.spec.ts --grep "diagnosis detail actions stay tappable\|differential"` | 0     | 13 passed, including the journey asserting `differential-clinical-hinge`                                                                                                       |
 
+`npm run verify:pr-local` completed all 40 gates with none failed and none skipped,
+including `build`, `lint`, `typecheck`, the full `test` suite, `check:clinical-hazard-controls`,
+`check:owner-scope`, `check:function-grants`, `check:migration-role`, `check:cross-mode-index`
+and `check:calculator-content`. Two earlier runs failed for environment reasons and were
+re-run to completion rather than reported as passes: `build` refused while the dev server
+from `npm run ensure` was still up, and the outstanding-issues snapshot guard caught that
+run's own `prebuild --with-pending` side effect.
+
+`npm run check:production-readiness` exits 1 at its privacy half on six release-blocking
+approvals (`PRIV-PROVIDER-OPENAI-ZDR`, the three legal DPA/APP items, `PRIV-LEGAL-APP1-APP5-NOTICE`
+and `PRIV-CLINICAL-PHI-MINIMISATION`). That failure is **pre-existing and not caused by this
+change**: it reproduces identically on base `66105e18d`, and it is already tracked as P1
+`#BS3SN9`. The readiness check itself, run past that gate, reports
+`READY: no blocking production-readiness failures`; its warnings are all absent local env in
+a cloud session.
+
 This is a **focused browser proof, not `verify:ui`**. The full Chromium suite is left to
 CI, which runs it on a non-draft pull request. `npm run ensure` served the app at
 `http://localhost:4598` and `/api/local-project-id` confirmed `PsychSift` /
