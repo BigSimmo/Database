@@ -20,7 +20,10 @@ describe("K10 is described as one accepted measure, not the standard", () => {
     const k10 = fixture("k10");
     expect(k10).toBeDefined();
     expect(k10?.indication).not.toMatch(/standard for Australian mental-health care plans/i);
-    expect(k10?.indication).toMatch(/one of several accepted outcome measures/i);
+    // The replacement must not assert program policy either: source:k10 is a 2003 ABS
+    // information paper covering scoring and population bands, not Better Access eligibility.
+    expect(k10?.indication).not.toMatch(/better access/i);
+    expect(k10?.indication).toMatch(/not a diagnostic instrument/i);
   });
 
   it("keeps the same wording out of the mockup fixture set", () => {
@@ -78,6 +81,15 @@ describe("the Australian standard-drinks guide is not AUDIT-C validation evidenc
     expect(drinksGuide?.limitations.join(" ")).toMatch(/does not validate AUDIT-C/i);
   });
 
+  it("supports the all-adults interpretation with a women-inclusive validation source", () => {
+    // Bush et al. 1998 excluded women, so it cannot alone carry a claim stated for adult men and
+    // women. Bradley et al. 2007 reports AUROCs in both sexes and is what extends it.
+    const interpretation = claim("claim:auditc:interpretation");
+    expect(interpretation?.population).toMatch(/men and women/i);
+    expect(interpretation?.sourceIds).toContain("source:auditc:thresholds");
+    expect(source("source:auditc:thresholds")?.claimsSupported).toContain("claim:auditc:interpretation");
+  });
+
   it("registers the screening-performance and threshold studies under their own source ids", () => {
     expect(source("source:auditc:validation")?.claimsSupported).toContain("claim:auditc:interpretation");
     expect(source("source:auditc:thresholds")?.claimsSupported).toContain("claim:auditc:thresholds");
@@ -96,7 +108,10 @@ describe("the Australian standard-drinks guide is not AUDIT-C validation evidenc
     if (!auditcFixture) return;
     const derived = deriveCalculator(auditcFixture, { a1: 1, a2: 1, a3: 1 });
     const pairs = actionsForBand(auditcFixture, derived).map((entry) => [entry.sourceIds, entry.claimIds]);
-    expect(pairs).toContainEqual([["source:auditc:validation"], ["claim:auditc:interpretation"]]);
+    expect(pairs).toContainEqual([
+      ["source:auditc:validation", "source:auditc:thresholds"],
+      ["claim:auditc:interpretation"],
+    ]);
     expect(pairs).toContainEqual([["source:auditc:thresholds"], ["claim:auditc:thresholds"]]);
     expect(pairs).toContainEqual([["source:auditc"], ["claim:auditc:units"]]);
   });

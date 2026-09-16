@@ -48,7 +48,7 @@ const considerationsByCalculator: Record<string, ClinicalConsideration[]> = {
     {
       label:
         "Interpret AUDIT-C with alcohol history and assessment of dependence or withdrawal where relevant. A completed score screens reported consumption and does not diagnose an alcohol use disorder.",
-      sourceIds: ["source:auditc:validation"],
+      sourceIds: ["source:auditc:validation", "source:auditc:thresholds"],
       claimIds: ["claim:auditc:interpretation"],
     },
     {

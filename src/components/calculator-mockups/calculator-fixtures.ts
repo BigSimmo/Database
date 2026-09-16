@@ -262,7 +262,7 @@ export const calculators: CalculatorFixture[] = [
     domain: "distress",
     icon: Activity,
     indication:
-      "Measure non-specific psychological distress over the past 4 weeks. One of several accepted outcome measures under Better Access, not a required or standard instrument.",
+      "Measure non-specific psychological distress over the past 4 weeks as a screening and monitoring measure, not a diagnostic instrument.",
     summary: "10-item distress measure scored 10–50, widely used across Australian primary care.",
     stem: "In the past 4 weeks, about how often did you feel:",
     timeEstimate: "2–3 min",

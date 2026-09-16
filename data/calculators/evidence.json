@@ -122,7 +122,7 @@
       "url": "https://pubmed.ncbi.nlm.nih.gov/17451397/",
       "jurisdiction": "International",
       "status": "reviewed",
-      "claimsSupported": ["claim:auditc:thresholds"],
+      "claimsSupported": ["claim:auditc:interpretation", "claim:auditc:thresholds"],
       "limitations": [
         "Thresholds of 4 or more for men and 3 or more for women were derived in a United States academic family-practice sample, not an Australian one.",
         "Optimal thresholds vary by population and setting, so the convention in use must be stated rather than assumed."
@@ -296,7 +296,7 @@
     },
     {
       "id": "claim:k10:interpretation",
-      "text": "A completed K10 total of 10-50 describes non-specific psychological distress over the past 4 weeks. Distress bands are not diagnostic categories and K10 is one of several accepted outcome measures rather than a required instrument.",
+      "text": "A completed K10 total of 10-50 describes non-specific psychological distress over the past 4 weeks. Distress bands are population distress groupings, not diagnostic categories, and a score does not establish a diagnosis or a management decision.",
       "population": "Adults, Australian population context",
       "supportLocator": "Australian Bureau of Statistics 2003 K10 information paper, scoring and population-band sections.",
       "sourceIds": ["source:k10", "source:governance"]
@@ -311,9 +311,9 @@
     {
       "id": "claim:auditc:interpretation",
       "text": "A completed AUDIT-C total of 0-12 screens reported alcohol consumption for heavy drinking and possible alcohol use disorder. A score does not itself diagnose dependence or determine management.",
-      "population": "Adults in general medical and primary care settings",
-      "supportLocator": "Bush et al. 1998, AUROC and screening-performance results for the three AUDIT consumption items.",
-      "sourceIds": ["source:auditc:validation", "source:governance"]
+      "population": "Adult men and women in general medical and primary care settings",
+      "supportLocator": "Bush et al. 1998, AUROC and screening-performance results for the three AUDIT consumption items (men only); Bradley et al. 2007, AUROCs of 0.94 in men and 0.90 in women in primary care, which is what extends the interpretation to women.",
+      "sourceIds": ["source:auditc:validation", "source:auditc:thresholds", "source:governance"]
     },
     {
       "id": "claim:auditc:thresholds",
