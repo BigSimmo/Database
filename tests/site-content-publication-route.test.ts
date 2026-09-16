@@ -613,40 +613,49 @@ describe("canonical dynamic public projection", () => {
 
     const keysOf = (value: unknown) =>
       value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value) : null;
-    const universe = (pick: (entry: (typeof current)[number]) => unknown) => {
-      const all = new Set<string>();
-      for (const entry of current) {
-        const keys = keysOf(pick(entry));
-        expect(keys, "the current projection must emit objects").not.toBeNull();
-        for (const key of keys!) all.add(key);
-      }
-      return all;
-    };
+    /** `services:x` -> `services`, `differentials:diagnosis:x` -> `differentials:diagnosis`. */
+    const kindOf = (logicalId: string) => logicalId.split(":").slice(0, -1).join(":");
 
     // An optional field is absent from a record that has no value for it, so the key set of one
     // record is content-dependent and cannot be compared to another record's. What is NOT
     // content-dependent is the VOCABULARY: every key the projection can emit today. A rename or a
     // removal leaves the frozen bytes carrying a key nothing reads, and that is what this catches.
     //
-    // Only that direction is checked. A key added after 2026-08-24 is absent from the freeze by
-    // definition, so requiring the freeze to carry today's mandatory keys would re-create the
-    // failure-by-construction this test was rewritten to remove.
-    const recordKeyUniverse = universe((entry) => entry.record);
-    const renderKeyUniverse = universe((entry) => entry.renderPayload);
-    expect(recordKeyUniverse.size, "the projection must emit record keys to pin").toBeGreaterThan(0);
+    // PER KIND, not pooled. A medication payload and a service payload share almost nothing — the
+    // union across all five kinds is 49 keys while any one kind emits 11 to 22, so a pooled
+    // vocabulary silently tolerates dropping a service key that medications happen to also emit.
+    //
+    // Only the "no longer emitted" direction is checked. A key added after 2026-08-24 is absent
+    // from the freeze by definition, so requiring the freeze to carry today's mandatory keys would
+    // re-create the failure-by-construction this test was rewritten to remove.
+    const universes = new Map<string, { record: Set<string>; render: Set<string> }>();
+    for (const entry of current) {
+      const kind = kindOf(entry.logicalId as string);
+      const bucket = universes.get(kind) ?? { record: new Set<string>(), render: new Set<string>() };
+      for (const key of keysOf(entry.record) ?? []) bucket.record.add(key);
+      for (const key of keysOf(entry.renderPayload) ?? []) bucket.render.add(key);
+      universes.set(kind, bucket);
+    }
+    expect(universes.size, "the projection must emit more than one kind to pin per kind").toBeGreaterThan(1);
 
     for (const entry of frozen) {
+      const logicalId = entry.logicalId as string;
+      const kind = kindOf(logicalId);
+      const bucket = universes.get(kind);
+      // A frozen record whose whole KIND has gone is a real break: nothing in the catalogue can
+      // still render what live is serving from the freeze.
+      expect(bucket, `frozen seed record ${logicalId} belongs to a kind the catalogue no longer emits`).toBeDefined();
       const recordKeys = keysOf(entry.record);
       const renderKeys = keysOf(entry.renderPayload);
-      expect(recordKeys, `frozen seed record ${entry.logicalId} is not an object`).not.toBeNull();
-      expect(renderKeys, `frozen seed record ${entry.logicalId} render payload is not an object`).not.toBeNull();
+      expect(recordKeys, `frozen seed record ${logicalId} is not an object`).not.toBeNull();
+      expect(renderKeys, `frozen seed record ${logicalId} render payload is not an object`).not.toBeNull();
       expect(
-        recordKeys!.filter((key) => !recordKeyUniverse.has(key)),
-        `frozen seed record ${entry.logicalId} carries record keys the projection no longer emits`,
+        recordKeys!.filter((key) => !bucket!.record.has(key)),
+        `frozen seed record ${logicalId} carries record keys the projection no longer emits`,
       ).toEqual([]);
       expect(
-        renderKeys!.filter((key) => !renderKeyUniverse.has(key)),
-        `frozen seed record ${entry.logicalId} carries render keys the projection no longer emits`,
+        renderKeys!.filter((key) => !bucket!.render.has(key)),
+        `frozen seed record ${logicalId} carries render keys the projection no longer emits`,
       ).toEqual([]);
     }
   });

@@ -7,10 +7,14 @@
  * ---------------
  * Both files embed two dollar-quoted JSON blobs: the complete dynamic seed
  * population (`site_content_bootstrap_records`) and the registry baselines
- * (`site_content_registry_baselines`). Two committed tests assert that those
- * blobs equal the catalogue currently in the repository, so adding a single
- * service record makes both fail by construction. Until now there was no
- * committed generator, so the only recorded refresh was a hand edit.
+ * (`site_content_registry_baselines`).
+ *
+ * This script was written because two committed tests asserted those blobs
+ * equalled the catalogue currently in the repository, so adding a single service
+ * record made both fail by construction. That contract is gone: the blobs are
+ * frozen at 2026-08-24 and `tests/site-content-epoch-zero-freeze.test.ts` now pins
+ * their bytes. Nothing in the repository asks for a refresh any more, which is why
+ * `--write` refuses below.
  *
  * Everything this script emits is derived, and every derivation is proved
  * against the committed blob before anything is written: the run fails unless
@@ -57,7 +61,6 @@ import { canonicalDynamicSiteContentProjection } from "@/lib/site-content/site-c
 const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
-const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
 /** Applied migrations that pin the bootstrap identity but hold none of its data.
  *  A pin left on the old identity makes their functions reject the refreshed release on
  *  replay.
@@ -387,8 +390,11 @@ const WRITE_REFUSAL = [
   "docs/site-content-sync-runbook.md. A SQL lookup that must serve newer records is refreshed by a",
   "NEW forward migration, which the integration does apply.",
   "",
-  "--check still works and is the useful half: it proves every frozen entry still derives from the",
-  "catalogue byte-for-byte.",
+  "--check still works and reports how far the catalogue has moved from the freeze. Read what it",
+  "proves precisely: it re-derives each frozen entry FROM ITS OWN FROZEN RECORD, so it shows this",
+  "script's formulas still reproduce the freeze. It does NOT prove the freeze matches the current",
+  "catalogue, and it is not a gate — nothing runs it. The bytes are pinned by",
+  "tests/site-content-epoch-zero-freeze.test.ts.",
 ].join("\n");
 
 function main() {
@@ -410,19 +416,14 @@ function main() {
   if (!migration.includes(oldId)) throw new Error("The recomputed frozen release id is not present in the migration.");
   if (frozenDigest !== oldDigest) throw new Error("Digest derivation is unstable.");
 
-  // `site-content-health.ts` decides whether the running site is on its retained
-  // bootstrap by matching the active release against a fixed set of ids. The id moves
-  // with the population, so a refresh that forgets to add the new one ships code that
-  // cannot recognise its own bootstrap. Refuse to write until it is listed.
-  const health = readFileSync(HEALTH_MODULE, "utf8");
-  if (!health.includes(newId)) {
-    throw new Error(
-      `${HEALTH_MODULE} does not list the refreshed bootstrap release id.\n` +
-        `Add this line to RETAINED_BOOTSTRAP_RELEASE_IDS, keeping the existing ids:\n` +
-        `  "${newId}",\n` +
-        "Never remove an id a live database may still hold.",
-    );
-  }
+  // There used to be a check here that refused unless `site-content-health.ts` already listed
+  // the RECOMPUTED release id, with a message telling the operator to add it. It is removed,
+  // and deliberately not replaced. It guarded a write path that no longer exists, and its
+  // advice was the opposite of the rule that module now states: a new id in that set means an
+  // applied migration was rewritten, which is the defect, not the remedy. Leaving it in place
+  // also made the set's second entry load-bearing for this script, so a tolerance list for
+  // production states was quietly keeping a generator quiet.
+  // `tests/site-content-epoch-zero-freeze.test.ts` asserts the set has exactly its two members.
 
   if (entries.length === frozenEntries.length && newDigest === oldDigest) {
     console.log("Nothing to refresh: the frozen bootstrap already matches the catalogue.");

@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -27,7 +28,14 @@ import { describe, expect, it } from "vitest";
  * `docs/site-content-sync-runbook.md`; a lookup that must serve newer records is refreshed by a NEW
  * forward migration, never by editing one of the four that pin this identity.
  *
- * If this test fails, do not update the constants. Restore the migration.
+ * IF THIS TEST FAILS, do not update the constants — restore the migration.
+ *
+ * ONE EXCEPTION, and it is the remedy the runbook prescribes rather than a way round this test:
+ * a NEW forward migration may legitimately name this release id, because the integration applies
+ * new versions and that is how a lookup serving post-freeze records is refreshed. Such a file
+ * makes the sweep below fail on its file list, and the correct response is to ADD it to
+ * `APPLIED_MIGRATIONS`. The constants above still never change: a new migration references the
+ * frozen identity, it does not mint a different one.
  */
 
 /** The epoch-zero release id the live database holds. Applied 2026-09-11; immutable. */
@@ -38,6 +46,21 @@ const APPLIED_RELEASE_DIGEST = "57f6ec90225fc4341b446705f50a48b132f2872172d8f938
 const APPLIED_RECORD_COUNT = 843;
 /** Registry baseline entries frozen for SQL null and forced-field merging. */
 const APPLIED_BASELINE_COUNT = 281;
+
+/**
+ * sha256 of each frozen blob's exact bytes. These are the real immutability pin, and counting
+ * entries is not a substitute for them.
+ *
+ * The records blob is also covered at replay time by the migration's own
+ * `site_content_bootstrap_digest` self-check. The BASELINES blob is covered by nothing else at
+ * all: no digest hashes it, so before these pins existed, replacing all 281 values with `{}`,
+ * shifting them by one, or re-keying every `service:` to `svc:` passed every offline gate. The
+ * last one would have made every baseline lookup in `site_content_registry_source_render`
+ * resolve to null and silently drop the forced-field merge, and only a post-merge `check:drift`
+ * on the function body would have noticed — after it reached production.
+ */
+const APPLIED_RECORDS_BLOB_SHA256 = "9d265e095a0a3a5c9c97daabdf1a9b1bcce9506fee40c2412bc4159569a02e6f";
+const APPLIED_BASELINES_BLOB_SHA256 = "66290d5ce5213a175747aa35b4bb60960006ebfed6a0408d721326c2371feb29";
 
 const BOOTSTRAP_MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql";
 const HEALTH_PROBE_MIGRATION = "supabase/migrations/20260824123000_add_site_content_health_probe.sql";
@@ -94,8 +117,12 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     }
     expect(offenders, "a migration quotes a uuid that is neither the epoch-zero release nor a sentinel").toEqual([]);
     // Non-vacuous: the sweep must actually have seen the release, or an accidental deletion of it
-    // everywhere would read as "no offenders".
-    expect(naming.sort()).toEqual([...APPLIED_MIGRATIONS].sort());
+    // everywhere would read as "no offenders". A NEW forward migration that legitimately names the
+    // release belongs in APPLIED_MIGRATIONS — see the exception in this file's header.
+    expect(
+      naming.sort(),
+      "a migration names the release id without being listed in APPLIED_MIGRATIONS (a new forward migration may; a regeneration may not)",
+    ).toEqual([...APPLIED_MIGRATIONS].sort());
   });
 
   it("refuses to regenerate the freeze", () => {
@@ -124,6 +151,37 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
       APPLIED_BASELINE_COUNT,
     );
     expect(read(HEALTH_PROBE_MIGRATION)).toContain(`expected_record_count = ${APPLIED_RECORD_COUNT}`);
+  });
+
+  it("pins both frozen blobs byte for byte", () => {
+    // Counting entries says nothing about their contents. This is what actually holds the
+    // freeze immutable offline, and for the baselines blob it is the only thing that does.
+    const migration = read(BOOTSTRAP_MIGRATION);
+    const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+    expect(sha(blob(migration, "site_content_bootstrap_records")), "the frozen seed population changed").toBe(
+      APPLIED_RECORDS_BLOB_SHA256,
+    );
+    expect(sha(blob(migration, "site_content_registry_baselines")), "the frozen registry baselines changed").toBe(
+      APPLIED_BASELINES_BLOB_SHA256,
+    );
+  });
+
+  it("keeps every frozen baseline key in the shape SQL looks it up by", () => {
+    // site_content_registry_baseline resolves `p_kind || ':' || lower(btrim(p_slug))`, so a
+    // re-keyed blob returns null for every record and the forced-field merge silently vanishes.
+    const keys = Object.keys(JSON.parse(blob(read(BOOTSTRAP_MIGRATION), "site_content_registry_baselines")));
+    expect(keys.filter((key) => !/^(?:service|form):[a-z0-9-]+$/.test(key))).toEqual([]);
+    expect(keys.filter((key) => key.startsWith("service:")).length).toBeGreaterThan(0);
+    expect(keys.filter((key) => key.startsWith("form:")).length).toBeGreaterThan(0);
+  });
+
+  it("recognises exactly the release ids a database may hold", () => {
+    // Adding a third id is how a regeneration would make itself pass. The generator used to
+    // demand exactly that, in a message that contradicted the module's own rule; it no longer
+    // does, and this makes a third id a deliberate test edit rather than a quiet one.
+    const module = read("src/lib/site-content/site-content-health.ts");
+    const ids = [...new Set(module.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [])];
+    expect(ids).toEqual([APPLIED_RELEASE_ID, "91ceaa8d-470c-5661-8ce6-980c2a1bb137"]);
   });
 
   it("keeps the schema mirror and drift manifest on the same identity", () => {
