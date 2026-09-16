@@ -2747,6 +2747,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/audit/2026-09-16-registry-search-outage.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/disaster-recovery-runbook.md",
         "section": "root",
         "catalogued": true
