@@ -8,6 +8,7 @@ import { dictionaryEntries, dictionarySource } from "@/lib/dictionary-data";
 import { dsmDiagnoses } from "@/lib/dsm";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
 import { formulationMechanisms, formulationSourceLibrary } from "@/lib/formulation";
+import { publishedFormulationGuides } from "@/lib/formulation-concepts";
 import type { MedicationRecordRow } from "@/lib/medication-records";
 import {
   clinicalRegistryRowsToCorpusEntries,
@@ -77,7 +78,7 @@ function buildDsmRecords() {
 
 function buildFormulationRecords() {
   const producer = staticProducer("formulation");
-  return formulationMechanisms.map((mechanism) =>
+  const mechanisms = formulationMechanisms.map((mechanism) =>
     createSiteContentRecord({
       version: "site-content-record-v1",
       logicalId: `formulation:${mechanism.id}`,
@@ -115,6 +116,25 @@ function buildFormulationRecords() {
       ],
     }),
   );
+  // Published guide modules share the /formulation/[slug] route family. Without a
+  // static site-content row and a search-index entry they have no inbound path.
+  const guides = publishedFormulationGuides.map((guide) =>
+    createSiteContentRecord({
+      version: "site-content-record-v1",
+      logicalId: `formulation:${guide.id}`,
+      producerClass: "static_repository",
+      domain: "formulation",
+      route: producer.routeBuilder(guide.id),
+      title: guide.title,
+      body: [guide.summary, ...guide.searchTerms].filter(Boolean).join("\n"),
+      sourceRole: "clinical_reference",
+      access: "public",
+      validationStatus: "unverified",
+      sourceStatus: "review_due",
+      sourceLineage: repositoryLineage("src/data/formulation-concepts.json", guide),
+    }),
+  );
+  return [...mechanisms, ...guides];
 }
 
 function loadPublicFullTherapyRecords(): Therapy[] {

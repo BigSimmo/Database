@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { Info, Network, ShieldCheck } from "lucide-react";
+import { Info, Network, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { cn } from "@/components/ui-primitives";
+import { cn, eyebrowText } from "@/components/ui-primitives";
+import type { FormulationEvidenceRef } from "@/lib/formulation-concepts";
 
 /** Was byte-identical to `specifierCard`; both now name the shared recipe. */
 export const formulationCard = cardSurface;
@@ -79,3 +80,92 @@ export function SessionPrivacyNote() {
 }
 
 export { SectionHeading } from "@/components/ui/section-heading";
+
+export function MechanismCaveats({ items }: { items: string[] }) {
+  if (!items.length) return null;
+  return (
+    <section
+      aria-labelledby="formulation-caveats-label"
+      className={cn(
+        formulationCard,
+        "grid gap-2.5 border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] p-4 sm:p-5",
+      )}
+    >
+      <div className="flex items-center gap-2 text-[color:var(--warning)]">
+        <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />
+        <p id="formulation-caveats-label" className={eyebrowText}>
+          Caveats for this record
+        </p>
+      </div>
+      <ul className="grid gap-1.5 text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--warning)]" aria-hidden />
+            {item}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * Citations rendered where the claim is made.
+ *
+ * A reference whose host `source-url-policy.ts` does not govern keeps its
+ * identity, its issuer and its DOI or PMID and loses only the outbound link.
+ * Saying so is the point: a clinician can still find the work, and nobody is
+ * told the repository has admitted a location it has not.
+ */
+export function EvidenceList({ evidence, label = "Evidence" }: { evidence: FormulationEvidenceRef[]; label?: string }) {
+  if (!evidence.length) return null;
+  return (
+    <div className="grid gap-3">
+      {evidence.map((entry) => (
+        <article
+          key={`${entry.sourceId}-${entry.label}`}
+          id={`evidence-${entry.label}`}
+          className="grid scroll-mt-24 gap-1"
+        >
+          <p className="text-xs font-bold leading-5 text-[color:var(--text-heading)]">
+            <span className="mr-1.5 inline-flex min-w-8 justify-center rounded bg-[color:var(--surface-subtle)] px-1.5 py-0.5 font-extrabold text-[color:var(--clinical-accent)]">
+              {entry.label}
+            </span>
+            {entry.admission !== "held" && entry.url ? (
+              <a
+                href={entry.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[color:var(--clinical-accent)] hover:underline"
+              >
+                {entry.title}
+              </a>
+            ) : (
+              entry.title
+            )}
+          </p>
+          <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+            {[entry.issuer, entry.identifier, entry.locator].filter(Boolean).join(" · ")}
+          </p>
+          {entry.limitations.map((limitation) => (
+            <p key={limitation} className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+              {limitation}
+            </p>
+          ))}
+          {entry.admission === "held" ? (
+            <p className="text-2xs font-medium leading-4 text-[color:var(--warning)]">
+              Link withheld: this source remains held and is cited as metadata only.
+            </p>
+          ) : entry.urlStatus === "host_not_governed" ? (
+            <p className="text-2xs font-medium leading-4 text-[color:var(--warning)]">
+              Link withheld: this publisher&rsquo;s host is not on the governed source list.
+            </p>
+          ) : null}
+        </article>
+      ))}
+      <p className="text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+        {label} references only. Source metadata is reviewed; the clinical claim is not independently approved.
+      </p>
+    </div>
+  );
+}

@@ -71,9 +71,9 @@
   },
   "mechanisms": [
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Anxiety", "Panic", "Low mood", "Trauma intrusions"],
       "diagnosticContexts": ["Anxiety disorders", "PTSD", "Depression", "Personality difficulties"],
       "protective": [],
@@ -81,7 +81,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Actual safety and practical barriers come before a fear-maintenance interpretation.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Distress drops quickly after the person escapes, postpones, suppresses, or narrows activity.",
@@ -91,14 +94,15 @@
       "poorFitIndicators": [
         "Withdrawal is mainly due to low energy, cognitive impairment, environmental barriers, or lack of opportunity.",
         "The person approaches feared situations but becomes overwhelmed by dissociation, confusion, or psychosis.",
-        "The behaviour is a deliberate values-based boundary rather than a fear-maintenance cycle."
+        "The behaviour is a deliberate values-based boundary rather than a fear-maintenance cycle.",
+        "Alternative explanations to exclude: genuine danger, financial or transport barriers, fatigue, depression, cognitive or executive difficulties, sensory overload, values-based boundaries and dissociation. The presence of relief does not resolve these alternatives."
       ],
       "caseExample": "A patient stops attending appointments after panic symptoms in the waiting room; relief after cancelling strengthens the belief that attending is unsafe.",
       "treatmentTargetExample": "Plan graded appointment attendance with reduced safety behaviours and a brief post-session review of what was learned.",
       "name": "Avoidance",
-      "definition": "A pattern of keeping away from internal experiences, situations, people, or tasks that trigger distress or perceived threat.",
+      "definition": "Moving away from, postponing or restricting contact with an internal experience, activity, person or situation. Avoidance is not automatically maladaptive. Its safety, function and longer-term cost matter.",
       "summary": "Avoidance reduces distress in the short term but commonly maintains anxiety, trauma responses, functional impairment, and interpersonal narrowing.",
-      "coreProcess": "Threat appraisal activates escape, safety behaviour, suppression, or disengagement, which prevents corrective learning and narrows coping options.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: anticipated threat → escape or postponement → immediate relief → fewer opportunities for new learning or valued activity → persisting restriction. Evidence about safety behaviours supports attention to function rather than a blanket instruction to remove them.",
       "development": "Often develops after repeated threat, criticism, shame, trauma, panic, social defeat, or reinforcement from short-term relief.",
       "predisposing": ["High threat sensitivity", "Trauma exposure", "Low perceived coping efficacy"],
       "precipitating": ["New perceived threat", "Interpersonal conflict", "Panic or intrusive memory"],
@@ -125,15 +129,70 @@
       "treatmentImplications": [
         "Graded exposure or behavioural experiments",
         "Reduce safety behaviours",
-        "Clarify avoided affect or meanings"
+        "Clarify avoided affect or meanings",
+        "Address the barrier or actual danger first. When a maintaining avoidance cycle is supported, consider a collaborative graded approach or behavioural experiment appropriate to the disorder and setting. Do not remove necessary safety measures or disability accommodations."
       ],
       "treatmentLeverage": "Target the relief-maintenance loop and build tolerable approach behaviours.",
-      "id": "avoidance"
+      "id": "avoidance",
+      "evidence": [
+        {
+          "label": "S23",
+          "sourceId": "psychsift.formulation.source.safety-goetz",
+          "nativeSourceId": null,
+          "title": "The functional value of preventive and restorative safety behaviors: A systematic review of the literature",
+          "issuer": "Clinical Psychology Review (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/26776082/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.cpr.2015.12.005",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Anxiety/exposure literature, not a basis to remove real-world safeguards or reasonable accommodations."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.avoidance.ask",
+            "psychsift.formulation.claim.avoidance.candidate-loop",
+            "psychsift.formulation.claim.avoidance.check-alternatives",
+            "psychsift.formulation.claim.avoidance.clinical-implication",
+            "psychsift.formulation.claim.avoidance.concept-definition",
+            "psychsift.formulation.claim.avoidance.definition"
+          ]
+        },
+        {
+          "label": "S24",
+          "sourceId": "psychsift.formulation.source.safety-2026",
+          "nativeSourceId": null,
+          "title": "The standalone effect of safety behavior manipulations: A systematic review and meta-analysis",
+          "issuer": "Clinical Psychology Review (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/41558151/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.cpr.2026.102703",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results/limitations.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Publication-bias and context limitations. An average benefit is not a universal instruction for every behaviour or person."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.avoidance.ask",
+            "psychsift.formulation.claim.avoidance.candidate-loop",
+            "psychsift.formulation.claim.avoidance.check-alternatives",
+            "psychsift.formulation.claim.avoidance.clinical-implication",
+            "psychsift.formulation.claim.avoidance.concept-definition",
+            "psychsift.formulation.claim.avoidance.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.avoidance",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Affective instability", "Interpersonal conflict", "Self-harm risk in some contexts"],
       "diagnosticContexts": ["Personality disorder contexts", "Trauma-related presentations"],
       "protective": [],
@@ -141,7 +200,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Observable polarisation first, inferred defence second. Preserve competing explanations and avoid patient-blaming team language.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Views of self or others shift rapidly between idealised and devalued positions.",
@@ -151,12 +213,13 @@
       "poorFitIndicators": [
         "The person can hold mixed views but is making a stable, evidence-based judgement.",
         "The main issue is fixed persecutory belief, intoxication, cognitive impairment, or cultural misunderstanding.",
-        "The shift is confined to one realistic conflict rather than a broader relational pattern."
+        "The shift is confined to one realistic conflict rather than a broader relational pattern.",
+        "Alternative explanations to exclude: actual inconsistency between clinicians, mistreatment, cultural misunderstanding, fixed persecutory beliefs, intoxication or cognitive changes."
       ],
       "caseExample": "After a perceived slight, a previously trusted clinician is described as uncaring and useless, while another clinician is suddenly seen as the only safe person.",
       "treatmentTargetExample": "Use rupture repair to name both disappointment and continuing care without forcing premature certainty.",
       "name": "Splitting",
-      "definition": "An all-or-none way of organising self, others, or situations into wholly good or wholly bad categories when mixed representations feel intolerable.",
+      "definition": "Difficulty holding positive and negative representations of self or others together. The observable starting point may be rapidly polarised appraisals. The internal defensive explanation remains a hypothesis.",
       "summary": "Splitting can simplify unbearable ambivalence but may destabilise relationships, teams, and self-experience.",
       "coreProcess": "Conflicting positive and negative representations are not integrated, so affective state strongly shapes the current view.",
       "development": "May be understood psychodynamically as a primitive defence, especially under high affect, insecure attachment, or personality vulnerability.",
@@ -186,15 +249,44 @@
       "treatmentImplications": [
         "Maintain consistent stance",
         "Name mixed affects carefully",
-        "Support reflective functioning during rupture repair"
+        "Support reflective functioning during rupture repair",
+        "Describe team polarisation and each participant’s response. Consider clearer communication, continuity and repair. Do not write “the patient splits the team” as a complete explanation. These responses are editorial practice suggestions, not uniquely established treatments for an inferred defence."
       ],
       "treatmentLeverage": "Help the patient tolerate mixed representations without escalating shame or abandonment fear.",
-      "id": "splitting"
+      "id": "splitting",
+      "evidence": [
+        {
+          "label": "S40",
+          "sourceId": "psychsift.formulation.source.defences",
+          "nativeSourceId": null,
+          "title": "The Hierarchy of Defense Mechanisms: Assessing Defensive Functioning With the Defense Mechanisms Rating Scales Q-Sort",
+          "issuer": "Frontiers in Psychology",
+          "url": null,
+          "urlStatus": "host_not_governed",
+          "identifier": "10.3389/fpsyg.2021.718440",
+          "evidenceType": "professional_reference",
+          "locator": "Full HTML text. Defence hierarchy and construct definitions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Methods/theory paper by instrument developers, not proof a defence is present in a given patient or that one intervention follows uniquely."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.splitting.ask",
+            "psychsift.formulation.claim.splitting.check-alternatives",
+            "psychsift.formulation.claim.splitting.clinical-implication",
+            "psychsift.formulation.claim.splitting.concept-definition",
+            "psychsift.formulation.claim.splitting.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.splitting",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Low mood", "Anxiety", "Self-harm urges", "Substance use", "Interpersonal withdrawal"],
       "diagnosticContexts": [
         "Trauma-related disorders",
@@ -207,7 +299,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Neither shame nor its assumed consequences can be inferred from self-harm alone.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Exposure, dependency, mistakes, or feedback trigger hiding, anger, appeasing, or self-attack.",
@@ -217,14 +312,15 @@
       "poorFitIndicators": [
         "The primary affect is guilt about a specific harm with intact self-worth.",
         "Withdrawal is driven mainly by anhedonia, fatigue, threat, or practical barriers.",
-        "The person is responding to current stigma or mistreatment rather than internalised defectiveness alone."
+        "The person is responding to current stigma or mistreatment rather than internalised defectiveness alone.",
+        "Alternative explanations to exclude: current stigma or mistreatment, realistic privacy concerns, depressive self-evaluation, guilt and culturally shaped modesty. Use respectful, non-shaming enquiry without declaring a hidden motive."
       ],
       "caseExample": "A patient misses therapy after disclosing trauma because they feel exposed and “disgusting,” then interprets the absence as proof they are failing.",
       "treatmentTargetExample": "Name shame gently, separate protection from self-attack, and build tolerable disclosure or repair steps.",
       "name": "Shame",
-      "definition": "A painful self-conscious affect in which the self is experienced as exposed, defective, unacceptable, or at risk of rejection.",
+      "definition": "Painful negative evaluation of the self, often involving felt exposure or anticipated devaluation. Distinguish this from guilt about an action, while allowing overlap.",
       "summary": "Shame often links trauma, attachment threat, avoidance, concealment, anger, self-criticism, and disengagement from care.",
-      "coreProcess": "Global negative self-evaluation and anticipated social devaluation drive hiding, appeasing, attacking, or withdrawal.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: perceived exposure → shame → concealment, withdrawal or self-attack → reduced access to support or further negative self-evaluation. Do not infer this sequence solely from quietness, substance use or self-harm.",
       "development": "May emerge from humiliation, abuse, neglect, exclusion, chronic criticism, stigma, or repeated failures interpreted as self-defect.",
       "predisposing": ["Criticism or humiliation", "Trauma", "Stigma", "Attachment insecurity"],
       "precipitating": ["Exposure", "Mistake", "Dependency need", "Perceived rejection"],
@@ -245,12 +341,85 @@
         "Link protective function before challenging beliefs"
       ],
       "treatmentLeverage": "Reduce concealment and self-attack while building tolerable interpersonal safety.",
-      "id": "shame"
+      "id": "shame",
+      "evidence": [
+        {
+          "label": "S38",
+          "sourceId": "psychsift.formulation.source.shame-nssi",
+          "nativeSourceId": null,
+          "title": "An examination of the relationship between shame, guilt and self-harm: A systematic review and meta-analysis",
+          "issuer": "Clinical Psychology Review (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/31707184/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.cpr.2019.101779",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results/limitations.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Sparse longitudinal evidence and uncertain direction. Do not generalise all NSSI evidence to suicide death or to all ages."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.shame.ask",
+            "psychsift.formulation.claim.shame.candidate-loop",
+            "psychsift.formulation.claim.shame.check-alternatives",
+            "psychsift.formulation.claim.shame.concept-definition",
+            "psychsift.formulation.claim.shame.definition"
+          ]
+        },
+        {
+          "label": "S39",
+          "sourceId": "psychsift.formulation.source.shame-youth",
+          "nativeSourceId": null,
+          "title": "Associations between humiliation, shame, self-harm and suicidality among adolescents and young adults: A systematic review",
+          "issuer": "PLOS ONE",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38329967/",
+          "urlStatus": "governed",
+          "identifier": "10.1371/journal.pone.0292691",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results; adjusted analyses.",
+          "relationship": "direct_block_citation",
+          "limitations": ["Associative and heterogeneous; not proof shame causes suicidal behaviour."],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.shame.ask",
+            "psychsift.formulation.claim.shame.candidate-loop",
+            "psychsift.formulation.claim.shame.check-alternatives",
+            "psychsift.formulation.claim.shame.concept-definition",
+            "psychsift.formulation.claim.shame.definition"
+          ]
+        },
+        {
+          "label": "S46",
+          "sourceId": "psychsift.formulation.source.shame-neural",
+          "nativeSourceId": "shame",
+          "title": "Feelings of shame, embarrassment and guilt and their neural correlates: A systematic review",
+          "issuer": "Neuroscience & Biobehavioral Reviews (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/27687818/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.neubiorev.2016.09.019",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/review scope.",
+          "relationship": "record_context",
+          "limitations": [
+            "Neuroimaging scope does not support the entire clinical shame record, self-harm causal pathway or treatment recommendations."
+          ],
+          "admission": "reuse_identity",
+          "claimIds": [
+            "psychsift.formulation.claim.shame.ask",
+            "psychsift.formulation.claim.shame.candidate-loop",
+            "psychsift.formulation.claim.shame.check-alternatives",
+            "psychsift.formulation.claim.shame.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.shame",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Affective lability", "Anger", "Self-harm urges", "Anxiety", "Depressive spirals"],
       "diagnosticContexts": [
         "Borderline personality disorder",
@@ -263,7 +432,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Concept alias: preserve emotional-dysregulation in the repository. Specify the deficit and context rather than infer an aetiology.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Affect escalates quickly and drives urgent actions before reflection is available.",
@@ -273,14 +445,15 @@
       "poorFitIndicators": [
         "Mood shifts are better explained by episodic mania, delirium, intoxication, or seizure activity.",
         "The person has intense emotion but can pause, label, and choose effective responses consistently.",
-        "The apparent dysregulation occurs only in a currently unsafe environment."
+        "The apparent dysregulation occurs only in a currently unsafe environment.",
+        "Alternative explanations to exclude: an acute mood episode, psychosis, intoxication or withdrawal, altered cognition, pain, sleep loss, communication difficulty, sensory overload or an unsafe environment."
       ],
       "caseExample": "After a delayed reply, a patient moves from anxiety to rage to self-harm urges within minutes, then feels ashamed and abandoned.",
       "treatmentTargetExample": "Use chain analysis, emotion labelling, and pause strategies before high-risk action urges dominate.",
       "name": "Emotional dysregulation",
-      "definition": "Difficulty modulating the intensity, duration, expression, or behavioural consequences of emotional states.",
+      "definition": "Difficulty understanding, modulating, tolerating or recovering from affect in a particular context, with relevant functional or interpersonal consequences. Specify which part is difficult. “Dysregulation” is not an explanation of its own cause.",
       "summary": "Emotional dysregulation is a transdiagnostic formulation mechanism that can amplify impulsivity, interpersonal rupture, avoidance, and risk.",
-      "coreProcess": "High emotional sensitivity, intense arousal, limited regulation strategies, and rapid action urges interact under stress.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: trigger → escalating affect → impulsive action or withdrawal → short-term change in distress → conflict, shame or restriction. Strategy–symptom associations vary and do not establish a single aetiology.",
       "development": "May reflect temperament, neurodevelopmental vulnerability, trauma, invalidating environments, attachment insecurity, or learned coping patterns.",
       "predisposing": [
         "High affective sensitivity",
@@ -315,15 +488,45 @@
         "Emotion labelling",
         "Distress tolerance skills",
         "Chain analysis",
-        "Interpersonal rupture planning"
+        "Interpersonal rupture planning",
+        "Match support to the identified need and context. Do not infer borderline personality disorder, childhood invalidation or a requirement for a particular psychotherapy from affect intensity alone."
       ],
       "treatmentLeverage": "Increase pause, labelling, and tolerable regulation options before action urges dominate.",
-      "id": "emotional-dysregulation"
+      "id": "emotional-dysregulation",
+      "evidence": [
+        {
+          "label": "S41",
+          "sourceId": "psychsift.formulation.source.emotion-regulation",
+          "nativeSourceId": null,
+          "title": "Emotion-regulation strategies across psychopathology: A meta-analytic review",
+          "issuer": "Clinical Psychology Review (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/20015584/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.cpr.2009.11.004",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Older foundational synthesis. Regulation is context-dependent; no single cause or diagnosis follows."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.emotion-regulation.ask",
+            "psychsift.formulation.claim.emotion-regulation.candidate-loop",
+            "psychsift.formulation.claim.emotion-regulation.check-alternatives",
+            "psychsift.formulation.claim.emotion-regulation.clinical-implication",
+            "psychsift.formulation.claim.emotion-regulation.concept-definition",
+            "psychsift.formulation.claim.emotion-regulation.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.emotion-regulation",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Anxiety", "Worry", "Relationship distress", "Obsessive doubt"],
       "diagnosticContexts": [
         "Generalised anxiety",
@@ -336,7 +539,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Frequency alone does not distinguish a maintaining loop from an unresolved care need.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Questions or checking repeatedly seek certainty, safety, approval, or relational confirmation.",
@@ -346,14 +552,15 @@
       "poorFitIndicators": [
         "The person is asking for ordinary information, care coordination, or reasonable clarification.",
         "The concern remains resolved after a clear answer or practical plan.",
-        "The main pattern is avoidance, mistrust, or protest rather than repeated uncertainty reduction."
+        "The main pattern is avoidance, mistrust, or protest rather than repeated uncertainty reduction.",
+        "Alternative explanations to exclude: unclear clinical communication, a real unanswered question, safeguarding concerns, memory difficulty, language mismatch, inconsistent staff messages or culturally appropriate support seeking."
       ],
       "caseExample": "A patient repeatedly asks whether the clinician is upset with them; each answer helps briefly, then doubt returns and more messages follow.",
       "treatmentTargetExample": "Map the reassurance loop and practise delayed reassurance, uncertainty tolerance, and internal anchors.",
       "name": "Reassurance seeking",
-      "definition": "Repeatedly seeking certainty, safety, approval, or relational confirmation to reduce distress or doubt.",
+      "definition": "Seeking confirmation about safety, certainty, acceptability or a relationship. Ordinary clarification and appropriate help-seeking are not pathology.",
       "summary": "Reassurance seeking can soothe briefly but may maintain uncertainty intolerance, anxiety, dependency cycles, and interpersonal strain.",
-      "coreProcess": "Distress or doubt triggers interpersonal checking, which gives short-term relief while preventing internal tolerance of uncertainty.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: doubt → reassurance → brief relief → renewed doubt → another request. In an anxiety formulation this is a plausible maintaining process, not a universal explanation of repeated questions. Worry and OCD-accommodation sources support different, bounded parts of the account.",
       "development": "Often develops where uncertainty, threat, abandonment fear, or negative self-beliefs feel intolerable without external confirmation.",
       "predisposing": ["Anxiety sensitivity", "Attachment insecurity", "Low self-trust", "Intolerance of uncertainty"],
       "precipitating": ["Ambiguous message", "Body sensation", "Mistake", "Perceived distance from another person"],
@@ -376,15 +583,68 @@
       "treatmentImplications": [
         "Map reassurance cycles",
         "Build uncertainty tolerance",
-        "Use response prevention or delayed reassurance where appropriate"
+        "Use response prevention or delayed reassurance where appropriate",
+        "Provide necessary information and safety help. Where a repetitive cycle is established, agree on a consistent response and an alternative way of managing uncertainty. Do not abruptly withhold support or infer dependency from frequency alone."
       ],
       "treatmentLeverage": "Shift from certainty seeking toward tolerating uncertainty and using internal anchors.",
-      "id": "reassurance-seeking"
+      "id": "reassurance-seeking",
+      "evidence": [
+        {
+          "label": "S34",
+          "sourceId": "psychsift.formulation.source.cci-worry",
+          "nativeSourceId": null,
+          "title": "Generalised Anxiety and Worry – Resources for Clinicians",
+          "issuer": "Centre for Clinical Interventions, WA Health",
+          "url": null,
+          "urlStatus": "host_not_governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "HTML text. Clinician resource descriptions; What? Me Worry!? modules.",
+          "relationship": "direct_block_citation",
+          "limitations": ["Clinician workbook, not an NHMRC guideline. Module PDF versions not individually audited."],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.reassurance-seeking.ask",
+            "psychsift.formulation.claim.reassurance-seeking.candidate-loop",
+            "psychsift.formulation.claim.reassurance-seeking.check-alternatives",
+            "psychsift.formulation.claim.reassurance-seeking.clinical-implication",
+            "psychsift.formulation.claim.reassurance-seeking.concept-definition",
+            "psychsift.formulation.claim.reassurance-seeking.definition"
+          ]
+        },
+        {
+          "label": "S42",
+          "sourceId": "psychsift.formulation.source.family-ocd",
+          "nativeSourceId": null,
+          "title": "Family accommodation in obsessive-compulsive disorder: An updated systematic review and meta-analysis",
+          "issuer": "Neuroscience & Biobehavioral Reviews (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/38621516/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.neubiorev.2024.105678",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results/conclusions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Baseline accommodation did not predict pre/post treatment change. OCD-specific evidence does not justify withdrawal of necessary disability support."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.reassurance-seeking.ask",
+            "psychsift.formulation.claim.reassurance-seeking.candidate-loop",
+            "psychsift.formulation.claim.reassurance-seeking.check-alternatives",
+            "psychsift.formulation.claim.reassurance-seeking.clinical-implication",
+            "psychsift.formulation.claim.reassurance-seeking.concept-definition",
+            "psychsift.formulation.claim.reassurance-seeking.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.reassurance-seeking",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Loneliness", "Depression", "Relationship difficulties", "Reduced help-seeking"],
       "diagnosticContexts": [
         "Attachment-related formulation",
@@ -396,7 +656,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Dimensional association does not prove developmental history or a fixed type.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Closeness, dependency, or support is minimised just when care becomes relevant.",
@@ -406,12 +669,13 @@
       "poorFitIndicators": [
         "Distance reflects healthy boundaries, cultural preference, or a realistic safety concern.",
         "Reduced engagement is mainly due to depression, psychosis, cognitive impairment, or access barriers.",
-        "The person wants closeness but cannot access it because of dissociation or social anxiety."
+        "The person wants closeness but cannot access it because of dissociation or social anxiety.",
+        "Alternative explanations to exclude: realistic mistrust, cultural norms, prior harmful care, depressive withdrawal, social anxiety and a preference for privacy."
       ],
       "caseExample": "After a helpful session, a patient cancels follow-up and says they do not need help, despite worsening loneliness.",
       "treatmentTargetExample": "Offer predictable, autonomy-respecting support and track closeness-distance shifts without shaming.",
       "name": "Attachment avoidance",
-      "definition": "A relational strategy of down-regulating attachment needs, dependence, and emotional closeness to preserve autonomy or reduce vulnerability.",
+      "definition": "Within adult attachment models, a tendency to minimise attachment needs or distance from dependence and closeness. It is not equivalent to healthy independence, a fixed personality type or a retrospectively proven childhood cause.",
       "summary": "Attachment avoidance may appear as self-sufficiency, emotional distance, minimisation of need, or disengagement under relational stress.",
       "coreProcess": "Attachment cues activate vulnerability or threat, which is managed through distance, deactivation, intellectualisation, or self-reliance.",
       "development": "May emerge when closeness has been unreliable, intrusive, rejecting, shaming, or unsafe.",
@@ -445,15 +709,68 @@
       "treatmentImplications": [
         "Respect autonomy",
         "Use predictable boundaries",
-        "Track closeness-distance shifts without shaming"
+        "Track closeness-distance shifts without shaming",
+        "Respect autonomy, clarify boundaries and negotiate predictable support. Attachment associations do not, by themselves, establish which therapy is indicated or justify challenging a reasonable boundary."
       ],
       "treatmentLeverage": "Make support tolerable without forcing dependency.",
-      "id": "attachment-avoidance"
+      "id": "attachment-avoidance",
+      "evidence": [
+        {
+          "label": "S47",
+          "sourceId": "psychsift.formulation.source.nimh-attachment",
+          "nativeSourceId": "attachment",
+          "title": "Affiliation and Attachment",
+          "issuer": "National Institute of Mental Health",
+          "url": "https://www.nimh.nih.gov/research/research-funded-by-nimh/rdoc/constructs/affiliation-and-attachment",
+          "urlStatus": "governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "HTML text. RDoC Social Processes: Description.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Research framework, not diagnostic criteria, a fixed attachment-style test, or evidence that a particular biological pathway is active in a patient."
+          ],
+          "admission": "reuse_identity",
+          "claimIds": [
+            "psychsift.formulation.claim.attachment-avoidance.ask",
+            "psychsift.formulation.claim.attachment-avoidance.check-alternatives",
+            "psychsift.formulation.claim.attachment-avoidance.clinical-implication",
+            "psychsift.formulation.claim.attachment-avoidance.concept-definition",
+            "psychsift.formulation.claim.attachment-avoidance.definition"
+          ]
+        },
+        {
+          "label": "S48",
+          "sourceId": "psychsift.formulation.source.attachment-meta",
+          "nativeSourceId": null,
+          "title": "The relationship between adult attachment and mental health: A meta-analysis",
+          "issuer": "Journal of Personality and Social Psychology (American Psychological Association)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/36201836/",
+          "urlStatus": "governed",
+          "identifier": "10.1037/pspp0000437",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Correlational associations, moderated by sample characteristics. Not proof of a childhood cause, fixed category or individual treatment indication."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.attachment-avoidance.ask",
+            "psychsift.formulation.claim.attachment-avoidance.check-alternatives",
+            "psychsift.formulation.claim.attachment-avoidance.clinical-implication",
+            "psychsift.formulation.claim.attachment-avoidance.concept-definition",
+            "psychsift.formulation.claim.attachment-avoidance.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.attachment-avoidance",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Depression", "Anxiety", "Shame", "Interpersonal sensitivity"],
       "diagnosticContexts": [
         "Depression",
@@ -466,7 +783,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "A hypothesis about a belief needs examples and must not invalidate real adversity.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Events are repeatedly interpreted through broad beliefs such as defectiveness, danger, unlovability, or failure.",
@@ -476,14 +796,15 @@
       "poorFitIndicators": [
         "The thought is situation-specific and changes with new evidence.",
         "The belief reflects a current realistic threat or systemic adversity rather than a global schema alone.",
-        "The main pattern is repetitive worry or rumination without a stable self/other/world belief."
+        "The main pattern is repetitive worry or rumination without a stable self/other/world belief.",
+        "Alternative explanations to exclude: realistic discrimination, abuse, deprivation, cultural meanings, a specific situational concern or psychotic conviction requiring separate assessment."
       ],
       "caseExample": "A neutral email delay is read as proof the patient is disliked, confirming a wider belief of being unwanted.",
       "treatmentTargetExample": "Identify the recurring belief, test predictions safely, and build a more balanced alternative meaning.",
       "name": "Negative core beliefs",
-      "definition": "Global, rigid, overgeneralised beliefs about the self, others, or world that shape interpretation and emotional response.",
+      "definition": "Broad meanings about self, others or the world that may shape appraisals across situations. Distinguish the broader belief, a conditional rule and a situation-specific automatic thought. WA CCI materials provide teaching language for these distinctions.",
       "summary": "Negative core beliefs bias attention and meaning-making, often linking early experience to current automatic thoughts, affect, and behaviour.",
-      "coreProcess": "A schema-like belief filters events so ambiguous information is interpreted as confirming defectiveness, danger, unlovability, or failure.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: event → familiar global meaning → affect and coping → selective attention or consequences that seem to confirm the meaning. This loop should be tied to examples, not assumed from a diagnostic label.",
       "development": "May develop through repeated interpersonal learning, trauma, criticism, exclusion, loss, or chronic unmet needs.",
       "predisposing": ["Early criticism", "Bullying", "Trauma", "Repeated invalidation"],
       "precipitating": ["Failure cue", "Rejection cue", "Conflict", "Performance demand"],
@@ -511,15 +832,45 @@
       "treatmentImplications": [
         "Identify themes across situations",
         "Use behavioural experiments",
-        "Build balanced alternative beliefs"
+        "Build balanced alternative beliefs",
+        "Jointly examine predictions and exceptions where appropriate. Do not relabel accurate perceptions of racism or unsafe care as a cognitive distortion. Avoid asserting a developmental origin without evidence."
       ],
       "treatmentLeverage": "Work at the level of meaning, not only surface thoughts.",
-      "id": "negative-core-beliefs"
+      "id": "negative-core-beliefs",
+      "evidence": [
+        {
+          "label": "S35",
+          "sourceId": "psychsift.formulation.source.cci-selfesteem",
+          "nativeSourceId": null,
+          "title": "Self-Esteem – Resources for Clinicians",
+          "issuer": "Centre for Clinical Interventions, WA Health",
+          "url": "https://www.cci.health.wa.gov.au/Resources/For-Clinicians/Self-Esteem",
+          "urlStatus": "governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "HTML text. Core beliefs, rules and assumptions module descriptions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Theory-informed workbook, not evidence of a person’s hidden beliefs or developmental history."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.negative-core-beliefs.ask",
+            "psychsift.formulation.claim.negative-core-beliefs.candidate-loop",
+            "psychsift.formulation.claim.negative-core-beliefs.check-alternatives",
+            "psychsift.formulation.claim.negative-core-beliefs.clinical-implication",
+            "psychsift.formulation.claim.negative-core-beliefs.concept-definition",
+            "psychsift.formulation.claim.negative-core-beliefs.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.negative-core-beliefs",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Interpersonal conflict", "Paranoid ideation in some contexts", "Anger", "Shame"],
       "diagnosticContexts": ["Psychodynamic formulation", "Personality functioning", "Trauma-related mistrust"],
       "protective": [],
@@ -527,7 +878,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "A disagreement with the clinician cannot establish this. Check reality-based, cultural and diagnostic alternatives.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Unwanted feelings or impulses appear attributed to another person with high certainty.",
@@ -537,12 +891,13 @@
       "poorFitIndicators": [
         "There is strong evidence that the other person is acting in the described way.",
         "The belief is fixed, bizarre, or psychotic rather than relationally linked and affect-responsive.",
-        "The pattern is primarily shame, trauma mistrust, or negative core belief without disowned affect."
+        "The pattern is primarily shame, trauma mistrust, or negative core belief without disowned affect.",
+        "Alternative explanations to exclude: actual hostility, trauma-related vigilance, discrimination, cultural misunderstanding, psychotic symptoms and ordinary differences in perspective."
       ],
       "caseExample": "A patient who feels angry after a rupture insists the clinician is angry and punitive, despite no clear evidence.",
       "treatmentTargetExample": "Validate the affect first, then gently compare evidence and invite curiosity about the internal feeling state.",
       "name": "Projection",
-      "definition": "A defence in which unacceptable feelings, impulses, or self-states are attributed to another person.",
+      "definition": "Attribution to another of feelings or impulses that are difficult to recognise as one’s own. The presumed internal process cannot simply be read from another person’s statement.",
       "summary": "Projection can protect against shame or conflict but may create suspicion, blame, and interpersonal escalation.",
       "coreProcess": "An unwanted internal state is experienced as located in the other, reducing self-conflict but distorting interpersonal appraisal.",
       "development": "May emerge when owning particular affects or impulses is associated with shame, danger, punishment, or loss of attachment.",
@@ -572,15 +927,44 @@
       "treatmentImplications": [
         "Validate affect before interpretation",
         "Explore evidence gently",
-        "Avoid premature confrontation"
+        "Avoid premature confrontation",
+        "Establish the interpersonal facts and validate distress. Disagreement with a clinician is not evidence of projection. The concept does not independently justify a treatment, a personality diagnosis or dismissal of a complaint."
       ],
       "treatmentLeverage": "Build capacity to notice disowned feeling states without shame escalation.",
-      "id": "projection"
+      "id": "projection",
+      "evidence": [
+        {
+          "label": "S40",
+          "sourceId": "psychsift.formulation.source.defences",
+          "nativeSourceId": null,
+          "title": "The Hierarchy of Defense Mechanisms: Assessing Defensive Functioning With the Defense Mechanisms Rating Scales Q-Sort",
+          "issuer": "Frontiers in Psychology",
+          "url": null,
+          "urlStatus": "host_not_governed",
+          "identifier": "10.3389/fpsyg.2021.718440",
+          "evidenceType": "professional_reference",
+          "locator": "Full HTML text. Defence hierarchy and construct definitions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Methods/theory paper by instrument developers, not proof a defence is present in a given patient or that one intervention follows uniquely."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.projection.ask",
+            "psychsift.formulation.claim.projection.check-alternatives",
+            "psychsift.formulation.claim.projection.clinical-implication",
+            "psychsift.formulation.claim.projection.concept-definition",
+            "psychsift.formulation.claim.projection.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.projection",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Depression", "Anxiety", "Insomnia", "Shame"],
       "diagnosticContexts": ["Depression", "Anxiety", "Trauma-related presentations", "Perfectionism"],
       "protective": [],
@@ -588,7 +972,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Not every repeated thought is rumination, and the principal cited source is narrative.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Thinking is repetitive, past- or meaning-focused, and does not move toward effective action.",
@@ -598,14 +985,15 @@
       "poorFitIndicators": [
         "The person is doing concrete planning that leads to action.",
         "Thinking is future-threat oriented and better described as worry.",
-        "Repetitive thought is driven by obsessional intrusions requiring a different formulation."
+        "Repetitive thought is driven by obsessional intrusions requiring a different formulation.",
+        "Alternative explanations to exclude: concrete problem solving, grief-related reflection, obsessional intrusions, trauma re-experiencing, psychotic preoccupation or realistic unresolved danger. Past-focus versus future-focus is a heuristic, not a diagnostic boundary."
       ],
       "caseExample": "After an argument, a patient spends hours replaying what they “should have said,” becomes more ashamed, and withdraws.",
       "treatmentTargetExample": "Shift from abstract replay to concrete next steps, attention shifting, or values-based action.",
       "name": "Rumination",
-      "definition": "Repetitive, passive, negatively toned thinking about distress, causes, meanings, or consequences.",
+      "definition": "Repetitive dwelling on distress, its meaning or its causes and consequences, often without movement towards a useful action. The Watkins–Roberts source is a narrative review and model, not a systematic meta-analysis. It describes several interacting processes rather than one universal mechanism.",
       "summary": "Rumination may feel like problem-solving but often maintains low mood, shame, threat, and cognitive inflexibility.",
-      "coreProcess": "Attention becomes repeatedly captured by unresolved negative meanings without moving into effective action or new learning.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: distress → repetitive abstract review → reduced effective action or persisting negative affect → more material for review.",
       "development": "May develop as an attempt to understand, prevent, or mentally undo painful experiences, especially when emotion feels unresolved.",
       "predisposing": ["Depressive thinking style", "Perfectionism", "Shame", "Low behavioural activation"],
       "precipitating": ["Failure", "Loss", "Conflict", "Unresolved ambiguity"],
@@ -631,15 +1019,45 @@
         "Shift to concrete problem-solving",
         "Attention training",
         "Behavioural activation",
-        "Metacognitive work"
+        "Metacognitive work",
+        "Consider a shift towards concrete problem solving, attention flexibility or activity where appropriate. Do not use “stop overthinking” as an explanation or treatment plan."
       ],
       "treatmentLeverage": "Move from repetitive analysis to values-based action or specific problem-solving.",
-      "id": "rumination"
+      "id": "rumination",
+      "evidence": [
+        {
+          "label": "S25",
+          "sourceId": "psychsift.formulation.source.rumination",
+          "nativeSourceId": "rumination",
+          "title": "Reflecting on rumination: Consequences, causes, mechanisms and treatment of rumination",
+          "issuer": "Behaviour Research and Therapy (Elsevier)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/32087393/",
+          "urlStatus": "governed",
+          "identifier": "10.1016/j.brat.2020.103573",
+          "evidenceType": "professional_reference",
+          "locator": "Bibliographic record and abstract. Abstract; review model.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Narrative review, not systematic review. Does not directly support every worry, reassurance or uncertainty claim. Theory-developer conflicts should be considered."
+          ],
+          "admission": "reuse_identity",
+          "claimIds": [
+            "psychsift.formulation.claim.rumination.ask",
+            "psychsift.formulation.claim.rumination.candidate-loop",
+            "psychsift.formulation.claim.rumination.check-alternatives",
+            "psychsift.formulation.claim.rumination.clinical-implication",
+            "psychsift.formulation.claim.rumination.concept-definition",
+            "psychsift.formulation.claim.rumination.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.rumination",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Anxiety", "Muscle tension", "Insomnia", "Poor concentration"],
       "diagnosticContexts": ["Generalised anxiety", "Health anxiety", "Obsessive-compulsive presentations"],
       "protective": [],
@@ -647,7 +1065,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Future orientation is a useful clue, not an exclusive boundary.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Thinking is repetitive, future-oriented, and organised around possible threats or uncertainty.",
@@ -657,14 +1078,15 @@
       "poorFitIndicators": [
         "The main loop is past-focused rumination rather than future threat simulation.",
         "Concern is proportionate and leads to effective preparation.",
-        "The dominant process is intrusive obsession, trauma re-experiencing, or psychotic threat belief."
+        "The dominant process is intrusive obsession, trauma re-experiencing, or psychotic threat belief.",
+        "Alternative explanations to exclude: proportionate planning, obsessions, trauma intrusions, delusional threat, current unsafe circumstances and a legitimate need for clearer clinical information."
       ],
       "caseExample": "A patient spends the night imagining every way a meeting could go wrong and arrives exhausted but still uncertain.",
       "treatmentTargetExample": "Sort worries into solvable problems versus hypothetical threats, then practise uncertainty exposure.",
       "name": "Worry",
-      "definition": "Repetitive future-oriented thinking about possible threats, uncertainty, or negative outcomes.",
+      "definition": "Recurrent future-oriented concern or threat simulation. It can resemble planning, but may be repetitive and difficult to disengage from without producing a workable response. WA CCI resources are practical teaching aids for worry, uncertainty and beliefs about worrying.",
       "summary": "Worry attempts to prepare for danger but may maintain anxiety by overestimating threat and under-testing coping.",
-      "coreProcess": "Future threat simulations create an illusion of preparation while increasing vigilance, arousal, and safety behaviours.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: uncertainty → worry → temporary feeling of preparation → vigilance or checking → renewed uncertainty.",
       "development": "May develop where uncertainty has felt dangerous, unpredictable, or personally costly.",
       "predisposing": ["Intolerance of uncertainty", "High responsibility beliefs", "Threat sensitivity"],
       "precipitating": ["Ambiguity", "Upcoming decision", "Bodily sensation", "Responsibility cue"],
@@ -686,15 +1108,43 @@
       "treatmentImplications": [
         "Worry postponement",
         "Uncertainty exposure",
-        "Problem-solving versus hypothetical worry sorting"
+        "Problem-solving versus hypothetical worry sorting",
+        "Distinguish actionable problems from hypothetical scenarios. Explore whether attempts to eliminate uncertainty themselves have a cost. Do not require the person to tolerate a genuinely unsafe environment or avoidable service ambiguity."
       ],
       "treatmentLeverage": "Separate solvable problems from hypothetical threat loops.",
-      "id": "worry"
+      "id": "worry",
+      "evidence": [
+        {
+          "label": "S34",
+          "sourceId": "psychsift.formulation.source.cci-worry",
+          "nativeSourceId": null,
+          "title": "Generalised Anxiety and Worry – Resources for Clinicians",
+          "issuer": "Centre for Clinical Interventions, WA Health",
+          "url": null,
+          "urlStatus": "host_not_governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "HTML text. Clinician resource descriptions; What? Me Worry!? modules.",
+          "relationship": "direct_block_citation",
+          "limitations": ["Clinician workbook, not an NHMRC guideline. Module PDF versions not individually audited."],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.worry.ask",
+            "psychsift.formulation.claim.worry.candidate-loop",
+            "psychsift.formulation.claim.worry.check-alternatives",
+            "psychsift.formulation.claim.worry.clinical-implication",
+            "psychsift.formulation.claim.worry.concept-definition",
+            "psychsift.formulation.claim.worry.definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.worry",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Amnesia", "Depersonalisation", "Derealisation", "Emotional numbing"],
       "diagnosticContexts": [
         "Dissociative disorders",
@@ -707,7 +1157,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "It is not established by a detached appearance and is not specific to trauma.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "There are episodes of detachment, derealisation, depersonalisation, time loss, or altered awareness.",
@@ -717,12 +1170,13 @@
       "poorFitIndicators": [
         "The person is deliberately avoiding while awareness and memory remain intact.",
         "Symptoms are better explained by seizure, intoxication, delirium, sleep disorder, or psychosis.",
-        "The main issue is emotional numbing without altered awareness or integration."
+        "The main issue is emotional numbing without altered awareness or integration.",
+        "Alternative explanations to exclude: seizure, syncope, delirium, intoxication, sleep phenomena, cognitive disorder, psychosis and behavioural disengagement. A trauma history does not remove these alternatives."
       ],
       "caseExample": "During a trauma reminder, a patient feels unreal, loses track of time, and later cannot recall parts of the conversation.",
       "treatmentTargetExample": "Prioritise grounding, orientation, and pacing before detailed trauma processing.",
       "name": "Dissociation",
-      "definition": "A disruption or disconnection in memory, identity, emotion, perception, behaviour, body experience, or sense of self.",
+      "definition": "Disconnection involving awareness, memory, identity, perception, emotion or sense of self. Assess the actual experience rather than treating “spacing out” as sufficient. The broader diagnostic reference and trauma sources do not establish an individual cause.",
       "summary": "Dissociation can reduce overwhelming distress during threat but may later impair memory integration, presence, agency, and relational engagement.",
       "coreProcess": "Overwhelming arousal or threat is managed by disconnection, detachment, numbing, derealisation, depersonalisation, or memory compartmentalisation.",
       "development": "Frequently associated with trauma, especially repeated or overwhelming experiences, though mild dissociation can occur in everyday life.",
@@ -751,15 +1205,110 @@
       "treatmentImplications": [
         "Grounding and stabilisation",
         "Window of tolerance work",
-        "Pace trauma processing carefully"
+        "Pace trauma processing carefully",
+        "Attend to immediate safety, orientation and pacing. The PTSD meta-analysis found no overall association between pretreatment dissociation and psychotherapy effectiveness, so dissociation alone does not justify automatic prolonged postponement of trauma-focused treatment. This is not proof that every severe dissociative presentation or acutely unsafe patient is ready for immediate trauma processing. Consult the Australian PTSD guideline pathway for the actual treatment decision."
       ],
       "treatmentLeverage": "Increase present-moment orientation and safety before intensive processing.",
-      "id": "dissociation"
+      "id": "dissociation",
+      "evidence": [
+        {
+          "label": "S16",
+          "sourceId": "psychsift.formulation.source.who-cddr",
+          "nativeSourceId": null,
+          "title": "Clinical descriptions and diagnostic requirements for ICD-11 mental, behavioural and neurodevelopmental disorders",
+          "issuer": "World Health Organization",
+          "url": "https://www.who.int/publications/i/item/9789240077263",
+          "urlStatus": "governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "Official publication overview. Publication overview; clinical diagnostic scope.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Diagnostic manual, not a formulation framework or Australian coding mandate. Full manual not exhaustively reviewed."
+          ],
+          "admission": "propose_metadata",
+          "claimIds": [
+            "psychsift.formulation.claim.dissociation.ask",
+            "psychsift.formulation.claim.dissociation.check-alternatives",
+            "psychsift.formulation.claim.dissociation.concept-definition",
+            "psychsift.formulation.claim.dissociation.definition"
+          ]
+        },
+        {
+          "label": "S27",
+          "sourceId": "psychsift.formulation.source.dissoc",
+          "nativeSourceId": null,
+          "title": "Impact of dissociation on the effectiveness of psychotherapy for post-traumatic stress disorder: meta-analysis",
+          "issuer": "BJPsych Open (Cambridge University Press)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/32423501/",
+          "urlStatus": "governed",
+          "identifier": "10.1192/bjo.2020.30",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results/conclusions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "PTSD trial populations, not all severe dissociative disorders or acute instability. Absence of a moderator effect is not proof every person is ready for immediate processing."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.dissociation.ask",
+            "psychsift.formulation.claim.dissociation.check-alternatives",
+            "psychsift.formulation.claim.dissociation.clinical-implication",
+            "psychsift.formulation.claim.dissociation.concept-definition"
+          ]
+        },
+        {
+          "label": "S21",
+          "sourceId": "psychsift.formulation.source.trauma-umbrella",
+          "nativeSourceId": null,
+          "title": "Psychological trauma as a transdiagnostic risk factor for mental disorder: an umbrella meta-analysis",
+          "issuer": "European Archives of Psychiatry and Clinical Neuroscience (Springer Nature)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/36208317/",
+          "urlStatus": "governed",
+          "identifier": "10.1007/s00406-022-01495-5",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/conclusions.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Cannot establish a person’s trauma history, a unique causal pathway or trauma-specific treatment indication."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.dissociation.ask",
+            "psychsift.formulation.claim.dissociation.check-alternatives",
+            "psychsift.formulation.claim.dissociation.definition"
+          ]
+        },
+        {
+          "label": "S44",
+          "sourceId": "psychsift.formulation.source.phoenix",
+          "nativeSourceId": null,
+          "title": "Australian Guidelines for the Prevention and Treatment of Acute Stress Disorder, PTSD and Complex PTSD",
+          "issuer": "Phoenix Australia",
+          "url": null,
+          "urlStatus": "host_not_governed",
+          "identifier": null,
+          "evidenceType": "guideline",
+          "locator": "Official portal and approval listing. Official guideline portal and NHMRC approved-guidelines listing.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Portal/approval verified, not every current recommendation or living-update version. Do not use this entry to assert an unchecked treatment mandate."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.dissociation.ask",
+            "psychsift.formulation.claim.dissociation.check-alternatives",
+            "psychsift.formulation.claim.dissociation.clinical-implication"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.dissociation",
+      "reviewStatus": "clinical_review_required"
     },
     {
-      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
-      "sourceConfidence": "Static source metadata recorded",
-      "version": "Source review v1",
+      "sourceStatus": "Source metadata reviewed 2026-09-14; named clinical confirmation pending",
+      "sourceConfidence": "Static source metadata recorded; claims ungraded pending clinical review",
+      "version": "Source review v2",
       "symptoms": ["Anxiety", "Depression", "Burnout", "Eating disorder symptoms in some contexts"],
       "diagnosticContexts": [
         "Anxiety disorders",
@@ -772,7 +1321,10 @@
       "caveats": [
         "Use as a formulation hypothesis, not as a diagnosis.",
         "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
-        "Revise the formulation when new information does not fit the hypothesised mechanism."
+        "Revise the formulation when new information does not fit the hypothesised mechanism.",
+        "Concept alias only: preserve the existing repository ID perfectionism. Flexible standards are not automatically pathology.",
+        "Educational formulation aid, not a diagnostic instrument, score or treatment order.",
+        "No generated history, trauma, protective factor, or patient preference may be asserted without case evidence."
       ],
       "fitIndicators": [
         "Self-worth, safety, or acceptability depends on meeting rigid high standards.",
@@ -782,14 +1334,15 @@
       "poorFitIndicators": [
         "High standards are flexible, values-based, and not associated with significant distress or impairment.",
         "Avoidance is mainly due to fear, low mood, access barriers, or executive function difficulty.",
-        "The main belief is broad defectiveness rather than conditional worth tied to performance."
+        "The main belief is broad defectiveness rather than conditional worth tied to performance.",
+        "Alternative explanations to exclude: reasonable professional standards, realistic evaluation pressure, obsessional symptoms, executive difficulties and values-driven effort without disproportionate cost."
       ],
       "caseExample": "A patient delays submitting work for days because anything less than flawless feels humiliating and unsafe.",
       "treatmentTargetExample": "Run good-enough behavioural experiments and loosen the link between worth and flawless performance.",
       "name": "Perfectionism",
-      "definition": "A rigid pattern of setting excessively high standards and linking worth, safety, or acceptability to flawless performance.",
+      "definition": "Costly rigidity around mistakes, evaluation and self-worth, rather than high standards alone. Perfectionistic concerns show stronger associations with depression, anxiety and OCD symptoms than strivings, but this does not make strivings universally benign or establish causation.",
       "summary": "Perfectionism can drive achievement but may maintain anxiety, depression, shame, procrastination, avoidance, and burnout.",
-      "coreProcess": "Conditional self-worth and threat appraisal attach high emotional cost to mistakes, uncertainty, or ordinary limitation.",
+      "coreProcess": "Candidate maintaining process, to be tested in the individual case: demanding standard → threat of falling short → checking, overwork or delay → temporary relief → the standard remains untested or becomes more rigid.",
       "development": "May develop through criticism, conditional approval, achievement-based identity, insecurity, or attempts to prevent shame and loss of control.",
       "predisposing": ["Conditional approval", "High criticism", "Anxiety", "Negative core beliefs"],
       "precipitating": ["Performance demand", "Mistake", "Evaluation", "Loss of control"],
@@ -818,10 +1371,61 @@
       "treatmentImplications": [
         "Behavioural experiments with good-enough performance",
         "Self-compassion work",
-        "Challenge conditional worth rules"
+        "Challenge conditional worth rules",
+        "Explore a proportionate behavioural experiment and broader bases of self-evaluation. WA CCI offers practical teaching resources. Do not encourage lower safety standards in clinical or other high-consequence work."
       ],
       "treatmentLeverage": "Reduce the link between worth and flawless performance.",
-      "id": "perfectionism"
+      "id": "perfectionism",
+      "evidence": [
+        {
+          "label": "S26",
+          "sourceId": "psychsift.formulation.source.perfectionism",
+          "nativeSourceId": null,
+          "title": "The relationships between perfectionism and symptoms of depression, anxiety and obsessive-compulsive disorder in adults: a systematic review and meta-analysis",
+          "issuer": "Cognitive Behaviour Therapy (Taylor & Francis)",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/37955236/",
+          "urlStatus": "governed",
+          "identifier": "10.1080/16506073.2023.2277121",
+          "evidenceType": "systematic_review",
+          "locator": "Bibliographic record and abstract. Abstract/results.",
+          "relationship": "direct_block_citation",
+          "limitations": [
+            "Mainly correlational. Smaller average associations do not establish that strivings are harmless in every case."
+          ],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.perfectionistic-concerns.ask",
+            "psychsift.formulation.claim.perfectionistic-concerns.candidate-loop",
+            "psychsift.formulation.claim.perfectionistic-concerns.check-alternatives",
+            "psychsift.formulation.claim.perfectionistic-concerns.concept-definition",
+            "psychsift.formulation.claim.perfectionistic-concerns.definition"
+          ]
+        },
+        {
+          "label": "S36",
+          "sourceId": "psychsift.formulation.source.cci-perfectionism",
+          "nativeSourceId": null,
+          "title": "Perfectionism – Resources for Clinicians",
+          "issuer": "Centre for Clinical Interventions, WA Health",
+          "url": "https://www.cci.health.wa.gov.au/Resources/For-Clinicians/Perfectionism",
+          "urlStatus": "governed",
+          "identifier": null,
+          "evidenceType": "professional_reference",
+          "locator": "HTML text. Perfectionism in Perspective module descriptions.",
+          "relationship": "direct_block_citation",
+          "limitations": ["Educational treatment resource. Do not equate high standards with pathology."],
+          "admission": "held",
+          "claimIds": [
+            "psychsift.formulation.claim.perfectionistic-concerns.ask",
+            "psychsift.formulation.claim.perfectionistic-concerns.candidate-loop",
+            "psychsift.formulation.claim.perfectionistic-concerns.check-alternatives",
+            "psychsift.formulation.claim.perfectionistic-concerns.clinical-implication",
+            "psychsift.formulation.claim.perfectionistic-concerns.concept-definition"
+          ]
+        }
+      ],
+      "conceptId": "psychsift.formulation.content.perfectionistic-concerns",
+      "reviewStatus": "clinical_review_required"
     }
   ],
   "formulationTemplates": [
@@ -982,8 +1586,8 @@
   },
   "governance": {
     "contentGovernance": {
-      "contentVersion": "Source review v1",
-      "confirmationNote": "Linked sources have static metadata review; local owner confirmation remains pending before clinical deployment.",
+      "contentVersion": "Source review v2",
+      "confirmationNote": "Linked sources have static metadata review to 2026-09-14; local owner confirmation remains pending before clinical deployment.",
       "jurisdictionMode": "jurisdiction-neutral",
       "releaseStatus": "source-review-complete-owner-confirmation-pending"
     },
@@ -1183,6 +1787,14 @@
       "pendingOwnerConfirmations": 9,
       "pendingSourceReviews": 0,
       "releaseChecklistStatus": "Non-clinical handoff ready"
-    }
+    },
+    "auditTrail": [
+      {
+        "action": "formulation-content-handover-applied",
+        "actor": "PsychSift Formulation handover 2026-09-16, applied under local implementation authority",
+        "date": "2026-09-16",
+        "note": "Applied 12 reviewed field patches, added structured evidence references and record-level caveats, and imported 46 concept and six guide records into src/data/formulation-concepts.json. No clinical sign-off, indexing or activation performed."
+      }
+    ]
   }
 }
