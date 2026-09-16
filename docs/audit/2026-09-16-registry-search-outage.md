@@ -1,6 +1,8 @@
 # Registry search returned nothing for seven days
 
-**Status:** mitigated in the application, root cause still open (needs a migration in an approved window).
+**Status:** mitigated in the application and now monitored. Root cause still open — it needs a
+migration, and merging one reaches the live clinical database within seconds, so it needs an
+approved window.
 **Window:** 2026-09-09 to 2026-09-16. Found by an operator report, not by any gate.
 **Impact:** Forms, Medications and Services search returned zero results on `psychiatry.tools`, for
 every query, for every user. Not slow. Empty.
@@ -78,6 +80,18 @@ blank panel rather than a failed request. A backend outage spent three days file
   1200 ms, the domain serves the in-bundle catalogue instead of nothing, and skips the read for 30 s
   so the rest of a typing burst is immediate. It re-probes after the cooldown, so it heals itself
   with no deploy the moment the database is fixed. It reports `degraded` rather than hiding it.
+- **This change also makes the degradation visible**, which matters more than it sounds. A fallback
+  that quietly absorbs a broken catalogue would have made the next occurrence of this outage harder
+  to find than the first, because the screen would look right. So:
+  - the fallback logs an error on the transition into seeds and an info line on recovery, rate
+    limited to one pair per kind per cooldown, carrying the catalogue kind and failure shape and
+    never a query;
+  - a fan-out where every requested domain failed logs an error, because that is an outage rather
+    than the graceful degradation the per-domain tolerance is for;
+  - the response marks a group `degraded` when it was served from seeds, and `live-domain-monitor`
+    now runs one real query per catalogue domain against production and fails on `error`, on zero
+    results, and on `degraded` with equal severity. It probes only the catalogue domains, so it
+    triggers no embedding call and stays inside that workflow's no-secrets, no-providers contract.
 
 ## What is still open
 
@@ -87,23 +101,28 @@ blank panel rather than a failed request. A backend outage spent three days file
    approved window, and `CREATE INDEX CONCURRENTLY` cannot run in that transaction.
 2. **The EXPLAIN**, `scripts/operator-explain-site-content-public-records.sql`. Read-only, unrun.
    Step 0 alone settles whether the push-down theory above is right.
-3. **Nothing renders `degraded`.** The signal now exists in the response and no UI consumes it. A
-   reader cannot currently tell that the list they are searching may lag behind what was published.
+3. **Nothing renders `degraded` to the reader.** The signal is now in the response and the monitor
+   asserts on it, but no UI consumes it. A clinician cannot yet tell that the list they are
+   searching may lag behind what was published. Bounded by the 30 s cooldown and by every entry
+   linking to a detail page that reads canonically, so this is a clarity gap rather than a safety
+   one, but it should be closed.
 
 ## Preventing the next one
 
 Ordered by what would have caught _this_, soonest first.
 
-1. **Assert results, not status codes.** Extend `live-domain-monitor` to run one query per
-   catalogue domain against production and fail when a domain returns `error: true` or zero items
-   for a query with a known match. This is the single check that would have caught it within six
-   hours instead of seven days, and it is cheap.
-2. **Make a fully-degraded search loud.** A response where every requested domain errored should
-   emit a captured exception, not just a field in the body. Silent graceful degradation is only safe
-   when something is watching the degradation.
-3. **Cover the timeout path offline.** Landed with this change: a registry domain whose catalogue
-   read rejects or never settles must still return items. Verified by removing the fallback and
-   watching both cases fail.
+1. **Assert results, not status codes.** LANDED. `live-domain-monitor` now runs one query per
+   catalogue domain against production and fails on an errored, empty, or degraded domain. This is
+   the single check that would have caught the outage within six hours instead of seven days, and
+   it is cheap. Its verdict logic is a pure function with offline tests, following the
+   deployment-freshness precedent where the first version measured the wrong thing and only a test
+   caught it.
+2. **Make a fully-degraded search loud.** LANDED. A fan-out where every requested domain failed now
+   logs an error, and the seed fallback reports each transition into and out of degraded mode.
+   Silent graceful degradation is only safe when something is watching the degradation.
+3. **Cover the timeout path offline.** LANDED. A registry domain whose catalogue read rejects or
+   never settles must still return items. Verified by removing the fallback and watching both cases
+   fail; the reporting and `degraded` guards were mutation-tested the same way.
 4. **Treat "blank results" as a backend symptom until proven a UI one.** `#6GR6B8` was filed as a
    viewport bug on the strength of a screenshot. A blank result set is a request outcome; check the
    response body before the component.
