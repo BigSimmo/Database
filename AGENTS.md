@@ -91,7 +91,7 @@ seconds, with no deploy step in between), `# RAG ranking protection`, `# Railway
 | Topic                                                                                                                     | Full text                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Gate selection, the verification tier table, the gate arbiter                                                             | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
-| Open PR sync, the `Run PR` sweep, babysitting a PR, review coverage, PR bundling                                          | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
+| The whole PR lifecycle for every tool: open, follow CI, review threads, records, merge authority, landed, sync, sweeps    | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
 | The `upload` shortcut                                                                                                     | [`docs/agents/upload-shortcut.md`](docs/agents/upload-shortcut.md)                           |
 | Button and route wiring, the bundle budget                                                                                | [`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md)         |
 | External skill precedence, evidence and calibration                                                                       | [`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md)       |
@@ -300,20 +300,14 @@ For the rules on pasting the decisive gate line, stating verified versus assumed
 
 ## Owner-merge rule (owner ruling 2026-09-16)
 
-Three kinds of PR are **owner-merged, not agent-merged**: clinical-content PRs
-(`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk: true`), any PR touching
-`supabase/`, and any PR touching a RAG-ranking surface (see "RAG ranking protection" below).
-For these, the required `PR policy` check stays red until Josh adds the `owner-approved`
-label himself; any new push to the branch removes that label. Agents must never add the
-`owner-approved` label, merge one of these PRs directly, or arm or re-arm auto-merge on one
-(see the auto-merge exception above). This is enforced by `PR policy` (#2830): the label counts
-only when the repository owner applied it, not through a GitHub App, after the PR's latest push.
-
-This does not relax existing migration discipline: **a migration already on `main` must
-never be edited.** If a change is needed, ship it as a new migration with the newest
-timestamp — never rewrite or mark-repair history in place (see the guard-migration contract
-above). `PR policy` blocks an edit, deletion or rename of an applied migration, and an added
-migration dated at or before the newest one on `main`.
+Clinical-content PRs (`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk: true`),
+any PR touching `supabase/`, and any PR touching a RAG-ranking surface are **owner-merged, not
+agent-merged**. The required `PR policy` check stays red on them until Josh adds the
+`owner-approved` label himself after the latest push (#2830). Agents must never add that label,
+merge one of these PRs, or arm or re-arm auto-merge on one; an armed one is reported, not
+disarmed. `PR policy` also blocks edits to applied migrations and out-of-order or future-dated
+migrations: **a migration already on `main` must never be edited** — ship a new migration with the
+newest timestamp. Full rule: [Merge authority](docs/agents/pull-request-workflow.md#merge-authority).
 
 <!-- END:supabase-project-safety -->
 
@@ -392,29 +386,29 @@ For the `upload` safe Git handoff workflow — protected branches, required insp
 
 ## Open PR branch sync (anti-churn)
 
-For the anti-churn branch-sync mitigations and the `git merge-tree` test that tells staleness from a real conflict, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the anti-churn branch-sync mitigations and the `git merge-tree` test that tells staleness from a real conflict, see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync).
 <!-- END:pr-branch-sync -->
 
 ## Run PR shortcut
 
-For the `Run PR` open-PR maintenance sweep — what it authorizes, its hard guardrails, and its procedure, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the `Run PR` open-PR maintenance sweep — what it authorizes, its hard guardrails, and its procedure, see [Run PR](docs/agents/pull-request-workflow.md#run-pr).
 <!-- END:run-pr-shortcut -->
 
 ## Clear PRs shortcut
 
-When the user says `Clear PRs` (case-insensitive, entire message after trimming), invoke the sequential PR batch runner using [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md#clear-prs-shortcut). This authorizes the documented batch actions without another launch confirmation. Read that procedure before dispatch; do not substitute the maintenance-only `Run PR` sweep.
+When the user says `Clear PRs` (case-insensitive, entire message after trimming), invoke the sequential PR batch runner using [Clear PRs](docs/agents/pull-request-workflow.md#clear-prs). This authorizes the documented batch actions without another launch confirmation. Read that procedure before dispatch; do not substitute the maintenance-only `Run PR` sweep.
 
 ## Babysit the pull request, then stop
 
-For the 30-minute post-PR CI budget, what may be done inside it, and how it is enforced, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the 30-minute post-PR CI budget, what may be done inside it, and how it is enforced, see [Follow CI](docs/agents/pull-request-workflow.md#follow-ci). Review-thread handling for every tool is in [Review threads](docs/agents/pull-request-workflow.md#review-threads).
 
 ## Automated review coverage (owner decision, 2026-08-22)
 
-For the 2026-08-22 owner decision on automated review coverage, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the 2026-08-22 owner decision on automated review coverage, see [Automated review coverage](docs/agents/pull-request-workflow.md#automated-review-coverage-owner-decision-2026-08-22).
 
 ## PR bundling (reduce one-task-one-PR churn)
 
-For when a task may ride an already-open PR, the two-way low-risk test, and what must never be bundled, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For when a task may ride an already-open PR, the two-way low-risk test, and what must never be bundled, see [Bundling](docs/agents/pull-request-workflow.md#bundling).
 <!-- BEGIN:anti-conflict-speed -->
 
 ## Anti-conflict and CI-speed operating procedure

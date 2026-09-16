@@ -5,14 +5,10 @@ description: Verify a merged PR actually landed correctly in this repo and clean
 
 # prlanded — confirm a merge landed and tidy up
 
-A merged PR here may land as a squash commit or an ordinary merge commit — check which by
-parent count (`git rev-list --parents -n 1 <sha>`: one parent is a squash/fast-forward, two
-or more is a merge commit) rather than assuming squash. Squash-merge history has twice
-orphaned a late follow-up commit and once needed a fix-forward, which is what this skill
-guards against. Ordinary green PRs may have auto-merge armed by an agent, but **owner-merge
-PRs — clinical-content, anything under `supabase/`, or RAG-ranking surfaces — are merged by
-Josh**, not by agents (owner ruling 2026-09-16; see AGENTS.md "Owner-merge rule"). Run this
-after a merge to confirm the work actually landed and to clean up.
+The rules for proving a merge carried the work — decide squash versus merge commit by parent
+count, the right comparison for each, late commits, and cleanup — are in
+[Landed](../../../docs/agents/pull-request-workflow.md#landed). This skill is the Claude Code procedure for applying them.
+Owner-merge PRs are merged by Josh, not by agents ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
 
 ## Steps
 
@@ -20,52 +16,22 @@ The user's explicit request to verify a named PR authorizes the read-only PR loo
 Otherwise ask before GitHub access; never infer provider authority merely from local branch state.
 
 1. **Confirm the merge:** `gh pr view <pr> --json state,mergeCommit,mergedAt` → `MERGED`.
-2. **Verify by content, and branch on the merge shape.** Read the parent count first:
-   `git rev-list --parents -n 1 <merge-commit>` (one parent after the commit's own SHA = squash;
-   two = ordinary merge commit).
-
-   **Ordinary merge commit (two parents):** do not diff the merge commit against your branch
-   tip — that also reports every change `main` had that your branch lacked, and misreads them
-   as work that failed to land. Instead confirm your tip is in the merged side, then inspect
-   only how conflicts were resolved:
-
-   ```bash
-   git fetch --quiet origin main
-   git merge-base --is-ancestor <your-branch-tip> <merge-commit>^2 && echo "tip landed"
-   git show --remerge-diff <merge-commit>
-   ```
-
-   Any hunk from `--remerge-diff` is a conflict resolution that changed the merged result;
-   review it against your intent. An empty `--remerge-diff` and a landed tip mean the work
-   landed as written.
-
-   **Squash (one parent):** squash rewrites history, so `git branch --merged` is misleading.
-   Compare trees against the squash commit:
-
-   ```bash
-   git fetch --quiet origin main
-   git diff --stat <squash-commit> <your-branch-tip>
-   ```
-
-   An empty diff means everything landed. Any remaining lines are work that did NOT make
-   it — the classic auto-merge race. Investigate before deleting the branch.
-
-   Do not use three-dot `origin/main...<branch>` here. It diffs from the merge base, which
-   after a squash is still the pre-merge `main`, so it replays the branch's own delta and
-   reports a false orphan on every fresh merge. Two-dot against the squash commit is a tree
-   comparison and stays correct after other PRs land on `main`.
-
-3. **Check for orphaned late commits:** if you pushed after enabling auto-merge, confirm
-   those commits are in the squashed result (search the merge commit / `git log origin/main`
-   for their content). If missing, fix-forward with a new PR — do not force-push.
+2. **Verify by content, branching on the merge shape.** `git fetch --quiet origin main`, read the
+   parent count with `git rev-list --parents -n 1 <merge-commit>`, then run the comparison
+   [Landed](../../../docs/agents/pull-request-workflow.md#landed) names for that shape: `merge-base --is-ancestor` on `^2` plus
+   `git show --remerge-diff` for a merge commit; a two-dot
+   `git diff --stat <squash-commit> <your-branch-tip>` for a squash (never three-dot). Any
+   unexplained remaining line is work that did not land — investigate before deleting anything.
+3. **Check for orphaned late commits** pushed after auto-merge was armed; if missing,
+   fix-forward with a new PR — do not force-push.
 4. **Prepare cleanup only after the content diff is empty.** Worktree removal, remote branch
    deletion, and `git branch -D` are destructive and require an explicit cleanup request. Resolve
    and validate the exact worktree path from a different worktree, then report the commands or run
    them only within that authorization. For squash-merged branches, explain why `-d` refuses and
    why `-D` would be needed; empty content proof is necessary but does not itself authorize deletion.
-5. **Update the ledger** with `npm run ledger:append`, passing `--ref <branch>`, `--head`
-   (the merged squash commit's full 40-character SHA, not an abbreviation),
-   `--scope prlanded`, `--outcome`, and `--checks`, plus any relevant memory note.
+5. **Record** per [Records](../../../docs/agents/pull-request-workflow.md#records): `npm run ledger:append` with `--ref <branch>`,
+   the merged commit's full 40-character `--head`, `--scope prlanded`, `--outcome`, and `--checks`,
+   plus any relevant memory note.
 
 ## Notes
 
