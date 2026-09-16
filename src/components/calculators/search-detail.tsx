@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  Clock3,
-  History,
-  Info,
-  ListChecks,
-  Search,
-  Sigma,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Clock3, History, Info, ListChecks, Search, Sigma } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { ModeHomeHero } from "@/components/mode-home-template";
@@ -35,6 +24,7 @@ import {
   BandLegend,
   CalculatorItems,
   CopyResultButton,
+  FlagNotice,
   MetaPill,
   ResetButton,
   ScoreBandBar,
@@ -414,16 +404,7 @@ export function NextActionsPanel({ calc, derived }: { calc: CalculatorFixture; d
         <h2 className={cn(eyebrowText, "text-[color:var(--text-muted)]")}>Clinical considerations</h2>
       </div>
 
-      {derived.flags.map((flag) => (
-        <p
-          key={flag}
-          role="alert"
-          className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] p-2.5 text-sm-minus font-bold leading-5 text-[color:var(--danger)]"
-        >
-          <AlertTriangle className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
-          {flag}
-        </p>
-      ))}
+      <FlagNotice flags={derived.flags} provisional={!derived.complete} />
 
       {!derived.complete ? (
         <p className="rounded-md bg-[color:var(--surface-inset)] p-2.5 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">

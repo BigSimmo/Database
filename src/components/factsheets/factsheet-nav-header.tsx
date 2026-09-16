@@ -67,6 +67,12 @@ function bodySections(factsheet: Factsheet): PageSection[] {
           label: section.heading,
           icon: BookOpen as LucideIcon,
         })),
+        // Indexed for the same reason `medRich` indexes its urgent block: the
+        // emergency route is the section a reader most needs to reach directly,
+        // and omitting it from the disclosure and the weighted track hides it
+        // behind a scroll on exactly the sheets that name self-harm and
+        // serotonin toxicity.
+        { id: "factsheet-urgent", label: "Urgent help", icon: Zap },
       ];
     case "condition":
       return [
@@ -87,6 +93,13 @@ function bodySections(factsheet: Factsheet): PageSection[] {
         { id: "factsheet-why-it-matters", label: "Why it matters", icon: Compass },
         { id: "factsheet-prepare", label: "How to prepare", icon: ListChecks },
         { id: "factsheet-timeline", label: "Step by step", icon: ListOrdered },
+        // The act-now list gets its own jump target rather than sharing the
+        // "Staying safe" anchor. The anchor sits on the prose callout below it,
+        // so folding the two together would scroll a reader who picked
+        // "Staying safe" straight past the toxicity symptoms.
+        ...(factsheet.warningSigns
+          ? [{ id: "factsheet-warning-signs", label: "Warning signs", icon: Zap as LucideIcon }]
+          : []),
         { id: "factsheet-staying-safe", label: "Staying safe", icon: TriangleAlert },
       ];
   }
