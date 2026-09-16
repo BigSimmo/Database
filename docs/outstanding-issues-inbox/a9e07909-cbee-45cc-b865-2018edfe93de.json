@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a9e07909-cbee-45cc-b865-2018edfe93de",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "3f4db3fc-1a15-4f7b-8781-26c5b0c896db",
+    "reason": "Codex P2 on #2817: false-meter already implemented by 37d6eddf6 (sourceCompleteness null on all 205). Do not open #K8CWRG; close-on-reconcile was the intent of note 2afa99ba."
+  }
+}
