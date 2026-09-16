@@ -48,6 +48,25 @@ async function waitForReactEventHandler(locator: Locator, eventName: "onClick") 
     .toBe(true);
 }
 
+/** Click a control only once the phone chrome has stopped moving underneath it.
+ *
+ * Playwright checks that a target is stable BEFORE it scrolls that target into view, and at
+ * phone width that scroll is what hides the header and collapses the composer reserve from
+ * 5.5rem to 0. The click is then dispatched into a page still settling, so mousedown and
+ * mouseup land on different elements, no click event is produced, and the React handler never
+ * runs - the step simply does not change. CI failed exactly that way on 2026-09-16: the trace
+ * shows data-scroll-signal going visible -> hidden and data-phone-chrome-transition reading
+ * "active" across the click, with the page still on step 1 ten seconds later.
+ *
+ * Scrolling first and waiting for the shell to report the collapse idle removes the race
+ * rather than retrying through it. Measured on this page at 320px: the attribute reads
+ * "active" the moment the scroll lands and "idle" once the collapse finishes. */
+async function clickWhenPhoneChromeIsStill(page: Page, target: Locator) {
+  await target.scrollIntoViewIfNeeded();
+  await expect(page.locator("#main-content").first()).toHaveAttribute("data-phone-chrome-transition", "idle");
+  await target.click();
+}
+
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(
     () => Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
@@ -488,7 +507,7 @@ test("keeps the guide usable with reduced motion and forced colors", async ({ pa
   await expect.poll(() => page.evaluate(() => window.matchMedia("(forced-colors: active)").matches)).toBe(true);
   const continueToFeatures = page.getByRole("button", { name: "Continue to features" });
   await waitForReactEventHandler(continueToFeatures, "onClick");
-  await continueToFeatures.click();
+  await clickWhenPhoneChromeIsStill(page, continueToFeatures);
   await expect(page.getByRole("heading", { name: "Add episode features" })).toBeFocused();
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
