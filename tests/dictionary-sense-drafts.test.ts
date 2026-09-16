@@ -534,56 +534,103 @@ describe("the handover guide states the counts the data actually holds", () => {
 // "New South Wales; spinal cord injury" instead of the register's "Australia/NSW"). This
 // test does what none of us did: it hands the gate a record with the blockers cleared and
 // insists nothing is left over.
+// A blocker list is a promise to an operator: clear these and the source becomes
+// admissible. Nothing checked that promise, so on 2026-09-16 two reviewers and I between
+// us recorded a version blocker that does not exist (acquisitionLedgerIssues accepts
+// "Not established" as text) while missing the one that does (a jurisdiction written as
+// "New South Wales; spinal cord injury" rather than the register's "Australia/NSW").
+//
+// The first version of this test hardcoded the remediation, so deleting a blocker left it
+// green. It now derives nothing from the fix and everything from the recorded blockers:
+// supply only the date, then require the surviving gate issues and the recorded blockers
+// to name the same things.
 describe("a blocker list is a complete remediation path", () => {
   const candidates = JSON.parse(readFileSync("src/data/dictionary-source-candidates.json", "utf8")) as
     Record<string, unknown>[] | { sources: Record<string, unknown>[] };
   const candidateRecords = (Array.isArray(candidates) ? candidates : candidates.sources) as Record<string, unknown>[];
+  const byHandoverId = new Map(
+    candidateRecords.map((entry) => [(entry.handoverSourceId ?? entry.id) as string, entry]),
+  );
 
-  /** What the operator supplies once every recorded blocker is cleared. */
-  const REMEDIATION: Record<string, Record<string, unknown>> = {
-    "COPE-EPDS-2026": { version: "2026 edition", rung: 3 },
-    "NSW-ACI-SCI": { version: "2026 edition", rung: 4, jurisdiction: "Australia/NSW" },
-    "nsw-mental-assessment": { version: "2026 edition", rung: 4, jurisdiction: "Australia/NSW" },
-  };
+  /** Which recorded blocker code each gate issue belongs to. */
+  const ISSUE_TO_BLOCKER: [RegExp, string][] = [
+    // The gate says each of these twice: once as a sentence, once as a warning code
+    // inside "incomplete source metadata (...)". Both forms map to the same blocker.
+    [/is not a governed source host|unsafe_location/i, "host_not_in_inspected_governed_url_policy"],
+    [/unknown_jurisdiction|not in the source authority register/i, "jurisdiction_not_written_in_register_form"],
+    [/version is required|missing_version/i, "version_unknown"],
+  ];
 
-  /** Blockers that a record's own metadata cannot clear — an owner decision, not an operator's. */
-  const OWNER_DECISION = new Set(["host_not_in_inspected_governed_url_policy"]);
+  /**
+   * rung and capturedFor are chosen by whoever files the ledger row, not read off the
+   * publisher's page, so the candidate does not carry them and their absence is an
+   * artefact of this simulation rather than a blocker anyone must clear.
+   */
+  const SIMULATION_ARTEFACT = /rung must be one of|capturedFor is required|metadata_conflict/i;
 
-  for (const [handoverSourceId, remediation] of Object.entries(REMEDIATION)) {
-    it(`leaves nothing unnamed for ${handoverSourceId}`, () => {
+  const stripArtefacts = (issue: string) =>
+    issue
+      .split(/,\s*/)
+      .filter((part) => !SIMULATION_ARTEFACT.test(part))
+      .join(", ");
+
+  function issuesAfterSupplyingOnlyTheDate(handoverSourceId: string): string[] {
+    const candidate = byHandoverId.get(handoverSourceId);
+    expect(candidate, `${handoverSourceId} candidate`).toBeDefined();
+    const simulated = {
+      ...candidate,
+      id: `remediation-sim-${handoverSourceId.toLowerCase()}`,
+      disposition: "candidate",
+      dispositionReason: "remediation simulation",
+      capturedFor: "remediation simulation",
+      capturedAt: "2026-09-16",
+      publicationDate: "2026-01-15",
+      datePrecision: "day",
+      reviewDate: null,
+      expiryDate: null,
+      supersededBy: [],
+      topics: (candidate as { topics?: string[] }).topics ?? ["Simulation"],
+      rung: 3,
+    } as Record<string, unknown>;
+    delete simulated.handoverSourceId;
+    return acquisitionLedgerIssues([simulated as unknown as (typeof sourceAcquisitionRecords)[number]])
+      .map((issue) => stripArtefacts(issue.replace(`${simulated.id as string}: `, "")))
+      .filter((issue) => issue.trim() !== "" && !SIMULATION_ARTEFACT.test(issue))
+      .filter((issue) => !/incomplete source metadata \(\s*\)/i.test(issue));
+  }
+
+  // The three sources whose publisher page could not be read: the date is known to be
+  // missing, so whatever else the gate reports is what the blocker list must already name.
+  const UNREADABLE = ["COPE-EPDS-2026", "NSW-ACI-SCI", "nsw-mental-assessment"];
+
+  for (const handoverSourceId of UNREADABLE) {
+    it(`names every gate issue that survives a date for ${handoverSourceId}`, () => {
       const disposition = dictionarySourceDispositions.find((entry) => entry.handoverSourceId === handoverSourceId);
       expect(disposition, handoverSourceId).toBeDefined();
-      const candidate = candidateRecords.find((entry) => (entry.handoverSourceId ?? entry.id) === handoverSourceId);
-      expect(candidate, `${handoverSourceId} candidate`).toBeDefined();
+      const recorded = new Set(disposition!.blockers.map((blocker) => blocker.code));
 
-      const simulated = {
-        ...candidate,
-        id: `remediation-sim-${handoverSourceId.toLowerCase()}`,
-        disposition: "candidate",
-        dispositionReason: "remediation simulation",
-        capturedFor: "remediation simulation",
-        capturedAt: "2026-09-16",
-        publicationDate: "2026-01-15",
-        datePrecision: "day",
-        reviewDate: null,
-        expiryDate: null,
-        supersededBy: [],
-        topics: (candidate as { topics?: string[] }).topics ?? ["Simulation"],
-        ...remediation,
-      } as Record<string, unknown>;
-      delete simulated.handoverSourceId;
+      for (const issue of issuesAfterSupplyingOnlyTheDate(handoverSourceId)) {
+        const match = ISSUE_TO_BLOCKER.find(([pattern]) => pattern.test(issue));
+        expect(match, `${handoverSourceId}: no blocker code is mapped to "${issue}"`).toBeDefined();
+        expect(
+          recorded.has(match![1]),
+          `${handoverSourceId} leaves "${issue}" unnamed; blockers are ${[...recorded].join(", ")}`,
+        ).toBe(true);
+      }
+    });
 
-      const remaining = acquisitionLedgerIssues([
-        simulated as unknown as (typeof sourceAcquisitionRecords)[number],
-      ]).map((issue) => issue.replace(`${simulated.id as string}: `, ""));
-
-      // Whatever survives must be a blocker the disposition already names, or the
-      // operator was promised something the register will not honour.
-      const ownerBlocked = disposition!.blockers.some((blocker) => OWNER_DECISION.has(blocker.code));
-      if (ownerBlocked) {
-        expect(remaining.length, `${handoverSourceId}: ${remaining.join(" | ")}`).toBeGreaterThan(0);
-      } else {
-        expect(remaining, `${handoverSourceId} has unnamed blockers`).toEqual([]);
+    it(`records no blocker the gate does not raise for ${handoverSourceId}`, () => {
+      const disposition = dictionarySourceDispositions.find((entry) => entry.handoverSourceId === handoverSourceId);
+      const surviving = issuesAfterSupplyingOnlyTheDate(handoverSourceId);
+      for (const blocker of disposition!.blockers) {
+        // The unreadable-page blocker is about the date itself, which the simulation supplies.
+        if (blocker.code === "publisher_page_unreadable_from_this_session") continue;
+        const pattern = ISSUE_TO_BLOCKER.find(([, code]) => code === blocker.code)?.[0];
+        expect(pattern, `${handoverSourceId}: blocker ${blocker.code} is mapped to no gate issue`).toBeDefined();
+        expect(
+          surviving.some((issue) => pattern!.test(issue)),
+          `${handoverSourceId} records ${blocker.code}, but the gate raises nothing matching it`,
+        ).toBe(true);
       }
     });
   }
@@ -594,9 +641,6 @@ describe("a blocker list is a complete remediation path", () => {
     // record." acquisitionLedgerIssues requires only NON-EMPTY TEXT, and every one of
     // those 16 has non-empty text ("Not established", "Live official reference"), so the
     // gate accepts them all. The governance point is real; the stated mechanism was not.
-    const byHandoverId = new Map(
-      candidateRecords.map((entry) => [(entry.handoverSourceId ?? entry.id) as string, entry]),
-    );
     for (const disposition of dictionarySourceDispositions) {
       const blocker = disposition.blockers.find((entry) => entry.code === "version_unknown");
       if (!blocker) continue;
