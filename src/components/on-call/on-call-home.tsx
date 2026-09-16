@@ -1,14 +1,17 @@
 "use client";
 
-import { CalendarDays, ChevronRight, Phone, Shield, Trash2, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, Phone, Printer, Shield, Trash2, Users } from "lucide-react";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
+import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
+import { OnCallTeachingStrip } from "@/components/on-call/on-call-teaching-strip";
 import {
+  ON_CALL_HOME_ICON,
   ON_CALL_SECTION_HREFS,
   ON_CALL_SECTION_ICONS,
   ON_CALL_SECTION_TILE_DESCRIPTIONS,
@@ -17,39 +20,50 @@ import {
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
+import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
   ON_CALL_HOME_TAGS,
   countOnCallEntriesBySection,
   onCallAvailability,
+  msUntilOnCallHoursBoundary,
   onCallLocalDateKey,
   onCallPrimaryNumber,
   onCallTelHref,
   selectCallFirstContacts,
   selectPinnedPlaybookEntry,
   selectSwitchboardContact,
-  selectUpcomingSessions,
   selectWardContacts,
-  type OnCallUpcomingSession,
 } from "@/lib/on-call/home-modules";
 import { clearOnCallRecent, recordOnCallRecent, useOnCallRecent } from "@/lib/on-call/recent-storage";
 
 /**
- * The On Call home: a dashboard for the shift rather than a search box.
+ * The On Call home: a dashboard for the shift, with one search box over it.
  *
  * `/on-call` used to redirect to the shared home at `/?mode=on-call`, which was
- * the one place in this mode a search composer appeared. The mode declares no
- * search surface — filter chips inside a page do the narrowing — so the redirect
- * was removed and this took its place. See
- * `docs/on-call/design/prototypes/on-call-screens.html`, board 01.
+ * the one place in this mode a search composer appeared, and the redirect was
+ * removed for a good reason: it sent someone hunting a ward number into the
+ * app's UNIVERSAL search. What went with it, unintentionally, was any way to
+ * search this mode at all — a reader had to know which of seven pages held a
+ * number and scroll it. `OnCallSearchBox` is the answer to that and not a
+ * reversal of the redirect decision: it searches only this mode's own entries,
+ * already in the browser, so it costs no request and keeps working with no
+ * signal. See `docs/on-call/design/prototypes/on-call-screens.html`, board 01.
  *
- * Every module is derived from tags the owner controls (`src/lib/on-call/home-modules.ts`),
- * so what appears here is editable from inside the app. Each empty state names
- * the tag that fills it, which is how the convention is discovered.
+ * Every module below it is derived from tags the owner controls
+ * (`src/lib/on-call/home-modules.ts`), so what appears here is editable from
+ * inside the app. Each empty state names the tag that fills it, which is how the
+ * convention is discovered.
  *
- * There is deliberately **no freshness warning on this page.** Overdue entries
- * surface on Contacts, where the row is and where the fix is one tap; a count of
- * stale entries on the home is a number you cannot act on from the home.
+ * **There is deliberately no freshness warning on this page**, and this is the
+ * second time that has been decided. A strip naming overdue sections was built
+ * here and then removed on the owner's instruction (2026-09-16): overdue entries
+ * are a maintenance fact, and a reader opening this page is mid-shift and
+ * looking for a number. Overdue entries are reported in the developer hub
+ * instead, at `/mockups/development/on-call-freshness`, which is where the
+ * person who maintains the hub looks rather than the person using it. Individual
+ * overdue rows still carry their own badge inside each section, where the row is
+ * and where confirming it is one tap. Do not restore a warning here.
  */
 
 /**
@@ -102,8 +116,8 @@ function HomeModule({
  * the command tone is what this design system already uses for "the primary
  * action on this surface". The accent is reserved for selection and evidence.
  */
-function CallCard({ entry }: { entry: OnCallEntry }) {
-  const number = onCallPrimaryNumber(entry);
+function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
+  const number = onCallPrimaryNumber(entry, now);
   const href = onCallTelHref(number?.value);
   const availability = onCallAvailability(entry);
   if (!href || !number) return null;
@@ -121,20 +135,24 @@ function CallCard({ entry }: { entry: OnCallEntry }) {
     >
       <span className="flex items-center justify-between gap-2">
         <Phone aria-hidden="true" className="size-icon-md" />
-        {availability ? (
-          <span className="text-3xs font-bold uppercase tracking-kicker opacity-80">{availability}</span>
-        ) : null}
+        {/* Which of the contact's numbers this is. `onCallPrimaryNumber` became
+            time-aware when the after-hours rule landed, so the same card shows a
+            different line at 09:00 and at 22:00 — printing the digits without
+            saying which line they are is how someone rings the daytime desk
+            overnight and believes they rang the right place. */}
+        <span className="text-3xs font-bold uppercase tracking-kicker opacity-80">{number.label}</span>
       </span>
       <span className="grid gap-0.5">
         <span className="text-sm font-semibold">{entry.title}</span>
         <span className="nums text-lg-minus font-bold tracking-display">{number.value}</span>
+        {availability ? <span className="text-3xs font-semibold opacity-80">{availability}</span> : null}
       </span>
     </a>
   );
 }
 
-function SwitchboardRow({ entry }: { entry: OnCallEntry }) {
-  const number = onCallPrimaryNumber(entry);
+function SwitchboardRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
+  const number = onCallPrimaryNumber(entry, now);
   const href = onCallTelHref(number?.value);
   const content = (
     <>
@@ -145,7 +163,12 @@ function SwitchboardRow({ entry }: { entry: OnCallEntry }) {
         <span className="text-sm font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
         {entry.subtitle ? <span className={cn(textMuted, "text-xs")}>{entry.subtitle}</span> : null}
       </span>
-      {number ? <span className="nums shrink-0 text-sm font-bold">{number.value}</span> : null}
+      {number ? (
+        <span className="grid shrink-0 justify-items-end gap-0.5">
+          <span className={cn(textMuted, "text-3xs font-bold uppercase tracking-kicker")}>{number.label}</span>
+          <span className="nums text-sm font-bold">{number.value}</span>
+        </span>
+      ) : null}
       <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
     </>
   );
@@ -174,8 +197,8 @@ function SwitchboardRow({ entry }: { entry: OnCallEntry }) {
   );
 }
 
-function WardChip({ entry }: { entry: OnCallEntry }) {
-  const number = onCallPrimaryNumber(entry);
+function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
+  const number = onCallPrimaryNumber(entry, now);
   const href = onCallTelHref(number?.value);
   if (!href || !number) return null;
   return (
@@ -192,6 +215,7 @@ function WardChip({ entry }: { entry: OnCallEntry }) {
     >
       <span className="truncate text-xs font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
       <span className="nums text-sm font-bold text-[color:var(--text)]">{number.value}</span>
+      <span className={cn(textMuted, "truncate text-3xs font-bold uppercase tracking-kicker")}>{number.label}</span>
     </a>
   );
 }
@@ -229,65 +253,6 @@ function PinnedReminder({ entry }: { entry: OnCallEntry }) {
   );
 }
 
-function UpcomingRow({ session }: { session: OnCallUpcomingSession }) {
-  const [year, month, day] = session.date.split("-");
-  const detail = [session.when, session.location, session.presenter].filter(Boolean).join(" · ");
-  return (
-    <Link
-      href={ON_CALL_SECTION_HREFS.education}
-      data-testid={`on-call-home-upcoming-${session.entry.slug}`}
-      className={cn(
-        cardSurface,
-        "flex min-h-tap items-center gap-2.5 px-3 no-underline",
-        "transition-colors motion-reduce:transition-none hover:border-[color:var(--border-strong)]",
-        focusRing,
-      )}
-    >
-      {/* A date, not a countdown: "Tue 16 Sep" is checkable against a roster in
-          a way "in 4 days" is not. */}
-      <span className="grid size-10 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)] py-1">
-        <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
-          {weekdayLabel(session.date)}
-        </span>
-        <span className="nums text-sm font-bold leading-none text-[color:var(--text-heading)]">{day}</span>
-        <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
-          {monthLabel(month, year)}
-        </span>
-      </span>
-      <span className="min-w-0 flex-1 grid gap-0.5">
-        <span className="truncate text-sm font-semibold text-[color:var(--text-heading)]">{session.entry.title}</span>
-        {detail ? <span className={cn(textMuted, "truncate text-xs")}>{detail}</span> : null}
-      </span>
-      <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
-    </Link>
-  );
-}
-
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** Month abbreviation from a `YYYY-MM-DD` part, without constructing a Date —
- *  the string is already the answer, and parsing it would reintroduce a zone. */
-function monthLabel(month: string | undefined, year: string | undefined): string {
-  const index = Number(month) - 1;
-  return MONTH_LABELS[index] ?? year ?? "";
-}
-
-const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-/**
- * Weekday for a `YYYY-MM-DD` key.
- *
- * Built at UTC noon and read in UTC, which is the one way to turn a bare date
- * into a weekday without a zone shifting it a day either way — the reader is
- * in Perth and the row is checked against a roster, so "Tue" being "Mon" is
- * the whole failure.
- */
-function weekdayLabel(date: string): string {
-  const parsed = new Date(`${date}T12:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return "";
-  return WEEKDAY_LABELS[parsed.getUTCDay()] ?? "";
-}
-
 /** A short local time for a recorded moment, e.g. "21:58". */
 function timeLabel(iso: string): string {
   const parsed = new Date(iso);
@@ -295,17 +260,53 @@ function timeLabel(iso: string): string {
   return `${`${parsed.getHours()}`.padStart(2, "0")}:${`${parsed.getMinutes()}`.padStart(2, "0")}`;
 }
 
-export function OnCallHome() {
+export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
   const recent = useOnCallRecent();
 
-  const today = onCallLocalDateKey(new Date());
+  // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
+  // the after-hours rule landed, so a second `new Date()` a line away could put
+  // the ward strip on the daytime number while the call cards were already on
+  // the after-hours one. `pinnedNow` lets a test stand at 22:00 without faking
+  // the process clock.
+  //
+  // The tick is not decoration. An earlier version of this comment claimed a
+  // page left open across 17:00 would "pick up the after-hours number on its
+  // next render" — which is true only of a page someone is touching, and the
+  // page that matters here is the one lying on a desk at 2am producing no
+  // renders at all. It would have gone on offering the daytime desk line
+  // indefinitely: the exact wrong-number failure this change exists to prevent,
+  // arriving by a different route. So the page wakes itself once, on the next
+  // boundary that would change the answer, and never on a fixed interval.
+  const [tick, setTick] = useState(() => new Date());
+  const now = pinnedNow ?? tick;
+
+  useEffect(() => {
+    // A pinned clock is the caller's to move. Scheduling against it would drag a
+    // print view or a test off the moment it deliberately stood on.
+    if (pinnedNow) return;
+    const timer = setTimeout(() => setTick(new Date()), msUntilOnCallHoursBoundary(now));
+    return () => clearTimeout(timer);
+  }, [pinnedNow, now]);
+
+  const today = onCallLocalDateKey(now);
   const callFirst = useMemo(() => selectCallFirstContacts(entries), [entries]);
   const switchboard = useMemo(() => selectSwitchboardContact(entries), [entries]);
   const wards = useMemo(() => selectWardContacts(entries), [entries]);
   const pinned = useMemo(() => selectPinnedPlaybookEntry(entries), [entries]);
-  const upcoming = useMemo(() => selectUpcomingSessions(entries, today), [entries, today]);
+  // `selectUpcomingTeachingSessions` rather than `home-modules`' own selector:
+  // a session with a recurrence rolls forward from its anchor instead of
+  // vanishing the afternoon its date passes, which is what made this block go
+  // blank every Thursday. Same `(entries, today)` string-date contract.
+  const upcoming = useMemo(() => selectUpcomingTeachingSessions(entries, today), [entries, today]);
   const { counts } = useMemo(() => countOnCallEntriesBySection(entries), [entries]);
+
+  // A hub with no entries at all and a hub whose entries are simply untagged are
+  // different problems with different answers, and a single empty state that
+  // tries to serve both ends up telling a first-time reader about tags they have
+  // nothing to tag yet.
+  const hasEntries = entries.length > 0;
+  const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
   // that entry is gone — deleted, or withheld because the session ended — the
@@ -351,51 +352,62 @@ export function OnCallHome() {
         <h1 className="sr-only">On Call</h1>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
 
+        {/* Renders nothing but the field until something is typed, so it costs a
+            reader who is not searching no vertical space at all. */}
+        <OnCallSearchBox entries={entries} />
+
+        {!loading && !hasEntries ? (
+          <HomeModule id="on-call-home-first-run" label="Getting started">
+            <EmptyState
+              icon={ON_CALL_HOME_ICON}
+              title="Your On Call hub is empty"
+              body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
+              description="Adding and editing needs an account. Reading does not."
+              actions={
+                <Link
+                  href={ON_CALL_SECTION_HREFS.contacts}
+                  className={cn(
+                    "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                    "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                    focusRing,
+                  )}
+                >
+                  Open Contacts
+                  <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                </Link>
+              }
+              testId="on-call-home-first-run-empty"
+            />
+          </HomeModule>
+        ) : null}
+
         <HomeModule id="on-call-home-call-first" label="Call first">
           {callFirst.length === 0 ? (
             <EmptyState
               icon={Phone}
               title="Nothing pinned to call first"
-              body={`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift.`}
+              // One string rather than a body plus a description, because
+              // `EmptyState` renders `body ?? description` and would silently
+              // drop the second of the two. The remaining tags are only worth
+              // naming once the reader has entries to put them on, which is
+              // exactly when this page is otherwise a grid of tiles and nothing
+              // else.
+              body={
+                homeIsUntagged
+                  ? `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift. The rest of this page works the same way: "${ON_CALL_HOME_TAGS.switchboard}" for the switchboard row, "${ON_CALL_HOME_TAGS.ward}" for tonight's wards, "${ON_CALL_HOME_TAGS.pinned}" for the reminder.`
+                  : `Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" and it appears here, as the first number of the shift.`
+              }
               testId="on-call-home-call-first-empty"
             />
           ) : (
             <div className="grid grid-cols-2 gap-2">
               {callFirst.map((entry) => (
-                <CallCard key={entry.id} entry={entry} />
+                <CallCard key={entry.id} entry={entry} now={now} />
               ))}
             </div>
           )}
-          {switchboard ? <SwitchboardRow entry={switchboard} /> : null}
+          {switchboard ? <SwitchboardRow entry={switchboard} now={now} /> : null}
         </HomeModule>
-
-        {wards.length > 0 ? (
-          <HomeModule
-            id="on-call-home-wards"
-            label="Your wards"
-            action={
-              <Link href={ON_CALL_SECTION_HREFS.contacts} className={moduleAction}>
-                All contacts
-                <ChevronRight aria-hidden="true" className="size-icon-xs" />
-              </Link>
-            }
-          >
-            {/* Scrolls inside its own container so the page body never scrolls
-                sideways — the same treatment `ModeHomeTemplate` gives its pill
-                row. */}
-            <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:px-0">
-              {wards.map((entry) => (
-                <WardChip key={entry.id} entry={entry} />
-              ))}
-            </div>
-          </HomeModule>
-        ) : null}
-
-        {pinned ? (
-          <HomeModule id="on-call-home-pinned-module" label="Remember">
-            <PinnedReminder entry={pinned} />
-          </HomeModule>
-        ) : null}
 
         {recentEntries.length > 0 ? (
           <HomeModule
@@ -417,7 +429,7 @@ export function OnCallHome() {
               {recentEntries.map(({ item, entry }) => {
                 // Same private treatment Contacts uses: a personal number does
                 // not print on the home, even if the row itself is still named.
-                const number = entry.isPersonal ? null : onCallPrimaryNumber(entry);
+                const number = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
                 const href = onCallTelHref(number?.value);
                 const target = href ?? ON_CALL_SECTION_HREFS[entry.section];
                 const at = timeLabel(item.at);
@@ -447,7 +459,14 @@ export function OnCallHome() {
                       </span>
                       {at ? <span className={cn(textMuted, "nums text-xs")}>{at}</span> : null}
                     </span>
-                    {number ? <span className="nums shrink-0 text-sm font-bold">{number.value}</span> : null}
+                    {number ? (
+                      <span className="grid shrink-0 justify-items-end gap-0.5">
+                        <span className={cn(textMuted, "text-3xs font-bold uppercase tracking-kicker")}>
+                          {number.label}
+                        </span>
+                        <span className="nums text-sm font-bold">{number.value}</span>
+                      </span>
+                    ) : null}
                     {/* A call affordance, not a control: the whole row already
                         dials, and a real button inside a link is invalid
                         markup that hands a screen reader two targets for one
@@ -470,17 +489,59 @@ export function OnCallHome() {
           </HomeModule>
         ) : null}
 
-        {upcoming.length > 0 ? (
-          <HomeModule id="on-call-home-upcoming" label="Coming up">
-            <div className="grid gap-1.5">
-              {upcoming.map((session) => (
-                <UpcomingRow key={session.entry.id} session={session} />
+        {wards.length > 0 ? (
+          <HomeModule
+            id="on-call-home-wards"
+            label="Your wards"
+            action={
+              <Link href={ON_CALL_SECTION_HREFS.contacts} className={moduleAction}>
+                All contacts
+                <ChevronRight aria-hidden="true" className="size-icon-xs" />
+              </Link>
+            }
+          >
+            {/* Scrolls inside its own container so the page body never scrolls
+                sideways — the same treatment `ModeHomeTemplate` gives its pill
+                row. */}
+            <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] sm:mx-0 sm:w-full sm:flex-wrap sm:px-0">
+              {wards.map((entry) => (
+                <WardChip key={entry.id} entry={entry} now={now} />
               ))}
             </div>
           </HomeModule>
         ) : null}
 
-        <HomeModule id="on-call-home-sections" label="All sections">
+        {pinned ? (
+          <HomeModule id="on-call-home-pinned-module" label="Remember">
+            <PinnedReminder entry={pinned} />
+          </HomeModule>
+        ) : null}
+
+        {upcoming.length > 0 ? (
+          <HomeModule
+            id="on-call-home-upcoming"
+            label="Coming up"
+            action={
+              <Link href={ON_CALL_SECTION_HREFS.education} className={moduleAction}>
+                All teaching
+                <ChevronRight aria-hidden="true" className="size-icon-xs" />
+              </Link>
+            }
+          >
+            <OnCallTeachingStrip sessions={upcoming} />
+          </HomeModule>
+        ) : null}
+
+        <HomeModule
+          id="on-call-home-sections"
+          label="All sections"
+          action={
+            <Link href="/on-call/card" className={moduleAction}>
+              <Printer aria-hidden="true" className="size-icon-xs" />
+              Printable card
+            </Link>
+          }
+        >
           {loading && entries.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
