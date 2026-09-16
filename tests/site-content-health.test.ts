@@ -540,3 +540,42 @@ describe("site-content health evidence parsing", () => {
     }
   });
 });
+
+describe("bootstrap identity across a baseline refresh", () => {
+  // Refreshing the frozen epoch-zero population changes the release digest, and the
+  // release id is derived from that digest, so the identity moves with the content.
+  // An applied migration is not re-run, so a live database can still hold the older
+  // id while a freshly replayed one holds the newer. Both are the same logical
+  // retained bootstrap and both must be recognised, or a deploy would stop the running
+  // site recognising its own bootstrap.
+  const refreshedBootstrapDigest = "69c0d68473c89afc6a60ffdf8a6316b466dcc1ffbad3281a387b61e20859d978";
+  const refreshedBootstrapRelease = {
+    ...retainedBootstrapRelease,
+    releaseId: "c96d32f6-e42a-53b0-8cfe-cd07d4b7f963",
+    dynamicStateDigest: refreshedBootstrapDigest,
+    releaseDigest: refreshedBootstrapDigest,
+  };
+
+  it("treats the refreshed bootstrap release as a retained bootstrap, not a deployable partition", () => {
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: "f".repeat(64),
+      activePublicSiteRelease: refreshedBootstrapRelease,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    expect(partition.state).toBe("unavailable");
+    expect(partition.staticMatches).toBe(false);
+    expect(partition.reasons).toContain("bootstrap_invalid");
+  });
+
+  it("still refuses a release that merely looks like a bootstrap", () => {
+    const impostor = { ...refreshedBootstrapRelease, releaseId: "22222222-2222-5222-8222-222222222222" };
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: "f".repeat(64),
+      activePublicSiteRelease: impostor,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    expect(partition.reasons).not.toContain("bootstrap_invalid");
+  });
+});
