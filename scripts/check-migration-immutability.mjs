@@ -18,14 +18,19 @@
  * must change, write a NEW migration — the integration applies those. See
  * `docs/site-content-sync-runbook.md` and the Supabase project safety rules in `AGENTS.md`.
  *
- * Resealing is deliberately noisy rather than forbidden, because a genuine exception exists: this
- * guard was introduced alongside a repair that RESTORED three applied migrations to the bytes
- * production actually holds. `--write` prints every existing entry it changes, so the manifest
- * diff and the reason for it land in front of a reviewer.
+ * SEALING IS APPEND-ONLY. `npm run migrations:seal` records hashes for *new* migration files
+ * only. It refuses `edited` and `missing` entries so an applied-history rewrite cannot clear this
+ * gate by resealing the rewritten bytes. The genuine exception — restoring a file to the bytes
+ * production actually holds — requires an explicit one-time override:
+ *   ALLOW_MIGRATION_RESEAL=true npm run migrations:reseal
+ *   (or `node scripts/check-migration-immutability.mjs --write --allow-reseal`)
+ * That path prints every existing entry it changes; the manifest diff and the reason for it must
+ * land in front of a reviewer.
  *
  * Usage:
  *   npm run check:migration-immutability     verify (exit 1 on any violation)
- *   npm run migrations:seal                  rewrite the manifest, reporting what changed
+ *   npm run migrations:seal                  append hashes for new migrations only
+ *   npm run migrations:reseal                exceptional restore (requires ALLOW_MIGRATION_RESEAL=true)
  */
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -80,15 +85,44 @@ export function compareMigrations(sealed, current) {
   };
 }
 
-function seal() {
-  const current = hashMigrations();
-  let previous = {};
-  try {
-    previous = readManifest().versions ?? {};
-  } catch {
-    previous = {};
-  }
+/** True when the caller explicitly opted into rewriting already-sealed hashes. */
+export function resealAllowed({ argv = process.argv, env = process.env } = {}) {
+  return argv.includes("--allow-reseal") || env.ALLOW_MIGRATION_RESEAL === "true";
+}
+
+/**
+ * Build the next manifest `versions` map.
+ *
+ * Normal sealing is append-only: keep every previously sealed hash untouched and add hashes for
+ * `unsealed` files. Edited/missing entries are refused unless `allowReseal` is true, in which
+ * case the working-tree hashes replace the trusted ones (exceptional restoration only).
+ *
+ * @returns {{
+ *   versions: Record<string, string>,
+ *   edited: string[],
+ *   missing: string[],
+ *   unsealed: string[],
+ *   refused: boolean,
+ * }}
+ */
+export function planSeal(previous, current, { allowReseal = false } = {}) {
   const { edited, missing, unsealed } = compareMigrations(previous, current);
+  if ((edited.length > 0 || missing.length > 0) && !allowReseal) {
+    return { versions: { ...previous }, edited, missing, unsealed, refused: true };
+  }
+  if (allowReseal) {
+    // Exceptional restoration: trust the working tree for everything currently on disk.
+    // Removals (missing) stay missing — a deleted shipped migration is still a defect to explain.
+    const versions = { ...current };
+    return { versions, edited, missing, unsealed, refused: false };
+  }
+  // Append-only: previous hashes win; only add unsealed names.
+  const versions = { ...previous };
+  for (const name of unsealed) versions[name] = current[name];
+  return { versions, edited, missing, unsealed, refused: false };
+}
+
+function writeManifest(versions) {
   writeFileSync(
     MANIFEST_PATH,
     `${JSON.stringify(
@@ -96,19 +130,46 @@ function seal() {
         note: "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
         generator: "scripts/check-migration-immutability.mjs",
         sealed_at: new Date().toISOString(),
-        versions: current,
+        versions,
       },
       null,
       2,
     )}\n`,
   );
-  console.log(`Sealed ${Object.keys(current).length} migrations into ${MANIFEST_RELATIVE}.`);
-  for (const name of unsealed) console.log(`  + ${name} (new)`);
-  for (const name of missing) console.log(`  - ${name} (removed)`);
-  if (edited.length > 0) {
+}
+
+export function seal({ argv = process.argv, env = process.env, write = writeManifest } = {}) {
+  const current = hashMigrations();
+  let previous = {};
+  try {
+    previous = readManifest().versions ?? {};
+  } catch {
+    previous = {};
+  }
+  const allowReseal = resealAllowed({ argv, env });
+  const plan = planSeal(previous, current, { allowReseal });
+  if (plan.refused) {
+    console.error("Migration seal refused: sealing is append-only.");
+    for (const name of plan.edited) console.error(`- edited an already-shipped migration: ${name}`);
+    for (const name of plan.missing) console.error(`- deleted an already-shipped migration: ${name}`);
+    console.error("");
+    console.error(
+      "An applied migration is never re-run, so rewriting its sealed hash would hide the exact " +
+        "defect this guard exists to catch. Put the live-schema change in a NEW migration, then " +
+        "run `npm run migrations:seal` to record that new file. If you are deliberately restoring " +
+        "a file to what production holds, rerun with ALLOW_MIGRATION_RESEAL=true " +
+        "(`npm run migrations:reseal`) and say why in the commit message.",
+    );
+    return 1;
+  }
+  write(plan.versions);
+  console.log(`Sealed ${Object.keys(plan.versions).length} migrations into ${MANIFEST_RELATIVE}.`);
+  for (const name of plan.unsealed) console.log(`  + ${name} (new)`);
+  for (const name of plan.missing) console.log(`  - ${name} (removed)`);
+  if (plan.edited.length > 0) {
     console.log("");
     console.log("RESEALED AN ALREADY-SHIPPED MIGRATION. Say why in the commit message:");
-    for (const name of edited) console.log(`  ! ${name}`);
+    for (const name of plan.edited) console.log(`  ! ${name}`);
     console.log("Editing an applied migration does not change the live database. If the live");
     console.log("schema must change, the change belongs in a NEW migration.");
   }
@@ -133,7 +194,7 @@ export function runMigrationImmutabilityGuard() {
       "An applied migration is never re-run, so editing or deleting the file changes what this " +
         "repository CLAIMS the live database contains and nothing else. Put the change in a NEW " +
         "migration instead. If you are deliberately restoring a file to what production holds, " +
-        "run `npm run migrations:seal` and say so in the commit message.",
+        "run `ALLOW_MIGRATION_RESEAL=true npm run migrations:reseal` and say so in the commit message.",
     );
   } else {
     console.error("Run `npm run migrations:seal` to record the new migration's bytes.");
@@ -143,5 +204,9 @@ export function runMigrationImmutabilityGuard() {
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
 if (invokedPath === fileURLToPath(import.meta.url)) {
-  process.exitCode = process.argv.includes("--write") ? seal() : runMigrationImmutabilityGuard();
+  if (process.argv.includes("--write")) {
+    process.exitCode = seal();
+  } else {
+    process.exitCode = runMigrationImmutabilityGuard();
+  }
 }

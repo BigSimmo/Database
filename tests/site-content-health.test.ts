@@ -544,18 +544,18 @@ describe("site-content health evidence parsing", () => {
 describe("bootstrap identity across a baseline refresh", () => {
   // Refreshing the frozen epoch-zero population changes the release digest, and the
   // release id is derived from that digest, so the identity moves with the content.
-  // An applied migration is not re-run, so no live database ever adopts the refreshed
-  // id, and the 2026-09-16 refresh that produced the one below has been reverted and
-  // pinned by tests/site-content-epoch-zero-freeze.test.ts.
+  // An applied migration is not re-run, so live / replayed databases can still hold
+  // later regenerated ids (91ceaa8d from #2814, ddc94ecf from #2821) while this
+  // repository restores the production-held e4a1dd29 freeze (see
+  // tests/site-content-epoch-zero-freeze.test.ts).
   //
-  // It is still recognised here, and must stay recognised: a database replayed from
-  // the repository while that refresh was on main carries it, and a build that failed
-  // to recognise its own bootstrap would report the site unavailable. This asserts
-  // tolerance of an id already in the wild, not permission to mint another one.
-  const refreshedBootstrapDigest = "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3";
+  // Those later ids must stay recognised here: a database that carried them while
+  // the rewrite was on main would otherwise report the site unavailable. This
+  // asserts tolerance of ids already in the wild, not permission to mint another.
+  const refreshedBootstrapDigest = "6f8149ab8980c8db80e290d16457df3b4fcd53b0f9bfeeb50dc5bb5abf195f88";
   const refreshedBootstrapRelease = {
     ...retainedBootstrapRelease,
-    releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+    releaseId: "ddc94ecf-3527-5b4d-846b-af5724b428ca",
     dynamicStateDigest: refreshedBootstrapDigest,
     releaseDigest: refreshedBootstrapDigest,
   };
@@ -581,5 +581,22 @@ describe("bootstrap identity across a baseline refresh", () => {
       pendingPublicSiteChangeCount: 0,
     });
     expect(partition.reasons).not.toContain("bootstrap_invalid");
+  });
+
+  it("keeps recognising the previous epoch-zero id a live database may still hold", () => {
+    const previous = {
+      ...retainedBootstrapRelease,
+      releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+      dynamicStateDigest: "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3",
+      releaseDigest: "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3",
+    };
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: "f".repeat(64),
+      activePublicSiteRelease: previous,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    expect(partition.state).toBe("unavailable");
+    expect(partition.reasons).toContain("bootstrap_invalid");
   });
 });

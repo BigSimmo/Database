@@ -4,7 +4,9 @@ import {
   compareMigrations,
   hashMigrations,
   migrationFilenames,
+  planSeal,
   readManifest,
+  resealAllowed,
 } from "../scripts/check-migration-immutability.mjs";
 
 /**
@@ -20,7 +22,8 @@ import {
  * If this fails, do not reach for `npm run migrations:seal`. A migration that has shipped has
  * been applied; changing the file cannot change what was applied. The change belongs in a NEW
  * migration. Resealing is for the narrow case of restoring a file to the bytes production holds,
- * and it is expected to be explained in the commit that does it.
+ * and it requires `ALLOW_MIGRATION_RESEAL=true` / `npm run migrations:reseal`, explained in the
+ * commit that does it.
  */
 describe("shipped migrations are immutable", () => {
   it("matches every sealed migration byte for byte", () => {
@@ -47,5 +50,45 @@ describe("shipped migrations are immutable", () => {
     expect(compareMigrations(sealed, { a: "1", b: "changed" })).toMatchObject({ edited: ["b"], ok: false });
     expect(compareMigrations(sealed, { a: "1" })).toMatchObject({ missing: ["b"], ok: false });
     expect(compareMigrations(sealed, { a: "1", b: "2", c: "3" })).toMatchObject({ unsealed: ["c"], ok: false });
+  });
+});
+
+describe("migration sealing is append-only", () => {
+  const previous = { a: "1", b: "2" };
+
+  it("appends hashes for new migrations without rewriting trusted ones", () => {
+    const plan = planSeal(previous, { a: "1", b: "2", c: "3" });
+    expect(plan.refused).toBe(false);
+    expect(plan.unsealed).toEqual(["c"]);
+    expect(plan.versions).toEqual({ a: "1", b: "2", c: "3" });
+  });
+
+  it("refuses to reseal an edited migration during normal sealing", () => {
+    const plan = planSeal(previous, { a: "1", b: "changed" });
+    expect(plan.refused).toBe(true);
+    expect(plan.edited).toEqual(["b"]);
+    // Trusted hashes must stay put when refused — otherwise an applied-history rewrite could
+    // clear the immutability gate by running migrations:seal on the rewritten bytes.
+    expect(plan.versions).toEqual(previous);
+  });
+
+  it("refuses to drop a missing sealed migration during normal sealing", () => {
+    const plan = planSeal(previous, { a: "1" });
+    expect(plan.refused).toBe(true);
+    expect(plan.missing).toEqual(["b"]);
+    expect(plan.versions).toEqual(previous);
+  });
+
+  it("allows exceptional restoration only with an explicit reseal opt-in", () => {
+    expect(resealAllowed({ argv: ["node", "script", "--write"], env: {} })).toBe(false);
+    expect(resealAllowed({ argv: ["node", "script", "--write", "--allow-reseal"], env: {} })).toBe(true);
+    expect(resealAllowed({ argv: ["node", "script", "--write"], env: { ALLOW_MIGRATION_RESEAL: "true" } })).toBe(
+      true,
+    );
+
+    const plan = planSeal(previous, { a: "1", b: "restored" }, { allowReseal: true });
+    expect(plan.refused).toBe(false);
+    expect(plan.edited).toEqual(["b"]);
+    expect(plan.versions).toEqual({ a: "1", b: "restored" });
   });
 });

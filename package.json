@@ -150,6 +150,10 @@
     "therapy:review": "node scripts/review-therapy.mjs",
     "check:therapy-data-index": "node scripts/build-therapies-index.mjs --check",
     "check:cross-mode-index": "node scripts/build-cross-mode-differentials-index.mjs --check",
+    "forms:review-sheet": "node scripts/run-tsx.mjs scripts/build-forms-content-review-sheet.ts",
+    "check:forms-review-sheet": "node scripts/run-tsx.mjs scripts/build-forms-content-review-sheet.ts --check",
+    "site-content:p03": "node scripts/run-tsx.mjs scripts/refresh-site-content-p03-baseline.ts",
+    "check:site-content-p03": "node scripts/run-tsx.mjs scripts/refresh-site-content-p03-baseline.ts --check",
     "check:mha-act-sections": "node scripts/build-mha-act-sections.mjs --check",
     "check:forms-pdf-manifest": "node scripts/build-forms-pdf-manifest.mjs --check",
     "build:specifiers-search-index": "node scripts/build-specifiers-search-index.mjs --write",
@@ -318,7 +322,8 @@
     "check:dead-code-candidate": "node scripts/check-dead-code-candidate.mjs --self-test && node scripts/check-dead-code-candidate.mjs",
     "check:dependency-drift": "node scripts/check-dependency-drift.mjs",
     "check:mockups": "node scripts/check-mockup-retirement.mjs --self-test && node scripts/check-mockup-retirement.mjs && node scripts/check-mockup-retirement.mjs --diff auto",
-    "check:stale-docs": "node scripts/check-stale-docs.mjs"
+    "check:stale-docs": "node scripts/check-stale-docs.mjs",
+    "migrations:reseal": "node scripts/check-migration-immutability.mjs --write --allow-reseal"
   },
   "dependencies": {
     "@next/env": "16.3.3",

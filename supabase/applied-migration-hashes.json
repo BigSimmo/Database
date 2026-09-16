@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-16T16:16:20.290Z",
+  "sealed_at": "2026-09-16T17:19:43.230Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -248,6 +248,8 @@
     "20260906110000_harden_match_document_embedding_fields_text.sql": "a8a93774ce3b981498c19db7c70c7e700cddc4ea330d9466e8f2db87eef57416",
     "20260907041700_repair_strict_enrichment_gate_unsticks_agent_jobs.sql": "b4deaa6463ea2e7f0b20bee9b66b81d37f488bf0c162f4e848f6d1776aebb020",
     "20260913072413_materialize_site_content_health_operational_base.sql": "80f68a71f015bb779efcbd90c8cb335cf6ad30e9c76fb716fdec320618db35ce",
-    "20260916103000_push_kind_filter_into_site_content_public_records.sql": "645db9944d6f84675e78163b2c77943f38e9b14bba8c1a5b2de3b4596a16bfe4"
+    "20260916103000_push_kind_filter_into_site_content_public_records.sql": "645db9944d6f84675e78163b2c77943f38e9b14bba8c1a5b2de3b4596a16bfe4",
+    "20260916143000_dual_pin_retained_bootstrap_check_constraints.sql": "e01f0185745bc207716be69a61210f88833acdc3bfa1eca0feb11bb5bfd22d85",
+    "20260916160000_triple_pin_retained_bootstrap_release_ids.sql": "bb8416f6ec499ef51128b19d9ffae44f8004b3743f087c28a413091c50b728d5"
   }
 }

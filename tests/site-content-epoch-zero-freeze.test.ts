@@ -30,12 +30,17 @@ import { describe, expect, it } from "vitest";
  *
  * IF THIS TEST FAILS, do not update the constants — restore the migration.
  *
- * ONE EXCEPTION, and it is the remedy the runbook prescribes rather than a way round this test:
- * a NEW forward migration may legitimately name this release id, because the integration applies
- * new versions and that is how a lookup serving post-freeze records is refreshed. Such a file
- * makes the sweep below fail on its file list, and the correct response is to ADD it to
- * `APPLIED_MIGRATIONS`. The constants above still never change: a new migration references the
- * frozen identity, it does not mint a different one.
+ * TWO FORWARD-MIGRATION EXCEPTIONS, and both are remedies rather than a way round this test:
+ * 1. A NEW forward migration may legitimately name this release id, because the integration applies
+ *    new versions and that is how a lookup serving post-freeze records is refreshed. Such a file
+ *    makes the sweep below fail on its file list, and the correct response is to ADD it to
+ *    `APPLIED_MIGRATIONS`. The constants above still never change: a new migration references the
+ *    frozen identity, it does not mint a different one.
+ * 2. Retained-bootstrap multi-pin migrations (`RETAINED_BOOTSTRAP_PIN_MIGRATIONS`) may also name
+ *    later regenerated ids (91ceaa8d, ddc94ecf) that a live / replayed database may still hold.
+ *    Those ids widen CHECK / reader predicates only; they must never rewrite the epoch-zero seed.
+ *    The schema mirror and drift-manifest CHECKs may therefore list the full retained set, while
+ *    the frozen population itself stays on `APPLIED_RELEASE_ID`.
  */
 
 /** The epoch-zero release id the live database holds. Applied 2026-09-11; immutable. */
@@ -80,6 +85,17 @@ const APPLIED_MIGRATIONS = [
   TRANSITIONS_MIGRATION,
   "supabase/migrations/20260916103000_push_kind_filter_into_site_content_public_records.sql",
 ];
+/** Later regenerated ids a live / replayed DB may still hold; never remove, never mint another. */
+const RETAINED_BOOTSTRAP_RELEASE_IDS = [
+  APPLIED_RELEASE_ID,
+  "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+  "ddc94ecf-3527-5b4d-846b-af5724b428ca",
+] as const;
+/** Forward migrations that widen CHECKs / readers to the retained set without rewriting the freeze. */
+const RETAINED_BOOTSTRAP_PIN_MIGRATIONS = [
+  "supabase/migrations/20260916143000_dual_pin_retained_bootstrap_check_constraints.sql",
+  "supabase/migrations/20260916160000_triple_pin_retained_bootstrap_release_ids.sql",
+];
 const QUOTED_UUID = /'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'/g;
 /** All-zero / all-one style placeholders the retrieval migrations use as owner sentinels. */
 const SENTINEL_UUID = /^'([0-9a-f])\1{7}-\1{4}-[0-9a-f]\1{3}-[0-9a-f]\1{3}-\1{12}'$/;
@@ -104,25 +120,44 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
   it("lets no migration anywhere introduce a second release identity", () => {
     // Stronger than the per-file check above and the reason it is here: a regeneration can add a
     // file, and a list of known files cannot see that. Across the whole migration set the only
-    // real uuid is this release; everything else is an owner sentinel.
+    // real uuids are the retained bootstrap set; everything else is an owner sentinel.
+    const retainedQuoted = new Set(RETAINED_BOOTSTRAP_RELEASE_IDS.map((id) => `'${id}'`));
     const offenders: string[] = [];
-    const naming: string[] = [];
+    const namingApplied: string[] = [];
+    const namingRetainedPin: string[] = [];
     for (const name of readdirSync(new URL("../supabase/migrations/", import.meta.url)).sort()) {
       if (!name.endsWith(".sql")) continue;
       const path = `supabase/migrations/${name}`;
       for (const quoted of new Set(read(path).match(QUOTED_UUID) ?? [])) {
-        if (quoted === `'${APPLIED_RELEASE_ID}'`) naming.push(path);
-        else if (!SENTINEL_UUID.test(quoted)) offenders.push(`${path}: ${quoted}`);
+        if (quoted === `'${APPLIED_RELEASE_ID}'`) {
+          if (RETAINED_BOOTSTRAP_PIN_MIGRATIONS.includes(path)) namingRetainedPin.push(path);
+          else namingApplied.push(path);
+        } else if (retainedQuoted.has(quoted)) {
+          if (!RETAINED_BOOTSTRAP_PIN_MIGRATIONS.includes(path)) {
+            offenders.push(`${path}: ${quoted}`);
+          } else {
+            namingRetainedPin.push(path);
+          }
+        } else if (!SENTINEL_UUID.test(quoted)) {
+          offenders.push(`${path}: ${quoted}`);
+        }
       }
     }
-    expect(offenders, "a migration quotes a uuid that is neither the epoch-zero release nor a sentinel").toEqual([]);
+    expect(
+      offenders,
+      "a migration quotes a uuid that is neither a retained bootstrap release nor a sentinel",
+    ).toEqual([]);
     // Non-vacuous: the sweep must actually have seen the release, or an accidental deletion of it
     // everywhere would read as "no offenders". A NEW forward migration that legitimately names the
     // release belongs in APPLIED_MIGRATIONS — see the exception in this file's header.
     expect(
-      naming.sort(),
+      [...new Set(namingApplied)].sort(),
       "a migration names the release id without being listed in APPLIED_MIGRATIONS (a new forward migration may; a regeneration may not)",
     ).toEqual([...APPLIED_MIGRATIONS].sort());
+    expect(
+      [...new Set(namingRetainedPin)].sort(),
+      "retained-bootstrap pin migrations must stay listed when they name retained ids",
+    ).toEqual([...RETAINED_BOOTSTRAP_PIN_MIGRATIONS].sort());
   });
 
   it("refuses to regenerate the freeze", () => {
@@ -182,29 +217,35 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
   });
 
   it("recognises exactly the release ids a database may hold", () => {
-    // Adding a third id is how a regeneration would make itself pass. The generator used to
+    // Adding another id is how a regeneration would make itself pass. The generator used to
     // demand exactly that, in a message that contradicted the module's own rule; it no longer
-    // does, and this makes a third id a deliberate test edit rather than a quiet one.
+    // does, and this makes a new id a deliberate test edit rather than a quiet one.
     // Scoped to the declaration rather than the whole file, so a uuid appearing in a comment
     // somewhere else in the module does not fail a test about the recognised set.
+    // Never remove an id a live / replayed database may hold (see RETAINED_BOOTSTRAP_RELEASE_IDS).
     const healthModule = read("src/lib/site-content/site-content-health.ts");
     const declaration = healthModule.match(/RETAINED_BOOTSTRAP_RELEASE_IDS[^=]*=\s*new Set\(\[([\s\S]*?)\]\)/);
     expect(declaration, "RETAINED_BOOTSTRAP_RELEASE_IDS is no longer a literal Set").not.toBeNull();
     const ids = declaration![1]!.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [];
-    expect(ids).toEqual([APPLIED_RELEASE_ID, "91ceaa8d-470c-5661-8ce6-980c2a1bb137"]);
+    expect(ids).toEqual([...RETAINED_BOOTSTRAP_RELEASE_IDS]);
   });
 
   it("keeps the schema mirror and drift manifest on the same identity", () => {
     // The mirror is what a replay produces and the manifest is what `check:drift` compares against
-    // live. If either names a different release, a replayed database and production disagree while
-    // every offline check still passes — the exact shape of the 2026-09-16 failure.
+    // live. The frozen seed must stay on APPLIED_RELEASE_ID; retained multi-pin CHECKs / readers
+    // may also name later ids a live database may hold. Any uuid outside that set is the exact
+    // silent-divergence shape of the 2026-09-16 failure.
+    const retainedQuoted = new Set(RETAINED_BOOTSTRAP_RELEASE_IDS.map((id) => `'${id}'`));
     const mirror = read(SCHEMA_MIRROR);
     const mirrored = [...new Set(mirror.match(QUOTED_UUID) ?? [])];
     expect(mirrored, "the mirror must still name the applied release").toContain(`'${APPLIED_RELEASE_ID}'`);
     expect(
-      mirrored.filter((quoted) => quoted !== `'${APPLIED_RELEASE_ID}'` && !SENTINEL_UUID.test(quoted)),
-      "the schema mirror names a release the live database does not hold",
+      mirrored.filter((quoted) => !retainedQuoted.has(quoted) && !SENTINEL_UUID.test(quoted)),
+      "the schema mirror names a release outside the retained bootstrap set",
     ).toEqual([]);
+    // Seed / active pointers must still be the production-held freeze, not a regenerated id.
+    expect(mirror).toContain(`'${APPLIED_RELEASE_ID}', 'active'`);
+    expect(mirror).toContain(APPLIED_RELEASE_DIGEST);
 
     const manifest = read(DRIFT_MANIFEST);
     const constraints = ["site_content_release_records_check1", "site_content_sync_state_transition_pointer_check"];
@@ -213,9 +254,10 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     );
     expect(pinned.length, "both release-bearing constraints must be in the manifest").toBe(constraints.length);
     for (const constraint of pinned) {
-      expect(constraint.def, `${constraint.name} names a release the live database does not hold`).toContain(
-        APPLIED_RELEASE_ID,
-      );
+      expect(constraint.def, `${constraint.name} must keep the production-held freeze`).toContain(APPLIED_RELEASE_ID);
+      for (const id of RETAINED_BOOTSTRAP_RELEASE_IDS) {
+        expect(constraint.def, `${constraint.name} must retain ${id} for live drift`).toContain(id);
+      }
     }
   });
 });
