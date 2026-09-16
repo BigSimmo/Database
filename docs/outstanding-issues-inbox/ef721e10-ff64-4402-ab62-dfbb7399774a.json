@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ef721e10-ff64-4402-ab62-dfbb7399774a",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Formulation mechanism evidence ships to the browser although only the server renders it",
+    "detail": "PR #2824 added a structured evidence field to each of the 12 mechanisms in src/data/formulation-content.json. About 15 KB raw of it (locators, source limitations, claim ids) is read only by the server-rendered mechanism detail page, but the whole file reaches the client because src/lib/formulation.ts is imported by client components including the builder and the search page. The concepts half was already split this way: src/data/formulation-concept-index.json carries the card and haystack fields for the client and the full records stay server-side, which cut that route's chunk from 216,752 to 36,801 bytes raw. The same split would work for mechanisms but touches the core module twelve test files depend on, so it was deliberately left out of a content change. Not urgent: the bundle budget passes with headroom.",
+    "source": "PR #2824; src/lib/formulation.ts; src/lib/formulation-concept-search.ts",
+    "issueUlid": "01M2N7NZ17F4EXSDGRWB8GNECF"
+  }
+}
