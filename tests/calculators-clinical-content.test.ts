@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
@@ -9,8 +10,6 @@ import { actionsForBand } from "@/components/calculators/calculator-pathways";
 import { deriveCalculator } from "@/components/calculators/calculator-ui";
 
 const ROOT = process.cwd();
-const EVIDENCE_PATH = resolve(ROOT, "data/calculators/evidence.json");
-const CHECKER = resolve(ROOT, "scripts/check-calculator-content.mjs");
 
 const fixture = (id: string) => allCalculatorFixtures.find((calc) => calc.id === id);
 const source = (id: string) => calculatorEvidence.sources.find((entry) => entry.id === id);
@@ -157,23 +156,46 @@ describe("every claim records what it asserts, for whom, and where it is support
 });
 
 describe("the content gate rejects impossible review dates", () => {
+  // The checker runs against an isolated copy of the content it validates. Mutating the real
+  // data/calculators/evidence.json in place would corrupt it for any other suite running
+  // concurrently, including the governance test that snapshots the same files.
+  const COPIED = [
+    "scripts/check-calculator-content.mjs",
+    "data/calculators/evidence.json",
+    "data/calculators/golden-vectors.json",
+    "src/lib/calculators/calculator-fixtures.ts",
+  ];
+
   function runCheckerWith(mutate: (registry: { sources: Record<string, unknown>[] }) => void): string {
-    const original = readFileSync(EVIDENCE_PATH, "utf8");
+    const tempRoot = mkdtempSync(join(tmpdir(), "calculator-clinical-content-"));
     try {
-      const registry = JSON.parse(original);
+      for (const relPath of COPIED) {
+        const dest = join(tempRoot, relPath);
+        mkdirSync(dirname(dest), { recursive: true });
+        copyFileSync(resolve(ROOT, relPath), dest);
+      }
+      const evidencePath = join(tempRoot, "data/calculators/evidence.json");
+      const registry = JSON.parse(readFileSync(evidencePath, "utf8"));
       mutate(registry);
-      writeFileSync(EVIDENCE_PATH, `${JSON.stringify(registry, null, 2)}\n`);
+      writeFileSync(evidencePath, `${JSON.stringify(registry, null, 2)}\n`);
       try {
-        execFileSync(process.execPath, [CHECKER], { encoding: "utf8", stdio: "pipe" });
+        execFileSync(process.execPath, [join(tempRoot, "scripts/check-calculator-content.mjs")], {
+          encoding: "utf8",
+          stdio: "pipe",
+        });
         return "";
       } catch (error) {
         const failure = error as { stderr?: string };
         return failure.stderr ?? "";
       }
     } finally {
-      writeFileSync(EVIDENCE_PATH, original);
+      rmSync(tempRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }
+
+  it("passes on an unmutated copy, so a failure below comes from the mutation", () => {
+    expect(runCheckerWith(() => {})).toBe("");
+  });
 
   // Date.parse accepts these and silently rolls them into the following month, which would move
   // a source's next review forward without anyone editing it.
