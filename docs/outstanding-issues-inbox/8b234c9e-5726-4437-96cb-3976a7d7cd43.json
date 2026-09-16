@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8b234c9e-5726-4437-96cb-3976a7d7cd43",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Railway deploy webhooks are rejected: presented token does not match RAILWAY_WEBHOOK_SECRET",
+    "detail": "Production 'Database' service logs show 'Railway webhook rejected: presented secret did not match RAILWAY_WEBHOOK_SECRET' with tokenPresented=true on every deploy (six rejections in the 40 s after the 2026-09-16 12:27 UTC container start). The receiver code in src/app/api/webhooks/railway/route.ts is correct; the ?token= on the configured Railway webhook URL has drifted from the RAILWAY_WEBHOOK_SECRET service variable. Effect: no deploy success/failure notification reaches the chat forwarder, which is the same silence that cost three days on 2026-09-13. Fix is operator-only in the Railway dashboard (no MCP tool covers project webhooks) and needs the secret value, so it cannot be done from a session. Next: rotate RAILWAY_WEBHOOK_SECRET on the Database service and update the webhook URL token to match, then confirm the warning stops on the next deploy.",
+    "source": "2026-09-16 Sentry/Railway investigation",
+    "issueUlid": "01M2N5AHPBB6JP6FYX1BMS67HK"
+  }
+}
