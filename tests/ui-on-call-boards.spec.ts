@@ -217,9 +217,13 @@ test.describe("01 Home", () => {
 
   test("dates the next teaching session with a weekday, as drawn", async ({ page }) => {
     await openBoard(page, ROUTES.home);
-    const row = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-upcoming-"]').first();
-    await expect(row).toBeVisible();
-    await expect(row).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+    // The row became a date-card strip when recurring sessions landed, so the
+    // card test id moved from `on-call-home-upcoming-` to `on-call-home-teaching-`.
+    // The module id around it is unchanged, and so is what this test is really
+    // asserting: a date a reader can check against a roster, never a countdown.
+    const card = page.getByTestId("on-call-home-upcoming").locator('[data-testid^="on-call-home-teaching-"]').first();
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
   });
 
   test("gives every section a tile, and gives Who's who no count", async ({ page }) => {
