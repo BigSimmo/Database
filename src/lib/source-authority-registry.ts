@@ -471,7 +471,10 @@ export const sourceAuthorityRegistry = [
     key: "ihacpa",
     codes: ["IHACPA", "IHPA"],
     publisher: "Independent Health and Aged Care Pricing Authority",
-    publisherAliases: ["Independent Hospital Pricing Authority", "Independent Health and Aged Care Pricing Authority (IHACPA)"],
+    publisherAliases: [
+      "Independent Hospital Pricing Authority",
+      "Independent Health and Aged Care Pricing Authority (IHACPA)",
+    ],
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",

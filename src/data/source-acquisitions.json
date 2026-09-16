@@ -15,10 +15,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Authorised hospitals"
-    ],
+    "topics": ["Mental Health Act 2014", "Authorised hospitals"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -43,10 +40,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Statutory compliance"
-    ],
+    "topics": ["Mental Health Act 2014", "Statutory compliance"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -71,11 +65,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Community treatment orders",
-      "Involuntary treatment"
-    ],
+    "topics": ["Mental Health Act 2014", "Community treatment orders", "Involuntary treatment"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -100,10 +90,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Psychiatric examination"
-    ],
+    "topics": ["Mental Health Act 2014", "Psychiatric examination"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -128,10 +115,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Treatment support and discharge plans"
-    ],
+    "topics": ["Mental Health Act 2014", "Treatment support and discharge plans"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -156,10 +140,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mental Health Act 2014",
-      "Further opinions"
-    ],
+    "topics": ["Mental Health Act 2014", "Further opinions"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -184,10 +165,7 @@
     "documentStatus": "review_due",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Clinical care standards",
-      "Mental Health Act 2014"
-    ],
+    "topics": ["Clinical care standards", "Mental Health Act 2014"],
     "rung": 2,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -212,11 +190,7 @@
     "documentStatus": "current",
     "validationStatus": "locally_reviewed",
     "contentMode": "link_only",
-    "topics": [
-      "Mood disorders",
-      "Major depressive disorder",
-      "Bipolar disorder"
-    ],
+    "topics": ["Mood disorders", "Major depressive disorder", "Bipolar disorder"],
     "rung": 3,
     "capturedAt": "2026-09-06",
     "capturedFor": "Seed capture of the WA statutory psychiatry sources the register should hold first",
@@ -241,10 +215,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "DSM-5-TR",
-      "Diagnostic criteria"
-    ],
+    "topics": ["DSM-5-TR", "Diagnostic criteria"],
     "rung": 5,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
@@ -269,18 +240,13 @@
     "documentStatus": "outdated",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "DSM-5-TR",
-      "Approved updates"
-    ],
+    "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
-    "supersededBy": [
-      "apa-dsm5tr-supplement-2023-09"
-    ],
+    "supersededBy": ["apa-dsm5tr-supplement-2023-09"],
     "notes": "An amendment to the manual, not an independent complete manual. Dated September 2022 without a day, hence month precision."
   },
   {
@@ -299,18 +265,13 @@
     "documentStatus": "outdated",
     "validationStatus": "unverified",
     "contentMode": "metadata_only",
-    "topics": [
-      "DSM-5-TR",
-      "Approved updates"
-    ],
+    "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
-    "supersededBy": [
-      "apa-dsm5tr-supplement-2024-09"
-    ],
+    "supersededBy": ["apa-dsm5tr-supplement-2024-09"],
     "notes": "An amendment to the manual. No canonical URL was established for this edition, so it is held as metadata only. Dated September 2023 without a day."
   },
   {
@@ -329,18 +290,13 @@
     "documentStatus": "outdated",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "DSM-5-TR",
-      "Approved updates"
-    ],
+    "topics": ["DSM-5-TR", "Approved updates"],
     "rung": 5,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
     "disposition": "candidate",
     "dispositionReason": "Metadata established from the publisher on 2026-09-14. Held as a candidate until a clinician reviews it; no clinical content cites it",
-    "supersededBy": [
-      "apa-dsm5tr-supplement-2025-09"
-    ],
+    "supersededBy": ["apa-dsm5tr-supplement-2025-09"],
     "notes": "An amendment to the manual. Dated September 2024 without a day, hence month precision."
   },
   {
@@ -359,11 +315,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "DSM-5-TR",
-      "Approved updates",
-      "Other specified bipolar and related disorder"
-    ],
+    "topics": ["DSM-5-TR", "Approved updates", "Other specified bipolar and related disorder"],
     "rung": 5,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
@@ -388,12 +340,7 @@
     "documentStatus": "current",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "ICD-10-AM",
-      "ACHI",
-      "Australian Coding Standards",
-      "Admitted care coding"
-    ],
+    "topics": ["ICD-10-AM", "ACHI", "Australian Coding Standards", "Admitted care coding"],
     "rung": 3,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",
@@ -418,11 +365,7 @@
     "documentStatus": "review_due",
     "validationStatus": "unverified",
     "contentMode": "link_only",
-    "topics": [
-      "Alcohol use disorder",
-      "Alcohol withdrawal",
-      "Thiamine"
-    ],
+    "topics": ["Alcohol use disorder", "Alcohol withdrawal", "Thiamine"],
     "rung": 3,
     "capturedAt": "2026-09-14",
     "capturedFor": "DSM-5-TR diagnosis and Australian coding sources supplied by the 2026-09-14 handover",

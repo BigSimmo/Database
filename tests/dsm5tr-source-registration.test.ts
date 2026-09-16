@@ -50,9 +50,7 @@ describe("DSM-5-TR handover source authorities", () => {
   });
 
   it("places each publisher in the jurisdiction its own identity implies", () => {
-    const scopeByPublisher = new Map(
-      sourceAuthorityRegistry.map((entry) => [entry.publisher, entry.scope] as const),
-    );
+    const scopeByPublisher = new Map(sourceAuthorityRegistry.map((entry) => [entry.publisher, entry.scope] as const));
     expect(scopeByPublisher.get("American Psychiatric Association")).toBe("international");
     expect(scopeByPublisher.get("Substance Abuse and Mental Health Services Administration")).toBe("international");
     expect(scopeByPublisher.get("Independent Health and Aged Care Pricing Authority")).toBe("australian_national");
