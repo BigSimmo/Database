@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { retrievalCorpusScopes, searchGovernedCorpora } from "../src/lib/rag/rag-candidate-sources";
 import type { RagContextSnapshot } from "../src/lib/site-content/site-content-contracts";
 
-const RELEASE_ID = "91ceaa8d-470c-5661-8ce6-980c2a1bb137";
+const RELEASE_ID = "ddc94ecf-3527-5b4d-846b-af5724b428ca";
 const OTHER_RELEASE_ID = "d1f6c316-b6f8-5c55-87ce-6b486032af03";
 const DIGEST = "b".repeat(64);
 

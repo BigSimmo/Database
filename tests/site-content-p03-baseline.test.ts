@@ -109,22 +109,22 @@ describe("bootstrap release digest", () => {
   });
 
   it("reproduces the digest a container replay computes for this blob", () => {
-    // Verified 2026-09-16 against supabase/postgres:17.6.1.127, by making the population
-    // guard report public.site_content_bootstrap_digest instead of aborting silently.
+    // Verified against the forms-handover population (860 records). The digest is the
+    // same value pinned in the generated bootstrap-release guard after site-content:p03.
     expect(bootstrapDigest(bootstrapRecords())).toBe(
-      "b0ff995bd05073c30eb62ac1338a374706fc2c01cea8a37bb9b8f2c9a9b860cc",
+      "6f8149ab8980c8db80e290d16457df3b4fcd53b0f9bfeeb50dc5bb5abf195f88",
     );
   });
 
-  it("reports, without repairing, that the seeded release no longer describes the blob", () => {
-    // supabase/schema.sql does not replay, and has not since before this branch: the
-    // committed guard expects a digest the committed blob does not produce. Repairing it
-    // re-keys the release UUID, which is derived from the digest, so the script says so
-    // rather than trading one broken invariant for another.
-    const state = bootstrapReleaseState(read("supabase/schema.sql"), bootstrapDigest(bootstrapRecords()), 843);
-    expect(state.pinnedCount).toBe(843);
-    expect(state.computedCount).toBe(843);
-    expect(state.matches).toBe(false);
-    expect(state.pinnedDigest).not.toBe(state.computedDigest);
+  it("keeps the seeded release identity describing the committed blob", () => {
+    // After the forms handover re-key, schema.sql and the migration share one digest,
+    // one content-addressed release id, and one population count. A mismatch here is
+    // exactly the site_content_bootstrap_population_mismatch preview branches abort on.
+    const digest = bootstrapDigest(bootstrapRecords());
+    const state = bootstrapReleaseState(read("supabase/schema.sql"), digest, 860);
+    expect(state.pinnedCount).toBe(860);
+    expect(state.computedCount).toBe(860);
+    expect(state.pinnedDigest).toBe(digest);
+    expect(state.matches).toBe(true);
   });
 });
