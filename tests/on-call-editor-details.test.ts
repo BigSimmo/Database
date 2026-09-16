@@ -81,3 +81,29 @@ describe("mergeOnCallEditorDetails", () => {
     expect(merged).toEqual({ role: "Ward 4B" });
   });
 });
+
+describe("mergeOnCallEditorDetails — clearing a key the form turned off", () => {
+  it("removes a stored recurrence rule when the form reports none", () => {
+    const merged = mergeOnCallEditorDetails({
+      section: "education",
+      formDetails: { nextOccurrence: "Thursday 1pm" },
+      existingDetails: { nextOccurrence: "Thursday 1pm", recurrenceRule: { frequency: "weekly" }, topics: [] },
+      clearedKeys: ["recurrenceRule"],
+    });
+
+    expect(merged.recurrenceRule).toBeUndefined();
+    expect("recurrenceRule" in merged).toBe(false);
+    // Everything the form did not speak for survives.
+    expect(merged.topics).toEqual([]);
+  });
+
+  it("leaves a stored rule alone when the form does not clear it", () => {
+    const merged = mergeOnCallEditorDetails({
+      section: "education",
+      formDetails: { nextOccurrence: "Thursday 1pm" },
+      existingDetails: { nextOccurrence: "Wednesday", recurrenceRule: { frequency: "weekly" }, topics: [] },
+    });
+
+    expect(merged.recurrenceRule).toEqual({ frequency: "weekly" });
+  });
+});
