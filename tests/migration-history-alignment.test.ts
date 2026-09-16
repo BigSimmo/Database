@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   MIGRATION_HISTORY_VERSIONS_MIGRATION,
+  PENDING_SETTLE_ATTEMPTS,
+  PENDING_SETTLE_MS,
   alignmentFailureMessage,
+  attemptsForBudget,
   diffMigrationHistory,
   fetchRemoteVersions,
   parseAlignmentOptions,
@@ -174,6 +177,87 @@ describe("merged-but-unapplied migrations fail the post-merge gate", () => {
   it("accepts --allow-pending on the command line", () => {
     expect(parseAlignmentOptions([]).allowPending).toBe(false);
     expect(parseAlignmentOptions(["--allow-pending"]).allowPending).toBe(true);
+  });
+
+  it("accepts --max-wait-ms on the command line", () => {
+    expect(parseAlignmentOptions([]).maxWaitMs).toBeUndefined();
+    expect(parseAlignmentOptions(["--max-wait-ms", "600000"]).maxWaitMs).toBe(600_000);
+    expect(parseAlignmentOptions(["--allow-pending", "--max-wait-ms", "600000"])).toEqual({
+      allowPending: true,
+      maxWaitMs: 600_000,
+    });
+  });
+
+  it("rejects a non-positive or missing --max-wait-ms value", () => {
+    expect(() => parseAlignmentOptions(["--max-wait-ms"])).toThrow(/positive number/);
+    expect(() => parseAlignmentOptions(["--max-wait-ms", "0"])).toThrow(/positive number/);
+    expect(() => parseAlignmentOptions(["--max-wait-ms", "-5"])).toThrow(/positive number/);
+    expect(() => parseAlignmentOptions(["--max-wait-ms", "not-a-number"])).toThrow(/positive number/);
+  });
+
+  /**
+   * `attemptsForBudget` is the pure arithmetic behind `--max-wait-ms`: it turns a
+   * requested wait budget into the attempt count `resolveAlignment` already
+   * understands, so live-drift's ten-minute wait-until-applied window reuses the
+   * exact same settle loop this check has always used, just with a wider budget.
+   */
+  describe("attemptsForBudget (the --max-wait-ms arithmetic)", () => {
+    it("reproduces the documented ~90s default from PENDING_SETTLE_ATTEMPTS/PENDING_SETTLE_MS", () => {
+      const budgetMs = (PENDING_SETTLE_ATTEMPTS - 1) * PENDING_SETTLE_MS;
+      expect(attemptsForBudget(budgetMs, PENDING_SETTLE_MS)).toBe(PENDING_SETTLE_ATTEMPTS);
+    });
+
+    it("covers a ten-minute wait-until-applied budget at the default 30s poll interval", () => {
+      const tenMinutesMs = 10 * 60 * 1000;
+      const attempts = attemptsForBudget(tenMinutesMs, PENDING_SETTLE_MS);
+      expect((attempts - 1) * PENDING_SETTLE_MS).toBeLessThanOrEqual(tenMinutesMs);
+      expect(attempts).toBe(21);
+    });
+
+    it("never waits below the budget (rounds attempts down, not up)", () => {
+      // 95_000 / 30_000 = 3.166..., so only 3 full retries fit inside the budget.
+      expect(attemptsForBudget(95_000, 30_000)).toBe(4);
+      expect((4 - 1) * 30_000).toBeLessThanOrEqual(95_000);
+    });
+
+    it("always allows at least the initial read, even for a zero or invalid budget", () => {
+      expect(attemptsForBudget(0, 30_000)).toBe(1);
+      expect(attemptsForBudget(-1, 30_000)).toBe(1);
+      expect(attemptsForBudget(Number.NaN, 30_000)).toBe(1);
+      expect(attemptsForBudget(600_000, 0)).toBe(1);
+    });
+  });
+
+  it("resolveAlignment honours an attempt count derived from --max-wait-ms", async () => {
+    // Simulate a slow apply that only settles on the 5th read — beyond the
+    // ~90s default (4 attempts) but well within a 10-minute budget.
+    const reads = [
+      ["20260101000000"],
+      ["20260101000000"],
+      ["20260101000000"],
+      ["20260101000000"],
+      ["20260101000000", "20260102000000"],
+    ];
+    const slept: number[] = [];
+    const attempts = attemptsForBudget(10 * 60 * 1000, 1_000);
+
+    const result = await resolveAlignment({
+      localVersions: ["20260101000000", "20260102000000"],
+      readRemote: async () => ({
+        rows: (reads.shift() ?? []).map((version) => ({ version, name: null })),
+        source: "rpc",
+      }),
+      allowPending: false,
+      attempts,
+      waitMs: 1_000,
+      sleep: async (ms: number) => {
+        slept.push(ms);
+      },
+      log: () => {},
+    });
+
+    expect(result.diff.localOnly).toEqual([]);
+    expect(slept).toEqual([1_000, 1_000, 1_000, 1_000]);
   });
 
   it("waits out the integration's apply window before calling a version unapplied", async () => {
