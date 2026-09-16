@@ -2737,6 +2737,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/evidence/forms-operational-guidance-review.md",
+        "section": "evidence",
+        "catalogued": true
+      },
+      {
         "path": "docs/ward-flow/mutation-findings-2026-09-03.md",
         "section": "ward-flow",
         "catalogued": false
@@ -3490,6 +3495,11 @@
         "path": "docs/agents/external-skill-precedence.md",
         "section": "agents",
         "catalogued": true
+      },
+      {
+        "path": "docs/audit/psychsift-differentials-handover-reconciliation-2026-09-16.md",
+        "section": "audit",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-navigation-shell.md",
@@ -6022,6 +6032,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/design-system/SPEC.md",
         "section": "design-system",
         "catalogued": true
@@ -6204,6 +6219,11 @@
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",
         "section": "ward-flow-phase-3-workspace",
+        "catalogued": true
+      },
+      {
+        "path": "docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md",
+        "section": "evidence",
         "catalogued": true
       },
       {

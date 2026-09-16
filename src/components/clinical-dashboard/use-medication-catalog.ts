@@ -29,6 +29,12 @@ type MedicationCatalogResponse = {
     { sourceStatus: string; validationStatus: string; sourceCheckedAt?: string | null; sourcesRecorded?: boolean }
   >;
   demoMode?: boolean;
+  /**
+   * Set when `readCatalogueWithSeedFallback` served the in-bundle catalogue because the
+   * canonical read failed, timed out, or is inside its cooldown. Surfaces as a notice so a
+   * possibly stale list is never read as live published content.
+   */
+  retainedSnapshot?: boolean;
 };
 
 type MedicationDetailResponse = {

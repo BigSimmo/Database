@@ -19,8 +19,22 @@ export const focusRing =
  */
 export type AnswerMap = Record<string, number | undefined>;
 
+/**
+ * Whether a raw answer is a response this item can actually carry.
+ * Mirrors production `calculator-ui` so an out-of-range option index cannot
+ * count as answered, score as 0, and publish a confident band on the mockup route.
+ */
+export function isValidAnswer(item: CalculatorItem, selection: number | undefined): boolean {
+  if (selection === undefined) return true;
+  if (typeof selection !== "number" || !Number.isInteger(selection)) return false;
+  if (item.kind === "checkbox") return selection === 0 || selection === 1;
+  const options = item.options ?? [];
+  return selection >= 0 && selection < options.length;
+}
+
 export function itemScore(item: CalculatorItem, selection: number | undefined): number {
   if (selection === undefined) return 0;
+  if (!isValidAnswer(item, selection)) return 0;
   if (item.kind === "checkbox") return selection === 1 ? (item.points ?? 0) : 0;
   return item.options?.[selection]?.points ?? 0;
 }
@@ -61,6 +75,11 @@ export type CalculatorState = {
   /** Checkbox-style items currently ticked. */
   checkedCount: number;
   checkboxItemCount: number;
+  checkboxAnsweredCount: number;
+  /** Item ids whose recorded answer is not a response the item can carry. */
+  invalidItemIds: string[];
+  /** True when any answer is malformed, or the map carries an id this instrument has no item for. */
+  invalid: boolean;
   complete: boolean;
   started: boolean;
   band: ScoreBand | undefined;
@@ -112,36 +131,46 @@ export type DerivedCalculator = Omit<CalculatorState, "answers" | "toggleCheckbo
 export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): DerivedCalculator {
   const optionItems = calc.items.filter((item) => item.kind === "options");
   const checkboxItems = calc.items.filter((item) => item.kind === "checkbox");
+  const isAnswered = (item: CalculatorItem) => answers[item.id] !== undefined && isValidAnswer(item, answers[item.id]);
+  const invalidItemIds = calc.items.filter((item) => !isValidAnswer(item, answers[item.id])).map((item) => item.id);
+  const itemIds = new Set(calc.items.map((item) => item.id));
+  const unknownIds = Object.keys(answers).filter((id) => answers[id] !== undefined && !itemIds.has(id));
+  const invalid = invalidItemIds.length > 0 || unknownIds.length > 0;
+
   const score = calc.items.reduce((sum, item) => sum + itemScore(item, answers[item.id]), 0);
-  const answeredCount = optionItems.filter((item) => answers[item.id] !== undefined).length;
-  const checkedCount = checkboxItems.filter((item) => answers[item.id] === 1).length;
-  const checkboxAnsweredCount = checkboxItems.filter((item) => answers[item.id] !== undefined).length;
-  // Checkbox-only scales complete once every yes/no item has an explicit value
-  // (seeded to 0 on open). Mixed scales (MDQ) complete on answered options;
-  // an unticked symptom checkbox is a valid "not endorsed", not a gap.
-  const complete =
-    answeredCount === optionItems.length && (optionItems.length > 0 || checkboxAnsweredCount === checkboxItems.length);
-  const started = Object.values(answers).some((value) => value !== undefined);
-  // Only publish a severity band when the reading is trustworthy. Options scales
-  // with a zero floor (PHQ-9/GAD-7) may show a provisional band as they fill in,
-  // but checkbox-only screens (CAGE/SAD PERSONS) must wait for completion — a
-  // half-ticked screen still has undefined items and must never read "negative" —
-  // and non-zero-minimum scales (K10: 10–50) must not publish below their floor
-  // (nine "None of the time" answers sum to 9).
-  const showBand = isCheckboxOnly(calc) ? complete : calc.minScore === 0 || complete;
-  const band = showBand ? bandForScore(calc, score) : undefined;
+  const answeredCount = optionItems.filter(isAnswered).length;
+  const checkedCount = checkboxItems.filter((item) => isAnswered(item) && answers[item.id] === 1).length;
+  const checkboxAnsweredCount = checkboxItems.filter(isAnswered).length;
+  // A malformed response must never complete an instrument: a zero-scoring fallback
+  // would otherwise publish a final band off values the instrument cannot carry.
+  const complete = !invalid && calc.items.every(isAnswered);
+  const started = invalid || calc.items.some(isAnswered);
+  // Only publish a severity band for a complete, valid reading — never for OOR/malformed answers.
+  const band = complete ? bandForScore(calc, score) : undefined;
   const flags = calc.items
-    .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
+    .filter((item) => item.flag && isValidAnswer(item, answers[item.id]) && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);
 
-  const result: CalculatorResult =
-    calc.id === "mdq"
-      ? mdqResult(answers, score)
-      : {
-          label: band?.label ?? "—",
-          tone: band?.tone ?? "info",
-          guidance: band?.guidance ?? "",
-        };
+  const result: CalculatorResult = invalid
+    ? {
+        label: "Invalid entry",
+        tone: "warning",
+        guidance:
+          "One or more responses are not valid for this instrument. Clear and re-enter them before interpreting a result.",
+      }
+    : !complete
+      ? {
+          label: "Incomplete",
+          tone: "info",
+          guidance: "Answer every item before interpreting this result.",
+        }
+      : calc.id === "mdq"
+        ? mdqResult(answers, score)
+        : {
+            label: band?.label ?? "—",
+            tone: band?.tone ?? "info",
+            guidance: band?.guidance ?? "",
+          };
 
   return {
     score,
@@ -149,6 +178,9 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
     optionItemCount: optionItems.length,
     checkedCount,
     checkboxItemCount: checkboxItems.length,
+    checkboxAnsweredCount,
+    invalidItemIds,
+    invalid,
     complete,
     started,
     band,
@@ -518,6 +550,9 @@ export function CopyResultButton({
 
 /** One-line result summary used by every copy-to-clipboard affordance. */
 export function formatResultSummary(calc: CalculatorFixture, state: DerivedCalculator): string {
+  if (state.invalid) {
+    return `${calc.abbrev} — ${state.result.label}`;
+  }
   return `${calc.abbrev} ${state.score}/${calc.maxScore} — ${state.result.label}${
     state.complete ? "" : ` (${progressLabel(state)})`
   }`;
