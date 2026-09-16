@@ -54,6 +54,13 @@ const MIGRATION = "supabase/migrations/20260824122000_add_site_content_release_a
 const SCHEMA = "supabase/schema.sql";
 const GENERATION_ID = "bootstrap-v1";
 const HEALTH_MODULE = "src/lib/site-content/site-content-health.ts";
+/** Applied migrations that pin the bootstrap identity but hold none of its data, so this
+ *  script never rewrites them. A replay installs their functions beside the refreshed
+ *  release, and a pin left on the old identity makes those functions reject it. */
+const DEPENDENT_SQL = [
+  "supabase/migrations/20260824123000_add_site_content_health_probe.sql",
+  "supabase/migrations/20260830121000_bind_site_content_release_transitions.sql",
+];
 
 /** The audit columns the freeze was generated with. They are part of the
  *  projection input, so they are pinned rather than taken from the clock. */
@@ -210,6 +217,56 @@ function block(source: string, tag: string) {
   return match[1]!;
 }
 
+/**
+ * Refuse to write SQL that still asserts the old population size.
+ *
+ * The count rewriting above matches a fixed set of shapes, and a predicate written in a
+ * shape it does not know stays pinned to the old freeze. That happened: a `= 843` row-count
+ * check outlived its `expected_record_count = 860` partner, which would have made a fresh
+ * replay classify the retained bootstrap invalid. Only text outside the two data blocks is
+ * examined, since the payload legitimately contains the number everywhere.
+ */
+function assertNoStaleCount(source: string, path: string, oldCount: number) {
+  let outside = source;
+  for (const tag of ["site_content_bootstrap_records", "site_content_registry_baselines"]) {
+    outside = replaceBlock(outside, tag, "");
+  }
+  const stale = new RegExp(`(?<![0-9a-fA-F])${oldCount}(?![0-9a-fA-F])`).exec(outside);
+  if (stale) {
+    const line = outside.slice(0, stale.index).split("\n").length;
+    throw new Error(
+      `${path}:${line} still asserts the old population size ${oldCount} after the rewrite.\n` +
+        "Express the predicate against expected_record_count rather than a second literal, " +
+        "or teach the count rewriting its shape.",
+    );
+  }
+}
+
+/**
+ * Refuse to finish while a dependent migration still names the previous identity.
+ *
+ * These files install the functions that decide whether a release is the retained
+ * bootstrap. A replay creates the refreshed release and then installs functions that
+ * recognise only the old one, so the bootstrap reads as invalid with nothing obviously
+ * wrong. Checked after the write so the report names every file left to retarget.
+ */
+function assertDependentPinsRetargeted(oldId: string, oldCount: number) {
+  const stale: string[] = [];
+  for (const path of DEPENDENT_SQL) {
+    const source = readFileSync(path, "utf8");
+    if (source.includes(oldId)) stale.push(`${path} still pins the previous release id`);
+    if (new RegExp(`(?<![0-9a-fA-F])${oldCount}(?![0-9a-fA-F])`).test(source)) {
+      stale.push(`${path} still asserts the previous population size ${oldCount}`);
+    }
+  }
+  if (stale.length) {
+    throw new Error(
+      `The rewrite landed, but dependent SQL still points at the old bootstrap:\n  ${stale.join("\n  ")}\n` +
+        "Retarget these before the change is replayable.",
+    );
+  }
+}
+
 function replaceBlock(source: string, tag: string, payload: string) {
   const open = source.indexOf(`$${tag}$`);
   const close = source.indexOf(`$${tag}$`, open + tag.length + 2);
@@ -348,9 +405,11 @@ function main() {
       .join(`, ${entries.length}, ${entries.length},`)
       .split(`<> ${frozenEntries.length}`)
       .join(`<> ${entries.length}`);
+    assertNoStaleCount(source, path, frozenEntries.length);
     writeFileSync(path, source);
     console.log(`rewrote ${path}`);
   }
+  assertDependentPinsRetargeted(oldId, frozenEntries.length);
   console.log("\nStill to do by hand: the release id is pinned in test files; update those, then");
   console.log("regenerate supabase/drift-manifest.json and run npm run check:drift.");
 }

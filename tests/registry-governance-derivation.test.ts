@@ -203,22 +203,22 @@ describe("registry-records rowGovernance", () => {
   it("re-evaluates outdated status when last_reviewed_at is newer than reference", () => {
     const row = makeRegistryRow({
       source_status: "outdated",
-      last_reviewed_at: "2026-09-05T00:00:00.000Z",
+      last_reviewed_at: "2026-09-02T12:00:00.000Z",
     });
     const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
     expect(governance.sourceStatus).toBe("current");
-    expect(governance.lastReviewedAt).toBe("2026-09-05T00:00:00.000Z");
+    expect(governance.lastReviewedAt).toBe("2026-09-02T12:00:00.000Z");
   });
 
   it("re-evaluates outdated status when an explicit lastVerifiedAt is present", () => {
     const row = makeRegistryRow({
       source_status: "outdated",
-      verification: { lastVerifiedAt: "2026-09-05T00:00:00.000Z", locallyVerified: true },
+      verification: { lastVerifiedAt: "2026-09-02T12:00:00.000Z", locallyVerified: true },
     });
     const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
     expect(governance.sourceStatus).toBe("current");
     expect(governance.validationStatus).toBe("locally_reviewed");
-    expect(governance.lastReviewedAt).toBe("2026-09-05T00:00:00.000Z");
+    expect(governance.lastReviewedAt).toBe("2026-09-02T12:00:00.000Z");
   });
 
   it("re-evaluates outdated status to review_due when review_due_at has passed", () => {
@@ -324,6 +324,27 @@ describe("registry-records rowGovernance read-time ageing", () => {
       review_due_at: null,
     });
     expect(rowGovernance(row, reference).sourceStatus).toBe("outdated");
+  });
+
+  it("keeps a stored outdated record when the review date is implausibly far in the future", () => {
+    // A mistyped year is the one way a stored outdated row can carry a review date that is
+    // newer than the reference without anyone having re-verified anything. Treating it as a
+    // re-verification is how an outdated record silently reads as current.
+    const row = makeRegistryRow({
+      source_status: "outdated",
+      last_reviewed_at: "2126-01-01T00:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("outdated");
+  });
+
+  it("still accepts a review dated within the future-date tolerance as a re-verification", () => {
+    const row = makeRegistryRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-14T06:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, reference).sourceStatus).toBe("current");
   });
 
   it("keeps a stored outdated record when the source carries a truthy reviewed note but no date", () => {

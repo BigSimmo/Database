@@ -147,6 +147,18 @@ function lastReviewEvidence(row: RegistryRecordRow): Date | null {
 }
 
 /**
+ * Whether a review date is close enough to the reference to be real evidence.
+ *
+ * A mistyped year is the only way a review date lands meaningfully in the future, and it
+ * must not read as a fresh check. Both the freshness derivation and the outdated-clearing
+ * test bound against this, because a date one of them rejects is not evidence for the other.
+ */
+function plausibleReviewDate(reviewedAt: Date, referenceDate: Date): boolean {
+  const ageDays = (referenceDate.getTime() - reviewedAt.getTime()) / (1000 * 60 * 60 * 24);
+  return ageDays >= -FUTURE_DATE_TOLERANCE_DAYS;
+}
+
+/**
  * Freshness derived from the row's own review dates, ignoring the stored column.
  *
  * `source_status` records what was true when the row was written and never ages on its
@@ -162,8 +174,8 @@ export function deriveRegistrySourceFreshness(
   const reviewedAt = lastReviewEvidence(row);
   // No recorded review is a different deficiency from a lapsed one, and neither is current.
   if (!reviewedAt) return "unknown";
+  if (!plausibleReviewDate(reviewedAt, referenceDate)) return "unknown";
   const ageDays = (referenceDate.getTime() - reviewedAt.getTime()) / (1000 * 60 * 60 * 24);
-  if (ageDays < -FUTURE_DATE_TOLERANCE_DAYS) return "unknown";
 
   const dueAt = governanceDate(row.review_due_at);
   if (dueAt) return dueAt.getTime() < referenceDate.getTime() ? "review_due" : "current";
@@ -182,6 +194,10 @@ export function deriveRegistrySourceFreshness(
 function outdatedCleared(row: RegistryRecordRow, referenceDate: Date): boolean {
   const reviewedAt = lastReviewEvidence(row);
   if (!reviewedAt) return false;
+  // Defence in depth, not the load-bearing guard: the caller already refuses to promote a
+  // derivation of "unknown", which is what an implausible date derives to. Kept so the
+  // predicate answers its own question honestly if a future caller reads it alone.
+  if (!plausibleReviewDate(reviewedAt, referenceDate)) return false;
   if (reviewedAt.getTime() >= referenceDate.getTime()) return true;
   return governanceDate(row.review_due_at) !== null;
 }
@@ -207,7 +223,11 @@ export function rowGovernance(
     } else {
       const dueAt = governanceDate(row.review_due_at);
       sourceStatus =
-        dueAt && dueAt.getTime() < referenceDate.getTime() ? "review_due" : derived === "unknown" ? "current" : derived;
+        dueAt && dueAt.getTime() < referenceDate.getTime()
+          ? "review_due"
+          : derived === "unknown"
+            ? "outdated"
+            : derived;
     }
   } else {
     sourceStatus = sourceStatusSeverity[derived] > sourceStatusSeverity[storedStatus] ? derived : storedStatus;
