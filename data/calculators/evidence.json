@@ -18,7 +18,9 @@
         "claim:auditc:interpretation",
         "claim:mdq:interpretation",
         "claim:sadpersons:interpretation",
-        "claim:ybocs:interpretation"
+        "claim:ybocs:interpretation",
+        "claim:auditc:thresholds",
+        "claim:auditc:units"
       ],
       "limitations": ["Records the release decision and does not replace an instrument source."],
       "accessedAt": "2026-09-04",
@@ -35,7 +37,7 @@
       "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC1495268/",
       "jurisdiction": "International",
       "status": "reviewed",
-      "claimsSupported": ["claim:phq9:interpretation"],
+      "claimsSupported": ["claim:phq9:interpretation", "claim:phq9:safety-flag"],
       "limitations": [
         "A completed score supports assessment and monitoring; it is not a diagnosis or management decision."
       ],
@@ -93,6 +95,44 @@
       "supersedes": null
     },
     {
+      "id": "source:auditc:validation",
+      "issuer": "Bush, Kivlahan, McDonell, Fihn & Bradley",
+      "title": "The AUDIT alcohol consumption questions (AUDIT-C): an effective brief screening test for problem drinking",
+      "type": "journal_article",
+      "version": "1998 derivation study (Arch Intern Med 158(16):1789-95, doi:10.1001/archinte.158.16.1789)",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/9738608/",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:auditc:interpretation"],
+      "limitations": [
+        "Derived in a United States Veterans Affairs general medical clinic sample from which women were excluded, so it does not support a threshold for women.",
+        "A completed score screens reported consumption and is not a diagnosis or management decision."
+      ],
+      "accessedAt": "2026-09-16",
+      "lastReviewed": "2026-09-16",
+      "nextReview": "2027-09-16",
+      "supersedes": null
+    },
+    {
+      "id": "source:auditc:thresholds",
+      "issuer": "Bradley, DeBenedetti, Volk, Williams, Frank & Kivlahan",
+      "title": "AUDIT-C as a brief screen for alcohol misuse in primary care",
+      "type": "journal_article",
+      "version": "2007 validation study (Alcohol Clin Exp Res 31(7):1208-17, doi:10.1111/j.1530-0277.2007.00403.x)",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/17451397/",
+      "jurisdiction": "International",
+      "status": "reviewed",
+      "claimsSupported": ["claim:auditc:thresholds"],
+      "limitations": [
+        "Thresholds of 4 or more for men and 3 or more for women were derived in a United States academic family-practice sample, not an Australian one.",
+        "Optimal thresholds vary by population and setting, so the convention in use must be stated rather than assumed."
+      ],
+      "accessedAt": "2026-09-16",
+      "lastReviewed": "2026-09-16",
+      "nextReview": "2027-09-16",
+      "supersedes": null
+    },
+    {
       "id": "source:auditc",
       "issuer": "Australian Government Department of Health",
       "title": "Australian standard drinks guide",
@@ -101,8 +141,11 @@
       "url": "https://www.health.gov.au/topics/alcohol/about-alcohol/standard-drinks-guide",
       "jurisdiction": "Australia",
       "status": "reviewed",
-      "claimsSupported": ["claim:auditc:interpretation"],
-      "limitations": ["The standard-drink reference does not establish a diagnosis or management decision."],
+      "claimsSupported": ["claim:auditc:units"],
+      "limitations": [
+        "Supports Australian standard-drink context for the item wording only.",
+        "Does not validate AUDIT-C, support any screening threshold, or establish a diagnosis or management decision."
+      ],
       "accessedAt": "2026-09-04",
       "lastReviewed": "2026-09-01",
       "nextReview": "2027-09-01",
@@ -230,19 +273,117 @@
     }
   ],
   "claims": [
-    { "id": "claim:phq9:interpretation", "sourceIds": ["source:phq9", "source:governance"] },
-    { "id": "claim:phq9:safety-flag", "sourceIds": ["source:phq9", "source:governance"] },
-    { "id": "claim:gad7:interpretation", "sourceIds": ["source:gad7", "source:governance"] },
-    { "id": "claim:k10:interpretation", "sourceIds": ["source:k10", "source:governance"] },
-    { "id": "claim:cage:interpretation", "sourceIds": ["source:cage", "source:governance"] },
-    { "id": "claim:auditc:interpretation", "sourceIds": ["source:auditc", "source:governance"] },
-    { "id": "claim:mdq:interpretation", "sourceIds": ["source:mdq", "source:governance"] },
-    { "id": "claim:sadpersons:interpretation", "sourceIds": ["source:sadpersons", "source:governance"] },
-    { "id": "claim:ybocs:interpretation", "sourceIds": ["source:ybocs", "source:governance"] },
-    { "id": "claim:phq9:rights", "sourceIds": ["source:rights:phq-gad7"] },
-    { "id": "claim:gad7:rights", "sourceIds": ["source:rights:phq-gad7"] },
-    { "id": "claim:k10:rights", "sourceIds": ["source:rights:k10"] },
-    { "id": "claim:cage:rights", "sourceIds": ["source:rights:cage"] },
-    { "id": "claim:auditc:rights", "sourceIds": ["source:rights:audit"] }
+    {
+      "id": "claim:phq9:interpretation",
+      "text": "A completed PHQ-9 total of 0-27 grades depressive symptom severity and supports case-finding and monitoring. The total alone does not establish a diagnosis or a management decision.",
+      "population": "Adults assessed with the original 9-item form",
+      "supportLocator": "Kroenke, Spitzer & Williams 2001, scoring and criterion-validity sections.",
+      "sourceIds": ["source:phq9", "source:governance"]
+    },
+    {
+      "id": "claim:phq9:safety-flag",
+      "text": "An endorsed response to the thoughts-of-death-or-self-harm item requires direct and timely clinical assessment. It is a prompt to assess, not a risk score or a prediction of self-harm.",
+      "population": "Any respondent endorsing PHQ-9 item 9",
+      "supportLocator": "Kroenke, Spitzer & Williams 2001, item 9; local clinical-safety release decision.",
+      "sourceIds": ["source:phq9", "source:governance"]
+    },
+    {
+      "id": "claim:gad7:interpretation",
+      "text": "A completed GAD-7 total of 0-21 grades anxiety symptom severity and screens for generalised anxiety disorder. It is not a stand-alone diagnostic assessment.",
+      "population": "Adults assessed with the original 7-item form",
+      "supportLocator": "Spitzer, Kroenke, Williams & Lowe 2006, scoring and validity sections.",
+      "sourceIds": ["source:gad7", "source:governance"]
+    },
+    {
+      "id": "claim:k10:interpretation",
+      "text": "A completed K10 total of 10-50 describes non-specific psychological distress over the past 4 weeks. Distress bands are not diagnostic categories and K10 is one of several accepted outcome measures rather than a required instrument.",
+      "population": "Adults, Australian population context",
+      "supportLocator": "Australian Bureau of Statistics 2003 K10 information paper, scoring and population-band sections.",
+      "sourceIds": ["source:k10", "source:governance"]
+    },
+    {
+      "id": "claim:cage:interpretation",
+      "text": "A completed CAGE screens for lifetime alcohol problems. It does not quantify current consumption, stage dependence, or assess alcohol withdrawal.",
+      "population": "Adults; lifetime timeframe",
+      "supportLocator": "Ewing 1984, CAGE derivation and interpretation.",
+      "sourceIds": ["source:cage", "source:governance"]
+    },
+    {
+      "id": "claim:auditc:interpretation",
+      "text": "A completed AUDIT-C total of 0-12 screens reported alcohol consumption for heavy drinking and possible alcohol use disorder. A score does not itself diagnose dependence or determine management.",
+      "population": "Adults in general medical and primary care settings",
+      "supportLocator": "Bush et al. 1998, AUROC and screening-performance results for the three AUDIT consumption items.",
+      "sourceIds": ["source:auditc:validation", "source:governance"]
+    },
+    {
+      "id": "claim:auditc:thresholds",
+      "text": "The screening convention registered for this tool is Bradley et al. 2007: a total of 4 or more for men and 3 or more for women. These thresholds were derived in United States primary care, so the convention in use must be named rather than assumed, and a total of 3 is positive for women but not for men.",
+      "population": "Adult men and women in primary care",
+      "supportLocator": "Bradley et al. 2007, sensitivity and specificity by sex at the reported thresholds.",
+      "sourceIds": ["source:auditc:thresholds", "source:governance"]
+    },
+    {
+      "id": "claim:auditc:units",
+      "text": "An Australian standard drink contains 10 g of alcohol, which is the unit the AUDIT-C item wording assumes. This supports drink-size context only and supports neither AUDIT-C validation nor any screening threshold.",
+      "population": "Australian drinkers and clinicians applying Australian standard-drink measures",
+      "supportLocator": "Australian Government Department of Health standard drinks guide, standard-drink definition.",
+      "sourceIds": ["source:auditc", "source:governance"]
+    },
+    {
+      "id": "claim:mdq:interpretation",
+      "text": "A positive MDQ screen on the original form requires the symptom-count threshold plus symptom co-occurrence plus moderate-or-serious functional impairment. Screening performance depends on population and setting, and a negative screen cannot by itself exclude bipolar disorder.",
+      "population": "Adults; lifetime timeframe",
+      "supportLocator": "Hirschfeld et al. 2000, three-criterion scoring rule and reported sensitivity and specificity.",
+      "sourceIds": ["source:mdq", "source:governance"]
+    },
+    {
+      "id": "claim:sadpersons:interpretation",
+      "text": "SAD PERSONS must not be used to stratify suicide risk, predict suicide, or drive admission or discharge decisions. It is retained only as a quarantined record of static risk factors.",
+      "population": "Not for active use in any population",
+      "supportLocator": "Patterson et al. 1983 derivation, read with the local not-for-active-use release decision.",
+      "sourceIds": ["source:sadpersons", "source:governance"]
+    },
+    {
+      "id": "claim:ybocs:interpretation",
+      "text": "Y-BOCS severity interpretation is specific to an exact edition, administration method and anchor set. Original Y-BOCS and Y-BOCS-II are distinct instruments and their severity conventions must not be substituted for one another.",
+      "population": "Adults with obsessive-compulsive disorder, original interviewer-administered form",
+      "supportLocator": "Goodman et al. 1989, development, administration and severity-rating sections.",
+      "sourceIds": ["source:ybocs", "source:governance"]
+    },
+    {
+      "id": "claim:phq9:rights",
+      "text": "Pfizer's published statement permits reproduction, translation, display and distribution of the PHQ-9 without further permission, with attribution. Reuse permission does not establish that altered wording remains validated.",
+      "population": "Not population specific; applies to reproduction of the instrument",
+      "supportLocator": "Pfizer public-access statement for the PHQ and GAD-7 instruments.",
+      "sourceIds": ["source:rights:phq-gad7"]
+    },
+    {
+      "id": "claim:gad7:rights",
+      "text": "Pfizer's published statement permits reproduction, translation, display and distribution of the GAD-7 without further permission, with attribution. Reuse permission does not establish that altered wording remains validated.",
+      "population": "Not population specific; applies to reproduction of the instrument",
+      "supportLocator": "Pfizer public-access statement for the PHQ and GAD-7 instruments.",
+      "sourceIds": ["source:rights:phq-gad7"]
+    },
+    {
+      "id": "claim:k10:rights",
+      "text": "K10 may be used without formal approval while copyright is retained, with citation and copyright acknowledgement required. Permitted translations and timeframe variants are separate questions from validation of any adaptation.",
+      "population": "Not population specific; applies to reproduction of the instrument",
+      "supportLocator": "Kessler K10 and K6 permission-requests statement.",
+      "sourceIds": ["source:rights:k10"]
+    },
+    {
+      "id": "claim:cage:rights",
+      "text": "The CAGE permission statement allows clinical and research use and qualifies profit-making use separately, which requires negotiated permission.",
+      "population": "Not population specific; applies to reproduction of the instrument",
+      "supportLocator": "CAGE questionnaire permission statement, clinical/research and profit-making clauses.",
+      "sourceIds": ["source:rights:cage"]
+    },
+    {
+      "id": "claim:auditc:rights",
+      "text": "The AUDIT use-rights statement permits non-commercial use without material change and requires the instrument to be identified as WHO-approved. It does not by itself grant commercial use or permit altered wording.",
+      "population": "Not population specific; applies to reproduction of the instrument",
+      "supportLocator": "WHO AUDIT use-rights frequently asked questions, non-commercial-use and alteration clauses.",
+      "sourceIds": ["source:rights:audit"]
+    }
   ]
 }

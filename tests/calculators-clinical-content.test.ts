@@ -1,0 +1,202 @@
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import { allCalculatorFixtures, calculators, calculatorEvidence } from "@/lib/calculators/calculator-fixtures";
+import { actionsForBand } from "@/components/calculators/calculator-pathways";
+import { deriveCalculator } from "@/components/calculators/calculator-ui";
+
+const ROOT = process.cwd();
+const EVIDENCE_PATH = resolve(ROOT, "data/calculators/evidence.json");
+const CHECKER = resolve(ROOT, "scripts/check-calculator-content.mjs");
+
+const fixture = (id: string) => allCalculatorFixtures.find((calc) => calc.id === id);
+const source = (id: string) => calculatorEvidence.sources.find((entry) => entry.id === id);
+const claim = (id: string) => calculatorEvidence.claims.find((entry) => entry.id === id);
+
+describe("K10 is described as one accepted measure, not the standard", () => {
+  it("does not claim K10 is the standard for Australian mental-health care plans", () => {
+    const k10 = fixture("k10");
+    expect(k10).toBeDefined();
+    expect(k10?.indication).not.toMatch(/standard for Australian mental-health care plans/i);
+    expect(k10?.indication).toMatch(/one of several accepted outcome measures/i);
+  });
+
+  it("keeps the same wording out of the mockup fixture set", () => {
+    for (const path of [
+      "src/lib/calculators/calculator-fixtures.ts",
+      "src/components/calculator-mockups/calculator-fixtures.ts",
+    ]) {
+      expect(readFileSync(resolve(ROOT, path), "utf8"), path).not.toContain(
+        "standard for Australian mental-health care plans",
+      );
+    }
+  });
+
+  it("keeps distress bands out of diagnostic language", () => {
+    for (const band of fixture("k10")?.bands ?? []) {
+      expect(band.interpretation).toMatch(/not a diagnostic category/i);
+    }
+  });
+});
+
+describe("AUDIT-C states a named threshold convention rather than a universal cut-point", () => {
+  const auditc = fixture("auditc");
+
+  it("no longer labels a single score as 'at threshold' without qualification", () => {
+    expect(auditc?.bands.map((band) => band.label)).toEqual([
+      "Below both thresholds",
+      "At the threshold for women",
+      "At or above both thresholds",
+    ]);
+  });
+
+  it("separates the score that is positive for women only from the score positive for both", () => {
+    // Bradley et al. 2007: 4 or more for men, 3 or more for women. A total of 3 is therefore
+    // positive for women and negative for men, which a single band boundary cannot express.
+    const bandFor = (score: number) => auditc?.bands.find((band) => score >= band.min && score <= band.max);
+    expect(bandFor(2)?.label).toBe("Below both thresholds");
+    expect(bandFor(3)?.label).toBe("At the threshold for women");
+    expect(bandFor(4)?.label).toBe("At or above both thresholds");
+    expect(bandFor(12)?.label).toBe("At or above both thresholds");
+  });
+
+  it("names the convention and its sex-specific values in every band interpretation", () => {
+    for (const band of auditc?.bands ?? []) {
+      expect(band.interpretation).toMatch(/4 or more for men, 3 or more for women/);
+      expect(band.interpretation).toMatch(/does not establish a diagnosis/i);
+    }
+  });
+});
+
+describe("the Australian standard-drinks guide is not AUDIT-C validation evidence", () => {
+  it("attaches the standard-drinks guide only to the unit-context claim", () => {
+    const drinksGuide = source("source:auditc");
+    expect(drinksGuide?.title).toMatch(/standard drinks guide/i);
+    expect(drinksGuide?.claimsSupported).toEqual(["claim:auditc:units"]);
+    expect(drinksGuide?.limitations.join(" ")).toMatch(/does not validate AUDIT-C/i);
+  });
+
+  it("registers the screening-performance and threshold studies under their own source ids", () => {
+    expect(source("source:auditc:validation")?.claimsSupported).toContain("claim:auditc:interpretation");
+    expect(source("source:auditc:thresholds")?.claimsSupported).toContain("claim:auditc:thresholds");
+    // The derivation study excluded women, so it cannot be the support for a women's threshold.
+    expect(source("source:auditc:validation")?.limitations.join(" ")).toMatch(/women were excluded/i);
+  });
+
+  it("does not repurpose source:auditc for the interpretation claim", () => {
+    expect(claim("claim:auditc:interpretation")?.sourceIds).not.toContain("source:auditc");
+    expect(claim("claim:auditc:units")?.sourceIds).toContain("source:auditc");
+  });
+
+  it("cites the matching source on each AUDIT-C clinical consideration", () => {
+    const auditcFixture = fixture("auditc");
+    expect(auditcFixture).toBeDefined();
+    if (!auditcFixture) return;
+    const derived = deriveCalculator(auditcFixture, { a1: 1, a2: 1, a3: 1 });
+    const pairs = actionsForBand(auditcFixture, derived).map((entry) => [entry.sourceIds, entry.claimIds]);
+    expect(pairs).toContainEqual([["source:auditc:validation"], ["claim:auditc:interpretation"]]);
+    expect(pairs).toContainEqual([["source:auditc:thresholds"], ["claim:auditc:thresholds"]]);
+    expect(pairs).toContainEqual([["source:auditc"], ["claim:auditc:units"]]);
+  });
+
+  it("surfaces all three AUDIT-C sources and claims on the fixture", () => {
+    expect(fixture("auditc")?.sourceIds).toEqual([
+      "source:auditc:validation",
+      "source:auditc:thresholds",
+      "source:auditc",
+      "source:governance",
+    ]);
+    expect(fixture("auditc")?.claimIds).toEqual([
+      "claim:auditc:interpretation",
+      "claim:auditc:thresholds",
+      "claim:auditc:units",
+    ]);
+  });
+});
+
+describe("every claim records what it asserts, for whom, and where it is supported", () => {
+  it.each(calculatorEvidence.claims.map((entry) => entry.id))("%s carries its own text", (id) => {
+    const entry = claim(id);
+    expect(entry?.text?.trim()).toBeTruthy();
+    expect(entry?.population?.trim()).toBeTruthy();
+    expect(entry?.supportLocator?.trim()).toBeTruthy();
+  });
+
+  it("never leaves the internal governance record as a claim's only support", () => {
+    for (const entry of calculatorEvidence.claims) {
+      const clinical = entry.sourceIds.filter((id) => source(id)?.type !== "internal_governance_record");
+      expect(clinical.length, `${entry.id} has only governance support`).toBeGreaterThan(0);
+    }
+  });
+
+  it("agrees in both directions between claim and source", () => {
+    for (const entry of calculatorEvidence.claims) {
+      for (const sourceId of entry.sourceIds) {
+        expect(source(sourceId)?.claimsSupported, `${entry.id} -> ${sourceId}`).toContain(entry.id);
+      }
+    }
+    const claimIds = new Set(calculatorEvidence.claims.map((entry) => entry.id));
+    for (const entry of calculatorEvidence.sources) {
+      for (const claimId of entry.claimsSupported) {
+        expect(claimIds.has(claimId), `${entry.id} -> ${claimId}`).toBe(true);
+      }
+    }
+  });
+
+  it("resolves every source and claim referenced by an active calculator", () => {
+    const sourceIds = new Set(calculatorEvidence.sources.map((entry) => entry.id));
+    const claimIds = new Set(calculatorEvidence.claims.map((entry) => entry.id));
+    for (const calc of calculators) {
+      for (const id of calc.sourceIds) expect(sourceIds.has(id), `${calc.id} -> ${id}`).toBe(true);
+      for (const id of calc.claimIds) expect(claimIds.has(id), `${calc.id} -> ${id}`).toBe(true);
+    }
+  });
+});
+
+describe("the content gate rejects impossible review dates", () => {
+  function runCheckerWith(mutate: (registry: { sources: Record<string, unknown>[] }) => void): string {
+    const original = readFileSync(EVIDENCE_PATH, "utf8");
+    try {
+      const registry = JSON.parse(original);
+      mutate(registry);
+      writeFileSync(EVIDENCE_PATH, `${JSON.stringify(registry, null, 2)}\n`);
+      try {
+        execFileSync(process.execPath, [CHECKER], { encoding: "utf8", stdio: "pipe" });
+        return "";
+      } catch (error) {
+        const failure = error as { stderr?: string };
+        return failure.stderr ?? "";
+      }
+    } finally {
+      writeFileSync(EVIDENCE_PATH, original);
+    }
+  }
+
+  // Date.parse accepts these and silently rolls them into the following month, which would move
+  // a source's next review forward without anyone editing it.
+  it.each(["2027-02-30", "2027-04-31", "2027-06-31"])("fails on the non-existent date %s", (date) => {
+    const stderr = runCheckerWith((registry) => {
+      registry.sources[1].nextReview = date;
+    });
+    expect(stderr).toContain("CALCULATOR_CONTENT_FAIL");
+    expect(stderr).toContain("nextReview must be an ISO date");
+  });
+
+  it("still accepts a real leap day", () => {
+    const stderr = runCheckerWith((registry) => {
+      registry.sources[1].lastReviewed = "2028-02-28";
+      registry.sources[1].nextReview = "2028-02-29";
+    });
+    expect(stderr).toBe("");
+  });
+
+  it("fails when a claim loses its text", () => {
+    const stderr = runCheckerWith((registry) => {
+      (registry as unknown as { claims: Record<string, unknown>[] }).claims[0].text = "";
+    });
+    expect(stderr).toContain("text must be a non-empty string");
+  });
+});
