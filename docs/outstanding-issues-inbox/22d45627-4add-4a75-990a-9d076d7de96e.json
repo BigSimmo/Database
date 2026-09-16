@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "22d45627-4add-4a75-990a-9d076d7de96e",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "82d5809b-5415-4638-813a-9eb537bb5422",
+    "reason": "Superseded in this branch before reconciliation. scripts/refresh-site-content-p03-baseline.ts is the supported regeneration route, npm run check:site-content-p03 detects staleness, and tests/site-content-p03-baseline.test.ts pins the derivations against the corpus sync. What remains of the original blocker is only the drift-manifest refresh, which is its own item. See commit 7096ceef0."
+  }
+}

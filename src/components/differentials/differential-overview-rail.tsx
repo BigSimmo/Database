@@ -10,6 +10,7 @@ import type { DifferentialRecordGovernance } from "@/components/clinical-dashboa
 import {
   cleanDifferentialItem,
   curatedProvenanceLabel,
+  differentialGroupLabel,
   differentialSourceStatusLabel,
   differentialValidationStatusLabel,
   doNowStepsAreCurated,
@@ -86,6 +87,12 @@ export function DifferentialOverviewRail({
   const doNow = resolveDoNowSteps(record, curated, 4);
   const doNowCurated = doNowStepsAreCurated(curated);
   const investigations = record.investigations.map(cleanDifferentialItem).filter(Boolean).slice(0, 5);
+  // Immediate actions and investigations are written about the presentation group.
+  // Unlabelled, the rail asserts a tremor/thyroid workup of acute dystonia.
+  const group = differentialGroupLabel(record);
+  const groupScopeNote = group
+    ? `Applies to the ${group} group — not specific to ${record.title}`
+    : `Applies to the presentation group — not specific to ${record.title}`;
   const watchFor = record.safetySnapshot.tags.map(cleanDifferentialItem).filter(Boolean);
   const knownRelated = new Set(detailContext.knownRelatedSlugs);
   const related = record.related.slice(0, 4);
@@ -107,6 +114,11 @@ export function DifferentialOverviewRail({
       <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
         {doNow.length > 0 ? (
           <RailBlock title="Do now" icon={Activity} tone="accent">
+            {!doNowCurated ? (
+              <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+                {groupScopeNote}
+              </p>
+            ) : null}
             <ol className="grid gap-2">
               {doNow.map((step, index) => (
                 <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
@@ -125,6 +137,9 @@ export function DifferentialOverviewRail({
 
         {investigations.length > 0 ? (
           <RailBlock title="First-line tests" icon={FlaskConical}>
+            <p className="mb-2 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+              {groupScopeNote}
+            </p>
             <ul className="grid gap-1.5">
               {investigations.map((item) => (
                 <li key={item} className="flex items-start gap-2 text-sm leading-6 text-[color:var(--text)]">

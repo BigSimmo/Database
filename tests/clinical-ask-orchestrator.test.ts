@@ -11,6 +11,12 @@ import { runClinicalAsk } from "@/lib/clinical-ask/orchestrator";
 
 const question = "Which example evidence applies?";
 const claimText = "The source indicates which example evidence applies.";
+// The extract has to speak to every section in the services profile, because
+// `annotateEvidenceCoverage` tests each section against the passage rather than
+// copying one request-level verdict across all of them. The eligibility and
+// referral-pathway wording is what makes this fixture sufficient; without it the
+// orchestrator correctly seeks external corroboration and these routing tests
+// would be asserting against a passage that does not in fact cover the answer.
 const evidence = (reviewState: ClinicalAskEvidence["reviewState"] = "reviewed"): ClinicalAskEvidence => ({
   id: `catalogue:${reviewState}`,
   tier: "catalogue",
@@ -18,7 +24,10 @@ const evidence = (reviewState: ClinicalAskEvidence["reviewState"] = "reviewed"):
   publisher: "Synthetic publisher",
   jurisdiction: null,
   href: "/synthetic",
-  extract: `${question} example location adult assessment review ${claimText}`,
+  extract:
+    `${question} example location adult assessment review ${claimText} ` +
+    "Eligibility: the example service accepts referrals for adults. " +
+    "Referral pathway: contact the intake team.",
   reviewState,
   publishedAt: "2026-01-01",
   updatedAt: "2026-06-01",

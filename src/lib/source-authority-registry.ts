@@ -318,7 +318,14 @@ export const sourceAuthorityRegistry = [
     key: "australian-department-of-health",
     codes: ["AUSDOH", "DOHA"],
     publisher: "Australian Government Department of Health and Aged Care",
-    publisherAliases: ["Australian Department of Health and Aged Care", "Australian Government Department of Health"],
+    publisherAliases: [
+      "Australian Department of Health and Aged Care",
+      "Australian Government Department of Health",
+      // The department was renamed again in 2025; the older names stay because
+      // documents published under them do not get retitled.
+      "Australian Government Department of Health, Disability and Ageing",
+      "Department of Health, Disability and Ageing",
+    ],
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
@@ -426,6 +433,86 @@ export const sourceAuthorityRegistry = [
       tier: "australian_state",
     }),
   ),
+  /*
+   * Publishers the DSM-5-TR handover supplied, registered for CATALOGUE IDENTITY
+   * ONLY.
+   *
+   * Without an entry the catalogue cannot place a publisher in a jurisdiction,
+   * so every source it publishes fails `acquisitionLedgerIssues` and can never
+   * leave D band. That is what blocked 20 of the 24 supplied sources.
+   *
+   * `catalogueIdentityOnly: true` is the safety boundary, not a formality.
+   * `sourceAuthorityIsRuntimeClassifiable` filters these out of
+   * `registeredCodes`, and `sourceAuthorityForPublisher` /
+   * `sourceAuthorityForPublisherCode` return null for them, so nothing here
+   * reaches the runtime classification that steers retrieval selection. Removing
+   * the flag from any of these entries is a retrieval-behaviour change and needs
+   * the evaluation the RAG safeguards require.
+   * `tests/dsm5tr-source-registration.test.ts` holds that boundary.
+   *
+   * None of these is a WA or Australian clinical authority for treatment
+   * guidance. The APA and IHACPA are subject authorities for diagnostic
+   * classification and Australian admitted-care coding respectively, which is a
+   * narrower claim and the only one made here.
+   */
+  authority({
+    key: "american-psychiatric-association",
+    codes: ["APA"],
+    publisher: "American Psychiatric Association",
+    publisherAliases: ["APA Publishing", "American Psychiatric Association Publishing"],
+    jurisdictions: ["United States", "USA", "International", "Global"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "samhsa",
+    codes: ["SAMHSA"],
+    publisher: "Substance Abuse and Mental Health Services Administration",
+    jurisdictions: ["United States", "USA", "International", "Global"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "ihacpa",
+    codes: ["IHACPA", "IHPA"],
+    publisher: "Independent Health and Aged Care Pricing Authority",
+    publisherAliases: [
+      "Independent Hospital Pricing Authority",
+      "Independent Health and Aged Care Pricing Authority (IHACPA)",
+    ],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "university-of-sydney-addiction-medicine",
+    codes: ["USYDADDMED"],
+    publisher: "Specialty of Addiction Medicine, Faculty of Medicine and Health, The University of Sydney",
+    publisherAliases: ["The University of Sydney", "University of Sydney Specialty of Addiction Medicine"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  /*
+   * Whole-of-government WA, which is not WA Health. `wa.gov.au` carries
+   * cross-portfolio material such as the mandatory reporting guidance, and
+   * folding it into the `wa-health` aliases would let a justice or education page
+   * inherit a health authority's designation.
+   */
+  authority({
+    key: "wa-government",
+    codes: ["WAGOV"],
+    publisher: "Government of Western Australia",
+    publisherAliases: ["Western Australian Government", "WA Government"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
   authority({
     key: "bmj-best-practice",
     codes: ["BMJ"],
@@ -459,6 +546,135 @@ export const sourceAuthorityRegistry = [
     jurisdictions: ["International", "Global"],
     scope: "international",
     tier: "supplementary",
+  }),
+  // Publishers cited by the 2026-09 Dictionary handover that the register did not
+  // know. Each is `catalogueIdentityOnly`, which is the Chief Psychiatrist's own
+  // setting: it lets the catalogue place the publisher in a jurisdiction — without
+  // which a source can never leave D band — while leaving runtime retrieval
+  // selection exactly as it was. Registering them outright would have changed which
+  // sources retrieval picks, which is a separate decision from letting the register
+  // name them.
+  //
+  // Four further publishers were deliberately NOT registered, because the strings
+  // are descriptions rather than agencies: "Government of Western Australia",
+  // "WA Health service providers", "Mental Health Commission / WA Health" (two
+  // publishers in one field) and "4AT developers". Registering a catch-all like
+  // "Government of Western Australia" would resolve every WA government document to
+  // one authority, which is worse than leaving those four records held until their
+  // actual publishing agency is established.
+  authority({
+    key: "mental-health-tribunal-wa",
+    codes: ["MHTWA"],
+    publisher: "Mental Health Tribunal Western Australia",
+    publisherAliases: ["Mental Health Tribunal WA", "Mental Health Tribunal (WA)"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "health-support-services-wa",
+    codes: ["HSSWA"],
+    publisher: "Health Support Services",
+    publisherAliases: ["Health Support Services, Western Australia", "Health Support Services WA"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "nsw-agency-for-clinical-innovation",
+    codes: ["NSWACI"],
+    publisher: "NSW Agency for Clinical Innovation",
+    publisherAliases: ["Agency for Clinical Innovation"],
+    jurisdictions: ["Australia/NSW"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "western-sydney-local-health-district",
+    codes: ["WSLHD"],
+    publisher: "Western Sydney Local Health District",
+    jurisdictions: ["Australia/NSW"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "royal-childrens-hospital-melbourne",
+    codes: ["RCHMELB"],
+    publisher: "Royal Children's Hospital Melbourne",
+    publisherAliases: ["The Royal Children's Hospital Melbourne"],
+    jurisdictions: ["Australia/VIC"],
+    scope: "australian_state",
+    tier: "australian_state",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "australasian-adhd-professionals-association",
+    codes: ["AADPA"],
+    publisher: "Australasian ADHD Professionals Association",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "amhocn",
+    codes: ["AMHOCN"],
+    publisher: "Australian Mental Health Outcomes and Classification Network",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "centre-of-perinatal-excellence",
+    codes: ["COPE"],
+    publisher: "Centre of Perinatal Excellence",
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "naccho",
+    codes: ["NACCHO"],
+    publisher: "National Aboriginal Community Controlled Health Organisation",
+    publisherAliases: ["National Aboriginal Community Controlled Health Organization"],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "american-psychiatric-association",
+    codes: ["APA"],
+    publisher: "American Psychiatric Association",
+    jurisdictions: ["International", "Global", "United States"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "columbia-lighthouse-project",
+    codes: ["CSSRS"],
+    publisher: "Columbia Lighthouse Project",
+    publisherAliases: ["The Columbia Lighthouse Project"],
+    jurisdictions: ["International", "Global", "United States"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "diva-foundation",
+    codes: ["DIVA"],
+    publisher: "DIVA Foundation",
+    jurisdictions: ["International", "Global"],
+    scope: "international",
+    tier: "supplementary",
+    catalogueIdentityOnly: true,
   }),
 ] satisfies SourceAuthorityDefinition[];
 
@@ -513,8 +729,20 @@ export function sourceAuthorityForPublisherCode(code: string | null | undefined)
   return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
 }
 
+/**
+ * The registry entry for a publisher, including `catalogueIdentityOnly` ones.
+ *
+ * This is the catalogue-identity lookup: it answers "which authority is this,
+ * and what jurisdiction does that place it in". `sourceAuthorityForPublisher`
+ * below is the runtime-classification lookup and deliberately returns null for
+ * an identity-only entry, which is what keeps such an entry out of retrieval.
+ */
+export function sourceAuthorityIdentityForPublisher(publisher: string | null | undefined) {
+  return authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+}
+
 export function sourceAuthorityForPublisher(publisher: string | null | undefined) {
-  const authorityEntry = authorityByPublisher.get(normalizeSourceAuthorityText(publisher)) ?? null;
+  const authorityEntry = sourceAuthorityIdentityForPublisher(publisher);
   return authorityEntry && sourceAuthorityIsRuntimeClassifiable(authorityEntry) ? authorityEntry : null;
 }
 

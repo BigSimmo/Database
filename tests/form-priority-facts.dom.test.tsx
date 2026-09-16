@@ -46,6 +46,37 @@ describe("Form 1A priority facts", () => {
   });
 });
 
+describe("Operational guidance review state", () => {
+  it("says the guidance is drafted, once for the block rather than on every card", () => {
+    // Form 3C used to read "Official form source: ... Review the source snippets and
+    // approved form before use." It now names the maker, the 72-hour ceiling and where
+    // that clock starts -- all drafted from the Act, none of it signed off by a clinician.
+    const form = getFormRecord("form-3c");
+    if (!form) throw new Error("Expected Form 3C");
+
+    render(<FormDetailPage form={form} />);
+    const priorityFacts = screen.getByLabelText("Priority facts");
+    expect(
+      within(priorityFacts).getByText(/Drafted from the Act and the approved form, awaiting clinical review/i),
+    ).toBeInTheDocument();
+    expect(within(priorityFacts).queryByText(/Official form source/i)).not.toBeInTheDocument();
+  });
+
+  it("repeats the caveat beside the full text in the detail sheet", async () => {
+    const user = userEvent.setup();
+    const form = getFormRecord("form-3c");
+    if (!form) throw new Error("Expected Form 3C");
+
+    render(<FormDetailPage form={form} />);
+    const priorityFacts = screen.getByLabelText("Priority facts");
+    await user.click(within(priorityFacts).getByRole("button", { name: /Clock \/ review.*Open detail/i }));
+
+    const factSheet = await screen.findByTestId("form-priority-fact-sheet");
+    expect(factSheet).toHaveTextContent(/72 hours/i);
+    expect(factSheet).toHaveTextContent(/awaiting clinical review/i);
+  });
+});
+
 describe("Priority facts on forms without curated copy", () => {
   it("drops the empty sub-line and only offers detail where there is more to show", async () => {
     const user = userEvent.setup();
@@ -153,7 +184,9 @@ describe("Act sections card with many citations", () => {
       />,
     );
     const priorityFacts = screen.getByLabelText("Priority facts");
-    expect(within(priorityFacts).getByText(/awaiting clinical review/i)).toBeInTheDocument();
+    // The Act-sections card's own footer, not the block-level caveat that covers the
+    // other three cards: this test is about the section summaries behind this card.
+    expect(within(priorityFacts).getByText(/Tap a section .*awaiting clinical review/i)).toBeInTheDocument();
   });
 
   it("drops the card-face flag once every rendered section is reviewed", () => {
@@ -170,7 +203,7 @@ describe("Act sections card with many citations", () => {
       />,
     );
     const priorityFacts = screen.getByLabelText("Priority facts");
-    expect(within(priorityFacts).queryByText(/awaiting clinical review/i)).not.toBeInTheDocument();
+    expect(within(priorityFacts).queryByText(/Tap a section .*awaiting clinical review/i)).not.toBeInTheDocument();
     expect(within(priorityFacts).getByText(/Tap a section for authority detail/i)).toBeInTheDocument();
   });
 

@@ -25,11 +25,25 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { consolidatedModeSearchPath } from "@/lib/consolidated-mode-home-redirect";
 import {
+  formulationDomains,
   formulationDomainsInUse,
   formulationDomainGroups,
   formulationSearchPresets,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
+import { formulationConceptDomainsInUse, searchFormulationConcepts } from "@/lib/formulation-concept-search";
+
+/**
+ * Every domain something in the library actually carries.
+ *
+ * Before the contextual concepts arrived this was nine of the twelve declared
+ * domains, because no mechanism carried Biological, Social or Cultural. Those
+ * three are now carried by concept records, so hiding them would offer a filter
+ * that cannot reach content the same page is showing. Taxonomy order is kept.
+ */
+const formulationLibraryDomainsInUse = formulationDomains.filter(
+  (domain) => formulationDomainsInUse.includes(domain) || formulationConceptDomainsInUse.includes(domain),
+);
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
@@ -66,7 +80,7 @@ function FormulationResults({ query }: { query: string }) {
   const searchParams = useSearchParams();
   // Many-of-N. A mechanism carries 3.92 domains on average, so a radio set
   // claimed the reader could not hold Affect and Risk at once, which is false.
-  const domainValues = useMemo(() => new Set(formulationDomainsInUse), []);
+  const domainValues = useMemo(() => new Set(formulationLibraryDomainsInUse), []);
   const domains = useMemo(
     () => new Set(readResultFilterValues(searchParams, "domain", domainValues)),
     [domainValues, searchParams],
@@ -92,6 +106,14 @@ function FormulationResults({ query }: { query: string }) {
     return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
+  // Contextual factors rank separately and always sit below the mechanisms, so
+  // a housing or delirium record can never displace a mechanism from the top of
+  // the list the mode is named for. Empty query browses the whole set.
+  const conceptResults = useMemo(() => {
+    if (!query.trim()) return searchFormulationConcepts("", { domains });
+    if (!deferredQuery.trim()) return [];
+    return searchFormulationConcepts(deferredQuery, { domains, interpretNaturalLanguage: true });
+  }, [domains, deferredQuery, query]);
 
   const toggleDomain = useCallback(
     (value: string) => {
@@ -121,11 +143,20 @@ function FormulationResults({ query }: { query: string }) {
           description: section.description,
           optionValues: section.domains.filter((domain) => domainValues.has(domain)),
         })),
-        options: formulationDomainsInUse.map((item) => {
+        options: formulationLibraryDomainsInUse.map((item) => {
+          // Counts both halves of the result list, because ticking the option
+          // widens both. A count derived from the mechanisms alone would
+          // disagree with what the click actually does on every concept-only
+          // domain — see docs/filter-contract.md section 3.
+          const candidateDomains = new Set([...domains, item]);
           const withCandidate = pendingRanking
             ? 0
             : searchFormulationMechanisms(searchQuery, {
-                domains: new Set([...domains, item]),
+                domains: candidateDomains,
+                interpretNaturalLanguage: true,
+              }).length +
+              searchFormulationConcepts(searchQuery, {
+                domains: candidateDomains,
                 interpretNaturalLanguage: true,
               }).length;
           return {
@@ -164,7 +195,11 @@ function FormulationResults({ query }: { query: string }) {
       <SearchResultsHeaderBand
         modeId="formulation"
         query={query}
-        matchCount={results.length}
+        // Both halves: the domain filter narrows mechanisms and contextual
+        // concepts alike, so a count of mechanisms alone would shrink by less
+        // than the list the reader is looking at.
+        matchCount={results.length + conceptResults.length}
+        resultNoun={results.length + conceptResults.length === 1 ? "record" : "records"}
         // This is `useDeferredValue` lag over static data, not a network request:
         // the previous count is still on screen and still correct, so it stays
         // visible with a pulse rather than collapsing to a skeleton. Safe here
@@ -217,7 +252,10 @@ function FormulationResults({ query }: { query: string }) {
         title="Filter formulation mechanisms"
         groups={[domainGroup]}
         onClearAll={domains.size === 0 ? undefined : clearDomains}
-        summary={{ count: results.length, noun: results.length === 1 ? "mechanism" : "mechanisms" }}
+        summary={{
+          count: results.length + conceptResults.length,
+          noun: results.length + conceptResults.length === 1 ? "record" : "records",
+        }}
       />
 
       {/* Evicted from the filter sheet, and all five rather than the first four:
@@ -235,7 +273,7 @@ function FormulationResults({ query }: { query: string }) {
         }}
       />
 
-      {results.length === 0 && rankingReady ? (
+      {results.length === 0 && conceptResults.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
       ) : results.length === 0 ? null : (
         <section aria-label="Mechanism matches" className="grid gap-4 sm:gap-5">
@@ -372,6 +410,37 @@ function FormulationResults({ query }: { query: string }) {
           ))}
         </section>
       )}
+
+      {conceptResults.length ? (
+        <section aria-labelledby="formulation-context-matches" className="grid gap-3">
+          <div>
+            <h2 id="formulation-context-matches" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+              Contributing factors and context
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              Biological, social and cultural material that belongs in the formulation but is not a psychological
+              mechanism. A factor needs case evidence before it explains anything.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {conceptResults.map(({ concept }) => (
+              <Link
+                key={concept.id}
+                href={`/formulation/${concept.id}`}
+                data-formulation-concept-card
+                className={cn(
+                  formulationCard,
+                  "grid content-start gap-1.5 p-4 transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
+                )}
+              >
+                <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{concept.title}</span>
+                <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">{concept.summary}</span>
+                <MechanismDomainChips values={concept.domains} limit={2} />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <UniversalSearchAlsoMatches modeId="formulation" query={query} />
 

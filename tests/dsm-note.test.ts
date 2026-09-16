@@ -16,6 +16,9 @@ function noteInput(criteria: DsmNoteCriterion[], overrides: Partial<DsmNoteInput
   return {
     title: "Panic disorder",
     icdCode: "F41.0",
+    // These cases exercise the note mechanics against real criteria. The
+    // key-feature wording is held separately in dsm-criteria-provenance.test.ts.
+    isDsmCriteria: true,
     criteria,
     specifiers: [],
     specifierText: "",
@@ -176,6 +179,7 @@ describe("dsmNoteBuilderRecord", () => {
       "criteria",
       "differentials",
       "icdCode",
+      "isDsmCriteria",
       "specifiers",
       "title",
     ]);

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5366da08-1cf3-4cd3-91dd-d500d8e9b575",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Owner decision needed on registering service publishers, which is blocking WA service records",
+    "detail": "Three WA services cannot be written into the Services catalogue because no page from a publisher in src/lib/source-authority-registry.ts covers them: Passages Youth Engagement Hub (Perth and Peel), which appears only on Department of Communities and City of Vincent pages, and Youth Focus, which appears only on its own site. The Mental Health Commission covers neither. The same block stopped the best rung 2 family violence source being used (the Department of Communities helplines page, last updated 28 August 2026, which carries 1800RESPECT and the WA helpline numbers) and keeps the Aftercare Services Program referral sites and delivery partners out of SVC-SUI-003, because they appear only in a WA Government media statement of 12 June 2026. Healthdirect was used at rung 3 for 1800RESPECT instead, with the reason recorded in the ledger entry. NEXT: decide whether Department of Communities, and NGO publishers generally, are registered. Registering a publisher changes classifySourceAuthority and therefore retrieval selection, so under AGENTS.md it is an owner decision needing an eval canary, not a data-import fix. The pattern will repeat across the remaining NGO services in the WA catalogue.",
+    "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
+    "issueUlid": "01M2MSJ01SYDENFMMPBTN1N0MS"
+  }
+}

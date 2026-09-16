@@ -9,7 +9,13 @@ import {
 import { deriveGovernanceFromSnapshot, normalizeDifferentialSlug } from "@/lib/differential-records";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
-import { getDifferentialDetailContext, getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
+import {
+  getDifferentialDetailContext,
+  getDifferentialRecord,
+  getPresentationWorkflow,
+  scopeDifferentialRecord,
+  scopePresentationWorkflow,
+} from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError, publicErrorResponse } from "@/lib/http";
@@ -115,8 +121,10 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
               },
             ]
           : [],
+        // Canonical payloads were seeded before presentation scope existed, so
+        // they are relabelled here too — see scopeDifferentialRecord.
         mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-          workflow: finalRenderPayload as unknown as DifferentialPresentationWorkflow,
+          workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
           governance: canonicalSiteContentGovernance(canonicalRecord),
         }),
       });
@@ -147,7 +155,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
           ]
         : [],
       mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as DifferentialRecord,
+        record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
         governance: canonicalSiteContentGovernance(canonicalRecord),
       }),
     });

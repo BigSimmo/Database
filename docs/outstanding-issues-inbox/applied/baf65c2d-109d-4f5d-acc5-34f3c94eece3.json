@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "baf65c2d-109d-4f5d-acc5-34f3c94eece3",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Owner decision: ledger-eligible authority entry for Australian Prescriber",
+    "detail": "The Australian Prescriber movement-disorders article is fully established (1 April 2019, Aust Prescr 2019;42:56-61, doi 10.18773/austprescr.2019.014) and is already cited by the published dictionary for the extrapyramidal side-effect terms. It cannot enter the acquisition ledger because src/lib/source-authority-registry.ts registers australian-prescriber with catalogueIdentityOnly true, and the acquisition gate warns that changing that alters retrieval selection. The date work is banked in src/data/dictionary-source-dispositions.json; only the governance decision remains.",
+    "source": "Claude session 2026-09-16",
+    "issueUlid": "01M2MRYAYHMTY1J2CE4Y2REJK3"
+  }
+}

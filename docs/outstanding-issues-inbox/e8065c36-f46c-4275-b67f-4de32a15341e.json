@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e8065c36-f46c-4275-b67f-4de32a15341e",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Most of the legacy WA service catalogue carries no source URL or hours yet is marked high confidence",
+    "detail": "Measured on data/services-snapshot.json, 2026-09-16: of 219 legacy service records, 100 carry no public source URL at all, 98 state no opening hours, and 100 were extracted from an earlier research document without ever being checked against a live page. Despite that, 159 are marked confidence High. Examples with no source link and High confidence: Armadale Community Mental Health Service, Bentley Older Adult, Butler CMHS, Child Protection Central Intake, and the Childbirth and Mental Illness Service at KEMH. The read-time ageing fix on this branch makes the deficiency visible rather than hiding it, because a record with no recorded review now reads as unknown instead of current, but it does not supply the missing evidence. A separate data error found while reconciling: the Mother and Baby Unit record (S115) conflates KEMH and Fiona Stanley into one entry, listing the Fiona Stanley number under a provider field naming both. NEXT: verify in risk order rather than alphabetically, per docs/services-mode-governance.md, taking crisis and urgent contacts first, then common referral routes, then descriptive content. Page checking and record drafting can be done per batch; telephone confirmation and sign-off cannot.",
+    "source": "Session work on branch claude/relaxed-lamport-nkowqs, 2026-09-16",
+    "issueUlid": "01M2MSJK7HKVYHWZCYMXQT8FES"
+  }
+}

@@ -1,6 +1,6 @@
 # Scripts index
 
-Curated map of `scripts/` (337 files) and the `package.json` script surface (307 entries),
+Curated map of `scripts/` (347 files) and the `package.json` script surface (315 entries),
 grouped by purpose. This is orientation, not an exhaustive per-file listing — the authoritative
 command list is `package.json`, and `npm run docs:check-scripts` verifies every `npm run <x>`
 referenced in docs resolves to a real script. `npm run docs:update` refreshes the exact counts above.

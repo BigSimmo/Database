@@ -1201,16 +1201,9 @@ jobs:
         run: |
           cp supabase/drift-manifest.json /tmp/committed-drift-manifest.json
           npm run drift:manifest
-          node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const committed = JSON.parse(readFileSync("/tmp/committed-drift-manifest.json", "utf8"));
-          const generated = JSON.parse(readFileSync("supabase/drift-manifest.json", "utf8"));
-          if (committed.schema_sha256 !== generated.schema_sha256) {
-            throw new Error(
-              "supabase/schema.sql changed without a regenerated drift manifest. Download the drift-manifest artifact from this job and commit it.",
-            );
-          }
-          NODE
+          npm run check:drift-manifest-freshness -- \
+            --committed /tmp/committed-drift-manifest.json \
+            --generated supabase/drift-manifest.json
 
       # #QCNE6N. The step above proves the manifest is not stale and `supabase
       # migration up --local` proved the chain APPLIES. Neither compares the
