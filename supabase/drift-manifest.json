@@ -2,7 +2,7 @@
   "generated_at": "2026-09-16T13:04:14.958Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "d19668f852c16b2459e961c8fd9969296c1d7225780fdaa9fbf15fd8548c5f9c",
+  "schema_sha256": "03af4875140d37d2632571c878399d0d8a736a63562dc7b2f043e96a809c1a84",
   "replay_seconds": 20,
   "snapshot": {
     "views": [
