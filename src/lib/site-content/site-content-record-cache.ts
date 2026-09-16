@@ -62,6 +62,13 @@ export const siteContentRecordCacheStaleMs = 10 * 60_000;
  */
 export const siteContentRecordCacheMaxEntries = 32;
 
+/**
+ * Deadline on a background refresh. A blocking read is bounded by its caller's own abort signal,
+ * but a refresh has no caller, so this is what stops one hung query from becoming a permanently
+ * hung flight that every later reader joins.
+ */
+export const siteContentRecordCacheRefreshTimeoutMs = 10_000;
+
 export type SiteContentRecordRows = Array<Record<string, unknown>>;
 
 /** Which of the three ages answered this call. Reported for tests and telemetry, not policy. */
@@ -165,14 +172,27 @@ function startFlight(key: string, read: Read, now: () => number, background: boo
     settled: false,
     background,
   };
+  // A background refresh has no waiter to cancel it, so without its own deadline a refresh that
+  // never settles is held in `inflight` forever: past the stale ceiling every later caller joins
+  // that hung flight and waits on it, and nothing recovers until the process restarts.
+  const refreshDeadline = background
+    ? setTimeout(() => {
+        controller.abort(new DOMException("Site-content catalogue refresh timed out.", "TimeoutError"));
+      }, siteContentRecordCacheRefreshTimeoutMs)
+    : undefined;
+  (refreshDeadline as { unref?: () => void } | undefined)?.unref?.();
+
   created.promise = (async () => {
     const rows = await read(controller.signal);
-    // Rule 1 and rule 2: only a healthy, readable, `current` snapshot is retained, and a
-    // rejection propagates without ever reaching this line.
+    // Rule 1: a snapshot that is no longer `current` must EVICT, not merely decline to store.
+    // Leaving the previous rows in place would keep serving a catalogue the control plane is
+    // deliberately suppressing mid-publication, for the rest of the stale window.
     if (rowsAreCacheable(rows)) retain(key, rows, now);
+    else entries.delete(key);
     return rows;
   })().finally(() => {
     created.settled = true;
+    if (refreshDeadline !== undefined) clearTimeout(refreshDeadline);
     if (inflight.get(key) === created) inflight.delete(key);
   });
   inflight.set(key, created);

@@ -1655,12 +1655,13 @@ function ClinicalDashboardContent({
     // notice and no error, so the reader cannot tell a slow search from a broken one (#X42YJ1).
     // It stays armed through the body read, because a response that never finishes streaming
     // hangs exactly as visibly as one that never arrives.
+    const slowNotice = "Still searching. This is taking longer than usual.";
     let noticed = false;
     const deadline = createSearchRequestDeadline({
       signal,
       onSlow: () => {
         noticed = true;
-        setAnswerProgress("Still searching. This is taking longer than usual.");
+        setAnswerProgress(slowNotice);
       },
     });
     try {
@@ -1730,9 +1731,11 @@ function ClinicalDashboardContent({
       };
     } finally {
       deadline.cancel();
-      // Only clear what this request put there, so a retry message owned by runWithRetries
-      // survives the attempt it is describing.
-      if (noticed) setAnswerProgress(null);
+      // Clear only this request's own notice, by value. A superseded search settles its abort
+      // AFTER the replacing search has installed its progress message, so an unconditional
+      // clear here would blank the banner of a request that is still running. Comparing the
+      // message means a newer owner of the banner keeps it.
+      if (noticed) setAnswerProgress((current) => (current === slowNotice ? null : current));
     }
   }
 

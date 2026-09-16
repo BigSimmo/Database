@@ -4,6 +4,7 @@ import {
   clearSiteContentRecordCache,
   readSiteContentRecordsCached,
   siteContentRecordCacheMaxEntries,
+  siteContentRecordCacheRefreshTimeoutMs,
   siteContentRecordCacheStaleMs,
   siteContentRecordCacheTtlMs,
   type SiteContentRecordRows,
@@ -170,6 +171,61 @@ describe("readSiteContentRecordsCached", () => {
     const served = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
     expect(served.age).toBe("stale");
     expect(served.rows).toEqual(rows("current"));
+  });
+
+  // Review finding #2805 (P1). Declining to STORE a degraded snapshot is not enough: the prior
+  // `current` entry has to go, or search keeps serving a catalogue the control plane is
+  // deliberately suppressing mid-publication for the rest of the stale window.
+  it.each(["updating", "unavailable"] as const)(
+    "evicts the cached rows when a background refresh reports %s",
+    async (state) => {
+      const time = clock();
+      const read = vi
+        .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
+        .mockResolvedValueOnce(rows("current"))
+        .mockResolvedValue(rows(state));
+
+      await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      time.advance(siteContentRecordCacheTtlMs + 1);
+
+      // Serves the stale rows once while the refresh runs, which is the contract.
+      const duringRefresh = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      expect(duringRefresh.age).toBe("stale");
+      await vi.waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+
+      // Once that refresh lands degraded the entry is gone, so the next read is a real one.
+      const afterRefresh = await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      expect(afterRefresh.age).toBe("miss");
+    },
+  );
+
+  // Review finding #2805 (P2). A background refresh has no waiter to cancel it, so a hung query
+  // would otherwise stay in the flight map and every later caller would join it forever.
+  it("gives a background refresh its own deadline so a hung one cannot trap later callers", async () => {
+    vi.useFakeTimers();
+    try {
+      const time = clock();
+      const hung = deferred<SiteContentRecordRows>();
+      let refreshSignal: AbortSignal | undefined;
+      const read = vi
+        .fn<(signal?: AbortSignal) => Promise<SiteContentRecordRows>>()
+        .mockResolvedValueOnce(rows("current"))
+        .mockImplementationOnce((signal) => {
+          refreshSignal = signal;
+          return hung.promise;
+        });
+
+      await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      time.advance(siteContentRecordCacheTtlMs + 1);
+      await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      expect(refreshSignal?.aborted).toBe(false);
+
+      vi.advanceTimersByTime(siteContentRecordCacheRefreshTimeoutMs);
+      expect(refreshSignal?.aborted).toBe(true);
+      expect((refreshSignal?.reason as DOMException).name).toBe("TimeoutError");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // Rule 2, first half, and the ceiling that stops "stale" becoming "indefinite".
