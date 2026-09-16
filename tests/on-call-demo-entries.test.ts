@@ -10,6 +10,7 @@ import {
   selectWardContacts,
   onCallLocalDateKey,
 } from "@/lib/on-call/home-modules";
+import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
@@ -115,5 +116,15 @@ describe("the On Call demo corpus", () => {
       const date = (entry.details as { nextOccurrenceDate: string }).nextOccurrenceDate;
       expect(date >= today, `${entry.slug} is dated in the past`).toBe(true);
     }
+  });
+
+  // The browser board test asserts a dated teaching card is visible on the home
+  // in demo mode. That card comes from `selectUpcomingTeachingSessions`, not the
+  // older selector above, so the demo corpus has to satisfy the NEW one — a
+  // corpus that only satisfies the old one would leave the strip empty and the
+  // browser test red, which is exactly how it went red on PR #2806.
+  it("still offers a dated teaching session to the selector the home now uses", () => {
+    const today = onCallLocalDateKey(new Date());
+    expect(selectUpcomingTeachingSessions(DEMO_ON_CALL_ENTRIES, today).length).toBeGreaterThan(0);
   });
 });
