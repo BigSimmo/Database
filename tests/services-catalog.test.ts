@@ -20,12 +20,12 @@ import {
 } from "@/lib/services";
 
 describe("services catalogue", () => {
-  it("loads the governed 227-service catalogue from snapshot", () => {
+  it("loads the governed 239-service catalogue from snapshot", () => {
     const snapshot = loadServicesSnapshot();
-    expect(snapshot.service_count).toBe(227);
-    expect(snapshot.services).toHaveLength(227);
-    expect(serviceRecords).toHaveLength(227);
-    expect(loadServiceRecords()).toHaveLength(227);
+    expect(snapshot.service_count).toBe(239);
+    expect(snapshot.services).toHaveLength(239);
+    expect(serviceRecords).toHaveLength(239);
+    expect(loadServiceRecords()).toHaveLength(239);
   });
 
   it("maps 13yarn with phone and medium confidence", () => {
@@ -295,7 +295,7 @@ describe("services catalogue", () => {
   it("normalizes raw catalog services consistently", () => {
     const snapshot = loadServicesSnapshot();
     const normalized = normalizeCatalogServices(snapshot);
-    expect(normalized).toHaveLength(227);
+    expect(normalized).toHaveLength(239);
     expect(normalized[0]?.id).toMatch(/^S\d{3}$/);
   });
 });
