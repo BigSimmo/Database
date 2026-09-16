@@ -29,7 +29,7 @@ import {
 const expectedProviders = {
   dictionary: ["src/lib/dictionary-data.ts"],
   factsheets: ["src/lib/factsheets-data.ts"],
-  formulation: ["src/data/formulation-content.json"],
+  formulation: ["src/data/formulation-content.json", "src/data/formulation-concepts.json"],
   therapies: ["src/data/therapies-source.json"],
   specifiers: ["data/specifiers-content.json"],
   forms: [
@@ -127,13 +127,18 @@ describe("repository source providers", () => {
     }
 
     const formulationReferences = provider("formulation").references();
-    expect(new Set(formulationReferences.map((reference) => reference.sourceId))).toEqual(
+    // Concept and guide citations project with a null `sourceId` on purpose, so
+    // a later capture of the same URL merges with the usage rather than opening
+    // a second catalogue entry. The mechanism half still carries the nine
+    // static identities exactly.
+    const mechanismReferences = formulationReferences.filter((reference) => reference.usage.field === "sources");
+    expect(new Set(mechanismReferences.map((reference) => reference.sourceId))).toEqual(
       new Set(Object.keys(formulationSourceLibrary)),
     );
     for (const mechanism of formulationMechanisms) {
       expect(
         new Set(
-          formulationReferences
+          mechanismReferences
             .filter((reference) => reference.usage.recordId === mechanism.id)
             .map((reference) => reference.sourceId),
         ),

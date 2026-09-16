@@ -17,9 +17,11 @@ import {
 } from "lucide-react";
 
 import {
+  EvidenceList,
   FormulationPageShell,
   FormulationSafetyNote,
   MechanismBadge,
+  MechanismCaveats,
   MechanismDomainChips,
   SectionHeading,
   formulationCard,
@@ -204,6 +206,11 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                 {mechanism.treatmentTargetExample}
               </p>
             </section>
+
+            {/* The record's own caveats were held in the data and rendered
+                nowhere: every mechanism showed the same generic footer note
+                instead of the limits that belong to it. */}
+            <MechanismCaveats items={mechanism.caveats} />
           </div>
 
           <aside className="grid content-start gap-4 xl:sticky xl:top-20">
@@ -284,6 +291,10 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
                       {source.title}
                     </a>
                   ))}
+                  {/* The citations the 2026-09-16 patch set attached to this
+                      record's definition and candidate process, rendered where
+                      the claim is rather than as Markdown inside a text field. */}
+                  <EvidenceList evidence={mechanism.evidence} label="Teaching" />
                   <p className="mt-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
                     Teaching references only. Check current local guidance and clinical applicability.
                   </p>

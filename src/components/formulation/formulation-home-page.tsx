@@ -30,6 +30,7 @@ import {
   formulationSearchPresets,
   searchFormulationMechanisms,
 } from "@/lib/formulation";
+import { searchFormulationConcepts } from "@/lib/formulation-concepts";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { stretchedRowLinkClass } from "@/components/card-recipes";
 import { readResultFilterValues, replaceResultFilterUrl, writeResultFilterValues } from "@/lib/result-filter-url";
@@ -92,6 +93,14 @@ function FormulationResults({ query }: { query: string }) {
     return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
+  // Contextual factors rank separately and always sit below the mechanisms, so
+  // a housing or delirium record can never displace a mechanism from the top of
+  // the list the mode is named for. Empty query browses the whole set.
+  const conceptResults = useMemo(() => {
+    if (!query.trim()) return searchFormulationConcepts("", { domains });
+    if (!deferredQuery.trim()) return [];
+    return searchFormulationConcepts(deferredQuery, { domains, interpretNaturalLanguage: true });
+  }, [domains, deferredQuery, query]);
 
   const toggleDomain = useCallback(
     (value: string) => {
@@ -235,7 +244,7 @@ function FormulationResults({ query }: { query: string }) {
         }}
       />
 
-      {results.length === 0 && rankingReady ? (
+      {results.length === 0 && conceptResults.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
       ) : results.length === 0 ? null : (
         <section aria-label="Mechanism matches" className="grid gap-4 sm:gap-5">
@@ -372,6 +381,37 @@ function FormulationResults({ query }: { query: string }) {
           ))}
         </section>
       )}
+
+      {conceptResults.length ? (
+        <section aria-labelledby="formulation-context-matches" className="grid gap-3">
+          <div>
+            <h2 id="formulation-context-matches" className="text-lg font-extrabold text-[color:var(--text-heading)]">
+              Contributing factors and context
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              Biological, social and cultural material that belongs in the formulation but is not a psychological
+              mechanism. A factor needs case evidence before it explains anything.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {conceptResults.map(({ concept }) => (
+              <Link
+                key={concept.id}
+                href={`/formulation/${concept.id}`}
+                data-formulation-concept-card
+                className={cn(
+                  formulationCard,
+                  "grid content-start gap-1.5 p-4 transition hover:border-[color:var(--clinical-accent-border)] motion-reduce:transition-none",
+                )}
+              >
+                <span className="text-sm font-extrabold text-[color:var(--text-heading)]">{concept.title}</span>
+                <span className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">{concept.summary}</span>
+                <MechanismDomainChips values={concept.domains} limit={2} />
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <UniversalSearchAlsoMatches modeId="formulation" query={query} />
 

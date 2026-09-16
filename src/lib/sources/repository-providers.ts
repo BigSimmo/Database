@@ -21,6 +21,7 @@ import {
   type FormulationMechanism,
   type FormulationSource,
 } from "@/lib/formulation";
+import { linkableEvidence, publishedFormulationConcepts, publishedFormulationGuides } from "@/lib/formulation-concepts";
 import { officialFormsRegisterUrl } from "@/lib/form-catalog";
 import { normalizeCode, officialForms } from "@/lib/form-register";
 import { loadMedicationSnapshot } from "@/lib/medication-snapshot";
@@ -188,9 +189,9 @@ const factsheetProvider: ClinicalSourceProvider = {
 
 const formulationProvider: ClinicalSourceProvider = {
   id: "formulation",
-  sourcePaths: ["src/data/formulation-content.json"],
-  references: () =>
-    formulationMechanisms.flatMap((mechanism) =>
+  sourcePaths: ["src/data/formulation-content.json", "src/data/formulation-concepts.json"],
+  references: () => [
+    ...formulationMechanisms.flatMap((mechanism) =>
       mechanism.sources.flatMap((sourceId) => {
         const source = formulationSourceLibrary[sourceId];
         if (!source) return [];
@@ -213,6 +214,34 @@ const formulationProvider: ClinicalSourceProvider = {
         ];
       }),
     ),
+    // Concept and guide citations, projected from the records that actually
+    // carry them. A held record contributes nothing, and neither does a
+    // citation whose host `source-url-policy.ts` does not govern: the
+    // catalogue would have to trust a location this repository has not
+    // admitted. `sourceId` stays null so a capture of the same URL merges with
+    // this usage instead of splitting into a second catalogue entry.
+    ...[...publishedFormulationConcepts, ...publishedFormulationGuides].flatMap((record) =>
+      linkableEvidence(record.evidence).map((evidence) =>
+        reference(
+          {
+            modeId: "formulation",
+            recordId: record.id,
+            recordLabel: record.title,
+            field: "evidence",
+          },
+          {
+            sourceId: evidence.nativeSourceId,
+            title: evidence.title,
+            publisher: evidence.issuer,
+            canonicalUrl: evidence.url,
+            contentMode: "link_only",
+            validationStatus: "unverified",
+            topics: record.domains.length ? [...record.domains] : ["Psychiatric formulation"],
+          },
+        ),
+      ),
+    ),
+  ],
 };
 
 type TherapySourceRecord = {
