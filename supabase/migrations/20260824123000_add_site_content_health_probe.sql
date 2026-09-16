@@ -362,7 +362,7 @@ as $$
   ),
   bootstrap as (
     select case
-      when not s.initialized and r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+      when not s.initialized and r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid
         and r.target_change_epoch = 0 and s.change_epoch = 0 and s.served_change_epoch = 0
         and r.registry_version = 'site-content-bootstrap-public-release-v1' and r.generation_id = 'bootstrap-v1'
         and r.previous_release_id is null and r.static_manifest_digest = repeat('0', 64)
@@ -385,7 +385,7 @@ as $$
         and not exists (select 1 from live_events)
         and (select quarantined_count = 0 and expired_lease_count = 0 from queue)
         then 'valid_retained'
-      when not s.initialized or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or r.target_change_epoch = 0
+      when not s.initialized or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid or r.target_change_epoch = 0
         then 'invalid'
       else 'not_applicable'
     end state
@@ -462,9 +462,9 @@ as $$
       and receipt.receipt#>>'{resource,previousSiteReleaseId}' = p.id::text
       and receipt.receipt#>>'{resource,previousSiteReleaseDigest}' = p.release_digest
       and (
-        (p.target_change_epoch <> 0 and p.id <> '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid)
+        (p.target_change_epoch <> 0 and p.id <> 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
         or (p.target_change_epoch = 0
-          and p.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+          and p.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid
           and p.registry_version = 'site-content-bootstrap-public-release-v1'
           and p.generation_id = 'bootstrap-v1' and p.previous_release_id is null
           and p.static_manifest_digest = repeat('0', 64)

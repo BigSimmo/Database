@@ -642,4 +642,36 @@ describe("medications survive an unusable catalogue", () => {
     },
     20_000,
   );
+
+  /**
+   * `catalogue-seed-fallback` returns `degraded` precisely so a caller can tell the reader the
+   * list may lag anything published since the last release, and says never to drop it on the
+   * floor. This route did drop it, so the reader saw a seed catalogue presented as live. The two
+   * cases below are the pair that matters: the flag is set only when the fallback actually fired.
+   */
+  it("tells the reader the catalogue is a retained copy when the fallback fires", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: () => Promise.reject(new Error("canonical read failed")),
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const payload = (await (await GET(request("/api/medications"))).json()) as { retainedSnapshot?: boolean };
+
+    expect(payload.retainedSnapshot).toBe(true);
+  });
+
+  it("does not label a healthy canonical read as a retained copy", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const payload = (await (await GET(request("/api/medications"))).json()) as { retainedSnapshot?: boolean };
+
+    expect(payload.retainedSnapshot).toBeUndefined();
+  });
 });

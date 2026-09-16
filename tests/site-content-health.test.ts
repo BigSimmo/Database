@@ -548,10 +548,10 @@ describe("bootstrap identity across a baseline refresh", () => {
   // id while a freshly replayed one holds the newer. Both are the same logical
   // retained bootstrap and both must be recognised, or a deploy would stop the running
   // site recognising its own bootstrap.
-  const refreshedBootstrapDigest = "da6d9b10fdd3e8aeaf19fae8d940ad4a9303eca1fdeb8b76bea23624e093e7a3";
+  const refreshedBootstrapDigest = "6f8149ab8980c8db80e290d16457df3b4fcd53b0f9bfeeb50dc5bb5abf195f88";
   const refreshedBootstrapRelease = {
     ...retainedBootstrapRelease,
-    releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+    releaseId: "ddc94ecf-3527-5b4d-846b-af5724b428ca",
     dynamicStateDigest: refreshedBootstrapDigest,
     releaseDigest: refreshedBootstrapDigest,
   };
@@ -577,5 +577,20 @@ describe("bootstrap identity across a baseline refresh", () => {
       pendingPublicSiteChangeCount: 0,
     });
     expect(partition.reasons).not.toContain("bootstrap_invalid");
+  });
+
+  it("keeps recognising the previous epoch-zero id a live database may still hold", () => {
+    const previous = {
+      ...retainedBootstrapRelease,
+      releaseId: "91ceaa8d-470c-5661-8ce6-980c2a1bb137",
+    };
+    const partition = classifySiteContentPartition({
+      expectedSiteStaticManifestDigest: "f".repeat(64),
+      activePublicSiteRelease: previous,
+      publicSiteChangeEpoch: "0",
+      pendingPublicSiteChangeCount: 0,
+    });
+    expect(partition.state).toBe("unavailable");
+    expect(partition.reasons).toContain("bootstrap_invalid");
   });
 });

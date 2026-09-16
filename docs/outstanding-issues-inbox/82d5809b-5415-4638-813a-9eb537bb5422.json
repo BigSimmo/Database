@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "82d5809b-5415-4638-813a-9eb537bb5422",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "P03 frozen seed baseline blocks any Forms or Services content change from merging",
+    "detail": "supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql and supabase/schema.sql each embed a dollar-quoted copy of the whole site-content seed population, including every form and service record in full. tests/supabase-schema.test.ts and tests/site-content-publication-route.test.ts pin it to the live runtime records, so ANY change to data/forms-catalog.json or the services snapshot turns both red - currently 2 failed / 20642 passed on claude/stoic-rubin-bvva4b. Refreshing it is blocked twice over: the bootstrap blob carries logicalDocumentId, logicalChunkId, contentHash and four fingerprints that no code in src/ or scripts/ computes (logicalChunkId appears nowhere in the repo), and npm run drift:manifest needs a Docker daemon to replay schema.sql. Precedent fb0b0279b shows the owner refreshing migration + schema.sql + drift-manifest together. Two things are needed: a supported regeneration route for the seven derived fields, and an approved live-database merge window, since touching supabase/migrations/** is production-deploy approval.",
+    "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MR030QJZDFQXZAMENWXME5"
+  }
+}

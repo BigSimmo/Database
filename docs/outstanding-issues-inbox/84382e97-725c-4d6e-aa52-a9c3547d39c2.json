@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "84382e97-725c-4d6e-aa52-a9c3547d39c2",
+  "createdOn": "2026-09-16",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c1e72617-47bd-43ac-8707-2e0fce99f984",
+    "reason": "Resolved in this branch before reconciliation. All 51 approved-form PDFs were fetched from their OCP URLs and compared: 51 of 51 byte-identical, and the register was reconciled the same day. generatedAt and officialFormsReviewedDate now rest on that evidence. See docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md and commit 2d05eb0aa."
+  }
+}

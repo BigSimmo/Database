@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "dfbbc8ca-e2d7-49cd-b7bf-e8b473c69fe0",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Refresh supabase/drift-manifest.json after the P03 seed baseline change",
+    "detail": "supabase/schema.sql changed when the P03 seed baseline was regenerated, so drift-manifest.json's schema_sha256 no longer matches it and tests/drift-detection.test.ts is red with the message 'Run: npm run drift:manifest (requires Docker)'. That is the whole fix and it is one command, but the generator replays schema.sql into a pinned supabase/postgres container and no Docker daemon was available in the session that made the change. The def_hash side was checked and does NOT move: replaying public.site_content_registry_baseline into a local Postgres 16 reproduced the pinned c2dc2183657bab3c994af7f18ddfcb9b for both the old and the new body, and the same replay reproduces the manifest value exactly for the unchanged body, so the control is sound. The reason it does not move is the separate normaliser defect filed alongside this. Anyone with Docker can close this: npm run drift:manifest, then npx vitest run tests/drift-detection.test.ts.",
+    "source": "docs/wa-mha-forms-handover-reconciliation-2026-09-16.md",
+    "issueUlid": "01M2MSJ8YM1D9HEMA24GYBX5CD"
+  }
+}
