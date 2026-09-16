@@ -15,26 +15,35 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 608
-- Distinct ref cells: 388
-- Distinct reviewed heads: 591
-- Date range: `2026-08-12` to `2026-09-05`
+- Records: 662
+- Distinct ref cells: 420
+- Distinct reviewed heads: 645
+- Date range: `2026-08-12` to `2026-09-13`
 
 Records per date, newest first:
 
-- `2026-09-05` — 1 record
-- `2026-09-04` — 4 records
+- `2026-09-13` — 4 records
+- `2026-09-12` — 3 records
+- `2026-09-11` — 1 record
+- `2026-09-10` — 1 record
+- `2026-09-09` — 1 record
+- `2026-09-08` — 1 record
+- `2026-09-07` — 9 records
+- `2026-09-06` — 14 records
+- `2026-09-05` — 3 records
+- `2026-09-04` — 5 records
 - `2026-09-03` — 12 records
 - `2026-09-02` — 16 records
-- `2026-09-01` — 5 records
+- `2026-09-01` — 6 records
 - `2026-08-31` — 4 records
-- `2026-08-30` — 3 records
-- `2026-08-29` — 2 records
-- `2026-08-27` — 19 records
+- `2026-08-30` — 5 records
+- `2026-08-29` — 6 records
+- `2026-08-28` — 4 records
+- `2026-08-27` — 21 records
 - `2026-08-26` — 12 records
 - `2026-08-25` — 7 records
-- `2026-08-24` — 21 records
-- `2026-08-23` — 11 records
+- `2026-08-24` — 22 records
+- `2026-08-23` — 14 records
 - `2026-08-22` — 43 records
 - `2026-08-21` — 26 records
 - `2026-08-20` — 11 records
@@ -53,11 +62,48 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-13 | codex/clinical-governance-signoff | clinical catalogue governance sign-offs: #FYSQGK, #018, #Z3GZ5P, #SBKXZ7 | Early sign-off completed: (1) #FYSQGK 15 single-select group labels co… | [5a8ec99e](branch-review-records/5a8ec99e80bb49e04cbfe7b520b115233e9434f7fbd4a4c5da8c75ae8774ce09.record.md) |
+| 2026-09-13 | codex/rag-readiness-fix-20260913 | readiness materialized operational base schema security review | Independent Astra High schema review: no blocking defects; statement-l… | [8f84ab2d](branch-review-records/8f84ab2d2b7873a14d5a01de0690c2976a3dfd72cddd0ea9f0b924060fa1019b.record.md) |
+| 2026-09-13 | HEAD | PR2790 baseline block medication-section binding correction | CLEAR: independent clinical review of uncommitted two-file correction… | [9cfc2df2](branch-review-records/9cfc2df2145e5061eca22850010e2e966b49b8c564c2ff90939d01fa17058404.record.md) |
+| 2026-09-13 | codex/rag-adaptive-coverage-20260913 | Working-tree activation and attestation documentation only; no product acceptance | Independent clinical-governance review: no unsafe status promotion; tw… | [ff43e9e9](branch-review-records/ff43e9e94b0bfdcf440627b750b4beebaa0d5ec7d8b278123e2cafd75f4da645.record.md) |
+| 2026-09-12 | codex/lighthouse-baseline-reliability | prlanded | MERGED via GitHub merge commit; tree matches tip 9c4e5fca; on main | [1c36c26e](branch-review-records/1c36c26e8d1d90b5b39bed5dac4c030511be6581bb75758ea5ddcf7c961a0032.record.md) |
+| 2026-09-12 | claude/developer-hub-hazard-register | prlanded | MERGED via GitHub merge commit; tree matches tip 89c9b0bc; on main | [2b08c520](branch-review-records/2b08c5200f860824d39ccf98d7bab655406c9635f886c4ebe5691dc9dff4ce2a.record.md) |
+| 2026-09-12 | claude/answer-mode-coverage-gap-ilcwui | approval review | Approved. No high-confidence P0-P2 defects in the HEAD^..HEAD static d… | [f2b44a47](branch-review-records/f2b44a47e1762d3416570da8f44a38d5e93ce2ed8360c1fea3accdb774c7d119.record.md) |
+| 2026-09-11 | codex/chat-secret-scan-fix-pr2760-merge-verification-20260909 | PR2760 CI repair: catalogue identity, canonical source labels, neutral data owners and boo… | Scoped source reviews approved. Catalogue designation preserves WA pub… | [768d8057](branch-review-records/768d8057bcca4aec043692dbdac37262974b4550c473f101f73703467509c85e.record.md) |
+| 2026-09-10 | codex/rag-answer-quality-programme-local-20260823 | PR2760 M2 merge integration and R1-R5 blocker repairs | Source corrections accepted; publication blocked by final local Docker… | [f82d6dd3](branch-review-records/f82d6dd3cf9f3937c17ee248175d62616796013083eee2facb47e3e9bbed83eb.record.md) |
+| 2026-09-09 | codex/rag-answer-quality-programme-local-20260823 | PR2760 two governance attestations and migration publication implications | Source-only target and engineering impact attestations supportable wit… | [01bb7ccb](branch-review-records/01bb7ccbe801ebe54dd97c6be2e4427013b34876e12cef0b5783e4fdaf57f6e7.record.md) |
+| 2026-09-08 | claude/review-four-mockups-0l9x8c (PR #2738) | Ward Flow Command mockup and design system, third edition, with the universal header and r… | Handoff. The Live edition Command re-cut in the Platinum identity with… | [df6044d9](branch-review-records/df6044d9294459264c2f4e359288ec9298831b3b58611b1122a9d55947f76458.record.md) |
+| 2026-09-07 | claude/side-navigation-reliability-0sg48b | prlanded | PR #2637 merged 2026-09-05T11:11:08Z by BigSimmo via true merge commit… | [173c8dc6](branch-review-records/173c8dc623608fe60a08ef7070b302e3649b721fce26c5690363f025b23b6d14.record.md) |
+| 2026-09-07 | PR-2628 | PR CI and review repair | Reviewed migration ordering and rollback semantics, synced current mai… | [1dcd477f](branch-review-records/1dcd477fcafc1ec90ddb93c35800d46f297107193dc75c7eaa4a36094dd964af.record.md) |
+| 2026-09-07 | claude/audit-fix-p16 | PR2628 integration of merged PR2702 and schema mirror correction | Integrated main 0177bed184; restored legacy generation function mirror… | [37bfa1ad](branch-review-records/37bfa1ad2b82f52f130cb6db417a753b96a059ecd59d41c4e4168488dc881704.record.md) |
+| 2026-09-07 | PR-2628 | PR merge readiness | Child rollback defect reproduced and corrected locally; RAG behavior c… | [7561477d](branch-review-records/7561477da5965f495653c1fae3dff8570de827bc490253efb5d0a21a78575174.record.md) |
+| 2026-09-07 | codex/canary-fallback-repair-20260907 | fallback prose recovery | Targeted review found no actionable defects; all three original fallba… | [7c3c97de](branch-review-records/7c3c97dee073ee2b0ed948262ce48f322d64124f6aae54a5bbf13e15f1e5a535.record.md) |
+| 2026-09-07 | PR-2601 | PR CI and review repair | Fixed three unresolved governance findings and the deterministic forms… | [92054ba9](branch-review-records/92054ba970b6f6eda252cfc7599d65dded9d093a253e425dc59574a6616b826b.record.md) |
+| 2026-09-07 | codex/canary-fallback-repair-20260907 | fallback prose recovery | No actionable findings in targeted review; live baseline pending | [9ba32f82](branch-review-records/9ba32f82e8fed82b5975ed6a87f6bc7d138746627142cda54e564795849a7641.record.md) |
+| 2026-09-07 | PR-2693 | PR CI and review repair | Verified complete 24-request reconciliation and fixed deterministic fo… | [b54b6df7](branch-review-records/b54b6df71c7ab1284bf8c39afdde4a09c30abef5994d3e7d7b2bd99d5dbc4482.record.md) |
+| 2026-09-07 | PR-2702 | PR merge readiness | Local repair findings corrected; hosted verification pending. | [b77cea7c](branch-review-records/b77cea7c7217084fb5b1a3d213aeb5a5117f34a28fa7b52f8863c5cb8b49a7c1.record.md) |
+| 2026-09-06 | claude/friendly-fermi-2cesis (PR #2664) | Run PR sweep: CI flake + drift | Required-checks aggregate failed solely on Lighthouse budget: a deskto… | [04a48633](branch-review-records/04a48633217e0ae2220057766222675a893a5ca2d8aabb94c5287b54c1dc6dcf.record.md) |
+| 2026-09-06 | claude/vibrant-heisenberg-u9sadb (PR #2663) | Run PR sweep (pass 2): conflict resync | Stale mergeability check only, not a real conflict. Dry-run merge chec… | [056a706d](branch-review-records/056a706d295b74bbb5acba46b0d4b000f43a2810dc02edacfc90eb19646d20dd.record.md) |
+| 2026-09-06 | codex/services-specialist-facets (PR #2655) | Run PR sweep: CI fix | Unit coverage / PR required were failing: tests/registry-service-facet… | [067e3613](branch-review-records/067e3613d58b7901a8b3207838cbbe964dc6ab372925d9b788a17d0dde560145.record.md) |
+| 2026-09-06 | claude/confident-allen-8ek1fi (PR #2689) | Run PR sweep (pass 2): first triage | Real merge conflict against main (GitHub mergeable_state dirty), confi… | [0a96d32f](branch-review-records/0a96d32f8a84bdc0c10887230d1d5e014fac2abff1db72b32fd980528e8cbaec.record.md) |
+| 2026-09-06 | claude/staging-db-shutdown-safety-aoabrp (PR #2678) | Run PR sweep (pass 2): ledger reconciliation gap | Fixed check:ledger-write-discipline failure: 5 new outstanding-issues-… | [19b24b5f](branch-review-records/19b24b5fbe7b19e1be9baaa4f5a11c95968057724b0f2cc40df3c10994c6c359.record.md) |
+| 2026-09-06 | claude/blissful-keller-fekk8o (PR #2671) | Run PR sweep: drift only | All required checks were already green (Advisory UI failure ignored pe… | [6d900123](branch-review-records/6d900123b4377f1f2370b3299f44540b41dab0fa44ee4303fbe64b38289f014a.record.md) |
+| 2026-09-06 | dependabot/github_actions/github-actions-91ab6ea131 (PR #2647) | Run PR sweep: CI fix | Static PR checks fixed: check:github-actions failed because the review… | [7592e6cd](branch-review-records/7592e6cdace9aa2f142a902b7b827c4174a89110aa0e17889c30b17eae50500d.record.md) |
+| 2026-09-06 | claude/jolly-keller-vy36h2 (PR #2656) | Run PR sweep: thread + drift | Required checks were already green. One open review thread (Copilot):… | [7f76a6cd](branch-review-records/7f76a6cd27b1fd260120a242f57c4b93fb1d90219250d72b5650daa969c7b3b1.record.md) |
+| 2026-09-06 | claude/awesome-lovelace-bzcest (PR #2686) | Run PR sweep: CI fix | Fixed real regression: medication section rail (InPageSectionRail, sol… | [8b377790](branch-review-records/8b37779096cf983aaf792661f1d82512f34cdb86ec99fbe6ba6e4ec7d1448a10.record.md) |
+| 2026-09-06 | claude/vibrant-heisenberg-u9sadb (PR #2663) | Run PR sweep: merge conflict + drift | Required checks were already green; GitHub reported mergeable_state di… | [8ee0c55b](branch-review-records/8ee0c55b908976934a685a47a66a60b495c5344499edc74ead1d741df8b7f1ee.record.md) |
+| 2026-09-06 | claude/phase2-calculator-mockup-safety (PR #2690) | Run PR sweep (pass 2): first triage | Behind main, cleanly mergeable, all required CI (PR required) already… | [9f71538d](branch-review-records/9f71538d383d53870ba6d3a022db3cbd805d2720d33fcedf421e49e37007e0ec.record.md) |
+| 2026-09-06 | claude/eager-euler-38s1yu | prlanded | Merged and verified: squash 7214245 content-identical to branch tip d8… | [ade0cbc8](branch-review-records/ade0cbc8856c7e748bda1f7bf696b98a7380f18b673abb7194af57ed37041d50.record.md) |
+| 2026-09-06 | claude/repo-awareness-merge-safe (PR #2687) | Run PR sweep: main sync | Already fully green (PR required: success; only Advisory UI failing, i… | [b6f05929](branch-review-records/b6f05929c7a5dd1dd9e3448d85f2a7b465aa72155c719a1a3cb58e36925236a2.record.md) |
+| 2026-09-06 | claude/admiring-tesla-gw849r (PR #2688) | Run PR sweep: CI fix + main sync | Lighthouse budget failure was CI-runner timing noise, not a real regre… | [c849885d](branch-review-records/c849885dde1fa3bf352f5ddd14d03634c33aec45e6875af1ed8a80f1fc1cda81.record.md) |
+| 2026-09-05 | claude/audit-fix-p16 (PR #2628) | Run PR sweep: CI fix + threads + drift | before: PR required FAILURE (drift-detection test: schema.sql changed… | [0d16fa0c](branch-review-records/0d16fa0c3affee7b84be99fa514b7efda46699c1504b0ea96bc97a1b7b1b2b61.record.md) |
+| 2026-09-05 | codex/calculators-governance-hardening (PR #2601) | Run PR sweep: CI fix + threads + drift | before: PR required green but BEHIND main, 1 unresolved P2 thread (gov… | [592222b5](branch-review-records/592222b5cb209c31940366137801618eda5f347949643e6362368e8f47dfdf7d.record.md) |
 | 2026-09-05 | codex/services-canonical-safety-foundation (PR #2609) | Run PR sweep: CI fix + threads + drift | before: PR required FAILURE, BEHIND main, 3 unresolved P1 threads (reg… | [ba25b691](branch-review-records/ba25b691ce838ce9036f5c830d63e16ac0e4f29c650ad06531563ce28bbc6fd4.record.md) |
 | 2026-09-04 | claude/smart-test-selection-q4rt7m | prlanded | merged (#2553) — browser-gate planner (npm run plan:browser), arbiter… | [062e844f](branch-review-records/062e844f787018a9ccdf98bca24e4206614b7403a7e3896b73876b228f885005.record.md) |
 | 2026-09-04 | claude/sources-mode-redesign-73uxmc | prlanded | PR #2593 merged as 0f85b91 (true merge, not squash). Verified by conte… | [2eda1b1f](branch-review-records/2eda1b1f3be7656d04189b1da4434bf497c2cb52408d3f88b451597531b2f3bc.record.md) |
 | 2026-09-04 | claude/psychsift-modes-architecture-378ktx | prlanded | Merged clean via squash (PR #2614). Content diff between the squash co… | [971e2ece](branch-review-records/971e2ece5c225bde1c07b353b9a13c70784f23ae6b02d1ea8397882fff0f85cf.record.md) |
 | 2026-09-04 | claude/answer-page-handover-c2qlwy | prlanded | merged (#2541) — 'Report a problem' opens as a Sheet; Codex P2 (sheet… | [b5ca5f1c](branch-review-records/b5ca5f1c00340e7acbc8e643d9cb1250ebfaf72a516175a6a96d06a517ee3f47.record.md) |
+| 2026-09-04 | ward-flow/publish-2026-09-04 | prlanded | MERGED and verified by content. PR #2597 squash-merged 2026-09-04T09:1… | [f6d727e8](branch-review-records/f6d727e8ddecc9693564126e0e6759b5782ddf9a56dc70c4173dc20e17228690.record.md) |
 | 2026-09-03 | claude/audit-fix-p1 (PR #2580) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state blocked, 1 unresolved review thread (codex M22… | [05d026fe](branch-review-records/05d026fe646f677e39436ddceb09504fcdedcda3d1b0c75c914fc4bde2fb3b01.record.md) |
 | 2026-09-03 | claude/token-layer-collapse-itskb0 (PR #2577) | Run PR sweep: merge origin/main drift + Codex review threads | before: mergeable_state dirty (real conflict in playwright.config.ts s… | [20984d0f](branch-review-records/20984d0ff09095aeac675096ff3a1fd0610bb26a73bf25fdfa355b3d1fe64535.record.md) |
 | 2026-09-03 | claude/sources-mode-dropdown-home-mzw4f5 | PR #2567 Sources mode home, existing review feedback, CI, and integration with main | No new P0-P2 findings. The existing filter-only deep-link concern was… | [25566cb7](branch-review-records/25566cb7e5e57014296d21781f8af26d7a472066909492e9ffe41f3259714fef.record.md) |
@@ -86,6 +132,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | mockup retirement policy and sweep | Reviewed by two fresh agents before push; both found real defects and… | [b34f56e0](branch-review-records/b34f56e00cf20e8f76a4e7564cdb71ae5fd3c9cf97973c49f9b5541448f99a56.record.md) |
 | 2026-09-02 | claude/mockup-retirement-xw0vmn | prlanded | MERGED as #2543 squash 374a5603; content diff against branch tip 4877a… | [d3807849](branch-review-records/d38078490b7139c61eb2906b444fe58962bed612bb6463ba09dddf1e78f05294.record.md) |
 | 2026-09-02 | claude/care-plan-next (PR #2528) | Run PR sweep: review threads + main sync | Fixed 1 of 3 Codex P2 threads: added the in-file SUPERSEDED banner to… | [f5b42005](branch-review-records/f5b420054f6ed5cd54dfce9d748677965f53cac6f3f73dc725e603370eede38b.record.md) |
+| 2026-09-01 | codex/rag-answer-quality-programme-local-20260823 | P08A retrieval Tasks 3-5 | accepted | [111ab6eb](branch-review-records/111ab6eb6f2045f87365b9592ebae43e826c617c12a3555826a22fb110519915.record.md) |
 | 2026-09-01 | PR-2504 | Resolve Codex P1: corpus-health table access | Verified the authenticated role lacks table SELECT; the administrator-… | [5d80826b](branch-review-records/5d80826bf56625f7a05594bf5c46f05a421a883a038ace94c07ca265528f1dba.record.md) |
 | 2026-09-01 | PR-2507 | Run PR sweep: enforce Favourites phone tap-target minimum | Replaced the blacklist-only target guard with a positive 48px-or-row-w… | [8b140d28](branch-review-records/8b140d281375ce001e5f712e3c697b4828186a605e096bb86342f16f0452610a.record.md) |
 | 2026-09-01 | codex/smart-local-modes-20260901 (PR #2508) | PR #2508 native Smart catalogue matching | Fixed P1 Compare result-order regression; no additional P0-P3 findings… | [9d028419](branch-review-records/9d02841985e0414aa379b2fbbb0f47077e456cf6454d23e55e46487dc4dd2e8a.record.md) |
@@ -97,17 +144,29 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-08-31 | core_rag_security_hub | PR Group 2: Core RAG, Security, DB Functions & Developer Hub (#DHAR98, #0JJ4RD, #2X46NY, #… | PASS: All 11 Group 2 tasks verified clean against database guards, RAG… | [eb3b45f1](branch-review-records/eb3b45f1c916b2533496cd8afa3563a413625a0b67ddd31360d242f48cb9a2b3.record.md) |
 | 2026-08-30 | codex/smart-natural-search-current-main | Smart natural search CI reconciliation exact-tree review | No open P0/P1/P2 findings; maintainability blocker fixed by cohesive e… | [10fbaef7](branch-review-records/10fbaef7936e8de7d6818195fc99a9044817d5080a7ab7b8a310f3e4c40c95cd.record.md) |
 | 2026-08-30 | codex/smart-natural-search-current-main | Smart natural search exact-tree implementation and review | P2 findings fixed; no open P0/P1/P2 findings | [14bef4b9](branch-review-records/14bef4b95b18c084da0b351b28dae58d7c99b5cabda2da0c21a1ab019e6eed17.record.md) |
+| 2026-08-30 | codex/rag-answer-quality-programme-local-20260823 | P07 retrieval Tasks 1-2 | accepted | [73e0689d](branch-review-records/73e0689d6603044c53aaffab8ea79184cb5d0fdd4f876b66ee983cacf40fe97d.record.md) |
 | 2026-08-30 | codex/smart-natural-search-current-main | Smart natural search final CI test correction review | No open P0/P1/P2 findings; stale extracted-owner tests corrected | [9a1ec0c9](branch-review-records/9a1ec0c9779d86d7920b0c976eb3037befd3daab2942755b0a8e1dadb41d65c6.record.md) |
+| 2026-08-30 | codex/rag-answer-quality-programme-local-20260823 | P06 governed site-content control plane and request-cache integration | ACCEPTED: 0 Critical, 0 Important, 0 Minor findings | [d5134cf1](branch-review-records/d5134cf196a256ba8f184a640ad81f0621420b4411de6d102abcf511dd3544f7.record.md) |
+| 2026-08-29 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 0 Important, 1 Minor | [06d697a0](branch-review-records/06d697a0a39c03c93ec059666e5ef17dd41036186826cd9cef6e119b436263ee.record.md) |
+| 2026-08-29 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 3 Important, 1 Minor | [4932c01d](branch-review-records/4932c01dc5a5918a4ea726a908ad48cb6c01ea674fb91e25d937c3eff49ef0c8.record.md) |
 | 2026-08-29 | PR-2457 | PR #2457 review-and-fix | Fixed repository breakpoint coverage, conservative same-band Tailwind… | [554462bf](branch-review-records/554462bf56443e5221eec0997a2489b31359c24bfdf9593c1058321161f57bda.record.md) |
+| 2026-08-29 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 1 Important, 1 Minor | [9243110d](branch-review-records/9243110dd1c8e699ef88e9806001312b199f13907b6c70442b36a0495d777fa0.record.md) |
 | 2026-08-29 | PR-2454 | CI triage and unresolved review findings | Confirmed PR-specific repo-awareness drift and two P2 documentation fi… | [ac0b229c](branch-review-records/ac0b229c8d4618a0760a588b4efbcd47ec164e68cf0fa3a4240dfac33d602e8f.record.md) |
+| 2026-08-29 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 full-range review R10 | accepted: 0 Critical, 0 Important, 0 Minor | [b6c7519f](branch-review-records/b6c7519f9f42905602457ffa2ae79a821c038c6b4b22bbb9d1bede06f410e17b.record.md) |
+| 2026-08-28 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 1 Important, 0 Minor | [011623fb](branch-review-records/011623fb65b249a0f541bc44c5fe0195f23f7ab5a79a8b8dbafec9207992291b.record.md) |
+| 2026-08-28 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 4 Important, 0 Minor | [41aeab29](branch-review-records/41aeab295bb37f7eaf6cd67a2a7f2f9087aafa9d2c4554db5803b7737d921c58.record.md) |
+| 2026-08-28 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 2 Important, 1 Minor | [b1c053cd](branch-review-records/b1c053cd1d735f3adc1c1ec5111e8c9f025b3f0ccb6b95099e715bf5ea105962.record.md) |
+| 2026-08-28 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 2 Important, 0 Minor | [f64d2058](branch-review-records/f64d2058648f421ec834115d0f353ebabc6bb311c0059eb23b6dcc6c80237d5c.record.md) |
 | 2026-08-27 | codex/therapy-pathways-redesign (PR #2413) | Run PR follow-up: second merge-drift + PR-policy fix | Re-synced with origin/main after PR #2416 landed (mechanical conflict… | [093e552f](branch-review-records/093e552fb22a9e87c899dd093a3c133dd13a262ad6b2fc4fbb5b5a6deee67d93.record.md) |
 | 2026-08-27 | codex/therapy-compare-phone-ux (PR #2410) | Run PR sweep: CI fix + threads + drift | Before: mergeable_state dirty (real conflict in src/components/dsm/dsm… | [20f28afc](branch-review-records/20f28afc603cba993489d5388afdb6567cea43820bf426bee03f46716fc88185.record.md) |
 | 2026-08-27 | codex/tooling-hooks-ci-invariants | PR #2397 babysit: merge main, conflict resolution, review thread fixes | mergeable; snapshot regenerated; 5 premature inbox done requests remov… | [3d772ae2](branch-review-records/3d772ae226f7524d949fe2a22a1d5f62ebac498b6cdcf20a53f1f44bc4e08659.record.md) |
+| 2026-08-27 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 5 Important, 1 Minor | [521d0cd1](branch-review-records/521d0cd1ac34e4ab9e6aa38064332364a294cf57ddb6c13e11aa9a15b9ac5641.record.md) |
 | 2026-08-27 | update_documentation_structure (PR #2444) | PR 2444 review: main sync + CI fix + review thread | before: PR policy/Static PR checks/Unit coverage failing, 1 unresolved… | [60f6fcda](branch-review-records/60f6fcdaec6a782ff45fd00f775fe8163959317c5232913d18286e44c45de3af.record.md) |
 | 2026-08-27 | codex/therapy-pathways-redesign (PR #2413) | Run PR sweep: CI fix + threads + drift | Before: PR required failing (Static PR checks red on check:repo-awaren… | [7895a181](branch-review-records/7895a1814c28b2fe53fd6877a91f0bc86535eee70ed77c22032f6989646a2a1d.record.md) |
 | 2026-08-27 | codex/therapy-compare-phone-ux (PR #2410) | Run PR follow-up: second merge-drift + real bug fix + PR-policy fix | Re-synced with origin/main after PR #2416 landed (mechanical conflict… | [812457de](branch-review-records/812457de8c07639fd0b8c0910761e7e67a515864ed9324e6a0d3131d03da7307.record.md) |
 | 2026-08-27 | ds-hazard-1-2-sweep | design-system | Findings — 0 P0/P1; 4 structural P2 (disabled-send border jump, hero l… | [9252ad9d](branch-review-records/9252ad9dfa57000de74b55496e6c60bbdde1ca84db9e2bfa7faf784cdcf7d98d.record.md) |
 | 2026-08-27 | codex/therapy-compare-phone-ux (PR #2410) | Run PR sweep: CI fix + threads + drift | Before: Static PR checks failing (check:repo-awareness-snapshot drifte… | [9e932f48](branch-review-records/9e932f4880f7b7b745043f533dd770b2d0cad9c2ad12450b4e7aa50dd5339520.record.md) |
+| 2026-08-27 | codex/rag-answer-quality-programme-local-20260823 | P06 Task 4 governed site-content health exact range | needs fixes: 4 Important, 0 Minor | [ab86bedc](branch-review-records/ab86bedc43158d430a2fb656915376d5840154ea9557b522a94a95bbcde52cae.record.md) |
 | 2026-08-27 | codex/therapy-pathways-redesign (PR #2413) | Run PR sweep: CI fix + threads + drift | CI was already green pre-sweep (PR required: success on d3f39c4); bran… | [ad2f2cc5](branch-review-records/ad2f2cc55ed454d781f0501ef25a67e6f7bbaf869908014dfceacbcd2b8838d4.record.md) |
 | 2026-08-27 | gemini/engineering-maintenance-and-ledger-reconciliation (PR #2418) | Run PR sweep: CI/drift diagnosis + review-thread sweep on ledger-reconciliation PR | No fix pushed. mergeable_state=dirty is real: git merge origin/main co… | [b2fac1be](branch-review-records/b2fac1be83baee8c08175d37f3bed371c7c6a6b0027709f097d137dcc22e07a9.record.md) |
 | 2026-08-27 | codex/therapy-compare-phone-ux (PR #2410) | Run PR sweep: CI fix + threads + drift | Static PR checks failing (check:repo-awareness-snapshot: committed sna… | [b88e809f](branch-review-records/b88e809f0017354eccba3273e1033cefd148765280d0a7d1a6d0eeebeaba7012.record.md) |
@@ -158,18 +217,22 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-08-24 | cursor/dictionary-control-row-polish-4ee0 (PR #2316) | Run PR sweep: main sync | Before: ready-for-review PR behind main (mergeable_state=behind); 2 re… | [a94911bf](branch-review-records/a94911bf269d66b1dee46a927086585c035a3df3c2582244a082251553cb75a4.record.md) |
 | 2026-08-24 | claude/review-queue-header-design-of7baq (PR #2338) | Run PR sweep: drift sync | No code fix needed; branch was only behind origin/main (clean merge-tr… | [ba504bd5](branch-review-records/ba504bd5ee15c145f50f09fae92928bfbfa0a5b546a8af0732fc674927c67c0c.record.md) |
 | 2026-08-24 | PR #2359 / claude/dev-hub-phase-2-recovery | PR #2359 current changed scope | P2 findings confirmed: complete review corpus omitted legacy/archive r… | [bec176b7](branch-review-records/bec176b75230d7aba0c403f46297911b33fafe5c01b54aaaea6a643de3357ab1.record.md) |
+| 2026-08-24 | codex/rag-answer-quality-programme-local-20260823 | P05 controlled acquisition and recovery-readiness phase | ACCEPTED: no Critical, Important, or Minor findings | [cb147aa6](branch-review-records/cb147aa6c90a17218dd9a6ec9fbdfb616c8f4c9617d7a3c7dda0afe61010cbb0.record.md) |
 | 2026-08-24 | dependabot/docker/docker-images-263a700181 (PR #2326) | Run PR sweep: diagnosis only | before: PR required failing. Root cause confirmed via job logs: Docker… | [f02d1a58](branch-review-records/f02d1a581a75dd0dfabb583935cde7fc2ed1dc52565410a11b31a087aa3789d9.record.md) |
 | 2026-08-23 | 2317 | tools catalogue cards and CI failure | fixed | [018f46d4](branch-review-records/018f46d4e138c95ca2c345610a2184aab44e8613682a2037a8baae8dffa590ad.record.md) |
 | 2026-08-23 | codex/status-semantics-followup (PR #2304) | Run PR sweep: CI fix + threads + drift | before: required CI green, 4 unresolved review threads, 0 behind main.… | [18efb700](branch-review-records/18efb7003b9aa2bf01ca39504c821e83393c6e1bf0e5b37a9afc46c8ca5ce4e3.record.md) |
 | 2026-08-23 | PR-2291 | Run PR: CI repair for blocked CMHT contact actions | published the omitted contact-action guard, workspace forwarding, and… | [4bd26d4b](branch-review-records/4bd26d4badd0bcc4410f69b50ff57255bece54812392affec6cad066652891dd.record.md) |
+| 2026-08-23 | codex/rag-answer-quality-programme-local-20260823 | P04 Controlled ingestion inventory and coverage baselines | ACCEPTED: no Critical, Important, or Minor findings | [5cd09bbf](branch-review-records/5cd09bbf009ed5d0d5ec3479601ff60fa08c62ca34a21613c7e7fedaa5e3b25c.record.md) |
 | 2026-08-23 | codex/tier-1-quick-wins | Tier 1 quick wins (10 tasks) | clean review (0 defects) | [6f453b76](branch-review-records/6f453b76982e3dfb13d12a0eaa3e39c1e6d2b12d8352119ececa64d5c5f79095.record.md) |
 | 2026-08-23 | codex/maturity-quick-wins-20260823 | maturity quick wins: soak, tenancy, drift, and governance | No blocking findings after independent review; redirect, authenticatio… | [7ec2f08b](branch-review-records/7ec2f08bfa6c9b286ff9712744a8b8de24e976075e50426809533397f2936bbf.record.md) |
 | 2026-08-23 | PR-2308 | open review-thread sweep for retired detailed mode homes | CHANGES REQUESTED / fixed five unresolved review findings | [831adac3](branch-review-records/831adac3361aced97257021499f1a150d193b70e6b1c46c06b5afbdb3c0a95b0.record.md) |
 | 2026-08-23 | codex/task-performance-remediation | performance remediation: CLS attribution and geometry, intent prefetch, bundle provenance… | PASS - no P0/P1/P2 findings after measured 1024-1279 boundary fix, mai… | [83404e58](branch-review-records/83404e58e44d3ce722a13c3023c0539b3734d3f79920b45cfcb6061a9deccca0.record.md) |
+| 2026-08-23 | codex/rag-answer-quality-programme-local-20260823 | P03 Repository content and public snapshot contracts | ACCEPTED: no Critical, Important, or Minor findings after cumulative x… | [8c5d6001](branch-review-records/8c5d60015890d93fbfd940d4bc618b3211eb41965ad05522c80b7ee8f6a07f46.record.md) |
 | 2026-08-23 | codex/clinical-operations-programme | pr-2306-review | fixed | [93f2e798](branch-review-records/93f2e7987617511cf759748840b604f35eedd967c319b98a989310638137a5ab.record.md) |
 | 2026-08-23 | PR #2293 / codex/implement-mode-aware-clinical-ask-feature | PR #2293 full diff and Clinical Ask reconciliation | no-new-p0-p1; four-p2-fixes-applied; draft-release-gates-open | [b1c2fc23](branch-review-records/b1c2fc2352457d33801a0ea439cfa0fc3f17df73a7646b2bfed10f0b45668b33.record.md) |
 | 2026-08-23 | codex/clinical-operations-programme | PR #2306 unresolved-thread verification and merge-blocker remediation | Confirmed and fixed favourite-set reorder scoping and Railway DPA evid… | [c62c668f](branch-review-records/c62c668f6cb47cdfb5592f0a300617536fbe60cd6f1c00e5f74f3741d0dd218e.record.md) |
 | 2026-08-23 | codex/maturity-quick-wins-20260823 | maturity ledger snapshot follow-up | No blocking findings; refreshed the generated pending-request snapshot… | [e15bcce6](branch-review-records/e15bcce6c52e3387420b995d8d074c019691b811f68d2f9a15b3c025b7bcf8fc.record.md) |
+| 2026-08-23 | codex/rag-answer-quality-programme-local-20260823 | P02 Australian source governance phase | ACCEPTED: no Critical, Important, or Minor findings after cumulative c… | [f1859138](branch-review-records/f1859138ba904bd236fdf1ebbeada5522a4fbbaaacef27b088c20b915904f378.record.md) |
 | 2026-08-22 | claude/suicide-contact-mockup-b5aaa0 | latest-main merge conflict resolution and CI repair | resolved snapshot conflict while synchronising latest main; focused pr… | [0ab43043](branch-review-records/0ab430432022488485b3cb8902dd30e720a45e7262cd63fae1a8e499b2f8ea1f.record.md) |
 | 2026-08-22 | work | PR 1 clinical status semantics and baseline provenance | status semantics implemented with zero contract debt; no high-confiden… | [1233fbf3](branch-review-records/1233fbf36b5160345976009075cd18f47201a1635e459105ba8fb0cda19d332a.record.md) |
 | 2026-08-22 | codex/status-semantics-followup | status semantics rendered coverage and visual baseline provenance truth | No findings; stale baselines stay pending and contradictory human attr… | [166acb91](branch-review-records/166acb91823f11f5d3784c615f45d933d5498a04db5ecd5e4941e1730e7a0b66.record.md) |
