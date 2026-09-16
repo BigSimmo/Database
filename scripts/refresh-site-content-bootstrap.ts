@@ -398,7 +398,10 @@ const WRITE_REFUSAL = [
 ].join("\n");
 
 function main() {
-  if (process.argv.includes("--write")) throw new Error(WRITE_REFUSAL);
+  // `npm run bootstrap:refresh --write` (no `--`) never reaches argv: npm swallows it into
+  // npm_config_write and the script would have run happily in check mode, reporting success for
+  // a command the operator believed was a write. Both spellings refuse.
+  if (process.argv.includes("--write") || process.env.npm_config_write) throw new Error(WRITE_REFUSAL);
   const write = false;
   const entries = currentEntries();
   const baselines = currentBaselines();

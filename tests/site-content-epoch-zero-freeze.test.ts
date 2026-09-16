@@ -137,8 +137,14 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     );
     expect(result.status, "bootstrap:refresh --write must exit non-zero").not.toBe(0);
     expect(`${result.stderr}${result.stdout}`).toContain("Refusing to rewrite an applied migration");
-    // And it must not have touched the files it used to rewrite.
-    expect(read(BOOTSTRAP_MIGRATION)).toContain(APPLIED_RELEASE_DIGEST);
+    // And it must not have touched the files it used to rewrite. Checked by hash, not by
+    // substring: this test runs the real writer, so if both barriers in it were ever removed
+    // at once, the run itself would rewrite tracked migrations and a substring check would
+    // still pass on the new content.
+    const migration = read(BOOTSTRAP_MIGRATION);
+    const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+    expect(sha(blob(migration, "site_content_bootstrap_records"))).toBe(APPLIED_RECORDS_BLOB_SHA256);
+    expect(sha(blob(migration, "site_content_registry_baselines"))).toBe(APPLIED_BASELINES_BLOB_SHA256);
     for (const path of APPLIED_MIGRATIONS) expect(read(path)).toContain(APPLIED_RELEASE_ID);
   });
 
@@ -179,8 +185,12 @@ describe("the epoch-zero site-content freeze matches the live database", () => {
     // Adding a third id is how a regeneration would make itself pass. The generator used to
     // demand exactly that, in a message that contradicted the module's own rule; it no longer
     // does, and this makes a third id a deliberate test edit rather than a quiet one.
-    const module = read("src/lib/site-content/site-content-health.ts");
-    const ids = [...new Set(module.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [])];
+    // Scoped to the declaration rather than the whole file, so a uuid appearing in a comment
+    // somewhere else in the module does not fail a test about the recognised set.
+    const healthModule = read("src/lib/site-content/site-content-health.ts");
+    const declaration = healthModule.match(/RETAINED_BOOTSTRAP_RELEASE_IDS[^=]*=\s*new Set\(\[([\s\S]*?)\]\)/);
+    expect(declaration, "RETAINED_BOOTSTRAP_RELEASE_IDS is no longer a literal Set").not.toBeNull();
+    const ids = declaration![1]!.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [];
     expect(ids).toEqual([APPLIED_RELEASE_ID, "91ceaa8d-470c-5661-8ce6-980c2a1bb137"]);
   });
 
