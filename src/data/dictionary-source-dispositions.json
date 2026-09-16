@@ -1,0 +1,2445 @@
+{
+  "generatedFrom": "PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+  "previewedAgainst": "src/data/source-acquisitions.json",
+  "previewedOn": "2026-09-16",
+  "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry, not clinical approval and not deployed catalogue visibility.",
+  "counts": {
+    "insert": 2,
+    "reuse": 0,
+    "skip": 0,
+    "conflict": 0,
+    "held": 56
+  },
+  "sources": [
+    {
+      "handoverSourceId": "4AT-OFFICIAL",
+      "title": "4AT: rapid clinical test for delirium",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AADPA-ADHD",
+      "title": "Australian Evidence-Based Clinical Practice Guideline for ADHD",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "ACSQHC-MED-2024",
+      "title": "Recommendations for safe use of medicines terminology",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-AOD-2026",
+      "title": "Alcohol and other drug treatment services glossary",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "aihw-aod-glossary",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-NASS-2026",
+      "title": "Ambulance attendances for suicidality and self-harm",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-NOCC-2026",
+      "title": "National Outcomes and Casemix Collection NBEDS 2026-27",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-NOCC-NMDS-2026",
+      "title": "National Outcomes and Casemix Collection NMDS 2026-27",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-OAT-2026",
+      "title": "The health of people in Australia's prisons 2025 - Opioid agonist therapy",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AIHW-SUICIDE-2026",
+      "title": "Suicide and self-harm monitoring glossary",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AMHOCN-NOCC",
+      "title": "NOCC Measures",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "APA-BIPOLAR",
+      "title": "What are bipolar disorders?",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "AUS-HEALTH-ASSIST-2025",
+      "title": "ASSIST Plus",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "COLUMBIA-CSSRS",
+      "title": "About the Columbia-Suicide Severity Rating Scale",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "COPE-EPDS-2026",
+      "title": "Using the EPDS as a screening tool",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "DIVA-FOUNDATION",
+      "title": "DIVA Foundation: diagnostic interviews and digital-use terms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-BPD-2026",
+      "title": "Borderline personality disorder (BPD)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-CBT-2024",
+      "title": "Cognitive behaviour therapy (CBT)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-DBT",
+      "title": "Dialectical behaviour therapy (DBT)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-dbt",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "HEALTHDIRECT-PTSD",
+      "title": "Post-traumatic stress disorder (PTSD)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "METEOR-FOC-HISTORIC",
+      "title": "National Outcomes and Casemix Collection: historical Focus of Care",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "NACCHO-ACCHO-2026",
+      "title": "Aboriginal Community Controlled Health Organisations",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "NACCHO-AHW-2026",
+      "title": "First Nations Health Worker Traineeship Program",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "NACCHO-SEWB-2026",
+      "title": "Connection. Strength. Resilience: Social and Emotional Wellbeing Resources",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "NICE-SELFHARM-NG225",
+      "title": "Self-harm: assessment, management and preventing recurrence",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "NSW-ACI-SCI",
+      "title": "Occupational therapy for people with spinal cord injury: introduction",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "RANZCP-CLP-2026",
+      "title": "Consultation-liaison psychiatry",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "RANZCP-ECT-2019",
+      "title": "Electroconvulsive therapy (ECT)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "RANZCP-RTMS-2024",
+      "title": "Administration of repetitive transcranial magnetic stimulation (rTMS)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "RCH-MSE-2024",
+      "title": "Mental state examination",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-ABORIGINAL-TITLES-2026",
+      "title": "Aboriginal Health Standardised Titles List",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-AHD-2026",
+      "title": "Advance Health Directives",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-AHLO",
+      "title": "Aboriginal Health Liaison Service",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-CONSENT-2026",
+      "title": "Consent to treatment",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-HSP-ACRONYMS-2026",
+      "title": "CAHS Authorisations and Delegations Schedule - abbreviations",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-MHAS",
+      "title": "Mental Health Advocacy Service",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-MHC-FORM-LIST-2022",
+      "title": "Mental Health Act 2014 - List of Forms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-MHDC-2026",
+      "title": "Data collections",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-MHERL",
+      "title": "Mental Health Emergency Response Line",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-MHT",
+      "title": "Mental Health Tribunal Western Australia",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-OCP-AMHP",
+      "title": "Authorised Mental Health Practitioners (AMHPs)",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-OCP-FORMS",
+      "title": "Mental Health Act 2014 Forms",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-OCP-MHA",
+      "title": "Mental Health Act 2014",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-OCP-PMP",
+      "title": "Prescribed Medical Practitioners",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-PSOLIS-HSS",
+      "title": "Major programs and projects",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "host_not_in_inspected_governed_url_policy",
+          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
+          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WA-SSCD",
+      "title": "MP 0155/21 - State-wide Standardised Clinical Documentation for Mental Health Services",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WHO-ASSIST-2010",
+      "title": "The Alcohol, Smoking and Substance Involvement Screening Test (ASSIST): manual for use in primary care",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-who-assist-2010",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs the native acquisition gate and clinical sign-off.",
+          "nextAction": "Run npm run check:source-acquisitions, then seek clinical sign-off before the record is cited."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "WHO-AUDIT-2001",
+      "title": "AUDIT: The Alcohol Use Disorders Identification Test - guidelines for use in primary care, second edition",
+      "ledgerOutcome": "admitted_as_candidate",
+      "ledgerRecordId": "dictionary-who-audit-2001",
+      "catalogueIdentityOutcome": "held",
+      "existingDictionarySourceId": null,
+      "catalogueIdentityReason": "not_observed_in_current_dictionary_source_array",
+      "blockers": [
+        {
+          "code": "proposed_candidate_only_native_gate_and_authorisation_required",
+          "blocker": "Admissible as a candidate only. Adoption still needs the native acquisition gate and clinical sign-off.",
+          "nextAction": "Run npm run check:source-acquisitions, then seek clinical sign-off before the record is cited."
+        }
+      ],
+      "decisionOwner": "Clinical reviewer",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "verified",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "australian-prescriber-movement",
+      "title": "Drug-induced movement disorders",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "australian-prescriber-movement",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "health-mental-rights",
+      "title": "Rights and responsibilities in mental health care",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "health-mental-rights",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "health-recovery-framework",
+      "title": "A national framework for recovery-oriented mental health services",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "health-recovery-framework",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "healthdirect-antipsychotics",
+      "title": "Antipsychotic medicines",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-antipsychotics",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "healthdirect-mental-health",
+      "title": "Mental health conditions",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-mental-health",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "healthdirect-psychosis",
+      "title": "Psychosis",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychosis",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "healthdirect-psychotherapy",
+      "title": "Psychotherapy",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "healthdirect-psychotherapy",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "nice-delirium",
+      "title": "Delirium: prevention, diagnosis and management",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "conflict",
+      "existingDictionarySourceId": "nice-delirium",
+      "catalogueIdentityReason": "same_native_id_different_source_location_preserve_existing_identity_and_reconcile",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "existing_source_id_uses_different_section_url_requires_reconciliation",
+          "blocker": "A dictionary source already uses this id at a different URL. The existing identity is preserved and the two must be reconciled by a person.",
+          "nextAction": "Compare the two URLs and decide which is canonical. Do not rewrite the existing id to force a match."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "nsw-mental-assessment",
+      "title": "Mental health assessment",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "nsw-mental-assessment",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "nsw-mse-handbook",
+      "title": "Getting Started in Psychiatry",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "nsw-mse-handbook",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "authority_identity_requires_native_reconciliation",
+          "blocker": "The publisher is not matched to an entry in the source authority register, so the acquisition rung cannot be checked.",
+          "nextAction": "Add the publisher to src/lib/source-authority-registry.ts, or map it to the existing authority it belongs to."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    },
+    {
+      "handoverSourceId": "who-safety-planning",
+      "title": "Safety planning interventions",
+      "ledgerOutcome": "held",
+      "ledgerRecordId": null,
+      "catalogueIdentityOutcome": "reuse",
+      "existingDictionarySourceId": "who-safety-planning",
+      "catalogueIdentityReason": "existing_static_identity_confirmed_no_metadata_overwrite",
+      "blockers": [
+        {
+          "code": "source_not_rechecked_in_this_preparation",
+          "blocker": "The source was not re-read during this preparation, so its current metadata is unconfirmed.",
+          "nextAction": "Re-read the source page and record publisher, version, date and rights as at the date checked."
+        },
+        {
+          "code": "publication_event_not_freshly_established_do_not_substitute_other_date",
+          "blocker": "No publication date has been established from the publisher's own page. The ledger will not accept a substituted or inferred date.",
+          "nextAction": "Read the publisher's own publication listing and record the date with its true precision."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher."
+        }
+      ],
+      "decisionOwner": "Source register owner",
+      "stages": {
+        "staged": "verified",
+        "catalogued": "blocked",
+        "bytesAcquired": "not_attempted",
+        "extractionChecked": "not_attempted",
+        "indexed": "not_attempted",
+        "retrievalVerified": "not_attempted",
+        "clinicallyApproved": "not_attempted",
+        "activated": "not_attempted"
+      },
+      "originalBytesSha256": null,
+      "documentId": null,
+      "jobId": null
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-14"
+    "committed_at": "2026-09-15"
   },
   "routes": {
     "modes": [
@@ -5125,6 +5125,11 @@
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-2-brief.md",
         "section": "caring-contacts",
         "catalogued": true
+      },
+      {
+        "path": "docs/dictionary-editorial-drafts.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-09-04-ward-flow-design-foundation.md",

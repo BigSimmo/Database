@@ -1,0 +1,118 @@
+{
+  "task": "PsychSift Dictionary + Sources handover 2026-09-16",
+  "package": "PsychSift_Dictionary_Claude_Cloud_2026-09-16",
+  "executedOn": "2026-09-16",
+  "workspace": "/home/user/Database",
+  "repository": "BigSimmo/Database",
+  "branch": "claude/festive-galileo-kps74j",
+  "baseHead": "66105e18dc490e0e4c8ec6eb5c4f42fa506c13c3",
+  "packageBaselineHead": "66105e18dc490e0e4c8ec6eb5c4f42fa506c13c3",
+  "baselineDrift": "none \u2014 the execution checkout is exactly the commit the package was prepared against",
+  "recordAccounting": {
+    "jobs": 487,
+    "jobsUnaccounted": 0,
+    "fieldUnits": 1881,
+    "fieldUnitsUnaccounted": 0,
+    "jobOutcomes": {
+      "retained_as_draft": 333,
+      "verdict_recorded_no_change": 68,
+      "proposal_recorded_not_applied": 28,
+      "held": 56,
+      "admitted_as_candidate": 2
+    },
+    "fieldResolutions": {
+      "preserved": 235,
+      "unknown": 1618,
+      "held": 28
+    }
+  },
+  "evidenceCoverage": {
+    "fieldUnitsWithASource": 206,
+    "fieldUnitsWithoutASource": 1675,
+    "warningsWithASource": 0,
+    "warningsTotal": 292,
+    "sensesWithNoSource": 187,
+    "note": "An empty evidence list means nobody has looked, not that no source exists."
+  },
+  "sourceStages": {
+    "staged": 58,
+    "catalogued": 2,
+    "bytesAcquired": 0,
+    "extractionChecked": 0,
+    "indexed": 0,
+    "retrievalVerified": 0,
+    "clinicallyApproved": 0,
+    "activated": 0,
+    "note": "Two WHO manuals admitted to the acquisition ledger as candidates. Metadata only \u2014 no bytes, no index entry, no deployed catalogue visibility."
+  },
+  "importPreview": {
+    "ledgerPreviewed": "src/data/source-acquisitions.json",
+    "counts": {
+      "insert": 2,
+      "reuse": 0,
+      "skip": 0,
+      "conflict": 0,
+      "held": 56
+    },
+    "catalogueIdentity": {
+      "reuse": 12,
+      "held": 45,
+      "conflict": 1
+    },
+    "repeatRun": "byte-identical \u2014 a second import proposes zero duplicates",
+    "writesPerformedByPreview": false
+  },
+  "definitionReviewReconciliation": {
+    "total": 96,
+    "baselineMatchesLive": 96,
+    "conflicts": 0,
+    "missingEntries": 0,
+    "proposalsRecorded": 28,
+    "proposalsApplied": 0
+  },
+  "defectsFoundAndFixed": [
+    "Token normalisation initially stripped punctuation, merging K10 with K10+ (two different Kessler instruments). Fixed to flatten case and spacing only; regression test pins it."
+  ],
+  "protectedActionsNotTaken": [
+    "No clinical approval or activation of any record",
+    "No public dictionary route serves a draft",
+    "No database, index or vector write",
+    "No provider or paid API call",
+    "No original-document acquisition",
+    "No runtime ranking, source-host policy or authority-register change",
+    "No WardFlow or calculator change"
+  ],
+  "outstandingApprovals": [
+    {
+      "item": "Clinical sign-off of 333 sense drafts",
+      "owner": "Clinical reviewer",
+      "blocks": "publication"
+    },
+    {
+      "item": "Decision on 28 proposed definition rewrites",
+      "owner": "Clinical reviewer",
+      "blocks": "applying them to live entries"
+    },
+    {
+      "item": "Source evidence for 1,675 unsourced statements, including all 292 warnings",
+      "owner": "Clinical reviewer",
+      "blocks": "relying on the prose"
+    },
+    {
+      "item": "Resolution of 56 held sources",
+      "owner": "Source register owner",
+      "blocks": "ledger admission"
+    },
+    {
+      "item": "nice-delirium URL conflict",
+      "owner": "Source register owner",
+      "blocks": "identity reconciliation"
+    },
+    {
+      "item": "Original-document acquisition and indexing",
+      "owner": "Operator",
+      "blocks": "retrieval; needs per-source rights, environment and cost approval"
+    }
+  ],
+  "resumePoint": "Draft layer, reviews and source dispositions are committed and gated. The next decision is clinical: which sense drafts, if any, are approved for publication, and what route they publish to (the term-slug helper cannot serve sense ids)."
+}
