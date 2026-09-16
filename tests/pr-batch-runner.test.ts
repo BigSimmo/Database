@@ -9,6 +9,7 @@ import {
   validTaskReference,
 } from "../scripts/pr-batch-core.mjs";
 import { runBatch } from "../scripts/pr-batch-runner.mjs";
+import { requiredClinicalGovernanceItems } from "../scripts/pr-policy.mjs";
 
 const now = "2026-09-09T00:00:00.000Z";
 const head = "a".repeat(40);
@@ -138,6 +139,16 @@ describe("PR batch decisions", () => {
     [{ files: ["src/lib/rag/rag.ts"] }, "rag-evidence-required"],
   ])("excludes unsafe or unproved candidates %j", (changes, reason) => {
     expect(eligibility(pr(1, changes))).toBe(reason);
+  });
+  it("never selects a clinical PR for a batch merge, even with a complete governance preflight", () => {
+    const governance = requiredClinicalGovernanceItems.map((item) => `- [x] ${item}`).join("\n");
+    const clinical = pr(1, {
+      files: ["src/lib/answer-synthesis.ts"],
+      body: `## Clinical Governance Preflight\n\n${governance}\n`,
+    });
+    expect(eligibility(clinical)).toMatch(/^policy: .*Owner merge required \(clinical\)/);
+    // Control: the same PR shape on a docs path stays eligible.
+    expect(eligibility(pr(1))).toBe(null);
   });
   it("fails closed on manifest tampering", () => {
     const state = selected();
