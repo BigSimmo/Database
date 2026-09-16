@@ -38,14 +38,21 @@ function catalogueRow(kind: string) {
   };
 }
 
-function fakeSupabase(calls: RpcCall[]) {
+type SearchSupabase = Parameters<typeof import("../src/lib/universal-search").runUniversalSearch>[0]["supabase"];
+
+/**
+ * Only `rpc` is exercised by the catalogue read, so the stub implements that and nothing else.
+ * The double assertion is deliberate: a partial stub cannot structurally satisfy SupabaseClient,
+ * and widening the production parameter type to accommodate a test would be the wrong trade.
+ */
+function fakeSupabase(calls: RpcCall[]): SearchSupabase {
   return {
     rpc: (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args });
       const kind = typeof args?.p_kind === "string" ? args.p_kind : "form";
       return Promise.resolve({ data: [catalogueRow(kind)], error: null });
     },
-  };
+  } as unknown as SearchSupabase;
 }
 
 function catalogueReads(calls: RpcCall[]) {
@@ -75,7 +82,7 @@ describe("registry catalogue reads stay cached on the search path", () => {
       limitPerDomain: 5,
       domains: [...registryDomains],
       demo: false,
-      supabase: fakeSupabase(calls) as Parameters<typeof runUniversalSearch>[0]["supabase"],
+      supabase: fakeSupabase(calls),
     });
 
     const reads = catalogueReads(calls);
@@ -88,7 +95,7 @@ describe("registry catalogue reads stay cached on the search path", () => {
   it("does not re-read the catalogue for a repeated search inside the fresh window", async () => {
     const calls: RpcCall[] = [];
     const { runUniversalSearch } = await loadUniversalSearch();
-    const supabase = fakeSupabase(calls) as Parameters<typeof runUniversalSearch>[0]["supabase"];
+    const supabase = fakeSupabase(calls);
 
     for (const query of ["tra", "tran", "transport", "transport form"]) {
       await runUniversalSearch({
@@ -107,7 +114,7 @@ describe("registry catalogue reads stay cached on the search path", () => {
   it("serves a single-domain search from the catalogue a federated search already warmed", async () => {
     const calls: RpcCall[] = [];
     const { runUniversalSearch } = await loadUniversalSearch();
-    const supabase = fakeSupabase(calls) as Parameters<typeof runUniversalSearch>[0]["supabase"];
+    const supabase = fakeSupabase(calls);
 
     await runUniversalSearch({
       query: "transport",
@@ -138,7 +145,7 @@ describe("registry catalogue reads stay cached on the search path", () => {
       limitPerDomain: 5,
       domains: [...registryDomains],
       demo: true,
-      supabase: fakeSupabase(calls) as Parameters<typeof runUniversalSearch>[0]["supabase"],
+      supabase: fakeSupabase(calls),
     });
 
     expect(catalogueReads(calls)).toHaveLength(0);
