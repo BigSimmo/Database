@@ -57,6 +57,12 @@ const reviewedActionPins = new Map([
       // version bumps in action.yml/run.ts/package.json/bun.lock — no change
       // to permissions, secrets handling, or the action's trust boundary.
       ["ef8bb1e43bf303cff727a1dd0b8837029fe982a2", "v1.0.215"],
+      // Reviewed 2026-09-17 for PR #2796 (Dependabot github-actions group):
+      // annotated tag v1.0.223 peels to this commit. Diff v1.0.215...v1.0.223
+      // is only Claude Code (2.1.260->2.1.270) and Agent SDK (0.3.260->0.3.270)
+      // version bumps in action.yml/run.ts/package.json/bun.lock — no change
+      // to permissions, secrets handling, or the action's trust boundary.
+      ["9cdae7f0d995e3ba7c33f226087fdf82a59cd520", "v1.0.223"],
     ]),
   ],
   // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
