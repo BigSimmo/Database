@@ -172,13 +172,44 @@ export function medicationBrandNames(record: MedicationRecord): string[] {
   return brands;
 }
 
+/**
+ * Normalized search haystacks, keyed on the record object they were built from.
+ *
+ * WHY THIS EXISTS. `rankCatalogRecords` calls `medicationSearchText` once per record per query,
+ * and the catalogue is 330 records of roughly 7.5 KB each. Flattening and NFKD-normalizing all of
+ * it measured at 38.8 ms of blocking CPU per ranked `/api/medications?q=` request on this machine,
+ * and the ranker's own `compactSearchText` pass over the ~1.7 MB of text that produces added a
+ * further 15.8 ms. The catalogue does not change between keystrokes, so a debounced typeahead paid
+ * that ~55 ms again for every character typed, blocking the event loop for every other in-flight
+ * request on the same Node process.
+ *
+ * WHY MEMOISING IS SAFE HERE. `medicationSearchText` is pure in its argument: it reads fields of
+ * `record` and nothing else, so for a given object the answer cannot change. Catalogue records come
+ * from `loadMedicationSnapshot`, which builds the array once and never mutates it
+ * (`src/lib/medication-snapshot.ts`), and canonically read records are fresh objects per request.
+ * The precondition this relies on is therefore "records are replaced, never edited in place" — if
+ * some future code needs to alter a record it must produce a new object, not mutate an existing
+ * one, or its search text will be stale.
+ *
+ * WHY A `WeakMap` RATHER THAN A `Map`. Canonical (non-snapshot) records are per-request objects. A
+ * strong map would pin every one of them for the life of the process, turning a CPU fix into a
+ * memory leak; a `WeakMap` lets them be collected as soon as the response is written, while the
+ * long-lived snapshot records — the ones actually worth caching — stay reachable and stay cached.
+ *
+ * Kept here rather than in `catalog-search.ts` on purpose: that ranker is shared by several
+ * catalogue domains, and this win does not need that blast radius.
+ */
+const searchTextByRecord = new WeakMap<MedicationRecord, string>();
+
 export function medicationSearchText(record: MedicationRecord) {
+  const memoized = searchTextByRecord.get(record);
+  if (memoized !== undefined) return memoized;
   const sectionText = record.sections
     .flatMap((section) => [section.title, ...section.rows.flatMap((row) => [row.key, row.val, ...(row.tags ?? [])])])
     .join(" ");
   const quickText = record.quick.map((row) => `${row.label} ${row.value}`).join(" ");
   const statText = record.stats.map((stat) => `${stat.label} ${stat.value}`).join(" ");
-  return normalizeSearchText(
+  const searchText = normalizeSearchText(
     [
       record.name,
       record.slug,
@@ -193,6 +224,8 @@ export function medicationSearchText(record: MedicationRecord) {
       statText,
     ].join(" "),
   );
+  searchTextByRecord.set(record, searchText);
+  return searchText;
 }
 
 export function medicationIndication(record: MedicationRecord) {

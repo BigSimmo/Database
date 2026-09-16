@@ -675,3 +675,72 @@ describe("medications survive an unusable catalogue", () => {
     expect(payload.retainedSnapshot).toBeUndefined();
   });
 });
+
+/**
+ * The same treatment the list route above already has, extended to the detail route.
+ *
+ * `/api/medications/[slug]` read the catalogue with no budget, so during a slow-database episode it
+ * held the medication page open rather than degrading. The last case is the failure a bare fallback
+ * would introduce: with no in-bundle copy of the slug the fallback returns nothing, and the
+ * pre-existing `if (!payload) return notFoundResponse(...)` would then tell a prescriber the drug
+ * is not in the catalogue on the strength of a timeout.
+ */
+describe("medication detail survives an unusable catalogue", () => {
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it.each([
+    ["rejects", () => Promise.reject(new Error("canonical read failed"))],
+    ["never settles", () => new Promise<QueryResult>(() => {})],
+  ])(
+    "serves the in-bundle medication record when the canonical read %s",
+    async (_label, canonicalRead) => {
+      const client = createSupabaseMock(undefined, { canonicalRead: canonicalRead as () => Promise<QueryResult> });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+      const response = await GET(request("/api/medications/acamprosate"), {
+        params: Promise.resolve({ slug: "acamprosate" }),
+      });
+      const payload = (await response.json()) as { record?: { slug: string }; retainedSnapshot?: boolean };
+
+      expect(response.status).toBe(200);
+      expect(payload.record?.slug).toBe("acamprosate");
+      // `degraded` is never dropped on the floor: this is the in-bundle copy, which can lag
+      // anything published since the last release.
+      expect(payload.retainedSnapshot).toBe(true);
+      expectPrivateCache(response);
+    },
+    20_000,
+  );
+
+  it("reports an outage rather than a 404 for an unseeded slug", async () => {
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: () => Promise.reject(new Error("canonical read failed")),
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+    const response = await GET(request("/api/medications/unknown-medication"), {
+      params: Promise.resolve({ slug: "unknown-medication" }),
+    });
+
+    expect(response.status).toBe(503);
+  });
+
+  it("still answers 404 for an unknown slug when the read is healthy", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+    const response = await GET(request("/api/medications/unknown-medication"), {
+      params: Promise.resolve({ slug: "unknown-medication" }),
+    });
+    const payload = (await response.json()) as { retainedSnapshot?: boolean };
+
+    expect(response.status).toBe(404);
+    expect(payload.retainedSnapshot).toBeUndefined();
+  });
+});

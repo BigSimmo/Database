@@ -16,6 +16,18 @@ export type { RegistryListView } from "@/lib/registry-client-contract";
 
 export type RegistryRequestStatus = "loading" | "refetching" | "ready" | "unauthorized" | "not_found" | "error";
 
+/**
+ * After this long a catalogue list fetch is worth naming as slow rather than
+ * leaving an unchanging spinner on screen. Shorter than the full-text search
+ * deadline (`searchSlowNoticeMs`, 15s, in `search-utils.ts`) because this
+ * route's own measured production latency is 4.5-6.5s end-to-end — a reader
+ * waiting through that window with no signal at all reads it as stuck, not
+ * merely slow. Exported so `useMedicationCatalog` (a different hook, same
+ * "the catalogue is just slow" problem) can show the identical notice at the
+ * identical threshold rather than inventing its own wording or timing.
+ */
+export const registryCatalogueSlowNoticeMs = 4_000;
+
 export type RegistryRecordsState = {
   status: RegistryRequestStatus;
   records: ServiceRecord[];
@@ -25,6 +37,10 @@ export type RegistryRecordsState = {
   /** Authoritative validation status per slug from the API, so callers count
    *  reviewed records from governance rather than the copied fixture JSON. */
   governance: Record<string, RegistryValidationStatus>;
+  /** The initial load has run past `registryCatalogueSlowNoticeMs` with no
+   *  response yet. Never true for `refetching` — the reader already has a
+   *  trustworthy prior list on screen there, so there is nothing to reassure. */
+  slow: boolean;
 };
 
 /** Hook return: the list state plus a `refetch` that re-runs the request — e.g.
@@ -65,7 +81,18 @@ function recordsState(
   view: RegistryListView,
   extra: Partial<RegistryRecordsState> = {},
 ): RegistryRecordsKeyedState {
-  return { status, records: [], total: 0, verifiedCount: 0, demoMode: false, governance: {}, kind, view, ...extra };
+  return {
+    status,
+    records: [],
+    total: 0,
+    verifiedCount: 0,
+    demoMode: false,
+    governance: {},
+    slow: false,
+    kind,
+    view,
+    ...extra,
+  };
 }
 
 /** Owner-scoped registry list (Services/Forms home and search surfaces). Choose
@@ -136,6 +163,15 @@ export function useRegistryRecords(
     const controller = new AbortController();
     const registration = requestLifecycle.register(controller);
     const isCurrentRequest = () => active && requestLifecycle.isCurrent(registration.epoch);
+    // Mirrors `createSearchRequestDeadline`'s slow notice (search-utils.ts) without its hard
+    // 45s abort: a slow registry read already degrades to the seed catalogue server-side
+    // (`catalogueListFallbackBudgetMs`), so the client's job here is only to say so, not to
+    // give up on a request the server may still finish. Only the FIRST load gets the notice —
+    // a `refetching` reader already has a trustworthy list on screen and nothing to be told.
+    const slowTimer = window.setTimeout(() => {
+      if (!isCurrentRequest()) return;
+      setState((current) => (current.status === "loading" ? { ...current, slow: true } : current));
+    }, registryCatalogueSlowNoticeMs);
     fetch(`/api/registry/records?kind=${kind}&view=${view}`, {
       headers: authorizationHeader,
       signal: controller.signal,
@@ -143,6 +179,10 @@ export function useRegistryRecords(
       .then(async (response) => {
         if (!isCurrentRequest()) return;
         if (response.status === 401) {
+          // The slow-notice timer belongs to THIS request regardless of which
+          // branch below is taken, so clear it first. Read the comment on
+          // the next line before reordering these two statements again.
+          window.clearTimeout(slowTimer);
           // In real auth deployments the first request can race AuthProvider's
           // session load. Keep loading until the auth status changes and this
           // effect retries with a real header; never expire the session from an
@@ -157,6 +197,7 @@ export function useRegistryRecords(
           return;
         }
         if (!response.ok) {
+          window.clearTimeout(slowTimer);
           setState(recordsState("error", kind, view));
           return;
         }
@@ -164,6 +205,7 @@ export function useRegistryRecords(
         const payload = parseRegistryListResponse(responsePayload, view);
         if (!payload) throw new Error("Registry records returned an invalid response.");
         if (!isCurrentRequest()) return;
+        window.clearTimeout(slowTimer);
         const governance: Record<string, RegistryValidationStatus> = {};
         for (const [slug, entry] of Object.entries(payload.governance)) {
           governance[slug] = entry.validationStatus;
@@ -179,10 +221,12 @@ export function useRegistryRecords(
         );
       })
       .catch(() => {
+        window.clearTimeout(slowTimer);
         if (isCurrentRequest()) setState(recordsState("error", kind, view));
       });
     return () => {
       active = false;
+      window.clearTimeout(slowTimer);
       controller.abort();
       registration.release();
     };

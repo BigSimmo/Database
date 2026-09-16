@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { logger } from "@/lib/logger";
 import {
   catalogueDegradedNotice,
+  catalogueDetailScope,
   catalogueListFallbackBudgetMs,
   catalogueListScope,
   catalogueSearchScope,
@@ -330,6 +331,93 @@ describe("cooldowns are scoped to the caller's budget", () => {
 
     expect(listRead).toHaveBeenCalledTimes(1);
     expect(list).toEqual({ records: canonical, degraded: false });
+  });
+
+  /**
+   * Not a defect being fixed here, a decision being pinned. The detail cooldown is keyed on
+   * (scope, kind), so one slow read of one record sends every other slug of that kind to the
+   * in-bundle catalogue for the whole cooldown — which is how a detail route comes to answer 503
+   * for a slug that is merely absent, or for one published with no bundled copy. The alternative,
+   * a per-slug key, lets every distinct slug pay the full budget while the database is unwell.
+   * The radius is asserted so that it cannot widen or narrow unnoticed; the reasoning lives beside
+   * `catalogueDetailScope`.
+   */
+  it("cools down every slug of a kind on the strength of one slow record read", async () => {
+    const time = clock();
+    const slowSlug = vi.fn(async () => {
+      throw new Error("detail read exceeded its budget");
+    });
+    const otherSlug = vi.fn(async () => canonical);
+
+    const first = await readCatalogueWithSeedFallback({
+      kind: "medication",
+      scope: catalogueDetailScope,
+      seeds,
+      read: slowSlug,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+    expect(first.degraded).toBe(true);
+
+    // A different slug entirely, and a read that would have succeeded. It is never attempted.
+    const second = await readCatalogueWithSeedFallback({
+      kind: "medication",
+      scope: catalogueDetailScope,
+      seeds,
+      read: otherSlug,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+    expect(second).toEqual({ records: seeds, degraded: true });
+    expect(otherSlug).not.toHaveBeenCalled();
+
+    // Bounded, and that bound is the whole defence: the next read past the cooldown is canonical.
+    time.advance(catalogueSeedFallbackCooldownMs + 1);
+    const third = await readCatalogueWithSeedFallback({
+      kind: "medication",
+      scope: catalogueDetailScope,
+      seeds,
+      read: otherSlug,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+    expect(third).toEqual({ records: canonical, degraded: false });
+  });
+
+  it("does not spread a detail cooldown to another kind, or to that kind's list route", async () => {
+    const time = clock();
+    const failing = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const healthy = vi.fn(async () => canonical);
+
+    await readCatalogueWithSeedFallback({
+      kind: "medication",
+      scope: catalogueDetailScope,
+      seeds,
+      read: failing,
+      now: time.now,
+    });
+
+    const otherKind = await readCatalogueWithSeedFallback({
+      kind: "differential",
+      scope: catalogueDetailScope,
+      seeds,
+      read: healthy,
+      now: time.now,
+    });
+    const listRoute = await readCatalogueWithSeedFallback({
+      kind: "medication",
+      scope: catalogueListScope,
+      seeds,
+      read: healthy,
+      now: time.now,
+      budgetMs: catalogueListFallbackBudgetMs,
+    });
+
+    expect(otherKind.degraded).toBe(false);
+    expect(listRoute.degraded).toBe(false);
+    expect(healthy).toHaveBeenCalledTimes(2);
   });
 
   it("still cools down within a scope, and the other scope is unaffected", async () => {

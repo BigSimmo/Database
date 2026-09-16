@@ -56,6 +56,24 @@ describe("fixture-free client performance boundaries", () => {
     expect(dashboard).toContain("userStartedIngestion && activeIndexingWork");
   });
 
+  it("starts the mount-time identity and setup reads concurrently", () => {
+    const dashboard = source("src/components/ClinicalDashboard.tsx");
+    const setupRequestStart = dashboard.indexOf('fetch("/api/setup-status"');
+    const identityAwait = dashboard.indexOf("await readLocalProjectIdentity()");
+
+    // Both reads are `cache: "no-store"` round trips with no dependency on one
+    // another, and every mode that renders at `/` waits on them before its body
+    // settles. Running them nose-to-tail cost one full round trip of first
+    // paint, which is the regression this pins.
+    expect(setupRequestStart).toBeGreaterThanOrEqual(0);
+    expect(identityAwait).toBeGreaterThan(setupRequestStart);
+    expect(dashboard).toContain("const setupResponse = await setupRequest;");
+
+    // Independent failure handling: one dead probe must not swallow the other.
+    expect(dashboard).toContain("await readLocalProjectIdentity().catch(() => null)");
+    expect(dashboard.slice(setupRequestStart, identityAwait)).toContain(".catch(() => null)");
+  });
+
   it("retains PDF.js as an on-demand import", () => {
     const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
     const eagerPdfJsImport = /^[ \t]*import[ \t]+(?!type\b)(?:[^\r\n"']+[ \t]+from[ \t]+)?["']pdfjs-dist["'][ \t]*;?/m;

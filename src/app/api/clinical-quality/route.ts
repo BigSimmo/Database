@@ -207,17 +207,17 @@ async function loadClinicalQualitySnapshot(supabase: ReturnType<typeof createAdm
     .filter((row) => row.signal_type === "evaluation_failure")
     .map((row) => row.signal_id);
 
-  const recentFeedback = await readRows(
-    supabase
-      .from("rag_answer_feedback")
-      .select("id,interaction_id,answer_hash,feedback_category,source_ids,cited_source_ids,created_at")
-      .gte("created_at", reachSince)
-      .order("created_at", { ascending: false })
-      .limit(101),
-    ragAnswerFeedbackRowSchema,
-    100,
-  );
+  // `recentFeedback` needs only `reachSince`, so it joins the fan-out below rather than running
+  // as a stage of its own: the triage read it used to wait behind tells it nothing.
+  //
+  // Ordering is safe to change because every read in the fan-out fails the same way whichever
+  // position it sits in. `readRows` turns a PostgREST `result.error` into `{ state: "unknown" }`
+  // rather than throwing, so a rejected read is the only thing that can still throw — and it does:
+  // `await query` rejects, `Promise.all` rejects with it, and the whole snapshot fails. That is
+  // unchanged by the order, which is what makes the move safe; it is not a claim that `readRows`
+  // never throws.
   const [
+    recentFeedback,
     reviews,
     links,
     records,
@@ -227,6 +227,16 @@ async function loadClinicalQualitySnapshot(supabase: ReturnType<typeof createAdm
     activeRetrieval,
     activeEvaluations,
   ] = await Promise.all([
+    readRows(
+      supabase
+        .from("rag_answer_feedback")
+        .select("id,interaction_id,answer_hash,feedback_category,source_ids,cited_source_ids,created_at")
+        .gte("created_at", reachSince)
+        .order("created_at", { ascending: false })
+        .limit(101),
+      ragAnswerFeedbackRowSchema,
+      100,
+    ),
     readRows(
       supabase
         .from("source_review_events")

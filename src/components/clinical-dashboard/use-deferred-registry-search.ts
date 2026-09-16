@@ -21,6 +21,9 @@ export function useDeferredRegistrySearch(
   recordSearchMatches: DeferredRegistrySearchMatch[];
   recordSearchMode: "forms" | "services";
   recordStatus: RegistryRequestStatus;
+  /** The registry catalogue fetch has been running past the slow-notice
+   *  threshold with no response yet. See `registryCatalogueSlowNoticeMs`. */
+  recordSlow: boolean;
 } {
   const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
     enabled: searchMode === "services" || searchMode === "forms",
@@ -52,5 +55,6 @@ export function useDeferredRegistrySearch(
     recordSearchMatches,
     recordSearchMode: searchMode === "forms" ? "forms" : "services",
     recordStatus: registryRecords.status,
+    recordSlow: registryRecords.slow,
   };
 }

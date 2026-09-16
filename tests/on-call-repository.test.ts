@@ -114,6 +114,43 @@ describe("fetchVisibleOnCallEntries", () => {
     const entries = await fetchVisibleOnCallEntries(client as never, "owner-1");
     expect(entries).toHaveLength(1);
   });
+
+  // The two reads share no input, so a viewer waits for the slower one rather than for both
+  // in turn. Each `from()` here hands back its own chain whose result is withheld until the
+  // test releases it: if the owner read were still queued behind the shared read, only one
+  // query would have been issued by the time this assertion runs.
+  it("issues the shared read and the owner read together rather than one after the other", async () => {
+    const issued: string[] = [];
+    let releaseShared = () => {};
+    const sharedRelease = new Promise<void>((resolve) => {
+      releaseShared = resolve;
+    });
+    const client = {
+      from: vi.fn(() => {
+        const chain = {
+          select: vi.fn(() => chain),
+          eq: vi.fn((column: string) => {
+            if (column === "is_personal" || column === "owner_id") issued.push(column);
+            return chain;
+          }),
+          order: vi.fn(() => chain),
+          limit: vi.fn(async () => {
+            // Only the shared read is withheld; the owner read answers immediately.
+            if (chain.eq.mock.calls.some(([column]) => column === "is_personal")) await sharedRelease;
+            return { data: [], error: null };
+          }),
+        };
+        return chain;
+      }),
+    };
+
+    const pending = fetchVisibleOnCallEntries(client as never, "owner-1");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(issued).toEqual(["is_personal", "owner_id"]);
+
+    releaseShared();
+    await expect(pending).resolves.toEqual([]);
+  });
 });
 
 describe("rowToOnCallEntry", () => {

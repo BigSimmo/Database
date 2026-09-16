@@ -469,20 +469,49 @@ function catalogueEntry(
   };
 }
 
-export function canonicalizeSourceReferences(
-  inputs: readonly ClinicalSourceReferenceInput[],
-): ClinicalSourceCatalogueEntry[] {
+/** Append to the bucket for `key`, creating it on first use. */
+function bucketInto<T>(buckets: Map<string, T[]>, key: string, value: T) {
+  const bucket = buckets.get(key);
+  // Growing the existing array rather than replacing it with a copy. The
+  // replace-with-a-spread form this used to take was quadratic in bucket size,
+  // and the repository catalogue feeds ~1,767 references through here on every
+  // build. Map insertion order is unaffected: `set` on a key that already
+  // exists does not move it, so the first-seen ordering the caller relies on
+  // when it iterates `identityGroups` is identical either way.
+  if (bucket) bucket.push(value);
+  else buckets.set(key, [value]);
+}
+
+/**
+ * Group references by canonical identity, preserving first-seen order.
+ *
+ * Split out of `canonicalizeSourceReferences` so the grouping can be compared
+ * against a naive reference implementation over the real catalogue in
+ * `tests/source-catalogue-memoisation.test.ts` — this is the only step of the build
+ * that the linear-accumulation fix touched, so proving it equivalent proves the
+ * whole catalogue unchanged.
+ */
+export function groupSourceReferencesByIdentity(inputs: readonly ClinicalSourceReferenceInput[]): {
+  identityGroups: Map<string, ClinicalSourceReferenceInput[]>;
+  unresolvedByKey: Map<string, ClinicalSourceReferenceInput[]>;
+} {
   const identityGroups = new Map<string, ClinicalSourceReferenceInput[]>();
   const unresolvedByKey = new Map<string, ClinicalSourceReferenceInput[]>();
   for (const input of inputs) {
     const identity = baseIdentity(input);
     if (identity === "provisional:unresolved") {
-      const key = canonicalReferenceKey(input);
-      unresolvedByKey.set(key, [...(unresolvedByKey.get(key) ?? []), input]);
+      bucketInto(unresolvedByKey, canonicalReferenceKey(input), input);
       continue;
     }
-    identityGroups.set(identity, [...(identityGroups.get(identity) ?? []), input]);
+    bucketInto(identityGroups, identity, input);
   }
+  return { identityGroups, unresolvedByKey };
+}
+
+export function canonicalizeSourceReferences(
+  inputs: readonly ClinicalSourceReferenceInput[],
+): ClinicalSourceCatalogueEntry[] {
+  const { identityGroups, unresolvedByKey } = groupSourceReferencesByIdentity(inputs);
 
   const entries = [...unresolvedByKey.entries()]
     .sort(([left], [right]) => compareText(left, right))

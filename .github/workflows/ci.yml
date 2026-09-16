@@ -245,6 +245,16 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:medication-interactions
 
+      # A read path may never re-verify the whole corpus. `read_site_content_public_records`
+      # re-derived a SHA-256 over every release record on every catalogue request between
+      # 2026-09-09 and 2026-09-16, taking psychiatry.tools from instant to seconds a page
+      # (browser probes on 2026-09-16 measured 4.5-6.5 s across repeats; the per-call cost
+      # has never been profiled). Nothing here measured or refused it — a human with a
+      # browser found it a week in. Static, offline, sub-second; see docs/process-hardening.md.
+      - name: Read-path cost contract
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:read-path-cost
+
       - name: GitHub Actions pin check
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:github-actions

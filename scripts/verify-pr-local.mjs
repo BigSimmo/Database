@@ -62,6 +62,7 @@ const staticHeavyGuards = [
   "check:function-grants",
   "check:owner-scope",
   "check:calculator-content",
+  "check:read-path-cost",
 ];
 const staticHeavyScripts = ["lint", "typecheck", "test"];
 

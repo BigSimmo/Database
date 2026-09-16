@@ -44,6 +44,14 @@ export { CopyButton } from "@/components/ui/copy-button";
 const sharedHomeCatalogueChips: Partial<Record<AppModeId, { label?: string; ariaLabel: string }>> = {
   calculators: { ariaLabel: "Show all calculators" },
   sources: { label: "Browse catalogue", ariaLabel: "Browse the source catalogue" },
+  // Services and Forms are also real browsable registries with no starter cards
+  // of their own, but until now had no entry here — the only way onto their
+  // catalogue was typing a search first (2026-09 latency audit: this makes an
+  // already-slow registry fetch look dead, since nothing on the bare mode home
+  // reaches it at all). Routes to the same `/search` surface a submitted query
+  // would land on.
+  services: { ariaLabel: "Show all services" },
+  forms: { ariaLabel: "Show all forms" },
 };
 
 export function SharedHomeEmptyState({

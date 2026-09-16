@@ -716,6 +716,10 @@ describe("registry records API", () => {
  * Both cases must answer from the in-bundle catalogue instead, and must NOT be marked publicly
  * cacheable — a degraded response pinned at a CDN would outlive the thirty-second cooldown that
  * lets the database recover on its own.
+ *
+ * They must also SAY they degraded. `catalogue-seed-fallback` requires it — seeds can lag anything
+ * published since the last release — and this route was the one holding `degraded` in hand and
+ * dropping it, which left Services and Forms serving the bundled catalogue with no notice.
  */
 describe("registry records survive an unusable catalogue", () => {
   afterEach(async () => {
@@ -736,12 +740,54 @@ describe("registry records survive an unusable catalogue", () => {
       const { GET } = await import("../src/app/api/registry/records/route");
 
       const response = await GET(request("/api/registry/records?kind=form"));
-      const payload = (await response.json()) as { records: unknown[] };
+      const payload = (await response.json()) as { records: unknown[]; retainedSnapshot?: boolean };
 
       expect(response.status).toBe(200);
       expect(payload.records.length).toBeGreaterThan(0);
+      expect(payload.retainedSnapshot).toBe(true);
       expectPrivateCache(response);
     },
     20_000,
   );
+
+  it("marks a degraded summary view too, where the reader sees only a count", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: () => Promise.reject(new Error("canonical read failed")),
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service&view=summary"));
+    const payload = (await response.json()) as { total: number; retainedSnapshot?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.total).toBeGreaterThan(0);
+    expect(payload.retainedSnapshot).toBe(true);
+  });
+
+  it("says nothing about retained snapshots when the canonical read is healthy", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock(undefined, {
+      canonicalRows: [
+        {
+          initialized: true,
+          record: { sourceStatus: "current", validationStatus: "approved" },
+          render_payload: { slug: "released-service", title: "Released service" },
+          snapshot: { state: "current" },
+        },
+      ],
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+    const payload = (await response.json()) as { records: unknown[]; retainedSnapshot?: boolean };
+
+    expect(response.status).toBe(200);
+    expect(payload.records).toHaveLength(1);
+    expect(payload).not.toHaveProperty("retainedSnapshot");
+  });
 });

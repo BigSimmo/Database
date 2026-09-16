@@ -421,7 +421,19 @@ function MedicationResults({
   const [filterOpen, setFilterOpen] = useState(false);
   const { bestRows, allRows } = useMemo(() => {
     const governance = catalog.data?.governance;
-    const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
+    const toRow = (
+      result: MedicationResult,
+      medication: MedicationRecord | undefined,
+      // Whether `medication` carries every field the safety engines below
+      // read (`sections`/`stats`/`quick`). Defaults to true: the trailing
+      // catalogue-only rows (below) always come from the cached full
+      // catalogue, so only a ranked match can pass `false`. See
+      // `MedicationCatalogMatch.hydrated` in use-medication-catalog.ts for
+      // why this exists — F1: an un-hydrated row's `sections` is empty
+      // because the record could not be resolved, not because it genuinely
+      // has no considerations, and must never be scored as if it did.
+      hydrated = true,
+    ): MedicationRow => {
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
       const accent = medication?.accent;
       const drugClass = medication?.class || medication?.category || "Other";
@@ -431,17 +443,43 @@ function MedicationResults({
       // and degrades a would-be green to grey whenever either engine left
       // something unassessed.
       if (medication && !profileEmpty) {
-        const alerts = evaluatePatientAlerts(medication, profile);
-        const interactions = evaluateMedicationInteractions(medication.slug, profile.medications ?? [], medication);
-        const verdict = composeMedicationVerdict({
-          considerationTone: alerts.highestTone,
-          considerationCount: alerts.considerations.length,
-          unassessedCount: alerts.unassessed.length,
-          interactionTone: interactions.highestTone,
-          interactionCount: interactions.interactions.length,
-          unresolvedRowCount: interactions.unresolvedRowCount,
-          unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
-        });
+        // THE INVARIANT: a verdict must never be computed from a record that
+        // does not carry the fields it depends on. An unhydrated row cannot
+        // be trusted to answer "no considerations" — it has not been asked —
+        // so neither engine below is called for it. Composing directly with
+        // an unassessed gate reuses the exact incomplete/neutral state the
+        // engines already produce when a *profile* field is missing, so this
+        // renders identically to "Needs manual review", never a green
+        // all-clear, and never silently the wrong verdict for this drug.
+        let verdict: MedicationVerdict;
+        if (hydrated) {
+          const alerts = evaluatePatientAlerts(medication, profile);
+          const interactions = evaluateMedicationInteractions(medication.slug, profile.medications ?? [], medication);
+          verdict = composeMedicationVerdict({
+            considerationTone: alerts.highestTone,
+            considerationCount: alerts.considerations.length,
+            unassessedCount: alerts.unassessed.length,
+            interactionTone: interactions.highestTone,
+            interactionCount: interactions.interactions.length,
+            unresolvedRowCount: interactions.unresolvedRowCount,
+            unreachableCounterpartyCount: interactions.unreachableCounterparties.length,
+          });
+        } else {
+          // Unhydrated: neither engine may run (see the comment above). This
+          // is the same shape the alerts engine already returns when a
+          // *profile* gate — say, eGFR — is missing: nothing found, one
+          // unassessed gate, which composes to `incomplete: true` and a
+          // `neutral` tone rather than the `success` a truly-checked,
+          // truly-clear medication would earn.
+          verdict = composeMedicationVerdict({
+            considerationTone: null,
+            considerationCount: 0,
+            unassessedCount: 1,
+            interactionTone: null,
+            interactionCount: 0,
+            unresolvedRowCount: 0,
+          });
+        }
         return {
           result,
           medication,
@@ -453,7 +491,7 @@ function MedicationResults({
       }
       return { result, medication, drugClass, badges, accent };
     };
-    const ranked = catalog.data?.matches?.map((match) => toRow(match.result, match.medication)) ?? [];
+    const ranked = catalog.data?.matches?.map((match) => toRow(match.result, match.medication, match.hydrated)) ?? [];
     const rankedSlugs = new Set(ranked.map((row) => row.medication?.slug ?? row.result.id));
     // Widening to the full catalogue must not reshuffle the ranked query
     // matches. Keep them in provider rank order, then append catalogue-only
@@ -732,7 +770,10 @@ function MedicationResults({
           same message and announces it once. Loading copy stays here. */}
       {initialCatalogLoading ? (
         <div className="medication-results-inset">
-          <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
+          <p className="text-sm text-[color:var(--text-muted)]">
+            Loading medication catalogue…
+            {catalog.slow ? " Still searching. This is taking longer than usual." : ""}
+          </p>
         </div>
       ) : null}
 

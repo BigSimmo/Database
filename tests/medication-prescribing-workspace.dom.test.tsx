@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MedicationPrescribingWorkspace } from "@/components/clinical-dashboard/medication-prescribing-workspace";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
+import { writePatientProfile } from "@/lib/patient-profile-storage";
+import type { MedicationRecord } from "@/lib/medications";
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(window.location.search),
@@ -80,15 +82,29 @@ vi.mock("@/components/clinical-dashboard/universal-search-also-matches", () => (
   UniversalSearchAlsoMatches: () => null,
 }));
 
+// Overridable per test (F1 hydration-safety suite below). Defaults reproduce
+// the existing filter-strip fixture: three results, no attached medication
+// record, so the verdict path never runs for those tests (medication is
+// falsy → `toRow` takes its early return).
+const catalogFixture = vi.hoisted(() => ({
+  current: undefined as
+    | {
+        records: unknown[];
+        matches: Array<{ medication: unknown; result: unknown; score: number; reasons: string[]; hydrated: boolean }>;
+      }
+    | undefined,
+}));
+
 vi.mock("@/components/clinical-dashboard/use-medication-catalog", () => ({
   useMedicationCatalog: () => ({
-    data: {
+    data: catalogFixture.current ?? {
       records: [],
       matches: [clozapine, lithium, sertraline].map((result) => ({
         medication: undefined,
         result,
         score: 1,
         reasons: [],
+        hydrated: true,
       })),
       interpretation: catalogInterpretation.current,
       total: 3,
@@ -129,6 +145,8 @@ function filterButton(label: string): HTMLElement {
 
 afterEach(() => {
   catalogInterpretation.current = undefined;
+  catalogFixture.current = undefined;
+  window.sessionStorage.clear();
   window.history.replaceState(null, "", "/");
   cleanup();
   vi.restoreAllMocks();
@@ -248,5 +266,100 @@ describe("MedicationPrescribingWorkspace — refined filters", () => {
     expect(rowVisible("Lithium")).toBe(true);
     expect(rowVisible("Clozapine")).toBe(true);
     expect(rowVisible("Sertraline")).toBe(false);
+  });
+});
+
+// F1: an un-hydrated medication row (fields=index projection, empty
+// sections/stats/quick) must never compose a confident "no considerations"
+// verdict. See `MedicationCatalogMatch.hydrated` in use-medication-catalog.ts.
+describe("MedicationPrescribingWorkspace — unhydrated-record verdict safety (F1)", () => {
+  const renalProfile = { egfr: 35 };
+
+  // A real full record: one contraindication row that fires for the entered
+  // profile (eGFR 35 < the 60 mL/min renal-impairment cutoff).
+  const acamprosateFull: MedicationRecord = {
+    slug: "acamprosate",
+    name: "Acamprosate",
+    class: "Anti-craving agent",
+    subclass: "Anti-craving agent",
+    category: "Addiction medicine",
+    accent: "teal",
+    tag: "",
+    schedule: "S4",
+    stats: [{ label: "Max dose", value: "2 g/day" }],
+    sections: [
+      {
+        title: "Contraindications",
+        type: "contra",
+        rows: [
+          {
+            key: "Severe renal impairment",
+            val: "Contraindicated in significant renal impairment.",
+            patient: { action: "contraindication", severity: "danger", factors: ["renal"] },
+          },
+        ],
+      },
+    ],
+    quick: [],
+  };
+
+  // What `toIndexRecords` (medications/route.ts) strips it down to for a
+  // `fields=index` response — exactly what an unhydrated ranked match still
+  // carries as `medication` once merged (see mergeMedicationCatalogueResponse).
+  const acamprosateIndex: MedicationRecord = {
+    ...acamprosateFull,
+    stats: [],
+    sections: [],
+    quick: [],
+  };
+
+  const acamprosateResult: Result = {
+    id: "acamprosate",
+    name: "Acamprosate",
+    indication: "Alcohol relapse prevention",
+    match: "Exact clinical fit",
+    dose: "666 mg tds",
+    ceiling: "2 g/day",
+    action: "Renal dose adjustment required",
+    actionTone: "danger",
+    tone: "teal",
+  };
+
+  it("degrades to the incomplete/neutral 'Manual review' verdict, never green, when the row could not be hydrated", () => {
+    writePatientProfile(renalProfile);
+    catalogFixture.current = {
+      records: [],
+      matches: [
+        { medication: acamprosateIndex, result: acamprosateResult, score: 20, reasons: ["name"], hydrated: false },
+      ],
+    };
+
+    renderWorkspace({ query: "acamprosate", showHome: false });
+
+    const row = screen.getByTestId("medication-result-acamprosate-desktop");
+    // THE INVARIANT: an unhydrated row must never compose a confident "no
+    // considerations" verdict. Before the F1 fix this rendered
+    // `data-verdict="success"` (green) for exactly this input, because the
+    // compact projection's empty `sections` reads as "checked, nothing
+    // found" to `evaluatePatientAlerts` — when the truth is "not checked".
+    expect(row.getAttribute("data-verdict")).not.toBe("success");
+    expect(row.getAttribute("data-verdict")).toBe("neutral");
+    expect(row).toHaveTextContent(/Manual review/i);
+  });
+
+  it("renders the real danger verdict for the identical medication once it is hydrated to full detail", () => {
+    writePatientProfile(renalProfile);
+    catalogFixture.current = {
+      records: [],
+      matches: [
+        { medication: acamprosateFull, result: acamprosateResult, score: 20, reasons: ["name"], hydrated: true },
+      ],
+    };
+
+    renderWorkspace({ query: "acamprosate", showHome: false });
+
+    const row = screen.getByTestId("medication-result-acamprosate-desktop");
+    expect(row.getAttribute("data-verdict")).toBe("danger");
+    expect(row).toHaveTextContent(/Danger/i);
   });
 });

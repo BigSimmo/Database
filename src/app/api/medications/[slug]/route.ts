@@ -12,6 +12,12 @@ import { getMedicationRecord } from "@/lib/medication-snapshot";
 import { publicMedicationGovernance, normalizeMedicationSlug } from "@/lib/medication-records";
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
+  catalogueDetailScope,
+  catalogueListFallbackBudgetMs,
+  catalogueUnavailableNotice,
+  readCatalogueWithSeedFallback,
+} from "@/lib/site-content/catalogue-seed-fallback";
+import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
@@ -78,24 +84,54 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     }
 
     const seed = publicMedicationDetailPayload(normalizedSlug);
-    const canonical = await readCanonicalSiteContentRecords({
-      supabase,
+    const seeds = seed ? [seed] : [];
+    // Bounded, like the list route: this read had no budget either, so a slow database left a
+    // medication detail page waiting indefinitely instead of degrading. Deliberately NOT cached —
+    // `readCanonicalSiteContentRecords` reserves the uncached path for detail reads so an operator
+    // always sees their own publication immediately.
+    const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+    const canonical = await readCatalogueWithSeedFallback({
       kind: "medication",
-      slug: normalizedSlug,
-      seeds: seed ? [seed] : [],
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: finalRenderPayload as unknown as MedicationRecord,
-        governance: {
-          ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
-          ...canonicalSiteContentGovernance(canonicalRecord),
-        },
-      }),
+      scope: catalogueDetailScope,
+      seeds,
+      budgetMs: catalogueListFallbackBudgetMs,
+      read: async (signal) => {
+        const result = await readCanonicalSiteContentRecords({
+          supabase,
+          kind: "medication",
+          slug: normalizedSlug,
+          signal,
+          seeds,
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+            record: finalRenderPayload as unknown as MedicationRecord,
+            governance: {
+              ...publicMedicationGovernance(finalRenderPayload as unknown as MedicationRecord),
+              ...canonicalSiteContentGovernance(canonicalRecord),
+            },
+          }),
+        });
+        observed.source = result.source;
+        return result.records;
+      },
     });
     const payload = canonical.records[0];
-    if (!payload) return notFoundResponse(normalizedSlug);
+    // A fallback with no seed for this slug means the read failed, not that the medication is
+    // absent: see `catalogueUnavailableNotice` for why a 404 here would be a false clinical claim.
+    if (!payload) {
+      if (canonical.degraded) {
+        return publicErrorResponse(catalogueUnavailableNotice, 503, { code: "medication_catalogue_unavailable" });
+      }
+      return notFoundResponse(normalizedSlug);
+    }
     return medicationResponse(
-      { ...payload, publicAccess: true },
-      { request, fixture: canonical.source === "seed_uninitialized" },
+      {
+        ...payload,
+        publicAccess: true,
+        // Never drop `degraded` on the floor: this record is the in-bundle copy, which can lag
+        // anything published since the last release.
+        ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
+      },
+      { request, fixture: observed.source === "seed_uninitialized" },
     );
   } catch (error) {
     if (error instanceof AuthenticationError) {

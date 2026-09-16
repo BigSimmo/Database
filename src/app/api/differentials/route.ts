@@ -23,6 +23,11 @@ import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
+  catalogueListFallbackBudgetMs,
+  catalogueListScope,
+  readCatalogueWithSeedFallback,
+} from "@/lib/site-content/catalogue-seed-fallback";
+import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
@@ -121,23 +126,42 @@ export async function GET(request: Request) {
     const snapshot = loadDifferentialSnapshot();
     const seedGovernance = deriveGovernanceFromSnapshot(snapshot);
     if (kind === "presentation") {
-      const canonical = await readCanonicalSiteContentRecords({
-        supabase,
+      const presentationSeeds = snapshot.presentations.map((workflow) => ({
+        workflow,
+        governance: {
+          sourceStatus: seedGovernance.source_status,
+          validationStatus: seedGovernance.validation_status,
+        },
+      }));
+      // Bounded, and degrades to the in-bundle catalogue rather than hanging — the same treatment
+      // `/api/medications` was given, and for the same reason: this read had no budget at all, so
+      // a slow database left the Differentials mode waiting indefinitely instead of showing
+      // something. See src/lib/site-content/catalogue-seed-fallback.ts.
+      const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+      const canonical = await readCatalogueWithSeedFallback({
         kind: "presentation",
-        slug: null,
-        // One public projection, no caller identity. Same reasoning as the registry list route.
-        cache: true,
-        seeds: snapshot.presentations.map((workflow) => ({
-          workflow,
-          governance: {
-            sourceStatus: seedGovernance.source_status,
-            validationStatus: seedGovernance.validation_status,
-          },
-        })),
-        mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-          workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
-          governance: canonicalSiteContentGovernance(canonicalRecord),
-        }),
+        // The list cooldown scope, not search's: a search giving up at 1200 ms is no evidence that
+        // this read, allowed 6000 ms, would also fail.
+        scope: catalogueListScope,
+        seeds: presentationSeeds,
+        budgetMs: catalogueListFallbackBudgetMs,
+        read: async (signal) => {
+          const result = await readCanonicalSiteContentRecords({
+            supabase,
+            kind: "presentation",
+            slug: null,
+            signal,
+            // One public projection, no caller identity. Same reasoning as the registry list route.
+            cache: true,
+            seeds: presentationSeeds,
+            mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+              workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
+              governance: canonicalSiteContentGovernance(canonicalRecord),
+            }),
+          });
+          observed.source = result.source;
+          return result.records;
+        },
       });
       const presentations = canonical.records.map((entry) => entry.workflow);
       const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
@@ -148,24 +172,44 @@ export async function GET(request: Request) {
           matches: ranked ? presentationMatchesPayload(ranked) : undefined,
           total: presentations.length,
           governance: Object.fromEntries(canonical.records.map((entry) => [entry.workflow.id, entry.governance])),
+          // `catalogue-seed-fallback` is explicit that `degraded` must never be dropped on the
+          // floor: seeds can lag anything published since the last release, so the reader has to
+          // be told the list may be stale.
+          ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
         },
-        { request, fixture: canonical.source === "seed_uninitialized" },
+        // Not widened to cover `canonical.degraded`: `fixture` lengthens public caching, which
+        // would pin a stale seed list in front of a database that may recover in thirty seconds.
+        { request, fixture: observed.source === "seed_uninitialized" },
       );
     }
-    const canonical = await readCanonicalSiteContentRecords({
-      supabase,
+    const diagnosisSeeds = differentialRecords.map((record) => ({
+      record,
+      governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
+    }));
+    // Same budget and fallback as the presentation branch above; see the comment there.
+    const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+    const canonical = await readCatalogueWithSeedFallback({
       kind: "differential",
-      slug: null,
-      // One public projection, no caller identity. Same reasoning as the registry list route.
-      cache: true,
-      seeds: differentialRecords.map((record) => ({
-        record,
-        governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
-      })),
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
-        governance: canonicalSiteContentGovernance(canonicalRecord),
-      }),
+      scope: catalogueListScope,
+      seeds: diagnosisSeeds,
+      budgetMs: catalogueListFallbackBudgetMs,
+      read: async (signal) => {
+        const result = await readCanonicalSiteContentRecords({
+          supabase,
+          kind: "differential",
+          slug: null,
+          signal,
+          // One public projection, no caller identity. Same reasoning as the registry list route.
+          cache: true,
+          seeds: diagnosisSeeds,
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+            record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
+            governance: canonicalSiteContentGovernance(canonicalRecord),
+          }),
+        });
+        observed.source = result.source;
+        return result.records;
+      },
     });
     const records = canonical.records.map((entry) => entry.record);
     const ranked = q ? rankDifferentialRecords(records, q, limit) : null;
@@ -176,8 +220,9 @@ export async function GET(request: Request) {
         matches: ranked ? recordMatchesPayload(ranked) : undefined,
         total: records.length,
         governance: Object.fromEntries(canonical.records.map((entry) => [entry.record.slug, entry.governance])),
+        ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
       },
-      { request, fixture: canonical.source === "seed_uninitialized" },
+      { request, fixture: observed.source === "seed_uninitialized" },
     );
   } catch (error) {
     if (error instanceof AuthenticationError) {

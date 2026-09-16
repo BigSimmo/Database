@@ -10,6 +10,79 @@ launcher injection and incomplete production privacy/governance evidence. Keep t
 and release validator fail-closed. GitHub connectivity is not clinical production acceptance;
 new lifecycle code still needs hosted branch evidence before its PR can claim that proof.
 
+## Read paths never re-verify the whole corpus (2026-09-16)
+
+**The rule.** A read path may never re-verify the whole corpus. Verification of immutable data
+belongs at **write time** (verify once, in the function that creates the data), at **migration
+time** (verify once, in a guard migration, when the shape changes), or in the **health check**
+(`read_site_content_health()`, which no user request is blocked on) — never on a request a
+clinician is waiting for, where the same answer is recomputed for every user, forever. Between
+2026-09-09 and 2026-09-16 `read_site_content_public_records()` re-derived
+`site_content_bootstrap_digest(r.id)` — a SHA-256 over every release record — on every catalogue
+and search read, taking psychiatry.tools from instant to seconds a page. Nothing in this
+repository measured or refused it. The kind-filter regression on the same function had been caught
+structurally only after a seven-day outage; this one was caught by a human with a browser, a week
+in ([`docs/audit/2026-09-16-catalogue-read-latency.md`](audit/2026-09-16-catalogue-read-latency.md)).
+
+Keep the audit's distinction when quoting the cost. **Measured:** a handful of anonymous browser
+probes against production on 2026-09-16 — roughly 4.2 s for a catalogue read, 4.5–6.5 s across
+repeats, a 6.4 s `?kind=service` list and a 4.6 s detail read of an 8 KB body. That is a range from
+a few probes, not a distribution. **Established** by offline reconstruction and a matching hash: the
+shape and size of the work — 843 rows, 9,522,923 canonical bytes, 164,820 JSON nodes, canonicalised
+through recursive plpgsql twice per call. **Inferred and still unprofiled:** the step from node
+counts to seconds. No `EXPLAIN (ANALYZE)` has been run against the function;
+`scripts/operator-explain-site-content-public-records.sql` is the read-only script that would settle
+it and is unrun (ledger `#YE6BZB`).
+
+**The gate.** `npm run check:read-path-cost` (`scripts/check-read-path-cost.mjs`) enforces it
+statically and offline, with no database. It parses every `create function` body and every
+`create [materialized] view` body in `supabase/schema.sql` and, independently, in the
+`supabase/migrations/**` chain; builds the call graph between them (a view joins the graph by a
+bare mention, because a view is selected _from_ rather than called); discovers which of them the
+application actually invokes by scanning `src/app/api/**`, `src/lib/**` and `supabase/functions/**`
+for their names (literals, not one `.rpc(` spelling — the incident function is reached through a
+`callRpc` wrapper, and `read_site_content_sync_event_plan` only from the Deno edge function); drops
+the ones that write; and refuses any remaining read path whose **transitive** closure contains
+whole-corpus work: a named whole-corpus digest helper (R1), a hash of a corpus-derived expression
+(R2), or an aggregate over a corpus table in a query that scans every row of it (R3). R2 and R3 are
+derived from the SQL rather than from a name list, so a helper written next year is classified
+without anyone remembering to list it, and an O(1) hash of a few scalars is deliberately _not_
+flagged — a gate that fires on constant-cost work gets allowlisted into uselessness. `--self-test`
+proves the gate still fails on a planted violation; `tests/read-path-cost.test.ts` runs those cases
+in the offline suite and pins the wiring. It runs in `verify:cheap`, in `verify:pr-local`'s heavy
+plan, and as the "Read-path cost contract" step in CI's `static-pr` job.
+
+**R3 is precise in both directions on purpose.** A scan counts as whole-corpus only when no `LIMIT`
+of 1000 or less bounds it _and_ no equality predicate binds it to a specific row or key, and
+`min(col)`/`max(col)` of a bare column is never flagged. That keeps the gate off the shapes a read
+path is entitled to — a single-row `count(*)` by primary key, a single-document `jsonb_agg` by
+logical id, and the index-only `count(*)` against a stored expected count that
+[`docs/site-content-sync-runbook.md`](site-content-sync-runbook.md) § "Verification of the freeze
+belongs at write time, not on the read path" explicitly permits. It also closes the bypasses the
+older word-match form allowed: `limit 1000000`, `limit all` (a Postgres no-op), a caller-supplied
+`limit p_count`, and an unrelated `limit 1` in a subquery that merely shared the enclosing scope.
+
+**The exemption list is an off switch, and is guarded as one.** `REVIEWED_EXEMPTIONS` skips every
+rule for the name it holds, so it fails closed when its entry names a function that no longer
+exists, `tests/read-path-cost.test.ts` asserts its exact contents so any change is a deliberate
+diff, and an entry that also appears in `PINNED_READ_PATHS` is an unconditional gate failure — that
+single line would otherwise disarm the gate for the very function it was built to protect while
+still reporting success.
+
+**What it does not cover.** It refuses the _shape_ of the work, not its measured cost, and its
+structural coverage has named holes. The script header's "WHAT IT DOES NOT CHECK" section is the
+authoritative list; in summary: a read path that also writes is dropped from the gate entirely, so
+one audit-log `insert` in a read RPC removes it permanently; `CORPUS_TABLES` is a hardcoded list of
+three with nothing keeping it complete; RLS `select` policies, `generated always as (…) stored`
+columns and bare `do` blocks are not parsed at all; a row sweep with no aggregate (the audit's root
+cause 4) is invisible; and an RPC name assembled at runtime, or split across string concatenation
+inside dynamic SQL, defeats discovery. Do not read a green run as proof that a read path is cheap.
+A latency budget needs a seeded corpus and a live Postgres; the natural host is the `db-reset-verify`
+("Migration replay") CI job, which already runs the real migration chain against a live database,
+using a seed-`EXPLAIN (ANALYZE)`-rollback transaction. That is not built. Until it is, the operator
+diagnostic `scripts/operator-explain-site-content-public-records.sql` remains the only measurement,
+and it is run by hand.
+
 ## Testing speed playbook (pointer)
 
 Day-to-day selection, local Playwright keep-root, and refuted speed levers live in

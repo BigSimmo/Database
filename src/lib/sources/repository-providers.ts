@@ -668,8 +668,23 @@ export const repositorySourceProviders: readonly ClinicalSourceProvider[] = [
   acquisitionProvider,
 ];
 
-export function repositorySourceReferences() {
-  return repositorySourceProviders.flatMap((provider) => provider.references());
+let cachedReferences: ClinicalSourceReferenceInput[] | null = null;
+
+/**
+ * Every reference the repository itself declares, built once per process.
+ *
+ * All twelve providers read static ESM imports evaluated at module scope —
+ * bundled JSON and TypeScript datasets. None of them reads the request, the
+ * session, the database or the clock, so the answer is a pure function of the
+ * deployed code and cannot differ between two requests served by the same
+ * build. Callers only read the result (`map`, `filter`, and
+ * `canonicalizeSourceReferences`, which copies before it sorts), so the array
+ * is shared rather than cloned, matching `loadMedicationSnapshot` and
+ * `loadDifferentialSnapshot`.
+ */
+export function repositorySourceReferences(): ClinicalSourceReferenceInput[] {
+  cachedReferences ??= repositorySourceProviders.flatMap((provider) => provider.references());
+  return cachedReferences;
 }
 
 export function repositorySourceReferenceIssues(

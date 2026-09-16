@@ -399,12 +399,17 @@ describe("API validation contracts", () => {
     const atCapResponse = await GET(authenticatedRequest("/api/documents?limit=50&offset=10000&includeMeta=false"));
     const atCapBody = await payload(atCapResponse);
 
+    // An empty page at a non-zero offset also asks for the exact count, so the two page reads are
+    // not calls 0 and 1 any more. Pick them out by the range they carry rather than by position.
+    const pageReads = client.calls.filter((call) => call.range);
+
     expect(underCapResponse.status).toBe(200);
     expect(underCapBody.pagination).toMatchObject({ limit: 50, offset: 9999 });
-    expect(client.calls[0].range).toEqual({ from: 9999, to: 10_048 });
+    expect(pageReads[0].range).toEqual({ from: 9999, to: 10_048 });
     expect(atCapResponse.status).toBe(200);
     expect(atCapBody.pagination).toMatchObject({ limit: 50, offset: 10_000 });
-    expect(client.calls[1].range).toEqual({ from: 10_000, to: 10_049 });
+    expect(pageReads[1].range).toEqual({ from: 10_000, to: 10_049 });
+    expect(pageReads).toHaveLength(2);
   });
 
   it("clamps a document list offset that is just past the 10k cap down to exactly 10k", async () => {

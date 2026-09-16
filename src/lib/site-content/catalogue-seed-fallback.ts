@@ -60,6 +60,34 @@ export const catalogueSeedFallbackCooldownMs = 30_000;
 export const catalogueSearchScope = "search";
 export const catalogueListScope = "list";
 
+/**
+ * Detail reads share the list budget but not its cooldown. A `[slug]` read returns one record and
+ * the whole catalogue read returns hundreds, so a list read exhausting six seconds is no evidence
+ * that a single-record read would; sharing the key would send every detail page to seeds for
+ * thirty seconds on the strength of a slower, different query. The cooldown is still per kind
+ * rather than per slug: the RPC is the same function whichever slug is asked for, so a failure is
+ * a signal about the database, not about that record.
+ *
+ * THE BLAST RADIUS OF THAT CHOICE, stated plainly because it is wider than "one slow read". For
+ * the next `catalogueSeedFallbackCooldownMs` EVERY slug of that kind is answered from the
+ * in-bundle catalogue with no read attempted at all, on the evidence of a single slow read of a
+ * single record. Two consequences the detail routes then produce:
+ *
+ *   - a slug that genuinely does not exist returns 503 `catalogueUnavailableNotice` rather than
+ *     404, because the route cannot tell "absent" from "unread";
+ *   - a record published canonically but carrying no in-bundle copy returns that same 503 rather
+ *     than its content, for thirty seconds after an unrelated slug was slow.
+ *
+ * Both are conservative — neither asserts a record does not exist, and neither serves content the
+ * reader cannot see is retained — and both are bounded by the cooldown. Kept per kind anyway: a
+ * per-slug key would let every distinct slug pay the full budget while the database is unwell,
+ * which is a crawler or a link-heavy page holding a six-second read open per record. That is the
+ * every-request-waits behaviour the cooldown exists to prevent, and the trade was judged worth
+ * thirty seconds of conservative answers. `tests/catalogue-seed-fallback.test.ts` pins the radius
+ * so it stays a decision rather than a surprise.
+ */
+export const catalogueDetailScope = "detail";
+
 type Outcome<T> = {
   /** Mutable so the per-domain rankers can sort in place; the seed path is copied, never aliased. */
   records: T[];
@@ -188,6 +216,19 @@ export async function readCatalogueWithSeedFallback<T>(input: {
  * every surface says the same words.
  */
 export const catalogueDegradedNotice = "may be out of date";
+
+/**
+ * What a `[slug]` detail route says when the canonical read fell back AND the in-bundle catalogue
+ * holds no copy of the record that was asked for.
+ *
+ * The distinction is clinical, not cosmetic. A 404 asserts that no such record exists, and a read
+ * that timed out is no evidence of that whatsoever — the record may be published and perfectly
+ * current behind a database that is simply not answering. Saying so plainly is the conservative
+ * answer; telling a clinician the medication is not in the catalogue is not. Kept here beside
+ * `catalogueDegradedNotice` so every surface uses the same words.
+ */
+export const catalogueUnavailableNotice =
+  "This record could not be loaded right now: the reference database is not responding. Try again shortly.";
 
 /**
  * Append the notice to a results heading when, and only when, the group was served from seeds.

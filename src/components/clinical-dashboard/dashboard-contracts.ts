@@ -8,7 +8,14 @@ export const mobileSectionFabMediaQuery =
 export type DocumentPagination = {
   limit: number;
   offset: number;
-  total: number;
+  /**
+   * Null when the count could not be read. `/api/documents` used to answer that case with the
+   * page length, so a 5,000-document corpus read back as "150 of 150" — a plausible number that
+   * was simply wrong. It now sends null, and the consumer at `document-admin.tsx` renders nothing
+   * rather than a lie, because `null > documents.length` is false. `hasMore` still drives paging,
+   * so the list keeps working while the total is genuinely unknown.
+   */
+  total: number | null;
   nextOffset: number;
   hasMore: boolean;
 };

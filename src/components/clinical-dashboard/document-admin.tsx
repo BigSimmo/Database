@@ -857,7 +857,9 @@ export function DocumentDrawer({
           label={'Show "Needs review" queue only'}
         />
       ) : null}
-      {pagination && pagination.total > documents.length ? (
+      {/* `total` is null when the count could not be read, which is not the same as zero. Say
+          nothing rather than guess a figure; `hasMore` still drives the Load more control. */}
+      {pagination && pagination.total !== null && pagination.total > documents.length ? (
         <p className={cn("text-xs", textMuted)}>
           Showing {documents.length} of {pagination.total} documents. Load more to manage older files.
         </p>

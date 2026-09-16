@@ -5,6 +5,7 @@ import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { parseDocumentDetailPayload } from "@/lib/document-client-contracts";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
+import { logger } from "@/lib/logger";
 import {
   callerOwnsDocumentRow,
   enforceDocumentReadRateLimit,
@@ -35,6 +36,30 @@ const maxPageWindow = 40;
 const defaultChunkWindow = 16;
 const maxChunkWindow = 80;
 const selectedChunkNeighborCount = 3;
+/**
+ * Cap on a document-scope image read.
+ *
+ * Every other read in the detail fan-out is bounded — pages by the page window, chunks by the
+ * chunk range, table facts by an explicit `.limit(200)` — but the document-scope image branch was
+ * filtered by `document_id` alone with no ceiling at all, over fourteen columns that include
+ * `metadata`, `labels` and `bbox`. A large scanned PDF can carry thousands of image rows, so one
+ * request for such a document could fetch and serialize the lot.
+ *
+ * Matched to the table-facts cap deliberately: the two reads cover the same page material and a
+ * reader has no way to know why one would truncate at a different depth. Rows come back ordered by
+ * page number, so the cap takes the front of the document rather than an arbitrary slice.
+ *
+ * A cap that loses rows in silence is the trap here, and two things guard against it. The read asks
+ * for one row more than it returns, so a document at exactly the cap is distinguishable from one
+ * that was truncated, and a truncated read is reported rather than absorbed. And a selected chunk's
+ * own images are fetched by id in the same request, as the window scope has always done, so the
+ * images the reader navigated to are never lost to the visibility filter. An id sitting past the cap
+ * by page order can still be cut — which is exactly what the report exists to make visible.
+ *
+ * The window scope is deliberately left uncapped: it is already bounded by a page window of at most
+ * `maxPageWindow` pages, and it carries the selected chunk's images in the same request by id.
+ */
+const documentScopeImageLimit = 200;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const documentDetailProjection =
   "id,owner_id,title,description,file_name,file_type,file_size,storage_path,content_hash,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata,created_at,updated_at" as const;
@@ -43,6 +68,10 @@ const documentDetailProjection =
 // `owner_id` off the wire; the table-facts route shares it for the same reason.
 export const tableFactDetailProjection =
   "id,document_id,source_image_id,page_number,table_title,row_label,clinical_parameter,threshold_value,action,metadata" as const;
+// Named like its siblings rather than inlined, so the three scope branches below read as one query
+// wearing different filters instead of a wall of column text repeated per branch.
+const documentImageDetailProjection =
+  "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata" as const;
 const documentLabelDetailProjection =
   "id,document_id,owner_id,label,label_type,source,confidence,metadata,created_at,updated_at" as const;
 const documentSummaryDetailProjection =
@@ -250,6 +279,40 @@ function imageWindowFilter(pageWindow: { from: number; to: number }, imageIds: s
   ];
   if (imageIds.length > 0) filters.push(`id.in.(${imageIds.join(",")})`);
   return filters.join(",");
+}
+
+/**
+ * The document-scope image filter: every image the document view would show, plus the selected
+ * chunk's own images by id. Same two arms as `imageWindowFilter` minus the page window, so the
+ * two scopes treat a chunk's cited images the same way.
+ */
+function documentScopeImageFilter(imageIds: string[]) {
+  return [`and(image_type.neq.logo_decorative,${documentViewImageVisibility})`, `id.in.(${imageIds.join(",")})`].join(
+    ",",
+  );
+}
+
+/**
+ * The image rows the payload carries, once the document-scope cap has been applied honestly.
+ *
+ * Window scope passes through untouched — it is bounded by its page window. Document scope drops
+ * the one row read past the cap, whose presence is the proof that rows were lost, and reports that
+ * loss rather than absorbing it. A cap that truncates in silence is how a reader ends up missing
+ * figures nobody can account for.
+ *
+ * The log line is where a truncated read is visible, because the payload contract
+ * (`documentDetailResponseSchema`, which is `.strict()`) has nowhere to carry a truncation flag —
+ * raising it to the caller needs that contract widened, which is a change to
+ * `document-client-contracts.ts` and `document-detail-contract.ts`.
+ */
+function documentScopeImages<T>(args: { documentId: string; assetScope: DocumentAssetScope; rows: T[] }): T[] {
+  if (args.assetScope === "window" || args.rows.length <= documentScopeImageLimit) return args.rows;
+
+  logger.warn("Document-scope image read hit its cap; images past it are not in this payload", {
+    document_id: args.documentId,
+    image_limit: documentScopeImageLimit,
+  });
+  return args.rows.slice(0, documentScopeImageLimit);
 }
 
 function tableFactWindowFilter(pageWindow: { from: number; to: number }, imageIds: string[]) {
@@ -468,18 +531,28 @@ export async function loadAuthorizedDocumentDetail(args: {
       : orderedChunkQuery.range(chunkRangeStart, chunkRangeEnd)
   ).abortSignal(args.request.signal);
 
-  let imagesRequest = supabase
-    .from("document_images")
-    .select(
-      "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
-    )
-    .eq("document_id", id);
+  let imagesRequest = supabase.from("document_images").select(documentImageDetailProjection).eq("document_id", id);
   if (query.assetScope === "window") {
     imagesRequest = imagesRequest.or(imageWindowFilter(pageRange, preservedImageIds));
+  } else if (preservedImageIds.length > 0) {
+    // The selected chunk's own images, carried by id exactly as the window filter carries them:
+    // the reader asked for that chunk, and an image it cites is wanted whether or not it passes
+    // the document-view visibility filter. Folded into this one request rather than read
+    // separately because the tenancy scan inventories this function at a single `document_images`
+    // query, and a second one is an undeclared derived read.
+    imagesRequest = imagesRequest.or(documentScopeImageFilter(preservedImageIds));
   } else {
     imagesRequest = imagesRequest.neq("image_type", "logo_decorative").or(documentViewImageVisibility);
   }
-  const imagesPending = imagesRequest.order("page_number", { ascending: true }).abortSignal(args.request.signal);
+  const orderedImagesRequest = imagesRequest.order("page_number", { ascending: true });
+  const imagesPending = (
+    query.assetScope === "window"
+      ? orderedImagesRequest
+      : // One more than the cap returns, so `documentScopeImageLimit` rows means "exactly that
+        // many" and `documentScopeImageLimit + 1` means "truncated" — a distinction the caller's
+        // row count cannot make on its own.
+        orderedImagesRequest.limit(documentScopeImageLimit + 1)
+  ).abortSignal(args.request.signal);
 
   let tableFactsRequest = supabase.from("document_table_facts").select(tableFactDetailProjection).eq("document_id", id);
   if (generationFilter) {
@@ -519,6 +592,12 @@ export async function loadAuthorizedDocumentDetail(args: {
     if (result.error) throw new Error(result.error.message);
   }
 
+  const imageRows = documentScopeImages({
+    documentId: id,
+    assetScope: query.assetScope,
+    rows: imagesResult.data ?? [],
+  });
+
   const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
     isOwner ? rows : rows.map((row) => redactNonOwnedDocumentFields(row, access.ownerId));
   const labels = (labelsResult.data ?? [])
@@ -554,7 +633,7 @@ export async function loadAuthorizedDocumentDetail(args: {
       committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],
     ) as DocumentDetailPage[],
     images: publicRows(
-      committedRows(document, imagesResult.data ?? []).map(withImageTableMetadata) as Record<string, unknown>[],
+      committedRows(document, imageRows).map(withImageTableMetadata) as Record<string, unknown>[],
     ) as DocumentDetailImage[],
     tableFacts: publicRows(
       committedRows(document, tableFactsResult.data ?? []).map(withTableFactReviewMetadata) as Record<

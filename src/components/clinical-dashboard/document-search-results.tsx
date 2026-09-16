@@ -767,12 +767,29 @@ function SearchRecordResults({
   );
 }
 
-function RecordRegistryNotice({ status, mode }: { status: RegistryRequestStatus; mode: SearchRecordMode }) {
+function RecordRegistryNotice({
+  status,
+  mode,
+  slow = false,
+}: {
+  status: RegistryRequestStatus;
+  mode: SearchRecordMode;
+  /** Past `registryCatalogueSlowNoticeMs` with no response yet — appends the
+   *  same "taking longer than usual" wording the answer/search surfaces use
+   *  (`AnswerProgress`, `requestSourceLibrarySearch`) rather than leaving the
+   *  loading line unchanged for the whole 4.5-6.5s the route can actually take. */
+  slow?: boolean;
+}) {
   if (status === "ready" || status === "refetching") return null;
   const noun = mode === "forms" ? "forms" : "services";
   const config =
     status === "loading"
-      ? { Icon: Loader2, spin: true, tone: "info" as const, text: `Loading your ${noun} registry...` }
+      ? {
+          Icon: Loader2,
+          spin: true,
+          tone: "info" as const,
+          text: `Loading your ${noun} registry...${slow ? " Still searching. This is taking longer than usual." : ""}`,
+        }
       : status === "unauthorized"
         ? {
             Icon: Shield,
@@ -808,6 +825,7 @@ function DocumentSearchResultsPanelImpl({
   recordMatches = [],
   recordMode = "services",
   recordStatus = "ready",
+  recordSlow = false,
   showRecordMatches = false,
   query,
   loading,
@@ -836,6 +854,9 @@ function DocumentSearchResultsPanelImpl({
   recordMatches?: SearchRecordMatch[];
   recordMode?: SearchRecordMode;
   recordStatus?: RegistryRequestStatus;
+  /** Threaded straight from `useDeferredRegistrySearch`'s `recordSlow`; see
+   *  `RecordRegistryNotice` for what it changes. */
+  recordSlow?: boolean;
   showRecordMatches?: boolean;
   query: string;
   loading: boolean;
@@ -1523,7 +1544,9 @@ function DocumentSearchResultsPanelImpl({
 
       {showRecordMatches ? (
         <>
-          {recordBandOwnsFault ? null : <RecordRegistryNotice status={recordStatus} mode={recordMode} />}
+          {recordBandOwnsFault ? null : (
+            <RecordRegistryNotice status={recordStatus} mode={recordMode} slow={recordSlow} />
+          )}
           <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
         </>
       ) : null}

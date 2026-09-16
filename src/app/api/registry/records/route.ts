@@ -247,6 +247,12 @@ export async function GET(request: Request) {
       {
         ...registryListPayload(kind, records, governanceBySlug, q, limit, view),
         publicAccess: true,
+        // `catalogue-seed-fallback` is explicit that `degraded` must never be dropped on the
+        // floor: seeds can lag anything published since the last release, so the reader has to be
+        // told the list may be stale. This route held the flag and said nothing, which let
+        // Services and Forms serve the in-bundle catalogue with no notice at all. Same field name
+        // as the medications and differentials lists, so one client helper covers all three.
+        ...(canonical.degraded ? { retainedSnapshot: true as const } : {}),
       },
       {
         request,

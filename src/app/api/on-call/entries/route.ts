@@ -8,6 +8,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 // One declaration of the request shapes, shared with the [id] route: create and
 // update must not be able to drift apart.
 import { createOnCallEntrySchema } from "@/lib/on-call/api-schemas";
@@ -48,12 +49,29 @@ function demoOnCallEntries(section: OnCallSection | undefined) {
   return section ? DEMO_ON_CALL_ENTRIES.filter((entry) => entry.section === section) : DEMO_ON_CALL_ENTRIES;
 }
 
+/**
+ * On Call list responses are never publicly cacheable, even though most of what they carry is
+ * the shared catalogue. The body a signed-in caller gets also contains that owner's
+ * `is_personal` entries — the one thing this mode never publishes — and it is the same URL an
+ * anonymous caller fetches. With no `Cache-Control` at all (the state before 2026-09-16) a
+ * shared cache is free to store the response heuristically and hand one caller's personal
+ * numbers to the next, so this declares the repository's existing private policy
+ * (`private, no-store` plus `Vary: Cookie, Authorization`) rather than relying on a cache
+ * honouring `Vary` alone.
+ */
+function onCallListHeaders(request: Request) {
+  return fixtureResponseHeaders(request);
+}
+
 export async function GET(request: Request) {
   try {
     const { section } = parseRequestQuery(request, onCallListQuerySchema, "Invalid On Call query.");
 
     if (isDemoMode()) {
-      return NextResponse.json({ entries: demoOnCallEntries(section), signedOut: false, demoMode: true });
+      return NextResponse.json(
+        { entries: demoOnCallEntries(section), signedOut: false, demoMode: true },
+        { headers: onCallListHeaders(request) },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit, matching the registry route: every
@@ -77,7 +95,7 @@ export async function GET(request: Request) {
     // fetchSharedOnCallEntries. `signedOut` still reports whether the caller has an account,
     // because the client uses it to decide whether editing is offered, not whether to render.
     const entries = await fetchVisibleOnCallEntries(supabase, access.ownerId, { section });
-    return NextResponse.json({ entries, signedOut: !access.ownerId });
+    return NextResponse.json({ entries, signedOut: !access.ownerId }, { headers: onCallListHeaders(request) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

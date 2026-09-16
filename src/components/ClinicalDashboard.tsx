@@ -397,7 +397,10 @@ function ClinicalDashboardContent({
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side (deferred) so live-typing stays
   // responsive and the registry is fetched once per active mode.
-  const { recordSearchMatches, recordSearchMode, recordStatus } = useDeferredRegistrySearch(searchMode, query);
+  const { recordSearchMatches, recordSearchMode, recordStatus, recordSlow } = useDeferredRegistrySearch(
+    searchMode,
+    query,
+  );
   // The thread mirror ref must never outlive the answer it describes: every
   // reset path nulls `answer`, so clearing here covers them all (mode
   // switches, new chat, differentials/services clears) without each caller
@@ -907,6 +910,25 @@ function ClinicalDashboardContent({
 
         setApiUnavailable(false);
 
+        // Started together, awaited apart. The setup probe does not read the
+        // identity payload, and every mode rendering at `/` waits on both, so
+        // running them nose-to-tail cost a whole round trip of first paint.
+        // Each keeps its own `catch`, so one dead probe cannot mask the other.
+        //
+        // `/api/setup-status` applies the same `localProjectRequestIdentityPayload`
+        // guard server-side, so starting it before the client verdict lands
+        // cannot reach past a boundary the server does not also hold; the early
+        // return below still decides what is shown. On that return the probe is
+        // left to settle and discarded rather than aborted — aborting the shared
+        // controller would make `canCommit()` false and skip this call's
+        // dashboard-loading cleanup.
+        const setupRequest = includeSetup
+          ? fetch("/api/setup-status", {
+              cache: "no-store",
+              headers: authorizationHeader,
+              signal: controller.signal,
+            }).catch(() => null)
+          : null;
         const localIdentity = await readLocalProjectIdentity().catch(() => null);
         if (!canCommit()) return;
         if (!localIdentity?.localServer?.safeLocalOrigin) {
@@ -924,12 +946,8 @@ function ClinicalDashboardContent({
         }
         setLocalProjectReady(true);
 
-        if (includeSetup) {
-          const setupResponse = await fetch("/api/setup-status", {
-            cache: "no-store",
-            headers: authorizationHeader,
-            signal: controller.signal,
-          }).catch(() => null);
+        if (setupRequest) {
+          const setupResponse = await setupRequest;
           if (!canCommit()) return;
 
           if (!setupResponse) {
@@ -3663,6 +3681,7 @@ function ClinicalDashboardContent({
                         recordMatches={recordSearchMatches}
                         recordMode={recordSearchMode}
                         recordStatus={recordStatus}
+                        recordSlow={recordSlow}
                         showRecordMatches={searchMode === "services" || searchMode === "forms"}
                         query={query}
                         loading={loading}

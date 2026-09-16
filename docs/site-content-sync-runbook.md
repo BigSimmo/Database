@@ -82,6 +82,18 @@ happened. The answer to a gap in a structural seal is a better seal, not a detec
 - When a proof moves off the read path, say in the migration header where it now lives, so the next
   reader of that SQL does not restore it for safety's sake.
 
+**How much of this a gate enforces.** `npm run check:read-path-cost` refuses the first half of that
+first bullet automatically: a read path that reaches a whole-corpus digest helper, hashes a
+corpus-derived expression, or aggregates over a corpus table in a query that scans every row of it.
+It is deliberately precise about the permitted shapes above — an id equality, a content-addressed
+binding and an index-only `count(*)` against a stored expected count are not flagged, because a gate
+that fires on a single-row lookup gets allowlisted into uselessness. It does **not** enforce the
+second half: a per-row sweep with no aggregate (`not exists (select 1 from <corpus> where …)`, root
+cause 4 of the audit) is invisible to it, as are RLS `select` policies, generated-column expressions,
+a read path that also writes, and an RPC whose name is assembled at runtime. The script header's
+"WHAT IT DOES NOT CHECK" section lists every hole. A green gate means no known offending shape, not
+a cheap read.
+
 The same rule reads forward as a scaling limit. `site_content_canonical_json` is recursive plpgsql
 with one invocation per JSON node, and every fingerprint in this control plane goes through it. That
 is affordable at activation and intolerable per request, and it stops being affordable at activation

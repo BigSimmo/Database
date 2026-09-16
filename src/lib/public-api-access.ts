@@ -72,7 +72,12 @@ export function anonymousApiSubjectKey(request: Request) {
 
 const OWNER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-type OwnerScopedQuery<T> = {
+/**
+ * The PostgREST builder surface `withOwnerReadScope` needs. Exported so a caller that has to
+ * apply the same scope to two different builders — a page read and its `head: true` count, say —
+ * can declare one filter helper over both instead of spelling the scope out twice.
+ */
+export type OwnerScopedQuery<T> = {
   eq(column: string, value: unknown): T;
   is(column: string, value: null): T;
   or(filters: string): T;

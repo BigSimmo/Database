@@ -813,6 +813,16 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "form" : "forms" }}
           chromeResetKey={query}
         />
+        {/* Loading otherwise renders nothing below the band at all — the band's
+            "Searching…" text never changes for the whole 4.5-6.5s this route can
+            take in production, which reads as a dead page rather than a slow one.
+            Matches the wording `RecordRegistryNotice` (document-search-results.tsx)
+            uses for the same registry fetch on the inline dashboard search path. */}
+        {registry.status === "loading" && registry.slow ? (
+          <p role="status" className="px-1 text-xs font-medium text-[color:var(--text-muted)]">
+            Still searching. This is taking longer than usual.
+          </p>
+        ) : null}
         {registryReady ? (
           <>
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (

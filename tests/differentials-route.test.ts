@@ -79,7 +79,18 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   }
 }
 
-function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { canonicalRows?: unknown[] } = {}) {
+function createSupabaseMock(
+  resolve: QueryResolver = () => ok([]),
+  options: {
+    canonicalRows?: unknown[];
+    /**
+     * Stand in for the canonical `read_site_content_public_records` RPC. Receives the RPC
+     * arguments so a test can tell a `slug`-scoped detail read from a `slug: null` list read, and
+     * may return a promise that rejects or never settles to exercise the seed fallback.
+     */
+    canonicalRead?: (args: Record<string, unknown>) => Promise<QueryResult>;
+  } = {},
+) {
   const calls: QueryCall[] = [];
   const from = vi.fn((table: string) => {
     const call: QueryCall = { table, filters: [], inFilters: [], maybeSingle: false };
@@ -96,10 +107,12 @@ function createSupabaseMock(resolve: QueryResolver = () => ok([]), options: { ca
           : { data: { user: null }, error: { message: "Invalid token" } },
       ),
     },
-    rpc: vi.fn(async (name: string) =>
+    rpc: vi.fn(async (name: string, args?: Record<string, unknown>) =>
       name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
         ? ok([{ limited: false, limit_value: 120, remaining: 119, retry_after_seconds: 60 }])
-        : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
+        : options.canonicalRead
+          ? options.canonicalRead(args ?? {})
+          : ok(options.canonicalRows ?? [{ initialized: false, record: null, render_payload: null, snapshot: null }]),
     ),
   };
 }
@@ -476,5 +489,162 @@ describe("differentials API routes", () => {
     expect(response.status).toBe(404);
     expect(consoleError).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The coverage `/api/medications` already has, extended to the differentials routes.
+ *
+ * Every one of these reads ran with no time budget at all, so a database that was slow rather than
+ * broken left the Differentials mode waiting indefinitely instead of showing the in-bundle
+ * catalogue. Without these cases a regression that drops the fallback, restores the hang, presents
+ * a seed catalogue as live, or turns an outage into a "no such diagnosis" 404 would pass the rest
+ * of the suite.
+ */
+describe("differentials survive an unusable catalogue", () => {
+  const rejects = () => Promise.reject(new Error("canonical read failed"));
+  const neverSettles = () => new Promise<QueryResult>(() => {});
+
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it.each([
+    ["diagnosis", "rejects", "records", rejects],
+    ["diagnosis", "never settles", "records", neverSettles],
+    ["presentation", "rejects", "presentations", rejects],
+    ["presentation", "never settles", "presentations", neverSettles],
+  ] as const)(
+    "lists the in-bundle %s catalogue when the canonical read %s",
+    async (kind, _label, key, canonicalRead) => {
+      const client = createSupabaseMock(undefined, { canonicalRead });
+      mockRuntime(client);
+      const { GET } = await import("../src/app/api/differentials/route");
+
+      const response = await GET(request(`/api/differentials?kind=${kind}`));
+      const payload = (await response.json()) as Record<string, unknown[]> & { retainedSnapshot?: boolean };
+
+      expect(response.status).toBe(200);
+      expect(payload[key].length).toBeGreaterThan(0);
+      // `degraded` is never dropped on the floor: the reader is told the list may lag anything
+      // published since the last release.
+      expect(payload.retainedSnapshot).toBe(true);
+      // A degraded response must not be pinned at a CDN in front of a database that may recover
+      // inside the thirty-second cooldown.
+      expectPrivateCache(response);
+    },
+    20_000,
+  );
+
+  it("does not label a healthy list read as a retained copy", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/differentials/route");
+
+    const payload = (await (await GET(request("/api/differentials?kind=diagnosis"))).json()) as {
+      retainedSnapshot?: boolean;
+    };
+
+    expect(payload.retainedSnapshot).toBeUndefined();
+  });
+
+  it.each([
+    [
+      "diagnosis",
+      "delirium",
+      "/api/differentials/delirium?kind=diagnosis",
+      "../src/app/api/differentials/[slug]/route",
+    ],
+    [
+      "presentation",
+      "acute-confusion-encephalopathy",
+      "/api/differentials/presentations/acute-confusion-encephalopathy",
+      "../src/app/api/differentials/presentations/[slug]/route",
+    ],
+  ] as const)(
+    "serves the in-bundle %s detail record when the canonical read fails",
+    async (_kind, slug, path, modulePath) => {
+      const client = createSupabaseMock(undefined, { canonicalRead: rejects });
+      mockRuntime(client);
+      const { GET } = await import(modulePath);
+
+      const response = await GET(request(path), { params: Promise.resolve({ slug }) });
+      const payload = (await response.json()) as { retainedSnapshot?: boolean };
+
+      expect(response.status).toBe(200);
+      expect(payload.retainedSnapshot).toBe(true);
+    },
+  );
+
+  /**
+   * The failure mode a bare fallback would introduce. With no in-bundle copy of the slug the
+   * fallback returns nothing, and the pre-existing `if (!payload) return notFoundResponse(...)`
+   * would then tell a clinician the record does not exist on the strength of a timeout. It has to
+   * say the database is unreachable instead.
+   */
+  it.each([
+    ["diagnosis", "/api/differentials/unknown-diagnosis?kind=diagnosis", "../src/app/api/differentials/[slug]/route"],
+    [
+      "presentation",
+      "/api/differentials/presentations/unknown-presentation",
+      "../src/app/api/differentials/presentations/[slug]/route",
+    ],
+  ] as const)("reports an outage rather than a 404 for an unseeded %s slug", async (kind, path, modulePath) => {
+    const slug = kind === "diagnosis" ? "unknown-diagnosis" : "unknown-presentation";
+    const client = createSupabaseMock(undefined, { canonicalRead: rejects });
+    mockRuntime(client);
+    const { GET } = await import(modulePath);
+
+    const response = await GET(request(path), { params: Promise.resolve({ slug }) });
+
+    expect(response.status).toBe(503);
+  });
+});
+
+/**
+ * The presentation detail route awaited the single presentation, then awaited every diagnosis to
+ * hydrate `workflow.candidates`. The second read is `slug: null` either way, so it never depended
+ * on the first, and serialising them simply added a whole-catalogue round trip to the page's wall
+ * clock. This holds both reads open until each has been issued: under the old sequential code the
+ * second would never start, and the wait would time out.
+ */
+describe("differential presentation detail read fan-out", () => {
+  afterEach(async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+  });
+
+  it("starts the presentation and diagnosis-population reads together", async () => {
+    const started: Array<string | null> = [];
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: async (args) => {
+        started.push((args.p_slug as string | null) ?? null);
+        await gate;
+        return ok([{ initialized: false, record: null, render_payload: null, snapshot: null }]);
+      },
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/differentials/presentations/[slug]/route");
+
+    const pending = GET(request("/api/differentials/presentations/acute-confusion-encephalopathy"), {
+      params: Promise.resolve({ slug: "acute-confusion-encephalopathy" }),
+    });
+
+    await vi.waitFor(() => expect(started).toHaveLength(2));
+    // The presentation read is slug-scoped; the population read is the whole diagnosis catalogue.
+    expect(new Set(started)).toEqual(new Set(["acute-confusion-encephalopathy", null]));
+
+    release();
+    const response = await pending;
+    const payload = (await response.json()) as { workflow?: { id: string }; candidates?: unknown[] };
+
+    expect(response.status).toBe(200);
+    expect(payload.workflow?.id).toBe("acute-confusion-encephalopathy");
+    expect(payload.candidates?.length).toBeGreaterThan(0);
   });
 });

@@ -115,10 +115,14 @@ export async function fetchVisibleOnCallEntries(
   viewerOwnerId: string | undefined,
   options: { section?: OnCallSection } = {},
 ) {
-  const shared = await fetchSharedOnCallEntries(supabase, options);
-  if (!viewerOwnerId) return shared;
+  if (!viewerOwnerId) return fetchSharedOnCallEntries(supabase, options);
 
-  const own = await fetchOwnerOnCallEntries(supabase, viewerOwnerId, options);
+  // The two reads share no input and neither depends on the other's rows, so they are issued
+  // together rather than one after the other: the page waits for the slower read, not for both.
+  const [shared, own] = await Promise.all([
+    fetchSharedOnCallEntries(supabase, options),
+    fetchOwnerOnCallEntries(supabase, viewerOwnerId, options),
+  ]);
   const byId = new Map(shared.map((entry) => [entry.id, entry]));
   // The owner's own copy wins on collision: it is the same row, and this keeps one identity per
   // entry rather than two objects a renderer would key twice.

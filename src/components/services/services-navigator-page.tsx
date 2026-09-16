@@ -971,7 +971,19 @@ export function ServicesNavigatorPage() {
       }
     >
       {registryLoading ? (
-        <SearchResultsSkeleton />
+        <>
+          {/* Loading is otherwise a spinner with no clock — the band's "Searching…"
+              text never changes for the whole 4.5-6.5s this route can take in
+              production, which reads as stuck rather than slow. Matches the wording
+              `RecordRegistryNotice` (document-search-results.tsx) uses for the same
+              registry fetch on the inline dashboard search path. */}
+          {registry.slow ? (
+            <p role="status" className="px-1 text-xs font-medium text-[color:var(--text-muted)]">
+              Still searching. This is taking longer than usual.
+            </p>
+          ) : null}
+          <SearchResultsSkeleton />
+        </>
       ) : registryBlocked ? null : query.trim() && deferredQuery !== query ? (
         <SearchResultsSkeleton />
       ) : resultScope === "results" && query.trim() && deferredQuery === query && rankedMatches.length === 0 ? (

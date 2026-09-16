@@ -459,6 +459,97 @@ describe("/api/eval-cases", () => {
     expect(payload.metadata).toMatchObject({ top_files_rejected: 1 });
   });
 
+  /**
+   * The capture used to make five ownership round trips in a row on one feedback click. Three of
+   * them read nothing the others produce, so they now go out together. Holding the chunk read
+   * open is what tells the two apart: if the file-name and expected-document checks were still
+   * queued behind it, neither would have been issued while it is outstanding.
+   */
+  it("issues the independent ownership checks together rather than one round trip each", async () => {
+    const trace: string[] = [];
+    let releaseChunkRead = () => {};
+    const chunkRead = new Promise<void>((resolve) => {
+      releaseChunkRead = resolve;
+    });
+    const insert = vi.fn(() => ({
+      select: () => ({ single: async () => ({ data: { id: "capture-1" }, error: null }) }),
+    }));
+    const client = {
+      from: vi.fn((table: string) => {
+        const builder: Record<string, unknown> = {
+          select: (columns: string) => {
+            trace.push(`${table}.select(${columns})`);
+            return builder;
+          },
+          eq: () => builder,
+          in: () => builder,
+          insert,
+          maybeSingle: async () => {
+            trace.push(`${table}.maybeSingle`);
+            return {
+              data: table === "document_chunks" ? { id: validChunkId, document_id: documentId } : { id: documentId },
+              error: null,
+            };
+          },
+          then: (onfulfilled: (value: { data: unknown[]; error: null }) => unknown) =>
+            (table === "document_chunks" ? chunkRead : Promise.resolve()).then(() =>
+              onfulfilled({
+                data:
+                  table === "document_chunks"
+                    ? [{ id: validChunkId, document_id: documentId }]
+                    : [{ id: documentId, file_name: ownedFileName }],
+                error: null,
+              }),
+            ),
+        };
+        return builder;
+      }),
+      rpc: vi.fn(async () => ({
+        data: [
+          {
+            limited: false,
+            limit_value: 60,
+            remaining: 59,
+            retry_after_seconds: 60,
+            reset_at: new Date(Date.now() + 60_000).toISOString(),
+          },
+        ],
+        error: null,
+      })),
+    };
+    vi.doMock("@/lib/env", () => mockEnv());
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+      unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
+    }));
+    const { POST } = await import("../src/app/api/eval-cases/route");
+
+    const pending = POST(
+      request({
+        query: "What monitoring is needed for clozapine?",
+        rating: "good",
+        sourceChunkIds: [validChunkId],
+        sourceFiles: [ownedFileName],
+        expectedDocumentId: documentId,
+      }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(trace).toContain("document_chunks.select(id,document_id)");
+    expect(trace).toContain("documents.select(file_name)");
+    expect(trace).toContain("documents.maybeSingle");
+    // Nothing has been written while the reads are still in flight.
+    expect(insert).not.toHaveBeenCalled();
+
+    releaseChunkRead();
+    const response = await pending;
+
+    expect(response.status).toBe(201);
+    expect(insert).toHaveBeenCalledTimes(1);
+  });
+
   it("nulls unowned expected document and chunk references", async () => {
     const { client, insert } = createInsertMock({
       ownedDocumentIds: [],

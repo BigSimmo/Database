@@ -3157,6 +3157,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/audit/2026-09-16-catalogue-read-latency.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/agents/test-deletion-guard.md",
         "section": "agents",
         "catalogued": true

@@ -203,6 +203,16 @@ Ordered by what would have caught _this_, soonest first.
    `tests/site-content-public-records-kind-filter.test.ts` already asserts the kind filter cannot
    regress. Both regressions were invisible in review for the same reason: the body is a wall of SQL
    and one call among many looks like the others.
+
+   **Built.** `npm run check:read-path-cost` (`scripts/check-read-path-cost.mjs`) does this for
+   every application-invoked read path rather than for this one function, transitively through the
+   call graph, offline, in both `supabase/schema.sql` and the migration chain. It is wired into
+   `verify:cheap`, `verify:pr-local`'s heavy plan and CI's `static-pr` job, and
+   `tests/read-path-cost.test.ts` proves it still fires on a planted violation. It is a tripwire on
+   one shape, not a cost model: it does not catch root cause 4 above — a per-row sweep with no
+   aggregate — and it drops any read path that also writes. Its own header lists every hole, and
+   item 2 remains the measurement that would settle the cost.
+
 4. **A degraded answer needs a latency signal, not just a degraded flag.** `live-domain-monitor`
    passing on bundled data is correct behaviour and was also the reason nobody looked. A monitor
    that records how long the canonical read took, and says so when it never completes, would have

@@ -192,6 +192,24 @@ describe("SharedHomeEmptyState", () => {
     );
   });
 
+  it("gives the registry modes the same browse-all shortcut calculators and sources already have", () => {
+    // #issue: Services and Forms had no way onto their catalogue from the bare
+    // mode home short of typing a search first — every other browsable
+    // catalogue (Calculators, Sources) already offers this one-tap route.
+    render(<SharedHomeEmptyState modeId="services" />);
+    const servicesChip = screen.getByTestId("services-show-all");
+    expect(servicesChip).toHaveAttribute("href", "/services/search");
+
+    render(<SharedHomeEmptyState modeId="forms" />);
+    const formsChip = screen.getByTestId("forms-show-all");
+    expect(formsChip).toHaveAttribute("href", "/forms/search");
+
+    // A mode with no browsable catalogue of its own (e.g. Favourites) must not
+    // grow one by accident.
+    render(<SharedHomeEmptyState modeId="favourites" />);
+    expect(screen.queryByTestId("favourites-show-all")).not.toBeInTheDocument();
+  });
+
   it("updates the same shared-home root when the active mode changes", () => {
     const { rerender } = render(<SharedHomeEmptyState modeId="answer" />);
     const sharedHomeRoot = screen.getByTestId("shared-home-empty-state");

@@ -5,10 +5,10 @@ import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medica
 import { useRegistryRecord, useRegistryRecords } from "@/lib/use-registry-records";
 
 const authSession = vi.hoisted(() => ({
-  authorizationHeader: { Authorization: "Bearer user-a-token" },
+  authorizationHeader: { Authorization: "Bearer user-a-token" } as Record<string, string>,
   markSessionExpired: vi.fn(),
-  session: { user: { id: "user-a" } },
-  status: "authenticated" as const,
+  session: { user: { id: "user-a" } } as { user: { id: string } } | null,
+  status: "authenticated" as "loading" | "signed_out" | "authenticated" | "expired",
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -146,5 +146,109 @@ describe("auth-backed catalogue background refresh", () => {
     await act(async () => resolveNextIdentity(jsonResponse({ records: [], total: 0 })));
     await flushMicrotasks();
     expect(result.current).toMatchObject({ data: { records: [], total: 0 }, loading: false, error: null });
+  });
+});
+
+// The suite above only ever walks user-a -> user-b with `authSession.status`
+// pinned to "authenticated", so it never exercises the auth-status
+// transitions this hook's identity fingerprint (`authSessionFingerprint`) is
+// meant to cover: sign-out, session expiry, and the initial loading -> ready
+// hydration race. Each transition below must drop the cached base catalogue
+// (see `useMedicationCatalog`'s `baseCatalogueRef`) rather than let a
+// previous auth state's cached rows leak into or hydrate the next one — the
+// same privacy invariant the user-a/user-b test proves, extended to the
+// transitions that invariant actually has to survive in production.
+describe("useMedicationCatalog auth-status transitions", () => {
+  afterEach(() => {
+    // These tests mutate `status`, which the shared `beforeEach` above does
+    // not reset — restore it so later tests in this file are not affected.
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "user-a" } };
+    authSession.authorizationHeader = { Authorization: "Bearer user-a-token" };
+  });
+
+  it("drops the cached catalogue and refetches in full on sign-out, rather than reuse the signed-in user's cache", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [{ slug: "clozapine", name: "Clozapine" }], total: 1 }));
+    const { result, rerender } = renderHook(() => useMedicationCatalog("clozapine", { debounceMs: 0 }));
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [], total: 0 }));
+    authSession.status = "signed_out";
+    authSession.session = null;
+    authSession.authorizationHeader = {};
+    rerender();
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+
+    // Not "...&fields=index": a signed-out reader must never have ranked rows
+    // hydrated against the previous session's cached catalogue.
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/medications?q=clozapine",
+      expect.objectContaining({ headers: {} }),
+    );
+    expect(result.current.data).toEqual({ records: [], total: 0 });
+  });
+
+  it("drops the cached catalogue and refetches in full when the session expires mid-session", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [{ slug: "clozapine", name: "Clozapine" }], total: 1 }));
+    const { result, rerender } = renderHook(() => useMedicationCatalog("clozapine", { debounceMs: 0 }));
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [], total: 0 }));
+    authSession.status = "expired";
+    authSession.authorizationHeader = {};
+    rerender();
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/medications?q=clozapine",
+      expect.objectContaining({ headers: {} }),
+    );
+    expect(result.current.data).toEqual({ records: [], total: 0 });
+  });
+
+  it("does not seed the cache from a loading-auth render, and re-seeds it for real once the session hydrates", async () => {
+    vi.useFakeTimers();
+    authSession.status = "loading";
+    authSession.session = null;
+    authSession.authorizationHeader = {};
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [], total: 0 }));
+
+    const { result, rerender } = renderHook(() => useMedicationCatalog("clozapine", { debounceMs: 0 }));
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/medications?q=clozapine",
+      expect.objectContaining({ headers: {} }),
+    );
+
+    authSession.status = "authenticated";
+    authSession.session = { user: { id: "user-a" } };
+    authSession.authorizationHeader = { Authorization: "Bearer user-a-token" };
+    fetchMock.mockResolvedValueOnce(jsonResponse({ records: [{ slug: "clozapine", name: "Clozapine" }], total: 1 }));
+    rerender();
+    await act(async () => vi.runOnlyPendingTimersAsync());
+    await flushMicrotasks();
+
+    // A different identity (now carrying real credentials) must re-seed the
+    // cache from scratch — not "...&fields=index" against whatever the
+    // anonymous, still-loading render saw.
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/medications?q=clozapine",
+      expect.objectContaining({ headers: { Authorization: "Bearer user-a-token" } }),
+    );
+    expect(result.current.data).toEqual({ records: [{ slug: "clozapine", name: "Clozapine" }], total: 1 });
   });
 });

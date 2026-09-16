@@ -8,6 +8,12 @@ const state = vi.hoisted(() => ({
   triageUnavailable: false,
   verificationResult: "found" as "found" | "missing" | "unavailable",
   rpcWriteUnavailable: false,
+  // Tables whose read is withheld until the test releases it. Empty by default, so every other
+  // test in this file still gets an immediate answer.
+  deferredTables: {} as Record<string, Promise<void>>,
+  // Tables whose read REJECTS rather than answering with a PostgREST error. The two failures are
+  // not the same thing, and the route treats them differently; see the fan-out tests below.
+  rejectingTables: {} as Record<string, string>,
 }));
 
 function chainFor(table: string) {
@@ -63,8 +69,13 @@ function chainFor(table: string) {
       }
       return chain;
     },
-    then(resolve: (value: typeof result) => unknown) {
-      return Promise.resolve(result).then(resolve);
+    then(resolve: (value: typeof result) => unknown, reject?: (reason: unknown) => unknown) {
+      // A thenable's caller ignores what `then` returns: a rejection has to travel through the
+      // reject callback, which is how a real transport failure reaches the awaiting code.
+      const rejection = state.rejectingTables[table];
+      if (rejection) return Promise.resolve().then(() => reject?.(new Error(rejection)));
+      const withheld = state.deferredTables[table];
+      return (withheld ? withheld.then(() => result) : Promise.resolve(result)).then(resolve);
     },
   };
   return chain;
@@ -130,6 +141,8 @@ describe("clinical quality API", () => {
     state.triageUnavailable = false;
     state.verificationResult = "found";
     state.rpcWriteUnavailable = false;
+    state.deferredTables = {};
+    state.rejectingTables = {};
   });
 
   it("requires an administrator, rate limits, and returns a strict v1 partial snapshot", async () => {
@@ -145,6 +158,49 @@ describe("clinical quality API", () => {
       sourceImpact: { items: [] },
     });
     expect(state.selections.join("\n")).not.toMatch(/\b(query|answer|excerpt|patient)\b/i);
+  });
+
+  // The snapshot read used to run the recent-feedback query as a stage of its own, between the
+  // triage read and the eight-read fan-out, although it depends on neither. Holding that one
+  // read open here proves it no longer blocks the fan-out: if it were still a stage, none of the
+  // other reads would have been issued while it is outstanding.
+  it("issues the recent-feedback read alongside the rest of the fan-out, not as its own stage", async () => {
+    let releaseFeedback = () => {};
+    state.deferredTables = {
+      rag_answer_feedback: new Promise<void>((resolve) => {
+        releaseFeedback = resolve;
+      }),
+    };
+    const { GET } = await import("@/app/api/clinical-quality/route");
+
+    const pending = GET(
+      new Request("http://localhost/api/clinical-quality", { headers: { authorization: "Bearer test" } }),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(state.selections.some((selection) => selection.startsWith("rag_answer_feedback:"))).toBe(true);
+    expect(state.selections.some((selection) => selection.startsWith("source_review_events:"))).toBe(true);
+
+    releaseFeedback();
+    expect((await pending).status).toBe(200);
+  });
+
+  /**
+   * The other half of the ordering argument, and the half the comment beside the fan-out used to
+   * get wrong. `readRows` absorbs a PostgREST `result.error` into an unknown-state read — the
+   * triage test below shows that — but it awaits the query, so a read whose promise REJECTS still
+   * throws, `Promise.all` rejects with it, and the whole snapshot fails. That is true wherever the
+   * read sits in the fan-out, which is what makes moving one safe; it is not immunity from errors.
+   */
+  it("fails the whole snapshot when a fan-out read rejects rather than answering", async () => {
+    state.rejectingTables = { source_review_events: "connection reset" };
+    const { GET } = await import("@/app/api/clinical-quality/route");
+
+    const response = await GET(
+      new Request("http://localhost/api/clinical-quality", { headers: { authorization: "Bearer test" } }),
+    );
+
+    expect(response.status).toBe(500);
   });
 
   it("rejects unauthenticated reads using the shared error envelope", async () => {

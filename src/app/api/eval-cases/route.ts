@@ -209,26 +209,36 @@ export async function POST(request: Request) {
     const wellFormedSourceChunkIds = uniqueUuidValues(parsed.sourceChunkIds);
     const wellFormedCitedChunkIds = uniqueUuidValues(parsed.citedChunkIds);
     const wellFormedSourceFiles = uniqueValues(parsed.sourceFiles);
-    const ownedChunkIds = await ownedChunkIdSet({
-      supabase,
-      ownerId: user.id,
-      chunkIds: Array.from(new Set([...wellFormedSourceChunkIds, ...wellFormedCitedChunkIds])),
-    });
-    const ownedFileNames = await ownedFileNameSet({
-      supabase,
-      ownerId: user.id,
-      fileNames: wellFormedSourceFiles,
-    });
+    // Three ownership checks over the same validated body, none of them reading another's
+    // result, so they are issued together instead of one per round trip. They are reads only —
+    // the single write in this handler is still the insert at the end, after every check has
+    // been applied. Which one reports first changes only the server-side log line: each throws a
+    // bare Error, and `jsonError` answers all of them with the same generic 500.
+    const [ownedChunkIds, ownedFileNames, expectedDocumentId] = await Promise.all([
+      ownedChunkIdSet({
+        supabase,
+        ownerId: user.id,
+        chunkIds: Array.from(new Set([...wellFormedSourceChunkIds, ...wellFormedCitedChunkIds])),
+      }),
+      ownedFileNameSet({
+        supabase,
+        ownerId: user.id,
+        fileNames: wellFormedSourceFiles,
+      }),
+      ownedDocumentId({
+        supabase,
+        ownerId: user.id,
+        documentId: parsed.expectedDocumentId,
+      }),
+    ]);
     const sourceChunkIds = wellFormedSourceChunkIds.filter((id) => ownedChunkIds.has(id));
     const citedChunkIds = wellFormedCitedChunkIds.filter((id) => ownedChunkIds.has(id));
     const sourceFiles = wellFormedSourceFiles.filter((fileName) => ownedFileNames.has(fileName));
     const rating = feedbackRating(parsed);
     const missReason = missReasonFor(parsed, rating);
-    const expectedDocumentId = await ownedDocumentId({
-      supabase,
-      ownerId: user.id,
-      documentId: parsed.expectedDocumentId,
-    });
+    // Stays behind the fan-out: without an explicit `expectedChunkId` the candidate is the first
+    // chunk that survived the ownership filter above, so this read has no input until that one
+    // has answered.
     const expectedChunkCandidate = parsed.expectedChunkId ?? citedChunkIds[0] ?? sourceChunkIds[0] ?? null;
     const expectedChunk = await ownedChunkReference({
       supabase,

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { sourceSegment } from "./helpers/source-contract";
 
@@ -66,6 +66,7 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("args.request.signal.throwIfAborted()");
     expect(loader).not.toContain('.select("*")');
     expect(loader).toContain("documentDetailProjection");
+    expect(loader).toContain("documentImageDetailProjection");
     expect(loader).toContain("tableFactDetailProjection");
     expect(loader).toContain("map(withoutMetadata)");
     expect(loader).toContain("map(withTableFactReviewMetadata)");
@@ -174,4 +175,289 @@ describe("document viewer latency guards", () => {
     expect(viewer).toContain("key={documentId}");
     expect(viewer).not.toMatch(/key=\{`\$\{documentId\}.*\$\{activePage\}/);
   });
+});
+
+/**
+ * The document-scope image cap, exercised rather than read.
+ *
+ * The previous guard for it asserted that the string `.limit(200)` appeared somewhere in the
+ * loader — which it did, on the table-facts line beside it, so the assertion held whether or not
+ * the image read was bounded at all. These drive the loader against a stubbed database instead,
+ * so what is pinned is the rows the caller receives.
+ *
+ * Every other read in the fan-out is bounded: pages by the page window, chunks by the chunk range,
+ * table facts by their own cap. The document-scope image read was filtered by `document_id` alone
+ * over fourteen columns including `metadata`, `labels` and `bbox`, and a large scanned PDF carries
+ * thousands of those rows. `assetScope` defaults to `"document"`, so the cap is what an ordinary
+ * API caller gets — which is why losing rows to it quietly matters.
+ */
+describe("document detail image reads", () => {
+  const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const documentId = "11111111-1111-4111-8111-111111111111";
+  const chunkId = "22222222-2222-4222-8222-222222222222";
+  const imageCap = 200;
+
+  type QueryCall = {
+    table: string;
+    filters: Array<{ column: string; value: unknown }>;
+    inFilters: Array<{ column: string; values: unknown[] }>;
+    orFilters: string[];
+    limit?: number;
+    maybeSingle: boolean;
+  };
+  type QueryResult = { data: unknown; error: { message: string } | null };
+
+  function imageUuid(index: number) {
+    return `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`;
+  }
+
+  function imageRow(index: number, pageNumber: number) {
+    return {
+      id: imageUuid(index),
+      page_number: pageNumber,
+      storage_path: `documents/${documentId}/images/${index}.png`,
+      caption: `Figure ${index}`,
+      bbox: null,
+      mime_type: "image/png",
+      image_type: "figure",
+      searchable: true,
+      clinical_relevance_score: 0.5,
+      source_kind: "page_render",
+      width: 800,
+      height: 600,
+      labels: [],
+      metadata: {},
+    };
+  }
+
+  const documentRow = {
+    id: documentId,
+    owner_id: ownerId,
+    title: "Antipsychotic monitoring",
+    description: null,
+    file_name: "monitoring.pdf",
+    file_type: "application/pdf",
+    file_size: 1024,
+    storage_path: `documents/${documentId}/source.pdf`,
+    content_hash: null,
+    source_path: null,
+    import_batch_id: null,
+    status: "indexed",
+    page_count: 1200,
+    chunk_count: 40,
+    image_count: 4000,
+    error_message: null,
+    metadata: {},
+    created_at: "2026-09-01T00:00:00.000Z",
+    updated_at: "2026-09-01T00:00:00.000Z",
+  };
+
+  const selectedChunkRow = {
+    id: chunkId,
+    page_number: 900,
+    chunk_index: 12,
+    section_heading: "Clozapine titration",
+    content: "Titration table for clozapine.",
+    image_ids: [imageUuid(9001)],
+    metadata: {},
+  };
+
+  function createSupabaseMock(resolve: (call: QueryCall) => QueryResult) {
+    const calls: QueryCall[] = [];
+    const client = {
+      calls,
+      from(table: string) {
+        const call: QueryCall = { table, filters: [], inFilters: [], orFilters: [], maybeSingle: false };
+        calls.push(call);
+        const builder = {
+          select: () => builder,
+          eq(column: string, value: unknown) {
+            call.filters.push({ column, value });
+            return builder;
+          },
+          neq: () => builder,
+          is: () => builder,
+          gte: () => builder,
+          lte: () => builder,
+          in(column: string, values: unknown[]) {
+            call.inFilters.push({ column, values });
+            return builder;
+          },
+          or(filter: string) {
+            call.orFilters.push(filter);
+            return builder;
+          },
+          order: () => builder,
+          range: () => builder,
+          limit(value: number) {
+            call.limit = value;
+            return builder;
+          },
+          abortSignal: () => builder,
+          maybeSingle() {
+            call.maybeSingle = true;
+            return Promise.resolve(resolve(call));
+          },
+          then(onfulfilled: (value: QueryResult) => unknown) {
+            return Promise.resolve(resolve(call)).then(onfulfilled);
+          },
+        };
+        return builder;
+      },
+      rpc: async () => ({
+        data: [
+          {
+            limited: false,
+            limit_value: 100,
+            remaining: 99,
+            retry_after_seconds: 60,
+            reset_at: new Date(Date.now() + 60_000).toISOString(),
+          },
+        ],
+        error: null,
+      }),
+    };
+    return client;
+  }
+
+  /**
+   * Returns the loader's own `logger.warn`. The loader is imported after `vi.resetModules()`, so
+   * it holds a fresh copy of every module — spying on this file's import of the logger would watch
+   * an instance the loader never calls.
+   */
+  function mockRuntime(client: ReturnType<typeof createSupabaseMock>) {
+    vi.resetModules();
+    const warn = vi.fn();
+    vi.doMock("@/lib/logger", () => ({
+      logger: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
+      redactLogContext: (context: Record<string, unknown>) => context,
+    }));
+    vi.doMock("@/lib/env", () => ({
+      env: {},
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+      requireServerEnv: () => undefined,
+      requireOpenAIEnv: () => undefined,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => client }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
+      getOptionalAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
+      unauthorizedResponse: () => new Response(null, { status: 401 }),
+    }));
+    return { warn };
+  }
+
+  async function loadDetail(query: Record<string, string>) {
+    const { loadAuthorizedDocumentDetail, documentDetailQuerySchema } = await import("@/lib/document-detail");
+    return loadAuthorizedDocumentDetail({
+      request: new Request(`http://localhost/api/documents/${documentId}`, {
+        headers: { authorization: "Bearer valid-token" },
+      }),
+      rawId: documentId,
+      query: documentDetailQuerySchema.parse(query),
+    });
+  }
+
+  function imageCalls(client: ReturnType<typeof createSupabaseMock>) {
+    return client.calls.filter((call) => call.table === "document_images");
+  }
+
+  afterEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("returns the document-scope cap, and says so in the log rather than losing rows in silence", async () => {
+    const rows = Array.from({ length: imageCap + 1 }, (_, index) => imageRow(index, index + 1));
+    const client = createSupabaseMock((call) =>
+      call.table === "document_images" ? { data: rows, error: null } : row(call),
+    );
+    const { warn: reported } = mockRuntime(client);
+
+    const detail = await loadDetail({});
+
+    expect(detail.images).toHaveLength(imageCap);
+    // One row past the cap is read deliberately: it is the only way to tell a document with
+    // exactly `imageCap` images from one that was truncated.
+    expect(imageCalls(client)[0]?.limit).toBe(imageCap + 1);
+    expect(reported).toHaveBeenCalledTimes(1);
+    expect(reported.mock.calls[0]?.[0]).toContain("hit its cap");
+    expect(reported.mock.calls[0]?.[1]).toMatchObject({ document_id: documentId, image_limit: imageCap });
+  });
+
+  it("stays quiet and returns everything when the document is inside the cap", async () => {
+    const rows = Array.from({ length: imageCap }, (_, index) => imageRow(index, index + 1));
+    const client = createSupabaseMock((call) =>
+      call.table === "document_images" ? { data: rows, error: null } : row(call),
+    );
+    const { warn: reported } = mockRuntime(client);
+
+    const detail = await loadDetail({});
+
+    expect(detail.images).toHaveLength(imageCap);
+    expect(reported).not.toHaveBeenCalled();
+  });
+
+  it("carries a selected chunk's own images by id, whatever the visibility filter would say", async () => {
+    // The window scope has always done this: the reader clicked through to that chunk, so an image
+    // it cites is wanted even when it is not `searchable`, not a table crop and not retained for
+    // the document view. The document scope — which is what `assetScope` defaults to — dropped
+    // them. One request, not two: the tenancy scan inventories this loader at a single
+    // `document_images` query.
+    const client = createSupabaseMock((call) =>
+      call.table === "document_images" ? { data: [imageRow(1, 1)], error: null } : row(call),
+    );
+    mockRuntime(client);
+
+    await loadDetail({ chunk: chunkId });
+
+    const images = imageCalls(client);
+    expect(images).toHaveLength(1);
+    expect(images[0]?.orFilters).toEqual([
+      "and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true))," +
+        `id.in.(${imageUuid(9001)})`,
+    ]);
+  });
+
+  it("asks only for the visible set when no chunk is selected", async () => {
+    const client = createSupabaseMock((call) =>
+      call.table === "document_images" ? { data: [imageRow(1, 1)], error: null } : row(call),
+    );
+    mockRuntime(client);
+
+    await loadDetail({});
+
+    // No chunk, no id arm: the plain visibility filter, unchanged.
+    expect(imageCalls(client)[0]?.orFilters).toEqual([
+      "or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true)",
+    ]);
+  });
+
+  it("leaves the window scope uncapped", async () => {
+    const rows = Array.from({ length: imageCap + 40 }, (_, index) => imageRow(index, index + 1));
+    const client = createSupabaseMock((call) =>
+      call.table === "document_images" ? { data: rows, error: null } : row(call),
+    );
+    const { warn: reported } = mockRuntime(client);
+
+    const detail = await loadDetail({ chunk: chunkId, assetScope: "window" });
+
+    // Bounded by its page window and carrying the selected chunk's ids in the same request, so a
+    // row cap could only drop the image the reader navigated to.
+    expect(detail.images).toHaveLength(imageCap + 40);
+    expect(imageCalls(client)).toHaveLength(1);
+    expect(imageCalls(client)[0]?.limit).toBeUndefined();
+    expect(reported).not.toHaveBeenCalled();
+  });
+
+  function row(call: QueryCall): QueryResult {
+    if (call.table === "documents") return { data: documentRow, error: null };
+    if (call.table === "document_chunks") {
+      return call.maybeSingle ? { data: selectedChunkRow, error: null } : { data: [], error: null };
+    }
+    if (call.table === "document_summaries") return { data: null, error: null };
+    return { data: [], error: null };
+  }
 });
