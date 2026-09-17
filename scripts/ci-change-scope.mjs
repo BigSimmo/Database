@@ -12,11 +12,15 @@ const fullRunSentinelFiles = [
   "src/components/__ci_full_run__.tsx",
   "supabase/__ci_full_run__.sql",
   "Dockerfile",
-  ".github/workflows/codex-autofix-review-comments.yml",
   // Ensures an unresolvable-base / scheduled full run also trips lockfile_changed
   // so the dependency audit runs in its blocking mode, not advisory.
   "package-lock.json",
   "worker/__ci_full_run__.ts",
+  // Ensures an unresolvable-base / scheduled full run also trips workflow_changed.
+  // Previously covered incidentally by naming a real workflow file here (removed
+  // 2026-09-17 with the codex-autofix-review-comments.yml workflow); use a
+  // synthetic sentinel instead so this property survives that file's lifecycle.
+  ".github/workflows/__ci_full_run__.yml",
 ];
 
 const outputs = [
@@ -34,7 +38,6 @@ const outputs = [
   "rag_eval_changed",
   "workflow_changed",
   "workflow_only",
-  "codex_autofix_changed",
   "build_changed",
   "lockfile_changed",
   "pr_policy_body_changed",
@@ -371,17 +374,7 @@ const workflowPatterns = [
   "docs/agents",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|check-codex-autofix-workflow|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
-];
-
-const codexAutofixPatterns = [
-  ".github/workflows/codex-autofix-review-comments.yml",
-  "AGENTS.md",
-  // check-codex-autofix-workflow.mjs enforces docs/agents/codex-github-review.md
-  // against the live workflow, so an edit there must re-run that guard.
-  "docs/agents",
-  "docs/codex-review-protocol.md",
-  "scripts/check-codex-autofix-workflow.mjs",
+  /^scripts\/(?:ci-change-scope|pr-policy|verify-pr-local|eval-rag-offline|run-gitleaks-pinned|check-github-action-pins|list-database-skills|sync-skills|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const uiPatterns = [
@@ -611,7 +604,14 @@ const containerPatterns = [
   "scripts/generate-worker-python-lock.mjs",
   "scripts/check-worker-python-lock.mjs",
   "tests/container-ci-contract.test.ts",
+  "tests/deploy-migration-gate.test.ts",
   /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks|app-container-smoke|check-image-content-contract|trivy-image-scan|resolve-oci-image-digest|generate-worker-python-lock|check-worker-python-lock)\.(?:cjs|mjs)$/,
+  // scripts/deploy/** is baked into both runner images at build time (the
+  // pre-deploy migration gate: await-migrations.mjs, migration-versions.mjs,
+  // write-migration-manifest.mjs) and CI proves it with a --self-test run
+  // against each built image (docker-image.yml), so a gate-only edit must
+  // still run the container job rather than only the light static route.
+  /^scripts\/deploy\/.+/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -678,7 +678,6 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
   const ingestionSastChanged = normalized.some((file) => pathMatches(file, ingestionSastPatterns));
   const workflowChanged = normalized.some((file) => pathMatches(file, workflowPatterns));
-  const codexAutofixChanged = normalized.some((file) => pathMatches(file, codexAutofixPatterns));
   const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const prPolicyBodyChanged = normalized.includes("PR_POLICY_BODY.md");
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
@@ -722,7 +721,6 @@ function classify(files, { readLedger = readFlakeLedger } = {}) {
     rag_eval_changed: ragEvalChanged,
     workflow_changed: workflowChanged,
     workflow_only: workflowOnly,
-    codex_autofix_changed: codexAutofixChanged,
     build_changed: buildChanged,
     lockfile_changed: lockfileChanged,
     pr_policy_body_changed: prPolicyBodyChanged,
@@ -1527,18 +1525,8 @@ function selfTest() {
       build_changed: false,
     },
   );
-  assertScope(
-    "codex-autofix",
-    [".github/workflows/codex-autofix-review-comments.yml", "AGENTS.md", "scripts/check-codex-autofix-workflow.mjs"],
-    {
-      workflow_changed: true,
-      codex_autofix_changed: true,
-      build_changed: false,
-    },
-  );
   assertScope("agent-rule-reference", ["docs/agents/pull-request-workflow.md"], {
     workflow_changed: true,
-    codex_autofix_changed: true,
     docs_only: false,
     source_changed: false,
   });
@@ -1576,6 +1564,19 @@ function selfTest() {
   assertScope("upload-limit-parity-input", ["scripts/check-upload-limit-parity.mjs"], {
     source_changed: true,
     coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
+  // The pre-deploy migration gate is baked into both runner images and
+  // self-tested there (docker-image.yml); a gate-only edit must still run the
+  // container job, not just the light static/source route.
+  assertScope("deploy-migration-gate-script", ["scripts/deploy/await-migrations.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
+  assertScope("deploy-migration-gate-manifest-writer", ["scripts/deploy/write-migration-manifest.mjs"], {
     container_changed: true,
     build_changed: true,
   });
@@ -1627,7 +1628,6 @@ function selfTest() {
     container_changed: true,
     rag_eval_changed: true,
     workflow_changed: true,
-    codex_autofix_changed: true,
     build_changed: true,
     lockfile_changed: true,
   });

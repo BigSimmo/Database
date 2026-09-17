@@ -35,6 +35,41 @@ from the public `/privacy` transparency page.
 - Do not add dose calculators, diagnostic scores, patient-facing recommendations, or automated treatment recommendations without dedicated clinical validation.
 - Keep demo content clearly synthetic and separated from real clinical content.
 
+### Named instruments: name them, never score them
+
+**Status: ratified by the clinical owner, 2026-09-17.** Proposed 2026-09-16 and ratified the
+following day in a working session rather than a scheduled governance review, which is recorded
+here so the provenance is not overstated later. Written down because four locally authored
+differential records already tell the reader to apply a named instrument, and the boundary they
+were written to was implicit.
+
+Naming an instrument is assessment guidance and is allowed. Reproducing its items, its cut-offs or
+its arithmetic is not, because that turns a reference page into the diagnostic scoring tool the rule
+above reserves for validated tooling. The same applies to any number presented as a decision point:
+a temperature, a serum level or a duration stated as a threshold is a rule the reader will act on,
+and this product is not validated to issue one.
+
+- Allowed: "Apply the Hunter criteria and record which limb of them is met."
+- Allowed: "The exact cut-off sits in the local clozapine protocol."
+- Not allowed: a step that states the score, the number of points, or the threshold value itself.
+
+Defer every threshold to the local protocol by name. `tests/differential-detail.test.ts`
+("named instruments stay named, never scored") enforces this over the authored steps in
+`src/lib/differential-curated.ts`; it does not read the generated corpus.
+
+### Withholding a contaminated generated record
+
+Where a generated record is found to describe a different diagnosis, withhold the affected body
+rather than printing it under a warning. A warning asking the reader to distrust what follows is
+weaker than not publishing it, and these pages are world-readable with no login wall.
+
+Set `generatedBodyUnreliable` on the record's curated entry in `src/lib/differential-curated.ts`,
+alongside a `contentNote` saying what was wrong and what still stands. `withholdGeneratedBody`
+strips the affected fields at the page boundary and the page states the absence rather than
+rendering an empty panel. Withholding is a holding action, not a fix: the record still needs review,
+and the ten locally authored differential records still carry no clinician sign-off (`/issues`
+`#87GR24`).
+
 ## Pull Request Preflight
 
 Use the `.github/pull_request_template.md` clinical governance section for any change that touches ingestion, answer generation, search/ranking, source rendering, document access, privacy, production environment behavior, or clinical output.

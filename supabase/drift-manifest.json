@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-16T18:04:05.290Z",
+  "generated_at": "2026-09-17T13:39:04.130Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "542b00a865c4693215d8752676ff980c5d20071af3870f95ba82d78258398f65",
-  "replay_seconds": 15,
+  "schema_sha256": "a9168712695e5306c3e764c1fd41a25b6db7baf7b2eab7f6f34d28b2a0532a77",
+  "replay_seconds": 47,
   "snapshot": {
     "views": [
       {
@@ -8531,6 +8531,12 @@
         "def_hash": "6a08b1b070d8fa1b54ac91464da78f31"
       },
       {
+        "def": "CREATE INDEX site_content_release_records_public_prefix_idx ON public.site_content_release_records USING btree (release_id, logical_id text_pattern_ops) WHERE (public_visible AND (NOT tombstone))",
+        "name": "site_content_release_records_public_prefix_idx",
+        "table": "site_content_release_records",
+        "def_hash": "bb224f9a5b31a9a296c9107cf22c4b93"
+      },
+      {
         "def": "CREATE UNIQUE INDEX site_content_release_records_release_id_logical_chunk_id_key ON public.site_content_release_records USING btree (release_id, logical_chunk_id)",
         "name": "site_content_release_records_release_id_logical_chunk_id_key",
         "table": "site_content_release_records",
@@ -9564,8 +9570,18 @@
         "table": "site_content_release_receipts"
       },
       {
+        "def": "CREATE TRIGGER site_content_release_records_bootstrap_sealed BEFORE INSERT ON public.site_content_release_records FOR EACH ROW WHEN (((new.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid) OR (new.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid) OR (new.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid))) EXECUTE FUNCTION public.guard_site_content_sealed_bootstrap()",
+        "name": "site_content_release_records_bootstrap_sealed",
+        "table": "site_content_release_records"
+      },
+      {
         "def": "CREATE TRIGGER site_content_release_records_immutable BEFORE DELETE OR UPDATE ON public.site_content_release_records FOR EACH ROW EXECUTE FUNCTION public.guard_site_content_immutable_row()",
         "name": "site_content_release_records_immutable",
+        "table": "site_content_release_records"
+      },
+      {
+        "def": "CREATE TRIGGER site_content_release_records_no_truncate BEFORE TRUNCATE ON public.site_content_release_records FOR EACH STATEMENT EXECUTE FUNCTION public.guard_site_content_sealed_bootstrap()",
+        "name": "site_content_release_records_no_truncate",
         "table": "site_content_release_records"
       },
       {
@@ -10009,6 +10025,14 @@
       },
       {
         "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "79b204e1406f13530e7878b186a4ca47",
+        "signature": "public.guard_site_content_sealed_bootstrap()"
+      },
+      {
+        "acl": [
           "postgres=X/postgres"
         ],
         "def_hash": "fb76841c229e20722b511e2ac35eccc6",
@@ -10396,7 +10420,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "8cc6b4f422bdd44cb7018ef2e04f45fd",
+        "def_hash": "2c5e6d84c054d4a15295c23c2a66b56d",
         "signature": "public.read_site_content_public_records(text,text)"
       },
       {
@@ -10709,7 +10733,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "5d0de47092f2fe38ac3ab6f56ae67013",
+        "def_hash": "a3703ee99a6d7ac587e259f200711a07",
         "signature": "public.site_content_current_transition_kind(text,uuid,text,boolean,bigint)"
       },
       {
@@ -10856,7 +10880,14 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "0609094a4c98866bb61fccb89c93c011",
+        "def_hash": "5cf7d5ece6bb9d1784286063dbfae394",
+        "signature": "public.site_content_retained_bootstrap_sealed(uuid,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "3ea92a0986d88cd85a0c94a77743b072",
         "signature": "public.site_content_retained_bootstrap_valid(uuid,text)"
       },
       {

@@ -42,6 +42,11 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# supabase/migrations is only present in the build context, not the slim
+# runtime image, so the deploy pre-deploy gate's manifest of migration
+# versions this build expects is baked in now and copied into the runner
+# below (see scripts/deploy/write-migration-manifest.mjs).
+RUN node scripts/deploy/write-migration-manifest.mjs
 ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
 # The server value is also exposed to the build so the parity guard can compare
@@ -52,6 +57,19 @@ ARG MAX_UPLOAD_MB=
 # declares the matching build argument. This non-secret SHA keeps build-time
 # source maps and runtime Sentry events on the same release identity.
 ARG RAILWAY_GIT_COMMIT_SHA=
+# Sentry source-map upload, inert until an operator supplies all three on the Railway service.
+# Declaring them here is not optional bookkeeping: per the note above, Railway exposes a variable
+# to a Docker build ONLY when the Dockerfile declares the matching build argument, so setting
+# these on the service alone would leave next.config.ts skipping withSentryConfig with no error
+# and no uploaded maps — a change that looks applied and does nothing.
+#
+# No ENV lines: an ARG is already in the environment of this stage's RUN, and keeping the token
+# out of the stage's ENV metadata limits where it is recorded. It still lands in the build
+# history like any build argument, so this must be a token scoped to project release/sourcemap
+# upload ONLY, never a broader-scoped one.
+ARG SENTRY_AUTH_TOKEN=
+ARG SENTRY_ORG=
+ARG SENTRY_PROJECT=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
@@ -97,6 +115,11 @@ COPY --from=build /app/src/lib/observability/sentry-release.ts ./src/lib/observa
 COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts
 COPY --from=build /app/src/components/therapy-compass/data/generated-assets.ts ./src/components/therapy-compass/data/generated-assets.ts
 COPY --from=build /app/src/data/therapy-catalogue-assets.ts ./src/data/therapy-catalogue-assets.ts
+# Railway deploy pre-deploy gate (docs/worker-deploy-runbook.md §0): blocks/
+# observes this service's deploy until migrations this build expects are live.
+COPY --from=build /app/deploy/expected-migrations.json ./deploy/expected-migrations.json
+COPY --from=build /app/scripts/deploy/await-migrations.mjs ./scripts/deploy/await-migrations.mjs
+COPY --from=build /app/scripts/deploy/migration-versions.mjs ./scripts/deploy/migration-versions.mjs
 COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000

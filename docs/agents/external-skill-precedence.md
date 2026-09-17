@@ -55,5 +55,9 @@ Output-style plugins such as caveman mode may compress prose. They must never co
   output style — this is "commits" territory under the caveman carve-out, not chat. Before
   push, sanity-check clinical-risk/RAG-ranking bodies against `scripts/pr-policy.mjs`'s
   `evaluatePullRequestPolicy` shape (run `npm run check:pr-policy` if the script itself changed).
+  If a `PR_POLICY_BODY.md` file is created at the repo root to seed a description this way,
+  delete it from the branch again before merge — `evaluatePullRequestPolicy` hard-blocks any PR
+  whose diff still carries it (added, modified, or merely left in place), because a lingering
+  copy is stale prose that keeps re-syncing into unrelated PRs.
 
 <!-- END:external-skill-precedence -->

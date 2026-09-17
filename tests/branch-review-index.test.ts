@@ -232,6 +232,7 @@ describe("branch review index wiring", () => {
       readFileSync("scripts/verify-pr-local.mjs", "utf8"),
       readFileSync(".githooks/pre-commit", "utf8"),
       JSON.parse(packageJson).scripts["verify:cheap:internal"] as string,
+      JSON.parse(packageJson).scripts["verify:full:internal"] as string,
     ];
     for (const surface of gated) expect(surface).not.toContain("ledger:index");
   });

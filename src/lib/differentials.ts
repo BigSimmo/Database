@@ -2,7 +2,11 @@ import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 import { smartSearchExpansions } from "@/lib/smart-search-intent";
 import { buildDiagnosisTitleSlugMap, buildTermLinkMap } from "@/lib/differential-diagnosis-links";
 import { curatedEntryFor } from "@/lib/differential-curated";
-import { cleanDifferentialItem, type DifferentialDetailContext } from "@/lib/differential-detail";
+import {
+  cleanDifferentialItem,
+  withholdGeneratedBody,
+  type DifferentialDetailContext,
+} from "@/lib/differential-detail";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import {
@@ -159,16 +163,32 @@ function scopeRecordWith(record: DifferentialRecord, index: PresentationScopeInd
 }
 
 /**
- * Applies the scope labels to one diagnosis record from any source.
+ * Applies the scope labels, and the withhold, to one diagnosis record from any
+ * source.
  *
  * Canonical published payloads were seeded from the deliberately unlabelled
  * snapshot, so a production read returns a record with no scope at all and the
  * UI would default it to diagnosis-specific — reinstating the exact mismatch
  * this exists to remove. Every reader of a canonical differential record must
  * pass it through here first.
+ *
+ * The withhold belongs here for the same reason, and the omission was a real
+ * production hole: `loadDifferentialSnapshot` only feeds the SEED path, but in
+ * production `site_content` is initialized, so `/api/differentials` returns the
+ * live row's `finalRenderPayload` and maps it through this function alone. A
+ * record whose generated body describes another diagnosis would have kept
+ * reaching catalogue search from the database while every seed-backed test
+ * passed. Applying it here also means the pending republish is cleanup rather
+ * than the safety gate — the read path is correct whatever the row still holds.
+ *
+ * Withhold BEFORE scoping, matching the loader path exactly (the loader
+ * withholds, then `withPresentationScope` scopes), so a seed read and a live
+ * read of the same record cannot produce different output. It is idempotent and
+ * returns a record with no withhold by identity, so the already-withheld
+ * catalogue path pays nothing.
  */
 export function scopeDifferentialRecord(record: DifferentialRecord): DifferentialRecord {
-  return scopeRecordWith(record, presentationScopeIndex());
+  return scopeRecordWith(withholdGeneratedBody(record, curatedEntryFor(record.slug)), presentationScopeIndex());
 }
 
 /** As {@link scopeDifferentialRecord}, for a presentation workflow's criteria. */
@@ -544,7 +564,12 @@ export function getDifferentialDetailContext(
   for (const slug of knownRelatedSlugs) {
     const related = catalogRecordBySlug.get(slug);
     const title = typeof related?.title === "string" ? related.title.trim() : "";
-    const clinicalHinge = typeof related?.clinicalHinge === "string" ? related.clinicalHinge.trim() : "";
+    // The subtitle is the fallback, not a nicety: a record that withheld its
+    // generated body has no clinical hinge, and without a fallback every other
+    // record's map would drop it, turning a reviewed link into an inert row.
+    const relatedSubtitle = typeof related?.subtitle === "string" ? related.subtitle.trim() : "";
+    const clinicalHinge =
+      (typeof related?.clinicalHinge === "string" ? related.clinicalHinge.trim() : "") || relatedSubtitle;
     const safetySummary =
       typeof related?.safetySnapshot?.summary === "string" ? related.safetySnapshot.summary.trim() : "";
     const status = related?.status;
