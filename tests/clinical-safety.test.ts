@@ -568,3 +568,94 @@ describe("clinical point tones", () => {
     expect(groupSafetyFindingsByKind([])).toEqual([]);
   });
 });
+
+/**
+ * CHARACTERISATION, NOT APPROVAL.
+ *
+ * `extractSafetyFindings` labels a passage by `safetyPatterns.find` -- the FIRST entry in a flat
+ * array whose regex matches, in array order, which is severity order. So the label is decided by
+ * array position and by tokens broad enough to appear in ordinary clinical prose.
+ *
+ * The 2026-09-17 external audit reported this (finding C4) and was right about the mechanism,
+ * though wrong about numeric truncation, which `truncateAtSafeBoundary` has handled since L111.
+ *
+ * These cases pin what the extractor does TODAY, including the cases where it is wrong. They are
+ * written this way on purpose, for two reasons:
+ *
+ *   1. Changing which passages carry a safety label changes what a clinician is shown first --
+ *      `answerSupportPriority` in evidence-panels.tsx promotes the most severe finding ahead of
+ *      everything else as the answer's headline support card. That is a clinical display decision
+ *      for the owner, not a defect to fix in passing.
+ *   2. The gap is otherwise invisible. Nothing in the suite demonstrated that "review the chart in
+ *      six weeks" is labelled Monitoring, or that "cease clozapine immediately" is labelled Red
+ *      flag by the word `immediate` rather than by `cease`, which no pattern knows at all.
+ *
+ * When the owner decides the vocabulary, these expectations should change and the reasoning above
+ * should move with them. A green run here is not evidence the labels are clinically right.
+ */
+describe("safety finding precision (characterisation)", () => {
+  /**
+   * Deliberately no `relevance` on the input. When it is present the extractor first applies a
+   * source-backing / query-overlap gate, and a candidate dropped there never reaches a pattern at
+   * all -- so a fixture carrying relevance would make every case below return undefined and the
+   * false-negative case pass vacuously. Omitting it isolates the pattern matching, which is the
+   * only thing these cases are about.
+   */
+  function labelFor(content: string): string | undefined {
+    const findings = extractSafetyFindings({
+      ...answer,
+      sources: [{ ...answer.sources![0]!, content }],
+    } as never);
+    return findings[0]?.label;
+  }
+
+  it("reaches the patterns at all", () => {
+    // The guard for the trap this helper just fell into: if the fixture stops reaching the
+    // extractor, every expectation below becomes vacuous and the suite looks healthier than it is.
+    expect(labelFor("Do not use in severe hepatic impairment.")).toBe("Contraindication");
+  });
+
+  it.each([
+    ["Review the chart again in six weeks.", "Monitoring", "`review` is an ordinary clinical verb"],
+    ["Consider whether the patient would prefer a depot.", "Caveat", "`consider` appears in most advice"],
+    ["Avoid delay in transferring the patient.", "Contraindication", "`avoid` outranks everything"],
+    ["Discuss the level of support available at home.", "Monitoring", "`level` means a blood level here"],
+  ])("labels %o as %s today (%s)", (content, label) => {
+    // Each of these is a FALSE POSITIVE: the passage carries no safety instruction, and the first
+    // matching token decides the label. The `avoid` case is the sharpest -- it lands on
+    // Contraindication, the top severity, the `stop` tone and the danger colour.
+    expect(labelFor(content)).toBe(label);
+  });
+
+  it("carries no safety label at all for an instruction to stop a drug", () => {
+    // THE FALSE NEGATIVE, and it is the more dangerous direction. No pattern knows `cease`,
+    // `withhold`, `hold the dose`, `boxed warning`, `black box`, `hypersensitivity` or
+    // `anaphylaxis`. A passage whose entire content is a stop instruction produces nothing.
+    expect(labelFor("Cease clozapine and withhold further doses if the neutrophil count falls.")).toBeUndefined();
+    expect(labelFor("Boxed warning: fatal agranulocytosis has been reported.")).toBeUndefined();
+    expect(labelFor("Stop the infusion if anaphylaxis occurs.")).toBeUndefined();
+  });
+
+  it("labels a stop instruction only when an unrelated word happens to match", () => {
+    // The same clinical instruction, labelled Red flag -- not because it says to cease the drug,
+    // but because `immediate` appears. The label is an accident of vocabulary, not a reading of
+    // the instruction.
+    expect(labelFor("Cease clozapine, with immediate effect, if the neutrophil count falls.")).toBe("Red flag");
+  });
+
+  it("does not match the adverb form of its own red-flag token", () => {
+    // Found while writing the case above, and worth its own line because it is not the
+    // first-match-wins mechanism -- it is a plain regex defect. Every red-flag token is wrapped in
+    // \b...\b, so `\bimmediate\b` matches "with immediate effect" and does NOT match
+    // "immediately", which is the far commoner clinical phrasing. Same for `escalat` vs the
+    // escalation entry, which uses a prefix and so is unaffected.
+    expect(labelFor("Cease clozapine immediately if the neutrophil count falls.")).toBeUndefined();
+    expect(labelFor("Cease clozapine, with immediate effect, if the neutrophil count falls.")).toBe("Red flag");
+  });
+
+  it("takes the first matching pattern in severity order, not the most relevant one", () => {
+    // A passage that is plainly about monitoring is labelled Contraindication because `avoid`
+    // appears earlier in the array. This is the mechanism behind every case above.
+    expect(labelFor("Monitor the full blood count weekly and avoid missing a sample.")).toBe("Contraindication");
+  });
+});

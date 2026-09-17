@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "50e836f0-74b9-46df-8cbe-f39432580a29",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The PWA update notice may overlap page content on non-answer pages, and the services search mode has no mode-noun stop list",
+    "detail": "TWO SMALL THINGS LEFT BEHIND BY PR #2860, both found while fixing something adjacent, both deliberately not fixed there. (1) UPDATE NOTICE OVERLAP (2026-09-17 audit, its L4; the dismissal half of L4 IS fixed in #2860). globals.css moves .pwa-notice-stack out of the bottom-right corner only under body:has(form.answer-footer-search-edge), so on Documents and other modes the notice stays over page content and controls. The audit reports it intercepting clicks. UNVERIFIED AND NOT FIXED: the first attempt keyed on a class name that was assumed rather than checked and does not exist (.master-search-dock), and without a browser the overlap cannot be seen or a fix confirmed. Guessing at clinical-interface CSS is not worth it. NEXT: reproduce at desktop width on /?mode=documents with the notice showing, then widen the selector to whatever really owns a fixed bottom composer - or reserve the corner. Note the rule already moves the stack to the TOP on answer views, so check that does not simply trade one overlap for another over the header. (2) SERVICES MODE HAS NO MODE-NOUN LIST. modeSearchWords in src/lib/smart-search-intent.ts:246-250 has entries for calculators, factsheets and dictionary only. Since #2860 let short plain queries contribute their own subject words, 'service' now survives as a term in services mode and matches most of the catalogue. Harmless but unhelpful; filling that list is a relevance decision about the services mode, which is why it was left. NEXT: decide the services (and any other smart-search mode's) stop list alongside whoever owns services relevance.",
+    "source": "PR #2860 working notes; code read of src/app/globals.css:3698-3712 and src/lib/smart-search-intent.ts at origin/main 6f0a3d444; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
+    "issueUlid": "01M2R5W5F8E6142TR092JVPGF2"
+  }
+}
