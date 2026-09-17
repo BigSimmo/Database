@@ -188,6 +188,88 @@ describe("caring-contacts API boundary", () => {
     expect(recorded()).toEqual([]);
   });
 
+  /**
+   * Live sovereign mode resolves its actor from a signed production session cookie, and
+   * `resolveProductionActor` THROWS when it cannot rather than returning null. Nothing caught
+   * that, so an unauthenticated live request left this boundary as an unhandled exception: a 500
+   * with a stack trace, which tells the caller nothing it can act on and models nothing the audit
+   * trail understands. Found while verifying an external audit on 2026-09-17 (finding C2).
+   *
+   * 401 and not 404: the disabled-workspace 404 above exists so an unavailable demo surface cannot
+   * become an authorization oracle, and that reasoning does not carry here. Live mode has already
+   * passed `isCaringContactsWorkspaceEnabled`, so the workspace demonstrably exists and "sign in"
+   * discloses nothing the enabled workspace has not disclosed already.
+   */
+  function stubLiveMode(): void {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("CARING_CONTACTS_DEMO_ENABLED", "false");
+    vi.stubEnv("CARING_CONTACTS_SESSION_HMAC_SECRET", "session-hmac-secret");
+    vi.stubEnv("CARING_CONTACTS_DATABASE_URL", "postgres://example.invalid/caring_contacts");
+    // The production lock's isolated-Playwright exception is doubly flagged; stub both off so
+    // this stays live mode regardless of what the ambient process env carries.
+    vi.stubEnv("PLAYWRIGHT_OFFLINE_MODE", "false");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
+  }
+
+  it("refuses an unauthenticated live read with a named refusal, not a 500", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const getPlan = vi.spyOn(store, "getPlan");
+    stubLiveMode();
+    mockCookies = {};
+
+    const handler = readHandler({
+      access: { kind: "view", objectType: "plan", objectId: () => "SYN-PLAN-001" },
+      read: async (repository, actor) => repository.getPlan(PLAN_ID, { actor }),
+    });
+    const response = await handler(get("/api/caring-contacts/plans/SYN-PLAN-001"));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ refusal: "session-required" });
+    // Nothing was read and nothing was audited: the request never became an access attempt by an
+    // identified actor, so there is no actor to record it against.
+    expect(getPlan).not.toHaveBeenCalled();
+    expect(recorded()).toEqual([]);
+  });
+
+  it("refuses an unauthenticated live write with a named refusal, not a 500", async () => {
+    const { store, recorded } = await inMemoryStoreWithSpy();
+    const applyAssignment = vi.spyOn(store, "applyAssignment");
+    stubLiveMode();
+    mockCookies = {};
+
+    const { POST: writeAssignment } = await import("@/app/api/caring-contacts/assignments/[planId]/route");
+    const response = await writeAssignment(
+      post(`/api/caring-contacts/assignments/${PLAN_ID}`, {
+        action: { type: "claim", actorId: "ACTOR-COVER" },
+        idempotencyKey: "live-session-missing",
+      }),
+      { params: Promise.resolve({ planId: PLAN_ID }) },
+    );
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ refusal: "session-required" });
+    expect(applyAssignment).not.toHaveBeenCalled();
+    expect(recorded()).toEqual([]);
+  });
+
+  it("does not let a forged demo role cookie stand in for a live session", async () => {
+    // The demo role cookie carries a role name and no credential. In live mode it must buy
+    // nothing at all -- not even the coordinator default it deliberately falls back to in demo.
+    const { store } = await inMemoryStoreWithSpy();
+    const getPlan = vi.spyOn(store, "getPlan");
+    stubLiveMode();
+    mockCookies = { [CARING_CONTACTS_ROLE_COOKIE]: { value: "teamLead" } };
+
+    const handler = readHandler({
+      access: { kind: "view", objectType: "plan", objectId: () => "SYN-PLAN-001" },
+      read: async (repository, actor) => repository.getPlan(PLAN_ID, { actor }),
+    });
+    const response = await handler(get("/api/caring-contacts/plans/SYN-PLAN-001"));
+
+    expect(response.status).toBe(401);
+    expect(getPlan).not.toHaveBeenCalled();
+  });
+
   it("records an access event for a successful read", async () => {
     const { recorded } = await inMemoryStoreWithSpy();
     const handler = readHandler({

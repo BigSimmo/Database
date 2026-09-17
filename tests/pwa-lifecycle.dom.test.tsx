@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
@@ -280,6 +280,73 @@ describe("PwaLifecycle", () => {
     expect(screen.getByText("Reload when convenient to use the latest version.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Later" })).toBeInTheDocument();
+  });
+
+  /**
+   * Dismissing the update notice used to set a ref and nothing else, so it returned on the next
+   * page load -- and it sits over the bottom-right corner, where content and controls are. The
+   * install prompt has persisted its dismissal since it was written; this is the same treatment
+   * for the same reason (2026-09-17 audit, finding L4).
+   */
+  describe("update notice dismissal", () => {
+    async function showUpdateNotice() {
+      window.history.replaceState({}, "", "/?pwa-dev=1");
+      const { container } = installServiceWorkerStub(createWorker(), true);
+      render(<PwaLifecycle />);
+      await waitFor(() => expect(container.register).toHaveBeenCalled());
+      act(() => {
+        container.dispatchEvent(new Event("controllerchange"));
+      });
+      return screen.findByRole("region", { name: "Update available" });
+    }
+
+    it("does not offer the update again after it was dismissed on an earlier page view", async () => {
+      await showUpdateNotice();
+      await userEvent.click(screen.getByRole("button", { name: "Later" }));
+      expect(screen.queryByRole("region", { name: "Update available" })).not.toBeInTheDocument();
+
+      // A new page load: everything in memory is gone, only storage survives.
+      cleanup();
+      const { container } = installServiceWorkerStub(createWorker(), true);
+      render(<PwaLifecycle />);
+      await waitFor(() => expect(container.register).toHaveBeenCalled());
+      act(() => {
+        container.dispatchEvent(new Event("controllerchange"));
+      });
+
+      expect(screen.queryByRole("region", { name: "Update available" })).not.toBeInTheDocument();
+    });
+
+    it("offers it again once the dismissal window has passed", async () => {
+      // Six hours, not thirty days like the install prompt. An update is worth re-offering the
+      // same day: "later" means later, not never.
+      await showUpdateNotice();
+      await userEvent.click(screen.getByRole("button", { name: "Later" }));
+
+      cleanup();
+      window.localStorage.setItem("clinical-kb-pwa-update-dismissed-at", String(Date.now() - 7 * 60 * 60 * 1000));
+      const { container } = installServiceWorkerStub(createWorker(), true);
+      render(<PwaLifecycle />);
+      await waitFor(() => expect(container.register).toHaveBeenCalled());
+      act(() => {
+        container.dispatchEvent(new Event("controllerchange"));
+      });
+
+      expect(await screen.findByRole("region", { name: "Update available" })).toBeInTheDocument();
+    });
+
+    it("still offers the update when storage is unavailable", async () => {
+      // Fail toward showing it. The notice is an offer, and offering twice costs less than a
+      // clinician never being told a new version exists.
+      const getItem = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+        throw new Error("storage disabled");
+      });
+      try {
+        expect(await showUpdateNotice()).toBeInTheDocument();
+      } finally {
+        getItem.mockRestore();
+      }
+    });
   });
 
   it("does not misreport the first controller claim as an application update", async () => {
