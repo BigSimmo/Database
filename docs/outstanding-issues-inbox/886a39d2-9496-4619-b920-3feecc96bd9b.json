@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "886a39d2-9496-4619-b920-3feecc96bd9b",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Republish site_content so the stored lithium row no longer holds the withheld text",
+    "detail": "Data hygiene, not a live safety gap. The lithium-physiological-withdrawal-tremor record's generated body (clinical hinge, sections, immediate actions, current presentation) describes akathisia and drug-induced parkinsonism. Every read path now withholds it: loadDifferentialSnapshot covers the seed path, scopeDifferentialRecord covers the canonical read used by the three differentials API routes and differential-page-records, and differentialRowsToCorpusEntries covers the corpus projection that feeds embedding and published site content. The stored site_content and differential_records rows, seeded from the epoch-zero population frozen in supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql, still contain the raw text. Nothing serves it, but any future consumer that reads a row without the projection would reintroduce the exposure, which is the reason to clean it up rather than leave it. Closing it needs an operator run of scripts/sync-site-content-corpus.ts with --write, which requires --project-ref/--confirm-project-ref sjrfecxgysukkwxsowpy, --recovery-evidence, --provider-authorization and the expected state/plan/reconciliation digests. That is a governed live clinical database write behind the provider confirmation boundary, so it is the owner's to schedule. Dry-run first and confirm the plan touches only this record. If RAG_REGISTRY_CORPUS_EMBEDDING is or was true in production, also confirm the old chunk is no longer retrievable after the republish.",
+    "source": "Session 2026-09-16/17, PR #2838 differentials withhold work",
+    "issueUlid": "01M2Q0RE9AH6HPTFTZ1NH2861V"
+  }
+}

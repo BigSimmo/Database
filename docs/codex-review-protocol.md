@@ -1,6 +1,6 @@
 # Codex Review Protocol
 
-Use this protocol for every Codex review, audit, bug hunt, PR review, release-readiness check, and branch-cleanup review in this repository.
+Use this protocol for every Codex review, audit, bug hunt, PR review, release-readiness check, and branch-cleanup review in this repository. The pull-request lifecycle every tool shares — opening, following CI, review threads, records, merge authority, landed checks, and branch sync — is in [`agents/pull-request-workflow.md`](agents/pull-request-workflow.md); this file adds the review-specific protocol.
 
 ## Trigger and Scope
 
