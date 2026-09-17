@@ -90,7 +90,7 @@ seconds, with no deploy step in between), `# RAG ranking protection`, `# Railway
 
 | Topic                                                                                                                     | Full text                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Gate selection, the verification tier table, the gate arbiter                                                             | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
+| Gate selection, the verification tier table, gate receipts                                                                | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
 | The whole PR lifecycle for every tool: open, follow CI, review threads, records, merge authority, landed, sync, sweeps    | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
 | The `upload` shortcut                                                                                                     | [`docs/agents/upload-shortcut.md`](docs/agents/upload-shortcut.md)                           |
 | Button and route wiring, the bundle budget                                                                                | [`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md)         |
@@ -184,7 +184,7 @@ For the verification principle, the tier table, and the rest of the gate-selecti
 
 ## Do not pay twice for the verdict GitHub is about to reach
 
-For the rule against re-deriving a verdict GitHub is about to reach, the gate arbiter's inputs and non-negotiable boundaries, and the browser-gate planner that narrows `verify:ui` to the specs a diff can actually break (`npm run plan:browser`), see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
+For the rule against re-deriving a verdict GitHub is about to reach, gate receipts, and the browser-gate planner that narrows `verify:ui` to the specs a diff can actually break (`npm run plan:browser`), see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
