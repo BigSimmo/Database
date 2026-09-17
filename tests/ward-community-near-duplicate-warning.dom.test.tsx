@@ -170,6 +170,9 @@ describe("the near-duplicate warning appears exactly where it is true", () => {
    * 🔴 **THE BICONDITIONAL, over every page, in one pass.** Both directions are collected rather than
    * asserted one at a time, so a failure names every page that disagrees instead of the first.
    */
+  // Coverage CI timed this out at the default 30s (Unit coverage on tip 7b0fb4ba): the
+  // sweep renders every COMMUNITY_TEAM_PAGE. Give the same headroom other long unit
+  // sweeps use so contention under --coverage cannot fail a still-correct biconditional.
   it("carries the warning on exactly the pages whose name has a near-duplicate", () => {
     const missing: string[] = [];
     const spurious: string[] = [];
@@ -196,7 +199,7 @@ describe("the near-duplicate warning appears exactly where it is true", () => {
       "these teams have no near-duplicate and their pages warn of one anyway, which tells a reader a complete " +
         "list is split when it is not",
     ).toEqual([]);
-  });
+  }, 60_000);
 
   /**
    * ⚠️ **NAMING ONE SIBLING OUT OF THREE IS THE FAILURE THIS CATCHES**, and it is invisible to the
@@ -222,5 +225,5 @@ describe("the near-duplicate warning appears exactly where it is true", () => {
 
     expect(checked, "no page with a near-duplicate was reached, so this assertion ran over nothing").toBeGreaterThan(3);
     expect(wrong, "a warning names some of a team's other spellings and not all of them").toEqual([]);
-  });
+  }, 60_000);
 });

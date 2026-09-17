@@ -30,6 +30,7 @@ import {
   acquisitionLedgerIssues,
   acquisitionSourceReferences,
   acquisitionRecordGeography,
+  SOURCE_ACQUISITION_RUNGS,
   acquisitionRecordWarnings,
   sourceAcquisitionRecords,
 } from "@/lib/sources/acquisition-ledger";
@@ -524,6 +525,192 @@ describe("the handover guide states the counts the data actually holds", () => {
     expect(Number(row![1])).toBe(admitted);
     expect(Number(row![2])).toBe(held);
     expect(admitted + held).toBe(dictionarySourceDispositions.length);
+  });
+});
+
+// A blocker list is a promise to an operator: do these things and the source becomes
+// admissible. Nothing checked that promise, so on 2026-09-16 two reviewers and I between
+// us recorded a version blocker that does not exist (`acquisitionLedgerIssues` accepts
+// "Not established" as text) while missing the one that does (a jurisdiction written as
+// "New South Wales; spinal cord injury" instead of the register's "Australia/NSW"). This
+// test does what none of us did: it hands the gate a record with the blockers cleared and
+// insists nothing is left over.
+// A blocker list is a promise to an operator: clear these and the source becomes
+// admissible. Nothing checked that promise, so on 2026-09-16 two reviewers and I between
+// us recorded a version blocker that does not exist (acquisitionLedgerIssues accepts
+// "Not established" as text) while missing the one that does (a jurisdiction written as
+// "New South Wales; spinal cord injury" rather than the register's "Australia/NSW").
+//
+// The first version of this test hardcoded the remediation, so deleting a blocker left it
+// green. It now derives nothing from the fix and everything from the recorded blockers:
+// supply only the date, then require the surviving gate issues and the recorded blockers
+// to name the same things.
+// A blocker list is a promise to an operator: clear these and the source becomes
+// admissible. Nothing checked that promise, so on 2026-09-16 two reviewers and I between
+// us recorded a version blocker that does not exist as a GATE rejection (acquisitionLedgerIssues
+// accepts "Not established" as text) while missing the one that does (a jurisdiction written
+// as "New South Wales; spinal cord injury" rather than the register's "Australia/NSW").
+//
+// Two later corrections shaped what follows. The first draft hardcoded the remediation, so
+// deleting a blocker left it green. The second dropped version_unknown from these three
+// records while 16 others kept it — and the gate DOES admit the placeholder once the other
+// blockers clear, so that inconsistency would have published "Not established" as a version.
+// Hence the split below: some blockers the gate enforces, and one it deliberately does not.
+describe("a blocker list is a complete remediation path", () => {
+  const candidates = JSON.parse(readFileSync("src/data/dictionary-source-candidates.json", "utf8")) as
+    Record<string, unknown>[] | { sources: Record<string, unknown>[] };
+  const candidateRecords = (Array.isArray(candidates) ? candidates : candidates.sources) as Record<string, unknown>[];
+  const byHandoverId = new Map(
+    candidateRecords.map((entry) => [(entry.handoverSourceId ?? entry.id) as string, entry]),
+  );
+
+  /** Blockers the gate raises. Each maps to the sentence and the warning code it appears as. */
+  const GATE_ENFORCED: [RegExp, string][] = [
+    [/is not a governed source host|unsafe_location/i, "host_not_in_inspected_governed_url_policy"],
+    [
+      /unknown_jurisdiction|not in the source authority register|metadata_conflict/i,
+      "jurisdiction_not_written_in_register_form",
+    ],
+  ];
+
+  /**
+   * The gate does NOT raise this one, and that is exactly why it is recorded. A version of
+   * "Not established" is non-empty text, so acquisitionLedgerIssues accepts it and the source
+   * would be admitted with the placeholder published as its version.
+   */
+  const GOVERNANCE_ONLY = new Set(["version_unknown"]);
+
+  /**
+   * capturedFor is written by whoever files the ledger row rather than read from the
+   * publisher's page, so the candidate does not carry it and its absence is an artefact of
+   * this simulation. rung is NOT filtered: it is derived below from the register itself.
+   */
+  const SIMULATION_ARTEFACT = /capturedFor is required/i;
+
+  /**
+   * The rung the register's own ladder expects, rather than a guess — but the ladder is keyed
+   * to the geography the register derives from the record, and a record whose jurisdiction is
+   * malformed derives as "unknown". So the correct rung is not knowable until the jurisdiction
+   * blocker is cleared, which is itself one of the findings this suite exists to record.
+   */
+  function expectedRung(record: Record<string, unknown>): number | null {
+    const scope = acquisitionRecordGeography(record as Parameters<typeof acquisitionRecordGeography>[0]);
+    return SOURCE_ACQUISITION_RUNGS.find((entry) => entry.scope === scope)?.rung ?? null;
+  }
+
+  function simulate(handoverSourceId: string, patch: Record<string, unknown> = {}) {
+    const candidate = byHandoverId.get(handoverSourceId);
+    expect(candidate, `${handoverSourceId} candidate`).toBeDefined();
+    const base = {
+      ...candidate,
+      id: `remediation-sim-${handoverSourceId.toLowerCase()}`,
+      disposition: "candidate",
+      dispositionReason: "remediation simulation",
+      capturedFor: "remediation simulation",
+      capturedAt: "2026-09-16",
+      publicationDate: "2026-01-15",
+      datePrecision: "day",
+      reviewDate: null,
+      expiryDate: null,
+      supersededBy: [],
+      topics: (candidate as { topics?: string[] }).topics ?? ["Simulation"],
+      ...patch,
+    } as Record<string, unknown>;
+    delete base.handoverSourceId;
+    const rung = expectedRung(base);
+    // No derivable rung means the jurisdiction is still wrong, so a rung mismatch here is a
+    // consequence of that blocker rather than a separate one. Filed at the ladder's rung when
+    // it IS derivable, so a genuine rung mismatch is never filtered away.
+    if (rung !== null) base.rung = rung;
+    const rungIsDownstream = rung === null;
+    return acquisitionLedgerIssues([base as unknown as (typeof sourceAcquisitionRecords)[number]])
+      .map((issue) => issue.replace(`${base.id as string}: `, ""))
+      .filter((issue) => !SIMULATION_ARTEFACT.test(issue))
+      .filter((issue) => !(rungIsDownstream && /rung/i.test(issue)));
+  }
+
+  // The three sources whose publisher page could not be read: the date is known to be
+  // missing, so whatever else the gate reports is what the blocker list must already name.
+  const UNREADABLE = ["COPE-EPDS-2026", "NSW-ACI-SCI", "nsw-mental-assessment"];
+
+  for (const handoverSourceId of UNREADABLE) {
+    const disposition = () => {
+      const entry = dictionarySourceDispositions.find((candidate) => candidate.handoverSourceId === handoverSourceId);
+      expect(entry, handoverSourceId).toBeDefined();
+      return entry!;
+    };
+
+    it(`names every gate issue that survives a date for ${handoverSourceId}`, () => {
+      const recorded = new Set(disposition().blockers.map((blocker) => blocker.code));
+      for (const issue of simulate(handoverSourceId)) {
+        const match = GATE_ENFORCED.find(([pattern]) => pattern.test(issue));
+        expect(match, `${handoverSourceId}: no blocker code is mapped to "${issue}"`).toBeDefined();
+        expect(
+          recorded.has(match![1]),
+          `${handoverSourceId} leaves "${issue}" unnamed; blockers are ${[...recorded].join(", ")}`,
+        ).toBe(true);
+      }
+    });
+
+    it(`records no gate-enforced blocker the gate does not raise for ${handoverSourceId}`, () => {
+      const surviving = simulate(handoverSourceId);
+      for (const blocker of disposition().blockers) {
+        // The date itself, which the simulation supplies.
+        if (blocker.code === "publisher_page_unreadable_from_this_session") continue;
+        if (GOVERNANCE_ONLY.has(blocker.code)) continue;
+        const pattern = GATE_ENFORCED.find(([, code]) => code === blocker.code)?.[0];
+        expect(pattern, `${handoverSourceId}: blocker ${blocker.code} is mapped to no gate issue`).toBeDefined();
+        expect(
+          surviving.some((issue) => pattern!.test(issue)),
+          `${handoverSourceId} records ${blocker.code}, but the gate raises nothing matching it`,
+        ).toBe(true);
+      }
+    });
+
+    it(`keeps the placeholder version blocked for ${handoverSourceId}, because the gate will not`, () => {
+      // Clearing every gate-enforced blocker must NOT be enough to admit the source, or the
+      // remediation path ends with "Not established" published as this source's version.
+      const entry = disposition();
+      expect(
+        entry.blockers.map((blocker) => blocker.code),
+        `${handoverSourceId} drops the governance blocker the gate cannot catch`,
+      ).toContain("version_unknown");
+
+      const version = (byHandoverId.get(handoverSourceId) as { version?: unknown } | undefined)?.version;
+      expect(String(version ?? "").trim(), `${handoverSourceId} version`).not.toBe("");
+      // Proof the gate really does accept it: with jurisdiction and rung corrected, nothing
+      // the gate raises stands between this placeholder and the catalogue.
+      const remediated = simulate(handoverSourceId, { jurisdiction: "Australia/NSW" });
+      const gateStillObjectsToVersion = remediated.some((issue) => /version/i.test(issue));
+      expect(
+        gateStillObjectsToVersion,
+        `${handoverSourceId}: the gate now rejects the placeholder, so this blocker's wording is stale`,
+      ).toBe(false);
+    });
+  }
+
+  it("does not tell an operator the ledger rejects a version the ledger accepts", () => {
+    // The falsehood this was written after, which sat on 19 records: "No version or edition
+    // identifier is established, which the ledger requires of a non-rejected record."
+    // acquisitionLedgerIssues requires only NON-EMPTY TEXT, and every one of those has
+    // non-empty text ("Not established", "Live official reference"), so the gate accepts them
+    // all. The governance point is real; the stated mechanism was not.
+    for (const disposition of dictionarySourceDispositions) {
+      const blocker = disposition.blockers.find((entry) => entry.code === "version_unknown");
+      if (!blocker) continue;
+      const version = (byHandoverId.get(disposition.handoverSourceId) as { version?: unknown } | undefined)?.version;
+      const empty = version === null || version === undefined || String(version).trim() === "";
+      if (empty) continue; // then the ledger really does reject it, and saying so is correct
+      expect(
+        blocker.blocker,
+        `${disposition.handoverSourceId} claims the ledger requires a version it already accepts`,
+      ).not.toMatch(/ledger requires|requires of a non-rejected record/i);
+      // Pin the wording to the data, so a changed version cannot leave a stale quotation behind.
+      expect(
+        blocker.blocker,
+        `${disposition.handoverSourceId} quotes a version the candidate no longer holds`,
+      ).toContain(JSON.stringify(String(version)));
+    }
   });
 });
 
