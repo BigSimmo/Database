@@ -11,12 +11,14 @@ concurrency:
   cancel-in-progress: true
 
 # pull-requests: write exists for ONE call: removing the `owner-approved` label when new
-# commits land. actions: read lists this workflow's own run records, which bind the owner's
-# approval to the current head. Nothing else here writes. The PR head is never checked out
-# or executed.
+# commits land. statuses: write exists for ONE context: the `Owner approval` commit status
+# (pending while Josh's approval is outstanding, success otherwise). actions: read lists this
+# workflow's own run records, which bind the owner's approval to the current head. Nothing
+# else here writes. The PR head is never checked out or executed.
 permissions:
   contents: read
   pull-requests: write
+  statuses: write
   actions: read
 
 jobs:
@@ -50,10 +52,13 @@ jobs:
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const {
+              OWNER_APPROVAL_CHECKING_DESCRIPTION,
+              OWNER_APPROVAL_CONTEXT,
               OWNER_APPROVED_LABEL,
               evaluatePullRequestPolicy,
               migrationVersionsFromEntries,
               ownerActorMatches,
+              ownerApprovalCommitStatus,
               ownerApprovalCoversHead,
               workflowRunRecordsPrHead,
             } = await import(moduleUrl);
@@ -75,6 +80,33 @@ jobs:
             } catch (error) {
               core.setFailed(
                 `Unable to fetch latest PR metadata for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}. If this was transient, rerun the job; if it persists, verify this workflow still has pull-request read access.`,
+              );
+              return;
+            }
+
+            // `Owner approval` is a commit status on the PR head: pending (yellow) blocks a
+            // required context exactly as a failure does, and statuses are per SHA, so an
+            // earlier head's success never covers a new push. Mark the head pending BEFORE
+            // anything is evaluated, so a head that already carries an old success (a branch
+            // force-pushed back to an earlier commit) is held again while this run works.
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const setOwnerApprovalStatus = (sha, { state, description }) =>
+              github.rest.repos.createCommitStatus({
+                ...repo,
+                sha,
+                state,
+                context: OWNER_APPROVAL_CONTEXT,
+                description,
+                target_url: runUrl,
+              });
+            try {
+              await setOwnerApprovalStatus(latestPr.head.sha, {
+                state: "pending",
+                description: OWNER_APPROVAL_CHECKING_DESCRIPTION,
+              });
+            } catch (error) {
+              core.setFailed(
+                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Rerun the job.`,
               );
               return;
             }
@@ -106,6 +138,7 @@ jobs:
             }
 
             if (latestPr.draft) {
+              await setOwnerApprovalStatus(latestPr.head.sha, ownerApprovalCommitStatus({ draft: true }));
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
               return;
             }
@@ -254,6 +287,33 @@ jobs:
               }
             }
 
+            // Changed workflows and composite actions, read at the PR head through the API (never
+            // checked out or executed), so the policy can flag a branch workflow that names or
+            // posts a required check. A path whose content cannot be read is left out, and the
+            // policy fails closed on it.
+            const changedWorkflowContents = {};
+            for (const file of changedFiles) {
+              if (String(file.status ?? "").toLowerCase() === "removed") continue;
+              if (!/^\.github\/(?:workflows\/[^/]+\.ya?ml$|actions\/)/i.test(file.filename)) continue;
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  ...repo,
+                  path: file.filename,
+                  ref: latestPr.head.sha,
+                });
+                if (data && !Array.isArray(data) && typeof data.content === "string") {
+                  changedWorkflowContents[file.filename] = Buffer.from(
+                    data.content,
+                    data.encoding || "base64",
+                  ).toString("utf8");
+                }
+              } catch (error) {
+                core.warning(
+                  `Unable to read changed workflow ${file.filename} at ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}.`,
+                );
+              }
+            }
+
             const result = evaluatePullRequestPolicy({
               title: latestPr.title,
               body: latestPr.body || "",
@@ -267,8 +327,37 @@ jobs:
               baseMigrationVersions,
               ownerApproval,
               addedMigrationContents,
+              changedWorkflowContents,
               enforceOwnerMerge: true,
             });
+
+            // Report the hold as its own status. success is posted only while the evaluated
+            // head is still the PR head; if a push landed meanwhile, that push's own run owns
+            // the verdict and this head keeps the pending status set above. pending is always
+            // safe to post.
+            const approvalStatus = ownerApprovalCommitStatus({
+              ownerMergeReasons: result.ownerMergeReasons,
+              ownerApproved: result.ownerApproved,
+              rejectedReason: ownerApproval.rejectedReason,
+            });
+            try {
+              let headStillCurrent = true;
+              if (approvalStatus.state === "success") {
+                const { data: currentPr } = await github.rest.pulls.get({ ...repo, pull_number: pr.number });
+                headStillCurrent = currentPr.head.sha === latestPr.head.sha;
+              }
+              if (headStillCurrent) {
+                await setOwnerApprovalStatus(latestPr.head.sha, approvalStatus);
+              } else {
+                core.notice(
+                  `The PR head moved past ${latestPr.head.sha} during this run; its ${OWNER_APPROVAL_CONTEXT} status stays pending and the new head's run decides.`,
+                );
+              }
+            } catch (error) {
+              core.setFailed(
+                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. It stays pending; rerun the job.`,
+              );
+            }
 
             const warnings = result.warnings || [];
             await core.summary
@@ -280,6 +369,7 @@ jobs:
                 `Owner merge required for: ${result.ownerMergeReasons.length > 0 ? result.ownerMergeReasons.join(", ") : "none"}<br>`,
               )
               .addRaw(`Owner approved: ${result.ownerApproved ? "yes" : "no"}<br>`)
+              .addRaw(`${OWNER_APPROVAL_CONTEXT} status: ${approvalStatus.state} — ${approvalStatus.description}<br>`)
               .addRaw(`Migration history violations: ${result.migrationHistoryViolations.length}<br>`)
               .addRaw(`Blocking issues: ${result.errors.length}<br>`)
               .addRaw(`Advisory warnings: ${warnings.length}<br>`)
