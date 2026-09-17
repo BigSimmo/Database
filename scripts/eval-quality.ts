@@ -68,6 +68,8 @@ export type RagQualityResult = {
   expectedHit: boolean;
   grounded: boolean;
   acceptSourceOnly?: boolean;
+  /** Terminal outcome of the answer, distinct from the execution route above. */
+  responseMode?: string | null;
   latencyMs: number;
   searchLatencyMs?: number;
   generationLatencyMs?: number;
@@ -721,6 +723,17 @@ export function buildEvalQualityReport(args: {
   // whatever the production list happens to contain. The production list and the test fixtures
   // previously shared the same typo'd ids, so both agreed and neither could fail.
   sourceBackedReviewFallbackAllowance?: ReadonlyArray<{ id: string; reason: string }>;
+  /** Gates that did not run. An empty section renders like a passing one. */
+  skippedComponents?: string[];
+  /** Which cases actually ran. `case_count` cannot distinguish a full run from a limited one. */
+  scope?: {
+    selected_case_ids: string[];
+    dropped_case_ids: string[];
+    available_case_count: number;
+    limit_applied: number | null;
+    question_filter: string | null;
+    ranking_config_overridden: boolean;
+  };
 }) {
   const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
@@ -857,6 +870,11 @@ export function buildEvalQualityReport(args: {
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
     run_context: evalQualityRunContext(),
+    // Scope and skips travel with the verdict, because a verdict without them
+    // cannot be read: "no failures" from a run that skipped half its gates and
+    // dropped half its cases is an absence of evidence, not a clean result.
+    scope: args.scope ?? null,
+    skipped_components: args.skippedComponents ?? [],
     provider: {
       ...providerEvidence,
       passed:
@@ -1230,7 +1248,12 @@ async function runRagQualityCases(args: {
   ]);
   const baseCases = selectRagQualityCasesForQuestion(args.question);
   const allCases = args.question ? baseCases : mergeRagEvalCases(baseCases, capturedCases);
+  // `--limit` takes a PREFIX, and captured miss-rows are prepended to the registry
+  // cases in rag-eval-cases.ts, so a limited run can push registry cases off the
+  // end entirely. `case_count` alone cannot distinguish that from a full run: it
+  // reads 44 either way. Record which IDs ran and whether anything was dropped.
   const cases = allCases.slice(0, args.limit ?? allCases.length);
+  const droppedCaseIds = allCases.slice(cases.length).map((testCase) => testCase.id);
   const results: RagQualityResult[] = [];
   const diagnosticCases: Array<ReturnType<typeof buildRagDiagnosticDumpRecord>> = [];
 
@@ -1291,6 +1314,12 @@ async function runRagQualityCases(args: {
       rpcLatencyMs: answer.latencyTimings?.supabase_rpc_latency_ms,
       embeddingLatencyMs: answer.latencyTimings?.embedding_latency_ms,
       route: answer.routingMode ?? "none",
+      // The execution route and the terminal outcome are different facts. A
+      // strong-model attempt can still end in an evidence gap, so recording only
+      // `routingMode` leaves a reader unable to tell "answered via strong" from
+      // "escalated to strong and still refused". `responseMode` is the production
+      // response's own terminal value (src/lib/types.ts), not a second invented one.
+      responseMode: answer.responseMode ?? null,
       latencyRoute: latencyRouteForAnswer(answer),
       model: answer.modelUsed ?? null,
       citations: answer.citations.length,
@@ -1340,7 +1369,18 @@ async function runRagQualityCases(args: {
     });
   }
 
-  return { results, diagnosticCases };
+  return {
+    results,
+    diagnosticCases,
+    scope: {
+      selected_case_ids: cases.map((testCase) => testCase.id),
+      dropped_case_ids: droppedCaseIds,
+      available_case_count: allCases.length,
+      limit_applied: args.limit ?? null,
+      question_filter: args.question ?? null,
+      ranking_config_overridden: Boolean(process.env.RAG_RANKING_CONFIG?.trim()),
+    },
+  };
 }
 
 async function writeReports(report: EvalQualityReport, outputDir: string) {
@@ -1470,6 +1510,11 @@ async function main() {
     ragResults,
     sourceMetadataDebtAcceptance,
     providerMode: args.providerMode,
+    // A gate that did not run is not a gate that passed. `--rag-only` and
+    // `--retrieval-only` leave the other half's results empty, and an empty
+    // section renders identically to a passing one, so name what was skipped.
+    skippedComponents: [...(args.ragOnly ? ["retrieval"] : []), ...(args.retrievalOnly ? ["rag-answer-quality"] : [])],
+    scope: "scope" in ragRun ? ragRun.scope : undefined,
   });
   const paths = await writeReports(report, args.outputDir);
   if (args.dumpRagCases) {
