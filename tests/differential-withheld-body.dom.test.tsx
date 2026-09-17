@@ -144,4 +144,29 @@ describe("a differential whose generated body is withheld", () => {
     expect(screen.getByTestId("differential-clinical-hinge")).toBeInTheDocument();
     expect(screen.queryByTestId("differential-body-withheld")).toBeNull();
   });
+
+  it("withholds a RAW flagged record too, not only a record scoped before it arrives", () => {
+    // Every renderRecord call above hands the page a record that already came
+    // through the catalogue loader, which withholds before the page ever sees
+    // it. That leaves the page's OWN withhold call (differential-detail-page.tsx)
+    // untested on the one input it exists for: a live owner row read back from
+    // Supabase, seeded before the withhold existed, that skipped every upstream
+    // scoping point. Feed the page the raw exported record directly to prove its
+    // own defence still catches it.
+    const raw = rawSnapshot.diagnoses.find((entry) => entry.slug === LITHIUM);
+    if (!raw) throw new Error(`missing export record: ${LITHIUM}`);
+    expect(raw.clinicalHinge).toMatch(/inner restlessness/i);
+
+    render(
+      <AuthProvider>
+        <AccountDataProvider>
+          <DifferentialDetailPage record={structuredClone(raw)} detailContext={buildContext(LITHIUM)} />
+        </AccountDataProvider>
+      </AuthProvider>,
+    );
+
+    expect(screen.queryByText(/inner restlessness/i)).toBeNull();
+    expect(screen.queryByTestId("differential-clinical-hinge")).toBeNull();
+    expect(screen.getByTestId("differential-body-withheld")).toHaveTextContent(/not shown/i);
+  });
 });
