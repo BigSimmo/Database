@@ -829,17 +829,71 @@ async function insertRagQuery(row: RagQueryInsert) {
       ...answerPrivacyMetadata(),
     } as Json,
   };
-  await supabase.from("rag_queries").insert(safeRow);
+  // The `error` is READ, not discarded. The Postgres client resolves with `{ error }` rather than
+  // throwing, so `await`ing this call without destructuring made every failed insert -- an RLS
+  // denial, a constraint violation, a renamed column -- indistinguishable from a successful one.
+  // That is why the `.catch()` below never fired and why RAG_AWAIT_QUERY_LOGS, the flag that
+  // exists to make this logging reliable, was exactly as silent as the fire-and-forget path.
+  const { error } = await supabase.from("rag_queries").insert(safeRow);
+  if (error) throw error;
+}
+
+/** The message, whether the client threw an Error or resolved with a Postgres error object. */
+function queryLogFailureMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && typeof (error as { message?: unknown }).message === "string") {
+    return (error as { message: string }).message;
+  }
+  return String(error);
+}
+
+/**
+ * Failure counter, matching `answer-telemetry.ts`. Query logging is best-effort by design -- a
+ * clinical answer must not fail because its log row did not land -- but best-effort is not the
+ * same as unobservable. Bounded so a database that is refusing every insert cannot turn one
+ * broken deployment into a log flood: the first three, then every twenty-fifth.
+ */
+let queryLogFailureCount = 0;
+
+function recordQueryLogFailure(error: unknown): void {
+  queryLogFailureCount += 1;
+  if (queryLogFailureCount <= 3 || queryLogFailureCount % 25 === 0) {
+    console.warn("RAG query log insert failed", {
+      failures: queryLogFailureCount,
+      message: "rag_query_logging_failed",
+      // The row itself is never logged: it carries the redacted query text and metadata, and a
+      // warn line is not a place to put either. The error message alone names the cause.
+      //
+      // A Postgres error is a plain `{ message, code, details }` object, not an Error, so an
+      // `instanceof Error` test alone reports "[object Object]" and throws away the one useful
+      // fact -- which is how a failure gets reported and still tells nobody anything.
+      error: queryLogFailureMessage(error),
+    });
+  }
 }
 
 /** Log rag query. */
 async function logRagQuery(row: RagQueryInsert) {
   if (env.RAG_AWAIT_QUERY_LOGS) {
-    await insertRagQuery(row);
+    try {
+      await insertRagQuery(row);
+    } catch (error) {
+      // Still swallowed after reporting: the caller is an answer path, and the flag asks for the
+      // write to be awaited, not for a failed log to fail the answer.
+      recordQueryLogFailure(error);
+    }
     return;
   }
 
-  void insertRagQuery(row).catch(() => undefined);
+  void insertRagQuery(row).catch(recordQueryLogFailure);
+}
+
+/** Test seam: the writer is private, and its failure reporting is the thing under test. */
+export const __logRagQueryForTests = logRagQuery;
+
+/** Test seam: the count is process-wide, so a suite asserting on it must be able to reset it. */
+export function __resetQueryLogFailureCountForTests(): void {
+  queryLogFailureCount = 0;
 }
 
 /** Decide text fast path. */
