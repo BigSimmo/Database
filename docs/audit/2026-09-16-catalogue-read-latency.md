@@ -54,7 +54,7 @@ cost, and the arithmetic below that turns node counts into seconds is an inferen
 closed from the other end rather than by an `EXPLAIN`: the `pg_stat_statements` read above gives the
 measured total per call, which is what step 0 of
 `scripts/operator-explain-site-content-public-records.sql` exists for. A full `EXPLAIN (ANALYZE)`
-would still attribute that cost *within* the function; the total itself no longer needs
+would still attribute that cost _within_ the function; the total itself no longer needs
 establishing.
 
 ## Root cause, in order
@@ -182,7 +182,7 @@ must not carry auto-merge.
 2. **The `EXPLAIN` — settled 2026-09-17, and no `EXPLAIN` was needed.** Step 0 of
    `scripts/operator-explain-site-content-public-records.sql` reads `pg_stat_statements`; that read
    returned a mean of 8,656 ms per call (recorded above). Ledger `#YE6BZB` closes. The full
-   `EXPLAIN (ANALYZE)` remains available if the cost ever needs attributing *within* the function
+   `EXPLAIN (ANALYZE)` remains available if the cost ever needs attributing _within_ the function
    rather than totalled.
 3. **The third full pass** (root cause 4) survives any digest-only fix. The drafted migration
    removes it from the read path; nothing has proved that yet.
