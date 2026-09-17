@@ -37,9 +37,11 @@ from the public `/privacy` transparency page.
 
 ### Named instruments: name them, never score them
 
-**Status: proposed 2026-09-16, awaiting the clinical owner's ratification.** Written down because
-four locally authored differential records already tell the reader to apply a named instrument, and
-the boundary they were written to was implicit.
+**Status: ratified by the clinical owner, 2026-09-17.** Proposed 2026-09-16 and ratified the
+following day in a working session rather than a scheduled governance review, which is recorded
+here so the provenance is not overstated later. Written down because four locally authored
+differential records already tell the reader to apply a named instrument, and the boundary they
+were written to was implicit.
 
 Naming an instrument is assessment guidance and is allowed. Reproducing its items, its cut-offs or
 its arithmetic is not, because that turns a reference page into the diagnostic scoring tool the rule
