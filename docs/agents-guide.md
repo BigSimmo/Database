@@ -105,7 +105,6 @@ this navigator does not make every linked procedure a mandatory startup step.
 To prevent dual competing responders from answering the same PR review comment (observed on PR #2249 where both a repo workflow and an app-level watcher generated duplicate competing commits), all review-thread work — interactive sessions and any `Run PR` sweep alike — follows one lifecycle:
 
 - **App-level / Client watchers**: Interactive desktop or client app watchers ("Autofix pull requests") must stand down and not compete on repository pull requests. Do not instruct an interactive agent session to concurrently fix a review comment that another session is already addressing.
-- **CodeRabbit**: Advisory only (`commit_status: false`), intermittent/capped, skipped on draft PRs. Never generates fix commits or competes for PR mutation.
 - **Interactive human / agent sessions**: When asked to fix comments or running a `Run PR` sweep, always check whether a thread already carries a disposition marker (`<!-- codex-thread-disposition:resolved -->`) before acting on it. Never create competing commits on the same review finding.
 - **Review comment lifecycle and disposition markers**:
   - For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`.
