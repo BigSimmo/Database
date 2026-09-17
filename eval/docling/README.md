@@ -13,8 +13,8 @@ a separate owner-reviewed run recorded in a copy of the Gate B decision record
 - Nothing here modifies `worker/**`, `worker/python/requirements*`,
   `Dockerfile.worker`, `src/lib/extractors/document.ts`, or the database. The
   legacy extractor and the worker's hashed lock are **read-only comparators**.
-- Benchmark runs are manual/dispatch-only (`.github/workflows/docling-lab.yml`,
-  `workflow_dispatch` only) and never part of `pr-required`.
+- Benchmark runs are manual-only, via `eval/docling/run-lab.sh` on an operator's own
+  machine (no dedicated CI workflow), and never part of `pr-required`.
 - No provider calls, no live data: fixtures are synthetic, generated from the
   committed manifest, and the benchmark container has **no network**.
 
@@ -105,9 +105,9 @@ counts, never tokens. Extractor identities (`docling==2.120.2`,
 
 ```bash
 # Offline contract gate (CI-covered; no docling install needed):
-npm run check:docling-lab
+node eval/docling/report/build-report.mjs --validate-only
 
-# Full benchmark — owner dispatch of ".github/workflows/docling-lab.yml", or locally:
+# Full benchmark — run locally (no dedicated CI workflow):
 npm ci --include=dev
 bash eval/docling/run-lab.sh
 # → eval/docling/out/report/docling-lab-report.json

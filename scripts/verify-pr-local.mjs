@@ -26,7 +26,6 @@ const workflowScripts = [
   "check:github-actions",
   "check:ci-scope",
   "check:gitleaks-pinned",
-  "check:ci-triage",
   "check:pr-policy",
   "check:gate-manifest",
   "check:skills",
@@ -149,7 +148,6 @@ export function selectedScripts(scope, extended) {
     // Keep the focused invocation only for recognised lightweight workflow scope.
     if (!scope.static_heavy_changed) add(focusedWorkflowTestScript);
   }
-  if (scope.codex_autofix_changed) add("check:codex-autofix-workflow");
   // Cheap static guards first so a tenancy or migration-role miss reports in
   // seconds, before the long lint/typecheck/unit stages.
   if (scope.static_heavy_changed) add(...staticHeavyGuards, ...staticHeavyScripts);

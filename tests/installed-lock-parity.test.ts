@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   criticalInstalledPackages,
   installedLockParity,
+  installedTreeInventory,
   installedTreeParity,
+  installedTreeStampName,
+  packageLockDigest,
   writeInstalledTreeStamp,
 } from "../scripts/check-installed-lock-parity.mjs";
 
@@ -127,6 +130,45 @@ describe("installedLockParity", () => {
     writeFileSync(path.join(root, "node_modules", ".vite-temp", "config.mjs"), "generated");
 
     expect(installedTreeParity(root)).toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  it("never reports an empty node_modules as a complete install, even with a matching stamp", () => {
+    // Every comparison agrees when lock, hidden lock and stamp all describe nothing: a lock with no
+    // packages, node_modules holding only a tool cache, and a stamp copied or written over that tree.
+    const root = mkdtempSync(path.join(os.tmpdir(), "installed-tree-empty-"));
+    temporaryRoots.push(root);
+    writeFileSync(path.join(root, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, packages: {} }));
+    mkdirSync(path.join(root, "node_modules", ".cache"), { recursive: true });
+    writeFileSync(path.join(root, "node_modules", ".package-lock.json"), JSON.stringify({ packages: {} }));
+
+    expect(() => writeInstalledTreeStamp(root)).toThrow(/incomplete install/);
+    writeFileSync(
+      path.join(root, "node_modules", installedTreeStampName),
+      JSON.stringify({ schema: 1, lockSha256: packageLockDigest(root), ...installedTreeInventory(root) }),
+    );
+
+    expect(installedTreeParity(root)).toEqual(
+      expect.objectContaining({ ok: false, reason: expect.stringMatching(/no installed package location/) }),
+    );
+  });
+
+  it("rejects an install missing a critical toolchain package the lock declares", () => {
+    const root = treeFixture();
+    const lockPath = path.join(root, "package-lock.json");
+    const lock = JSON.parse(readFileSync(lockPath, "utf8"));
+    // Optional entries may be absent from a platform's install, so only the critical-package guard
+    // can notice that typescript never arrived.
+    lock.packages["node_modules/typescript"] = { version: "6.0.0", optional: true };
+    writeFileSync(lockPath, JSON.stringify(lock));
+
+    expect(() => writeInstalledTreeStamp(root)).toThrow(/critical package\(s\) not installed: typescript/);
+    writeFileSync(
+      path.join(root, "node_modules", installedTreeStampName),
+      JSON.stringify({ schema: 1, lockSha256: packageLockDigest(root), ...installedTreeInventory(root) }),
+    );
+    expect(installedTreeParity(root)).toEqual(
+      expect.objectContaining({ ok: false, reason: "critical package(s) not installed: typescript" }),
+    );
   });
 
   it("runs before local, UI, release, and CI test interpretation", () => {

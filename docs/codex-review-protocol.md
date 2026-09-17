@@ -20,9 +20,7 @@ PR churn and unthrottled reviews quickly exhaust review-bot spending caps and ra
 - **Skip repeat passes on unchanged SHAs**: Never re-review a commit, branch, or PR head whose HEAD SHA and scope have already been reviewed. Automated routines, babysit sweeps, and CI jobs must check prior review records and skip repeat reviews when the tree has not changed.
 - **Resolve SHAs via `npm run ledger:lookup`**: Always verify review state using `npm run ledger:lookup -- <branch-or-ref> --scope "<scope>"`. It resolves the full 40-character commit SHA, matches against live rows, archives (`docs/archive/branch-review-ledger-*.md`), and immutable records (`docs/branch-review-records/*.record.md`), and prints an explicit `ALREADY REVIEWED` or `NOT REVIEWED at this HEAD` verdict. Never scan or eyeball ledger tables manually.
 - **Enforce a single review pass per PR head (#328)**: Automated review is strictly limited to one pass per PR HEAD. Intermediate repair commits, formatting adjustments, or routine base syncs do not authorize automatic re-reviews without explicit human approval. Prevent review row thrashing or rows outliving completion (#328) by immediately appending an immutable record with `npm run ledger:append` upon completing a review.
-- **Lever 1: Skip documentation and bookkeeping paths in CodeRabbit (#KZJD4Q)**: `.coderabbit.yaml` defines `path_filters` to exclude docs, mockups, and standalone markdown (`!docs/**`, `!mockups/**`, `!**/*.md`, `!**/*.mdx`). This immediately recovers ~25% of the hourly review credit budget without reducing coverage on active code changes.
 - **Lever 2: Prohibit bookkeeping-only pull requests (#KZJD4Q)**: Standalone PRs whose sole diff is a ledger update or documentation record must not be opened as separate PRs. Fold bookkeeping updates into functional PRs or reconcile them in batches to eliminate wasted automated review cycles on non-code artifacts.
-- **CodeRabbit 10-star public repository eligibility gate (#3F76JZ)**: CodeRabbit automated code reviews on public GitHub repositories require at least 10 stars (per CodeRabbit's public open-source tier policies). In public forks, mirror repositories, or isolated staging clones with fewer than 10 stars, CodeRabbit will not run or post review comments. Developers, reviewers, and automated tooling must set expectations accordingly: the absence of CodeRabbit review comments on a fork is an eligibility gate outcome, not a sign of approval, a broken webhook, or missing review configuration.
 
 ## Review Output
 
@@ -46,22 +44,13 @@ same live path. The plain `npm run check:github-shell-access` entry is always of
 `GH_AUTH_MISSING` means shell authentication is absent, not that the hosted connector is
 disconnected. Never add a PAT to an ordinary Cloud task.
 
-If an explicitly authorized Cloud Run PR task lacks direct publication, review-thread, or Actions
-tools, `BigSimmo` may manually dispatch the default-branch `Codex Run PR operator` for the target
-same-repository feature PR. Dispatch requires the PR number, the authorizing Codex task URL, and the
-exact typed confirmation documented in `docs/codex-cloud.md`; comments and webhook text cannot
-authorize it. Its Codex
-repair job has no GitHub write credential; later clean jobs verify the exact head and operator
-identity before an ordinary push, bounded reply/resolution, or one genuine failed-job rerun. Do not
-use this trigger on protected heads, fork PRs, or as a substitute for PR merge/close authority.
-
 ## Mutation Rules
 
 - For a pure review request, do not edit files, stage, commit, push, post PR comments, rerun hosted CI, or call provider-backed services.
   - Exception: create the completed immutable review record with `npm run ledger:append` so throttling state persists.
 - If the user clearly asks to fix confirmed findings, make the smallest safe change and verify with local, static, or mocked checks first.
 - During an automatic resolve task, work only existing unresolved Codex threads. Do not start a new review, add standalone findings, or request another review.
-- After fixing or fully dispositioning a thread, start the reply with `<!-- codex-thread-disposition:resolved -->`, then declare exactly one result: `<!-- codex-thread-result:fixed-head:<40-character pushed commit SHA> -->` for a published fix or `<!-- codex-thread-result:no-change -->` for a no-code disposition. The workflow closes a fixed thread only when the reported commit is the pull-request head. A local-only commit is not a fix; when publication, verification, human input, or new authorization blocks completion, use no result marker and leave the thread open with a concise reason.
+- After fixing or fully dispositioning a thread, resolve it with the tool's direct resolution call. A local-only commit is not a fix; when publication, verification, human input, or new authorization blocks completion, leave the thread open with a concise reason instead of resolving it.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
 - After any completed branch/PR review, create an immutable record with `npm run ledger:append -- --ref <x> --head <full-sha> --scope <s> --outcome <o> --checks <c>`. Record the full 40-character SHA; `see PR head` and abbreviations make the record unmatchable and cause the review to run again. The historical table is frozen for normal PRs: never edit or delete an existing record; append a correction or superseding record (`--supersede`) instead. This record creation is allowed even during a pure review. Do not hand-write a record — hand-written rows are what produced the mojibake, wrong-width, and duplicate records the 2026-07-28 hygiene pass had to repair. Do not push a tip whose sole delta is a babysit record.
 

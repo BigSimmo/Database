@@ -9,7 +9,7 @@ const ids = (files: string[], fullMode: "auto" | "always" | "never" = "auto") =>
 
 const stage = (files: string[], id: string) => phoneChromePlan(files).stages.find((candidate) => candidate.id === id);
 
-const PHONE_CHROME_EXECUTED_CONTRACT_COUNT = 135;
+const PHONE_CHROME_EXECUTED_CONTRACT_COUNT = 137;
 
 function countExecutedVitestCases(source: string): number {
   const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
@@ -145,7 +145,7 @@ describe("phoneChromePlan", () => {
     },
   );
 
-  it("maintains the complete 9-suite phone-chrome contract baseline with 135 executed contracts", () => {
+  it("maintains the complete 9-suite phone-chrome contract baseline with 137 executed contracts", () => {
     const plan = phoneChromePlan(["tests/header-scroll-hide-contract.test.ts"]);
     const contractStage = plan.stages.find((candidate) => candidate.id === "contracts");
     expect(contractStage).toBeDefined();

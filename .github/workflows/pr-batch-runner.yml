@@ -29,25 +29,16 @@ on:
         description: 'Optional JSON keyed by PR: {"123":{"head":"SHA","base":"SHA","baseline_run":1,"post_run":2}}'
         type: string
         default: "{}"
+  # Only workflows whose completion can change a batch PR's merge readiness wake
+  # the controller: they produce the required checks (Gitleaks, PR policy, PR
+  # required, PR mergeability). A trusted-target PR-event trigger keyed on the
+  # bot actor, plus a wildcard workflow_run, previously produced ~106
+  # action_required wake runs for events that could never change readiness.
   workflow_run:
-    workflows: ["*"]
+    workflows: ["CI", "PR Policy", "Secret Scan", "PR mergeability"]
     types: [completed]
-  pull_request_target:
-    branches: [main]
-    types:
-      [
-        synchronize,
-        closed,
-        edited,
-        labeled,
-        unlabeled,
-        ready_for_review,
-        converted_to_draft,
-        auto_merge_enabled,
-        auto_merge_disabled,
-      ]
   schedule:
-    - cron: "7,22,37,52 * * * *"
+    - cron: "7 * * * *"
 
 permissions:
   contents: read
