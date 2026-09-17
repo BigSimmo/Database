@@ -2,10 +2,10 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { curatedDifferentials } from "@/lib/differential-curated";
-import { generatedBodyWithheld } from "@/lib/differential-detail";
+import { curatedDifferentials, curatedEntryFor } from "@/lib/differential-curated";
+import { curatedContentNote, generatedBodyWithheld } from "@/lib/differential-detail";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
-import { diagnosisToRow, type DifferentialRecordRow } from "@/lib/differential-records";
+import { diagnosisToRow, rowToDifferentialRecord, type DifferentialRecordRow } from "@/lib/differential-records";
 import { differentialRowsToCorpusEntries } from "@/lib/registry-corpus";
 import { composeDifferentialSearchResults } from "@/lib/differential-search-composition";
 import {
@@ -16,6 +16,7 @@ import {
   scopeDifferentialRecord,
 } from "@/lib/differentials";
 import { differentialPresentations } from "@/lib/differentials";
+import { canonicalDynamicSiteContentProjection } from "@/lib/site-content/site-content-publication";
 import type { DifferentialRecord, DifferentialSnapshot } from "@/lib/differential-snapshot";
 
 /** The generated export on disk, before the catalogue loader withholds it. */
@@ -229,5 +230,70 @@ describe("the corpus projection withholds a contaminated body", () => {
     const [entry] = differentialRowsToCorpusEntries([liveRow("akathisia")]);
 
     expect(entry!.content).toContain(CONTAMINATED);
+  });
+});
+
+/**
+ * Owner-approved follow-up to the clinical review of #2838 (2026-09-17). The corpus
+ * and catalogue-read paths above are the writers of `document_index_units`/embeddings
+ * and the readers behind `/api/differentials`, but a fourth conversion point builds
+ * canonical PUBLISHED site content: `canonicalDynamicSiteContentProjection` in
+ * site-content-publication.ts, which `scripts/refresh-site-content-bootstrap.ts` and
+ * `scripts/refresh-site-content-p03-baseline.ts` call directly on a persisted row via
+ * the same bare `rowToDifferentialRecord`. Left alone, a future bootstrap or baseline
+ * refresh would publish the contaminated body even though every current call site is
+ * already scoped, because nothing forces a NEW caller through the withhold.
+ */
+describe("the site-content publication projection withholds a contaminated body", () => {
+  function liveRow(slug: string) {
+    const exported = rawSnapshot.diagnoses.find((record) => record.slug === slug);
+    if (!exported) throw new Error(`missing export record: ${slug}`);
+    return {
+      ...diagnosisToRow(structuredClone(exported), OWNER, rawSnapshot),
+      id: `00000000-0000-4000-8000-00000000000${slug === LITHIUM ? "3" : "4"}`,
+      owner_id: OWNER,
+      created_at: "2026-08-24T00:00:00.000Z",
+      updated_at: "2026-08-24T00:00:00.000Z",
+      last_reviewed_at: null,
+      review_due_at: null,
+    } as unknown as DifferentialRecordRow;
+  }
+
+  it("never publishes the contaminated text from a stale persisted row", () => {
+    const row = liveRow(LITHIUM);
+    // Proof the row is the contaminated one the live database still holds.
+    expect(JSON.stringify(row)).toContain(CONTAMINATED);
+
+    const projected = canonicalDynamicSiteContentProjection("differential", row);
+
+    expect(JSON.stringify(projected)).not.toContain(CONTAMINATED);
+    expect(projected.renderPayload).toMatchObject({
+      clinicalHinge: "",
+      sections: [],
+      immediateActions: [],
+      currentPresentation: [],
+    });
+
+    // The withheld notice itself is a separate curated field, not baked into the
+    // publication payload, but it must still exist for whatever renders this
+    // published record to explain the absence rather than leave a blank panel.
+    const notice = curatedContentNote(curatedEntryFor(LITHIUM));
+    expect(notice).toMatch(/withheld/i);
+  });
+
+  it("still publishes a usable record rather than an empty one", () => {
+    const projected = canonicalDynamicSiteContentProjection("differential", liveRow(LITHIUM));
+
+    expect(projected.renderPayload).toMatchObject({ title: "Lithium", slug: LITHIUM });
+    expect(JSON.stringify(projected)).toMatch(/Lithium toxicity/i);
+  });
+
+  it("leaves a record with no withhold flag exactly as the row payload holds it", () => {
+    const row = liveRow("akathisia");
+    const projected = canonicalDynamicSiteContentProjection("differential", row);
+    const unwithheld = rowToDifferentialRecord(row);
+
+    expect(projected.renderPayload).toEqual(JSON.parse(JSON.stringify(unwithheld)));
+    expect(JSON.stringify(projected)).toContain(CONTAMINATED);
   });
 });
