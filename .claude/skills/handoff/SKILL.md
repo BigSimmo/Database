@@ -78,9 +78,9 @@ force-push, or discard work.
    On an ordinary PR you may arm squash auto-merge at open (`gh pr merge --squash --auto`);
    never on an owner-merge PR ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
 7. **Record** the review per [Records](../../../docs/agents/pull-request-workflow.md#records) with `npm run ledger:append`.
-8. **Follow CI for up to 30 minutes, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
+8. **Follow CI while it is useful, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
    fix only what this change broke, slow cadence, no cron, then report the PR URL and plainly
-   where CI stands. `.claude/hooks/pr-handoff-stop.sh` enforces the ceiling.
+   where CI stands. `.claude/hooks/pr-handoff-stop.sh` enforces the no-cron rule.
 
 ## Requires explicit confirmation (do not do automatically)
 
