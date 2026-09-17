@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d7775c6f-c13e-4b85-b729-c2015b9aff5b",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The clozapine coverage gate and the search rewrite disagree on which words mean stop a drug, and one reads the raw query while the other reads the corrected one",
+    "detail": "MEASURED BY CODE READ 2026-09-17 while verifying the external audit (its finding C6), against origin/main 6f0a3d444. The audit's claim that these paraphrase gaps are 'documented in code' is FALSE and should not be re-checked: grep of src/lib/rag/rag-coverage-gate.ts for phrasing|wording|variant|not exhaustive|does not match|intent returns zero hits, and its only header comment records the extraction provenance from rag.ts. The one genuine 'cannot be exhaustive against paraphrase' comment is in rag-routing.ts:289-296 and is about prompt injection, a different subject. TWO CONCRETE ASYMMETRIES, both verified. (1) VOCABULARY. clinical-search.ts:1473 accepts withhold|cease|stop AND discontinue|discontinued; rag-coverage-gate.ts:78 accepts withhold|withheld|withholding|cease|ceased|stop|stopped and NOT discontinue. So 'What FBC threshold should discontinue clozapine?' triggers the search rewrite but falls through the gate's specific branch to the generic hasStructuredThreshold && strongestScore >= 0.58 at :114-116. That exact string is ALREADY a test fixture on the search side (tests/clinical-search.test.ts:164), so the divergence is reachable by a case the repo already knows about. Neither side knows hold, pause, suspend or interrupt. (2) INPUT. The gate tests the RAW query; the rewrite tests correctedQueryText (clinical-search.ts:1467). A typo'd question can therefore be spell-corrected into the rewrite and never reach the gate branch at all. EVAL COVERAGE EXISTS BUT MISSES IT: rag-eval-cases.ts:1516 clozapine-monitoring-paraphrase and :1530 clozapine-typo-acronym-threshold, neither exercising discontinue against the gate. WHY THIS IS NOT IN PR #2860: both files are RAG-ranking protected surfaces. Needs the flag to the owner BEFORE editing, a RAG impact line, and a live eval canary pair (~USD 1-2, provider-backed, owner approval) because widening the gate changes which answers are withheld. NEXT: align the two vocabularies in one change, decide deliberately whether the gate should read the corrected query, and add a discontinue case to the eval pack. STOP: do not widen the gate without the canary - the coverage-gate block's results re-enter the candidate pool at rag.ts:1555, so a change there moves ranking.",
+    "source": "Code read of rag-coverage-gate.ts, clinical-search.ts and rag-eval-cases.ts at origin/main 6f0a3d444; verification of the 2026-09-17 external audit; session 01B5auxdz8JsfzSnDezMWz1n.",
+    "issueUlid": "01M2R5TH2HES3KTGGWNZ752BHM"
+  }
+}
