@@ -16,6 +16,11 @@ const fullRunSentinelFiles = [
   // so the dependency audit runs in its blocking mode, not advisory.
   "package-lock.json",
   "worker/__ci_full_run__.ts",
+  // Ensures an unresolvable-base / scheduled full run also trips workflow_changed.
+  // Previously covered incidentally by naming a real workflow file here (removed
+  // 2026-09-17 with the codex-autofix-review-comments.yml workflow); use a
+  // synthetic sentinel instead so this property survives that file's lifecycle.
+  ".github/workflows/__ci_full_run__.yml",
 ];
 
 const outputs = [
