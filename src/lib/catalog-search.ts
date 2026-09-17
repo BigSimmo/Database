@@ -82,15 +82,31 @@ function boundedTypoDistance(left: string, right: string, limit: number) {
   return previous[right.length];
 }
 
-/** Number of query tokens with a conservative near-word match in normalized text. */
-function fuzzySearchTokens(query: string, text: string) {
-  const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean);
+/** The query half of a fuzzy comparison, which is constant for a whole ranking run. */
+function fuzzyQueryTokens(query: string) {
+  return normalizeSearchText(query).split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Number of the given query tokens with a conservative near-word match in `text`.
+ *
+ * Split from `fuzzySearchTokens` so `rankCatalogRecords` can tokenize the query
+ * once per search instead of once per record per field: the query does not change
+ * while ranking, and re-normalizing it for every haystack was the single largest
+ * cost in a catalogue search profile.
+ */
+function fuzzyTokensAgainstText(queryTokens: readonly string[], text: string) {
   const words = Array.from(new Set(normalizeSearchText(text).split(/\s+/).filter(Boolean)));
   return queryTokens.filter((term) => {
     if (words.some((word) => word.includes(term))) return false;
     const limit = typoDistanceLimit(term);
     return limit > 0 && words.some((word) => boundedTypoDistance(term, word, limit) <= limit);
   });
+}
+
+/** Number of query tokens with a conservative near-word match in normalized text. */
+function fuzzySearchTokens(query: string, text: string) {
+  return fuzzyTokensAgainstText(fuzzyQueryTokens(query), text);
 }
 
 export function fuzzySearchTokenCount(query: string, text: string) {
@@ -180,6 +196,10 @@ export function rankCatalogRecords<T>(
   const expandedPhraseBonus = options.expandedPhraseBonus ?? 0;
 
   const compactQuery = compactSearchText(normalizedQuery);
+  // `normalizedQuery` is already normalized and `normalizeSearchText` is idempotent
+  // (pinned by tests/catalog-search-query-tokens.test.ts), so these tokens are exactly
+  // what each per-record fuzzy call used to recompute for itself.
+  const fuzzyTokens = fuzzyQueryTokens(normalizedQuery);
   const baseTerms = Array.from(new Set(normalizedQuery.split(/\s+/).filter((term) => term.length > 1)));
   const terms = options.expandTokens
     ? Array.from(new Set(options.expandTokens(baseTerms).filter((term) => term.length > 1)))
@@ -217,7 +237,7 @@ export function rankCatalogRecords<T>(
         // A typo in a title/name/code field must retain that field's weight.
         // Otherwise an intended record ties incidental full-text mentions and
         // a limited universal-search result can omit the best match entirely.
-        const fuzzyFieldMatches = compact ? 0 : fuzzySearchTokenCount(normalizedQuery, haystack);
+        const fuzzyFieldMatches = compact ? 0 : fuzzyTokensAgainstText(fuzzyTokens, haystack).length;
         if (fuzzyFieldMatches) {
           fields[field.id] = (fields[field.id] ?? 0) + fuzzyFieldMatches;
         }
@@ -231,7 +251,7 @@ export function rankCatalogRecords<T>(
       const expanded = expandedTerms.filter((term) => text.includes(term)).length;
       const expandedPhrases = expandedTerms.filter((term) => term.includes(" ") && text.includes(term)).length;
       score += expandedPhrases * expandedPhraseBonus;
-      const fuzzyContentFallback = !compact && fuzzy === 0 ? fuzzySearchTokenCount(normalizedQuery, text) : 0;
+      const fuzzyContentFallback = !compact && fuzzy === 0 ? fuzzyTokensAgainstText(fuzzyTokens, text).length : 0;
       fuzzy += fuzzyContentFallback;
       // Broad full-text fuzzy evidence is only a fallback and stays weaker than
       // literal content or a weighted field match.
