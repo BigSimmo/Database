@@ -167,6 +167,29 @@ describe("fetchLiveVersions", () => {
 });
 
 describe("pollForMigrations", () => {
+  it("never sleeps past the deadline when the poll interval exceeds the wait budget", async () => {
+    const clock = fakeClock();
+    const sleeps: number[] = [];
+    const fetchVersions = vi.fn(async () => ["a"]);
+
+    const result = await pollForMigrations({
+      expectedVersions: ["a", "b"],
+      fetchVersions,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+        await clock.sleep(ms);
+      },
+      now: clock.now,
+      pollS: 999_999,
+      maxWaitS: 600,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(clock.now()).toBe(600_000);
+    expect(Math.max(...sleeps)).toBeLessThanOrEqual(600_000);
+    expect(fetchVersions).toHaveBeenCalledTimes(2);
+  });
+
   it("passes on the first read when every expected version is already present", async () => {
     const { now, sleep } = fakeClock();
     const fetchVersions = vi.fn(async () => ["a", "b"]);

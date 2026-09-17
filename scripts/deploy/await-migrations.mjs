@@ -220,10 +220,13 @@ export async function pollForMigrations({
       log(`migration history read failed: ${lastError}`);
     }
 
-    if (now() >= deadline) {
+    const remainingMs = deadline - now();
+    if (remainingMs <= 0) {
       return { ok: false, missing, error: lastError };
     }
-    await sleep(pollS * 1000);
+    // Never sleep past the deadline: a poll interval larger than the wait budget would
+    // otherwise stall the deploy for the whole interval instead of maxWaitS.
+    await sleep(Math.min(pollS * 1000, remainingMs));
   }
 }
 
