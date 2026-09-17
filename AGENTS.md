@@ -105,7 +105,7 @@ Five sections stay here in full because a committed test or script reads their e
 `## Bare PR publication is not readiness work`, the format-before-push rule,
 `# Search chrome behaviour`, `## Anti-conflict and CI-speed operating procedure`, and
 `## Codex Cloud environment`. Their wording is code, not prose — moving or rewording it fails
-`verify:cheap`.
+`verify:full` (and CI).
 
 <!-- BEGIN:dependency-shortcut -->
 
@@ -340,11 +340,14 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
   whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
   of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
-- **PR gate.** PRs touching those surfaces fail `pr-policy` without an explicit `RAG impact:`
-  line in the body — either `RAG impact: no retrieval behaviour change — <reason>` or
-  `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The source-pin contract
-  test (`tests/rag-imputation-contract.test.ts`) additionally goes red on any edit to the
-  imputation formulas or release-comparator key order.
+- **PR nudge (advisory since 2026-09-17).** PRs touching those surfaces get a `pr-policy`
+  **warning** — not a block — when the body has no explicit `RAG impact:` line. Still write one,
+  because it is the fastest way to tell a reviewer whether ordering moved: either
+  `RAG impact: no retrieval behaviour change — <reason>` or
+  `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The real safeguards are
+  unchanged and both still fail closed: the live eval-canary below, and the source-pin contract
+  test (`tests/rag-imputation-contract.test.ts`), which goes red on any edit to the imputation
+  formulas or release-comparator key order.
 - **Canary for behaviour.** Any retrieval/ranking/ordering behaviour change requires a live
   eval-canary before/after pair (doc/content recall pinned 1.0, zero per-case rr regressions)
   before it is trusted; regression → immediate single-commit revert + confirmation run.

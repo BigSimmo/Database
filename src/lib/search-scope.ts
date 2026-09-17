@@ -253,7 +253,33 @@ export async function resolveSearchScope(args: {
   const explicitIds = unique(args.documentIds ?? []);
   const activeFilterCount = activeScopeFilterCount(filters);
   const warnings: string[] = [];
-  const publicOnly = !args.accessScope.ownerId;
+  /**
+   * `publicOnly` means "resolve the public corpus", which needs BOTH halves of the scope: no
+   * owner, AND permission to include public rows. Deriving it from `!ownerId` alone made
+   * `{ includePublic: false }` with no owner -- the shape `retrievalAccessScopeKey` calls
+   * "empty" in src/lib/owner-scope.ts -- resolve the entire public corpus, the opposite of what
+   * it asks for. `retrievalAccessScopeMatchesOwner` in that same module already reads the flag
+   * (a null row owner matches only when `includePublic`), so the two disagreed.
+   *
+   * Latent rather than live when found on 2026-09-17: `resolveRetrievalAccessScope` always sets
+   * `includePublic: true`, so nothing constructs the empty shape today. Fixed anyway, because the
+   * branch chain below has no final `else` -- an empty scope that merely stopped being
+   * `publicOnly` would fall through with NO owner predicate at all and return every tenant's
+   * documents, which is worse than the bug. So the empty scope is refused explicitly, here,
+   * and fails closed.
+   */
+  const publicOnly = !args.accessScope.ownerId && args.accessScope.includePublic;
+
+  if (!args.accessScope.ownerId && !args.accessScope.includePublic) {
+    return {
+      documentIds: [],
+      filters,
+      activeFilterCount,
+      matchedDocumentCount: 0,
+      warnings,
+      summary: "No matching documents",
+    };
+  }
 
   if (activeFilterCount === 0 && publicOnly && explicitIds.length === 0) {
     return {
@@ -292,6 +318,27 @@ export async function resolveSearchScope(args: {
       // skipped or duplicated across pages and the resolved scope is incomplete.
       .order("id", { ascending: true })
       .range(offset, Math.min(offset + documentScopeQueryPageSize - 1, maxResolvedDocuments - 1));
+    /**
+     * A null owner is taken as public here WITHOUT also testing the `public_corpus` publication
+     * marker, unlike `withOwnerReadScope` in src/lib/public-api-access.ts, which requires both.
+     * That asymmetry is deliberate and is safe only because of two facts together -- if you are
+     * changing either, this predicate has to change with it:
+     *
+     *   1. `documents_ownerless_requires_publication_marker` (supabase/schema.sql) forbids the
+     *      row this predicate would otherwise admit: every ownerless row must carry
+     *      `metadata->'public_corpus' = 'true'` or sit in `status = 'failed'` quarantine. It was
+     *      added NOT VALID and then validated (migrations 20260902110500 / 110000 / 111500), so
+     *      it holds over the existing population, not just new writes.
+     *   2. The `.eq("status", "indexed")` filter above excludes the quarantine arm.
+     *
+     * So `{owner_id IS NULL} ∩ {status = 'indexed'}` is exactly `{owner_id IS NULL ∧
+     * public_corpus}`. The predicates differ in text and agree in force.
+     *
+     * The migration that added the constraint records why it went to the write side rather than
+     * into the retrieval predicates: `retrieval_owner_matches` receives two uuids and never sees
+     * document metadata, and doing it at the twelve retrieval call sites would have put every
+     * retrieval path in the blast radius. Ledger `#ZBAC9D`.
+     */
     if (args.accessScope.ownerId && args.accessScope.includePublic) {
       documentQuery = documentQuery.or(`owner_id.eq.${args.accessScope.ownerId},owner_id.is.null`);
     } else if (args.accessScope.ownerId) {

@@ -231,12 +231,14 @@ describe("calculator governance hardening", () => {
     );
   });
 
-  it("wires the calculator governance checker into verify:cheap", () => {
+  it("wires the calculator governance checker into verify:full", () => {
     const packageJson = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, "package.json"), "utf8")) as {
       scripts?: Record<string, string>;
     };
     expect(packageJson.scripts?.["check:calculator-content"]).toBe("node scripts/check-calculator-content.mjs");
-    expect(packageJson.scripts?.["verify:cheap:internal"]).toContain("npm run check:calculator-content");
+    // Moved from `verify:cheap:internal` by the 2026-09-17 gate split; the static chain
+    // (and its CI mirror, which check:gate-manifest still enforces) is `verify:full:internal`.
+    expect(packageJson.scripts?.["verify:full:internal"]).toContain("npm run check:calculator-content");
   });
 
   it("fails the standalone governance checker on malformed fixture data, not just wiring", () => {

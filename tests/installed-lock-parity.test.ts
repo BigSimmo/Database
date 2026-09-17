@@ -177,7 +177,11 @@ describe("installedLockParity", () => {
     };
     const ci = readFileSync(path.resolve(".github/workflows/ci.yml"), "utf8");
 
-    for (const scriptName of ["verify:cheap:internal", "verify:ui", "verify:release"]) {
+    // Both local chains carry the parity step since the 2026-09-17 split. `verify:cheap`
+    // keeps it deliberately: it is sub-second, and without it the fast gate would run
+    // lint/typecheck/test against a stale node_modules and report green — the one failure
+    // mode that makes every downstream result a lie.
+    for (const scriptName of ["verify:cheap:internal", "verify:full:internal", "verify:ui", "verify:release"]) {
       const script = packageJson.scripts[scriptName];
       const parityIndex = script.indexOf("check:installed-lock-parity");
       const firstTestIndex = Math.min(
