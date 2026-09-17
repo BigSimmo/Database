@@ -6,9 +6,14 @@ on:
     types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
   merge_group:
 
+# Runs for one PR queue instead of cancelling each other. The `Owner approval` status is
+# last-write-wins, so a cancelled run's in-flight write could otherwise land after a newer
+# run's verdict (a stale pending over an approval, or a stale success over a new hold).
+# Serialized, the newest run always writes last; GitHub keeps one queued run per group and
+# drops older queued ones, and every run re-reads the PR, so no event is lost.
 concurrency:
   group: pr-policy-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 # pull-requests: write exists for ONE call: removing the `owner-approved` label when new
 # commits land. statuses: write exists for ONE context: the `Owner approval` commit status
@@ -27,6 +32,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      # No `Owner approval` status is posted for merge_group. This repository has no merge
+      # queue; if one is ever enabled while the ruleset requires `Owner approval`, every queued
+      # PR waits on "Expected" (fail closed) until a merge_group status path is added here.
       - name: Accept merge queue validation
         if: github.event_name == 'merge_group'
         run: echo "PR metadata was validated before merge-queue entry."
@@ -335,11 +343,30 @@ jobs:
             // head is still the PR head; if a push landed meanwhile, that push's own run owns
             // the verdict and this head keeps the pending status set above. pending is always
             // safe to post.
-            const approvalStatus = ownerApprovalCommitStatus({
+            //
+            // A status belongs to the commit, not the PR. When the same commit heads another
+            // open PR (e.g. one against main and one against release/**), one PR's success
+            // would clear the other's hold, so success requires that no other open PR shares
+            // this head. The list is read again after a success is written, so a PR opened in
+            // between still turns it back to pending; the other PR's own run also writes pending.
+            const listOtherOpenPrsSharingHead = async () =>
+              (await github.paginate(github.rest.pulls.list, { ...repo, state: "open", per_page: 100 }))
+                .filter((other) => other.head?.sha === latestPr.head.sha && other.number !== latestPr.number)
+                .map((other) => other.number);
+            const statusInputs = {
               ownerMergeReasons: result.ownerMergeReasons,
               ownerApproved: result.ownerApproved,
               rejectedReason: ownerApproval.rejectedReason,
-            });
+            };
+            let otherPrsSharingHead;
+            try {
+              otherPrsSharingHead = await listOtherOpenPrsSharingHead();
+            } catch (error) {
+              core.warning(
+                `Unable to list open PRs sharing head ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. ${OWNER_APPROVAL_CONTEXT} stays pending.`,
+              );
+            }
+            let approvalStatus = ownerApprovalCommitStatus({ ...statusInputs, otherPrsSharingHead });
             try {
               let headStillCurrent = true;
               if (approvalStatus.state === "success") {
@@ -348,6 +375,22 @@ jobs:
               }
               if (headStillCurrent) {
                 await setOwnerApprovalStatus(latestPr.head.sha, approvalStatus);
+                if (approvalStatus.state === "success") {
+                  let sharedAfterWrite;
+                  try {
+                    sharedAfterWrite = await listOtherOpenPrsSharingHead();
+                  } catch {
+                    sharedAfterWrite = undefined;
+                  }
+                  const recheckedStatus = ownerApprovalCommitStatus({
+                    ...statusInputs,
+                    otherPrsSharingHead: sharedAfterWrite,
+                  });
+                  if (recheckedStatus.state !== "success") {
+                    approvalStatus = recheckedStatus;
+                    await setOwnerApprovalStatus(latestPr.head.sha, recheckedStatus);
+                  }
+                }
               } else {
                 core.notice(
                   `The PR head moved past ${latestPr.head.sha} during this run; its ${OWNER_APPROVAL_CONTEXT} status stays pending and the new head's run decides.`,
@@ -355,7 +398,12 @@ jobs:
               }
             } catch (error) {
               core.setFailed(
-                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. It stays pending; rerun the job.`,
+                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Rerun the job.`,
+              );
+            }
+            if (!Array.isArray(otherPrsSharingHead)) {
+              core.setFailed(
+                `Could not confirm that no other open PR shares head ${latestPr.head.sha}, so ${OWNER_APPROVAL_CONTEXT} was left pending. Rerun the job.`,
               );
             }
 

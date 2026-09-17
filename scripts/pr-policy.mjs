@@ -766,12 +766,30 @@ function commitStatusDescription(text) {
  * ever produced: `pending` blocks a required context and shows yellow; `success` is the only
  * state that satisfies it. Anything unrecognised fails closed to `pending`.
  */
-export function ownerApprovalCommitStatus({
-  draft = false,
-  ownerMergeReasons: reasons,
-  ownerApproved,
-  rejectedReason,
-}) {
+export function ownerApprovalCommitStatus({ otherPrsSharingHead, ...verdictInputs }) {
+  const verdict = ownerApprovalVerdict(verdictInputs);
+  if (verdict.state !== "success") return verdict;
+  // A commit status belongs to the commit, and every PR whose head is this commit shares it,
+  // so one PR's verdict may never clear it while another open PR shares the head (that PR
+  // may be held). An unknown list fails closed.
+  if (!Array.isArray(otherPrsSharingHead)) {
+    return {
+      state: "pending",
+      description: commitStatusDescription("Could not confirm no other open PR shares this commit; rerun PR policy."),
+    };
+  }
+  if (otherPrsSharingHead.length > 0) {
+    return {
+      state: "pending",
+      description: commitStatusDescription(
+        `This commit also heads open PR ${otherPrsSharingHead.map((number) => `#${number}`).join(", ")}; Josh approves before it merges.`,
+      ),
+    };
+  }
+  return verdict;
+}
+
+function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, ownerApproved, rejectedReason }) {
   if (draft) {
     return {
       state: "pending",
@@ -2272,11 +2290,33 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "pending",
     "draft never reports success, even when approved",
   );
-  assert.equal(status({ ownerMergeReasons: [], ownerApproved: false }).state, "success", "no hold → success");
+  assert.equal(
+    status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [] }).state,
+    "success",
+    "no hold → success",
+  );
   const waiting = status({ ownerMergeReasons: ["database", "clinical"], ownerApproved: false });
   assert.equal(waiting.state, "pending", "hold without approval → pending (yellow), not failure");
   assert.match(waiting.description, /Waiting for Josh.*\(database, clinical\)/);
-  assert.equal(status({ ownerMergeReasons: ["clinical"], ownerApproved: true }).state, "success", "approved → success");
+  assert.equal(
+    status({ ownerMergeReasons: ["clinical"], ownerApproved: true, otherPrsSharingHead: [] }).state,
+    "success",
+    "approved → success",
+  );
+  // One commit heading two open PRs: neither PR's verdict may clear the shared status.
+  const shared = status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [2843] });
+  assert.equal(shared.state, "pending", "a head shared with another open PR never reports success");
+  assert.match(shared.description, /#2843/);
+  assert.equal(
+    status({ ownerMergeReasons: ["clinical"], ownerApproved: true, otherPrsSharingHead: [7, 9] }).state,
+    "pending",
+    "even an approved PR cannot clear a head another open PR shares",
+  );
+  assert.equal(
+    status({ ownerMergeReasons: [], ownerApproved: false }).state,
+    "pending",
+    "an unknown sharing list fails closed to pending",
+  );
   assert.equal(
     status({ ownerMergeReasons: ["clinical"], ownerApproved: "true" }).state,
     "pending",
@@ -2311,6 +2351,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     ownerApprovalCommitStatus({
       ownerMergeReasons: approvedPr.ownerMergeReasons,
       ownerApproved: approvedPr.ownerApproved,
+      otherPrsSharingHead: [],
     }).state,
     "success",
   );

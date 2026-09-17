@@ -304,7 +304,9 @@ broken PR, so the hold is moving from a red `PR policy` failure to its own yello
 while his approval is outstanding or the PR is a draft, and `success` when the PR needs no owner
 merge or he has approved that head. A required context blocks merge until it is `success`, and
 statuses are per commit, so a new push is unreported (also blocking) until its own run decides.
-`neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
+A status belongs to the commit, so when one commit heads several open PRs it stays `pending`
+until only one remains. Runs for one PR queue rather than cancel, so an older run's write cannot
+land after a newer verdict. `neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
 preflight, `RAG impact:`, migration history, the forgery tripwire below) stay red in `PR policy`.
 
 **Order matters.** If `PR policy` stopped failing on held PRs before the ruleset required
@@ -316,7 +318,10 @@ preflight, `RAG impact:`, migration history, the forgery tripwire below) stay re
    checks → add context **`Owner approval`** with source **GitHub Actions (integration 15368)**, keeping `Gitleaks`, `PR required` and `PR policy`. Before adding it, confirm open
    ordinary PRs already carry a green `Owner approval` (each gets one on its next push, edit,
    label change or ready-for-review; re-running an old run does not, because a re-run uses the
-   workflow revision it started with) — otherwise they show "Expected" and wait.
+   workflow revision it started with) — otherwise they show "Expected" and wait. `PR policy`
+   posts no `Owner approval` for `merge_group` events: this repository has no merge queue, but
+   if one is ever enabled, add a `merge_group` status path to `pr-policy.yml` **before** (or
+   together with) requiring `Owner approval`, or every queued PR waits on "Expected".
 3. **Step 2 (a second, small PR, merged only once the ruleset change is visibly live).** In
    `evaluatePullRequestPolicy`, stop pushing the `Owner merge required (…)` error when the
    workflow reports the hold through the status, and update the self-test

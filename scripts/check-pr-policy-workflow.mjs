@@ -251,6 +251,15 @@ function assertOwnerMergeControls(step) {
 }
 
 function assertOwnerApprovalStatusControls(step) {
+  // Status writes are last-write-wins, so runs for one PR must serialize: a cancelled run's
+  // in-flight write could otherwise land after a newer run's verdict.
+  const concurrency = yamlBlock(workflow, "concurrency:", 0);
+  if (!/^\s+cancel-in-progress:\s*false\s*$/m.test(concurrency) || /cancel-in-progress:\s*true/.test(concurrency)) {
+    failures.push(
+      "pr-policy.yml concurrency must set cancel-in-progress: false so Owner approval status writers cannot interleave.",
+    );
+  }
+
   // statuses: write is safe here only because this workflow never runs branch code. A
   // pull_request / push / workflow_dispatch trigger would run the branch's own copy of this
   // file with that token, which is exactly how a required status gets forged.
@@ -309,7 +318,9 @@ function assertOwnerApprovalStatusControls(step) {
     );
   }
 
-  const finalIndex = step.indexOf("const approvalStatus = ownerApprovalCommitStatus({");
+  const finalIndex = step.indexOf(
+    "let approvalStatus = ownerApprovalCommitStatus({ ...statusInputs, otherPrsSharingHead });",
+  );
   if (
     finalIndex < 0 ||
     finalIndex < indexOfOrInfinity(step, "evaluatePullRequestPolicy({") ||
@@ -328,6 +339,26 @@ function assertOwnerApprovalStatusControls(step) {
   ) {
     failures.push(
       "PR policy validation must re-read the PR and post an Owner approval success only while latestPr.head.sha is still the head.",
+    );
+  }
+
+  // A status belongs to the commit: success needs the list of OTHER open PRs sharing this
+  // head (read from open PRs filtered by head sha), and that list is read again after a
+  // success is written so a PR opened in between turns it back to pending.
+  if (
+    !/github\.paginate\(github\.rest\.pulls\.list,\s*\{\s*\.\.\.repo,\s*state:\s*"open"/.test(step) ||
+    !/other\.head\?\.sha === latestPr\.head\.sha && other\.number !== latestPr\.number/.test(step) ||
+    !/ownerApprovalCommitStatus\(\{\s*\.\.\.statusInputs,\s*otherPrsSharingHead\s*\}\)/.test(step)
+  ) {
+    failures.push(
+      "PR policy validation must build the Owner approval status with otherPrsSharingHead, from open PRs whose head is latestPr.head.sha.",
+    );
+  }
+  const successWrite = step.indexOf("await setOwnerApprovalStatus(latestPr.head.sha, approvalStatus);");
+  const recheck = step.indexOf("sharedAfterWrite = await listOtherOpenPrsSharingHead();");
+  if (successWrite < 0 || recheck < successWrite) {
+    failures.push(
+      "PR policy validation must re-list open PRs sharing the head after writing an Owner approval success, and re-post pending if one appeared.",
     );
   }
 
