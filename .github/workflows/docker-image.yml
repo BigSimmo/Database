@@ -79,6 +79,11 @@ jobs:
       - name: Run worker runtime validation (provider-free, network-isolated)
         run: docker run --rm --network=none --entrypoint node clinical-kb-worker:ci dist/worker/validate-runtime.mjs
 
+      - name: Verify deploy migration gate self-test in both images (provider-free, network-isolated)
+        run: |
+          docker run --rm --network=none --entrypoint node clinical-kb-app:ci scripts/deploy/await-migrations.mjs --self-test
+          docker run --rm --network=none --entrypoint node clinical-kb-worker:ci scripts/deploy/await-migrations.mjs --self-test
+
       - name: Read-only runtime check (advisory)
         run: |
           docker run --rm --read-only --cap-drop=ALL --security-opt no-new-privileges:true \
@@ -130,9 +135,9 @@ jobs:
         # until now a HIGH/CRITICAL finding reached only this run's log. Pull
         # request runs stay advisory (a base-image CVE is not the PR author's
         # change), but the weekly schedule, main pushes and manual dispatches
-        # now fail on any HIGH/CRITICAL so notify-ci-failure.yml — which already
-        # watches "Docker image build" — delivers it to chat. A scanner that
-        # could not run (disk pressure, docker save) is still only a warning.
+        # now fail on any HIGH/CRITICAL so the run shows red in the Actions tab.
+        # A scanner that could not run (disk pressure, docker save) is still
+        # only a warning.
         if: always()
         run: |
           set -euo pipefail

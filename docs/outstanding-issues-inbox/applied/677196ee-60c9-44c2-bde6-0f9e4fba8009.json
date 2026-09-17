@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "677196ee-60c9-44c2-bde6-0f9e4fba8009",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "Live browser-side latency (LCP, hydration, long tasks) has never been measured from a real client",
+    "detail": "GAP, not a defect. The 2026-09-17 latency review measured server timing, payload sizes and offline CPU, but produced NO browser-side numbers: an attempt to drive Chromium at live psychiatry.tools from the cloud session failed because the session proxy re-terminates TLS and Chromium had no NSS store for its CA, and pinning the CA was correctly refused as TLS weakening. So the repo's own docs/performance.md targets (CLS < 0.05, LCP < 2.5 s, INP < 200 ms) are currently unverified against production, and the heaviest pages (/sources/search at 3.2 MB, /differentials/diagnoses at 1.35 MB) have no measured hydration or long-task cost. THIS MATTERS MOST for judging whether the catalogue-payload work is worth doing: without it, any pagination decision is being made on payload size alone. NEXT ACTION: run the measurement from a machine with direct network access (a local Playwright run against https://psychiatry.tools, or the existing Web-Vitals workflow), capturing LCP, CLS, INP, long-task time and transfer per route for at least /, /documents/search, /sources/search and /differentials/diagnoses. STOP: ledger #017 closed with 'do not re-dispatch live Web-Vitals just to re-measure CLS' - this is a payload-driven LCP/hydration question, not that CLS re-measurement, so keep the scope to the heavy pages.",
+    "source": "Live latency review session 2026-09-17",
+    "issueUlid": "01M2Q19WBXB2DC4FFV227AKBJD"
+  }
+}

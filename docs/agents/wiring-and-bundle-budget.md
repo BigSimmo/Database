@@ -37,12 +37,10 @@ action must perform one; a page that ships must be reachable.
   `local/require-lucide-icon-aria` (`eslint.config.mjs`), from `check:icon-scale` and
   `check:design-system-contract`, and from the required Playwright lane (mockup specs carry
   `@mockup` and the `chromium` project sets `grepInvert`; `chromium-mockups` is advisory).
-  Two exemptions people assume and that do NOT exist, both verified by glob semantics on
-  2026-09-02: **CodeRabbit reviews mockup source normally** — `.coderabbit.yaml`'s `!mockups/**`
-  is root-anchored and excludes only the repo-root `mockups/` notes directory, not
-  `src/app/mockups/**` or `*-mockups.tsx`; and **`knip` is not blind to this surface** —
-  `knip.json` ignores files whose _basename_ contains `mockup`, so `*-mockups.tsx` is exempt but
-  the `src/app/mockups/<slug>/page.tsx` routes and the `*/mockups/**` subtrees are not.
+  One exemption people assume and that does NOT exist, verified by glob semantics on 2026-09-02:
+  **`knip` is not blind to this surface** — `knip.json` ignores files whose _basename_ contains
+  `mockup`, so `*-mockups.tsx` is exempt but the `src/app/mockups/<slug>/page.tsx` routes and the
+  `*/mockups/**` subtrees are not.
   (`check:knip` does run `--include dependencies,unlisted,unresolved,duplicates`, omitting
   unused-file and unused-export analysis — but that is repo-wide, not a mockup carve-out.)
   Note too that the three exemption globs disagree with each other, so `care-plan/mockups/**`,

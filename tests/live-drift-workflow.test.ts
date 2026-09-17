@@ -188,11 +188,28 @@ function workflowJobPermissionMaps(source: string) {
 }
 
 describe("live-drift workflow triggers and privileges", () => {
-  it("runs both drift diagnostics once and keeps migration history visible after a drift failure", () => {
-    expect(workflow.match(/npm run check:drift/g)).toHaveLength(1);
-    expect(workflow.match(/npm run check:migration-history/g)).toHaveLength(1);
-    expect(workflow.indexOf("npm run check:drift")).toBeLessThan(workflow.indexOf("npm run check:migration-history"));
-    expect(workflow).toMatch(/- name: Align migration history for Supabase Preview\n\s+if: \$\{\{ !cancelled\(\) \}\}/);
+  /**
+   * Reordered 2026-09-16: a push-triggered run starts within seconds of the
+   * merge, while the Supabase GitHub integration is still applying it
+   * (~34 s). Sampling check:drift first raced that apply and produced false
+   * drift on 3 of 4 runs sampled that day. check:migration-history now runs
+   * FIRST, in a ten-minute wait-until-applied mode (`--max-wait-ms 600000`),
+   * so check:drift only samples the schema once nothing is pending — or the
+   * bounded wait has been exhausted, which still fails the job as before.
+   * check:drift keeps `if: !cancelled()` (moved from migration-history) so a
+   * migration-history failure still leaves drift's own evidence captured,
+   * matching the previous "the other check's output survives either
+   * failure" guarantee, just mirrored by the reordering.
+   */
+  it("runs migration-history first in a bounded wait-until-applied mode, then drift once, keeping drift visible after a migration-history failure", () => {
+    expect(workflow.match(/npm run check:drift\b/g)).toHaveLength(1);
+    expect(workflow.match(/npm run check:migration-history\b/g)).toHaveLength(1);
+    expect(workflow.indexOf("npm run check:migration-history")).toBeLessThan(workflow.indexOf("npm run check:drift"));
+    expect(workflow).toContain("npm run check:migration-history -- --max-wait-ms 600000");
+    expect(workflow).toMatch(/- name: Compare live schema drift\n\s+id: drift\n\s+if: \$\{\{ !cancelled\(\) \}\}/);
+    expect(workflow).not.toMatch(
+      /- name: Align migration history for Supabase Preview\n\s+if: \$\{\{ !cancelled\(\) \}\}/,
+    );
   });
 
   it("keeps the weekly schedule and manual dispatch", () => {

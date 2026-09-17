@@ -1,6 +1,7 @@
-import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvConfig } from "@next/env";
+
+import { listLocalMigrationVersions } from "./deploy/migration-versions.mjs";
 
 loadEnvConfig(process.cwd());
 
@@ -29,6 +30,22 @@ loadEnvConfig(process.cwd());
  * versions are re-read a bounded number of times before the run fails, and
  * `--allow-pending` remains available for a deliberate pre-apply check.
  *
+ * WHY `--max-wait-ms` EXISTS: the default settle budget above (~90 s) is sized
+ * for THIS check's own pass/fail verdict, not for gating a sibling check. On
+ * 2026-09-16, `.github/workflows/live-drift.yml` ran `check:drift` first and
+ * this alignment check second; `check:drift` sampled the live schema ~40-55 s
+ * after the merge while the Supabase integration was still applying it (three
+ * of four sampled runs that day), producing false drift findings (a
+ * constraint read as null mid drop/re-add, a function hash before its
+ * migration applied). The fix reorders the workflow so this check runs FIRST,
+ * in a longer-budget wait-until-applied mode, and `check:drift` only runs once
+ * this check has confirmed nothing is pending (or the bounded wait has been
+ * exhausted). `--max-wait-ms <milliseconds>` overrides the attempt count so the
+ * total settle window covers that budget instead of the ~90 s default — the
+ * live-drift workflow passes ten minutes. This still fails exactly as before
+ * when the wait is exhausted with real local-only versions remaining; it only
+ * widens the window before giving up.
+ *
  * TRANSPORT: the history table lives in the `supabase_migrations` schema, which
  * this project does not expose to the Data API — a direct PostgREST read returns
  * 406 PGRST106, so the original Accept-Profile read could never succeed here. It
@@ -54,8 +71,33 @@ export const PENDING_SETTLE_ATTEMPTS = 4;
 /** Wait between those reads; 4 attempts covers ~90 s against a ~34 s apply. */
 export const PENDING_SETTLE_MS = 30_000;
 
-export function parseAlignmentOptions(argv: string[]): { allowPending: boolean } {
-  return { allowPending: argv.includes("--allow-pending") };
+/**
+ * How many settle attempts (initial read plus retries) cover a total wait
+ * budget of `budgetMs`, polling every `waitMs`. Pure so the "wait until
+ * applied" arithmetic is unit-tested without a clock: `resolveAlignment`
+ * sleeps `waitMs` between each of `(attempts - 1)` retries after the initial
+ * read, so total wait time is `(attempts - 1) * waitMs`.
+ *
+ * Always at least 1 (the initial read never waits). Rounds the retry count
+ * down so the actual wait never exceeds the requested budget.
+ */
+export function attemptsForBudget(budgetMs: number, waitMs: number): number {
+  if (!Number.isFinite(budgetMs) || budgetMs <= 0 || !Number.isFinite(waitMs) || waitMs <= 0) return 1;
+  return Math.floor(budgetMs / waitMs) + 1;
+}
+
+export function parseAlignmentOptions(argv: string[]): { allowPending: boolean; maxWaitMs?: number } {
+  const allowPending = argv.includes("--allow-pending");
+
+  const flagIndex = argv.indexOf("--max-wait-ms");
+  if (flagIndex < 0) return { allowPending };
+
+  const raw = argv[flagIndex + 1];
+  const maxWaitMs = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(maxWaitMs) || maxWaitMs <= 0) {
+    throw new Error("--max-wait-ms requires a positive number of milliseconds");
+  }
+  return { allowPending, maxWaitMs };
 }
 
 export function diffMigrationHistory(local: Iterable<string>, remote: Iterable<string>): AlignmentDiff {
@@ -145,13 +187,7 @@ export async function resolveAlignment(args: {
 }
 
 function localMigrationVersions(migrationsDir: string): string[] {
-  return readdirSync(migrationsDir)
-    .map((name) => {
-      const match = /^(\d{14})_.*\.sql$/.exec(name);
-      return match?.[1] ?? null;
-    })
-    .filter((version): version is string => Boolean(version))
-    .sort();
+  return listLocalMigrationVersions(migrationsDir);
 }
 
 function authHeaders(serviceKey: string): Record<string, string> {
@@ -238,15 +274,21 @@ async function main() {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required");
   }
 
-  const { allowPending } = parseAlignmentOptions(process.argv.slice(2));
+  const { allowPending, maxWaitMs } = parseAlignmentOptions(process.argv.slice(2));
   const migrationsDir = join(process.cwd(), "supabase/migrations");
   const localVersions = localMigrationVersions(migrationsDir);
   console.log(`Local migration versions: ${localVersions.length}`);
+  if (maxWaitMs !== undefined) {
+    console.log(
+      `Wait-until-applied mode: up to ${Math.round(maxWaitMs / 1000)}s before treating pending as unapplied.`,
+    );
+  }
 
   const { diff, read } = await resolveAlignment({
     localVersions,
     readRemote: () => fetchRemoteVersions(url, serviceKey),
     allowPending,
+    attempts: maxWaitMs !== undefined ? attemptsForBudget(maxWaitMs, PENDING_SETTLE_MS) : undefined,
   });
 
   console.log(`Remote migration versions: ${read.rows.length} (read via ${read.source})`);

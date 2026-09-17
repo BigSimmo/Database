@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fa0bac56-73c0-4f05-9857-0a6dc861e594",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A catalogue search can silently serve the in-bundle list: /api/differentials returns degraded but no UI surfaces it",
+    "detail": "CREATED BY PR #2849 (merged 2026-09-17) AND VERIFIED, not speculative. That PR gave /api/differentials the readCatalogueWithSeedFallback wrapper the other registry routes received on 2026-09-16, which was the right fix: the route previously threw unhandled 500s (640+ Sentry events over 11 days, stack trace app/api/differentials/route.js) where Forms and Medications degraded gracefully. The route now returns degraded: true in its payload when the canonical read cannot answer inside the 6s list budget. BUT NOTHING RENDERS IT. grep for 'degraded' across src/components/clinical-dashboard/differentials-home.tsx and use-differential-catalog.ts returns nothing; the only UI consumers of a 'degraded' concept are the answer-path components (answer-card.tsx, retrieval-state-banner.tsx, answer-state.ts), which are a different surface. So a clinician can be shown the in-bundle differential catalogue with no visible indication that it may lag what has been published. WHAT IS AND IS NOT AT RISK, checked before relying on the fallback: seeds CANNOT re-expose withheld clinical content. loadDifferentialSnapshot applies withholdGeneratedBody to every diagnosis at src/lib/differential-fixtures.ts:32, described in its own comment as the only door, and differentialRecords is catalog().diagnoses built on top of that, so seeds are already withheld and scoped. The exposure is staleness only: seeds lag anything published since the last release. That is bounded by the 30s cooldown and every result still links to a detail page that reads canonically (detail reads are deliberately uncached). This is the same accepted compromise Forms/Medications/Services have carried since 2026-09-16 (see catalogue-seed-fallback.ts header, CLINICAL CAVEAT), now extended to Differentials, so the gap is pre-existing in kind but newly reachable in practice. NEXT: surface degraded in the differentials results header, reusing the existing SourceStatusBanner pattern in differentials-home.tsx:837-903 rather than inventing a second banner. Consider doing the same for the registry list surfaces, which have the same silent gap. SEQUENCING: best done AFTER the catalogue-read migration lands, because until then the fallback fires often and a permanently-visible warning trains readers to ignore it. Design-system rules apply (docs/design-system/README.md); tap targets min-h-12.",
+    "source": "PR #2849 review, session 01XGpedMgoXWK3U3fn2TWTzR, 2026-09-17; grep verification that no differentials UI consumes the flag.",
+    "issueUlid": "01M2QPA3V73PW9TYWV3Y4TE57S"
+  }
+}

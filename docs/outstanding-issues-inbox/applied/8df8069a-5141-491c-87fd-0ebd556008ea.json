@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8df8069a-5141-491c-87fd-0ebd556008ea",
+  "createdOn": "2026-09-17",
+  "action": "cancel",
+  "payload": {
+    "requestId": "28c4e9fc-ea7d-4477-8f4c-74a63e53ec42",
+    "reason": "Superseded: the detail said the contaminated text remains reachable by retrieval, which stopped being true once the withhold moved into scopeDifferentialRecord and the corpus projection on this branch. Re-queued with accurate residual risk."
+  }
+}

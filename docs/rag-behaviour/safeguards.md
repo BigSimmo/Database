@@ -20,6 +20,28 @@ Code and ground truth whose edits change (or re-measure) retrieval/ranking behav
   touching a score. Added 2026-09-07 (PR #2711 declared its RAG impact voluntarily because the
   gate did not yet ask). Note this is authority _classification_, not a governance ranking
   penalty or boost — the latter stays refuted, see `refuted-approaches.md` § Refutation 3.
+- `src/lib/chunking.ts`, `src/lib/extractors/**`, `worker/python/extract_pdf_assets.py` — one
+  step further back again: ingestion decides the TEXT that becomes chunks, embeddings and cited
+  evidence, so changing it changes what retrieval can return and what an answer can be grounded
+  in. Until 2026-09-16 none of these matched a pattern here, `src/lib/chunking.ts` classified as
+  neither ragRanking nor clinicalRisk, and the `AGENTS.md` "Flag it" list did not name any of
+  them either — so nothing asked, early or late. Added after PR #2810 changed PDF table
+  extraction — a table read across its columns instead of down them had bound a clozapine
+  withhold threshold to the wrong words — and had to declare its RAG impact voluntarily because
+  the gate did not ask. Note the canary pair for an ingestion change belongs around the
+  RE-INDEX, not around the merge: the new code cannot alter any retrieval result until documents
+  are re-ingested.
+- `src/lib/document-index-units.ts`, `src/lib/model-index-extraction.ts`, `src/lib/deep-memory.ts`
+  — the second producer of retrieval inputs, and not reached by `src/lib/rag/**` because all three
+  sit one directory up. `searchIndexUnitCandidates` (`rag-candidate-sources.ts`) queries
+  `match_document_index_units_hybrid_v2` unconditionally in the candidate fan-out, so the index
+  units these modules build and embed — tables, workflows, algorithms, aliases, typed signals —
+  decide which chunks that branch can surface at all. `deep-memory.ts` is stronger still: it
+  exports `applyMemoryCardBoosts`, which rescores `SearchResult[]` in that same path, making it a
+  ranking surface outright rather than only an input to one. Added 2026-09-16 after Codex review
+  on PR #2832 pointed out that gating raw chunk extraction alone left the structured-evidence
+  producers open. The re-index note above applies here too: index units change only when
+  documents are re-ingested.
 - `scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`,
   `scripts/lib/ranking-tuning.ts`, `scripts/lib/ranking-snapshot-builder.ts`,
   `scripts/build-ranking-snapshot.ts`, `scripts/tune-search-weights.ts`

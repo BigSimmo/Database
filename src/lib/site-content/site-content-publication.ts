@@ -2,6 +2,8 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
+import { curatedEntryFor } from "@/lib/differential-curated";
+import { withholdGeneratedBody } from "@/lib/differential-detail";
 import {
   rowToDifferentialRecord,
   rowToPresentationWorkflow,
@@ -407,10 +409,21 @@ export function canonicalDynamicSiteContentProjection(
   const expectedKind = kind === "presentation" ? "presentation" : "diagnosis";
   if (typedRow.kind !== expectedKind)
     throw new Error("Differential source kind does not match the publication command.");
+  // Bare `rowToDifferentialRecord` is a bare `row.payload`, so a persisted row
+  // that predates a withhold arrives with its contaminated body intact — the
+  // same hole `differentialRowsToCorpusEntries` had until #2838 closed it.
+  // This is the canonical publication conversion the bootstrap and P03-baseline
+  // scripts build published site content from, so it needs the same withhold
+  // applied at the read boundary; a record with no withhold flag is returned by
+  // identity, so this changes nothing for the other records.
+  function withheldDiagnosisRecord(diagnosisRow: DifferentialRecordRow) {
+    const diagnosisRecord = rowToDifferentialRecord(diagnosisRow);
+    return withholdGeneratedBody(diagnosisRecord, curatedEntryFor(diagnosisRecord.slug));
+  }
   const render =
     kind === "presentation"
       ? ({ kind, value: rowToPresentationWorkflow(typedRow) } as const)
-      : ({ kind, value: rowToDifferentialRecord(typedRow) } as const);
+      : ({ kind, value: withheldDiagnosisRecord(typedRow) } as const);
   const logicalId = recordIdentity(kind, render.kind === "presentation" ? render.value.id : render.value.slug);
   const entry = differentialRecordToCorpusEntry(render.value, expectedKind, {
     ownerId: null,

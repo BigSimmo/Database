@@ -1,40 +1,24 @@
 ---
 name: run-pr
-description: Run the automated open-PR maintenance sweep on bigsimmo/database — fix failing CI on every open PR, address and resolve review threads, merge origin/main into drifted branches, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
+description: Run the automated open-PR maintenance sweep on bigsimmo/database — fix failing CI on every open PR, address and resolve review threads, merge origin/main into branches with a real conflict, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
 ---
 
 # run-pr — open-PR maintenance sweep
 
 One-shot sweep over every open pull request on `bigsimmo/database` (drafts included): fix failing
-required CI checks, address unresolved review threads, merge `origin/main` into behind or
-conflicting branches, push the results, record the ledger, and report per-PR before/after state.
-The policy source is the `## Run PR shortcut` section in `AGENTS.md`; this skill is the canonical
-procedure.
+required CI checks, address unresolved review threads, merge `origin/main` into branches with a
+real conflict (being merely behind is not a reason to sync), push the results, record the ledger,
+and report per-PR before/after state.
+The policy source is [Run PR](../../../docs/agents/pull-request-workflow.md#run-pr) in the shared PR rulebook; this skill is the
+canonical Claude Code procedure and does not restate that policy.
 
 ## Authorization and hard guardrails
 
-Typing `Run PR` is the explicit user confirmation required by the "API and provider confirmation
-boundary" and the `pr-ci-fix` routing rule — but only for: GitHub reads (PRs, checks, logs, review
-threads); ordinary commits pushed to PR feature branches; review-thread replies and resolution;
-re-running failed hosted CI jobs; updating a PR branch from `main`. Nothing else inherits it.
-
-Never, even during a sweep:
-
-- Never merge a pull request into `main` or any protected branch, and never enable auto-merge;
-  the sweep fixes and reports, the user merges. Per-PR auto-merge state is user-owned:
-  automation must not disable or re-enable it.
-- Never close a pull request, delete or rename branches, force-push (no `--force`, no
-  `--force-with-lease`), or rebase.
-- Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`,
-  `verify:release`, `check:supabase-project`, `test:live`, or anything touching live
-  Supabase/OpenAI.
-- Respect the `skip-codex-review` label as a full per-PR opt-out.
-- Preserve unrelated staged, unstaged, and untracked work; never commit secrets.
-- Resolve branch drift with `git merge origin/main` only; skip and report non-trivial conflicts.
-- Never mark a draft ready for review, and never edit PR titles or bodies.
-- Never resolve a review thread without replying to it first.
-- Fork-hosted head branches (head repo is not `bigsimmo/database`): diagnose and reply only —
-  never attempt a push.
+What `Run PR` authorizes, and every guardrail, is in [Run PR](../../../docs/agents/pull-request-workflow.md#run-pr). Read it
+before the sweep. The two that most often go wrong: never merge or arm auto-merge — per-PR
+auto-merge state is user-owned, so automation must not disable or re-enable it, and an armed
+owner-merge PR is reported, not disarmed ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)); and
+never run provider-backed gates.
 
 ## Sweep setup (once per sweep)
 
@@ -54,12 +38,9 @@ Never, even during a sweep:
 
 ## Per-PR algorithm
 
-Before any branch-changing action, inspect `autoMergeRequest`. If it is non-null, ordinary
-fast-forward fixes (CI repairs, review-thread fixes, syncing `main` in) may still proceed — GitHub
-re-validates required checks against the new head before it merges, so an additive push cannot
-slip an unvalidated commit past auto-merge. Never disable or re-enable auto-merge, and never
-force-push or otherwise rewrite the branch's history while it is armed; that alone stays frozen
-until the PR merges or the user manually changes the auto-merge state.
+Before any branch-changing action, inspect `autoMergeRequest` and apply
+[Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority): fast-forward fixes and syncs may proceed while
+armed; force-push or history rewrite may not.
 
 ### Step 0 — skip gates (record every skip with its reason)
 
@@ -75,47 +56,29 @@ until the PR merges or the user manually changes the auto-merge state.
 
 Via `mcp__github__pull_request_read` (`get` + `get_status`): head SHA, mergeable state, failing
 required checks, unresolved-thread count, and behind/ahead relative to `main`. Enumerate the
-unresolved threads immediately and repair clear, scoped findings before waiting for CI. This puts
-the review fix on the first useful head rather than discovering it only after a long green run.
-Reply before resolving; leave ambiguous, product-sensitive, or provider-gated threads open.
+unresolved threads immediately and repair clear, scoped findings before waiting for CI, per
+[Review threads](../../../docs/agents/pull-request-workflow.md#review-threads).
 
-### Step 2 — settle current-head CI, then repair branch drift
+### Step 2 — settle current-head CI, then repair a real conflict
 
-- If the current head has required CI queued or in progress and the PR is only
-  behind-but-clean, let that run settle before mutating the branch. Re-snapshot
-  the head/base afterwards and sync once, late, after review/fix work is
-  assembled. The canonical `sync:pr-branches:apply` helper enforces this guard;
-  do not bypass it with a direct update call merely to make the PR current.
-- Automatic `GITHUB_TOKEN` branch mutation is prohibited because bot-authored heads leave
-  required checks awaiting approval. Do not treat a fresh `DIRTY` state as a product bug until
-  you confirm the tip is still behind or `git merge-tree` reports real conflicts.
-- Behind `main` but cleanly mergeable, with no local checkout otherwise needed → use the current
-  explicitly authenticated user via `mcp__github__update_pull_request_branch` (or
-  `npm run sync:pr-branches:apply`, which refuses bot identities, or
-  `gh api .../update-branch`), then re-fetch.
-- Conflicting (`mergeable_state: dirty`), or the branch is being checked out anyway →
-  classify with `git merge-tree --write-tree origin/main <tip>` first. If clean, merge
-  `origin/main` (or update-branch) and push. If conflicted, `git switch <branch>` after
-  fetch, then `git merge origin/main`. If the merge brings dependency changes or touches
-  `package-lock.json`, run `npm install` before verification.
+Apply [Branch sync](../../../docs/agents/pull-request-workflow.md#branch-sync): never merge `main`
+in merely because a branch is behind — `git merge-tree --write-tree origin/main <tip>` decides
+whether there is a real conflict, and being behind is not one. Tools, only once that check finds a
+real conflict:
+
+- `git switch <branch>` after fetch, then `git merge origin/main`; push with plain `git push`.
+  Mechanical versus non-trivial conflicts, never ours/theirs — per Branch sync.
 - For a sweep likely to need a local repair, prepare one isolated worktree before its first local
   gate using `node scripts/setup-codex-worktree.mjs`. Reuse only its byte-identical complete
   installation; do not compensate for a partial install with ad-hoc dependency links.
-- Mechanically resolvable conflicts (adjacent hunks, import lists, lockfile → regenerate via
-  `npm install`, generated files → re-run their generator, e.g. `sitemap:update`) → resolve, then
-  run the narrowest gate covering the conflicted files.
-- Non-trivial conflicts — anything under `supabase/migrations/`, `supabase/roles.sql`,
-  RLS/SECURITY DEFINER functions, clinical or source-governance content, answer-generation
-  prompts, auth/privacy code, or any semantically ambiguous hunk → `git merge --abort`, skip
-  drift for this PR, and report exactly which files conflicted and why. Never resolve source
-  conflicts by wholesale ours/theirs.
 
 ### Step 3 — CI diagnosis and fix
 
 - From the check runs on the head SHA, list failing jobs that feed the required `pr-required`
-  aggregate: `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`,
-  `db-reset-verify`. Ignore advisory jobs: `ui-advisory` and `release-browser-matrix` (known
-  cancel-in-progress livelock — never chase it).
+  aggregate — read the current list from the `needs:` array of the `pr-required` job in
+  `.github/workflows/ci.yml` rather than assuming a fixed set; it has grown and changed shape
+  over time and a hard-coded list here goes stale. Ignore advisory jobs: `ui-advisory` and
+  `release-browser-matrix` (known cancel-in-progress livelock — never chase it).
 - `mcp__github__actions_list` to find the CI run for the SHA, then `mcp__github__get_job_logs`
   with `failed_only` and a bounded tail to get the exact failing step.
 - Check known flakes first: the `pdf-extraction-budget` python ENOENT is a container-only local
@@ -135,24 +98,16 @@ Reply before resolving; leave ambiguous, product-sensitive, or provider-gated th
 
 ### Step 4 — review threads
 
-- Re-enumerate only after a push, review event, or final audit; otherwise use Step 1's thread
-  snapshot. Work only unresolved threads against the current head.
-- Actionable (P0/P1-grade always; P2 and below only when clear, scoped, low-risk, and testable):
-  fix it, add the smallest test when behavior changed, verify narrowly, push, reply via
-  `mcp__github__add_reply_to_pull_request_comment` with a concise fix summary and the commit SHA,
-  then `mcp__github__resolve_review_thread`.
-- Obsolete (the code was already changed or removed): reply explaining why, then resolve.
-- Ambiguous, needs product or clinical judgment, or would require providers/dependency changes:
-  reply with the blocker or question and leave the thread open.
-- Disagree with the finding: reply with the reasoning and leave the thread open for the human.
-- Reply-then-resolve ordering is mandatory; never resolve silently. Do NOT use the
-  `<!-- codex-thread-disposition:resolved -->` marker — the autofix workflow only honors it from
-  the Codex bot; this session resolves threads directly via the MCP tool.
+Re-enumerate only after a push, review event, or final audit; otherwise use Step 1's snapshot.
+Dispose of each unresolved thread per [Review threads](../../../docs/agents/pull-request-workflow.md#review-threads): reply via
+`mcp__github__add_reply_to_pull_request_comment` (fix summary and commit SHA), then resolve via
+`mcp__github__resolve_review_thread`. This session is not the Codex autofix identity, so it does
+not use the `codex-thread-disposition` marker.
 
 ### Step 5 — bookkeeping
 
-Append the ledger row (format below). Do not babysit the retriggered CI run — record
-"fixes pushed, CI re-running at <run URL>". Optionally offer (do not perform)
+Append the ledger row (format below). Do not wait on the retriggered CI run — record
+"fixes pushed, CI re-running at <run URL>" per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci). Optionally offer (do not perform)
 `subscribe_pr_activity` as a follow-up.
 
 ### Step 6 — hygiene
@@ -188,20 +143,8 @@ npm run ledger:append -- --ref "<branch> (PR #<n>)" --head <post-sweep full 40-c
   --checks "<exact gates run with results; explicit 'no provider-backed checks run'>"
 ```
 
-The HEAD must be the full SHA — `pending pushed head` and 8-character abbreviations are
-unmatchable, so the next sweep re-reviews the same PR. Per-PR records only — no extra sweep-total
-record — so ledger throttling lookups stay per-branch.
-
-Anti-churn rules for this file:
-
-- The historical table is frozen. Never run `ledger:dedupe` or `ledger:rotate` during a
-  sweep; each new review is an immutable record file, so a main sync creates no review-row hunk.
-- On a later sweep of the same PR, pass `--supersede` so you replace the prior Run PR row
-  instead of stacking another "main sync" twin.
-- Never push a tip whose sole delta is a babysit ledger append — that marks every other
-  open PR behind for no product change. If the PR only needed a clean main sync with no
-  CI/thread fix, record the outcome in the final sweep report and fold the ledger row into
-  the next product commit on that branch, or into a bundled docs/ledger PR.
+Record rules (full SHA, `--supersede` on later sweeps, frozen historical table, never push a
+record-only tip) are in [Records](../../../docs/agents/pull-request-workflow.md#records).
 
 ## Final report format
 
@@ -214,15 +157,6 @@ Anti-churn rules for this file:
 
 ## Cost controls
 
-- Ledger skip for unchanged clean HEADs; never re-run a gate that passed on unchanged code.
-- Narrowest gate first; one heavy command at a time across worktrees.
-- Per-PR iteration cap (~3 fix-verify cycles or one full build).
-- Advisory jobs (`ui-advisory`, `release-browser-matrix`) are never chased.
-- Dormant CI observation: wait for a meaningful stage boundary, then take no more than one status
-  snapshot every five minutes for at most 30 minutes per run. If the run is still queued or in
-  progress at that limit, record it as deferred with its run URL and continue the sweep. Do not
-  minute-poll or stream hosted logs.
-- When the GitHub merge queue is enabled, treat its state as read-only during a Run PR sweep. Report
-  active validation capacity and failed or conflicting entries, but do not configure queue
-  concurrency/grouping or add, remove, or re-queue entries without separate explicit user
-  authorization.
+See the cost controls and iteration cap in [Run PR](../../../docs/agents/pull-request-workflow.md#run-pr), dormant CI observation in
+[Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci), and merge-queue handling in
+[Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority).

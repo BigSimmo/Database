@@ -49,14 +49,9 @@ Before any browser run, ask the planner which part of the suite the diff can bre
 It fails closed: shared foundations, an unattributable UI file, or unknown scope
 all escalate to the full suite on their own. You do not have to judge that.
 
-For the static gates the arbiter already answers the same question:
-
-    npm run arbiter -- <gate>         # RUN / DEFER / PROVEN, with its evidence
-
 Reporting rules, which the cost saving depends on:
 - A narrowed run is NOT the full gate. Say "focused browser proof at level <x>,
   full suite left to CI" — never "verify:ui passed".
-- A deferred gate is not a passed gate; say "deferred to CI".
 - Paste the decisive line of real output. Exit 0 alone is not proof.
 
 Unchanged by any of this: GitHub remains the authoritative merge gate and runs

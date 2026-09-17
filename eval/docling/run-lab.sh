@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # run-lab.sh — build the sandbox image and run the Docling lab benchmark in it.
 #
-# Manual/dispatch-only (HANDOVER S6): invoked by the workflow_dispatch-only
-# .github/workflows/docling-lab.yml, or by an operator locally. Never wired into
-# pr-required or any automatic gate.
+# Manual-only (HANDOVER S6): run directly by an operator locally. There is no
+# dedicated CI workflow for it. Never wired into pr-required or any automatic gate.
 #
 # Sandbox contract (README §B3): non-root, no egress (--network=none), read-only
 # root filesystem and repository mount, CPU/memory/pids/tmpfs limits from
