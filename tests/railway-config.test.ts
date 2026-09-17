@@ -164,7 +164,9 @@ describe("Railway config as code", () => {
       for (const [index, pattern] of patterns.entries()) {
         if (!pattern.startsWith("!")) continue;
         const target = pattern.slice(1);
-        expect(patterns.slice(0, index).some((earlier) => watchPatternMatches(earlier, target))).toBe(true);
+        expect(
+          patterns.slice(0, index).some((earlier) => !earlier.startsWith("!") && watchPatternMatches(earlier, target)),
+        ).toBe(true);
       }
     }
   });
