@@ -54,6 +54,13 @@ const clinicalRiskPatterns = [
   // unreviewed content reachability, clinical content policy) so it keeps the
   // full token set.
   /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
+  // Owner ruling 2026-09-17, after a clinical-governance review of the list above: patient
+  // addresses, referral intake and retention live in caring-contacts; the database clients
+  // hold the service-role key; on-call/repository.ts hides personal entries from other users.
+  // None of those names matched the token set, so these changes could merge without review.
+  /^src\/lib\/caring-contacts(?:-server)?\//,
+  /^src\/lib\/supabase\//,
+  /^src\/lib\/on-call\/repository\.ts$/,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
@@ -1234,6 +1241,14 @@ function selfTest() {
   // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
+  // Owner ruling 2026-09-17: patient-address, referral and database-key code is clinical-risk
+  // even though no file name carries a clinical token.
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/assignment.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts-server/config.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/supabase/admin.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/repository.ts"]).clinicalRisk, true);
+  // Still narrow: the rest of on-call is not swept in by the repository entry.
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/api-schemas.ts"]).clinicalRisk, false);
   assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
