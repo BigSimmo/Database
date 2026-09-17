@@ -74,23 +74,29 @@ function asArray(value) {
  * A malformed receipt is `incomplete`, never clean. Absence of evidence is not
  * evidence of a clean run.
  *
- * @param {CanaryReceipt} receipt
+ * Takes `unknown` on purpose. This runs against a JSON receipt produced by another
+ * process, so "the caller passed something that is not a receipt" is one of the
+ * cases it exists to classify, not a case it may assume away.
+ *
+ * @param {unknown} receipt
  * @returns {CanaryDisposition}
  */
 export function classifyCanaryReceipt(receipt) {
   if (!receipt || typeof receipt !== "object") return DISPOSITIONS.incomplete;
+  /** @type {CanaryReceipt} */
+  const candidate = /** @type {any} */ (receipt);
 
-  const blockingFailures = asArray(receipt.blockingFailures);
+  const blockingFailures = asArray(candidate.blockingFailures);
   if (blockingFailures.length > 0) return DISPOSITIONS.failed;
 
   // Everything that means "this run did not measure what it was supposed to".
-  if (receipt.intendedScopeComplete !== true) return DISPOSITIONS.incomplete;
-  if (asArray(receipt.skippedComponents).length > 0) return DISPOSITIONS.incomplete;
-  if (receipt.configurationOverridden === true) return DISPOSITIONS.incomplete;
-  if (typeof receipt.evaluatedSha !== "undefined" && !receipt.evaluatedSha) return DISPOSITIONS.incomplete;
+  if (candidate.intendedScopeComplete !== true) return DISPOSITIONS.incomplete;
+  if (asArray(candidate.skippedComponents).length > 0) return DISPOSITIONS.incomplete;
+  if (candidate.configurationOverridden === true) return DISPOSITIONS.incomplete;
+  if (typeof candidate.evaluatedSha !== "undefined" && !candidate.evaluatedSha) return DISPOSITIONS.incomplete;
 
-  if (asArray(receipt.unaccountedDiagnostics).length > 0) return DISPOSITIONS.passedWithDiagnostics;
-  if (asArray(receipt.diagnostics).length > 0) return DISPOSITIONS.passedWithDiagnostics;
+  if (asArray(candidate.unaccountedDiagnostics).length > 0) return DISPOSITIONS.passedWithDiagnostics;
+  if (asArray(candidate.diagnostics).length > 0) return DISPOSITIONS.passedWithDiagnostics;
 
   return DISPOSITIONS.cleanRecovery;
 }
