@@ -57,11 +57,9 @@ force-push, or discard work.
    End the message with the attribution line your harness specifies (the session's own
    `Co-Authored-By:` instruction) — do not hard-code a specific model name here.
 5. **Push** the feature branch: `git push -u origin <branch>`. Per-PR auto-merge state is user-owned:
-   automation must not disable or re-enable it. If the branch already has an open PR with auto-merge
-   armed, an ordinary fast-forward push (this step) is still safe — GitHub re-validates required
-   checks against the new head before it merges. Never force-push, rewrite history, or change the
-   branch/base while auto-merge is armed; that alone stays frozen until the PR merges or the user
-   manually changes that state. Never pipe the push through `tail`,
+   automation must not disable or re-enable it; an ordinary fast-forward push is safe while armed,
+   a force-push or base change is not ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
+   Never pipe the push through `tail`,
    `head`, or another command that can mask its status. Confirm the remote tip equals local HEAD
    with `git ls-remote` before reporting success. The pre-push guards run
    (auto-merge sentinel, format, drift) — heed a block rather than overriding blindly.
@@ -74,37 +72,18 @@ force-push, or discard work.
    after PR #1944 merged.
 
 6. **Open a PR** with `gh pr create --base main`, body ending with the Claude Code
-   attribution line. Write the body from `.github/pull_request_template.md` in full normal
-   prose — exact `## Summary` / `## Verification` / `## Risk and rollout` / (when clinical-risk
-   or RAG-ranking files are touched) `## Clinical Governance Preflight` headings, and a
-   satisfying `RAG impact:` line — never caveman-compressed; `pr-policy.yml` parses this text
-   verbatim and hard-blocks the merge on a paraphrased or dropped item (see AGENTS.md "External
-   skill precedence"). Complete the Clinical Governance Preflight **truthfully** — check only
-   the boxes that are actually true for this change, never tick every box to satisfy the
-   parser — and never add the `owner-approved` label yourself.
-   **Owner-merge rule (owner ruling 2026-09-16):** a PR that is clinical-content
-   (`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk`), touches anything
-   under `supabase/`, or touches a RAG-ranking surface is merged by Josh, not by agents. The
-   required `PR policy` check stays red on those PRs until Josh adds the `owner-approved`
-   label; any new push removes it. Agents may enable ordinary squash-auto-merge on other,
-   non-owner-merge PRs once green, with explicit user confirmation before enabling
-   (`gh pr merge --squash --auto`) — but never on an owner-merge PR, and never by adding the
-   `owner-approved` label.
-7. **Record** the review with `npm run ledger:append`, passing `--ref <branch>`, `--head`
-   (the full 40-character SHA), `--scope`, `--outcome`, and `--checks`. Do not hand-write
-   the row into `docs/branch-review-ledger.md`.
-8. **Babysit CI for up to 30 minutes, then stop.** Opening the PR starts a budget, not an
-   exit: watch the required checks, re-run a failed job, sync a behind-but-clean branch, and
-   push a fix for what this change broke. Look roughly every five minutes — wait with
-   `ScheduleWakeup`/`Monitor`, never tight polling — and stop the moment CI settles or the
-   30 minutes are up. Never park a cron job on the PR; it outlives the session and is denied
-   throughout. Then report the PR URL, a short summary, and plainly where CI stands (green,
-   red with the failing check named, or still running), and end the turn. See AGENTS.md
-   "Babysit the pull request, then stop"; `.claude/hooks/pr-handoff-stop.sh` enforces the
-   ceiling by denying the follow tools once the budget is spent.
+   attribution line. Write the body from `.github/pull_request_template.md` exactly as
+   [Open](../../../docs/agents/pull-request-workflow.md#open) requires — full prose, verbatim Preflight lines checked only
+   where true, a satisfying `RAG impact:` line — and never add the `owner-approved` label.
+   On an ordinary PR you may arm squash auto-merge at open (`gh pr merge --squash --auto`);
+   never on an owner-merge PR ([Merge authority](../../../docs/agents/pull-request-workflow.md#merge-authority)).
+7. **Record** the review per [Records](../../../docs/agents/pull-request-workflow.md#records) with `npm run ledger:append`.
+8. **Follow CI while it is useful, then stop** per [Follow CI](../../../docs/agents/pull-request-workflow.md#follow-ci):
+   fix only what this change broke, slow cadence, no cron, then report the PR URL and plainly
+   where CI stands. `.claude/hooks/pr-handoff-stop.sh` enforces the no-cron rule.
 
 ## Requires explicit confirmation (do not do automatically)
 
-Merging into a protected branch, enabling auto-merge (`gh pr merge --squash --auto`),
-force-push, rebasing a shared branch, deleting/renaming branches, `git reset --hard`,
+Merging into a protected branch, arming auto-merge on anything other than an ordinary PR you
+are opening, force-push, rebasing a shared branch, deleting/renaming branches, `git reset --hard`,
 `git clean -fd`, or any provider-touching verification.

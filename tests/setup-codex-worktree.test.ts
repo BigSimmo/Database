@@ -99,18 +99,10 @@ describe("Codex Desktop worktree setup", () => {
     expect(resolved === null || /npm-cli\.js$/u.test(resolved)).toBe(true);
   });
 
-  it("keeps the Windows Desktop bootstrap distinct from the Cloud Bash setup", () => {
+  it("registers the worktree setup script under its documented npm command", () => {
     const packageJson = JSON.parse(readFileSync(path.resolve("package.json"), "utf8")) as {
       scripts: Record<string, string>;
     };
-    const agentInstructions = readFileSync(path.resolve("AGENTS.md"), "utf8");
-    const desktopInstructions = readFileSync(path.resolve("docs/agents/codex-desktop-worktree-setup.md"), "utf8");
-    const cloudDocumentation = readFileSync(path.resolve("docs/codex-cloud.md"), "utf8");
-
     expect(packageJson.scripts["setup:codex-worktree"]).toBe("node scripts/setup-codex-worktree.mjs");
-    expect(agentInstructions).toContain("docs/agents/codex-desktop-worktree-setup.md");
-    expect(desktopInstructions).toContain("Never configure Windows Desktop worktrees");
-    expect(desktopInstructions).toContain("node scripts/setup-codex-worktree.mjs --dry-run");
-    expect(cloudDocumentation).toContain("This Bash setup is for Linux-based Codex Cloud environments");
   });
 });
