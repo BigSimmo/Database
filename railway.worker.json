@@ -25,11 +25,13 @@
       "/scripts/register-server-only.mjs",
       "/scripts/resolve-tsx-cli.mjs",
       "/scripts/run-tsx.mjs",
-      "/tests/stubs/server-only.ts"
+      "/tests/stubs/server-only.ts",
+      "/scripts/deploy/**"
     ]
   },
   "deploy": {
     "restartPolicyType": "ALWAYS",
+    "preDeployCommand": ["node /app/scripts/deploy/await-migrations.mjs"],
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
         "numReplicas": 1
