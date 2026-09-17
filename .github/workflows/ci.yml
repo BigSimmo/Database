@@ -84,7 +84,6 @@ jobs:
       container_changed: ${{ steps.scope.outputs.container_changed }}
       rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
       workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
-      codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
       lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
       pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
@@ -265,10 +264,6 @@ jobs:
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:gitleaks-pinned
 
-      - name: CI triage self-test
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:ci-triage
-
       - name: PR policy self-test
         if: needs.changes.outputs.workflow_changed == 'true'
         run: npm run check:pr-policy
@@ -329,10 +324,6 @@ jobs:
         # Full coverage already contains these workflow-reading Vitest files.
         if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'
         run: npm run test:ci-workflows
-
-      - name: Codex auto-resolve workflow guard
-        if: needs.changes.outputs.codex_autofix_changed == 'true'
-        run: npm run check:codex-autofix-workflow
 
       - name: Codebase index coverage
         if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'

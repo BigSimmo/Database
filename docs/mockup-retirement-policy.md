@@ -145,10 +145,8 @@ written record the gate and refuses everything the record does not cover.
   `check:design-system-contract`, and the required Playwright lane. That list is what already
   exists, recorded here because AGENTS.md and CLAUDE.md understated it until 2026-09-02.
 
-  Two exemptions are commonly assumed and do **not** exist. **CodeRabbit reviews mockup source
-  like production code**: `.coderabbit.yaml`'s `!mockups/**` is root-anchored and excludes only
-  the repo-root `mockups/` notes directory, not `src/app/mockups/**` or `*-mockups.tsx`. And
-  **`knip` can see most of this surface**: its ignore is a _basename_ filter (`**/*mockup*`), so
+  One exemption is commonly assumed and does **not** exist. **`knip` can see most of this
+  surface**: its ignore is a _basename_ filter (`**/*mockup*`), so
   `*-mockups.tsx` is exempt while the `src/app/mockups/<slug>/page.tsx` routes and the
   `*/mockups/**` subtrees are not — `knip --include files` reports inside them today. What
   suppresses those findings is `check:knip` running only

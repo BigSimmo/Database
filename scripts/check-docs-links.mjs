@@ -261,6 +261,32 @@ const SCOPED_ALLOWLIST = new Map([
     // (728947769). The citation records where the text was, which is still true.
     new Set(["docs/ward-flow-decision-wb-db-18.md"]),
   ],
+  // ── Automations removed 2026-09-17 (owner-approved). Each document below is a frozen
+  // historical record (a decision doc, the outstanding-issues ledger, or a dated rollout plan)
+  // whose past-tense text names a workflow that genuinely existed at the time it was written and
+  // has since been deleted. Rewriting the historical text to hide that it once existed would
+  // falsify the record; the ledger and decision-doc write-discipline guards separately forbid
+  // editing their rows/prose at all.
+  [
+    "docs/decisions/ccz4hb-review-coverage.md",
+    // Cites the (now-deleted) Codex auto-resolve workflow as part of the 2026-08-22/2026-09-02
+    // review-coverage analysis this decision record preserves verbatim.
+    new Set([".github/workflows/codex-autofix-review-comments.yml"]),
+  ],
+  [
+    "docs/outstanding-issues.md",
+    // Row #138/#160, RESOLVED 2026-07-31: "CI Triage ships inert pending a repo variable" /
+    // "ci-triage.yml enables by default". The workflow existed and was enabled at close time;
+    // it was deleted 2026-09-17 as part of the automations-removal sweep. Frozen historical row.
+    new Set([".github/workflows/ci-triage.yml"]),
+  ],
+  [
+    "docs/plans/tooling-activation-implementation-plan.md",
+    // SC-A2 named the (now-deleted) GitHub CI-failure notifier as a 2026-08-01 rollout success
+    // criterion. The workflow was built, ran, and was deleted 2026-09-17; the plan is a
+    // point-in-time record of what was proposed, not a live task list.
+    new Set([".github/workflows/notify-ci-failure.yml"]),
+  ],
   [
     "docs/ward-flow-orchestrator-handover.md",
     // Quoted AS THE PATH THAT NO LONGER RESOLVES: "28 missing paths, ALL in dated plans ... that
