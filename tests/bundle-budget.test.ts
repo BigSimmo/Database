@@ -406,6 +406,44 @@ describe("check-bundle-budget CLI exit", () => {
       rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
+
+  it("keeps the committed comparator distinguishable from the candidate it measured", async () => {
+    // Two baselines exist in every refresh run: the committed one the
+    // previousGzipBytes numbers came FROM, and the candidate this run measured.
+    // The response used to carry only the candidate's SHA, which reads as though
+    // the drift had been measured against the commit it was measured at.
+    const comparatorSha = "c".repeat(40);
+    const sandbox = makeSandbox({ baselineSource: comparatorSha });
+    const headSha = initGitRepo(sandbox);
+    try {
+      const result = await runCli(sandbox, ["--refresh-baseline", "--json"]);
+      expect(result.code).toBe(0);
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.comparator.source).toBe(comparatorSha);
+      expect(parsed.measurement.measuredSha).toBe(headSha.toLowerCase());
+      expect(parsed.comparator.source).not.toBe(parsed.measurement.measuredSha);
+      expect(parsed.measurement.distanceFromCheckedOutHead).toBe(0);
+      expect(parsed.measurement.observedAt).toEqual(expect.any(String));
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
+
+  it("emits tolerances as data so no report has to restate them as prose", async () => {
+    // The rolling issue hardcoded "10% and 25%", which silently stops being true
+    // the moment either value is edited in bundle-budget.json.
+    const sandbox = makeSandbox();
+    initGitRepo(sandbox);
+    try {
+      const parsed = JSON.parse((await runCli(sandbox, ["--refresh-baseline", "--json"])).stdout);
+      expect(parsed.production.tolerancePct).toBe(10);
+      expect(parsed.mockups.tolerancePct).toBe(25);
+      expect(parsed.routes["/"].tolerancePct).toBe(10);
+      expect(parsed.comparator.tolerancePct).toMatchObject({ production: 10, mockups: 25 });
+    } finally {
+      rmSync(sandbox, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    }
+  });
 });
 
 describe("compareToBudget", () => {
