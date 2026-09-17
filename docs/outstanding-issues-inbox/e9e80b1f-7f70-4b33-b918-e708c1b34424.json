@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e9e80b1f-7f70-4b33-b918-e708c1b34424",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "The Sentry Unhandled server request error groups still have no identified cause; PR #2853 makes them diagnosable but does not name the fault",
+    "detail": "NEXT ACTION, once PR #2853 has deployed and roughly 24h of events have accumulated: re-read Sentry project clinibase-xz/javascript-nextjs and name the faulting code. Expect the 20 open groups sharing the title Unhandled server request error to collapse to one or two with counts that finally mean something. Use the restored capture mechanism (handled vs onunhandledrejection) to tell a crash from a reported error, and the route recovered into the fingerprint to locate it. WHY IT WAS NOT DIAGNOSABLE BEFORE, measured 2026-09-17: 849 of 853 error events in the preceding 30 days carried no route_path tag, so they took the undefined fingerprint branch in privacySafeErrorEvent and Sentry regrouped them on minified frames that change every build; and the scrubber dropped the exception mechanism, so all 853 events reported error.handled 1 regardless of origin. PR #2853 fixed both. NOT BLOCKING but makes frames readable: source-map upload stays inert until an operator sets SENTRY_AUTH_TOKEN, SENTRY_ORG (clinibase-xz) and SENTRY_PROJECT (javascript-nextjs) on the Railway Database service. PR #2853 declared the matching Dockerfile build ARGs, without which those variables would have been a silent no-op. ALREADY EXCLUDED, do not re-investigate: JAVASCRIPT-NEXTJS-2D (4 events, /differentials/diagnoses/[slug], route_type render) is a reader disconnecting during a streaming page render, stack entirely Next internals, not worth acting on. DO NOT RE-FOLLOW the original supplied analysis, which blamed AbortErrors escaping four API routes: that was checked against the code and is wrong, because jsonError returns a Response so onRequestError never fires. One incidental observation worth a glance: every sampled event reported user.geo SG, Singapore.",
+    "source": "2026-09-17 Sentry triage session; PR #2853",
+    "issueUlid": "01M2QTQJFPYBJVM7T4S8KNABF7"
+  }
+}
