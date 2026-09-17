@@ -193,7 +193,6 @@
       "Bash(npm run check:worker-python-locks:static)",
       "Bash(npm run check:docling-lab)",
       "Bash(npm run check:client-bundle-secrets)",
-      "Bash(npm run check:codex-autofix-workflow)",
       "Bash(npm run check:env-parity)",
       "Bash(npm run check:medication-interactions)",
       "Bash(npm run check:medication-lexicon-report)",
