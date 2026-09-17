@@ -111,3 +111,32 @@ describe("scripts share one interactive prompt helper", () => {
     ]);
   });
 });
+
+// Node's default ESM loader accepts a POSIX absolute path as a dynamic import
+// specifier but rejects a Windows one ("Received protocol 'd:'"). A script that
+// builds a specifier with path.join()/resolve() therefore runs green on Linux CI
+// and throws on a Windows machine — and because check:cross-mode-index sits
+// mid-chain in verify:pr-local, the fourteen gates after it (lint, typecheck,
+// test, build) were never reached at all. Observed 2026-09-17 in
+// build-cross-mode-differentials-index.mjs. pathToFileURL(...).href is correct
+// on both platforms, so the guard is a straight ban on the bare-path shape.
+const BARE_PATH_IMPORT_SPECIFIER = /\bimport\s*\(\s*(?:path\s*\.\s*)?(?:join|resolve)\s*\(/;
+
+describe("scripts build dynamic import specifiers as file:// URLs", () => {
+  it("never passes a bare path.join()/resolve() result to import()", () => {
+    const offenders = scriptFiles(path.join(repositoryRoot, "scripts")).filter((file) =>
+      BARE_PATH_IMPORT_SPECIFIER.test(readFileSync(file, "utf8")),
+    );
+    expect(offenders.map((file) => path.relative(repositoryRoot, file).replace(/\\/g, "/"))).toEqual([]);
+  });
+
+  it("recognises the exact shape that broke Windows, and clears the fix for it", () => {
+    expect(
+      BARE_PATH_IMPORT_SPECIFIER.test(
+        'const { curatedDifferentials } = await import(join(root, "src", "lib", "differential-curated.ts"));',
+      ),
+    ).toBe(true);
+    expect(BARE_PATH_IMPORT_SPECIFIER.test('await import(path.resolve(root, "a.mjs"));')).toBe(true);
+    expect(BARE_PATH_IMPORT_SPECIFIER.test('await import(\npathToFileURL(join(root, "a.mjs")).href);')).toBe(false);
+  });
+});
