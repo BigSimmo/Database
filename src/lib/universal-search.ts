@@ -20,6 +20,10 @@ import { medicationIndication, rankMedicationRecords, type MedicationRecord } fr
 import { catalogueSearchScope, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
+import {
+  bundledServicesMissingFrom,
+  preferBundledServiceRecord,
+} from "@/lib/site-content/bundled-service-catalogue";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
@@ -303,17 +307,25 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
             scope: catalogueSearchScope,
             seeds: serviceRecords,
             signal: args.signal,
-            read: async (signal) =>
-              (
-                await readCanonicalSiteContentRecords({
-                  supabase: args.supabase,
-                  kind: "service",
-                  slug: null,
-                  cache: true,
-                  seeds: serviceRecords,
-                  signal,
-                })
-              ).records,
+            read: async (signal) => {
+              const result = await readCanonicalSiteContentRecords({
+                supabase: args.supabase,
+                kind: "service",
+                slug: null,
+                cache: true,
+                seeds: serviceRecords,
+                signal,
+              });
+              // Until the catalogue is published, the served release is the 2026-08-24 freeze and
+              // does not contain the 17 services added by #2814 -- SARC, 1800RESPECT, StandBy and
+              // the other crisis and postvention entries. Refresh what it does have, then top up
+              // what it does not. Both are no-ops once a real release is active.
+              const activeReleaseId = siteContentSnapshotReleaseId(result.snapshot);
+              const refreshed = result.records.map(
+                (record) => preferBundledServiceRecord({ record }, { activeReleaseId }).record,
+              );
+              return [...refreshed, ...bundledServicesMissingFrom(refreshed, { activeReleaseId })];
+            },
           }),
         ).records
       : serviceRecords;
