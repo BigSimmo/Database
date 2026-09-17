@@ -4,7 +4,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { demoChunks, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
-import { matchesTermAtWordBoundary } from "@/lib/keyword-query";
+import { matchesTermInWords, wordBoundaryWords } from "@/lib/keyword-query";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -74,8 +74,8 @@ function importantTermsFor(terms: string[]) {
 }
 
 function coveredTermsFor(row: DocumentChunkSearchRow, terms: string[]) {
-  const haystack = `${row.section_heading ?? ""} ${row.content}`.toLowerCase();
-  return terms.filter((term) => matchesTermAtWordBoundary(haystack, term));
+  const haystackWords = wordBoundaryWords(`${row.section_heading ?? ""} ${row.content}`);
+  return terms.filter((term) => matchesTermInWords(haystackWords, term));
 }
 
 function snippetFor(content: string, terms: string[], limit = 320) {
@@ -106,13 +106,18 @@ function scoreChunk(row: DocumentChunkSearchRow, query: string, terms: string[])
   const coveredImportantTerms = coveredTermsFor(row, importantTerms);
   const textRank = Number(row.text_rank ?? 0);
   const trigramScore = Number(row.trigram_score ?? 0);
+  // Each chunk's heading and content are split once here. Previously every term
+  // re-lowercased and re-split the whole chunk body, so a six-term query walked
+  // the same multi-kilobyte string a dozen times per row.
+  const headingWords = wordBoundaryWords(heading);
+  const contentWords = wordBoundaryWords(content);
   const hasExactPhrase =
-    content.includes(normalizedQuery) && terms.every((term) => matchesTermAtWordBoundary(content, term));
+    content.includes(normalizedQuery) && terms.every((term) => matchesTermInWords(contentWords, term));
   let score = hasExactPhrase ? 2.4 : 0;
 
   for (const term of terms) {
-    if (matchesTermAtWordBoundary(heading, term)) score += 1.2;
-    if (matchesTermAtWordBoundary(content, term)) score += 0.55;
+    if (matchesTermInWords(headingWords, term)) score += 1.2;
+    if (matchesTermInWords(contentWords, term)) score += 0.55;
   }
   if (importantTerms.length > 1) {
     score += (coveredImportantTerms.length / importantTerms.length) * 0.9;
