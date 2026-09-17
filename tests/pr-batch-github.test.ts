@@ -221,17 +221,14 @@ describe("GitHub state and safety adapter", () => {
     expect(workflow).not.toContain("queue: max");
     expect(workflow).toContain("PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}");
     expect(workflow).toContain("github.event.repository.default_branch");
-    for (const path of [
-      ".github/workflows/codex-run-pr-operator.yml",
-      ".github/workflows/codex-autofix-review-comments.yml",
-    ]) {
-      const integrated = readFileSync(path, "utf8");
-      expect(integrated).not.toContain("queue: max");
-      expect(integrated).toContain("PR_BATCH_STATE_SIGNING_KEY: ${{ secrets.PR_BATCH_STATE_SIGNING_KEY }}");
-    }
-    const relay = readFileSync(".github/workflows/pr-batch-review-wake.yml", "utf8");
-    expect(relay).not.toContain("secrets.");
-    expect(relay).not.toContain("actions/checkout");
+    // The runner no longer dispatches to, or waits on, the Codex operator or
+    // autofix workflows (both retired separately), and it no longer has a
+    // secret-free review-wake relay: review events cannot change readiness in
+    // a repository that requires 0 approvals, and thread state is re-read on
+    // every reconcile anyway.
+    expect(workflow).not.toContain("codex-run-pr-operator.yml");
+    expect(workflow).not.toContain("pull_request_target");
+    expect(workflow).not.toContain('workflows: ["*"]');
   });
   it("requires an unchanged golden case set and zero per-case rank regressions", () => {
     const before = {
