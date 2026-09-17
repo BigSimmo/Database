@@ -45,6 +45,27 @@
       "after": 1,
       "reason": "MERGE 02 (owner-approved 2026-09-05) folded the morning bed-state board into CapacityScreen and turned /mockups/ward-flow/morning into a real HTTP redirect to /capacity, removing the rail's 'Morning bed state' entry at the same time. RETARGETED, not dropped: the render-and-rail test now proves the redirect lands on the real Capacity page and that the rail can leave and return to it, in place of a headline and a link label that no longer exist. RETIRED: the print test, because CapacityScreen carries no print media rule and no per-site print testid at all - capacity.module.css has none - so there is no real print output left to assert against; inventing print assertions for a screen that renders none would fabricate coverage rather than describe it. The underlying MorningPage component and its print CSS are not left unguarded: tests/ward-morning-page.dom.test.tsx still renders MorningPage directly (not via a route) and covers its print label/note and per-site figure grids at the component level (named in morning-page.tsx's own doc comment as still passing all 20 cases), and tests/ward-morning-print.test.ts still guards the CSS text. Only the real-Chromium, real-PDF-page-count proof this browser test gave (page.pdf() measured with pdf-parse) is lost, because no route can mount the component that behaviour belongs to any more. NOTE: 1 of 2 is exactly this file's own perFileMaxRemovedFraction ceiling of 0.5, and the file's case count is below its perFileMinRemovedCases floor of 3, so check:diff-integrity would never have demanded this entry on the per-file rule either - it is recorded on the same convention the entries above set for themselves: a retirement that leaves no trace is indistinguishable from a deletion nobody noticed.",
       "approvedOn": "2026-09-06"
+    },
+    {
+      "path": "tests/codex-autofix-workflow.test.ts",
+      "before": 60,
+      "after": 0,
+      "reason": "Owner-approved 2026-09-17 automations-removal sweep: .github/workflows/codex-autofix-review-comments.yml (the Codex auto-resolve review-comment workflow) and its guard script scripts/check-codex-autofix-workflow.mjs are deleted outright. Codex's own hosted GitHub review keeps running; only this repository's automated auto-resolve/repair workflow is retired, so the workflow-contract test suite that pinned its exact YAML text has no subject left to test.",
+      "approvedOn": "2026-09-17"
+    },
+    {
+      "path": "tests/codex-run-pr-operator-workflow.test.ts",
+      "before": 13,
+      "after": 0,
+      "reason": "Owner-approved 2026-09-17 automations-removal sweep: the credential-isolated Codex Run PR operator workflow (.github/workflows/codex-run-pr-operator.yml), its dispatch prompt, and its result schema are deleted outright, so the workflow-contract test suite that pinned its exact YAML/behaviour has no subject left to test.",
+      "approvedOn": "2026-09-17"
+    },
+    {
+      "path": "tests/ci-audit-contracts.test.ts",
+      "before": 24,
+      "after": 20,
+      "reason": "Owner-approved 2026-09-17 automations-removal sweep. RETIRED M25 (notify-ci-failure.yml deleted, so the 'is watched by notify-ci-failure.yml' assertion has no subject), the L38 claude-backlink.yml case of the it.each collaborator-boundary check (claude-backlink.yml deleted; the claude.yml case in the same it.each stays), and L92 in full (the Codex auto-resolve high-risk deployment-file list lived entirely in the now-deleted codex-autofix-review-comments.yml). No coverage is re-pointed: each retired case asserted a property of a workflow file that no longer exists.",
+      "approvedOn": "2026-09-17"
     }
   ]
 }
