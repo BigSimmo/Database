@@ -13,6 +13,8 @@
       "/tsconfig.json",
       "/railway.worker.json",
       "/data/**",
+      "!/data/repo-awareness-snapshot.json",
+      "!/data/outstanding-issues-snapshot.json",
       "/src/lib/**",
       "/src/data/**",
       "/worker/**",
