@@ -752,7 +752,7 @@ describe("the manifest writer's real output round-trips through --self-test", ()
 
       expect(result.exitCode).toBe(0);
     } finally {
-      rmSync(scratchDir, { recursive: true, force: true });
+      rmSync(scratchDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   });
 });
