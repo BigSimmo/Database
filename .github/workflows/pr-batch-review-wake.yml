@@ -1,0 +1,20 @@
+name: PR batch review wake
+
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+
+jobs:
+  signal:
+    name: Batch review signal
+    if: vars.PR_BATCH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      # This event uses PR-associated workflow code. No checkout or secrets here:
+      # workflow_run wakes the trusted default-branch controller on completion.
+      - name: Signal completed review activity
+        run: echo "Review activity will be reconciled by the trusted batch controller."
