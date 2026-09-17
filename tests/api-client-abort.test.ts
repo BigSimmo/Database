@@ -8,8 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * now match them.
  *
  * Scope note, recorded so nobody reads more into this than it proves: this removes false 500s and
- * spurious error logs. It is NOT established to close any Sentry issue — measured 2026-09-17, 849
- * of 853 error events carried no `route_path`, meaning they did not reach Sentry through a route
+ * spurious error logs. It is NOT established to close any Sentry issue — measured 2026-09-17, 853
+ * of 857 error events carried no `route_path`, meaning they did not reach Sentry through a route
  * handler's return path at all.
  */
 const abortError = () => new DOMException("The operation was aborted.", "AbortError");

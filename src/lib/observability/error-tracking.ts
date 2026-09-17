@@ -305,7 +305,7 @@ const SAFE_MECHANISM_TYPE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$/;
  *
  * WHY THIS IS CARRIED AT ALL, measured 2026-09-17. Rebuilding the exception without its
  * mechanism made Sentry default every event to `handled: true` — including the ones
- * `captureRequestError` explicitly marks `handled: false`. All 853 error events in the
+ * `captureRequestError` explicitly marks `handled: false`. All 857 error events in the
  * preceding 30 days reported `error.handled: 1`, so an unhandled promise rejection was
  * indistinguishable from a caught-and-reported error and triage had nowhere to start.
  */
@@ -366,7 +366,7 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   const exceptionType = exceptions?.[0]?.type || "Error";
   const frames = exceptions?.[0]?.stacktrace?.frames;
   // Only `captureRequestError` sets `route_path`, and over the 30 days to 2026-09-17 it
-  // accounted for 4 of 853 error events: everything arriving through the SDK's own global
+  // accounted for 4 of 857 error events: everything arriving through the SDK's own global
   // handlers is untagged. Recovering the pattern from the stack keeps those events grouped by
   // route rather than collapsed into a single undifferentiated bucket.
   const routePath = tags.route_path ?? routePathFromFrames(frames);
@@ -388,7 +388,7 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     // NEVER `undefined` outside the worker branch. An undefined fingerprint hands grouping back
     // to Sentry's default algorithm, which reads exactly the minified frames this function exists
     // to normalise, so one recurring fault opens a fresh issue on every deploy. That was diagnosed
-    // on 2026-09-16 and fixed for the routed path only — and 849 of 853 events had no route, so
+    // on 2026-09-16 and fixed for the routed path only — and 853 of 857 events had no route, so
     // they kept splintering: 20 open groups under one title by 2026-09-17. `unrouted` is a
     // deliberately coarse last resort for a stack that names no route bundle at all.
     fingerprint: workerStage

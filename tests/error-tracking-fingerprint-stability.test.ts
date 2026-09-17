@@ -81,7 +81,7 @@ describe("fingerprint stability across deploys", () => {
 
 /**
  * The normalisation above only ever applied to events carrying a `route_path` tag, and only
- * `captureRequestError` sets one. Measured against the live project on 2026-09-17: 849 of the 853
+ * `captureRequestError` sets one. Measured against the live project on 2026-09-17: 853 of the 857
  * error events in the preceding 30 days had no such tag, because almost everything reaches Sentry
  * through the SDK's own global handlers instead. Those events took the `: undefined` fingerprint
  * branch, which hands grouping back to Sentry's default algorithm over exactly the minified frames

@@ -58,7 +58,7 @@ describe("production error tracking privacy boundary", () => {
    * The mechanism says whether Sentry was handed a caught error or a global handler caught an
    * unhandled one. Rebuilding the exception without it made Sentry default every event to
    * handled, including the ones `captureRequestError` explicitly marks `handled: false`:
-   * measured 2026-09-17, all 853 error events of the preceding 30 days reported
+   * measured 2026-09-17, all 857 error events of the preceding 30 days reported
    * `error.handled: 1`, so no triage could tell the two apart.
    */
   it("keeps the allowlisted capture mechanism and drops its free-form data", () => {
