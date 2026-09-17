@@ -1,57 +1,47 @@
-# The PR-babysit budget is enforced for Claude Code only — a documented gap
+# The PR cron-block is enforced for Claude Code only — a documented gap
 
 **Status:** gap documentation only — this document builds no mechanism
 **Ledger row:** `#258` (P2, rec)
-**Checked:** 2026-08-14 against `origin/main` at `d47aa6d`; rule reshaped from a ban to a budget 2026-08-19
+**Checked:** 2026-08-14 against `origin/main` at `d47aa6d`; simplified from a 30-minute budget to a
+single CronCreate block 2026-09-17 (owner-approved governance cut)
 **Rule it backs:** `AGENTS.md` → "Babysit the pull request, then stop"
 
-A session should babysit its own pull request for a while — a check that goes red a minute
-after the PR opens is cheapest to fix right then. What costs is the _unbounded_ tail: a session
-that stays attached indefinitely, polling `gh pr checks`, re-running failed jobs, re-syncing the
-branch, answering review bots, or parking a wake-up on it. Claude Code on the web is the worst
-case, because the cloud session keeps running and nothing naturally ends the loop.
+A session should follow its own pull request's CI while that is useful, fix only what this
+change broke, and stop once CI settles. The one failure mode prose alone cannot prevent is a
+cron entry parked on the PR: it outlives the session, so nothing later can stop it. That is the
+only thing this hook enforces — everything else about following a PR (reading checks, re-running
+a job, syncing the branch, pushing fixes, waiting between looks) is ordinary work.
 
-The rule is therefore a **30-minute budget** measured from the moment the PR URL comes back:
-inside it, following the PR is ordinary work; past it, the follow tools are denied and the
-session reports where CI stands and stops. PR #1649 built the enforcement, and 2026-08-19
-reshaped it from a blanket ban into that budget. **Only one of the three agents this repo
-supports gets the hook.** This document records where the
-enforcement lives, what the other two actually have, and what parity would require — so the
-gap is a known limit rather than an open task that looks unstarted.
+An earlier version of this rule (PR #1649, reshaped 2026-08-19) enforced a 30-minute babysit
+budget with several deny classes; that machinery was removed 2026-09-17 as unnecessary
+complexity once the rule was restated as "follow while useful, stop when it settles" rather than
+a timer. **Only one of the three agents this repo supports gets any hook at all.** This document
+records where the enforcement lives, what the other two actually have, and what parity would
+require — so the gap is a known limit rather than an open task that looks unstarted.
 
 ---
 
 ## 1. What Claude Code has
 
-`.claude/hooks/pr-handoff-stop.sh`, registered in `.claude/settings.json` as two matchers:
+`.claude/hooks/pr-handoff-stop.sh`, registered in `.claude/settings.json`:
 
-| Phase         | Matcher                                                                                                                                                                                             | Effect                                                                                                                                             |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `PostToolUse` | `Bash`, `PowerShell`, and any tool whose name matches `create_pull_request`                                                                                                                         | On a call that returns a real PR URL, drops a session-scoped marker stamped with the open time and tells the model the babysit budget has started. |
-| `PreToolUse`  | `Bash`, `PowerShell`, `Monitor`, `ScheduleWakeup`, `CronCreate`, plus tool names matching `pull_request` / `workflow_(run\|job)` / `check_(run\|suite)` / `job_log` / `pr_status` / `update_branch` | While that marker exists and the budget is spent, denies the call with a reason naming the AGENTS.md rule.                                         |
+| Phase         | Matcher                                                                     | Effect                                                                                                                 |
+| ------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `PostToolUse` | `Bash`, `PowerShell`, and any tool whose name matches `create_pull_request` | On a call that returns a real PR URL, drops a session-scoped marker so the session is known to have an open PR.        |
+| `PreToolUse`  | `CronCreate`                                                                | While that marker exists, denies the call with a reason naming the AGENTS.md rule. Every other tool call is untouched. |
 
-Three deny classes, all gated on the budget being spent, which is the useful summary of what
-"enforced" means here:
-
-1. **Shell polling** — `gh pr checks|status|view|diff|list|comment|review`, `gh run watch|view|list|rerun|download`, `gh api …actions/runs|check-runs|check-suites|/pulls/`, and `sync:pr-branches`.
-2. **GitHub MCP PR/CI tools**, matched by tool name, so a connector is not a way around the shell rule.
-3. **Loop machinery** — `Monitor` and `ScheduleWakeup`, which is how a session parks itself on a PR without running a single command.
-
-`CronCreate` is the one exception to the budget gating: it is denied from the moment the marker
-lands, because a cron entry outlives the session and no later budget check could stop it.
-
-Committing, pushing, ledger appends, and PR create/merge stay allowed throughout, as does every
-class above while the budget lasts — `ScheduleWakeup` deliberately so, since waiting is how the
-roughly five-minute cadence floor gets honoured and denying the wait only produces tight polling.
+Committing, pushing, ledger appends, PR create/merge, `gh pr` reads, GitHub MCP PR/CI tools,
+`Monitor`, and `ScheduleWakeup` are all ordinary, unrestricted work now — none of them are gated
+by this hook in any way.
 
 Details that matter to anyone reproducing this elsewhere:
 
 - **The marker is session-scoped and durable**, at `<absolute-git-dir>/claude-pr-handoff-<session_id>`, falling back to `TMPDIR` outside a repo. Using the absolute git dir keeps it valid from any cwd and in linked worktrees.
-- **The budget is measured from the marker's contents, never its mtime.** The file records `epoch=<seconds>` at PR-open time; an unreadable stamp, a marker written before the budget existed, or a clock that moved backwards all fail open rather than denying a whole session on a timestamp the hook never had. The ceiling is `CLAUDE_PR_BABYSIT_BUDGET_MINUTES` (default 30, clamped to 1..240, with any malformed value falling back to the default rather than removing the ceiling).
+- **The marker has no expiry.** There is no budget to measure it against; its only job is recording that this session has an open PR, so `CronCreate` stays denied for as long as the marker exists.
 - **It fails open on a missing or unsafe `session_id`** (`^[A-Za-z0-9_-]+$`), rather than sharing one marker across unrelated malformed payloads — path injection included.
-- **Sibling sessions' markers are deliberately never pruned.** Post-mode runs on every shell call, so age-based deletion of other sessions' files would disarm a session still inside its own budget.
-- **Post-mode scans only the request half of the payload**, never `tool_response`, so a command that merely _prints_ `gh pr create` and a PR URL cannot lock the session. Pre-mode deliberately scans the whole payload, because over-blocking is the safe direction there.
-- **The escape hatch is explicit and user-driven**: prefix a shell command with `CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny reason names. A command that merely mentions a blocked token cannot self-authorise — the prefix must be at the start of the command.
+- **Sibling sessions' markers are deliberately never pruned.** Post-mode runs on every shell call, so age-based deletion of other sessions' files would disarm a session that still has an open PR.
+- **Post-mode scans only the request half of the payload**, never `tool_response`, so a command that merely _prints_ `gh pr create` and a PR URL cannot mark the session.
+- **The escape hatch is explicit and user-driven**: delete the marker the deny reason names, on an explicit user ask. A command that merely mentions a blocked token cannot self-authorise.
 - Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and review sessions on someone else's PR still function.
 
 ---
@@ -62,7 +52,7 @@ Details that matter to anyone reproducing this elsewhere:
 
 - `.claude/settings.json` is read only by Claude Code. Its `PreToolUse` / `PostToolUse` registrations are invisible to the other two agents, so the marker is never dropped and no call is ever denied for them.
 - `plugins/clinical-kb/.codex-plugin/plugin.json` declares `name`, `version`, `description`, `author`, `repository`, `keywords`, `skills` and an `interface` block. **There is no hook, event, or pre-tool-interception field**, and the plugin ships exactly one skill (`skills/clinical-kb-workflow/SKILL.md`). A Codex session reads guidance; nothing intercepts its tool calls.
-- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`, `pr-bugbot.md`) and `skills/`. **No deny path.** Note that `.cursor/agents/pr-babysit.md` exists at all: Cursor has a documented agent for exactly the PR-following behaviour the stop rule restricts, with nothing to bound it — and no budget ceiling either.
+- `.cursor/` contains `settings.json` (plugin enablement only — `context7-plugin`, `figma`), `mcp.json`, `agents/` (`design-review.md`, `pr-babysit.md`, `pr-bugbot.md`) and `skills/`. **No deny path.** Note that `.cursor/agents/pr-babysit.md` exists at all: Cursor has a documented agent for exactly the PR-following behaviour the stop rule restricts, with nothing to stop a cron entry being parked on one either.
 
 The consequence is precise, and it is worth stating plainly because it is easy to read the
 hook's existence as though the problem were solved: **prose alone is what was already in force
@@ -74,11 +64,10 @@ Codex session is the worst case, for the same reason Claude Code on the web was.
 
 ## 3. What a cross-agent mechanism would need
 
-Any parity mechanism has to answer the same three questions the hook answers:
+Any parity mechanism has to answer the same two questions the hook answers:
 
 1. **Has this session already opened a PR?** Requires a durable, session-scoped marker written at the moment a PR-creating call returns a real PR URL — not at the moment one is attempted, since a failed create would otherwise end the session with no PR to hand over.
-2. **Is this call one of the three deny classes, and is the budget spent?** Shell PR/CI polling, PR/CI tool calls by name, and loop machinery, each denied only once the budget has elapsed — plus cron, denied outright. Matching must cover the connector path as well as the shell, or the rule is trivially bypassed.
-3. **Has the user explicitly asked to follow the PR anyway?** There must be an unlock, it must be user-driven, and a call must not be able to self-authorise by merely mentioning the unlock token.
+2. **Is this call a cron/scheduled-task creation?** Denied outright once the marker exists, because a cron entry outlives the session. Matching must cover the connector path as well as the shell, or the rule is trivially bypassed.
 
 Plus three properties the existing hook already got right and a second implementation would
 have to match: fail open on an unidentifiable session; never prune a sibling session's marker;

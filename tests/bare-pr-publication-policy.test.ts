@@ -33,8 +33,8 @@ describe("bare PR publication policy", () => {
     expect(handoverSkill).toContain("Do not use this skill merely because the user asks to open or publish a PR.");
   });
 
-  it("makes handoff the post-PR default instead of inviting CI babysitting", () => {
-    expect(prHandoffHook).toContain("hand over its URL and stop");
-    expect(prHandoffHook).toContain("unless the user expressly asks to babysit or continue PR work");
+  it("tells the model to hand over the PR URL and never park a cron job on it", () => {
+    expect(prHandoffHook).toContain("hand over its URL");
+    expect(prHandoffHook).toContain("Never park a cron job on this PR");
   });
 });

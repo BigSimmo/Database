@@ -400,7 +400,7 @@ When the user says `Clear PRs` (case-insensitive, entire message after trimming)
 
 ## Babysit the pull request, then stop
 
-For the 30-minute post-PR CI budget, what may be done inside it, and how it is enforced, see [Follow CI](docs/agents/pull-request-workflow.md#follow-ci). Review-thread handling for every tool is in [Review threads](docs/agents/pull-request-workflow.md#review-threads).
+Follow a PR's CI while it is useful, fix only this change's breakage, stop when CI settles, and never park a cron job on a PR — see [Follow CI](docs/agents/pull-request-workflow.md#follow-ci) for detail and how the no-cron rule is enforced. Review-thread handling for every tool is in [Review threads](docs/agents/pull-request-workflow.md#review-threads).
 
 ## Automated review coverage (owner decision, 2026-08-22)
 

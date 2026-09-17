@@ -8,7 +8,7 @@ or script pins. When a copy elsewhere disagrees with this file, this file wins; 
 The stages, in the order a pull request lives through them:
 
 1. [Open](#open) — the two publication routes, the PR body, arming auto-merge
-2. [Follow CI](#follow-ci) — the 30-minute budget
+2. [Follow CI](#follow-ci) — follow while useful, stop when it settles, never park a cron on it
 3. [Review threads](#review-threads) — one rule for fixing, replying, and resolving
 4. [Records](#records) — review records and ledger PRs
 5. [Merge authority](#merge-authority) — who may merge what, and the owner-merge rule
@@ -85,13 +85,11 @@ in-flight run. Do not undraft a PR merely to obtain an automated review (see
 
 <a id="babysit-the-pull-request-then-stop"></a>
 
-This budget applies to every tool. Opening the PR through the handoff route is the handoff, but
-walking away the instant it exists is not useful either — a required check that goes red ninety
-seconds later is still this session's to fix, and this is the cheapest moment to fix it. So the
-session gets a **budget**, not a ban: after the PR is created, follow its CI for **at most 30
-minutes**, then stop. The bare publication route is the exception: it stops at the URL.
+**Follow a PR's CI while it is useful, fix only this change's breakage, stop when CI settles,
+and never park a cron job on a PR.** That is the whole rule. The bare publication route is the
+exception: it stops at the URL and never follows CI at all.
 
-Inside that budget, following the PR is ordinary work:
+Following the PR is ordinary work:
 
 - Read checks, workflow runs, and job logs; re-run a failed job; sync the branch from `main` when
   it is behind but the merge tree is clean (see [Branch sync](#branch-sync)).
@@ -115,7 +113,7 @@ What counts as CI:
   fallback in [`../codex-review-protocol.md`](../codex-review-protocol.md) ("CI observation
   fallback") and report CI as unobserved rather than passing, absent, or failed.
 
-When the 30 minutes are up, or CI settles, whichever comes first:
+Once CI settles, or a run is not this change's to fix:
 
 - Leave any owed review record per [Records](#records).
 - Give the user the PR URL, a short summary, and **plainly where CI stands** — green, red with
@@ -123,35 +121,22 @@ When the 30 minutes are up, or CI settles, whichever comes first:
 - Then stop. The merge, review-bot findings, and anything still unresolved are the user's call,
   and a later session (or an explicit [`Run PR`](#run-pr) sweep) is where that work belongs.
 
-Never park a cron job or other open-ended watch on the PR. A cron entry outlives the session, so
-nothing can stop it afterwards — that is the unbounded loop this budget exists to prevent, and
-it is denied for the whole session regardless of how much budget is left.
+**Never park a cron job or other open-ended watch on the PR.** A cron entry outlives the session,
+so nothing can stop it afterwards — that is the unbounded loop this rule exists to prevent.
 
-**Inside a sweep** ([Run PR](#run-pr), a babysit of several PRs), the same 30-minute ceiling
-applies per CI run, but the sweep does not wait on it: take no more than one status snapshot
-every five minutes at meaningful stage boundaries, and if the run is still queued or in progress
-at the limit, record it as deferred with its run URL and continue.
+**Inside a sweep** ([Run PR](#run-pr), following several PRs at once), a separate pacing ceiling
+applies to _observing other PRs'_ CI: AGENTS.md "Anti-conflict and CI-speed operating procedure"
+caps it at one status snapshot every five minutes and ≤30 minutes per run, recording a still-queued
+or still-running check as deferred with its run URL rather than waiting on it. That ceiling is
+about sweep pacing, not about how long a session may follow its own just-opened PR.
 
 **Claude Code enforcement.** `.claude/hooks/pr-handoff-stop.sh` (registered in
-`.claude/settings.json`) drops a session-scoped marker, stamped with the open time, when a
-PR-creating call — `gh pr create` or any `create_pull_request` MCP tool — returns a real PR URL.
-It then measures the budget from that stamp:
-
-- **Inside the budget** — shell polling (`gh pr checks|status|view|…`, `gh run …`,
-  `gh api …actions/runs`, `sync:pr-branches`), GitHub MCP PR/CI tools, `Monitor`, and
-  `ScheduleWakeup` all pass. Only `CronCreate` is denied.
-- **Past the budget** — all of those are denied, so the session reports and stops rather than
-  drifting into an open-ended supervision shift.
-
-Committing, pushing, ledger appends, and PR create/merge (`gh pr merge`, `merge_pull_request`)
-stay allowed throughout. The budget is `CLAUDE_PR_BABYSIT_BUDGET_MINUTES` (default 30, clamped
-to 1..240). To keep watching past it on an explicit user ask, prefix a shell command with
-`CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names. Sessions that never
-create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and review sessions on someone
-else's PR still function normally. Known wording gap: the hook's post-create context message
-still reads as the bare route ("hand over its URL and stop … unless the user expressly asks"),
-and `tests/bare-pr-publication-policy.test.ts` pins that wording; the enforced ceiling is the
-same either way, and this section is the rule.
+`.claude/settings.json`) drops a session-scoped marker when a PR-creating call — `gh pr create`
+or any `create_pull_request` MCP tool — returns a real PR URL, and denies `CronCreate` for the
+rest of that session. Nothing else is restricted: `gh pr` reads, GitHub MCP PR/CI tools,
+`Monitor`, `ScheduleWakeup`, committing, pushing, ledger appends, and PR create/merge are all
+ordinary work. Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix`
+work, and review sessions on someone else's PR still function normally.
 
 ## Review threads
 
