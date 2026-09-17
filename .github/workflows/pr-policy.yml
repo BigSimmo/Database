@@ -337,6 +337,10 @@ jobs:
               addedMigrationContents,
               changedWorkflowContents,
               enforceOwnerMerge: true,
+              // The owner hold is carried by the required `Owner approval` status (yellow while
+              // pending), not by a red PR policy error. Ruleset 18011271 requires that context;
+              // never remove it from the ruleset without reverting this line.
+              ownerHoldViaStatus: true,
             });
 
             // Report the hold as its own status. success is posted only while the evaluated
@@ -428,12 +432,13 @@ jobs:
             // with an incomplete Clinical Governance Preflight; a RAG-ranking-surface PR
             // without an explicit `RAG impact:` declaration (docs/rag-behaviour/safeguards.md);
             // a migration PR claiming a deferred deploy; an edit to applied migration history;
-            // and a database, clinical or RAG-ranking PR without the owner's approval.
+            // and a changed branch workflow that names or posts a required check. A database,
+            // clinical or RAG-ranking PR awaiting the owner is held by `Owner approval`, not here.
             for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
               for (const error of result.errors) core.error(error);
               core.setFailed(
-                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above. Fix the PR body or revert the migration history edit, or wait for the owner's approval, then rerun.`,
+                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above. Fix the PR body, revert the migration history edit, or fix the flagged workflow, then rerun.`,
               );
             }

@@ -38,6 +38,8 @@ import type { DifferentialCuratedEntry } from "@/lib/differential-curated";
 import { DifferentialOverviewRail } from "@/components/differentials/differential-overview-rail";
 import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
+import { idsCompareHref } from "@/components/compare";
+import { COMPARE_MAX_COUNT } from "@/components/differentials/differential-compare-picker-control";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { PageHeader } from "@/components/ui/page-header";
@@ -48,22 +50,27 @@ import {
   cleanDifferentialItem,
   curatedContentNote,
   curatedProvenanceLabel,
+  doNowStepsAreCurated,
   detailTabCounts,
   differentialGroupLabel,
+  differentialGroupScopeNote,
   differentialSourceStatusLabel,
   differentialStatusLabel,
   differentialValidationStatusLabel,
   formatDifferentialCopyText,
   formatExportedDate,
+  generatedBodyWithheld,
   groupCurrentPresentation,
   hasCuratedContent,
   isDetailTabId,
   isRedundantSafetySummary,
+  resolveDoNowSteps,
   resolveSafetyFacts,
   safetyFactCompactLabel,
   sectionBadgeLabel,
   sectionScopeLabel,
   visibleSectionItems,
+  withholdGeneratedBody,
   type DifferentialDetailContext,
   type DifferentialDetailTabId,
   type DifferentialSafetyFact,
@@ -570,6 +577,87 @@ function ContentNote({ curated }: { curated: DifferentialCuratedEntry | null }) 
   );
 }
 
+/**
+ * The authored "Do now" steps on a phone.
+ *
+ * `DifferentialOverviewRail` holds these on desktop and is `lg:block`, so until
+ * 2026-09-16 the reviewed steps had no phone surface at all: on call, the reader
+ * got the generated "Priority steps" accordion the overlay exists to replace.
+ * This is the same content at the same place in the reading order, in flow, and
+ * `lg:hidden` so exactly one of the two ever paints.
+ */
+function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: DifferentialCuratedEntry | null }) {
+  const steps = resolveDoNowSteps(record, curated);
+  if (steps.length === 0) return null;
+  const authored = doNowStepsAreCurated(curated);
+
+  return (
+    <section
+      data-testid="differential-do-now-phone"
+      aria-label="Do now"
+      className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 py-3 shadow-[var(--shadow-inset)] lg:hidden"
+    >
+      <h2 className="flex items-center gap-1.5 text-2xs font-extrabold uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
+        <Activity className="size-icon-sm shrink-0" aria-hidden />
+        Do now
+      </h2>
+      {authored ? null : (
+        <p className="mt-1 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+          {differentialGroupScopeNote(record)}
+        </p>
+      )}
+      <ol className="mt-2 grid gap-2">
+        {steps.map((step, index) => (
+          <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
+            <span className="nums mt-0.5 grid h-5 w-5 place-items-center rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-3xs font-extrabold text-[color:var(--clinical-accent)]">
+              {index + 1}
+            </span>
+            <span className="text-sm leading-6 text-[color:var(--text)]">{step}</span>
+          </li>
+        ))}
+      </ol>
+      {authored ? (
+        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * What stands in place of the clinical review when the generated body has been
+ * withheld. An empty panel would read as a record with nothing in it, which is
+ * a different and misleading claim, so the absence is stated and the reader is
+ * pointed at the record's provenance.
+ *
+ * Deliberately does NOT offer to open an original: the Source tab carries
+ * status, review state and a version line reading "Local content only", and
+ * nothing here links a source document. Promising one was the same overclaim
+ * this component exists to prevent, made by the component itself.
+ */
+function WithheldBody({ onOpenSource }: { onOpenSource: () => void }) {
+  return (
+    <div data-testid="differential-body-withheld" className="px-3 py-4 sm:px-4">
+      <p className="text-sm font-bold text-[color:var(--text-heading)]">
+        The generated review for this record is not shown
+      </p>
+      <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+        Its sections were found to describe a different diagnosis, so they are withheld rather than printed under a
+        warning. The assessment steps above are locally authored. The safety snapshot and investigations are retained
+        from the source export and were not part of the contaminated text. There is no linked original to open here, so
+        treat this as unreviewed reference and check its source and review status before acting on it.
+      </p>
+      <button
+        type="button"
+        onClick={onOpenSource}
+        className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+      >
+        See source and review status
+        <ChevronRight className="size-icon-sm shrink-0" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 function RelatedDiagnoses({ record, knownRelatedSlugs }: { record: DifferentialRecord; knownRelatedSlugs: string[] }) {
   const known = new Set(knownRelatedSlugs);
   return (
@@ -847,29 +935,28 @@ function FooterStatus({
  * @param record - The diagnosis record whose content is copied.
  * @param saved - Whether the diagnosis is currently saved.
  * @param onToggleSaved - Called when the saved state is toggled.
- * @param onCompare - Called when comparison is requested.
+ * @param compareHref - Where the Compare control navigates.
  */
 function TopActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
 }) {
   return (
     <div className="hidden shrink-0 items-center gap-3 lg:flex">
-      <button
-        type="button"
-        onClick={onCompare}
+      <Link
+        href={compareHref}
         className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
-      </button>
+      </Link>
       <CopyAfterReviewButton text={formatDifferentialCopyText(record)} />
       <button
         type="button"
@@ -893,23 +980,24 @@ function MobilePrimaryActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
+  compareCount,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
+  compareCount: number;
 }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] p-2 shadow-[var(--e2)] lg:hidden">
-      <button
-        type="button"
-        onClick={onCompare}
+      <Link
+        href={compareHref}
         className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[color:var(--clinical-accent)] px-3 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
-        Compare ({record.related.length + 1})
-      </button>
+        Compare ({compareCount})
+      </Link>
       <CopyAfterReviewButton
         label="Copy"
         text={formatDifferentialCopyText(record)}
@@ -1011,21 +1099,23 @@ function DiagnosisActions({
   record,
   saved,
   onToggleSaved,
-  onCompare,
+  compareHref,
+  compareCount,
   onNavigate,
 }: {
   record: DifferentialRecord;
   saved: boolean;
   onToggleSaved: () => void;
-  onCompare: () => void;
+  compareHref: string;
+  compareCount: number;
   onNavigate: () => void;
 }) {
   return (
     <div className="grid gap-2">
-      <button type="button" onClick={onCompare} className={actionRowClass}>
+      <Link href={compareHref} onClick={onNavigate} className={actionRowClass}>
         <GitCompareArrows className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-        Compare ({record.related.length + 1})
-      </button>
+        Compare ({compareCount})
+      </Link>
       <CopyAfterReviewButton
         label="Copy after review"
         text={formatDifferentialCopyText(record)}
@@ -1173,7 +1263,7 @@ function Tabs({
 }
 
 export function DifferentialDetailPage({
-  record,
+  record: exportedRecord,
   detailContext,
   liveGovernance = null,
 }: {
@@ -1181,6 +1271,15 @@ export function DifferentialDetailPage({
   detailContext: DifferentialDetailContext;
   liveGovernance?: DifferentialRecordGovernance | null;
 }) {
+  const curated = detailContext.curated ?? null;
+  // Applied here as well as in the catalogue loader, not instead of it. The
+  // loader covers every record built from the snapshot; this covers a record
+  // handed to the page from anywhere else, including a live owner row read back
+  // from Supabase that was seeded before the withhold existed. The call is
+  // idempotent and returns non-withheld records by identity, so the duplication
+  // costs nothing and closes the one path the loader cannot see.
+  const bodyWithheld = generatedBodyWithheld(curated);
+  const record = useMemo(() => withholdGeneratedBody(exportedRecord, curated), [curated, exportedRecord]);
   const [activeTab, setActiveTab] = useState<DifferentialDetailTabId>("overview");
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set<string>());
   const accountData = useAccountData();
@@ -1192,7 +1291,16 @@ export function DifferentialDetailPage({
     [detailContext, liveGovernance?.sourceStatus, record],
   );
   const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
-  const tabCounts = useMemo(() => detailTabCounts(record), [record]);
+  // Capped at the picker's slot count, this diagnosis first. Beyond that the
+  // queue's own padding truncates, so a prefilled ninth id would vanish the
+  // moment the reader opened "Edit selection" and be committed away on the next
+  // edit — a silent loss rather than a visible one.
+  const compareIds = useMemo(
+    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])].slice(0, COMPARE_MAX_COUNT),
+    [detailContext.knownRelatedSlugs, record.slug],
+  );
+  const compareHref = idsCompareHref("/differentials/compare", compareIds);
+  const tabCounts = useMemo(() => detailTabCounts(record, compareIds.length), [compareIds.length, record]);
   const sourceStatus = liveGovernance?.sourceStatus ?? detailContext.source.sourceStatus;
 
   const expandableSectionIds = useMemo(
@@ -1250,7 +1358,12 @@ export function DifferentialDetailPage({
     }
   }
 
-  const openCompareTab = () => changeTab("compare");
+  // One tap, and it says where it goes. "Compare (4)" on a primary button reads
+  // as "open the comparison"; it used to open a tab carrying its own button to
+  // actually open one. The ids are this diagnosis plus the related diagnoses
+  // that resolve to a reviewed page, which is also what the count must say — the
+  // record's full `related` list includes nodes with no page, and the queue drops
+  // them, so counting those promised rows that never arrive.
 
   return (
     <main
@@ -1276,10 +1389,8 @@ export function DifferentialDetailPage({
               close();
               void toggleSaved();
             }}
-            onCompare={() => {
-              close();
-              openCompareTab();
-            }}
+            compareHref={compareHref}
+            compareCount={compareIds.length}
             onNavigate={close}
           />
         )}
@@ -1308,7 +1419,7 @@ export function DifferentialDetailPage({
               </span>
             </>
           }
-          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />}
+          actions={<TopActions record={record} saved={saved} onToggleSaved={toggleSaved} compareHref={compareHref} />}
         />
 
         <DiagnosisDiscoveryActions sections={sections} onSelect={changeTab} />
@@ -1336,13 +1447,10 @@ export function DifferentialDetailPage({
             // the rail is desktop breathing room, not a fourth phone summary.
             <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5">
               <div className="grid min-w-0 gap-4">
-                <ContentNote curated={detailContext.curated ?? null} />
-                <SafetySnapshot
-                  record={record}
-                  termLinks={detailContext.termLinks ?? {}}
-                  curated={detailContext.curated ?? null}
-                />
+                <ContentNote curated={curated} />
+                <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} curated={curated} />
                 <ClinicalHinge record={record} />
+                <PhoneDoNow record={record} curated={curated} />
                 <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]">
                   <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 sm:px-4">
                     <p className="text-xs font-extrabold uppercase tracking-eyebrow text-[color:var(--text-muted)]">
@@ -1364,16 +1472,20 @@ export function DifferentialDetailPage({
                       </button>
                     ) : null}
                   </div>
-                  {record.sections.map((section) => (
-                    <SectionRow
-                      key={section.id}
-                      section={section}
-                      record={record}
-                      open={openSections.has(section.id)}
-                      onOpenChange={setSectionOpen}
-                      termLinks={detailContext.termLinks ?? {}}
-                    />
-                  ))}
+                  {bodyWithheld ? (
+                    <WithheldBody onOpenSource={() => changeTab("source")} />
+                  ) : (
+                    record.sections.map((section) => (
+                      <SectionRow
+                        key={section.id}
+                        section={section}
+                        record={record}
+                        open={openSections.has(section.id)}
+                        onOpenChange={setSectionOpen}
+                        termLinks={detailContext.termLinks ?? {}}
+                      />
+                    ))
+                  )}
                 </div>
               </div>
               <DifferentialOverviewRail
@@ -1393,7 +1505,7 @@ export function DifferentialDetailPage({
               record={record}
               relatedMapDetails={detailContext.relatedMapDetails}
               knownRelatedSlugs={detailContext.knownRelatedSlugs}
-              curated={detailContext.curated ?? null}
+              curated={curated}
             />
           ) : null}
 
@@ -1405,15 +1517,17 @@ export function DifferentialDetailPage({
           ) : null}
 
           {activeTab === "source" ? (
-            <FooterStatus
-              source={detailContext.source}
-              liveGovernance={liveGovernance}
-              curated={detailContext.curated ?? null}
-            />
+            <FooterStatus source={detailContext.source} liveGovernance={liveGovernance} curated={curated} />
           ) : null}
         </div>
 
-        <MobilePrimaryActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
+        <MobilePrimaryActions
+          record={record}
+          saved={saved}
+          onToggleSaved={toggleSaved}
+          compareHref={compareHref}
+          compareCount={compareIds.length}
+        />
         <p className="rounded-lg border border-transparent px-1 text-xs leading-5 text-[color:var(--text-muted)]">
           Clinical reference — not validated decision support. Review before use.
         </p>

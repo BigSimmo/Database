@@ -116,6 +116,14 @@ function assertOwnerMergeControls(step) {
   if (!/enforceOwnerMerge:\s*true\b/.test(step)) {
     failures.push("PR policy validation must call evaluatePullRequestPolicy with enforceOwnerMerge: true.");
   }
+  // Step 2: the hold is carried by the required `Owner approval` status, so the workflow opts
+  // out of the red hold error. That is safe ONLY while it still posts that status (asserted in
+  // assertOwnerApprovalStatusControls) and the ruleset requires it.
+  if (!/ownerHoldViaStatus:\s*true\b/.test(step)) {
+    failures.push(
+      "PR policy validation must call evaluatePullRequestPolicy with ownerHoldViaStatus: true so the owner hold shows as the yellow Owner approval status.",
+    );
+  }
   if (!/\bownerApproval,/.test(step) || !/\bbaseMigrationVersions,/.test(step)) {
     failures.push("PR policy validation must pass ownerApproval and baseMigrationVersions to the policy.");
   }

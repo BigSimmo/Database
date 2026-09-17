@@ -772,11 +772,12 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
   The `pull_request_target` job checks out the trusted `github.workflow_sha` revision and never executes
   PR-head code. Its permissions are exactly `contents: read`, `pull-requests: write` (used solely to remove
-  the `owner-approved` label when new commits land) and `actions: read` (to list this workflow's own run
-  records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
+  the `owner-approved` label when new commits land), `statuses: write` (used solely for the `Owner approval`
+  commit status) and `actions: read` (to list this workflow's own run records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
   migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
   the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
-  RAG-ranking PRs stay red until the owner applies `owner-approved`, which agents must never add. The
+  RAG-ranking PRs are held by the required `Owner approval` status, pending (yellow) until the owner applies
+  `owner-approved`, which agents must never add (#2842; not a red `PR policy` failure since step 2). The
   label counts only when applied by the repository owner (not a collaborator or GitHub App) after the
   earliest PR policy run whose run record names the current PR head SHA (cancelled runs included; bind
   via `run.head_sha`, never `GITHUB_SHA` alone under `pull_request_target`), so a label from before a
