@@ -1804,9 +1804,12 @@ function selfTest() {
     "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
   migrationHistoryAndOwnerMergeSelfTest(completeBody);
-  const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
-  for (const item of requiredClinicalGovernanceItems)
-    assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  // The PR template no longer has to carry the seven governance items as unchecked boxes.
+  // That assertion existed to keep the template in sync with a BLOCKING requirement; since
+  // 2026-09-17 the preflight is advisory, so there is nothing left for it to pin — forcing
+  // the checklist back into the template would restore exactly the paperwork this change
+  // removed. `requiredClinicalGovernanceItems` is still exported and still used, by the
+  // advisory warning above and by ci.yml's `sync-pr-policy-body` job.
   const workflow = readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8");
   assert.match(
     workflow,
