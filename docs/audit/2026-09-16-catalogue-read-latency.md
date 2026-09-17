@@ -25,6 +25,13 @@ body was about 8 KB. The spread is real: the list routes sit on a 6,000 ms inter
 that crosses it is abandoned and answered from bundled data instead. Treat the individual numbers as
 a range from a handful of probes, not a distribution.
 
+**Measured at the database, 2026-09-17.** `pg_stat_statements` on the live project records
+`read_site_content_public_records` at **11 calls, 95,216 ms total, mean 8,656 ms, max 17,263 ms**
+over a 3 h 20 min window (stats reset 10:00 UTC). That is a mean across every call in the window,
+not a slow-query tail. It is roughly double the browser-side figure above, which is consistent:
+a list route that crosses its 6,000 ms budget is abandoned, so the browser numbers floor out and
+understate what the database is actually spending.
+
 **The detail response is the decisive one.** 8 KB of output took as long as the whole catalogue. The
 cost is therefore not the payload, not the row count and not the filter — it is fixed work the
 function does before it looks at what was asked for.
@@ -43,10 +50,12 @@ sha256 of canonical bytes    57f6ec90225fc4341b446705f50a48b132f2872172d8f93888b
 That hash equals the `release_digest` pinned by
 `supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:910`. So the shape and
 size of the work are established rather than estimated. What is _not_ established is the per-unit
-cost: no `EXPLAIN (ANALYZE)` has been run against this function, and the arithmetic below that turns
-node counts into seconds is an inference. `scripts/operator-explain-site-content-public-records.sql`
-is the ready-to-run, read-only script that would settle it; it is provider-backed and unrun
-(ledger `#YE6BZB`).
+cost, and the arithmetic below that turns node counts into seconds is an inference. That gap is now
+closed from the other end rather than by an `EXPLAIN`: the `pg_stat_statements` read above gives the
+measured total per call, which is what step 0 of
+`scripts/operator-explain-site-content-public-records.sql` exists for. A full `EXPLAIN (ANALYZE)`
+would still attribute that cost *within* the function; the total itself no longer needs
+establishing.
 
 ## Root cause, in order
 
@@ -170,9 +179,11 @@ must not carry auto-merge.
 
 1. **Reviewing and merging the migration above.** Nothing else about the four seconds is
    outstanding.
-2. **The `EXPLAIN`.** `scripts/operator-explain-site-content-public-records.sql` — read-only, still
-   unrun (ledger `#YE6BZB`). Its step 0 reads `pg_stat_statements` and settles the real per-call
-   cost without an `EXPLAIN` at all.
+2. **The `EXPLAIN` — settled 2026-09-17, and no `EXPLAIN` was needed.** Step 0 of
+   `scripts/operator-explain-site-content-public-records.sql` reads `pg_stat_statements`; that read
+   returned a mean of 8,656 ms per call (recorded above). Ledger `#YE6BZB` closes. The full
+   `EXPLAIN (ANALYZE)` remains available if the cost ever needs attributing *within* the function
+   rather than totalled.
 3. **The third full pass** (root cause 4) survives any digest-only fix. The drafted migration
    removes it from the read path; nothing has proved that yet.
 4. **`read_site_content_health()` repeats the same whole-corpus work several times in one call.**
@@ -204,14 +215,18 @@ Ordered by what would have caught _this_, soonest first.
    regress. Both regressions were invisible in review for the same reason: the body is a wall of SQL
    and one call among many looks like the others.
 
-   **Built.** `npm run check:read-path-cost` (`scripts/check-read-path-cost.mjs`) does this for
+   **Built, and shipping separately.** `npm run check:read-path-cost`
+   (`scripts/check-read-path-cost.mjs`) does this for
    every application-invoked read path rather than for this one function, transitively through the
    call graph, offline, in both `supabase/schema.sql` and the migration chain. It is wired into
    `verify:cheap`, `verify:pr-local`'s heavy plan and CI's `static-pr` job, and
    `tests/read-path-cost.test.ts` proves it still fires on a planted violation. It is a tripwire on
    one shape, not a cost model: it does not catch root cause 4 above — a per-row sweep with no
-   aggregate — and it drops any read path that also writes. Its own header lists every hole, and
-   item 2 remains the measurement that would settle the cost.
+   aggregate — and it drops any read path that also writes. Its own header lists every hole.
+
+   **It lands in a follow-up pull request, strictly after the migration**, because it goes red on
+   exactly the defect the migration removes. On a tree where the fix is not yet in, the gate would
+   redden CI on `read_site_content_public_records` itself.
 
 4. **A degraded answer needs a latency signal, not just a degraded flag.** `live-domain-monitor`
    passing on bundled data is correct behaviour and was also the reason nobody looked. A monitor
