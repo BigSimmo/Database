@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import { curatedDifferentials } from "@/lib/differential-curated";
 import { generatedBodyWithheld } from "@/lib/differential-detail";
 import { buildDefaultDifferentialRows, loadDifferentialSnapshot } from "@/lib/differential-fixtures";
+import { diagnosisToRow, type DifferentialRecordRow } from "@/lib/differential-records";
+import { differentialRowsToCorpusEntries } from "@/lib/registry-corpus";
 import { composeDifferentialSearchResults } from "@/lib/differential-search-composition";
 import {
   differentialRecords,
@@ -18,6 +20,8 @@ import type { DifferentialRecord, DifferentialSnapshot } from "@/lib/differentia
 
 /** The generated export on disk, before the catalogue loader withholds it. */
 const rawSnapshot = JSON.parse(readFileSync("data/differentials-snapshot.json", "utf8")) as DifferentialSnapshot;
+
+const OWNER = "00000000-0000-4000-8000-0000000000ff";
 
 const LITHIUM = "lithium-physiological-withdrawal-tremor";
 /** The akathisia sentence the generated export filed under the lithium record. */
@@ -169,5 +173,61 @@ describe("the canonical read projection withholds a contaminated body", () => {
     const viaLoader = getDifferentialRecord(LITHIUM);
 
     expect(viaLive).toEqual(viaLoader);
+  });
+});
+
+/**
+ * Copilot on PR #2838, and also right: the fix above covers the record READ
+ * paths — the page and `/api/differentials`. The corpus projection is a third
+ * path and was still exposed. `differentialRowsToCorpusEntries` takes the
+ * persisted row straight from `rowToDifferentialRecord` (which is a bare
+ * `row.payload`) and builds the entry's `content` and `searchText` from
+ * `diagnosisFullText`, so the contaminated hinge and actions were embedded and
+ * projected into published site content.
+ *
+ * That is the clinical output path: chunks built here are what answer
+ * generation retrieves. Fixing the catalogue read while leaving this open would
+ * have protected what a clinician browses and not what the product tells them.
+ */
+describe("the corpus projection withholds a contaminated body", () => {
+  function liveRow(slug: string) {
+    const exported = rawSnapshot.diagnoses.find((record) => record.slug === slug);
+    if (!exported) throw new Error(`missing export record: ${slug}`);
+    return {
+      ...diagnosisToRow(structuredClone(exported), OWNER, rawSnapshot),
+      id: `00000000-0000-4000-8000-00000000000${slug === LITHIUM ? "1" : "2"}`,
+      owner_id: OWNER,
+      created_at: "2026-08-24T00:00:00.000Z",
+      updated_at: "2026-08-24T00:00:00.000Z",
+      last_reviewed_at: null,
+      review_due_at: null,
+    } as unknown as DifferentialRecordRow;
+  }
+
+  it("never embeds the contaminated text from a stale persisted row", () => {
+    const row = liveRow(LITHIUM);
+    // Proof the row is the contaminated one the live database still holds.
+    expect(JSON.stringify(row)).toContain(CONTAMINATED);
+
+    const [entry] = differentialRowsToCorpusEntries([row]);
+
+    expect(entry).toBeTruthy();
+    expect(entry!.content).not.toContain(CONTAMINATED);
+    expect(entry!.searchText).not.toContain(CONTAMINATED.toLowerCase());
+    expect(JSON.stringify(entry)).not.toContain(CONTAMINATED);
+  });
+
+  it("still builds a usable entry rather than an empty one", () => {
+    const [entry] = differentialRowsToCorpusEntries([liveRow(LITHIUM)]);
+
+    expect(entry!.title).toBe("Lithium");
+    expect(entry!.slug).toBe(LITHIUM);
+    expect(entry!.content).toMatch(/Lithium toxicity/i);
+  });
+
+  it("leaves a record with no withhold untouched", () => {
+    const [entry] = differentialRowsToCorpusEntries([liveRow("akathisia")]);
+
+    expect(entry!.content).toContain(CONTAMINATED);
   });
 });

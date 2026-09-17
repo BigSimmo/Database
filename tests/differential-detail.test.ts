@@ -578,6 +578,11 @@ describe("named instruments stay named, never scored", () => {
     /\d[^.]{0,40}\bcut[- ]?off\b/i,
     /\btotal\s+of\s+\d/i,
     /\b\d+\s*points?\b/i,
+    // Operator and label forms: `score: 4`, `score >= 4`, `score ≥4`. A bare
+    // number next to "score" was the only shape the original guard knew.
+    /\bscores?\b\s*[:=]\s*\d/i,
+    /\bscores?\b\s*(?:>=|<=|≥|≤|>|<)\s*\d/i,
+    /\bscores?\s+(?:of\s+)?(?:at\s+least|or\s+(?:more|above))\s*\d/i,
   ];
 
   it("names an instrument without reproducing its scoring", () => {
@@ -597,6 +602,42 @@ describe("named instruments stay named, never scored", () => {
     const reproducing = "Retitrate when the cut-off of 48 hours is exceeded";
     expect(SCORE_LIKE.some((pattern) => pattern.test(deferring))).toBe(false);
     expect(SCORE_LIKE.some((pattern) => pattern.test(reproducing))).toBe(true);
+  });
+
+  it("states no qualitative threshold either, which is the same rule in words", () => {
+    // Copilot on PR #2838, and a fair hit on my own guard: "above the
+    // therapeutic range" is a serum level used as a decision point, which
+    // docs/clinical-governance.md defers to the local protocol. The numeric
+    // patterns above cannot see it, so a worded threshold slipped through the
+    // very check written to catch thresholds.
+    const QUALITATIVE = [
+      /\babove the (?:therapeutic|normal|reference) range\b/i,
+      /\bbelow the (?:therapeutic|normal|reference) range\b/i,
+      /\b(?:exceeds?|above|below|under|over)\s+the\s+(?:cut[- ]?off|threshold|limit)\b/i,
+    ];
+    for (const [slug, entry] of Object.entries(curatedDifferentials)) {
+      for (const step of entry.doNow ?? []) {
+        for (const pattern of QUALITATIVE) {
+          expect(pattern.test(step), `${slug} states a qualitative threshold: ${step}`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("catches scoring written with an operator or a label, not just a bare number", () => {
+    // Also Copilot: `score: 4` and `score >= 4` are the forms a future authored
+    // step is most likely to use, and neither matched.
+    const forbidden = ["Record a score: 4 before escalating", "Escalate once the score >= 4", "Escalate at score ≥4"];
+    for (const step of forbidden) {
+      expect(
+        SCORE_LIKE.some((pattern) => pattern.test(step)),
+        `not caught: ${step}`,
+      ).toBe(true);
+    }
+    // Still allowed: naming the instrument and deferring the number.
+    expect(SCORE_LIKE.some((pattern) => pattern.test("Apply the Hunter criteria and record which limb is met"))).toBe(
+      false,
+    );
   });
 
   it("states no numeric clinical threshold in an authored step", () => {

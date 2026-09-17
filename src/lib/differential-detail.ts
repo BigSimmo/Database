@@ -336,15 +336,21 @@ export function formatExportedDate(exportedAt: string): string {
 /** Trailing counts for the section rail. `null` means the tab carries no
  *  countable collection, so the rail renders the label alone rather than a
  *  misleading zero — Source is a governance panel, not a list of things. */
-export function detailTabCounts(record: DifferentialRecord): Record<DifferentialDetailTabId, number | null> {
+export function detailTabCounts(
+  record: DifferentialRecord,
+  compareCount?: number,
+): Record<DifferentialDetailTabId, number | null> {
   return {
     // No count. "Overview 6" would be a tally of section rows, which is a fact
     // about the layout rather than about the patient — and the tab already
     // carries that number in its section-sheet detail line.
     overview: null,
-    // The compare queue is this diagnosis plus everything it is compared against,
-    // which is the number the Compare button has always shown.
-    compare: record.related.length + 1,
+    // The compare queue is this diagnosis plus everything it is compared against.
+    // Passed in rather than recomputed: the queue is capped and only carries
+    // related diagnoses that resolve to a page, so deriving it here from
+    // `record.related` made the tab disagree with the Compare button on the same
+    // screen — "Compare (3)" on the control, "Compare (4)" on the tab.
+    compare: compareCount ?? record.related.length + 1,
     map: record.related.length + 1,
     related: record.related.length || null,
     source: null,

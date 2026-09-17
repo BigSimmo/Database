@@ -441,13 +441,13 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
     // Compare, Map and Related tabs with them, so the note names it instead.
     generatedBodyUnreliable: true,
     contentNote:
-      "The generated review for this record carried material from akathisia, drug-induced parkinsonism and tardive syndromes, so it is withheld rather than shown. The related diagnoses listed are the extrapyramidal family rather than causes of tremor. The assessment steps are locally authored. The safety snapshot and investigations are retained from the same export and were not part of the contaminated text. Open the Source tab and read the original before acting on this record.",
+      "The generated review for this record carried material from akathisia, drug-induced parkinsonism and tardive syndromes, so it is withheld rather than shown. The related diagnoses listed are the extrapyramidal family rather than causes of tremor. The assessment steps are locally authored. The safety snapshot and investigations are retained from the same export and were not part of the contaminated text. There is no linked original for this record, so check its source and review status and treat it as unreviewed reference before acting on it.",
     doNow: [
       "Characterise the tremor: a fine postural tremor fits lithium at therapeutic level, while a coarse tremor with ataxia suggests toxicity",
       "Take a lithium level with U&E, eGFR, calcium and thyroid function, and note the time since the last dose",
       "Ask about dehydration, vomiting, diarrhoea, a new NSAID, ACE inhibitor or diuretic, and any recent dose change",
       "Ask about alcohol intake and the time of the last drink, since withdrawal tremor is coarse and carries its own risks",
-      "Escalate for a level above the therapeutic range with neurological signs, since toxicity can progress despite a stopped dose",
+      "Escalate for neurological signs with any raised level, taking the threshold from the local lithium protocol, since toxicity can progress despite a stopped dose",
     ],
     discriminators: [
       {

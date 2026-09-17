@@ -627,7 +627,12 @@ function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: 
  * What stands in place of the clinical review when the generated body has been
  * withheld. An empty panel would read as a record with nothing in it, which is
  * a different and misleading claim, so the absence is stated and the reader is
- * sent to the original.
+ * pointed at the record's provenance.
+ *
+ * Deliberately does NOT offer to open an original: the Source tab carries
+ * status, review state and a version line reading "Local content only", and
+ * nothing here links a source document. Promising one was the same overclaim
+ * this component exists to prevent, made by the component itself.
  */
 function WithheldBody({ onOpenSource }: { onOpenSource: () => void }) {
   return (
@@ -638,15 +643,15 @@ function WithheldBody({ onOpenSource }: { onOpenSource: () => void }) {
       <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
         Its sections were found to describe a different diagnosis, so they are withheld rather than printed under a
         warning. The assessment steps above are locally authored. The safety snapshot and investigations are retained
-        from the source export and were not part of the contaminated text. Read the original before acting on this
-        record.
+        from the source export and were not part of the contaminated text. There is no linked original to open here, so
+        treat this as unreviewed reference and check its source and review status before acting on it.
       </p>
       <button
         type="button"
         onClick={onOpenSource}
         className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-xs font-semibold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
       >
-        Open the source
+        See source and review status
         <ChevronRight className="size-icon-sm shrink-0" aria-hidden />
       </button>
     </div>
@@ -1286,7 +1291,16 @@ export function DifferentialDetailPage({
     [detailContext, liveGovernance?.sourceStatus, record],
   );
   const activeSection = sections.find((section) => section.id === activeTab) ?? sections[0];
-  const tabCounts = useMemo(() => detailTabCounts(record), [record]);
+  // Capped at the picker's slot count, this diagnosis first. Beyond that the
+  // queue's own padding truncates, so a prefilled ninth id would vanish the
+  // moment the reader opened "Edit selection" and be committed away on the next
+  // edit — a silent loss rather than a visible one.
+  const compareIds = useMemo(
+    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])].slice(0, COMPARE_MAX_COUNT),
+    [detailContext.knownRelatedSlugs, record.slug],
+  );
+  const compareHref = idsCompareHref("/differentials/compare", compareIds);
+  const tabCounts = useMemo(() => detailTabCounts(record, compareIds.length), [compareIds.length, record]);
   const sourceStatus = liveGovernance?.sourceStatus ?? detailContext.source.sourceStatus;
 
   const expandableSectionIds = useMemo(
@@ -1350,15 +1364,6 @@ export function DifferentialDetailPage({
   // that resolve to a reviewed page, which is also what the count must say — the
   // record's full `related` list includes nodes with no page, and the queue drops
   // them, so counting those promised rows that never arrive.
-  // Capped at the picker's slot count, this diagnosis first. Beyond that the
-  // queue's own padding truncates, so a prefilled ninth id would vanish the
-  // moment the reader opened "Edit selection" and be committed away on the next
-  // edit — a silent loss rather than a visible one.
-  const compareIds = useMemo(
-    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])].slice(0, COMPARE_MAX_COUNT),
-    [detailContext.knownRelatedSlugs, record.slug],
-  );
-  const compareHref = idsCompareHref("/differentials/compare", compareIds);
 
   return (
     <main

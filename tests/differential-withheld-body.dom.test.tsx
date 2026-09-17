@@ -90,6 +90,21 @@ describe("a differential whose generated body is withheld", () => {
     expect(withheld).toHaveTextContent(/describe a different diagnosis/i);
   });
 
+  it("does not promise an original document the app cannot open", () => {
+    // Copilot on PR #2838. The Source tab renders source status, review status
+    // and a version line reading "Local content only" — there is no link to an
+    // original anywhere on it. Telling the reader to open the source and read
+    // the original sent them somewhere that cannot deliver it, which is the same
+    // overclaim this change exists to stop, made by the fix itself.
+    renderRecord(LITHIUM);
+
+    const withheld = screen.getByTestId("differential-body-withheld");
+    expect(withheld.textContent ?? "").not.toMatch(/read the original/i);
+    expect(screen.getByTestId("differential-content-note").textContent ?? "").not.toMatch(/read the original/i);
+    // What it points at instead must exist: the provenance and review state.
+    expect(withheld).toHaveTextContent(/review status/i);
+  });
+
   it("keeps the note explaining why, so the absence is never unexplained", () => {
     renderRecord(LITHIUM);
 

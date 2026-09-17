@@ -15,10 +15,8 @@ import { AuthProvider } from "@/lib/supabase/client";
 
 const SEROTONIN = "serotonin-toxicity";
 
-function renderRecord(slug: string, knownRelatedSlugs: string[]) {
-  const record = getDifferentialRecord(slug);
-  if (!record) throw new Error(`missing catalogue record: ${slug}`);
-  const detailContext: DifferentialDetailContext = {
+function buildContext(slug: string, knownRelatedSlugs: string[]): DifferentialDetailContext {
+  return {
     knownRelatedSlugs,
     relatedMapDetails: {},
     termLinks: {},
@@ -34,10 +32,15 @@ function renderRecord(slug: string, knownRelatedSlugs: string[]) {
       validationStatus: "unverified",
     },
   };
+}
+
+function renderRecord(slug: string, knownRelatedSlugs: string[]) {
+  const record = getDifferentialRecord(slug);
+  if (!record) throw new Error(`missing catalogue record: ${slug}`);
   render(
     <AuthProvider>
       <AccountDataProvider>
-        <DifferentialDetailPage record={record} detailContext={detailContext} />
+        <DifferentialDetailPage record={record} detailContext={buildContext(slug, knownRelatedSlugs)} />
       </AccountDataProvider>
     </AuthProvider>,
   );
@@ -114,10 +117,26 @@ describe("the authored Do now steps on a phone", () => {
   });
 
   it("is absent when a record has nothing to put in it", () => {
-    // Uncurated records fall back to the generated immediate actions; a record
-    // with neither must not render an empty card.
-    const bare = getDifferentialRecord("akathisia")!;
-    expect(bare.immediateActions.length + (curatedEntryFor("akathisia")?.doNow?.length ?? 0)).toBeGreaterThan(0);
+    // Copilot on PR #2838: the original version of this test never rendered the
+    // card at all, so a regression that painted an empty one would have passed.
+    // Neither source of steps: no curated overlay and no generated immediate
+    // actions. Both have to be absent, which is why the context is nulled too —
+    // akathisia carries an overlay that would keep the card populated on its own.
+    const bare = {
+      ...getDifferentialRecord("akathisia")!,
+      slug: "no-steps-anywhere",
+      immediateActions: [],
+      sections: [],
+    };
+    render(
+      <AuthProvider>
+        <AccountDataProvider>
+          <DifferentialDetailPage record={bare} detailContext={{ ...buildContext("akathisia", []), curated: null }} />
+        </AccountDataProvider>
+      </AuthProvider>,
+    );
+
+    expect(screen.queryByTestId("differential-do-now-phone")).toBeNull();
   });
 });
 
