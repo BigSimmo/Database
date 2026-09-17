@@ -145,6 +145,7 @@
       "testFiles": [
         "tests/answer-state-contract.test.ts",
         "tests/answer-support-priority.dom.test.tsx",
+        "tests/answer-verification-placement.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
@@ -2355,6 +2356,7 @@
       },
       "testFiles": [
         "tests/answer-support-priority.dom.test.tsx",
+        "tests/answer-verification-placement.dom.test.tsx",
         "tests/design-sync-contract.test.ts",
         "tests/design-sync-visual-exports.test.ts",
         "tests/ui-smoke.spec.ts",
