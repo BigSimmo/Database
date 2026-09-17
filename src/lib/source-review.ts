@@ -52,13 +52,15 @@ function isValidNonFutureAttestationTimestamp(value: unknown, now: Date) {
   return Number.isFinite(timestamp) && timestamp <= now.getTime();
 }
 
+const PERTH_CALENDAR_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Australia/Perth",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function perthCalendarDate(now = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Perth",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(now);
+  return PERTH_CALENDAR_DATE_FORMAT.format(now);
 }
 
 export function isValidReviewDate(value: string, now = new Date()) {

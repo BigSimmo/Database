@@ -1,6 +1,6 @@
 import type { AppModeId } from "@/lib/app-modes";
 import type {
-  ClinicalSourceCatalogueEntry,
+  ClinicalSourceClientEntry,
   ClinicalSourceType,
   SourceGeographyScope,
   SourceQualityBand,
@@ -108,7 +108,7 @@ function dateValue(value: string | null) {
  * candidate: a source that expires in 2027 is not thereby current, and reading a
  * future expiry as recency is exactly the inference the Method page forbids.
  */
-function latestKnownDate(entries: readonly ClinicalSourceCatalogueEntry[]) {
+function latestKnownDate(entries: readonly ClinicalSourceClientEntry[]) {
   let best: { date: string; label: "reviewed" | "published" } | null = null;
   let bestValue = Number.NEGATIVE_INFINITY;
   for (const entry of entries) {
@@ -141,7 +141,7 @@ function rankedValues<Value extends string>(values: readonly Value[], limit?: nu
 function summarise(params: {
   value: string;
   label: string;
-  entries: readonly ClinicalSourceCatalogueEntry[];
+  entries: readonly ClinicalSourceClientEntry[];
   /** Set for publisher groups, which are derived per jurisdiction. */
   scope?: SourceGeographyScope;
   /** Publisher summaries describe topics; topic summaries describe publishers. */
@@ -200,9 +200,9 @@ function summarise(params: {
 }
 
 export function deriveTopicBrowseSummaries(
-  entries: readonly ClinicalSourceCatalogueEntry[],
+  entries: readonly ClinicalSourceClientEntry[],
 ): readonly SourceBrowseSummary[] {
-  const byTopic = new Map<string, ClinicalSourceCatalogueEntry[]>();
+  const byTopic = new Map<string, ClinicalSourceClientEntry[]>();
   for (const entry of entries) {
     // One entry can carry the same topic twice upstream; the group is a set of
     // entries, so a repeated tag must not inflate the count.
@@ -226,10 +226,10 @@ export function deriveTopicBrowseSummaries(
  * filtered result narrower than the count promised.
  */
 export function derivePublisherBrowseSummaries(
-  entries: readonly ClinicalSourceCatalogueEntry[],
+  entries: readonly ClinicalSourceClientEntry[],
   scope: SourceGeographyScope,
 ): readonly SourceBrowseSummary[] {
-  const byPublisher = new Map<string, ClinicalSourceCatalogueEntry[]>();
+  const byPublisher = new Map<string, ClinicalSourceClientEntry[]>();
   for (const entry of entries) {
     if (!entry.publisher || entry.geography.scope !== scope) continue;
     const group = byPublisher.get(entry.publisher);

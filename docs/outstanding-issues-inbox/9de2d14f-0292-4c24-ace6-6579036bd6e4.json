@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9de2d14f-0292-4c24-ace6-6579036bd6e4",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The sources catalogue page ships 3.2 MB because it renders and serialises all 866 entries at once",
+    "detail": "MEASURED 2026-09-17 on live psychiatry.tools. GET /sources/search returns 3,233,140 bytes uncompressed (135 KB gzipped): 1,859,563 bytes rendered markup (57.5%) and 1,365,372 bytes RSC flight payload (42.2%). Every one of the 866 catalogue entries is both painted into the DOM and serialised again for the client filter. /differentials/diagnoses has the same shape at 1,352,774 bytes (76% markup, 235 records). For contrast the home page is 58,268 bytes. PARTIALLY ADDRESSED: PR branch claude/psychsift-latency-review-lg2eko removes rating.weights and rating.reasons from the client projection, which is 266,448 bytes or 20.9% of the serialised catalogue - the portion that is provably unread. THE REMAINDER IS A PRODUCT DECISION, not a mechanical fix: cutting further means not rendering every record at once (pagination, virtualisation, or load-on-scroll), which changes what a clinician sees when the page opens, so it needs the owner's call before anyone builds it. NEXT ACTION: ask the owner whether the sources catalogue should page/virtualise; if yes, do sources first and leave differentials until that lands and is reviewed. NOTE the browser-side cost of this payload (LCP, hydration time, long tasks) has never been measured - see the separate row on that gap.",
+    "source": "Live latency review session 2026-09-17",
+    "issueUlid": "01M2Q19GP1YFF9TJP80NCTPZ59"
+  }
+}
