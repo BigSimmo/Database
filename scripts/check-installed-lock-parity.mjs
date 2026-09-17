@@ -164,6 +164,31 @@ export function installedTreeInventory(projectRoot) {
   return { digest: digest.digest("hex"), fileCount, directoryCount, sizeTrackedFileCount };
 }
 
+/**
+ * Why a tree is too empty to be an install, or null. Every other parity check compares the tree
+ * with the lock, the stamp and npm's hidden lock, so it passes vacuously when all of them describe
+ * nothing — a lock with no packages, a stamp written over an empty tree, or a stamp and hidden lock
+ * copied without the packages. Require at least one verified package location, at least one
+ * installed file, and every critical toolchain package the project lock declares.
+ */
+export function emptyInstallReason(projectRoot, packageLocations, inventory) {
+  if (!packageLocations.some((result) => result.ok)) {
+    return "no installed package location was verified; node_modules is empty or missing";
+  }
+  if (inventory && inventory.fileCount === 0) return "node_modules contains no installed files";
+  let lock;
+  try {
+    lock = readJson(path.join(projectRoot, "package-lock.json"));
+  } catch {
+    return "package-lock.json is unreadable";
+  }
+  const declared = criticalInstalledPackages.filter((name) => lock.packages?.[`node_modules/${name}`]?.version);
+  const missing = installedLockParity(projectRoot, declared).filter((result) => !result.ok);
+  return missing.length > 0
+    ? `critical package(s) not installed: ${missing.map((result) => result.packageName).join(", ")}`
+    : null;
+}
+
 export function writeInstalledTreeStamp(projectRoot) {
   const locationResults = installedPackageLocationParity(projectRoot);
   const failures = locationResults.filter((result) => !result.ok);
@@ -172,6 +197,8 @@ export function writeInstalledTreeStamp(projectRoot) {
   }
 
   const inventory = installedTreeInventory(projectRoot);
+  const emptyReason = emptyInstallReason(projectRoot, locationResults, inventory);
+  if (emptyReason) throw new Error(`Cannot stamp an incomplete install: ${emptyReason}.`);
   const stamp = {
     schema: STAMP_SCHEMA,
     lockSha256: packageLockDigest(projectRoot),
@@ -231,6 +258,9 @@ export function installedTreeParity(projectRoot) {
       inventory,
     };
   }
+
+  const emptyReason = emptyInstallReason(projectRoot, packageLocations, inventory);
+  if (emptyReason) return { ok: false, reason: emptyReason, packageLocations, inventory };
 
   return { ok: true, reason: null, packageLocations, inventory };
 }

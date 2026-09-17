@@ -93,7 +93,7 @@ Following the PR is ordinary work:
 
 - Read checks, workflow runs, and job logs; re-run a failed job; only merge `main` into the
   branch when [Branch sync](#branch-sync) actually calls for it (a real conflict, or the owner
-  asks) — being behind is not by itself a reason to sync.
+  asks), or once when the PR is otherwise ready and out of date.
 - Fix **only what this change broke** and push the fix. The smallest correct gate still applies
   to every fix before it is pushed. Never weaken workflows or delete required checks to force
   green.
@@ -382,17 +382,19 @@ Squash-merge history has twice orphaned a late follow-up commit and once needed 
 
 <a id="open-pr-branch-sync-anti-churn"></a>
 
-**Never merge `main` into an open PR branch (and never call `update-branch`) unless
-`git merge-tree --write-tree origin/main <tip>` shows a real conflict, or the owner asks. Being
-behind is not a reason: GitHub's strict up-to-date rule is satisfied at merge time.**
+**Sync an open PR branch with `main` (merge `main` in, or `update-branch`) at most once, and only
+when the PR is otherwise ready — required checks green, review threads resolved — and GitHub reports
+it out of date: the ruleset's strict up-to-date rule blocks the merge until then. Never sync while
+its CI is still running or while it has failing checks or open review work; sync earlier only for a
+real conflict (`git merge-tree --write-tree origin/main <tip>` is dirty) or when the owner asks.**
 
 Open PR heads go stale whenever `main` advances, and GitHub frequently labels those branches
 `CONFLICTING` / `DIRTY` even when `git merge-tree` is clean. That is staleness, not an
 unresolvable content fight — and per the rule above, staleness alone is not a reason to touch the
-branch. Diagnose before assuming otherwise: compare `behind_by` and run
+branch until the PR is otherwise ready. Diagnose before assuming otherwise: compare `behind_by` and run
 `git merge-tree --write-tree origin/main <tip>` against a freshly fetched `origin/main`. A clean
-tree means the branch is only stale, not blocked, and needs nothing from you; a dirty tree means a
-real conflict, which does need resolving.
+tree means the branch is only stale: leave it until it is otherwise ready, then sync it once; a dirty
+tree means a real conflict, which does need resolving.
 
 **How to sync, when the rule above actually calls for it** (a real conflict, or the owner asks).
 
