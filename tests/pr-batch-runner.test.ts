@@ -139,7 +139,7 @@ describe("PR batch decisions", () => {
       files: ["src/lib/answer-synthesis.ts"],
       body: `## Clinical Governance Preflight\n\n${governance}\n`,
     });
-    expect(eligibility(clinical)).toMatch(/^policy: .*Owner merge required \(clinical\)/);
+    expect(eligibility(clinical)).toBe("clinical-review-required");
     // Control: the same PR shape on a docs path stays eligible.
     expect(eligibility(pr(1))).toBe(null);
   });

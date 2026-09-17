@@ -459,10 +459,11 @@ export function deployDeferralClaim(title, body) {
 //   1. migrationHistoryViolations — an applied migration is immutable history. Editing,
 //      removing or renaming one, or adding a migration dated at or before the newest one
 //      already on main, is a blocking error.
-//   2. ownerMergeReasons — database, clinical-risk and RAG-ranking PRs are held until the
-//      owner applies the `owner-approved` label, which the workflow removes on any push. The
-//      workflow reports the hold as the yellow `Owner approval` status (ownerHoldViaStatus);
-//      callers that do not opt in (the batch runner) still get it as a red error.
+//   2. ownerMergeReasons — `supabase/` PRs are held until the owner applies the
+//      `owner-approved` label, which the workflow removes on any push. The workflow reports the
+//      hold as the yellow `Owner approval` status (ownerHoldViaStatus); callers that do not opt
+//      in (the batch runner) still get it as a red error. Clinical-risk and RAG-ranking PRs were
+//      held here too until the 2026-09-17 owner ruling narrowed it — see ownerMergeReasons.
 // ---------------------------------------------------------------------------
 
 export const OWNER_APPROVED_LABEL = "owner-approved";
@@ -774,12 +775,23 @@ export function migrationHistoryEditApproval(body) {
   return { declared: true, satisfied: !placeholder && reason.length >= 12, reason };
 }
 
-/** Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed. */
+/**
+ * Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed.
+ *
+ * Narrowed to `supabase/` on 2026-09-17 (owner ruling), from the 2026-09-16 set of database +
+ * clinical-risk + RAG-ranking. `clinicalRiskPatterns` matches most of `src/lib/**`, so nearly
+ * every PR — pure refactors included — came to rest on a yellow `Owner approval`, and a label
+ * applied that often stops being a review. Merging a `supabase/` change is the one action here
+ * with no undo: the integration applies it to the live clinical database within seconds, with no
+ * deploy step in between, so that hold stays exactly as it was.
+ *
+ * Clinical and RAG-ranking PRs keep every other control — the governance preflight, the
+ * `RAG impact:` body line, the canary-pair requirement, and the migration-history guard below,
+ * whose owner override is unaffected because editing history means touching `supabase/`.
+ */
 export function ownerMergeReasons(classification, filenames) {
   const reasons = [];
   if ((filenames ?? []).some((file) => normalizePath(file).startsWith("supabase/"))) reasons.push("database");
-  if (classification?.clinicalRisk) reasons.push("clinical");
-  if (classification?.ragRanking) reasons.push("rag-ranking");
   return reasons;
 }
 
@@ -2219,36 +2231,43 @@ $migration$;
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["docs/a.md"]), ["docs/a.md"]), []);
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["supabase/schema.sql"]), ["supabase/schema.sql"]), [
     "database",
-    "clinical",
   ]);
-  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), [
-    "clinical",
-    "rag-ranking",
-  ]);
+  // Narrowed by the 2026-09-17 owner ruling: clinical content and RAG ranking are no longer
+  // reasons on their own, so a PR that touches neither database file nor migration is free.
+  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), []);
   const clinical = {
     title: "fix: adjust clinical search tie-break",
     body: completeBody,
     headRef: "claude/clinical-fix",
     files: ["src/lib/answer-synthesis.ts"],
   };
-  const clinicalHeld = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
-  assert.equal(clinicalHeld.ok, false, "clinical + no approval + enforce → error");
-  assert.match(clinicalHeld.errors.join(" "), /Owner merge required \(clinical\)/);
-  assert.match(clinicalHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
-  assert.deepEqual(clinicalHeld.ownerMergeReasons, ["clinical"]);
-  assert.equal(clinicalHeld.ownerApproved, false);
+  const database = {
+    title: "feat(db): add a retrieval health view",
+    body: completeBody,
+    headRef: "claude/db-view",
+    files: ["supabase/schema.sql"],
+  };
+  const databaseHeld = evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true });
+  assert.equal(databaseHeld.ok, false, "database + no approval + enforce → error");
+  assert.match(databaseHeld.errors.join(" "), /Owner merge required \(database\)/);
+  assert.match(databaseHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
+  assert.deepEqual(databaseHeld.ownerMergeReasons, ["database"]);
+  assert.equal(databaseHeld.ownerApproved, false);
   assert.equal(
-    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
+    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
     true,
-    "clinical + owner approval → ok",
+    "database + owner approval → ok",
   );
+  const clinicalFree = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
+  assert.deepEqual(clinicalFree.ownerMergeReasons, [], "clinical alone no longer needs the owner's label");
+  assert.equal(clinicalFree.ok, true, "clinical + no approval + enforce → ok since 2026-09-17");
   assert.equal(
-    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
+    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
     false,
     "approval must be the boolean true, not a truthy value",
   );
   const appLabel = evaluatePullRequestPolicy({
-    ...clinical,
+    ...database,
     enforceOwnerMerge: true,
     ownerApproval: {
       approved: true,
@@ -2280,8 +2299,8 @@ $migration$;
     "a rejected label on a PR that needs no owner merge is a warning, not a block",
   );
   // enforceOwnerMerge defaults to false, so existing callers keep today's behaviour.
-  assert.equal(evaluatePullRequestPolicy(clinical).ok, true, "enforce false → today's behaviour");
-  assert.equal(evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: false }).ok, true);
+  assert.equal(evaluatePullRequestPolicy(database).ok, true, "enforce false → today's behaviour");
+  assert.equal(evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: false }).ok, true);
   // A rename's previous path is classified: moving a file out of supabase/ still needs the owner.
   assert.deepEqual(
     evaluatePullRequestPolicy({
@@ -2297,7 +2316,7 @@ $migration$;
       baseMigrationVersions: base,
       enforceOwnerMerge: true,
     }).ownerMergeReasons,
-    ["database", "clinical"],
+    ["database"],
   );
 
   // --- Replay: PR #2814 must fail, and must fail on history even with owner approval ----
@@ -2321,8 +2340,8 @@ $migration$;
     replayUnapproved.migrationHistoryViolations.map((violation) => violation.version),
     ["20260824122000", "20260824123000", "20260830121000"],
   );
-  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database", "clinical"]);
-  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database, clinical\)/);
+  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database"]);
+  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database\)/);
   const replayApproved = evaluatePullRequestPolicy({ ...replay, ownerApproval: { approved: true } });
   assert.equal(replayApproved.ok, false, "PR #2814 replay must fail on migration history even with owner approval");
   assert.equal(
@@ -2400,7 +2419,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "draft → pending",
   );
   assert.equal(
-    status({ draft: true, ownerMergeReasons: ["clinical"], ownerApproved: true }).state,
+    status({ draft: true, ownerMergeReasons: ["database"], ownerApproved: true }).state,
     "pending",
     "draft never reports success, even when approved",
   );
@@ -2409,11 +2428,11 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "success",
     "no hold → success",
   );
-  const waiting = status({ ownerMergeReasons: ["database", "clinical"], ownerApproved: false });
+  const waiting = status({ ownerMergeReasons: ["database"], ownerApproved: false });
   assert.equal(waiting.state, "pending", "hold without approval → pending (yellow), not failure");
-  assert.match(waiting.description, /Waiting for Josh.*\(database, clinical\)/);
+  assert.match(waiting.description, /Waiting for Josh.*\(database\)/);
   assert.equal(
-    status({ ownerMergeReasons: ["clinical"], ownerApproved: true, otherPrsSharingHead: [] }).state,
+    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [] }).state,
     "success",
     "approved → success",
   );
@@ -2422,7 +2441,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   assert.equal(shared.state, "pending", "a head shared with another open PR never reports success");
   assert.match(shared.description, /#2843/);
   assert.equal(
-    status({ ownerMergeReasons: ["clinical"], ownerApproved: true, otherPrsSharingHead: [7, 9] }).state,
+    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [7, 9] }).state,
     "pending",
     "even an approved PR cannot clear a head another open PR shares",
   );
@@ -2432,18 +2451,18 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "an unknown sharing list fails closed to pending",
   );
   assert.equal(
-    status({ ownerMergeReasons: ["clinical"], ownerApproved: "true" }).state,
+    status({ ownerMergeReasons: ["database"], ownerApproved: "true" }).state,
     "pending",
     "approval must be boolean true",
   );
   const rejected = status({
-    ownerMergeReasons: ["rag-ranking"],
+    ownerMergeReasons: ["database"],
     ownerApproved: true,
     rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
   });
   assert.equal(rejected.state, "pending", "a rejected label never yields success");
   assert.match(
-    status({ ownerMergeReasons: Array(20).fill("rag-ranking"), ownerApproved: false }).description,
+    status({ ownerMergeReasons: Array(20).fill("database"), ownerApproved: false }).description,
     /…$/,
     "an over-long description is truncated to 140 characters",
   );
@@ -2451,14 +2470,14 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   assert.deepEqual([...states].sort(), ["pending", "success"], "only pending and success are ever produced");
 
   // The status mirrors the policy result it is built from.
-  const clinicalPr = {
-    title: "fix: adjust clinical search tie-break",
+  const databasePr = {
+    title: "feat(db): add a retrieval health view",
     body: completeBody,
-    headRef: "claude/clinical-fix",
-    files: ["src/lib/answer-synthesis.ts"],
+    headRef: "claude/db-view",
+    files: ["supabase/schema.sql"],
     enforceOwnerMerge: true,
   };
-  const held = evaluatePullRequestPolicy(clinicalPr);
+  const held = evaluatePullRequestPolicy(databasePr);
   assert.equal(
     ownerApprovalCommitStatus({ ownerMergeReasons: held.ownerMergeReasons, ownerApproved: held.ownerApproved }).state,
     "pending",
@@ -2469,8 +2488,8 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "without the opt-in (the batch runner's call) the hold is still a red error",
   );
   // Step 2: the workflow opts in, so the hold is carried only by the yellow status.
-  const viaStatus = evaluatePullRequestPolicy({ ...clinicalPr, ownerHoldViaStatus: true });
-  assert.equal(viaStatus.ok, true, "opted in: an unapproved clinical PR is not red in PR policy");
+  const viaStatus = evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: true });
+  assert.equal(viaStatus.ok, true, "opted in: an unapproved database PR is not red in PR policy");
   assert.deepEqual(viaStatus.errors, []);
   assert.equal(viaStatus.ownerApproved, false);
   assert.equal(
@@ -2483,7 +2502,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     "opted in: the hold is still carried by a pending Owner approval status",
   );
   assert.equal(
-    evaluatePullRequestPolicy({ ...clinicalPr, ownerHoldViaStatus: "true" }).ok,
+    evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: "true" }).ok,
     false,
     "the opt-in must be the boolean true",
   );
@@ -2501,7 +2520,7 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     ],
   ]) {
     const rejectedPr = evaluatePullRequestPolicy({
-      ...clinicalPr,
+      ...databasePr,
       ownerHoldViaStatus: true,
       ownerApproval: { approved: false, rejectedReason },
     });
@@ -2515,17 +2534,17 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     });
     assert.equal(rejectedStatus.state, "pending", "a label that does not count never yields success");
     assert.match(rejectedStatus.description, expected);
-    assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(clinical\)/);
+    assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(database\)/);
   }
   // Real policy failures stay red even when opted in.
   const incompletePreflight = evaluatePullRequestPolicy({
-    ...clinicalPr,
+    ...databasePr,
     body: "## Summary\n\nx",
     ownerHoldViaStatus: true,
   });
   assert.equal(incompletePreflight.ok, false, "a missing governance preflight stays red when opted in");
   assert.doesNotMatch(incompletePreflight.errors.join(" "), /Owner merge required/);
-  const approvedPr = evaluatePullRequestPolicy({ ...clinicalPr, ownerApproval: { approved: true } });
+  const approvedPr = evaluatePullRequestPolicy({ ...databasePr, ownerApproval: { approved: true } });
   assert.equal(
     ownerApprovalCommitStatus({
       ownerMergeReasons: approvedPr.ownerMergeReasons,

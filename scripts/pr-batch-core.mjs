@@ -53,8 +53,13 @@ export function eligibility(pr) {
   // A canary assertion in PR text is not an authenticated exact-candidate proof.
   // Accept only a trusted, launch-bound attestation that the adapter verifies.
   if (classification.ragRanking && !pr.canaryVerified) return "rag-evidence-required";
-  // Owner-merge hold: database, clinical-risk and RAG-ranking PRs are merged only by the
-  // owner. The batch never supplies ownerApproval, so such PRs are always excluded here.
+  // The owner-merge hold narrowed to `supabase/` on 2026-09-17, so a clinical-content PR no
+  // longer reports an owner-merge reason and would fall through to eligible. An unattended
+  // batch merge is a different question from a merge Josh is looking at: clinical content
+  // stays out of the batch on its own rule rather than inheriting one that no longer names it.
+  if (classification.clinicalRisk) return "clinical-review-required";
+  // Owner-merge hold: `supabase/` PRs are merged only by the owner. The batch never supplies
+  // ownerApproval, so such PRs are always excluded here.
   const policy = evaluatePullRequestPolicy({
     title: pr.title,
     body: pr.body,
