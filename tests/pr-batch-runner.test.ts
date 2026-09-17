@@ -166,6 +166,26 @@ describe("PR batch decisions", () => {
     );
     expect(decide(selected(), pr(1, { behind: true }), now).action).toBe("sync");
   });
+  it("lets a running check wave settle before syncing a behind branch", () => {
+    // The settle-first rule: staleness alone never preempts CI that is already running on
+    // this head. Only a proved conflict, which can stop CI outright, jumps the queue.
+    expect(decide(selected(), pr(1, { behind: true, inFlight: true }), now)).toMatchObject({
+      action: "wait",
+      reason: "ci-in-flight",
+    });
+  });
+  it("syncs a behind branch instead of waiting out mergeability that only a sync can clear", () => {
+    // Regression guard for the sync branch in decide(). This runner refuses to launch unless
+    // main enforces a current base (strict required checks or a native merge queue), so a
+    // merely stale head reports mergeStateStatus BEHIND and pr-batch-github.mjs derives
+    // mergeable:false from it — the real evidence shape asserted here. Letting that case fall
+    // through to the requiredGreen/reviewsSatisfied/mergeable ladder returns a permanent
+    // "mergeability-pending" wait, and GitHubBatch.execute() refuses the merge anyway while
+    // `behind` is set, so the PR would be parked by the no-progress timeout rather than merged.
+    expect(decide(selected(), pr(1, { behind: true, mergeable: false }), now).action).toBe("sync");
+    // A merge is only ever requested once the branch is current.
+    expect(decide(selected(), pr(1), now).action).toBe("merge");
+  });
   it("preserves missing checks and approvals as blockers", () => {
     expect(decide(selected(), pr(1, { requiredGreen: false }), now)).toMatchObject({
       action: "wait",

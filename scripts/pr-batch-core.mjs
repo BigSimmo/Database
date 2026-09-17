@@ -294,6 +294,14 @@ export function decide(state, evidence, now) {
       return stop("repair-budget-exhausted");
     return { action: "repair", fingerprint };
   }
+  // This sync is the last step before a merge, not branch-currency churn, and it cannot be
+  // dropped in favour of falling through to `merge`. The runner only launches under protection
+  // that validates a current base (strict checks or a native merge queue), so GitHub reports
+  // mergeStateStatus BEHIND for a merely stale head and `inspect` derives `mergeable: false`
+  // from it; GitHubBatch.execute() independently refuses a protected merge while `behind` is
+  // set. Removing this line therefore parks the PR on the no-progress timeout instead of
+  // merging it. Repairs and in-flight CI are both settled above, so nothing syncs ahead of a
+  // fix or a running check wave.
   if (evidence.behind) return { action: "sync" };
   if (!evidence.requiredGreen) return { action: "wait", reason: "required-checks-missing-or-pending" };
   if (!evidence.reviewsSatisfied) return { action: "wait", reason: "approval-required" };
