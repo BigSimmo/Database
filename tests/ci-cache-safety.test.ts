@@ -195,6 +195,34 @@ describe("CI cache safety", () => {
     );
   });
 
+  // Until 2026-09-16 this step compared only the top-level schema_sha256 field
+  // between the committed manifest and a fresh regeneration. An agent could
+  // hand-set that hash while leaving a stale nested snapshot.functions[].def_hash,
+  // pass this check, and only have live-drift (post-merge) catch the real
+  // divergence red on main. The replacement deep-compares the whole manifest
+  // (except the two fields expected to change every run) through a dedicated,
+  // unit-tested script rather than a narrow inline field comparison.
+  it("deep-compares the whole drift manifest for freshness, not just schema_sha256", () => {
+    const migrationReplayJob = /\n  db-reset-verify:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    const freshnessStep =
+      /- name: Regenerate and verify drift manifest freshness\n([\s\S]*?)(?=\n {6}- name: )/.exec(
+        migrationReplayJob,
+      )?.[1] ?? "";
+    expect(freshnessStep, "drift manifest freshness step not found in db-reset-verify").not.toBe("");
+    expect(freshnessStep).toContain("npm run drift:manifest");
+    expect(freshnessStep).toContain("npm run check:drift-manifest-freshness --");
+    expect(freshnessStep).toContain("--committed /tmp/committed-drift-manifest.json");
+    expect(freshnessStep).toContain("--generated supabase/drift-manifest.json");
+    // The narrow single-field compare this replaced must not come back.
+    expect(freshnessStep).not.toContain("schema_sha256 !== generated.schema_sha256");
+
+    // The artifact upload stays unchanged so a stale manifest can still be
+    // downloaded and committed from the failed job.
+    expect(migrationReplayJob).toContain("name: Upload regenerated drift manifest");
+    expect(migrationReplayJob).toContain("name: drift-manifest-${{ github.run_id }}");
+    expect(migrationReplayJob).toContain("path: supabase/drift-manifest.json");
+  });
+
   // The hazard register validator ran only in the provider-backed governance:release chain
   // until audit M33; it needs the full-history checkout for its reviewedCommit checks.
   it("runs the clinical hazard-controls register check in static-pr with full history (M33)", () => {

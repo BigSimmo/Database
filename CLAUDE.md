@@ -95,13 +95,14 @@ Verification pyramid — run the **smallest gate that covers the change**, then 
 | Gate                                      | What it is                                                                                                                                                                                   |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                     |
-| `npm run verify:cheap`                    | The broad local gate: 39 static/consistency gates + `lint` + `typecheck` + full offline unit suite; use for cross-module risk, not automatically                                             |
+| `npm run verify:cheap`                    | **The default pre-PR gate:** installed-lock parity, then `lint` + `typecheck` + full offline unit suite. Fast enough to run without thinking about it.                                       |
+| `npm run verify:full`                     | `verify:cheap` plus the 38 static/consistency gates (docs index, ledgers, knip, design tokens, owner-scope…). For cross-module risk or before a release — not routinely.                     |
 | `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection. |
 | `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                    |
 | `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                      |
 | `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                                 |
 
-`verify:cheap` deliberately does **not** run formatting, which is why changed-file CI and the
+Neither `verify:cheap` nor `verify:full` runs formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.
 It also guards user-owned auto-merge state on every PR branch, drift-manifest staleness, and a
 static gate (lint + source typecheck; override `SKIP_STATIC_GUARD=1`). The auto-merge guard has no

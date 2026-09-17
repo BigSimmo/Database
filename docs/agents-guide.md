@@ -28,7 +28,7 @@ and acceptance evidence belong to their current task; historical reports are lea
 | Apply repository productivity defaults                       | [Productivity defaults](agents/codex-productivity-defaults.md)                                                                                                                                                                  |
 | Choose a skill or handle outstanding work                    | [Skills and issue ledger](../AGENTS.md#repository-productivity-skills), [.agents overview](../.agents/README.md)                                                                                                                |
 | Review, maintain or publish a pull request                   | [Bare publication](../AGENTS.md#bare-pr-publication-is-not-readiness-work), [Run PR](../AGENTS.md#run-pr-shortcut) and [PR follow-through](../AGENTS.md#babysit-the-pull-request-then-stop), using the exact requested workflow |
-| Resolve review ownership, routing or throttling              | [Review routing](agents/codex-review-throttling.md) and [GitHub review behaviour](agents/codex-github-review.md)                                                                                                                |
+| Resolve review ownership, routing or throttling              | [Review routing](agents/codex-review-throttling.md)                                                                                                                                                                             |
 | Use the upload shortcut                                      | [Upload workflow](../AGENTS.md#upload-shortcut)                                                                                                                                                                                 |
 | Investigate a defect                                         | [Bug-hunter shortcut](../AGENTS.md#bug-hunter-shortcut)                                                                                                                                                                         |
 | Change routes, controls or bundle-sensitive UI               | [Wiring and bundle budget](../AGENTS.md#page-and-button-wiring)                                                                                                                                                                 |
@@ -100,22 +100,13 @@ this navigator does not make every linked procedure a mandatory startup step.
   necessary references; do not rewrite historical reports to make old results look
   current. Generated artifacts must follow their documented generator.
 
-## Auto-fixer governance and deduplication (#JZM7RM)
+## Review comment disposition markers (#JZM7RM)
 
-To prevent dual competing responders from answering the same PR review comment (observed on PR #2249 where both a repo workflow and an app-level watcher generated duplicate competing commits):
+To prevent dual competing responders from answering the same PR review comment (observed on PR #2249 where both a repo workflow and an app-level watcher generated duplicate competing commits), all review-thread work — interactive sessions and any `Run PR` sweep alike — follows one lifecycle:
 
-1. **Authoritative responder**: The repository GitHub Action (`.github/workflows/codex-autofix-review-comments.yml`) is the primary automated resolver for Codex PR review comments. It includes explicit governance safeguards:
-   - Trusted-bot login gating (`chatgpt-codex-connector[bot]`).
-   - Per-PR deduplication marker (`<!-- codex-autoresolve-pr:<number> -->`).
-   - Single automatic repair pass per PR lifetime to prevent runaway repair loops.
-   - Respect for `skip-codex-review` labels and explicit opt-ins via `codex-review`.
-   - Hard hold: clinical-decision surfaces (`data/**`, `src/data/**`, `src/lib/mha-act-sections.ts`, `src/lib/form-catalog.ts`, `src/lib/form-ranker.ts`, `src/components/forms/**`, `src/lib/rag/**`, and named ranking surfaces) are never automatically repaired.
-2. **Bot ownership boundaries and watcher throttling**:
-   - **Repository Codex auto-fixer**: Owns unattended repair of actionable Codex review comments on open PRs passing risk routing.
-   - **App-level / Client watchers**: Interactive desktop or client app watchers ("Autofix pull requests") must stand down and not compete on repository pull requests. Do not instruct an interactive agent session to concurrently fix a review comment that is already queued or being addressed by the repository workflow.
-   - **CodeRabbit**: Advisory only (`commit_status: false`), intermittent/capped, skipped on draft PRs. Never generates fix commits or competes for PR mutation.
-   - **Interactive human / agent sessions**: When asked to fix comments or running a `Run PR` sweep, always check if an auto-fixer has already replied or pushed fixes (`<!-- codex-thread-disposition:resolved -->`). Never create competing commits on the same review finding.
-3. **Review comment lifecycle and disposition markers**:
-   - For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`.
-   - On the next line, include `<!-- codex-thread-result:fixed-head:<40-character commit SHA> -->` for code fixes or `<!-- codex-thread-result:no-change -->` for no-code dispositions.
-   - Threads requiring human judgment, architectural decisions, or touching clinical holds must be left open with an explanatory reply instead of using the resolved marker.
+- **App-level / Client watchers**: Interactive desktop or client app watchers ("Autofix pull requests") must stand down and not compete on repository pull requests. Do not instruct an interactive agent session to concurrently fix a review comment that another session is already addressing.
+- **Interactive human / agent sessions**: When asked to fix comments or running a `Run PR` sweep, always check whether a thread already carries a disposition marker (`<!-- codex-thread-disposition:resolved -->`) before acting on it. Never create competing commits on the same review finding.
+- **Review comment lifecycle and disposition markers**:
+  - For every fixed or fully dispositioned thread, start the thread reply with `<!-- codex-thread-disposition:resolved -->`.
+  - On the next line, include `<!-- codex-thread-result:fixed-head:<40-character commit SHA> -->` for code fixes or `<!-- codex-thread-result:no-change -->` for no-code dispositions.
+  - Threads requiring human judgment, architectural decisions, or touching clinical holds must be left open with an explanatory reply instead of using the resolved marker.

@@ -54,6 +54,13 @@ const clinicalRiskPatterns = [
   // unreviewed content reachability, clinical content policy) so it keeps the
   // full token set.
   /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
+  // Owner ruling 2026-09-17, after a clinical-governance review of the list above: patient
+  // addresses, referral intake and retention live in caring-contacts; the database clients
+  // hold the service-role key; on-call/repository.ts hides personal entries from other users.
+  // None of those names matched the token set, so these changes could merge without review.
+  /^src\/lib\/caring-contacts(?:-server)?\//,
+  /^src\/lib\/supabase\//,
+  /^src\/lib\/on-call\/repository\.ts$/,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
@@ -69,10 +76,52 @@ const clinicalRiskPatterns = [
   // classifier returned `clinicalRisk: false`, so no governance preflight was
   // ever required. Generators live in scripts/ and are matched above.
   /^(?:src\/data|data|public\/therapy-compass-data)\//,
+  // Hand-authored clinical datasets that live under `src/lib/` as `.ts` rather than under
+  // `data/` as JSON, so neither the token set above nor the `data/` rule reaches them. Each
+  // holds authored clinical prose a clinician reads as fact — definitions, factsheet copy,
+  // specifier guidance, the differential overlay's `doNow` steps and `contentNote` — so
+  // editing one changes clinical output with no code diff at all. That is the `data/` rule's
+  // own rationale, applied where the file extension put the content out of its reach.
+  //
+  // Added 2026-09-17 after PR #2838 rewrote four asserted clinical thresholds and withheld a
+  // contaminated record in `differential-curated.ts`, and this classifier returned
+  // `clinicalRisk: false` — the same miss PR #1489 made with the 205 therapy records, in a
+  // different directory.
+  //
+  // DELIBERATELY DISJOINT from the differential family. `differential-curated.ts` is the file
+  // that exposed this, but the owner ruling of the same day covers it, and every other
+  // `src/lib/differential*.ts`, in PR #2847. Naming it here too would be a second edit to the
+  // same array for no added coverage, so this rule takes only the three authored datasets no
+  // rule reaches: dictionary senses, patient factsheet copy and specifier guidance.
+  //
+  // EXACT paths, deliberately, for the reason `nonClinicalGeneratedDataPaths` states in
+  // reverse: 129 of the 268 modules under `src/lib/` match no clinical token today and nearly
+  // all of them are code, so a directory-wide sweep would demand a governance preflight for
+  // diffs holding no clinical content — and a reflexively ticked preflight erodes the gate it
+  // is meant to enforce. Add the next authored dataset here by name when it lands.
+  //
+  // NOT settled here: a code module under `src/lib/` can carry clinical logic and still match
+  // no token (`differentials.ts` holds the withhold-and-scope projection and matches none).
+  // That is a wider question about the token list itself, deliberately left for the owner.
+  /^src\/lib\/(?:dictionary-data|factsheets-data|specifiers)\.ts$/,
   // Tests that act as clinical safety guards / prohibited wording chokepoints
   // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
   // Weakening or altering them is the clinical evasion route (#97W4FD).
   /^tests\/(?:caring-contacts-(?:interface-vocabulary|overlay-definitions)\.test|calculator-mockup-clinical-safety\.test|helpers\/caring-contacts-prohibited-language)\.ts$/,
+  // Owner ruling 2026-09-17, after the clinical review of #2838: that PR withheld a
+  // contaminated generated differential body (differential-curated.ts,
+  // differential-detail.ts) and applied it at four separate call sites
+  // (differential-fixtures.ts, differentials.ts, registry-corpus.ts, the page). None of
+  // "differential-curated", "differential-detail", "differential-fixtures", "differentials"
+  // or "differential-detail-page" contain a token from the set above, so a differential-only
+  // change to any of them — including a future withholding fix like this one — could merge
+  // without review. The token set does already match differential-search-composition.ts (via
+  // "search"), differential-stream-model.ts (via "mode", inside "model") and
+  // differentials-search-request.ts (via "search"); the three patterns below are additive,
+  // not a replacement for the token set.
+  /^src\/lib\/differential[^/]*\.ts$/,
+  /^src\/components\/differentials\//,
+  /^scripts\/build-cross-mode-differentials-index\.mjs$/,
 ];
 
 /**
@@ -166,6 +215,24 @@ const ragRankingPatterns = [
   // nine Australian publishers and had to declare its RAG impact voluntarily, because this gate
   // did not ask.
   /^src\/lib\/(?:source-authority-registry|australian-source-priority)\.ts$/,
+  // Ingestion decides the TEXT that becomes chunks, embeddings and cited evidence, so it
+  // moves retrieval outcomes one step further back than ranking does. None of these files
+  // matched any pattern here -- src/lib/chunking.ts classified as neither ragRanking nor
+  // clinicalRisk -- and the AGENTS.md "Flag it" list did not name them either, so nothing
+  // asked at either end. Added 2026-09-16 after PR #2810 changed PDF table extraction,
+  // altering the text served as clinical evidence, and had to declare its RAG impact
+  // voluntarily because this gate did not ask. Same remedy, and same reason, as the
+  // 2026-09-07 source-authority addition above; AGENTS.md was corrected in the same change.
+  /^src\/lib\/chunking\.ts$/,
+  /^src\/lib\/extractors\//,
+  /^worker\/python\/extract_pdf_assets\.py$/,
+  // The other producer of retrieval inputs, missed by src/lib/rag/** only because these three
+  // sit one directory up. searchIndexUnitCandidates queries match_document_index_units_hybrid_v2
+  // unconditionally in the candidate fan-out, so the index units built and embedded here --
+  // tables, workflows, algorithms, aliases, typed signals -- decide what that branch can surface.
+  // deep-memory.ts also exports applyMemoryCardBoosts, which rescores SearchResult[] in that same
+  // path, so it is a ranking surface outright. Added 2026-09-16 on Codex review of PR #2832.
+  /^src\/lib\/(?:document-index-units|model-index-extraction|deep-memory)\.ts$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -315,6 +382,34 @@ export function classifyPullRequestFiles(files) {
   };
 }
 
+// PR_POLICY_BODY.md is a transport file: ci.yml's `sync-pr-policy-body` job pastes it into
+// the description of any PR whose OWN diff adds or modifies it (see `## Apply PR_POLICY_BODY.md
+// to pull request description`), then leaves the file itself sitting on the branch. Nothing
+// deletes it before merge unless someone remembers to, so it has landed on `main` repeatedly —
+// ~35 add/remove churn commits by 2026-09-16 — where it is stale, fully-checked prose with no
+// `<!-- GOVERNANCE_PREFLIGHT -->` placeholder for the sync job to fill in. Blocking any PR that
+// still carries it (added, modified, or merely present unremoved) forces it out of the branch
+// before merge, so it can never accumulate on `main` again while the sync mechanism stays usable
+// for whichever environment drops the file in to seed a description.
+const PR_POLICY_BODY_FILENAME = "PR_POLICY_BODY.md";
+
+/**
+ * True when the PR's diff leaves `PR_POLICY_BODY.md` present (added, modified, renamed in, or
+ * simply listed as an unchanged file in a `files`-only call). A `removed` status — the only way
+ * to satisfy this gate — returns false. Prefers `fileStatuses` (authoritative on rename/removal);
+ * falls back to a plain `files` list when `fileStatuses` is not supplied.
+ */
+export function prPolicyBodyTransportViolation({ fileStatuses, files }) {
+  if (Array.isArray(fileStatuses)) {
+    return fileStatuses.some(
+      (file) =>
+        normalizePath(file?.filename) === PR_POLICY_BODY_FILENAME &&
+        String(file?.status ?? "").toLowerCase() !== "removed",
+    );
+  }
+  return (files ?? []).some((file) => normalizePath(file) === PR_POLICY_BODY_FILENAME);
+}
+
 // The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
 // no-behaviour-change statement (with a reason) or a canary-pair reference. Matched anywhere
 // in the body, list-marker tolerant, case-insensitive.
@@ -364,8 +459,11 @@ export function deployDeferralClaim(title, body) {
 //   1. migrationHistoryViolations — an applied migration is immutable history. Editing,
 //      removing or renaming one, or adding a migration dated at or before the newest one
 //      already on main, is a blocking error.
-//   2. ownerMergeReasons — database, clinical-risk and RAG-ranking PRs stay red until the
-//      owner applies the `owner-approved` label, which the workflow removes on any push.
+//   2. ownerMergeReasons — `supabase/` PRs are held until the owner applies the
+//      `owner-approved` label, which the workflow removes on any push. The workflow reports the
+//      hold as the yellow `Owner approval` status (ownerHoldViaStatus); callers that do not opt
+//      in (the batch runner) still get it as a red error. Clinical-risk and RAG-ranking PRs were
+//      held here too until the 2026-09-17 owner ruling narrowed it — see ownerMergeReasons.
 // ---------------------------------------------------------------------------
 
 export const OWNER_APPROVED_LABEL = "owner-approved";
@@ -677,13 +775,237 @@ export function migrationHistoryEditApproval(body) {
   return { declared: true, satisfied: !placeholder && reason.length >= 12, reason };
 }
 
-/** Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed. */
+/**
+ * Why a PR may be merged only by the owner. Empty when an agent-driven merge is allowed.
+ *
+ * Narrowed to `supabase/` on 2026-09-17 (owner ruling), from the 2026-09-16 set of database +
+ * clinical-risk + RAG-ranking. `clinicalRiskPatterns` matches most of `src/lib/**`, so nearly
+ * every PR — pure refactors included — came to rest on a yellow `Owner approval`, and a label
+ * applied that often stops being a review. Merging a `supabase/` change is the one action here
+ * with no undo: the integration applies it to the live clinical database within seconds, with no
+ * deploy step in between, so that hold stays exactly as it was.
+ *
+ * Clinical and RAG-ranking PRs keep every other control — the governance preflight, the
+ * `RAG impact:` body line, the canary-pair requirement, and the migration-history guard below,
+ * whose owner override is unaffected because editing history means touching `supabase/`.
+ */
 export function ownerMergeReasons(classification, filenames) {
   const reasons = [];
   if ((filenames ?? []).some((file) => normalizePath(file).startsWith("supabase/"))) reasons.push("database");
-  if (classification?.clinicalRisk) reasons.push("clinical");
-  if (classification?.ragRanking) reasons.push("rag-ranking");
   return reasons;
+}
+
+// ---------------------------------------------------------------------------
+// `Owner approval` commit status (2026-09-17, step 1 of 2).
+//
+// The owner reads a red ✗ as a broken PR. The hold is not a defect in the PR, it is a wait,
+// so it is ALSO reported as its own commit status: `pending` (yellow) while Josh's approval
+// is outstanding, `success` when the PR needs no owner merge or he has approved this head.
+// A required commit status blocks the merge for as long as it is anything but `success`, and
+// statuses are stored per commit SHA, so a new push starts with no status at all ("Expected",
+// also blocking) until this workflow evaluates it. A `neutral`/`skipped` check-run conclusion
+// would count as PASSING for a required check, so it is deliberately not used.
+//
+// Step 1 (#2842) posted this status alongside the red `Owner merge required` error. Step 2,
+// after ruleset 18011271 began requiring `Owner approval`, lets the workflow opt out of that
+// error (ownerHoldViaStatus). The ruleset entry must never be removed without reverting step 2,
+// or held PRs become mergeable. See docs/agents/pull-request-workflow.md "Merge authority".
+// ---------------------------------------------------------------------------
+
+export const OWNER_APPROVAL_CONTEXT = "Owner approval";
+export const OWNER_APPROVAL_CHECKING_DESCRIPTION = "Checking whether this pull request needs Josh's approval…";
+const COMMIT_STATUS_DESCRIPTION_LIMIT = 140;
+
+function commitStatusDescription(text) {
+  const value = String(text ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return value.length <= COMMIT_STATUS_DESCRIPTION_LIMIT
+    ? value
+    : `${value.slice(0, COMMIT_STATUS_DESCRIPTION_LIMIT - 1).trimEnd()}…`;
+}
+
+/**
+ * The `Owner approval` commit status for one evaluated head. Only `pending` and `success` are
+ * ever produced: `pending` blocks a required context and shows yellow; `success` is the only
+ * state that satisfies it. Anything unrecognised fails closed to `pending`.
+ */
+export function ownerApprovalCommitStatus({ otherPrsSharingHead, ...verdictInputs }) {
+  const verdict = ownerApprovalVerdict(verdictInputs);
+  if (verdict.state !== "success") return verdict;
+  // A commit status belongs to the commit, and every PR whose head is this commit shares it,
+  // so one PR's verdict may never clear it while another open PR shares the head (that PR
+  // may be held). An unknown list fails closed.
+  if (!Array.isArray(otherPrsSharingHead)) {
+    return {
+      state: "pending",
+      description: commitStatusDescription("Could not confirm no other open PR shares this commit; rerun PR policy."),
+    };
+  }
+  if (otherPrsSharingHead.length > 0) {
+    return {
+      state: "pending",
+      description: commitStatusDescription(
+        `This commit also heads open PR ${otherPrsSharingHead.map((number) => `#${number}`).join(", ")}; Josh approves before it merges.`,
+      ),
+    };
+  }
+  return verdict;
+}
+
+/** A short, plain reason why an `owner-approved` label did not count, for a 140-character status. */
+export function rejectedOwnerLabelSummary(rejectedReason) {
+  const reason = String(rejectedReason ?? "");
+  if (/applied by a GitHub App/i.test(reason)) return "the label was added by an app, not by Josh";
+  if (/not by the repository owner/i.test(reason)) return "the label was not added by Josh";
+  if (/approved an earlier head/i.test(reason)) return "the label was added before the latest push";
+  return "the label could not be confirmed as Josh's approval of this commit";
+}
+
+function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, ownerApproved, rejectedReason }) {
+  if (draft) {
+    return {
+      state: "pending",
+      description: commitStatusDescription("Draft pull request: checked again when it is marked ready for review."),
+    };
+  }
+  if (!Array.isArray(reasons)) {
+    return { state: "pending", description: commitStatusDescription(OWNER_APPROVAL_CHECKING_DESCRIPTION) };
+  }
+  if (reasons.length === 0) {
+    return {
+      state: "success",
+      description: commitStatusDescription("Not needed: no clinical, database or RAG-ranking change."),
+    };
+  }
+  const why = reasons.join(", ");
+  if (ownerApproved === true && !rejectedReason) {
+    return { state: "success", description: commitStatusDescription(`Josh approved this commit (${why}).`) };
+  }
+  if (rejectedReason) {
+    return {
+      state: "pending",
+      description: commitStatusDescription(
+        `Waiting for Josh's approval (${why}): ${rejectedOwnerLabelSummary(rejectedReason)}.`,
+      ),
+    };
+  }
+  return {
+    state: "pending",
+    description: commitStatusDescription(`Waiting for Josh to review and add the owner-approved label (${why}).`),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Required-check forgery tripwire.
+//
+// Every required context here is pinned to GitHub Actions (integration 15368). ANY workflow
+// that runs PR-controlled code with a GITHUB_TOKEN is also GitHub Actions: a same-repository
+// branch can add a job named `PR policy` to a `pull_request` workflow, or grant itself
+// `statuses: write` and post `Owner approval: success`, and both are attributed to the same
+// integration as the real check. The integration pin excludes a personal access token; it does
+// not exclude this. This tripwire fails `PR policy` when a changed workflow that can execute
+// branch code names a protected context or can write commit statuses. It is a TRIPWIRE, not a
+// boundary: an expression-built name (`${{ format(...) }}`) or a check that the forger posts
+// later still gets past it. The boundary needs a live setting — see pull-request-workflow.md.
+// ---------------------------------------------------------------------------
+
+export const PROTECTED_REQUIRED_CONTEXTS = ["PR policy", OWNER_APPROVAL_CONTEXT];
+
+// Triggers whose workflow definition is always read from the default branch, so a PR's edit
+// to the file cannot run before it merges. Anything else — or a file whose triggers cannot be
+// read — is treated as able to run the branch's own copy.
+const DEFAULT_BRANCH_ONLY_TRIGGERS = new Set([
+  "pull_request_target",
+  "merge_group",
+  "workflow_run",
+  "schedule",
+  "issues",
+  "issue_comment",
+  "repository_dispatch",
+]);
+
+function isWorkflowSurface(filePath) {
+  const file = normalizePath(filePath);
+  return /^\.github\/workflows\/[^/]+\.ya?ml$/i.test(file) || /^\.github\/actions\//i.test(file);
+}
+
+/** Trigger names from a workflow's `on:` key, or null when they cannot be read reliably. */
+export function workflowTriggers(content) {
+  const lines = String(content ?? "").split(/\r?\n/);
+  const start = lines.findIndex((line) => /^(?:on|"on"|'on'|true)\s*:/.test(line));
+  if (start < 0) return null;
+  const inline = lines[start]
+    .replace(/^(?:on|"on"|'on'|true)\s*:/, "")
+    .replace(/\s+#.*$/, "")
+    .trim();
+  if (inline) {
+    const listed = inline.replace(/^\[|\]$/g, "");
+    const names = listed
+      .split(",")
+      .map((name) => name.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+    return names.length > 0 && names.every((name) => /^[a-z_]+$/.test(name)) ? names : null;
+  }
+  const triggers = [];
+  let childIndent = null;
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const indent = line.length - line.trimStart().length;
+    if (indent === 0) break;
+    if (childIndent === null) childIndent = indent;
+    if (indent !== childIndent) continue;
+    const key = line.trim().match(/^["']?([a-z_]+)["']?\s*:/);
+    if (!key) return null;
+    triggers.push(key[1]);
+  }
+  return triggers.length > 0 ? triggers : null;
+}
+
+function canRunBranchCode(filePath, content) {
+  if (/^\.github\/actions\//i.test(normalizePath(filePath))) return true;
+  const triggers = workflowTriggers(content);
+  return !triggers || triggers.some((trigger) => !DEFAULT_BRANCH_ONLY_TRIGGERS.has(trigger));
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Findings for changed workflow surfaces that could post a protected required context.
+ * `workflowContents` maps each changed workflow/action path to its content at the PR head.
+ * A changed workflow path with no supplied content is itself a finding (fail closed).
+ */
+export function requiredCheckForgeryFindings({ files, workflowContents }) {
+  const findings = [];
+  const contents = workflowContents ?? {};
+  const names = PROTECTED_REQUIRED_CONTEXTS.map(escapeRegExp).join("|");
+  const protectedName = new RegExp(
+    `(?:\\bname|\\bcontext)\\s*:\\s*["'\`]?\\s*(?:${names})\\s*["'\`]?\\s*(?:,|\\}|#|$)`,
+    "im",
+  );
+  const statusWriter =
+    /\bstatuses\s*:\s*write\b|\bwrite-all\b|\bcreateCommitStatus\b|\/statuses\/|repos\.createStatus\b/i;
+  for (const filePath of [...new Set((files ?? []).map(normalizePath))]) {
+    if (!isWorkflowSurface(filePath)) continue;
+    if (!Object.hasOwn(contents, filePath)) {
+      findings.push(
+        `${filePath} changed, but its content at the PR head could not be read, so the policy cannot confirm it does not post a required check. Rerun the check.`,
+      );
+      continue;
+    }
+    const content = String(contents[filePath] ?? "");
+    if (!canRunBranchCode(filePath, content)) continue;
+    const nameHit = protectedName.test(content);
+    const writerHit = statusWriter.test(content);
+    if (nameHit || writerHit) {
+      findings.push(
+        `${filePath} can run this branch's own code and ${nameHit ? `names a required check (${PROTECTED_REQUIRED_CONTEXTS.join(" / ")})` : "can write commit statuses"}. A branch workflow could report a required check as passed; move that step to a pull_request_target workflow or remove it.`,
+      );
+    }
+  }
+  return findings;
 }
 
 export function evaluatePullRequestPolicy({
@@ -695,7 +1017,11 @@ export function evaluatePullRequestPolicy({
   baseMigrationVersions,
   ownerApproval,
   addedMigrationContents,
+  changedWorkflowContents,
   enforceOwnerMerge = false,
+  // true only for the PR policy workflow, which reports the hold through the required
+  // `Owner approval` commit status. Left false, the hold stays a red error (batch runner).
+  ownerHoldViaStatus = false,
   now = new Date(),
 }) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
@@ -715,6 +1041,15 @@ export function evaluatePullRequestPolicy({
     ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
     : [];
   const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
+
+  // Blocking gate: PR_POLICY_BODY.md must never land on main — see the comment above
+  // prPolicyBodyTransportViolation for why a lingering copy is dangerous.
+  if (prPolicyBodyTransportViolation({ fileStatuses, files })) {
+    errors.push(
+      "PR_POLICY_BODY.md is a transport file: CI has synced it into this PR's description; delete it from the branch before merge so it never lands on main.",
+    );
+  }
+
   const summary = section(body, "Summary");
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
@@ -755,12 +1090,12 @@ export function evaluatePullRequestPolicy({
   if (classification.ragRanking) {
     const ragImpact = ragImpactDeclared(body);
     if (!ragImpact.declared) {
-      errors.push(
-        "This PR touches RAG-ranking protected surfaces. Add a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
+      warnings.push(
+        "This PR touches RAG-ranking protected surfaces. Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
       );
     } else if (!ragImpact.satisfied) {
-      errors.push(
-        "The `RAG impact:` line must state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
+      warnings.push(
+        "The `RAG impact:` line should state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
       );
     }
   }
@@ -778,11 +1113,22 @@ export function evaluatePullRequestPolicy({
     }
   }
 
-  // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
-  // Preflight. Intermittent automated review is not a merge gate (owner decision).
+  // Advisory since 2026-09-17 (owner decision): the Clinical Governance Preflight was a
+  // seven-item checklist that HARD-BLOCKED the merge of any clinical-risk PR until every
+  // box was pasted in verbatim and ticked. It never inspected a single line of code — it
+  // verified that the author had typed the right sentences — while `clinicalRiskPatterns`
+  // classified nearly every meaningful path in the repo, so the block fired on almost all
+  // real work. The friction was the whole cost and the assurance was theatre: the actual
+  // clinical safeguards are the owner-scope, privacy, migration-history and required-check
+  // gates, all of which still fail closed and are untouched by this change.
+  //
+  // The nudge survives as a warning so authors still get prompted on a clinical-risk diff;
+  // it simply no longer stands between a finished change and `main`.
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
-      errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
+      warnings.push(
+        "Clinical-risk paths: consider a `## Clinical Governance Preflight` note covering source verification, patient-data handling, and service-role confinement.",
+      );
     } else {
       const satisfiedItems = collectSatisfiedGovernanceItems(governance);
       const uncheckedItems = uncheckedChecklistEntries(governance);
@@ -790,8 +1136,8 @@ export function evaluatePullRequestPolicy({
         uncheckedItems.some((uncheckedItem) => uncheckedItem === item),
       );
       if (satisfiedItems.length < requiredClinicalGovernanceItems.length || hasUncheckedRequiredItem) {
-        errors.push(
-          `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
+        warnings.push(
+          `Clinical Governance Preflight is incomplete (${satisfiedItems.length}/${requiredClinicalGovernanceItems.length} items evidenced). Advisory only — it no longer blocks the merge.`,
         );
       }
     }
@@ -863,7 +1209,16 @@ export function evaluatePullRequestPolicy({
   // Blocking gate (opt-in via enforceOwnerMerge): owner-only merge for database,
   // clinical-risk and RAG-ranking PRs.
   const mergeReasons = ownerMergeReasons(classification, classification.files);
-  if (enforceOwnerMerge && mergeReasons.length > 0) {
+  if (enforceOwnerMerge && mergeReasons.length > 0 && ownerHoldViaStatus === true) {
+    // The hold is a wait, not a defect: the required `Owner approval` status carries it
+    // (pending until Josh approves this head). A label that does not count is surfaced as a
+    // warning and keeps that status pending; it never turns PR policy red.
+    if (ownerApproval?.rejectedReason) {
+      warnings.push(
+        `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Owner approval stays pending; agents must never add this label.`,
+      );
+    }
+  } else if (enforceOwnerMerge && mergeReasons.length > 0) {
     if (ownerApproval?.rejectedReason) errors.push(`Owner approval rejected: ${ownerApproval.rejectedReason}.`);
     if (!ownerApproved) {
       errors.push(
@@ -874,6 +1229,23 @@ export function evaluatePullRequestPolicy({
     warnings.push(
       `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Agents must never add this label.`,
     );
+  }
+
+  // Blocking gate (opt-in by supplying changedWorkflowContents): a changed workflow that can
+  // run branch code must not name or post a required check. Callers that do not read workflow
+  // contents (the batch runner) skip it rather than fail on missing inputs.
+  if (changedWorkflowContents !== undefined) {
+    // A removed file no longer exists at the head, so it cannot run there.
+    const removed = new Set(
+      (fileStatuses ?? [])
+        .filter((entry) => String(entry?.status ?? "").toLowerCase() === "removed")
+        .map((entry) => entry.filename),
+    );
+    for (const finding of requiredCheckForgeryFindings({
+      files: (files ?? []).filter((file) => !removed.has(file)),
+      workflowContents: changedWorkflowContents,
+    }))
+      errors.push(finding);
   }
 
   return {
@@ -986,29 +1358,28 @@ function selfTest() {
     }).ok,
     true,
   );
-  // ...but an unchecked governance box still fails a clinical-risk PR.
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody.replace(
-        `- [x] ${requiredClinicalGovernanceItems[0]}`,
-        `- [ ] ${requiredClinicalGovernanceItems[0]}`,
-      ),
-      headRef: "codex/search-fix",
-      files: ["src/lib/clinical-search.ts"],
-    }).errors.join(" "),
-    /Clinical Governance Preflight/,
-  );
-  // ...and dropping an item below the required count fails too.
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}\n`, ""),
-      headRef: "codex/search-fix",
-      files: ["src/lib/clinical-search.ts"],
-    }).errors.join(" "),
-    /Clinical Governance Preflight/,
-  );
+  // ...and an unchecked governance box WARNS a clinical-risk PR without blocking it
+  // (advisory since 2026-09-17 — the checklist inspected prose, never code).
+  const uncheckedGovernance = evaluatePullRequestPolicy({
+    title: "fix: update clinical search",
+    body: completeBody.replace(
+      `- [x] ${requiredClinicalGovernanceItems[0]}`,
+      `- [ ] ${requiredClinicalGovernanceItems[0]}`,
+    ),
+    headRef: "codex/search-fix",
+    files: ["src/lib/clinical-search.ts"],
+  });
+  assert.equal(uncheckedGovernance.ok, true, "an unchecked governance box must not block the merge");
+  assert.match(uncheckedGovernance.warnings.join(" "), /Clinical Governance Preflight/);
+  // ...and so does dropping an item below the required count.
+  const droppedGovernance = evaluatePullRequestPolicy({
+    title: "fix: update clinical search",
+    body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}\n`, ""),
+    headRef: "codex/search-fix",
+    files: ["src/lib/clinical-search.ts"],
+  });
+  assert.equal(droppedGovernance.ok, true, "a short governance checklist must not block the merge");
+  assert.match(droppedGovernance.warnings.join(" "), /Clinical Governance Preflight/);
   assert.equal(
     evaluatePullRequestPolicy({
       title: "fix: handle /api/search failures",
@@ -1065,25 +1436,26 @@ function selfTest() {
     ui: true,
   });
   // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md): a PR touching them
-  // without a `RAG impact:` declaration is hard-blocked...
+  // without a `RAG impact:` declaration is WARNED, not blocked (advisory since 2026-09-17).
+  // The live-eval canary remains the real safeguard for ordering behaviour; this line only
+  // ever checked that a sentence was present, and blocking on it stalled ordinary work.
   const ragUndeclared = evaluatePullRequestPolicy({
     title: "fix: adjust release ordering tie-break",
     body: completeBody.replace(/^RAG impact:.*\n\n/m, ""),
     headRef: "codex/ordering-fix",
     files: ["src/lib/released-search-order.ts"],
   });
-  assert.equal(ragUndeclared.ok, false, "RAG-surface PRs without a RAG impact line must block");
-  assert.match(ragUndeclared.errors.join(" "), /RAG impact/);
-  // ...a vague declaration (neither no-change nor canary) also blocks...
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: adjust release ordering tie-break",
-      body: completeBody.replace(/^RAG impact:.*$/m, "RAG impact: probably fine"),
-      headRef: "codex/ordering-fix",
-      files: ["src/lib/released-search-order.ts"],
-    }).errors.join(" "),
-    /RAG impact/,
-  );
+  assert.equal(ragUndeclared.ok, true, "a missing RAG impact line must not block the merge");
+  assert.match(ragUndeclared.warnings.join(" "), /RAG impact/);
+  // ...a vague declaration (neither no-change nor canary) also warns without blocking...
+  const ragVague = evaluatePullRequestPolicy({
+    title: "fix: adjust release ordering tie-break",
+    body: completeBody.replace(/^RAG impact:.*$/m, "RAG impact: probably fine"),
+    headRef: "codex/ordering-fix",
+    files: ["src/lib/released-search-order.ts"],
+  });
+  assert.equal(ragVague.ok, true, "a vague RAG impact line must not block the merge");
+  assert.match(ragVague.warnings.join(" "), /RAG impact/);
   // ...an explicit no-behaviour-change declaration passes (with governance complete)...
   assert.equal(
     evaluatePullRequestPolicy({
@@ -1114,6 +1486,22 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["tests/ranking-tuning.test.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/source-authority-registry.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/australian-source-priority.ts"]).ragRanking, true);
+  // Ingestion text surfaces: what gets chunked is a retrieval input, so these must ask for a
+  // RAG impact declaration. PR #2810 changed the first of these and the gate stayed silent.
+  assert.equal(classifyPullRequestFiles(["src/lib/chunking.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["worker/python/extract_pdf_assets.py"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/document.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/pdf-extraction-budget.ts"]).ragRanking, true);
+  // Structured-evidence producers: index units are queried directly by the candidate fan-out,
+  // and deep-memory.ts rescores results outright via applyMemoryCardBoosts.
+  assert.equal(classifyPullRequestFiles(["src/lib/document-index-units.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/model-index-extraction.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/deep-memory.ts"]).ragRanking, true);
+  // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT, index-unit
+  // content, or a score stays out. Orchestration that only calls the producers is not itself
+  // a producer.
+  assert.equal(classifyPullRequestFiles(["src/lib/ingestion-audit.ts"]).ragRanking, false);
+  assert.equal(classifyPullRequestFiles(["src/lib/reindex-pipeline.ts"]).ragRanking, false);
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
@@ -1163,7 +1551,25 @@ function selfTest() {
   // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
+  // Owner ruling 2026-09-17: patient-address, referral and database-key code is clinical-risk
+  // even though no file name carries a clinical token.
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/assignment.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts-server/config.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/supabase/admin.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/repository.ts"]).clinicalRisk, true);
+  // Still narrow: the rest of on-call is not swept in by the repository entry.
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/api-schemas.ts"]).clinicalRisk, false);
   assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
+  // Owner ruling 2026-09-17, after the clinical review of #2838: differential-diagnosis code and
+  // content are clinical-risk even though most of these file names carry no clinical token.
+  assert.equal(classifyPullRequestFiles(["src/lib/differential-detail.ts"]).clinicalRisk, true);
+  assert.equal(
+    classifyPullRequestFiles(["src/components/differentials/differential-detail-page.tsx"]).clinicalRisk,
+    true,
+  );
+  assert.equal(classifyPullRequestFiles(["scripts/build-cross-mode-differentials-index.mjs"]).clinicalRisk, true);
+  // Near miss: an unrelated UI component is not swept in by the differential patterns.
+  assert.equal(classifyPullRequestFiles(["src/components/ui/button.tsx"]).clinicalRisk, false);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
   assert.equal(classifyPullRequestFiles(["src/lib/search-route-ownership.ts"]).ui, true);
@@ -1192,15 +1598,17 @@ function selfTest() {
   });
   assert.equal(bare.ok, true, "non-clinical PRs must never be blocked by advisory metadata gaps");
   assert.ok(bare.warnings.length > 0, "advisory gaps should still be surfaced as warnings");
-  // ...but a clinical-risk PR with no governance section is the one hard block.
-  const clinicalBlocked = evaluatePullRequestPolicy({
+  // ...and a clinical-risk PR with no governance section is advisory too, since 2026-09-17.
+  // Nothing about PR-body prose blocks a merge any more; the gates that still fail closed
+  // are migration history, required-check forgery, and the PR_POLICY_BODY transport check.
+  const clinicalBare = evaluatePullRequestPolicy({
     title: "fix: adjust answer synthesis grounding",
     body: "## Summary\n\n- Tweak synthesis.",
     headRef: "codex/answer-fix",
     files: ["src/lib/answer-synthesis.ts"],
   });
-  assert.equal(clinicalBlocked.ok, false, "clinical-risk PRs missing governance must still block");
-  assert.match(clinicalBlocked.errors.join(" "), /Clinical Governance Preflight/);
+  assert.equal(clinicalBare.ok, true, "a missing governance section must not block the merge");
+  assert.match(clinicalBare.warnings.join(" "), /Clinical Governance Preflight/);
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
@@ -1364,6 +1772,27 @@ function selfTest() {
     true,
     "an unrelated deployment constraint must not block a migration PR",
   );
+  // Hand-authored clinical datasets that live under `src/lib/` as `.ts` rather than under
+  // `data/` as JSON. Pinned in both directions. The `true` rows are files whose entire diff
+  // is clinical prose a clinician reads as fact, changing clinical output with no code change
+  // at all — the `data/` rule's own rationale, applied where that rule cannot reach. The
+  // `false` rows are the neighbours a wider `src/lib/` sweep would take with it, and each one
+  // is a preflight this repository must not ask for: ticking clinical governance boxes on a
+  // module that ships no clinical content is the habit that erodes the gate.
+  //
+  // `src/lib/differential-curated.ts` is absent on purpose: PR #2847 covers the whole
+  // differential family under the owner ruling of 2026-09-17, so pinning it here would make
+  // these two changes fight over the same rows.
+  for (const [file, expected, why] of [
+    ["src/lib/dictionary-data.ts", true, "dictionaryEntries carries authored definitions"],
+    ["src/lib/factsheets-data.ts", true, "patient-facing factsheet prose"],
+    ["src/lib/specifiers.ts", true, "specifierRecords carries authored specifier guidance"],
+    ["src/lib/demo-data.ts", false, "the synthetic corpus, kept separate from real clinical content"],
+    ["src/lib/specifier-builder-diagnoses.ts", false, "joins two datasets and authors no prose"],
+    ["src/lib/dictionary.ts", false, "the loader beside the dataset: the anchor must not sweep it in"],
+  ]) {
+    assert.equal(classifyPullRequestFiles([file]).clinicalRisk, expected, `${why}: ${file}`);
+  }
   assert.equal(
     classifyPullRequestFiles(["tests/caring-contacts-interface-vocabulary.test.ts"]).clinicalRisk,
     true,
@@ -1375,9 +1804,12 @@ function selfTest() {
     "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
   migrationHistoryAndOwnerMergeSelfTest(completeBody);
-  const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
-  for (const item of requiredClinicalGovernanceItems)
-    assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  // The PR template no longer has to carry the seven governance items as unchecked boxes.
+  // That assertion existed to keep the template in sync with a BLOCKING requirement; since
+  // 2026-09-17 the preflight is advisory, so there is nothing left for it to pin — forcing
+  // the checklist back into the template would restore exactly the paperwork this change
+  // removed. `requiredClinicalGovernanceItems` is still exported and still used, by the
+  // advisory warning above and by ci.yml's `sync-pr-policy-body` job.
   const workflow = readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8");
   assert.match(
     workflow,
@@ -1809,40 +2241,49 @@ $migration$;
     /migration history could not be verified/,
   );
 
+  ownerApprovalStatusAndForgerySelfTest(completeBody);
+
   // --- Owner-merge hold --------------------------------------------------------------
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["docs/a.md"]), ["docs/a.md"]), []);
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["supabase/schema.sql"]), ["supabase/schema.sql"]), [
     "database",
-    "clinical",
   ]);
-  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), [
-    "clinical",
-    "rag-ranking",
-  ]);
+  // Narrowed by the 2026-09-17 owner ruling: clinical content and RAG ranking are no longer
+  // reasons on their own, so a PR that touches neither database file nor migration is free.
+  assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), []);
   const clinical = {
     title: "fix: adjust clinical search tie-break",
     body: completeBody,
     headRef: "claude/clinical-fix",
     files: ["src/lib/answer-synthesis.ts"],
   };
-  const clinicalHeld = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
-  assert.equal(clinicalHeld.ok, false, "clinical + no approval + enforce → error");
-  assert.match(clinicalHeld.errors.join(" "), /Owner merge required \(clinical\)/);
-  assert.match(clinicalHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
-  assert.deepEqual(clinicalHeld.ownerMergeReasons, ["clinical"]);
-  assert.equal(clinicalHeld.ownerApproved, false);
+  const database = {
+    title: "feat(db): add a retrieval health view",
+    body: completeBody,
+    headRef: "claude/db-view",
+    files: ["supabase/schema.sql"],
+  };
+  const databaseHeld = evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true });
+  assert.equal(databaseHeld.ok, false, "database + no approval + enforce → error");
+  assert.match(databaseHeld.errors.join(" "), /Owner merge required \(database\)/);
+  assert.match(databaseHeld.errors.join(" "), /any new push removes it\. Agents must never add this label\./);
+  assert.deepEqual(databaseHeld.ownerMergeReasons, ["database"]);
+  assert.equal(databaseHeld.ownerApproved, false);
   assert.equal(
-    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
+    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: true } }).ok,
     true,
-    "clinical + owner approval → ok",
+    "database + owner approval → ok",
   );
+  const clinicalFree = evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true });
+  assert.deepEqual(clinicalFree.ownerMergeReasons, [], "clinical alone no longer needs the owner's label");
+  assert.equal(clinicalFree.ok, true, "clinical + no approval + enforce → ok since 2026-09-17");
   assert.equal(
-    evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
+    evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: true, ownerApproval: { approved: "true" } }).ok,
     false,
     "approval must be the boolean true, not a truthy value",
   );
   const appLabel = evaluatePullRequestPolicy({
-    ...clinical,
+    ...database,
     enforceOwnerMerge: true,
     ownerApproval: {
       approved: true,
@@ -1874,8 +2315,8 @@ $migration$;
     "a rejected label on a PR that needs no owner merge is a warning, not a block",
   );
   // enforceOwnerMerge defaults to false, so existing callers keep today's behaviour.
-  assert.equal(evaluatePullRequestPolicy(clinical).ok, true, "enforce false → today's behaviour");
-  assert.equal(evaluatePullRequestPolicy({ ...clinical, enforceOwnerMerge: false }).ok, true);
+  assert.equal(evaluatePullRequestPolicy(database).ok, true, "enforce false → today's behaviour");
+  assert.equal(evaluatePullRequestPolicy({ ...database, enforceOwnerMerge: false }).ok, true);
   // A rename's previous path is classified: moving a file out of supabase/ still needs the owner.
   assert.deepEqual(
     evaluatePullRequestPolicy({
@@ -1891,7 +2332,7 @@ $migration$;
       baseMigrationVersions: base,
       enforceOwnerMerge: true,
     }).ownerMergeReasons,
-    ["database", "clinical"],
+    ["database"],
   );
 
   // --- Replay: PR #2814 must fail, and must fail on history even with owner approval ----
@@ -1915,8 +2356,8 @@ $migration$;
     replayUnapproved.migrationHistoryViolations.map((violation) => violation.version),
     ["20260824122000", "20260824123000", "20260830121000"],
   );
-  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database", "clinical"]);
-  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database, clinical\)/);
+  assert.deepEqual(replayUnapproved.ownerMergeReasons, ["database"]);
+  assert.match(replayUnapproved.errors.join(" "), /Owner merge required \(database\)/);
   const replayApproved = evaluatePullRequestPolicy({ ...replay, ownerApproval: { approved: true } });
   assert.equal(replayApproved.ok, false, "PR #2814 replay must fail on migration history even with owner approval");
   assert.equal(
@@ -1924,6 +2365,319 @@ $migration$;
     3,
   );
   assert.doesNotMatch(replayApproved.errors.join(" "), /Owner merge required/);
+
+  // --- PR_POLICY_BODY.md must never land on main (transport file, see the comment above
+  // prPolicyBodyTransportViolation) --------------------------------------------------------
+  const addedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "added", previous_filename: null }],
+  });
+  assert.equal(addedPrPolicyBody.ok, false, "an added PR_POLICY_BODY.md must block");
+  assert.match(addedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const modifiedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(modifiedPrPolicyBody.ok, false, "a modified PR_POLICY_BODY.md must block");
+  assert.match(modifiedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const removedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "chore: retire the PR policy transport file",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "removed", previous_filename: null }],
+  });
+  assert.equal(removedPrPolicyBody.ok, true, "removing PR_POLICY_BODY.md must never block");
+  assert.doesNotMatch(removedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY/);
+
+  const unrelatedPr = evaluatePullRequestPolicy({
+    title: "docs: clarify the release checklist",
+    body: completeBody,
+    headRef: "codex/release-checklist",
+    files: ["docs/process-hardening.md"],
+    fileStatuses: [{ filename: "docs/process-hardening.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(unrelatedPr.ok, true, "a PR that never touches PR_POLICY_BODY.md must be unaffected");
+
+  // Fallback path: fileStatuses absent, only a bare `files` list supplied (e.g. an older caller).
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["PR_POLICY_BODY.md"] }),
+    true,
+    "the files-only fallback must still catch a present PR_POLICY_BODY.md",
+  );
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["docs/process-hardening.md"] }),
+    false,
+    "the files-only fallback must not flag an unrelated PR",
+  );
+}
+
+function ownerApprovalStatusAndForgerySelfTest(completeBody) {
+  // --- Owner approval commit status: only pending or success, never neutral ----------
+  const states = new Set();
+  const status = (input) => {
+    const result = ownerApprovalCommitStatus(input);
+    states.add(result.state);
+    assert.ok(result.description.length > 0 && result.description.length <= 140, "status description fits 140");
+    return result;
+  };
+  assert.equal(
+    status({ draft: true, ownerMergeReasons: [], ownerApproved: false }).state,
+    "pending",
+    "draft → pending",
+  );
+  assert.equal(
+    status({ draft: true, ownerMergeReasons: ["database"], ownerApproved: true }).state,
+    "pending",
+    "draft never reports success, even when approved",
+  );
+  assert.equal(
+    status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [] }).state,
+    "success",
+    "no hold → success",
+  );
+  const waiting = status({ ownerMergeReasons: ["database"], ownerApproved: false });
+  assert.equal(waiting.state, "pending", "hold without approval → pending (yellow), not failure");
+  assert.match(waiting.description, /Waiting for Josh.*\(database\)/);
+  assert.equal(
+    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [] }).state,
+    "success",
+    "approved → success",
+  );
+  // One commit heading two open PRs: neither PR's verdict may clear the shared status.
+  const shared = status({ ownerMergeReasons: [], ownerApproved: false, otherPrsSharingHead: [2843] });
+  assert.equal(shared.state, "pending", "a head shared with another open PR never reports success");
+  assert.match(shared.description, /#2843/);
+  assert.equal(
+    status({ ownerMergeReasons: ["database"], ownerApproved: true, otherPrsSharingHead: [7, 9] }).state,
+    "pending",
+    "even an approved PR cannot clear a head another open PR shares",
+  );
+  assert.equal(
+    status({ ownerMergeReasons: [], ownerApproved: false }).state,
+    "pending",
+    "an unknown sharing list fails closed to pending",
+  );
+  assert.equal(
+    status({ ownerMergeReasons: ["database"], ownerApproved: "true" }).state,
+    "pending",
+    "approval must be boolean true",
+  );
+  const rejected = status({
+    ownerMergeReasons: ["database"],
+    ownerApproved: true,
+    rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
+  });
+  assert.equal(rejected.state, "pending", "a rejected label never yields success");
+  assert.match(
+    status({ ownerMergeReasons: Array(20).fill("database"), ownerApproved: false }).description,
+    /…$/,
+    "an over-long description is truncated to 140 characters",
+  );
+  assert.equal(status({ ownerMergeReasons: undefined }).state, "pending", "unknown reasons fail closed to pending");
+  assert.deepEqual([...states].sort(), ["pending", "success"], "only pending and success are ever produced");
+
+  // The status mirrors the policy result it is built from.
+  const databasePr = {
+    title: "feat(db): add a retrieval health view",
+    body: completeBody,
+    headRef: "claude/db-view",
+    files: ["supabase/schema.sql"],
+    enforceOwnerMerge: true,
+  };
+  const held = evaluatePullRequestPolicy(databasePr);
+  assert.equal(
+    ownerApprovalCommitStatus({ ownerMergeReasons: held.ownerMergeReasons, ownerApproved: held.ownerApproved }).state,
+    "pending",
+  );
+  assert.match(
+    held.errors.join(" "),
+    /Owner merge required/,
+    "without the opt-in (the batch runner's call) the hold is still a red error",
+  );
+  // Step 2: the workflow opts in, so the hold is carried only by the yellow status.
+  const viaStatus = evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: true });
+  assert.equal(viaStatus.ok, true, "opted in: an unapproved database PR is not red in PR policy");
+  assert.deepEqual(viaStatus.errors, []);
+  assert.equal(viaStatus.ownerApproved, false);
+  assert.equal(
+    ownerApprovalCommitStatus({
+      ownerMergeReasons: viaStatus.ownerMergeReasons,
+      ownerApproved: viaStatus.ownerApproved,
+      otherPrsSharingHead: [],
+    }).state,
+    "pending",
+    "opted in: the hold is still carried by a pending Owner approval status",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({ ...databasePr, ownerHoldViaStatus: "true" }).ok,
+    false,
+    "the opt-in must be the boolean true",
+  );
+  // A label that does not count: yellow with a named reason plus a warning, never red, never success.
+  for (const [rejectedReason, expected] of [
+    ["owner-approved label was applied by a GitHub App (codex), not by the owner", /added by an app, not by Josh/],
+    ["owner-approved label was applied by collaborator, not by the repository owner (BigSimmo)", /not added by Josh/],
+    [
+      "the owner-approved label was applied at 2026-09-17T00:59:59.000Z, not after the current head was first seen at 2026-09-17T01:00:00.000Z, so it approved an earlier head; Josh re-applies it",
+      /added before the latest push/,
+    ],
+    [
+      "no PR policy runs could be found for the current head, so the approval cannot be bound to it",
+      /could not be confirmed/,
+    ],
+  ]) {
+    const rejectedPr = evaluatePullRequestPolicy({
+      ...databasePr,
+      ownerHoldViaStatus: true,
+      ownerApproval: { approved: false, rejectedReason },
+    });
+    assert.equal(rejectedPr.ok, true, `a rejected label is not red when opted in: ${rejectedReason}`);
+    assert.match(rejectedPr.warnings.join(" "), /Ignored `owner-approved` label/);
+    const rejectedStatus = ownerApprovalCommitStatus({
+      ownerMergeReasons: rejectedPr.ownerMergeReasons,
+      ownerApproved: rejectedPr.ownerApproved,
+      rejectedReason,
+      otherPrsSharingHead: [],
+    });
+    assert.equal(rejectedStatus.state, "pending", "a label that does not count never yields success");
+    assert.match(rejectedStatus.description, expected);
+    assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(database\)/);
+  }
+  // Real policy failures stay red even when opted in. PR-body prose is no longer one of
+  // them (2026-09-17), so this uses a gate that still fails closed: the PR_POLICY_BODY.md
+  // transport file, which must never land on main.
+  const transportViolation = evaluatePullRequestPolicy({
+    ...databasePr,
+    files: [...databasePr.files, "PR_POLICY_BODY.md"],
+    ownerHoldViaStatus: true,
+  });
+  assert.equal(transportViolation.ok, false, "a genuine blocking gate stays red when opted in");
+  assert.match(transportViolation.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+  assert.doesNotMatch(transportViolation.errors.join(" "), /Owner merge required/);
+  // ...while a thin body on the same PR is now advisory only.
+  const thinBody = evaluatePullRequestPolicy({
+    ...databasePr,
+    body: "## Summary\n\nx",
+    ownerHoldViaStatus: true,
+  });
+  assert.equal(thinBody.ok, true, "PR-body prose gaps no longer block a database PR");
+  const approvedPr = evaluatePullRequestPolicy({ ...databasePr, ownerApproval: { approved: true } });
+  assert.equal(
+    ownerApprovalCommitStatus({
+      ownerMergeReasons: approvedPr.ownerMergeReasons,
+      ownerApproved: approvedPr.ownerApproved,
+      otherPrsSharingHead: [],
+    }).state,
+    "success",
+  );
+
+  // --- Workflow trigger parsing ------------------------------------------------------
+  assert.deepEqual(workflowTriggers("on:\n  pull_request_target:\n    types: [opened]\n  merge_group:\n"), [
+    "pull_request_target",
+    "merge_group",
+  ]);
+  assert.deepEqual(workflowTriggers("on: [push, pull_request]\n"), ["push", "pull_request"]);
+  assert.deepEqual(workflowTriggers('"on": pull_request_target\n'), ["pull_request_target"]);
+  assert.equal(workflowTriggers("name: x\njobs:\n  a:\n"), null, "no on: key → unreadable");
+
+  // --- Required-check forgery tripwire -----------------------------------------------
+  const forge = (path, content) =>
+    requiredCheckForgeryFindings({ files: [path], workflowContents: { [path]: content } });
+  const branchWorkflow = (body) => `name: CI\non:\n  pull_request:\n    branches: [main]\n  push:\njobs:\n${body}`;
+  assert.equal(
+    forge(".github/workflows/ci.yml", branchWorkflow("  fake:\n    name: PR policy\n    runs-on: ubuntu-24.04\n"))
+      .length,
+    1,
+    "a pull_request job named PR policy is flagged",
+  );
+  assert.equal(
+    forge(".github/workflows/ci.yml", branchWorkflow('  fake:\n    name: "Owner approval"\n')).length,
+    1,
+    "a quoted Owner approval name is flagged",
+  );
+  assert.equal(
+    forge(
+      ".github/workflows/ci.yml",
+      branchWorkflow("  s:\n    steps:\n      - run: gh api repos/o/r/statuses/abc -f context='x'\n"),
+    ).length,
+    1,
+    "a statuses API write from branch code is flagged",
+  );
+  assert.equal(
+    forge(".github/workflows/ci.yml", `permissions: write-all\n${branchWorkflow("  a:\n")}`).length,
+    1,
+    "write-all grants statuses: write and is flagged",
+  );
+  assert.equal(
+    forge(".github/workflows/ci.yml", branchWorkflow("  sync:\n    name: Sync PR policy body\n")).length,
+    0,
+    "a name that merely contains the words is not a protected context",
+  );
+  assert.equal(
+    forge(
+      ".github/workflows/pr-policy.yml",
+      "on:\n  pull_request_target:\n  merge_group:\npermissions:\n  statuses: write\njobs:\n  policy:\n    name: PR policy\n",
+    ).length,
+    0,
+    "a workflow that only runs the default-branch copy is inert until merged",
+  );
+  assert.equal(
+    forge(
+      ".github/workflows/pr-policy.yml",
+      "on:\n  pull_request_target:\n  pull_request:\njobs:\n  policy:\n    name: PR policy\n",
+    ).length,
+    1,
+    "adding a branch-executed trigger to pr-policy.yml is flagged",
+  );
+  assert.equal(
+    forge(".github/workflows/odd.yml", "jobs:\n  a:\n    name: PR policy\n").length,
+    1,
+    "unreadable triggers fail closed to branch-executable",
+  );
+  assert.equal(
+    forge(".github/actions/setup/action.yml", "runs:\n  steps:\n    - run: curl -X POST $API/statuses/$SHA\n").length,
+    1,
+    "a composite action is always treated as branch code",
+  );
+  assert.equal(forge("docs/ci.md", "name: PR policy").length, 0, "non-workflow paths are out of scope");
+  assert.match(
+    requiredCheckForgeryFindings({ files: [".github/workflows/ci.yml"], workflowContents: {} }).join(" "),
+    /could not be read/,
+    "a changed workflow with unread content fails closed",
+  );
+
+  const workflowPr = {
+    title: "ci: add a helper job to the pipeline",
+    body: completeBody,
+    headRef: "claude/ci-helper",
+    files: [".github/workflows/ci.yml"],
+    fileStatuses: [{ filename: ".github/workflows/ci.yml", status: "modified", previous_filename: null }],
+  };
+  assert.equal(evaluatePullRequestPolicy(workflowPr).ok, true, "no changedWorkflowContents → tripwire not run");
+  const forged = evaluatePullRequestPolicy({
+    ...workflowPr,
+    changedWorkflowContents: { ".github/workflows/ci.yml": branchWorkflow("  fake:\n    name: Owner approval\n") },
+  });
+  assert.equal(forged.ok, false, "a forging workflow fails PR policy");
+  assert.match(forged.errors.join(" "), /names a required check/);
+  assert.equal(
+    evaluatePullRequestPolicy({
+      ...workflowPr,
+      fileStatuses: [{ filename: ".github/workflows/ci.yml", status: "removed", previous_filename: null }],
+      changedWorkflowContents: {},
+    }).ok,
+    true,
+    "a removed workflow cannot run and needs no content",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

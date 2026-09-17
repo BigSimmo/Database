@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DifferentialsHome } from "@/components/clinical-dashboard/differentials-home";
+import { createSearchRequestDeadline } from "@/components/clinical-dashboard/search-utils";
 import { ModeHomeMain } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsSearchRequestBody } from "@/lib/differentials-search-request";
@@ -38,12 +39,18 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
 
       setLoading(true);
       setEvidenceQuery(null);
+      // This page had only a bare AbortController, which fires on unmount or supersede and never
+      // on a stuck request. `/api/search` has no server-side deadline, so a request that never
+      // settled left `finally` unreached and this page spinning on "Searching…" indefinitely —
+      // the pre-2026-09-16 behaviour that the dashboard shell was given a deadline to end, while
+      // this route kept it. Same helper, same thresholds, so both surfaces give up together.
+      const deadline = createSearchRequestDeadline({ signal });
       try {
         const response = await fetch("/api/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(differentialsSearchRequestBody(new URLSearchParams(searchParamString), normalized)),
-          signal,
+          signal: deadline.signal,
         });
 
         if (requestId !== searchRequestSeqRef.current) return;
@@ -57,10 +64,16 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         setEvidenceQuery(normalized);
         setDocumentMatches(payload.documentMatches ?? []);
       } catch (error) {
-        if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        // A timeout is OUR abort, not the caller's, so it must not be swallowed as one: it clears
+        // the spinner and empties the evidence list rather than leaving stale matches on screen.
+        // It is not yet distinguishable from "no sources found" in this page's UI; giving it its
+        // own message needs a prop through DifferentialsHome and belongs in deliberate UI work.
+        if (!deadline.timedOut && (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")))
+          return;
         if (requestId !== searchRequestSeqRef.current) return;
         setDocumentMatches([]);
       } finally {
+        deadline.cancel();
         if (requestId === searchRequestSeqRef.current) setLoading(false);
       }
     },

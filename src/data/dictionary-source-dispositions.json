@@ -2,7 +2,7 @@
   "generatedFrom": "PsychSift_Dictionary_Claude_Cloud_2026-09-16",
   "previewedAgainst": "src/data/source-acquisitions.json",
   "previewedOn": "2026-09-16",
-  "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry and not clinical approval. It does carry deployed catalogue visibility \u2014 every non-rejected row renders at /sources at D band, marked unverified and carrying a verification_unknown warning. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
+  "note": "Per-source outcome of the no-write acquisition preview. A ledger candidate is metadata only: it is not bytes, not an index entry and not clinical approval. It does carry deployed catalogue visibility — every non-rejected row renders at /sources at D band, marked unverified and carrying a verification_unknown warning. Sources re-read from their publisher pages on 2026-09-16 carry a `publisherCheck` with the exact finding and the date checked.",
   "counts": {
     "held": 40,
     "admitted_as_candidate": 18
@@ -367,8 +367,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Live measure directory; linked manuals have separate versions\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -416,8 +416,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -465,8 +465,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -519,8 +519,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -553,18 +553,18 @@
       "blockers": [
         {
           "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "cope.org.au blocks automated reading, so neither a date nor a version could be read from the publisher page. The publisher is registered, but admission still also requires a governed host and a non-empty version \u2014 a date alone is not enough.",
-          "nextAction": "Open the page in a browser and record whichever date it states (event type and precision) together with the version or edition on the same page."
+          "blocker": "cope.org.au blocks automated reading, so no date could be read from the publisher page.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision. Record the version or edition while the page is open."
         },
         {
           "code": "host_not_in_inspected_governed_url_policy",
-          "blocker": "The canonical URL's host is not in GOVERNED_SOURCE_HOSTS. Widening that policy is out of scope here.",
-          "nextAction": "Decide whether the host belongs in GOVERNED_SOURCE_HOSTS as a separate, reviewed change, or drop the URL."
+          "blocker": "www.cope.org.au is not in GOVERNED_SOURCE_HOSTS, so acquisitionLedgerIssues refuses the record as unsafe_location however complete its metadata is. A date does not change this.",
+          "nextAction": "Owner decision. Widening the governed host policy was declined on 2026-09-16, so this source stays held until that is revisited or the URL is dropped."
         },
         {
           "code": "version_unknown",
-          "blocker": "The candidate records version \"Not established\". acquisitionLedgerIssues requires a non-empty version of every non-rejected record, so a date on its own does not make this source admissible.",
-          "nextAction": "Record the version or edition the same page states, alongside the date."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -835,8 +835,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -889,8 +889,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -943,8 +943,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1011,13 +1011,18 @@
       "blockers": [
         {
           "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "aci.health.nsw.gov.au blocks automated reading, so neither a date nor a version could be read from the publisher page. The publisher is registered, so those two fields are what remain.",
-          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision."
+          "blocker": "aci.health.nsw.gov.au blocks automated reading, so no date could be read from the publisher page.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision. Record the version or edition while the page is open."
+        },
+        {
+          "code": "jurisdiction_not_written_in_register_form",
+          "blocker": "The candidate records jurisdiction \"New South Wales; spinal cord injury\", which is a jurisdiction and a topic in one field. acquisitionLedgerIssues cannot match it to the register and reports unknown_jurisdiction, with a misleading \"publisher is not in the source authority register\" alongside it. The publisher IS registered.",
+          "nextAction": "Write the jurisdiction as the register writes it, \"Australia/NSW\", and carry the topic in topics. Verified: that alone clears the gate once a date is present."
         },
         {
           "code": "version_unknown",
-          "blocker": "The candidate records version \"Not established\". acquisitionLedgerIssues requires a non-empty version of every non-rejected record, so a date on its own does not make this source admissible.",
-          "nextAction": "Record the version or edition the same page states, alongside the date."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1197,8 +1202,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1241,8 +1246,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1295,8 +1300,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1378,8 +1383,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1427,8 +1432,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Live official reference\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1554,8 +1559,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1779,8 +1784,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1959,8 +1964,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -2200,13 +2205,18 @@
       "blockers": [
         {
           "code": "publisher_page_unreadable_from_this_session",
-          "blocker": "aci.health.nsw.gov.au blocks automated reading, so neither a date nor a version could be read from the publisher page. The publisher is registered, so those two fields are what remain.",
-          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision."
+          "blocker": "aci.health.nsw.gov.au blocks automated reading, so no date could be read from the publisher page.",
+          "nextAction": "Open the page in a browser and record whichever date it states, with its event type and precision. Record the version or edition while the page is open."
+        },
+        {
+          "code": "jurisdiction_not_written_in_register_form",
+          "blocker": "The candidate records jurisdiction \"New South Wales; adult emergency care\", which is a jurisdiction and a topic in one field. acquisitionLedgerIssues cannot match it to the register and reports unknown_jurisdiction, with a misleading \"publisher is not in the source authority register\" alongside it. The publisher IS registered.",
+          "nextAction": "Write the jurisdiction as the register writes it, \"Australia/NSW\", and carry the topic in topics. Verified: that alone clears the gate once a date is present."
         },
         {
           "code": "version_unknown",
-          "blocker": "The candidate records version \"Not established\". acquisitionLedgerIssues requires a non-empty version of every non-rejected record, so a date on its own does not make this source admissible.",
-          "nextAction": "Record the version or edition the same page states, alongside the date."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -2254,8 +2264,8 @@
         },
         {
           "code": "version_unknown",
-          "blocker": "No version or edition identifier is established, which the ledger requires of a non-rejected record.",
-          "nextAction": "Establish the edition, version or release identifier from the publisher."
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",

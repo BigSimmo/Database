@@ -406,9 +406,9 @@ the distance between the two commits — during the incident the live commit and
 commit-distance test would have read 0 h and stayed silent in exactly the case it exists for.
 
 It needs no secret, because `/api/health` reports `deploymentCommitSha` to any anonymous caller,
-and a red run already reaches chat through `notify-ci-failure.yml`. It deliberately shares nothing
-with the Railway deploy webhook: that path has its own failure modes, and a detector that depends
-on the thing it watches is not a detector.
+and a red run shows in the Actions tab. It deliberately shares nothing with the Railway deploy
+webhook: that path has its own failure modes, and a detector that depends on the thing it watches
+is not a detector.
 
 `tests/health-response-deep-probe.test.ts` pins both halves of the split, and
 `tests/railway-config.test.ts` pins the 300-second window.

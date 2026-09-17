@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { isAbortError } from "@/lib/abort-error";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
@@ -239,6 +240,7 @@ export async function GET(request: Request) {
           slug: null,
           seeds,
           signal,
+          cache: true,
           mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
             record: finalRenderPayload as unknown as MedicationRecord,
             governance: {
@@ -280,6 +282,8 @@ export async function GET(request: Request) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
+    // A cancelled request is not a fault: answer 499, as /api/search and /api/upload already do.
+    if (isAbortError(error) || request.signal?.aborted) return new Response(null, { status: 499 });
     return jsonError(error);
   }
 }

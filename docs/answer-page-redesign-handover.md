@@ -411,8 +411,7 @@ ordinary Tailwind utilities and design tokens. Never hardcode hex
 
 ## 7. Gates and PR bodies
 
-Run the smallest gate that covers the change, then widen. Consult
-`npm run arbiter -- <gate>` first and quote its verdict.
+Run the smallest gate that covers the change, then widen.
 
 - PR 1 and PR 2 are executable UI scope: `npm run verify:pr-local`.
 - Before any browser claim: `npm run ensure`, then `npm run verify:phone-chrome`
