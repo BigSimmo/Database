@@ -89,78 +89,6 @@ what it is scoped to verify, and `ci-change-scope.mjs` already keeps that scoped
 not waste either — it is what stops a red push costing a full CI cycle plus a fix round. The waste
 was only ever the _repeat_, and that is what is now gone.
 
-## Gate arbitration: stop paying for a verdict GitHub is about to reach (2026-08-21)
-
-The receipts section above closes by saying the local run "is not waste either — it is what stops a
-red push costing a full CI cycle". True, and incomplete. `check:gate-manifest` enforces that CI never
-runs less of the local `verify:cheap` static set than the local chain does, which read the other way
-says **every local run of a gate in that chain is work GitHub is about to repeat**. Receipts cannot
-touch that duplication by design: `receiptsEnabled()` is false whenever `CI` is set.
-
-So the local run is a bet, not a certainty. It pays when it fails (a red push costs a CI cycle plus a
-fix round, and ~40% of PR CI runs measured 2026-07-30 were cancellations); it pays nothing when it
-passes. The bet's value is therefore not fixed — it decays as a gate stops catching things on a given
-class of change, and it recovers the moment the gate catches something again. Nothing measured that,
-so the decision was made from habit in both directions: running the full suite on a docs typo, and
-skipping it on a change that deserved it.
-
-`scripts/gate-arbiter.mjs` measures it. Three inputs, none hard-coded:
-
-- **CI coverage**, parsed live from `package.json` + `.github/workflows/ci.yml` using the same
-  field-anchored `run:` regex as `check-gate-manifest.mjs` (the two must agree — a looser parse here
-  would defer to a job the manifest check knows does not exist). Resolved by the gate's own name, its
-  declared CI equivalent (`test` → `test:coverage`), or a CI-invoked aggregate whose package.json body
-  contains it — and then **evaluated against the current change scope**. A step's presence in the YAML
-  is not coverage: `lint` and `typecheck` carry a step-level `if: needs.changes.outputs.static_heavy_changed`,
-  and the `coverage` job is gated on `coverage_changed`, so a docs-only change is covered by none of
-  the three. A name-only scan reported all three covered, which under `GATE_ARBITER=enforce` produced
-  the one outcome the module exists to prevent — local gate deferred, CI gate skipped, no verdict
-  anywhere. Raised as P1 by Codex review on PR #2245 and pinned by `tests/gate-arbiter.test.ts`.
-  Conditions that are not change-scope flags (draft state, event name) cannot be evaluated from a
-  worktree; they are reported as assumed preconditions with the decision rather than silently taken as
-  true. **A gate CI does not re-run for this change is never deferrable.**
-- **Observed yield**, a rolling window (40 observations) keyed by `(gate, change class)`, recorded by
-  `run-heavy.mjs` and `run-vitest.mjs` after every arbitrated run. Recording is pure observation and
-  never alters the run. An admission-busy exit (75) is not a verdict and is not recorded, so lock
-  contention can neither manufacture a clean window nor keep a healthy gate running forever.
-- **Content identity**, via `record-ci <sha>`: a clean worktree plus an empty `git diff <sha> HEAD`
-  proves the content GitHub judged is the content in front of us. Both halves are required — a clean
-  tree alone does not prove HEAD has not moved, and a matching diff alone cannot see an uncommitted
-  edit. Reading GitHub is provider-backed, so the arbiter never reaches for it; the session that
-  already looked at CI passes what it saw.
-
-Change class comes from `scripts/ci-change-scope.mjs` — the classifier CI itself uses to route jobs —
-rather than a second risk model, so the arbiter and CI cannot drift into two opinions about what a
-path means. Clean-window sizes: `docs` 3, `source` 12. Every other class (`db`, `rag`, `deps`,
-`container`, `workflow`, `ui`, `unknown`) is absent from the window map and never defers at any length.
-`tests/gate-arbiter.test.ts` pins that absence, so adding a risky class to the deferrable set fails.
-
-Boundaries, each of them a test in `tests/gate-arbiter.test.ts`:
-
-- **Fail open.** Unreadable CI, unknown class, missing observations, git failure — all run the gate.
-- **CI never consults it.** `arbiterMode()` returns disabled whenever `CI` is set.
-- **Advisory by default.** The wrappers act on a deferral only under `GATE_ARBITER=enforce`; a gate a
-  human typed still runs. `GATE_ARBITER=off` disables it entirely.
-- **The first catch re-arms the window**, so a gate that starts failing again is never left deferred
-  because it had a long clean run beforehand.
-- **A narrowed Vitest run records under its own identity** (`vitest(selected)`), so a clean history of
-  focused runs can never satisfy the full suite's window.
-- **`record-ci` requires an explicit gate list**, and rejects a SHA that does not resolve here, so one
-  observed green job cannot become stored proof for every arbitrated gate.
-- **Observations are re-read immediately before the write**, so two gates finishing together cannot
-  drop a catch — the unsafe direction, since a lost catch leaves a failing gate deferred.
-- **A deferred gate is not a passed gate.** The verdict prints that sentence; report it as "deferred
-  to CI", never as green.
-
-`npm run arbiter -- <gate>` gives the verdict and its evidence; `npm run arbiter:status` shows the
-yield ledger and the accumulated duplication bill; `npm run arbiter:clear` empties it. The ledger sits
-beside the receipt store under `node_modules/.cache/`, so it is per-worktree, never committed, and
-destroyed by `npm ci`.
-
-**What this does not do.** It does not reduce GitHub's work, weaken any required check, or change
-which gate is the smallest correct one for a diff. It decides only whether that gate still has
-anything left to tell you before you push.
-
 ## Multi-worktree reconciliation hardening (2026-07-23)
 
 The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
@@ -377,7 +305,9 @@ API rather than estimated:
 
 ## Phase 1 - Active now
 
-- `npm run verify:cheap` is the broad offline local gate for cross-module risk: 38 static/consistency gates (`check:runtime` through `check:owner-scope`; `npm run check:gate-manifest` lists them and pins the count), then lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
+- `npm run verify:cheap` is the ordinary pre-PR local gate: `check:installed-lock-parity`, then lint, typecheck, and the full offline unit suite. Nothing else. Run it freely — it is meant to be cheap enough not to think about. The parity step stays because it is sub-second and, without it, the other three would happily report green against a stale `node_modules`.
+- `npm run verify:full` is the broad offline local gate for cross-module risk: the same 38 static/consistency gates as before (`check:runtime` through `check:calculator-content`; `npm run check:gate-manifest` lists them and pins the count), then lint, typecheck, and unit tests. It is selected, not automatic for every source/config/test edit.
+  - **Split on 2026-09-17 (owner decision).** `verify:cheap` had grown to 41 chained commands — including `check:pr-mergeability`, which calls out to GitHub — so the gate advertised as the fast iteration loop was in practice the slowest thing in it, and agents ran it reflexively. The 38 static gates did not stop running: they moved to `verify:full`, and every one of them still runs in CI, which `check:gate-manifest` continues to enforce one-way (CI may run more than the local chain, never less — it now reads `verify:full:internal`, and pointing it back at the cheap chain would silently drop 38 gates from that invariant while still passing).
 - `npm run verify:pr-local` is the risk-routed local mirror of the normal PR gate: runtime, installed-lock parity, changed-file format, conditional `npm ci --dry-run --ignore-scripts` for package/lockfile edits, then focused docs/workflow contracts or the fail-closed executable plan with lint, typecheck, one full unit run, conditional build, and RAG fixture/manifest validation. Local scope resolves against the repository default base rather than a feature-branch upstream; set `PR_BASE_REF` explicitly for release-targeted PRs.
 - `npm run verify:ui` is the complete required production Chromium gate: `check:runtime` plus all non-quarantined production journeys (`test:e2e:pr`).
 - `npm run verify:release` is the release-confidence gate: `check:runtime`, lint, typecheck, unit tests, build, full Playwright browser matrix, `check:production-readiness`, `governance:release`, and `eval:quality:release` (the last step needs live Supabase and OpenAI keys).
@@ -816,8 +746,10 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
 
 - **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
   `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): five guards.
-  The non-bypassable auto-merge ownership guard blocks a push on every PR branch when the PR's
-  auto-merge is armed. The other guards retain explicit overrides: format-before-push (closes the `verify:cheap` vs
+  The non-bypassable auto-merge ownership guard warns (but does not block) an ordinary push to a
+  PR branch whose auto-merge is armed; it blocks only when that push force-updates the branch or
+  carries a hosted migration (`autoMergeVerdict` in `scripts/guard-push.mjs`). The other guards
+  retain explicit overrides: format-before-push (closes the `verify:cheap` vs
   CI `format:check` gap; it reuses only an exact-lock worktree dependency tree and otherwise blocks
   with `npm ci --include=dev`; `SKIP_FORMAT_GUARD=1`), drift-manifest freshness
   (`SKIP_DRIFT_GUARD=1`), and static gate (changed-file lint + source-only typecheck through the run
@@ -834,33 +766,35 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   and recovers a stuck queue **only** with `--apply`. Workflow schedule is LIVE in **dry-run**
   (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
   allow real recovery.
-- **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
-  as main-side or needs-investigation. Enabled by default; set repo var `CI_TRIAGE_ENABLED=false` to disable. UI jobs use
-  their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
-  The workflow reads only trusted default-branch job metadata and never runs PR code.
 - **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`
-  must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
-  evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
-  explicit reason it could not run), while clinical-risk changes must fully disposition the governance
-  checklist. `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
+  should use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
+  evidence for clinical or operationally sensitive paths. UI changes should carry `verify:ui` evidence (or an
+  explicit reason it could not run), and clinical-risk changes should disposition the governance
+  checklist. **All of that is advisory as of 2026-09-17 (owner decision): no PR-body prose blocks a merge.**
+  The `## Clinical Governance Preflight` completeness gate and the `RAG impact:` declaration were both hard
+  blocks until then. Neither read a line of code — they verified that an author had typed the right seven
+  sentences — while `clinicalRiskPatterns` matches most meaningful paths in the repository, so the block fired
+  on nearly all real work and cost a round trip every time. They now emit warnings. The gates that still fail
+  closed here are unchanged: migration-history immutability, the owner-approval hold on `supabase/` PRs,
+  required-check forgery, and the `PR_POLICY_BODY.md` transport check. The clinical safeguards that actually
+  inspect behaviour — owner-scope, query-privacy, the live eval-canary, `tests/rag-imputation-contract.test.ts`
+  — were never part of this file and are untouched.
+  `scripts/pr-policy.mjs` also flags operational risk bundled with clinical or UI risk (#178),
   warning authors to split infrastructure/tooling from clinical/UI features for independent revertibility.
   The `pull_request_target` job checks out the trusted `github.workflow_sha` revision and never executes
   PR-head code. Its permissions are exactly `contents: read`, `pull-requests: write` (used solely to remove
-  the `owner-approved` label when new commits land) and `actions: read` (to list this workflow's own run
-  records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
+  the `owner-approved` label when new commits land), `statuses: write` (used solely for the `Owner approval`
+  commit status) and `actions: read` (to list this workflow's own run records). Two further blocking controls (C0, 2026-09-17): an edit, removal or rename of an applied
   migration, a new migration dated at or before the newest one on main, or one dated more than 2 days in
   the future, fails the check (applied migrations never re-run on live); and database, clinical-risk and
-  RAG-ranking PRs stay red until the owner applies `owner-approved`, which agents must never add. The
+  RAG-ranking PRs are held by the required `Owner approval` status, pending (yellow) until the owner applies
+  `owner-approved`, which agents must never add (#2842; not a red `PR policy` failure since step 2). The
   label counts only when applied by the repository owner (not a collaborator or GitHub App) after the
   earliest PR policy run whose run record names the current PR head SHA (cancelled runs included; bind
   via `run.head_sha`, never `GITHUB_SHA` alone under `pull_request_target`), so a label from before a
   push never covers the new head. A `Migration history edit approved:` override additionally requires
   an accompanying fail-fast validation guard migration in the same change. Drafts remain non-blocking
   until marked ready; merge-queue runs emit the same stable `PR policy` check name.
-- **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
-  with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
-  repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains
-  routing evidence only; it never suppresses the required failure.
 - **Repository permission baseline (applied 2026-07-17):** Actions receive read-only tokens by default,
   cannot approve pull requests, and must reference external actions by immutable SHA. Workflows that post
   issues/comments retain narrow explicit permissions. Secret-scanning push protection is enabled and

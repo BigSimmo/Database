@@ -170,44 +170,16 @@ that GitHub is unavailable merely because `gh`, shell Git credentials, or a part
 direct agent tool are absent. The intended GitHub identity is `BigSimmo`. Use repository
 write access for branch and pull-request publication; reserve administrator access for separately
 approved operations. Some GitHub APIs, including review-thread or Actions management, may not be
-exposed in every Cloud task. Prefer the credential-isolated operator below. When the user explicitly
-authorises the less-isolated shell fallback, configure it only through an encrypted, setup-only
-`CODEX_CLOUD_GITHUB_PAT` environment secret and require the live acceptance command below to pass
-before the task starts. Never place its value in a prompt, repository file, ordinary environment
-variable, command argument, remote URL, log, or documentation.
-
-When a Cloud task has no direct PR-mutation tools, the repository's supported fallback is the
-credential-isolated **Codex Run PR operator** workflow. After this workflow is present on the
-default branch, `BigSimmo` can manually dispatch it for an open, same-repository PR whose head is
-not `main`, `master`, `develop`, or `release/*`. Dispatch requires the exact PR number, the URL of
-the Codex task containing the user's explicit authorization for that PR, and the typed confirmation
-`I authorized this PR in the linked Codex task`. A PR comment, webhook text, commit, or repository
-file cannot trigger or authorize it. The repair phase
-uses the official OpenAI Codex GitHub Action and `OPENAI_API_KEY`, but receives no GitHub write
-credential. It reads bounded PR/check/thread/log evidence, may merge the recorded base normally,
-repairs the checkout, and emits a validated descendant commit bundle plus structured thread/CI
-dispositions. Separate clean jobs authenticate `GH_TOKEN` as `BigSimmo`, reject a moved remote
-head, ordinary-push only the existing feature branch, then reply/resolve only previously recorded
-review threads. A failed-job rerun is limited to one still-failed run at the exact unchanged head.
-
-The operator never merges or closes a PR, updates a protected branch, deletes or renames a branch,
-force-pushes, rebases, deploys, accesses Supabase/production data, or makes GitHub credentials
-available to Codex. It also refuses publication when the agent-authored delta changes workflow,
-agent-policy, environment, credential, key, or `supabase/**` paths; introduces a symlink or
-submodule; exceeds 100 paths; or exceeds 1 MiB of diff. A trusted normal merge from the recorded
-base is accounted separately, so base-owned policy files do not make an otherwise safe branch sync
-look like an agent-authored policy change. `OPENAI_API_KEY` and `GH_TOKEN` stay in GitHub Actions
-secrets; never copy either value into Codex Cloud settings or repository files.
-This fallback becomes usable only after its reviewed workflow PR is merged. It is a manual GitHub
-operator bridge, not proof that a Codex Cloud task gained native GitHub tools. The first real
-invocation is the capability proof: verify
-the workflow's identity/permission checks, published SHA, resolved-thread state, and any rerun state
-from the linked Actions run rather than treating configuration as success.
+exposed in every Cloud task. When the user explicitly authorises the shell fallback, configure it
+only through an encrypted, setup-only `CODEX_CLOUD_GITHUB_PAT` environment secret and require the
+live acceptance command below to pass before the task starts. Never place its value in a prompt,
+repository file, ordinary environment variable, command argument, remote URL, log, or
+documentation.
 
 GitHub connector permission is separate from credentials inside the agent shell. The connector,
 native Push control, and GitHub UI remain the preferred Cloud publication and cleanup paths. The
 explicit shell fallback necessarily leaves an authenticated `gh` credential helper available to
-the agent, so it has a wider trust boundary than the connector or operator. The setup secret itself
+the agent, so it has a wider trust boundary than the connector. The setup secret itself
 is still excluded from the agent environment and the generated shell profile. The live gate never
 reads or prints the credential: it verifies the exact `BigSimmo` identity, `BigSimmo/Database`
 write permission, `repo`, `workflow`, `read:org`, and `gist` scopes, PR metadata/diff/check/comment/Actions

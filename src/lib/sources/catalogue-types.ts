@@ -121,6 +121,28 @@ export type ClinicalSourceCatalogueEntry = {
   warnings: SourceCatalogueWarning[];
 };
 
+/**
+ * A catalogue entry as the browser receives it.
+ *
+ * `rating.weights` is the `SOURCE_RATING_WEIGHTS` constant, byte-identical on
+ * every entry, and `rating.reasons` restates `rating.dimensions` as prose
+ * ("Reliability: 16/20"). Nothing in the application reads either one — the
+ * method page imports the weights constant directly — so serialising them into
+ * a list page shipped 266 KB of duplicated constant and derived text across 866
+ * entries, about a fifth of that payload.
+ *
+ * Both stay on `ClinicalSourceCatalogueEntry`, because the rating record is the
+ * governance artefact and `tests/source-catalogue-core.test.ts` pins its shape.
+ * This is the narrower view that crosses the wire. Every list-page consumer is
+ * typed against it, and a full entry still satisfies it, so a server-side caller
+ * holding the complete record needs no change.
+ */
+export type ClinicalSourceClientRating = Omit<ClinicalSourceRating, "weights" | "reasons">;
+
+export type ClinicalSourceClientEntry = Omit<ClinicalSourceCatalogueEntry, "rating"> & {
+  rating: ClinicalSourceClientRating;
+};
+
 export type SourceCatalogueFilters = {
   q: string;
   bands: SourceQualityBand[];

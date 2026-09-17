@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Gate-manifest self-test (maturity L3).
 //
-// Invariant: every static gate in the local `verify:cheap:internal` chain must
+// Invariant: every static gate in the local `verify:full:internal` chain must
 // also run in CI. Without this, a gate added to the local chain can be silently
 // missed in `.github/workflows/ci.yml`, so a regression it would catch merges
 // green because no workflow runs it. This has already happened twice — the
@@ -12,15 +12,22 @@
 // Direction is one-way on purpose: CI may run MORE than the local chain (e.g.
 // `format:check`, or heavier build/e2e gates in other jobs). It must never run
 // LESS of the local static set.
+//
+// Reads `verify:full:internal`, NOT `verify:cheap:internal`. On 2026-09-17 the
+// cheap chain was cut to lint + typecheck + test so day-to-day iteration stopped
+// paying for 38 repo-hygiene gates, and the full static set moved to `verify:full`.
+// Following the rename matters: pointed at the cheap chain this check would still
+// pass — it would simply have stopped asking about the 38 gates that carry the
+// actual CI-drift risk, which is precisely the silent weakening it exists to catch.
 import { readFileSync } from "node:fs";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 
-const localChain = pkg.scripts?.["verify:cheap:internal"] ?? "";
+const localChain = pkg.scripts?.["verify:full:internal"] ?? "";
 const localGates = [...localChain.matchAll(/npm run ([\w:.-]+)/g)].map((m) => m[1]);
 if (localGates.length === 0) {
-  console.error("gate-manifest: could not parse verify:cheap:internal from package.json.");
+  console.error("gate-manifest: could not parse verify:full:internal from package.json.");
   process.exit(1);
 }
 
@@ -72,13 +79,13 @@ for (const gate of localGates) {
   const equivalent = CI_EQUIVALENT.get(gate);
   if (equivalent) {
     if (!allCiScripts.has(equivalent)) {
-      failures.push(`verify:cheap runs "${gate}" (CI counterpart "${equivalent}") but no CI job runs "${equivalent}".`);
+      failures.push(`verify:full runs "${gate}" (CI counterpart "${equivalent}") but no CI job runs "${equivalent}".`);
     }
     continue;
   }
   if (!staticPr.includes(gate)) {
     failures.push(
-      `verify:cheap runs "${gate}" but the static-pr CI job does not — add "- run: npm run ${gate}" to the static-pr job in .github/workflows/ci.yml, or record a mapping/exemption in scripts/check-gate-manifest.mjs.`,
+      `verify:full runs "${gate}" but the static-pr CI job does not — add "- run: npm run ${gate}" to the static-pr job in .github/workflows/ci.yml, or record a mapping/exemption in scripts/check-gate-manifest.mjs.`,
     );
   }
 }
@@ -98,13 +105,13 @@ const documentedCounts = [
     file: "CLAUDE.md",
     pattern: /(\d+) static\/consistency gates/,
     expected: staticGateCount,
-    describes: "static/consistency gates in the verify:cheap chain (excludes lint/typecheck/test)",
+    describes: "static/consistency gates in the verify:full chain (excludes lint/typecheck/test)",
   },
   {
     file: ".claude/skills/gates/SKILL.md",
     pattern: /check \d+ of (\d+)/,
     expected: localGates.length,
-    describes: "total gates in the verify:cheap chain (includes lint/typecheck/test)",
+    describes: "total gates in the verify:full chain (includes lint/typecheck/test)",
   },
 ];
 
@@ -125,12 +132,12 @@ for (const { file, pattern, expected, describes } of documentedCounts) {
 }
 
 if (failures.length > 0) {
-  console.error("Gate-manifest drift — a local verify:cheap gate is not enforced in CI:");
+  console.error("Gate-manifest drift — a local verify:full gate is not enforced in CI:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
 console.log(
-  `Gate-manifest OK: all ${localGates.length} verify:cheap gates are enforced in CI (static-pr + mapped jobs), ` +
+  `Gate-manifest OK: all ${localGates.length} verify:full gates are enforced in CI (static-pr + mapped jobs), ` +
     `and the ${staticGateCount} static gates are documented consistently.`,
 );

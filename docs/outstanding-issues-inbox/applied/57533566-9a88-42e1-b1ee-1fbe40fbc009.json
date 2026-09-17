@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "57533566-9a88-42e1-b1ee-1fbe40fbc009",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Do NOT re-index until the worker has deployed the extraction fix, then re-index and run the canary pair around it",
+    "detail": "SEQUENCING GUARD, written because the obvious next action is wrong if taken today. The extraction fix merged to main as db7432a9b on 2026-09-16. Production was still serving a708a95093c7922163166b7bafc63afd6852bc69 immediately afterwards, which PREDATES the fix (verified via /api/health deploymentCommitSha, uptime 2754 s). RE-INDEXING BEFORE THE INGESTION WORKER CARRIES THE FIX RE-EXTRACTS WITH THE OLD CODE. That achieves nothing, spends provider budget on embeddings, churns the live clinical corpus and produces a false all-clear, because the re-indexed chunks would still carry interleaved table text. ORDER OF OPERATIONS: (1) confirm the worker service, not just the app service, is running a build that contains db7432a9b; the two are separate Railway services in project Database and both auto-deploy from main, so confirm the worker specifically. (2) Run Step 6 of scripts/operator-clozapine-retrieval-diagnosis.sql to get the per-document re-index worklist; it is read-only and its fingerprints were validated against real production text. (3) Capture an eval canary BASELINE before re-indexing. (4) Re-index the worklist documents. (5) Capture the canary POST run. Per AGENTS.md RAG ranking protection the before/after pair belongs around the RE-INDEX, not around the merge, because the merge cannot change any retrieval result until documents are re-ingested; PR #2810 said so explicitly and must not be treated as canary-cleared. (6) Only then expect the four clozapine eval cases to move, and note they may still not pass if the underlying RKPG document is itself wrong, which is its own P1 row. Re-indexing is provider-backed and mutates the live clinical corpus, so it needs explicit owner approval at the time, not standing approval from this session.",
+    "source": "Claude Code session 2026-09-16 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), deployment state verified against production /api/health after merging db7432a9b",
+    "issueUlid": "01M2MWJEY9GJHKYCQ0T41B63F8"
+  }
+}

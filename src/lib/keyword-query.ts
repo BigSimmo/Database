@@ -97,8 +97,21 @@ export function keywordQueryFromNaturalLanguage(query: string) {
 // match on their parts.
 export function matchesTermAtWordBoundary(text: string, term: string) {
   if (!term) return false;
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .some((word) => word === term || word.startsWith(term));
+  return matchesTermInWords(wordBoundaryWords(text), term);
+}
+
+/**
+ * The haystack half of a word-boundary match, split out so a caller testing
+ * several terms against the same text splits it once instead of once per term.
+ * Callers that score a document chunk or a catalogue field were re-lowercasing
+ * and re-splitting multi-kilobyte strings for every query term.
+ */
+export function wordBoundaryWords(text: string) {
+  return text.toLowerCase().split(/[^a-z0-9]+/);
+}
+
+/** `matchesTermAtWordBoundary` against an already-split haystack. */
+export function matchesTermInWords(words: readonly string[], term: string) {
+  if (!term) return false;
+  return words.some((word) => word === term || word.startsWith(term));
 }

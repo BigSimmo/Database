@@ -19,6 +19,20 @@ function rows(state: "current" | "updating" | "unavailable", records = 1): SiteC
   }));
 }
 
+/**
+ * The shape production actually returns: `unavailable`, but carrying a release id. The live RPC
+ * reports the retained epoch-zero bootstrap that way by construction, so this is the only row
+ * shape that exercises the path every real request takes.
+ */
+function bootstrapRows(releaseId: string, records = 1): SiteContentRecordRows {
+  return Array.from({ length: records }, (_unused, index) => ({
+    initialized: true,
+    record: { slug: `record-${index}` },
+    render_payload: { slug: `record-${index}` },
+    snapshot: { state: "unavailable", changeEpoch: "0", releaseId },
+  }));
+}
+
 /** A clock the tests advance deliberately, so TTL expiry is asserted rather than waited for. */
 function clock(startedAt = 1_000_000) {
   let value = startedAt;
@@ -94,12 +108,51 @@ describe("readSiteContentRecordsCached", () => {
   });
 
   // Rule 1: a degraded control plane is re-read every request, never pinned for the TTL.
-  it.each(["updating", "unavailable"] as const)("does not cache a %s snapshot", async (state) => {
-    const time = clock();
-    const read = vi.fn(async () => rows(state));
+  it.each(["updating", "unavailable"] as const)(
+    "does not cache a %s snapshot that carries no retained-bootstrap release",
+    async (state) => {
+      const time = clock();
+      const read = vi.fn(async () => rows(state));
 
-    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
-    await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+      await readSiteContentRecordsCached({ kind: "form", slug: null, read, now: time.now });
+
+      expect(read).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  // THE REGRESSION THIS FILE MISSED. The cache shipped 2026-09-16 and stored nothing in
+  // production for the next eight days, while every suite here stayed green, because every case
+  // above drives `state` directly and production's state is reached a different way:
+  // `read_site_content_public_records` hard-codes the retained epoch-zero bootstrap release to
+  // report `unavailable` (20260916103000). Production has served that bootstrap since
+  // 2026-08-24, so `rowsAreCacheable` was false on every real request. Measured live 2026-09-17,
+  // before the fix: worst catalogue read 92,319 ms, 63% of all slow database time.
+  //
+  // Asserting the flag is passed, or that some snapshot caches, would not have caught it. Only
+  // driving the shape production actually returns does.
+  it("caches a retained epoch-zero bootstrap even though it reports unavailable", async () => {
+    const time = clock();
+    const read = vi.fn(async () => bootstrapRows("e4a1dd29-14f6-556c-8fb7-f4f947d8b846"));
+
+    const first = await readSiteContentRecordsCached({ kind: "differential", slug: null, read, now: time.now });
+    const second = await readSiteContentRecordsCached({ kind: "differential", slug: null, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(first.age).toBe("miss");
+    expect(second.age).toBe("fresh");
+    expect(second.rows).toEqual(first.rows);
+  });
+
+  // The other half of the contract: the fix recognises the bootstrap POSITIVELY, by release id.
+  // Widening it to "anything that is not current" would cache genuine breakage for ten minutes,
+  // which is the failure rule 1 exists to prevent.
+  it("still refuses an unavailable snapshot whose release is not a retained bootstrap", async () => {
+    const time = clock();
+    const read = vi.fn(async () => bootstrapRows("11111111-2222-3333-4444-555555555555"));
+
+    await readSiteContentRecordsCached({ kind: "differential", slug: null, read, now: time.now });
+    await readSiteContentRecordsCached({ kind: "differential", slug: null, read, now: time.now });
 
     expect(read).toHaveBeenCalledTimes(2);
   });

@@ -9,6 +9,8 @@ import type {
 import { strictSourceDate } from "@/lib/sources/source-date-policy";
 import acquisitionLedger from "@/data/source-acquisitions.json";
 
+const TITLE_COLLATOR = new Intl.Collator("en-AU");
+
 /**
  * Acquisition rungs are the search order the source-acquisition protocol follows:
  * exhaust local WA material before state, state before national, national before
@@ -293,5 +295,5 @@ export function acquisitionLedgerIssues(
 export function acquisitionReviewQueue(records: readonly SourceAcquisitionRecord[] = sourceAcquisitionRecords) {
   return records
     .filter((record) => record.disposition !== "rejected" && record.validationStatus === "unverified")
-    .sort((left, right) => left.rung - right.rung || left.title.localeCompare(right.title, "en-AU"));
+    .sort((left, right) => left.rung - right.rung || TITLE_COLLATOR.compare(left.title, right.title));
 }

@@ -2821,10 +2821,14 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // side of it.
     await page.setViewportSize({ width: 1280, height: 900 });
     const overviewRail = detailPage.getByTestId("differential-overview-rail");
+    const phoneDoNow = detailPage.getByTestId("differential-do-now-phone");
     await expect(overviewRail).toBeVisible();
     await expect(overviewRail).toContainText("Do now");
     await expect(overviewRail).toContainText("First-line tests");
     await expect(overviewRail).toContainText("Source and review");
+    // Exactly one of the two paints. On desktop the rail owns "Do now"; the
+    // phone card must not stack a second copy under it.
+    await expect(phoneDoNow).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
 
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
@@ -2833,6 +2837,11 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     // The rail is desktop breathing room; a phone must not get a fourth
     // summary of the same record stacked under the ones it already has.
     await expect(overviewRail).toBeHidden();
+    // It does still get the first moves. Those steps are the reviewed overlay
+    // and the rail was their only surface, so on call they were invisible on
+    // the device this is used on.
+    await expect(phoneDoNow).toBeVisible();
+    await expect(phoneDoNow).toContainText("Do now");
     await expectNoPageHorizontalOverflow(page);
     const forcedColorsMetricRows = await safetyMetricItems.evaluateAll((items) => {
       return new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size;

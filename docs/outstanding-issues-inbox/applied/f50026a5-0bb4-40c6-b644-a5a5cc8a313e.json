@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "f50026a5-0bb4-40c6-b644-a5a5cc8a313e",
+  "createdOn": "2026-09-16",
+  "action": "update",
+  "payload": {
+    "id": "#T82ND3",
+    "pri": "P1",
+    "summary": "CI on main has been red for at least six of the last eight pushes since 2026-09-13, verified, and nothing blocks or reports it",
+    "detail": "VERIFIED 2026-09-16, upgraded from P2 and from 'not re-verified'. The CI workflow run history on branch main, push events, reads: ab7d7d63 2026-09-13 FAILURE, 9ce4ef3c PR#2802 FAILURE, 816082e8 PR#2803 SUCCESS, d804bdde PR#2804 FAILURE, 66105e18 PR#2805 FAILURE, 9f846823 PR#2807 FAILURE, a708a950 PR#2806 FAILURE, db7432a9 PR#2810 in progress at time of writing. Six of the last eight completed runs failed. This is not a one-off and it is not improving. THE SHAPE OF IT IS A STRONG HINT, offered as inference not fact: the ONLY green run in that window, 816082e8 (PR #2803), was the docs-and-SQL-only ledger change whose heavy jobs were all skipped by change-scope routing. Every merge that carried executable changes failed. That points at a job which only runs on code scope and does not run in the local gate, so the candidates are the browser suites (Production UI, Production UI critical, Ward Flow journeys), Lighthouse budget, container images, or the Docker image workflow, rather than lint, typecheck or unit tests. Note npm run verify:pr-local passed fully on db7432a9's branch head (20802 tests, failed: none, including build), so whatever fails on main is outside what the local gate covers. WHY IT PERSISTS: pr-required is a PR-scoped aggregate. A post-merge failure on main has nothing to block and nobody is paged, so a red main can sit indefinitely while every PR shows green. That is the actual defect, wider than whichever job is failing. NOT DIAGNOSED: the failing job logs were not read, because this session's PR-babysitting budget guard blocks further GitHub reads and working around it was not appropriate. FIRST STEP for whoever picks this up: open the most recent failed run and identify the failing job, then decide the policy question, which is whether a red main is allowed to be silent. Options are a notification into the Sentry path the Railway webhook logging now uses, or promoting the main run to something that visibly blocks. Do not widen required checks on PRs to fix it: that pays the cost on every branch for a signal that only matters on main.",
+    "baseRowFingerprint": "79899abffc8dc7cae01dabefd3a827deaaad5586aaea6529fca7e7930b2598a0"
+  }
+}

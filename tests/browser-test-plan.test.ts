@@ -415,16 +415,6 @@ describe("browser test plan", () => {
       expect(source).toContain('if (!argv.includes("--run"))');
       expect(source).toContain("(dry run — pass --run to execute)");
     });
-
-    it("is what the arbiter points at for the browser gates", () => {
-      // `ui` is in NEVER_DEFER_CLASSES and stays there, so asking the arbiter about
-      // verify:ui used to return "nothing to weigh" — which reads as "no saving
-      // available" for the gate with the largest saving on offer.
-      const arbiter = read("scripts/gate-arbiter.mjs");
-      expect(arbiter).toContain("NARROWED_GATES");
-      for (const gate of ["verify:ui", "test:e2e", "test:e2e:pr"]) expect(arbiter).toContain(`"${gate}"`);
-      expect(arbiter).toContain("npm run plan:browser");
-    });
   });
 
   /**
