@@ -185,12 +185,8 @@ findings only from `cursor[bot]` with account type `Bot`.
   else's behalf — leave those for the PR's owner or reviewer.
 - A local-only commit is not a fix. Until the fix is on the PR head, the thread stays open.
 - Resolve with the tool's direct resolution call (for example
-  `mcp__github__resolve_review_thread`). **Only the trusted Codex autofix identity uses the
-  `<!-- codex-thread-disposition:resolved -->` marker** (with exactly one
-  `codex-thread-result` marker); the autofix workflow honours it from that identity alone. Any
-  other tool that lacks direct resolution leaves the thread open and reports the missing
-  capability. The marker protocol and the automatic repair pass are specified in
-  [`codex-github-review.md`](codex-github-review.md) and
+  `mcp__github__resolve_review_thread`). A tool that lacks direct resolution leaves the thread
+  open and reports the missing capability. The automatic repair pass throttling is specified in
   [`../codex-review-protocol.md`](../codex-review-protocol.md).
 - Triage and repair clear findings early — before waiting for CI — so the fix lands on the first
   useful head.

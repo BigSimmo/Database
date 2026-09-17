@@ -455,15 +455,6 @@ For the repo-local skill catalogue and the foundational orchestration skills, se
 
 For the `/issues` durable cross-session ledger and its inbox and reconciliation discipline, see [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md).
 
-## Codex GitHub review behavior
-
-For Codex's automated GitHub pull request review and auto-resolve behavior — severity
-calibration, PR risk detection, cost controls, the review comment lifecycle, the automatic
-resolve trigger, and the primary PR command — see
-[`docs/agents/codex-github-review.md`](docs/agents/codex-github-review.md). That file is the
-exact text `scripts/check-codex-autofix-workflow.mjs` enforces against the live workflow; do not
-let a copy in this file drift from it.
-
 ## Codex Cloud environment
 
 For the Codex Cloud environment specification, access profiles, MCP limits, and acceptance checks, see [`docs/agents/codex-cloud-environment.md`](docs/agents/codex-cloud-environment.md).
