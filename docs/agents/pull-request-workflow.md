@@ -298,6 +298,45 @@ If you find an owner-merge PR already armed, **report it rather than disarming i
 already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs
 explicit authorization.
 
+**The `Owner approval` status (2026-09-17, rollout in two steps).** Josh reads a red ✗ as a
+broken PR, so the hold is moving from a red `PR policy` failure to its own yellow commit status.
+`PR policy` posts `Owner approval` on the PR head: `pending` (yellow — "Waiting for Josh…")
+while his approval is outstanding or the PR is a draft, and `success` when the PR needs no owner
+merge or he has approved that head. A required context blocks merge until it is `success`, and
+statuses are per commit, so a new push is unreported (also blocking) until its own run decides.
+`neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
+preflight, `RAG impact:`, migration history, the forgery tripwire below) stay red in `PR policy`.
+
+**Order matters.** If `PR policy` stopped failing on held PRs before the ruleset required
+`Owner approval`, every held PR would become mergeable. So:
+
+1. **Step 1 (merged first).** `PR policy` posts `Owner approval` in shadow and still fails red
+   on the hold. Nothing becomes mergeable.
+2. **Live ruleset change (owner, by hand).** Ruleset `Protections` (18011271) → required status
+   checks → add context **`Owner approval`** with source **GitHub Actions (integration 15368)**, keeping `Gitleaks`, `PR required` and `PR policy`. Before adding it, confirm open
+   ordinary PRs already carry a green `Owner approval` (each gets one on its next push, edit,
+   label change or ready-for-review; re-running an old run does not, because a re-run uses the
+   workflow revision it started with) — otherwise they show "Expected" and wait.
+3. **Step 2 (a second, small PR, merged only once the ruleset change is visibly live).** In
+   `evaluatePullRequestPolicy`, stop pushing the `Owner merge required (…)` error when the
+   workflow reports the hold through the status, and update the self-test
+   (`step 1 keeps the red hold`) and `check-pr-policy-workflow.mjs` to match. The batch runner
+   (`pr-batch-core.mjs`) must keep today's error so it still excludes owner-merge PRs.
+
+Between step 1 and step 2 a held PR shows both a red `PR policy` and a yellow `Owner approval`.
+Reverting step 2 opens nothing; removing the ruleset entry after step 2 makes held PRs
+mergeable — remove it only together with a revert of step 2.
+
+**Who can forge a required check.** The integration pin excludes a personal access token acting
+as BigSimmo, but not a workflow: any workflow that runs this branch's own code (`pull_request`,
+`push`, `workflow_dispatch`) is also GitHub Actions, so a job named `PR policy`, or a step with
+`statuses: write` posting `Owner approval`, would be attributed to integration 15368. That gap
+exists for today's `PR policy` too. `PR policy` now fails when a changed workflow or composite
+action that can run branch code names a protected context or can write commit statuses. This is
+a tripwire, not a boundary — an expression-built name or a later re-post gets past it. The
+boundary needs live settings: post `Owner approval` from a dedicated GitHub App whose key lives
+in an environment secret limited to `main`, and pin the ruleset to that app.
+
 **Ordinary PRs.** An agent may arm squash auto-merge when it opens the PR (see [Open](#open)).
 Merging a PR directly into `main` or any protected branch still needs the user's explicit
 request; the only standing batch authority is [`Clear PRs`](#clear-prs), which never overrides
