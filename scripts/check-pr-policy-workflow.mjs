@@ -1,5 +1,7 @@
 import fs from "node:fs";
+import path from "node:path";
 
+import { OWNER_APPROVAL_CONTEXT, requiredCheckForgeryFindings, workflowTriggers } from "./pr-policy.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
 
 const workflowPath = ".github/workflows/pr-policy.yml";
@@ -78,17 +80,19 @@ if (!policyJob) {
       failures.push("PR policy validation must use refreshed PR metadata for draft, title, body, and head ref.");
     }
     assertOwnerMergeControls(validateStep);
+    assertOwnerApprovalStatusControls(validateStep);
   }
 
-  // The only write scope is pull-requests: write, for removing the stale owner-approved
-  // label; actions: read lists this workflow's run records to bind approval to the head.
-  // Exactly three, declared once at workflow level, where this guard can see all of them.
+  // Two write scopes: pull-requests: write, for removing the stale owner-approved label, and
+  // statuses: write, for the `Owner approval` commit status; actions: read lists this
+  // workflow's run records to bind approval to the head. Exactly four, declared once at
+  // workflow level, where this guard can see all of them.
   const permissionLines = yamlBlock(workflow, "permissions:", 0)
     .split(/\r?\n/)
     .slice(1)
     .map((line) => line.replace(/#.*$/, "").trim())
     .filter(Boolean);
-  const expectedPermissions = ["contents: read", "pull-requests: write", "actions: read"];
+  const expectedPermissions = ["contents: read", "pull-requests: write", "statuses: write", "actions: read"];
   if (
     permissionLines.length !== expectedPermissions.length ||
     !expectedPermissions.every((permission) => permissionLines.includes(permission))
@@ -244,6 +248,144 @@ function assertOwnerMergeControls(step) {
   if (!/ref:\s*latestPr\.head\.sha\b/.test(step)) {
     failures.push("PR policy validation must read added migration blobs at latestPr.head.sha.");
   }
+}
+
+function assertOwnerApprovalStatusControls(step) {
+  // Status writes are last-write-wins, so runs for one PR must serialize: a cancelled run's
+  // in-flight write could otherwise land after a newer run's verdict.
+  const concurrency = yamlBlock(workflow, "concurrency:", 0);
+  if (!/^\s+cancel-in-progress:\s*false\s*$/m.test(concurrency) || /cancel-in-progress:\s*true/.test(concurrency)) {
+    failures.push(
+      "pr-policy.yml concurrency must set cancel-in-progress: false so Owner approval status writers cannot interleave.",
+    );
+  }
+
+  // statuses: write is safe here only because this workflow never runs branch code. A
+  // pull_request / push / workflow_dispatch trigger would run the branch's own copy of this
+  // file with that token, which is exactly how a required status gets forged.
+  const triggers = workflowTriggers(workflow) ?? [];
+  const allowedTriggers = new Set(["pull_request_target", "merge_group"]);
+  if (triggers.length === 0 || triggers.some((trigger) => !allowedTriggers.has(trigger))) {
+    failures.push(
+      `pr-policy.yml may trigger only on pull_request_target and merge_group while it holds statuses: write (found: ${triggers.join(", ") || "unreadable"}).`,
+    );
+  }
+
+  // One writer, one context.
+  const statusWrites = step.match(/github\.rest\.repos\.createCommitStatus\(/g) ?? [];
+  if (statusWrites.length !== 1 || !/context:\s*OWNER_APPROVAL_CONTEXT,/.test(step)) {
+    failures.push(
+      `PR policy validation must write commit statuses through exactly one createCommitStatus call with context: OWNER_APPROVAL_CONTEXT (found ${statusWrites.length}).`,
+    );
+  }
+  if (/\bchecks\.create\b|checks:\s*write/.test(workflow)) {
+    failures.push("pr-policy.yml must not create check runs; the hold is reported as a commit status.");
+  }
+
+  // States come only from ownerApprovalCommitStatus, except the literal pending set first.
+  // No literal success, and never neutral/failure/error, which would pass or turn it red.
+  if (/state:\s*["'](?:success|neutral|failure|error)["']/.test(step)) {
+    failures.push(
+      "PR policy validation must not hard-code an Owner approval success/neutral/failure/error state; states come from ownerApprovalCommitStatus.",
+    );
+  }
+
+  const pendingFirst = step.search(/setOwnerApprovalStatus\(latestPr\.head\.sha,\s*\{\s*state:\s*"pending",/);
+  if (pendingFirst < 0) {
+    failures.push("PR policy validation must mark the PR head's Owner approval status pending before evaluating it.");
+  } else {
+    for (const [needle, label] of [
+      ["github.rest.issues.removeLabel(", "the stale-label removal"],
+      ["if (latestPr.draft)", "the draft early-return"],
+      ["github.rest.issues.listEvents", "reading label events"],
+      ["evaluatePullRequestPolicy({", "evaluating policy"],
+    ]) {
+      if (pendingFirst > indexOfOrInfinity(step, needle)) {
+        failures.push(`PR policy validation must mark Owner approval pending before ${label}.`);
+      }
+    }
+  }
+
+  const draftIndex = step.indexOf("if (latestPr.draft)");
+  const draftBlock = draftIndex < 0 ? "" : step.slice(draftIndex, step.indexOf("return;", draftIndex));
+  if (
+    !/setOwnerApprovalStatus\(latestPr\.head\.sha,\s*ownerApprovalCommitStatus\(\{\s*draft:\s*true\s*\}\)\)/.test(
+      draftBlock,
+    )
+  ) {
+    failures.push(
+      "PR policy validation must report a draft PR's Owner approval status as ownerApprovalCommitStatus({ draft: true }).",
+    );
+  }
+
+  const finalIndex = step.indexOf(
+    "let approvalStatus = ownerApprovalCommitStatus({ ...statusInputs, otherPrsSharingHead });",
+  );
+  if (
+    finalIndex < 0 ||
+    finalIndex < indexOfOrInfinity(step, "evaluatePullRequestPolicy({") ||
+    !/ownerMergeReasons:\s*result\.ownerMergeReasons,/.test(step) ||
+    !/ownerApproved:\s*result\.ownerApproved,/.test(step)
+  ) {
+    failures.push(
+      "PR policy validation must build the final Owner approval status from the evaluated result (result.ownerMergeReasons, result.ownerApproved).",
+    );
+  }
+  // success only while the evaluated head is still the PR head.
+  if (
+    !/approvalStatus\.state === "success"/.test(step) ||
+    !/headStillCurrent = currentPr\.head\.sha === latestPr\.head\.sha/.test(step) ||
+    !/if \(headStillCurrent\)\s*\{\s*await setOwnerApprovalStatus\(latestPr\.head\.sha,\s*approvalStatus\)/.test(step)
+  ) {
+    failures.push(
+      "PR policy validation must re-read the PR and post an Owner approval success only while latestPr.head.sha is still the head.",
+    );
+  }
+
+  // A status belongs to the commit: success needs the list of OTHER open PRs sharing this
+  // head (read from open PRs filtered by head sha), and that list is read again after a
+  // success is written so a PR opened in between turns it back to pending.
+  if (
+    !/github\.paginate\(github\.rest\.pulls\.list,\s*\{\s*\.\.\.repo,\s*state:\s*"open"/.test(step) ||
+    !/other\.head\?\.sha === latestPr\.head\.sha && other\.number !== latestPr\.number/.test(step) ||
+    !/ownerApprovalCommitStatus\(\{\s*\.\.\.statusInputs,\s*otherPrsSharingHead\s*\}\)/.test(step)
+  ) {
+    failures.push(
+      "PR policy validation must build the Owner approval status with otherPrsSharingHead, from open PRs whose head is latestPr.head.sha.",
+    );
+  }
+  const successWrite = step.indexOf("await setOwnerApprovalStatus(latestPr.head.sha, approvalStatus);");
+  const recheck = step.indexOf("sharedAfterWrite = await listOtherOpenPrsSharingHead();");
+  if (successWrite < 0 || recheck < successWrite) {
+    failures.push(
+      "PR policy validation must re-list open PRs sharing the head after writing an Owner approval success, and re-post pending if one appeared.",
+    );
+  }
+
+  // Forgery tripwire inputs: changed workflow contents read at the PR head via the API.
+  if (!/\bchangedWorkflowContents,/.test(step) || !/changedWorkflowContents\[file\.filename\]\s*=/.test(step)) {
+    failures.push(
+      "PR policy validation must read changed workflow contents at the PR head and pass changedWorkflowContents to the policy.",
+    );
+  }
+}
+
+// The tripwire must not fire on the workflows already on this branch — otherwise an ordinary
+// edit to any of them would be blocked — and a forging job added here fails this guard locally.
+for (const directory of [".github/workflows", ".github/actions"]) {
+  if (!fs.existsSync(directory)) continue;
+  const surfaces = fs
+    .readdirSync(directory, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.posix.join(path.relative(".", entry.parentPath).split(path.sep).join("/"), entry.name))
+    .filter((file) => /^\.github\/(?:workflows\/[^/]+\.ya?ml$|actions\/)/i.test(file));
+  const workflowContents = Object.fromEntries(surfaces.map((file) => [file, fs.readFileSync(file, "utf8")]));
+  for (const finding of requiredCheckForgeryFindings({ files: surfaces, workflowContents })) {
+    failures.push(`Required-check forgery tripwire: ${finding}`);
+  }
+}
+if (!workflow.includes(OWNER_APPROVAL_CONTEXT) && !workflow.includes("OWNER_APPROVAL_CONTEXT")) {
+  failures.push("pr-policy.yml must report the Owner approval commit status.");
 }
 
 // Whole-workflow: nothing in pr-policy.yml may check out or reference the PR head ref/sha.

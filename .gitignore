@@ -170,6 +170,12 @@ ds-bundle/
 
 # esbuild output for the worker image (scripts/build-worker.mjs)
 dist/
+
+# Deploy pre-deploy migration gate manifest (scripts/deploy/write-migration-manifest.mjs):
+# generated fresh from supabase/migrations at Docker build time, baked into the image, and
+# never hand-edited or committed — a committed copy would silently go stale the moment a new
+# migration lands without someone remembering to regenerate it.
+/deploy/expected-migrations.json
 test-output*.txt
 # Downloaded staging tenancy CI artifacts are disposable; the one committed evidence
 # document (run 29795051547) is a tracked repository file and must not be ignored.
