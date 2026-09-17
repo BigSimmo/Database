@@ -764,10 +764,6 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   and recovers a stuck queue **only** with `--apply`. Workflow schedule is LIVE in **dry-run**
   (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
   allow real recovery.
-- **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
-  as main-side or needs-investigation. Enabled by default; set repo var `CI_TRIAGE_ENABLED=false` to disable. UI jobs use
-  their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
-  The workflow reads only trusted default-branch job metadata and never runs PR code.
 - **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`
   must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
   evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
@@ -788,10 +784,6 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   push never covers the new head. A `Migration history edit approved:` override additionally requires
   an accompanying fail-fast validation guard migration in the same change. Drafts remain non-blocking
   until marked ready; merge-queue runs emit the same stable `PR policy` check name.
-- **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
-  with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
-  repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains
-  routing evidence only; it never suppresses the required failure.
 - **Repository permission baseline (applied 2026-07-17):** Actions receive read-only tokens by default,
   cannot approve pull requests, and must reference external actions by immutable SHA. Workflows that post
   issues/comments retain narrow explicit permissions. Secret-scanning push protection is enabled and
