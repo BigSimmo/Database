@@ -17,7 +17,14 @@ import {
 import { GitCompareArrows } from "lucide-react";
 
 const COMPARE_PATH = "/differentials/compare";
-const MAX_COUNT = 8;
+/**
+ * The picker's slot count, and therefore the most ids a compare queue can carry.
+ * Exported because the detail page prefills a queue and must not hand over more
+ * than this: `padCompareIds` truncates to it, so a ninth id disappears the first
+ * time a reader opens "Edit selection" and is committed away on the next edit.
+ */
+export const COMPARE_MAX_COUNT = 8;
+const MAX_COUNT = COMPARE_MAX_COUNT;
 
 export function DifferentialComparePickerControl({
   catalog,

@@ -10,7 +10,7 @@ import type { DifferentialRecordGovernance } from "@/components/clinical-dashboa
 import {
   cleanDifferentialItem,
   curatedProvenanceLabel,
-  differentialGroupLabel,
+  differentialGroupScopeNote,
   differentialSourceStatusLabel,
   differentialValidationStatusLabel,
   doNowStepsAreCurated,
@@ -88,11 +88,9 @@ export function DifferentialOverviewRail({
   const doNowCurated = doNowStepsAreCurated(curated);
   const investigations = record.investigations.map(cleanDifferentialItem).filter(Boolean).slice(0, 5);
   // Immediate actions and investigations are written about the presentation group.
-  // Unlabelled, the rail asserts a tremor/thyroid workup of acute dystonia.
-  const group = differentialGroupLabel(record);
-  const groupScopeNote = group
-    ? `Applies to the ${group} group — not specific to ${record.title}`
-    : `Applies to the presentation group — not specific to ${record.title}`;
+  // Unlabelled, the rail asserts a tremor/thyroid workup of acute dystonia. The
+  // wording is shared with the phone card so the two cannot drift.
+  const groupScopeNote = differentialGroupScopeNote(record);
   const watchFor = record.safetySnapshot.tags.map(cleanDifferentialItem).filter(Boolean);
   const knownRelated = new Set(detailContext.knownRelatedSlugs);
   const related = record.related.slice(0, 4);

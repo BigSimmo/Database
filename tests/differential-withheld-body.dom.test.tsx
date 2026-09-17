@@ -96,6 +96,22 @@ describe("a differential whose generated body is withheld", () => {
     expect(screen.getByTestId("differential-content-note")).toHaveTextContent(/withheld/i);
   });
 
+  it("claims local authorship only for the steps that actually have it", () => {
+    // Codex P2 on PR #2838. For this record only `doNow` comes from the curated
+    // overlay; the safety snapshot and investigations are retained fields from
+    // the same generated export the rest of the body was withheld from. Calling
+    // all three locally authored lends the retained content a provenance it does
+    // not have — the exact overclaim this whole change exists to stop.
+    renderRecord(LITHIUM);
+
+    const withheld = screen.getByTestId("differential-body-withheld");
+    expect(withheld).toHaveTextContent(/assessment steps/i);
+    expect(withheld).toHaveTextContent(/retained from the source export/i);
+    expect(withheld.textContent ?? "").not.toMatch(
+      /safety snapshot[^.]*locally authored|locally authored[^.]*safety snapshot/i,
+    );
+  });
+
   it("keeps the locally authored safety content that was never contaminated", () => {
     renderRecord(LITHIUM);
 

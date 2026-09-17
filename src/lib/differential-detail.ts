@@ -254,6 +254,22 @@ export function differentialGroupLabel(record: DifferentialRecord): string {
   return record.currentPresentation.find((value) => value.trim())?.trim() ?? "";
 }
 
+/**
+ * The warning that goes above generated first-moves: they are written about the
+ * presentation group and stamped onto every diagnosis in it, so unlabelled they
+ * read as specific to this one.
+ *
+ * Shared rather than duplicated because it now has two surfaces — the desktop
+ * rail and the phone card — and the phone card shipped without it, which is
+ * exactly the drift a second copy invites.
+ */
+export function differentialGroupScopeNote(record: DifferentialRecord): string {
+  const group = differentialGroupLabel(record);
+  return group
+    ? `Applies to the ${group} group — not specific to ${record.title}`
+    : `Applies to the presentation group — not specific to ${record.title}`;
+}
+
 /** Label for a section whose text describes the presentation group rather than
  *  this diagnosis, or null when the section is the diagnosis's own. */
 export function sectionScopeLabel(section: DifferentialSection, record: DifferentialRecord): string | null {

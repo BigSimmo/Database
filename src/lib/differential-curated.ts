@@ -441,7 +441,7 @@ export const curatedDifferentials: Record<string, DifferentialCuratedEntry> = {
     // Compare, Map and Related tabs with them, so the note names it instead.
     generatedBodyUnreliable: true,
     contentNote:
-      "The generated review for this record carried material from akathisia, drug-induced parkinsonism and tardive syndromes, so it is withheld rather than shown. The related diagnoses listed are the extrapyramidal family rather than causes of tremor. The safety snapshot and the assessment steps are locally authored and stand. Open the Source tab and read the original before acting on this record.",
+      "The generated review for this record carried material from akathisia, drug-induced parkinsonism and tardive syndromes, so it is withheld rather than shown. The related diagnoses listed are the extrapyramidal family rather than causes of tremor. The assessment steps are locally authored. The safety snapshot and investigations are retained from the same export and were not part of the contaminated text. Open the Source tab and read the original before acting on this record.",
     doNow: [
       "Characterise the tremor: a fine postural tremor fits lithium at therapeutic level, while a coarse tremor with ataxia suggests toxicity",
       "Take a lithium level with U&E, eGFR, calcium and thyroid function, and note the time since the last dose",

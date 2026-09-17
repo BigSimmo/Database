@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
 import { AccountDataProvider } from "@/components/account-data-provider";
 import { DifferentialDetailPage } from "@/components/differentials/differential-detail-page";
 import { curatedDifferentials, curatedEntryFor } from "@/lib/differential-curated";
-import type { DifferentialDetailContext } from "@/lib/differential-detail";
+import { differentialGroupScopeNote, type DifferentialDetailContext } from "@/lib/differential-detail";
 import { getDifferentialRecord } from "@/lib/differentials";
 import { AuthProvider } from "@/lib/supabase/client";
 
@@ -82,6 +82,37 @@ describe("the authored Do now steps on a phone", () => {
     expect(screen.getByTestId("differential-overview-rail").className).toContain("hidden");
   });
 
+  it("warns that generated steps describe the group, exactly as the desktop rail does", () => {
+    // Codex P1 on PR #2838. For the 191 records with no authored overlay,
+    // resolveDoNowSteps falls back to the export's immediate actions, which are
+    // written about the presentation group and stamped onto every diagnosis in
+    // it. The rail has always labelled that; the new phone card did not, so it
+    // presented group-level actions as specific to this diagnosis — the exact
+    // mismatch the scope work exists to remove.
+    renderRecord("acute-dystonia", []);
+
+    const card = screen.getByTestId("differential-do-now-phone");
+    expect(card).toHaveTextContent(/not specific to/i);
+    expect(card).not.toHaveTextContent(/locally authored/i);
+  });
+
+  it("carries no group warning when the steps are the authored overlay", () => {
+    renderRecord(SEROTONIN, []);
+
+    const card = screen.getByTestId("differential-do-now-phone");
+    expect(card).not.toHaveTextContent(/not specific to/i);
+    expect(card).toHaveTextContent(/locally authored/i);
+  });
+
+  it("uses the same wording as the rail, so the two cannot drift", () => {
+    const record = getDifferentialRecord("acute-dystonia")!;
+    const expected = differentialGroupScopeNote(record);
+    renderRecord("acute-dystonia", []);
+
+    expect(screen.getByTestId("differential-do-now-phone")).toHaveTextContent(expected);
+    expect(screen.getByTestId("differential-overview-rail")).toHaveTextContent(expected);
+  });
+
   it("is absent when a record has nothing to put in it", () => {
     // Uncurated records fall back to the generated immediate actions; a record
     // with neither must not render an empty card.
@@ -104,6 +135,35 @@ describe("the Compare control", () => {
         "href",
         "/differentials/compare?ids=serotonin-toxicity,neuroleptic-malignant-syndrome,anticholinergic-delirium",
       );
+    }
+  });
+
+  it("never prefills more than the picker can hold", () => {
+    // Codex P2 on PR #2838. DifferentialComparePickerControl caps at MAX_COUNT
+    // (8) and pads to it, so a ninth id is silently dropped the moment the
+    // reader opens "Edit selection" — and the next edit commits that loss. A
+    // record with eight routable relations plus itself hits exactly that.
+    const related = [
+      "neuroleptic-malignant-syndrome",
+      "anticholinergic-delirium",
+      "akathisia",
+      "acute-dystonia",
+      "delirium",
+      "catatonia-in-mood-disorder",
+      "alcohol-withdrawal",
+      "postpartum-psychosis",
+    ];
+    expect(related.length).toBe(8);
+    renderRecord(SEROTONIN, related);
+
+    const href = screen.getAllByRole("link", { name: /^Compare/ })[0]!.getAttribute("href")!;
+    const ids = new URL(href, "https://example.test").searchParams.get("ids")!.split(",");
+
+    expect(ids.length).toBeLessThanOrEqual(8);
+    // The focus diagnosis is the one id that must never be the one dropped.
+    expect(ids[0]).toBe(SEROTONIN);
+    for (const control of screen.getAllByRole("link", { name: /^Compare \(/ })) {
+      expect(control).toHaveAccessibleName(`Compare (${ids.length})`);
     }
   });
 

@@ -39,6 +39,7 @@ import { DifferentialOverviewRail } from "@/components/differentials/differentia
 import { DiagnosisTermChip, DiagnosisTermInline } from "@/components/differentials/diagnosis-term-link";
 import { CopyAfterReviewButton } from "@/components/differentials/differential-presentation-actions";
 import { idsCompareHref } from "@/components/compare";
+import { COMPARE_MAX_COUNT } from "@/components/differentials/differential-compare-picker-control";
 import { inPageActionRowClass as actionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { PageHeader } from "@/components/ui/page-header";
@@ -52,6 +53,7 @@ import {
   doNowStepsAreCurated,
   detailTabCounts,
   differentialGroupLabel,
+  differentialGroupScopeNote,
   differentialSourceStatusLabel,
   differentialStatusLabel,
   differentialValidationStatusLabel,
@@ -599,6 +601,11 @@ function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: 
         <Activity className="size-icon-sm shrink-0" aria-hidden />
         Do now
       </h2>
+      {authored ? null : (
+        <p className="mt-1 text-2xs font-semibold uppercase tracking-wide text-[color:var(--text-muted)]">
+          {differentialGroupScopeNote(record)}
+        </p>
+      )}
       <ol className="mt-2 grid gap-2">
         {steps.map((step, index) => (
           <li key={step} className="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-2">
@@ -609,9 +616,9 @@ function PhoneDoNow({ record, curated }: { record: DifferentialRecord; curated: 
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">
-        {authored ? curatedProvenanceLabel : "From the source export — verify before use"}
-      </p>
+      {authored ? (
+        <p className="mt-2 text-2xs font-semibold text-[color:var(--text-muted)]">{curatedProvenanceLabel}</p>
+      ) : null}
     </section>
   );
 }
@@ -630,8 +637,9 @@ function WithheldBody({ onOpenSource }: { onOpenSource: () => void }) {
       </p>
       <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
         Its sections were found to describe a different diagnosis, so they are withheld rather than printed under a
-        warning. The safety snapshot, the assessment steps and the investigations above are locally authored and stand.
-        Read the original before acting on this record.
+        warning. The assessment steps above are locally authored. The safety snapshot and investigations are retained
+        from the source export and were not part of the contaminated text. Read the original before acting on this
+        record.
       </p>
       <button
         type="button"
@@ -1342,8 +1350,12 @@ export function DifferentialDetailPage({
   // that resolve to a reviewed page, which is also what the count must say — the
   // record's full `related` list includes nodes with no page, and the queue drops
   // them, so counting those promised rows that never arrive.
+  // Capped at the picker's slot count, this diagnosis first. Beyond that the
+  // queue's own padding truncates, so a prefilled ninth id would vanish the
+  // moment the reader opened "Edit selection" and be committed away on the next
+  // edit — a silent loss rather than a visible one.
   const compareIds = useMemo(
-    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])],
+    () => [record.slug, ...(detailContext.knownRelatedSlugs ?? [])].slice(0, COMPARE_MAX_COUNT),
     [detailContext.knownRelatedSlugs, record.slug],
   );
   const compareHref = idsCompareHref("/differentials/compare", compareIds);

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { curatedDifferentials } from "@/lib/differential-curated";
@@ -9,8 +11,13 @@ import {
   getDifferentialRecord,
   rankDifferentialRecords,
   rankPresentationWorkflows,
+  scopeDifferentialRecord,
 } from "@/lib/differentials";
 import { differentialPresentations } from "@/lib/differentials";
+import type { DifferentialRecord, DifferentialSnapshot } from "@/lib/differential-snapshot";
+
+/** The generated export on disk, before the catalogue loader withholds it. */
+const rawSnapshot = JSON.parse(readFileSync("data/differentials-snapshot.json", "utf8")) as DifferentialSnapshot;
 
 const LITHIUM = "lithium-physiological-withdrawal-tremor";
 /** The akathisia sentence the generated export filed under the lithium record. */
@@ -108,5 +115,59 @@ describe("a withheld generated body never leaves the catalogue", () => {
     for (const record of untouched) {
       expect(record.clinicalHinge, `${record.slug} lost its clinical hinge`).toBeTruthy();
     }
+  });
+});
+
+/**
+ * Codex P1 on PR #2838, and it was right: withholding in the snapshot loader
+ * covers the seed path only. In production `site_content` is initialized, so
+ * `/api/differentials` returns the LIVE row's `finalRenderPayload` and maps it
+ * through `scopeDifferentialRecord` alone — the loader never runs. The live
+ * lithium row still holds the contaminated hinge and actions, so catalogue
+ * search kept ranking and returning them while every seed-backed test passed.
+ *
+ * The withhold therefore belongs in the shared canonical-read projection, not
+ * only at the loader. That also demotes the pending republish from "the safety
+ * fix" to cleanup: the read path is safe whatever the row still contains.
+ */
+describe("the canonical read projection withholds a contaminated body", () => {
+  /** The live row as the database still holds it, straight from the export. */
+  function liveRow(slug: string): DifferentialRecord {
+    const exported = rawSnapshot.diagnoses.find((record) => record.slug === slug);
+    if (!exported) throw new Error(`missing export record: ${slug}`);
+    return structuredClone(exported);
+  }
+
+  it("strips the body from a live payload that never passed through the loader", () => {
+    const row = liveRow(LITHIUM);
+    // Proof the fixture is the contaminated row and not an already-clean one.
+    expect(row.clinicalHinge).toContain(CONTAMINATED);
+    expect(row.sections.length).toBeGreaterThan(0);
+
+    const projected = scopeDifferentialRecord(row);
+
+    expect(projected.clinicalHinge).toBe("");
+    expect(projected.sections).toEqual([]);
+    expect(projected.immediateActions).toEqual([]);
+    expect(projected.currentPresentation).toEqual([]);
+    expect(JSON.stringify(projected)).not.toContain(CONTAMINATED);
+  });
+
+  it("leaves a live payload for any other record alone", () => {
+    const row = liveRow("akathisia");
+    const projected = scopeDifferentialRecord(row);
+
+    expect(projected.sections.length).toBeGreaterThan(0);
+    expect(projected.immediateActions.length).toBeGreaterThan(0);
+  });
+
+  it("agrees with the loader path, so seed and live reads cannot diverge", () => {
+    // The failure this guards is subtle: if the two paths withhold in a
+    // different order relative to presentation scoping, a seed-backed test
+    // passes while production renders something else.
+    const viaLive = scopeDifferentialRecord(liveRow(LITHIUM));
+    const viaLoader = getDifferentialRecord(LITHIUM);
+
+    expect(viaLive).toEqual(viaLoader);
   });
 });
