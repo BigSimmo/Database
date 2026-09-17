@@ -1,12 +1,18 @@
-# Daily ops digest. Renders the live deep health probe (SLO counters, cache
+# Hourly ops digest. Renders the live deep health probe (SLO counters, cache
 # hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
 # and keeps it in a rolling GitHub issue. Attention comments are emitted only by
 # an explicitly confirmed manual dispatch.
 #
+# HOURLY, not daily: the schedule below is "20 * * * *" and the history file is
+# keyed to UTC hourly buckets. This header said "daily" and "the normal morning
+# digest" for long enough that the cadence stated here and the cadence the file
+# runs at had to be reconciled by reading the cron. They are the same sentence
+# now.
+#
 # The repo variable and matching deployment/GitHub secret must both be
 # provisioned. The preflight below fails closed when either name is absent.
-# Keep workflow_dispatch for operator verification and the daily schedule for
-# the normal morning digest.
+# Keep workflow_dispatch for operator verification and the hourly schedule for
+# the rolling digest.
 name: Ops Digest
 
 on:
