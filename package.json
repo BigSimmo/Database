@@ -350,7 +350,7 @@
   "overrides": {
     "postcss": "^8.5.18",
     "esbuild": "0.28.2",
-    "sharp": "0.35.3",
+    "sharp": "0.35.4",
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
     "brace-expansion@1": "^1.1.18",
@@ -379,7 +379,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@typescript/typescript6": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^5.0.0",
     "esbuild": "0.28.2",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.3.3",
@@ -393,12 +393,12 @@
     "tailwindcss": "^4.3.1",
     "tsx": "^4.23.12",
     "typescript": "^6.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
     "@sentry/cli@2.58.6": true,
-    "sharp@0.35.3": true,
+    "sharp@0.35.4": true,
     "unrs-resolver@1.12.2": true,
     "@eslint/eslintrc@3.3.6": true,
     "@humanwhocodes/module-importer@1.0.1": true,
