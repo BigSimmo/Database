@@ -1,0 +1,53 @@
+-- Give public.guard_site_content_sealed_bootstrap() the explicit EXECUTE revoke every other
+-- site-content guard function already carries, so the schema mirror stops describing a laxer
+-- grant than the live database actually holds.
+--
+-- WHY. The post-merge live-drift run for 20260916190000 (PR #2855) reported exactly one
+-- unexpected divergence:
+--
+--   ! [functions] mismatch public.guard_site_content_sealed_bootstrap() :: acl:
+--       manifest=["postgres=X/postgres","service_role=X/postgres"]
+--       live    =["postgres=X/postgres"]
+--
+-- LIVE IS THE CORRECT SIDE, and nothing needs repairing there. Read directly from
+-- pg_proc.proacl on the live project on 2026-09-17, all three are identical and minimal:
+--
+--   guard_site_content_immutable_row       {postgres=X/postgres}
+--   guard_site_content_sealed_bootstrap    {postgres=X/postgres}
+--   site_content_retained_bootstrap_sealed {postgres=X/postgres}
+--
+-- The divergence is an ORDERING ARTEFACT OF THE MIRROR, not of the database.
+-- supabase/schema.sql creates this function at :13445, but the statement that removes the
+-- default EXECUTE grant for newly created functions —
+--
+--   alter default privileges for role postgres in schema public
+--     revoke execute on functions from public, anon, authenticated, service_role;   (:14756)
+--
+-- — does not appear until 1,311 lines later. A `schema.sql` replay therefore creates this
+-- function while the permissive default is still in force and it picks up service_role, while
+-- live applied 20260916190000 long after that default had already been narrowed and so picked up
+-- nothing. Every other guard closes the same gap the same way, with an explicit revoke placed
+-- after :14756 rather than by relying on statement order: guard_site_content_immutable_row at
+-- :14758 and guard_site_content_receipt_shape at :14778. 20260916190000 restated grants for every
+-- function it REPLACED, but this one was NEW and was the only object in that migration with no
+-- explicit grant line, which is precisely why it is the only object that drifted.
+--
+-- WHAT THIS CHANGES ON LIVE. Nothing. service_role holds no EXECUTE on this function, so the
+-- revoke below is a no-op there; it is written as a forward migration rather than as a bare
+-- schema.sql edit because the mirror and the chain have to agree, and because raw SQL against live
+-- is how this class of incident started (AGENTS.md § Supabase project safety). It is included here
+-- so a database rebuilt from the migration chain lands on the same minimal ACL as production.
+--
+-- WHY NOT EDIT 20260916190000. It is applied. The integration applies only versions it has not
+-- seen, so editing that file would change what this repository claims live contains and nothing
+-- else — the exact silent-divergence shape docs/database-drift-detection.md exists to close.
+--
+-- NO OTHER EFFECT. No table, policy, trigger, index, RLS, ownership or search_path change. The
+-- function keeps `security definer`, `set search_path = ''` and `owner to postgres`; the two
+-- `enable always` triggers that call it are unaffected, because a trigger function executes as the
+-- table owner and never consults EXECUTE grants.
+
+revoke all on function public.guard_site_content_sealed_bootstrap()
+  from public, anon, authenticated, service_role;
+
+alter function public.guard_site_content_sealed_bootstrap() owner to postgres;
