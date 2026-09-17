@@ -57,6 +57,19 @@ ARG MAX_UPLOAD_MB=
 # declares the matching build argument. This non-secret SHA keeps build-time
 # source maps and runtime Sentry events on the same release identity.
 ARG RAILWAY_GIT_COMMIT_SHA=
+# Sentry source-map upload, inert until an operator supplies all three on the Railway service.
+# Declaring them here is not optional bookkeeping: per the note above, Railway exposes a variable
+# to a Docker build ONLY when the Dockerfile declares the matching build argument, so setting
+# these on the service alone would leave next.config.ts skipping withSentryConfig with no error
+# and no uploaded maps — a change that looks applied and does nothing.
+#
+# No ENV lines: an ARG is already in the environment of this stage's RUN, and keeping the token
+# out of the stage's ENV metadata limits where it is recorded. It still lands in the build
+# history like any build argument, so this must be a token scoped to project release/sourcemap
+# upload ONLY, never a broader-scoped one.
+ARG SENTRY_AUTH_TOKEN=
+ARG SENTRY_ORG=
+ARG SENTRY_PROJECT=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}

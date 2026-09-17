@@ -15,7 +15,7 @@
 // index.test.ts additionally asserts the committed index equals the live projection.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "data", "differentials-snapshot.json");
@@ -32,7 +32,7 @@ const snapshot = JSON.parse(readFileSync(source, "utf8"));
 // tests/cross-mode-differentials-index.test.ts locks this index to the live
 // projection, which applies the same withhold — without this the two diverge and
 // the "Also in your library" strip keeps showing the wrong diagnosis's summary.
-const { curatedDifferentials } = await import(join(root, "src", "lib", "differential-curated.ts"));
+const { curatedDifferentials } = await import(pathToFileURL(join(root, "src", "lib", "differential-curated.ts")).href);
 const withheldSlugs = new Set(
   Object.entries(curatedDifferentials)
     .filter(([, entry]) => entry.generatedBodyUnreliable === true)

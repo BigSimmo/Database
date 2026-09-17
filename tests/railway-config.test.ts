@@ -65,6 +65,17 @@ describe("Railway config as code", () => {
     expect(appDockerfile).toContain("ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}");
   });
 
+  it("declares the Sentry source-map build arguments so a Railway variable can reach the build", () => {
+    // next.config.ts gates withSentryConfig on all three being present at build time. Railway
+    // only exposes a variable to a Docker build when the Dockerfile declares the matching
+    // argument, so dropping any of these makes an operator's variable a silent no-op.
+    expect(appDockerfile).toContain("ARG SENTRY_AUTH_TOKEN=");
+    expect(appDockerfile).toContain("ARG SENTRY_ORG=");
+    expect(appDockerfile).toContain("ARG SENTRY_PROJECT=");
+    // The token must not be promoted into stage ENV metadata.
+    expect(appDockerfile).not.toContain("ENV SENTRY_AUTH_TOKEN=");
+  });
+
   it("uses the deep readiness endpoint for app rolling deploys", () => {
     expect(app.deploy).toMatchObject({
       healthcheckPath: "/api/health/ready",
