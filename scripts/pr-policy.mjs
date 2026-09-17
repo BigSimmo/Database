@@ -417,8 +417,10 @@ export function deployDeferralClaim(title, body) {
 //   1. migrationHistoryViolations — an applied migration is immutable history. Editing,
 //      removing or renaming one, or adding a migration dated at or before the newest one
 //      already on main, is a blocking error.
-//   2. ownerMergeReasons — database, clinical-risk and RAG-ranking PRs stay red until the
-//      owner applies the `owner-approved` label, which the workflow removes on any push.
+//   2. ownerMergeReasons — database, clinical-risk and RAG-ranking PRs are held until the
+//      owner applies the `owner-approved` label, which the workflow removes on any push. The
+//      workflow reports the hold as the yellow `Owner approval` status (ownerHoldViaStatus);
+//      callers that do not opt in (the batch runner) still get it as a red error.
 // ---------------------------------------------------------------------------
 
 export const OWNER_APPROVED_LABEL = "owner-approved";
@@ -750,9 +752,10 @@ export function ownerMergeReasons(classification, filenames) {
 // also blocking) until this workflow evaluates it. A `neutral`/`skipped` check-run conclusion
 // would count as PASSING for a required check, so it is deliberately not used.
 //
-// Step 1 posts this status alongside the existing red `Owner merge required` error. Step 2,
-// once the ruleset requires `Owner approval`, removes that error from `PR policy`. See
-// docs/agents/pull-request-workflow.md "Merge authority" for why the order matters.
+// Step 1 (#2842) posted this status alongside the red `Owner merge required` error. Step 2,
+// after ruleset 18011271 began requiring `Owner approval`, lets the workflow opt out of that
+// error (ownerHoldViaStatus). The ruleset entry must never be removed without reverting step 2,
+// or held PRs become mergeable. See docs/agents/pull-request-workflow.md "Merge authority".
 // ---------------------------------------------------------------------------
 
 export const OWNER_APPROVAL_CONTEXT = "Owner approval";
@@ -796,6 +799,15 @@ export function ownerApprovalCommitStatus({ otherPrsSharingHead, ...verdictInput
   return verdict;
 }
 
+/** A short, plain reason why an `owner-approved` label did not count, for a 140-character status. */
+export function rejectedOwnerLabelSummary(rejectedReason) {
+  const reason = String(rejectedReason ?? "");
+  if (/applied by a GitHub App/i.test(reason)) return "the label was added by an app, not by Josh";
+  if (/not by the repository owner/i.test(reason)) return "the label was not added by Josh";
+  if (/approved an earlier head/i.test(reason)) return "the label was added before the latest push";
+  return "the label could not be confirmed as Josh's approval of this commit";
+}
+
 function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, ownerApproved, rejectedReason }) {
   if (draft) {
     return {
@@ -819,7 +831,9 @@ function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, owner
   if (rejectedReason) {
     return {
       state: "pending",
-      description: commitStatusDescription(`Waiting for Josh (${why}). Label ignored: ${rejectedReason}`),
+      description: commitStatusDescription(
+        `Waiting for Josh's approval (${why}): ${rejectedOwnerLabelSummary(rejectedReason)}.`,
+      ),
     };
   }
   return {
@@ -951,6 +965,9 @@ export function evaluatePullRequestPolicy({
   addedMigrationContents,
   changedWorkflowContents,
   enforceOwnerMerge = false,
+  // true only for the PR policy workflow, which reports the hold through the required
+  // `Owner approval` commit status. Left false, the hold stays a red error (batch runner).
+  ownerHoldViaStatus = false,
   now = new Date(),
 }) {
   // Three conditions block the PR (hard failure): a clinical-risk diff without a
@@ -1127,7 +1144,16 @@ export function evaluatePullRequestPolicy({
   // Blocking gate (opt-in via enforceOwnerMerge): owner-only merge for database,
   // clinical-risk and RAG-ranking PRs.
   const mergeReasons = ownerMergeReasons(classification, classification.files);
-  if (enforceOwnerMerge && mergeReasons.length > 0) {
+  if (enforceOwnerMerge && mergeReasons.length > 0 && ownerHoldViaStatus === true) {
+    // The hold is a wait, not a defect: the required `Owner approval` status carries it
+    // (pending until Josh approves this head). A label that does not count is surfaced as a
+    // warning and keeps that status pending; it never turns PR policy red.
+    if (ownerApproval?.rejectedReason) {
+      warnings.push(
+        `Ignored \`${OWNER_APPROVED_LABEL}\` label: ${ownerApproval.rejectedReason}. Owner approval stays pending; agents must never add this label.`,
+      );
+    }
+  } else if (enforceOwnerMerge && mergeReasons.length > 0) {
     if (ownerApproval?.rejectedReason) errors.push(`Owner approval rejected: ${ownerApproval.rejectedReason}.`);
     if (!ownerApproved) {
       errors.push(
@@ -2340,10 +2366,14 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
   const rejected = status({
     ownerMergeReasons: ["rag-ranking"],
     ownerApproved: true,
-    rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner ".repeat(3),
+    rejectedReason: "owner-approved label was applied by a GitHub App (codex), not by the owner",
   });
   assert.equal(rejected.state, "pending", "a rejected label never yields success");
-  assert.match(rejected.description, /…$/, "an over-long description is truncated to 140 characters");
+  assert.match(
+    status({ ownerMergeReasons: Array(20).fill("rag-ranking"), ownerApproved: false }).description,
+    /…$/,
+    "an over-long description is truncated to 140 characters",
+  );
   assert.equal(status({ ownerMergeReasons: undefined }).state, "pending", "unknown reasons fail closed to pending");
   assert.deepEqual([...states].sort(), ["pending", "success"], "only pending and success are ever produced");
 
@@ -2360,7 +2390,68 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     ownerApprovalCommitStatus({ ownerMergeReasons: held.ownerMergeReasons, ownerApproved: held.ownerApproved }).state,
     "pending",
   );
-  assert.match(held.errors.join(" "), /Owner merge required/, "step 1 keeps the red hold in PR policy (shadow)");
+  assert.match(
+    held.errors.join(" "),
+    /Owner merge required/,
+    "without the opt-in (the batch runner's call) the hold is still a red error",
+  );
+  // Step 2: the workflow opts in, so the hold is carried only by the yellow status.
+  const viaStatus = evaluatePullRequestPolicy({ ...clinicalPr, ownerHoldViaStatus: true });
+  assert.equal(viaStatus.ok, true, "opted in: an unapproved clinical PR is not red in PR policy");
+  assert.deepEqual(viaStatus.errors, []);
+  assert.equal(viaStatus.ownerApproved, false);
+  assert.equal(
+    ownerApprovalCommitStatus({
+      ownerMergeReasons: viaStatus.ownerMergeReasons,
+      ownerApproved: viaStatus.ownerApproved,
+      otherPrsSharingHead: [],
+    }).state,
+    "pending",
+    "opted in: the hold is still carried by a pending Owner approval status",
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({ ...clinicalPr, ownerHoldViaStatus: "true" }).ok,
+    false,
+    "the opt-in must be the boolean true",
+  );
+  // A label that does not count: yellow with a named reason plus a warning, never red, never success.
+  for (const [rejectedReason, expected] of [
+    ["owner-approved label was applied by a GitHub App (codex), not by the owner", /added by an app, not by Josh/],
+    ["owner-approved label was applied by collaborator, not by the repository owner (BigSimmo)", /not added by Josh/],
+    [
+      "the owner-approved label was applied at 2026-09-17T00:59:59.000Z, not after the current head was first seen at 2026-09-17T01:00:00.000Z, so it approved an earlier head; Josh re-applies it",
+      /added before the latest push/,
+    ],
+    [
+      "no PR policy runs could be found for the current head, so the approval cannot be bound to it",
+      /could not be confirmed/,
+    ],
+  ]) {
+    const rejectedPr = evaluatePullRequestPolicy({
+      ...clinicalPr,
+      ownerHoldViaStatus: true,
+      ownerApproval: { approved: false, rejectedReason },
+    });
+    assert.equal(rejectedPr.ok, true, `a rejected label is not red when opted in: ${rejectedReason}`);
+    assert.match(rejectedPr.warnings.join(" "), /Ignored `owner-approved` label/);
+    const rejectedStatus = ownerApprovalCommitStatus({
+      ownerMergeReasons: rejectedPr.ownerMergeReasons,
+      ownerApproved: rejectedPr.ownerApproved,
+      rejectedReason,
+      otherPrsSharingHead: [],
+    });
+    assert.equal(rejectedStatus.state, "pending", "a label that does not count never yields success");
+    assert.match(rejectedStatus.description, expected);
+    assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(clinical\)/);
+  }
+  // Real policy failures stay red even when opted in.
+  const incompletePreflight = evaluatePullRequestPolicy({
+    ...clinicalPr,
+    body: "## Summary\n\nx",
+    ownerHoldViaStatus: true,
+  });
+  assert.equal(incompletePreflight.ok, false, "a missing governance preflight stays red when opted in");
+  assert.doesNotMatch(incompletePreflight.errors.join(" "), /Owner merge required/);
   const approvedPr = evaluatePullRequestPolicy({ ...clinicalPr, ownerApproval: { approved: true } });
   assert.equal(
     ownerApprovalCommitStatus({
