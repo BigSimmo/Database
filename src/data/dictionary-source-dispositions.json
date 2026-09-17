@@ -560,6 +560,11 @@
           "code": "host_not_in_inspected_governed_url_policy",
           "blocker": "www.cope.org.au is not in GOVERNED_SOURCE_HOSTS, so acquisitionLedgerIssues refuses the record as unsafe_location however complete its metadata is. A date does not change this.",
           "nextAction": "Owner decision. Widening the governed host policy was declined on 2026-09-16, so this source stays held until that is revisited or the URL is dropped."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -1013,6 +1018,11 @@
           "code": "jurisdiction_not_written_in_register_form",
           "blocker": "The candidate records jurisdiction \"New South Wales; spinal cord injury\", which is a jurisdiction and a topic in one field. acquisitionLedgerIssues cannot match it to the register and reports unknown_jurisdiction, with a misleading \"publisher is not in the source authority register\" alongside it. The publisher IS registered.",
           "nextAction": "Write the jurisdiction as the register writes it, \"Australia/NSW\", and carry the topic in topics. Verified: that alone clears the gate once a date is present."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
@@ -2202,6 +2212,11 @@
           "code": "jurisdiction_not_written_in_register_form",
           "blocker": "The candidate records jurisdiction \"New South Wales; adult emergency care\", which is a jurisdiction and a topic in one field. acquisitionLedgerIssues cannot match it to the register and reports unknown_jurisdiction, with a misleading \"publisher is not in the source authority register\" alongside it. The publisher IS registered.",
           "nextAction": "Write the jurisdiction as the register writes it, \"Australia/NSW\", and carry the topic in topics. Verified: that alone clears the gate once a date is present."
+        },
+        {
+          "code": "version_unknown",
+          "blocker": "The version field holds \"Not established\", a description rather than an identifier. acquisitionLedgerIssues only requires the field to be non-empty text, so it accepts this and the gate will not catch it. Admitting the source unchanged would publish that string as its version.",
+          "nextAction": "Establish the edition, version or release identifier from the publisher and replace the placeholder before admitting."
         }
       ],
       "decisionOwner": "Source register owner",
