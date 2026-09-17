@@ -10,6 +10,7 @@ import { deriveGovernanceFromSnapshot, type DifferentialRecordKind } from "@/lib
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
+  differentialPresentations,
   differentialRecords,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -143,7 +144,14 @@ export async function GET(request: Request) {
     const snapshot = loadDifferentialSnapshot();
     const seedGovernance = deriveGovernanceFromSnapshot(snapshot);
     if (kind === "presentation") {
-      const presentationSeeds = snapshot.presentations.map((workflow) => ({
+      // `differentialPresentations()` (the scoped catalogue), NOT `snapshot.presentations` (the
+      // raw loader output). The canonical branch below maps every row through
+      // `scopePresentationWorkflow`, so seeding from the unscoped snapshot would let a seed read
+      // and a live read of the same workflow return different criterion scopes — the exact
+      // divergence `scopeDifferentialRecord` documents as the thing to prevent, and the UI
+      // defaults an unscoped criterion to diagnosis-specific. It mattered little while seeds were
+      // reached only by an uninitialised corpus; the fallback below makes that path routine.
+      const presentationSeeds = differentialPresentations().map((workflow) => ({
         workflow,
         governance: {
           sourceStatus: seedGovernance.source_status,
