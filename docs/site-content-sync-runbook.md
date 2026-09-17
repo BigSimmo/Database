@@ -27,6 +27,78 @@ So:
 - `tests/site-content-epoch-zero-freeze.test.ts` pins the applied id, digest, counts and both frozen blob hashes across all four migrations, the schema mirror and the drift manifest, and sweeps every file under `supabase/migrations/` so a migration that does not exist yet cannot introduce a second identity. If it fails, restore the migration rather than updating the constants.
 - `npm run check:migration-immutability` is the general form of the same rule, covering every migration rather than this one: see [`docs/database-drift-detection.md`](database-drift-detection.md) § Applied-migration immutability.
 
+## Verification of the freeze belongs at write time, not on the read path
+
+**A request-path read may never re-verify an immutable corpus.** Integrity of immutable data is
+proven once — when it is written, when the migration that installs it applies, or on the schedule the
+health check already runs on — and a read then relies on that proof. A read that re-derives the proof
+is paying, on every page view, for a property that cannot have changed since the last page view.
+
+This is not a style preference. It cost four seconds per public catalogue request for a week; the
+mechanism, the numbers and the timeline are in
+[`docs/audit/2026-09-16-catalogue-read-latency.md`](audit/2026-09-16-catalogue-read-latency.md).
+`read_site_content_public_records` compared the stored `release_digest` with a freshly computed
+`site_content_bootstrap_digest`, twice per call — once directly and once through
+`site_content_current_transition_kind` → `site_content_retained_bootstrap_valid` — and each
+comparison canonicalised the whole 843-record frozen population, 9.52 MB and 164,820 JSON nodes,
+through a recursive plpgsql function. The work is identical for an 8 KB single-record response and
+for the entire catalogue, because it happens before the read knows what was asked for.
+
+**Three protections already held the property that check was re-proving, and each of them is either
+free or already paid for:**
+
+- **The rows are immutable by trigger.** `site_content_release_records_immutable`
+  (`supabase/schema.sql:12722-12724`) refuses every `UPDATE` and `DELETE` on the release records.
+  Nothing a reader can observe is able to change between one read and the next.
+- **The release id is cryptographically bound to the digest.** The reader accepts only the pinned
+  retained bootstrap ids, and `r.id = public.site_content_release_id(r.release_digest, 0,
+'bootstrap-v1')` (`supabase/schema.sql:16388`) hashes a four-key object in microseconds. The
+  `site_content_releases` row is mutable — state transitions need it to be — but its
+  `release_digest` cannot be rewritten to bless a different population without producing a different
+  id, which the reader would then reject.
+- **The population was verified transactionally when the migration applied.**
+  `supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql:907-913` compares both
+  the digest and the row count in the same transaction as the seed `insert`, and raises
+  `site_content_bootstrap_population_mismatch` rather than committing a corpus that does not match.
+  Applied live 2026-09-11. A migration that fails there leaves nothing behind.
+
+So the per-read hash detected nothing that a trigger did not already prevent, except one case it was
+never the right tool for: a row **added** to a frozen release. An `INSERT` is not covered by an
+`UPDATE`/`DELETE` trigger, and re-hashing 9.5 MB on every request catches that only after it has
+happened. The answer to a gap in a structural seal is a better seal, not a detector on the hot path.
+
+**What this means in practice:**
+
+- A read may test cheap, bounded invariants — an id equality, a content-addressed binding, an
+  index-only `count(*)` against a stored expected count. It may not aggregate, canonicalise or hash
+  a whole release, and it may not sweep every row of one.
+- Verification that must walk the corpus lives in `read_site_content_health()`, in the mutation RPCs
+  (`activate_site_content_release`, `rollback_site_content_release`, and the plan and staging paths),
+  and in the applying migration. Those are operator-driven, rare, and already carry the cost
+  deliberately.
+- A read stays **fail-closed**. Making a check cheaper must never make a suspect population
+  readable: if the cheap invariants do not hold, the read still withholds records and reports the
+  snapshot as unavailable rather than serving clinical content it cannot vouch for.
+- When a proof moves off the read path, say in the migration header where it now lives, so the next
+  reader of that SQL does not restore it for safety's sake.
+
+**How much of this a gate enforces.** `npm run check:read-path-cost` refuses the first half of that
+first bullet automatically: a read path that reaches a whole-corpus digest helper, hashes a
+corpus-derived expression, or aggregates over a corpus table in a query that scans every row of it.
+It is deliberately precise about the permitted shapes above — an id equality, a content-addressed
+binding and an index-only `count(*)` against a stored expected count are not flagged, because a gate
+that fires on a single-row lookup gets allowlisted into uselessness. It does **not** enforce the
+second half: a per-row sweep with no aggregate (`not exists (select 1 from <corpus> where …)`, root
+cause 4 of the audit) is invisible to it, as are RLS `select` policies, generated-column expressions,
+a read path that also writes, and an RPC whose name is assembled at runtime. The script header's
+"WHAT IT DOES NOT CHECK" section lists every hole. A green gate means no known offending shape, not
+a cheap read.
+
+The same rule reads forward as a scaling limit. `site_content_canonical_json` is recursive plpgsql
+with one invocation per JSON node, and every fingerprint in this control plane goes through it. That
+is affordable at activation and intolerable per request, and it stops being affordable at activation
+too once a release is large enough.
+
 ## Source-only planning
 
 The CLI reads no environment or live state and is a dry run unless `--write` is supplied:
