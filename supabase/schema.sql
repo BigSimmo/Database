@@ -14756,6 +14756,7 @@ alter default privileges for role postgres in schema public revoke all on sequen
 alter default privileges for role postgres in schema public revoke execute on functions from public, anon, authenticated, service_role;
 
 revoke all on function public.guard_site_content_immutable_row() from public, anon, authenticated, service_role;
+revoke all on function public.guard_site_content_sealed_bootstrap() from public, anon, authenticated, service_role;
 revoke all on function public.site_content_canonical_text(text) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_ecmascript_space(text) from public, anon, authenticated, service_role;
 revoke all on function public.site_content_ecmascript_trim(text) from public, anon, authenticated, service_role;
