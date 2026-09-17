@@ -129,47 +129,7 @@ export async function runBatch(
         const pending = state.pending;
         if (!entry || entry.number !== pending.number) return pause("pending-operation-owner-mismatch");
         if (evidence.externalArmed) return pause("external-merge-ownership");
-        if (pending.kind === "repair") {
-          const run = await api.findRepair(pending);
-          if (!run) {
-            if (Date.parse(now) - Date.parse(pending.at) > 900000)
-              return pause("repair-dispatch-unobserved; reconcile manually before retry");
-            return report(state);
-          }
-          if (run.status !== "completed") return report(state);
-          if (pending.base !== evidence.base && [pending.head, pending.resultHead].includes(evidence.head)) {
-            entry.head = evidence.head;
-            entry.state = "preparing";
-            state.pending = null;
-            await persist("worker-stale-base", { number: entry.number, runId: run.id, retainedArtifact: true });
-            continue;
-          }
-          if (run.conclusion === "failure" && pending.resultHead && !pending.completed && !pending.recoveryAttempt) {
-            // Publication/mutation jobs are deterministic and journaled. Retry
-            // their failed jobs once without paying for another model repair.
-            pending.recoveryAttempt = run.run_attempt;
-            await persist("worker-recovery-intent", { runId: run.id, attempt: run.run_attempt });
-            await api.recoverWorker(state, pending, run);
-            return report(state);
-          }
-          if (pending.recoveryAttempt && run.run_attempt === pending.recoveryAttempt && !pending.completed)
-            return pause("worker-recovery-unobserved");
-          if (evidence.head !== (pending.resultHead ?? pending.head)) return pause("repair-result-head-unproved");
-          if (pending.resultHead) entry.head = pending.resultHead;
-          entry.state = "preparing";
-          entry.progressAt = pending.resultHead !== pending.head || pending.completed ? now : entry.progressAt;
-          state.pending = null;
-          await persist("repair-settled", { number: entry.number, runId: run.id, conclusion: run.conclusion });
-          if (run.conclusion !== "success" && !pending.resultHead) {
-            entry.state = "parked";
-            entry.reason = "repair-workflow-failed";
-            entry.retryCondition = evidence.base;
-            state.active = null;
-            await persist("parked", { number: entry.number, reason: entry.reason });
-            continue;
-          }
-          evidence = await api.inspect(entry.number, { protection, state });
-        } else if (pending.kind === "sync") {
+        if (pending.kind === "sync") {
           if (evidence.head === pending.head && evidence.behind) {
             if (Date.parse(now) - Date.parse(pending.at) > 900000)
               return pause("branch-update-unobserved; reconcile manually before retry");
@@ -225,7 +185,7 @@ export async function runBatch(
             (item) =>
               item.state === "parked" &&
               !item.retried &&
-              ["dependency-blocked", "no-progress-timeout", "repair-workflow-failed"].includes(item.reason),
+              ["dependency-blocked", "no-progress-timeout"].includes(item.reason),
           )) {
             if (candidate.retryCondition !== base) {
               candidate.retried = true;
@@ -242,8 +202,7 @@ export async function runBatch(
         await persist("completed");
         return report(state);
       }
-      if (["sync", "repair", "merge"].includes(decision.action)) {
-        if (decision.action === "repair" && !repairAvailable) return pause("repair-provider-not-configured");
+      if (["sync", "merge"].includes(decision.action)) {
         // Re-read everything immediately before committing intent; after intent,
         // the adapter independently checks switch, ownership, head and base again.
         const current = await api.inspect(entry.number, { protection, state });
@@ -256,14 +215,7 @@ export async function runBatch(
           head: evidence.head,
           base: evidence.base,
           at: now,
-          fingerprint: decision.fingerprint ?? null,
         };
-        if (decision.action === "repair") {
-          entry.attempts++;
-          state.repairs++;
-          entry.fingerprints.push(decision.fingerprint);
-          entry.state = "repairing";
-        }
         if (decision.action === "merge") entry.state = "ready";
         await persist("intent", { operation: state.pending });
         await api.execute(state, state.pending, { ...evidence, queue: protection.queue });
@@ -303,7 +255,6 @@ export async function workflowMain({ github, context, core, inputs, repairAvaila
       active &&
       run.head_branch !== active.headRef &&
       !run.head_branch?.startsWith("gh-readonly-queue/main/") &&
-      run.display_title !== `PR batch repair ${state.pending?.id}` &&
       !run.pull_requests?.some((item) => item.number === state.active) &&
       !state.entries.some((entry) => entry.mergeCommit === run.head_sha)
     )

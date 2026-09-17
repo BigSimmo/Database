@@ -386,9 +386,11 @@ For the `upload` safe Git handoff workflow — protected branches, required insp
 
 ## Open PR branch sync (anti-churn)
 
-**Never merge `main` into an open PR branch (and never call `update-branch`) unless
-`git merge-tree --write-tree origin/main <tip>` shows a real conflict, or the owner asks. Being
-behind is not a reason: GitHub's strict up-to-date rule is satisfied at merge time.**
+**Sync an open PR branch with `main` (merge `main` in, or `update-branch`) at most once, and only
+when the PR is otherwise ready — required checks green, review threads resolved — and GitHub reports
+it out of date: the ruleset's strict up-to-date rule blocks the merge until then. Never sync while
+its CI is still running or while it has failing checks or open review work; sync earlier only for a
+real conflict (`git merge-tree --write-tree origin/main <tip>` is dirty) or when the owner asks.**
 
 For the rest of the anti-churn branch-sync mitigations, see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync).
 <!-- END:pr-branch-sync -->
@@ -424,11 +426,11 @@ Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — wi
 - Prefer fewer, shorter-lived PRs. Bundle independently low-risk append-only docs/ledger chores (see "## PR bundling") instead of one PR per line.
 - Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a stale head that already shares hot files with the open queue.
 - The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**: normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record; `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base, cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits, changed request records, deleted requests, and a canonical issue diff that does not exactly equal its recorded reconciliation transaction.
-- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run `git merge-tree --write-tree origin/main <tip>`. A clean tree means the branch is only behind — not blocked, and not a reason to sync; a dirty tree means a real conflict (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)).
+- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run `git merge-tree --write-tree origin/main <tip>`. A clean tree means the branch is only behind — sync it once, when it is otherwise ready (see the rule above); a dirty tree means a real conflict (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)).
 
 ### Speed CI without skipping quality
 
-- Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule whenever a real conflict actually needs resolving: wait for required CI in flight, then perform the `update-branch` / `git merge origin/main` once review and fix work is assembled. Being merely behind is not by itself a reason to sync (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)). Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
+- Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule whenever a real conflict actually needs resolving: wait for required CI in flight, then perform the `update-branch` / `git merge origin/main` once review and fix work is assembled. Being merely behind is a reason to sync only once, when the PR is otherwise ready (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)). Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
 - For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited file.
 - If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, bundled additions, and an `update-branch`/merge-main-in sync that the branch-sync rule above allows (a real conflict, or the owner asks) may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first. **Exception:** an owner-merge PR (clinical-content, `supabase/`, or RAG-ranking — see "Owner-merge rule" below) must never be armed by an agent. If you find one armed, report it rather than disarming it: the required `Owner approval` status already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs explicit authorization.
 - Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. When a sync is actually warranted (a real conflict, or the owner asks), use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
@@ -463,15 +465,6 @@ For the repo-local skill catalogue and the foundational orchestration skills, se
 ## Outstanding-work memory (`/issues`)
 
 For the `/issues` durable cross-session ledger and its inbox and reconciliation discipline, see [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md).
-
-## Codex GitHub review behavior
-
-For Codex's automated GitHub pull request review and auto-resolve behavior — severity
-calibration, PR risk detection, cost controls, the review comment lifecycle, the automatic
-resolve trigger, and the primary PR command — see
-[`docs/agents/codex-github-review.md`](docs/agents/codex-github-review.md). That file is the
-exact text `scripts/check-codex-autofix-workflow.mjs` enforces against the live workflow; do not
-let a copy in this file drift from it.
 
 ## Codex Cloud environment
 
