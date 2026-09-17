@@ -1,4 +1,4 @@
-import type { ClinicalSourceCatalogueEntry, SourceCatalogueWarning } from "@/lib/sources/catalogue-types";
+import type { ClinicalSourceClientEntry, SourceCatalogueWarning } from "@/lib/sources/catalogue-types";
 
 /**
  * A source's state, said in the words a clinician would use.
@@ -22,7 +22,7 @@ import type { ClinicalSourceCatalogueEntry, SourceCatalogueWarning } from "@/lib
 
 export type SourceStatusFlag = { label: string; tone: "warning" | "danger" };
 
-export function sourceAttentionFlags(entry: ClinicalSourceCatalogueEntry): readonly SourceStatusFlag[] {
+export function sourceAttentionFlags(entry: ClinicalSourceClientEntry): readonly SourceStatusFlag[] {
   const flags: SourceStatusFlag[] = [];
   // Outdated outranks review-due, and excluded outranks inactive: the more
   // serious state is the one that governs, so only it is shown.
@@ -54,12 +54,12 @@ const missingDetailWarnings: ReadonlySet<SourceCatalogueWarning> = new Set([
   "missing_dates",
 ]);
 
-const noteByValidationStatus: Partial<Record<ClinicalSourceCatalogueEntry["validationStatus"], string>> = {
+const noteByValidationStatus: Partial<Record<ClinicalSourceClientEntry["validationStatus"], string>> = {
   unverified: "Marked as not yet clinically verified",
   unknown: "No clinical validation status was recorded",
 };
 
-export function sourceProvenanceNotes(entry: ClinicalSourceCatalogueEntry): readonly string[] {
+export function sourceProvenanceNotes(entry: ClinicalSourceClientEntry): readonly string[] {
   const notes: string[] = [];
 
   for (const warning of entry.warnings) {
