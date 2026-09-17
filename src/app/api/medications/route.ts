@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isAbortError } from "@/lib/abort-error";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
@@ -279,11 +278,19 @@ export async function GET(request: Request) {
       { request, fixture: observed.source === "seed_uninitialized" },
     );
   } catch (error) {
+    // A cancelled request is not a fault: answer 499, exactly as the catch in /api/search does.
+    // Deliberately NARROWER than the shared isAbortError helper, which also matches TimeoutError.
+    // Nothing on these paths produces a TimeoutError with the client still connected today — the
+    // catalogue budget and the per-domain search budget each absorb their own expiry — but that
+    // containment lives in modules this file does not own. If it ever changed, the wider predicate
+    // would report a genuine server deadline as a client cancellation: empty body, no error log,
+    // and invisible in the error rate. Pinned by the TimeoutError cases in tests/api-client-abort.
+    if ((error instanceof DOMException && error.name === "AbortError") || request.signal?.aborted) {
+      return new Response(null, { status: 499 });
+    }
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
-    // A cancelled request is not a fault: answer 499, as /api/search and /api/upload already do.
-    if (isAbortError(error) || request.signal?.aborted) return new Response(null, { status: 499 });
     return jsonError(error);
   }
 }
