@@ -291,6 +291,54 @@ export function stableFrameFunction(name: string | undefined): string {
   return retained.length ? retained.join(".") : "unknown";
 }
 
+/**
+ * SDK mechanism `type` values are code literals (`generic`, `onunhandledrejection`,
+ * `auto.function.nextjs.on_request_error`). Anchored so nothing free-form can pass.
+ */
+const SAFE_MECHANISM_TYPE = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)*$/;
+
+/**
+ * Structural capture metadata, allowlisted to `type` and `handled`.
+ *
+ * `mechanism.data` is deliberately absent: it carries free-form SDK context (URLs, handler
+ * arguments) and is the one part of a mechanism that can hold request or clinical text.
+ *
+ * WHY THIS IS CARRIED AT ALL, measured 2026-09-17. Rebuilding the exception without its
+ * mechanism made Sentry default every event to `handled: true` — including the ones
+ * `captureRequestError` explicitly marks `handled: false`. All 853 error events in the
+ * preceding 30 days reported `error.handled: 1`, so an unhandled promise rejection was
+ * indistinguishable from a caught-and-reported error and triage had nowhere to start.
+ */
+function privacySafeMechanism(mechanism: { type?: string; handled?: boolean } | undefined) {
+  if (!mechanism) return undefined;
+  const type =
+    typeof mechanism.type === "string" && SAFE_MECHANISM_TYPE.test(mechanism.type) ? mechanism.type : undefined;
+  const handled = typeof mechanism.handled === "boolean" ? mechanism.handled : undefined;
+  if (type === undefined && handled === undefined) return undefined;
+  // `generic` is Sentry's own default type, and the field is required by the SDK shape.
+  return { type: type ?? "generic", ...(handled === undefined ? {} : { handled }) };
+}
+
+/**
+ * Next writes one server bundle per route at a path that names the route pattern, so a frame
+ * such as `/app/.next/server/app/api/medications/route.js` still carries the route identity
+ * after minification, and survives a rebuild unchanged.
+ *
+ * Dynamic segments appear as their literal pattern (`[slug]`), never a request value, so this
+ * recovers the same string `captureRequestError` would have tagged and nothing more.
+ */
+const APP_ROUTE_BUNDLE = /\/\.next\/server\/app\/(.+?)\/(?:route|page)\.js$/;
+
+/** Newest-first scan for the route pattern a stack passed through, or `undefined`. */
+function routePathFromFrames(frames: { filename?: string }[] | undefined): string | undefined {
+  if (!frames?.length) return undefined;
+  for (let index = frames.length - 1; index >= 0; index -= 1) {
+    const matched = APP_ROUTE_BUNDLE.exec(frames[index]?.filename ?? "");
+    if (matched) return `/${matched[1]}`;
+  }
+  return undefined;
+}
+
 /** Keep code locations while removing all free-form/request data before export. */
 export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
   const exceptions = event.exception?.values?.map((exception) => ({
@@ -299,6 +347,7 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     // generic type while their scrubbed stack location still supports grouping.
     type: privacySafeExceptionType(exception.type),
     value: SAFE_ERROR_MESSAGE,
+    mechanism: privacySafeMechanism(exception.mechanism),
     stacktrace: exception.stacktrace
       ? {
           frames: exception.stacktrace.frames?.map((frame) => ({
@@ -315,8 +364,13 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
 
   const tags = privacySafeTags(event);
   const exceptionType = exceptions?.[0]?.type || "Error";
-  const routePath = tags.route_path;
-  const topFrame = exceptions?.[0]?.stacktrace?.frames?.at(-1);
+  const frames = exceptions?.[0]?.stacktrace?.frames;
+  // Only `captureRequestError` sets `route_path`, and over the 30 days to 2026-09-17 it
+  // accounted for 4 of 853 error events: everything arriving through the SDK's own global
+  // handlers is untagged. Recovering the pattern from the stack keeps those events grouped by
+  // route rather than collapsed into a single undifferentiated bucket.
+  const routePath = tags.route_path ?? routePathFromFrames(frames);
+  const topFrame = frames?.at(-1);
   // The ingestion worker has no route pattern, so group its events by the
   // fixed service/stage labels instead of dropping the fingerprint entirely.
   const workerStage = tags.service === "worker" ? (tags.worker_stage ?? "unknown") : undefined;
@@ -331,11 +385,20 @@ export function privacySafeErrorEvent(event: ErrorEvent): ErrorEvent {
     environment: event.environment,
     message: exceptions?.length ? undefined : SAFE_ERROR_MESSAGE,
     exception: exceptions?.length ? { values: exceptions } : undefined,
+    // NEVER `undefined` outside the worker branch. An undefined fingerprint hands grouping back
+    // to Sentry's default algorithm, which reads exactly the minified frames this function exists
+    // to normalise, so one recurring fault opens a fresh issue on every deploy. That was diagnosed
+    // on 2026-09-16 and fixed for the routed path only — and 849 of 853 events had no route, so
+    // they kept splintering: 20 open groups under one title by 2026-09-17. `unrouted` is a
+    // deliberately coarse last resort for a stack that names no route bundle at all.
     fingerprint: workerStage
       ? ["worker", workerStage, exceptionType, stableFrameFilename(topFrame?.filename)]
-      : routePath
-        ? [routePath, exceptionType, stableFrameFilename(topFrame?.filename), stableFrameFunction(topFrame?.function)]
-        : undefined,
+      : [
+          routePath ?? "unrouted",
+          exceptionType,
+          stableFrameFilename(topFrame?.filename),
+          stableFrameFunction(topFrame?.function),
+        ],
     tags: Object.keys(tags).length ? tags : undefined,
   };
 }
