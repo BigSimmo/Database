@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "48e7023b-f516-4ba2-9401-dba255c015b8",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Establish why GET /api/documents costs about a second warm, before assuming the exact count is to blame",
+    "detail": "OBSERVED 2026-09-17 on live psychiatry.tools: GET /api/documents?limit=10 settled at 1.29-1.52 s warm (5.47 s cold), and ?limit=1 at 0.92-0.99 s, against a ~0.63-0.67 s floor for trivial endpoints (/api/health, /api/local-project-id) measured from the same client. So roughly 0.3-0.9 s is the route's own work, and it does not fall away at limit=1. HYPOTHESIS ONLY, NOT EVIDENCE: src/app/api/documents/route.ts selects with { count: 'exact' }, and the response reports pagination.total 2851, so every request also runs an exact count over the owner-scoped filtered set regardless of limit. That is the obvious suspect and it is exactly the kind of inferred claim this repo has had refuted before (ledger #069 found warm p90 175-243 ms and concluded plans are not the multi-second tail), so it must be measured, not assumed. DO NOT switch to an estimated count on this reasoning alone: pagination.total is user-visible and hasMore depends on it. NEXT ACTION: EXPLAIN ANALYZE the list query with and without the exact count, at limit 1 and 10, against the live owner-scoped shape. GATE: provider-backed, needs explicit owner confirmation per AGENTS.md API and provider confirmation boundary.",
+    "source": "Live latency review session 2026-09-17",
+    "issueUlid": "01M2Q1ARW1CD63JWP7TVH0QBD0"
+  }
+}

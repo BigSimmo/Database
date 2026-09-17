@@ -76,6 +76,34 @@ const clinicalRiskPatterns = [
   // classifier returned `clinicalRisk: false`, so no governance preflight was
   // ever required. Generators live in scripts/ and are matched above.
   /^(?:src\/data|data|public\/therapy-compass-data)\//,
+  // Hand-authored clinical datasets that live under `src/lib/` as `.ts` rather than under
+  // `data/` as JSON, so neither the token set above nor the `data/` rule reaches them. Each
+  // holds authored clinical prose a clinician reads as fact — definitions, factsheet copy,
+  // specifier guidance, the differential overlay's `doNow` steps and `contentNote` — so
+  // editing one changes clinical output with no code diff at all. That is the `data/` rule's
+  // own rationale, applied where the file extension put the content out of its reach.
+  //
+  // Added 2026-09-17 after PR #2838 rewrote four asserted clinical thresholds and withheld a
+  // contaminated record in `differential-curated.ts`, and this classifier returned
+  // `clinicalRisk: false` — the same miss PR #1489 made with the 205 therapy records, in a
+  // different directory.
+  //
+  // DELIBERATELY DISJOINT from the differential family. `differential-curated.ts` is the file
+  // that exposed this, but the owner ruling of the same day covers it, and every other
+  // `src/lib/differential*.ts`, in PR #2847. Naming it here too would be a second edit to the
+  // same array for no added coverage, so this rule takes only the three authored datasets no
+  // rule reaches: dictionary senses, patient factsheet copy and specifier guidance.
+  //
+  // EXACT paths, deliberately, for the reason `nonClinicalGeneratedDataPaths` states in
+  // reverse: 129 of the 268 modules under `src/lib/` match no clinical token today and nearly
+  // all of them are code, so a directory-wide sweep would demand a governance preflight for
+  // diffs holding no clinical content — and a reflexively ticked preflight erodes the gate it
+  // is meant to enforce. Add the next authored dataset here by name when it lands.
+  //
+  // NOT settled here: a code module under `src/lib/` can carry clinical logic and still match
+  // no token (`differentials.ts` holds the withhold-and-scope projection and matches none).
+  // That is a wider question about the token list itself, deliberately left for the owner.
+  /^src\/lib\/(?:dictionary-data|factsheets-data|specifiers)\.ts$/,
   // Tests that act as clinical safety guards / prohibited wording chokepoints
   // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
   // Weakening or altering them is the clinical evasion route (#97W4FD).
@@ -1719,6 +1747,27 @@ function selfTest() {
     true,
     "an unrelated deployment constraint must not block a migration PR",
   );
+  // Hand-authored clinical datasets that live under `src/lib/` as `.ts` rather than under
+  // `data/` as JSON. Pinned in both directions. The `true` rows are files whose entire diff
+  // is clinical prose a clinician reads as fact, changing clinical output with no code change
+  // at all — the `data/` rule's own rationale, applied where that rule cannot reach. The
+  // `false` rows are the neighbours a wider `src/lib/` sweep would take with it, and each one
+  // is a preflight this repository must not ask for: ticking clinical governance boxes on a
+  // module that ships no clinical content is the habit that erodes the gate.
+  //
+  // `src/lib/differential-curated.ts` is absent on purpose: PR #2847 covers the whole
+  // differential family under the owner ruling of 2026-09-17, so pinning it here would make
+  // these two changes fight over the same rows.
+  for (const [file, expected, why] of [
+    ["src/lib/dictionary-data.ts", true, "dictionaryEntries carries authored definitions"],
+    ["src/lib/factsheets-data.ts", true, "patient-facing factsheet prose"],
+    ["src/lib/specifiers.ts", true, "specifierRecords carries authored specifier guidance"],
+    ["src/lib/demo-data.ts", false, "the synthetic corpus, kept separate from real clinical content"],
+    ["src/lib/specifier-builder-diagnoses.ts", false, "joins two datasets and authors no prose"],
+    ["src/lib/dictionary.ts", false, "the loader beside the dataset: the anchor must not sweep it in"],
+  ]) {
+    assert.equal(classifyPullRequestFiles([file]).clinicalRisk, expected, `${why}: ${file}`);
+  }
   assert.equal(
     classifyPullRequestFiles(["tests/caring-contacts-interface-vocabulary.test.ts"]).clinicalRisk,
     true,

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "f35c764b-5ef9-4ca6-b45e-3041e9a3bf13",
+  "createdOn": "2026-09-17",
+  "action": "update",
+  "payload": {
+    "id": "#PX8N86",
+    "detail": "MEASURED 2026-09-17 against live psychiatry.tools (read-only HTTP, no provider access): this row's mechanism now has numbers. GET /api/search/universal?q=lithium returns Server-Timing 'documents;dur=751, medications;dur=530, services;dur=530, forms;dur=530, dsm;dur=530, differentials;dur=491, presentations;dur=437, specifiers;dur=432, formulation;dur=431, therapies;dur=431, dictionary;dur=395, tools;dur=394, total;dur=751'. The five catalogue kinds landing on the SAME ~530 ms, in parallel, is the signature this row predicts: each domain pays the whole-release scan rather than its own kind's cost, so the durations converge on the scan rather than spreading by catalogue size. Total search wall time is gated by the documents leg at 751 ms, with every catalogue leg inside it. Application-side CPU is NOT the bottleneck and is now smaller: catalogue ranking for a real query measured 21.8 ms before and 18.5 ms after the query-tokenisation fix on branch claude/psychsift-latency-review-lg2eko, i.e. roughly 3 percent of one 530 ms leg. That branch does not touch this SQL. First-call figures were 2.35 s total / 1448 ms medications, so a cold container roughly triples it. STILL OPEN and the gate is unchanged: the fix is a stored indexed kind column shipped as a migration inside an approved window, and Step 3 of scripts/operator-explain-site-content-public-records.sql must settle the push-down question first.",
+    "source": "Live latency review session 2026-09-17 (branch claude/psychsift-latency-review-lg2eko)",
+    "baseRowFingerprint": "21cfaf137c16e72ddd4ab7a5d5daa428f9000d7cd010ee35bfe7075c454d93ce"
+  }
+}
