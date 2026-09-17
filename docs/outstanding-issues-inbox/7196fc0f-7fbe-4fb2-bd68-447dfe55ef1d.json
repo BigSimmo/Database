@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "7196fc0f-7fbe-4fb2-bd68-447dfe55ef1d",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The Caring Contacts production session cookie has no replay protection, and no sign-on service exists to issue one",
+    "detail": "FOUND 2026-09-17 while verifying the external audit against the code (its finding C2), and half-addressed in PR #2860. WHAT PR #2860 DID: live mode now refuses to START unless CARING_CONTACTS_SESSION_ISSUER and CARING_CONTACTS_SESSION_HMAC_SECRET are set, and the API boundary turns the thrown CaringContactsProductionSessionError into a 401 'session-required' refusal instead of an unhandled 500. Before that, a correctly configured live deployment served a stack trace on every request, because signProductionSession (src/lib/caring-contacts-server/session.ts:208) EXISTS AND NOTHING CALLS IT - no route, script or test in the repository mints the cookie live mode demands. WHAT REMAINS, and it belongs in the enterprise sign-on design rather than in application code: ProductionSessionClaims is { actorId, teamId, roles, exp } (session.ts:200-205). The signature is verified with timingSafeEqual and exp IS enforced against an injectable clock, but there is no jti, no nonce, no issued-at, no session version and no revocation list, and no server-side store to check one against. So a captured cookie is replayable by anyone holding it until it expires, and a compromised session cannot be revoked before then. ALSO NOTE: the production session's role vocabulary is filtered through isDemoRole (session.ts:233), so live roles are the demo role list. That is probably fine and probably deliberate, but it is undocumented and worth a decision. NEXT: decide the cookie's claim set WITH the sign-on integration, not before it - the issuer's capabilities decide what is available (a jti needs somewhere to record it; a short TTL plus refresh may be cheaper than revocation). STOP: do not add a claim to signProductionSession speculatively. Nothing consumes it today and a half-designed token is harder to replace than none.",
+    "source": "Code read of src/lib/caring-contacts-server/session.ts at origin/main 6f0a3d444, plus the boot gate and handler changes in PR #2860; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
+    "issueUlid": "01M2R5T1M196R2JZ4Z8KCPJGK9"
+  }
+}
