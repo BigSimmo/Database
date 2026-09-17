@@ -71,6 +71,25 @@ describe("container delivery contract", () => {
     expect(read("Dockerfile.worker")).toContain("STOPSIGNAL SIGTERM");
   });
 
+  it("bakes the deploy pre-deploy migration gate's manifest and scripts into both runner stages", () => {
+    // supabase/migrations is only in the build context, so the manifest is
+    // written during the build stage and both gate scripts are copied into
+    // the runner — see docs/worker-deploy-runbook.md §0 and
+    // tests/deploy-migration-gate.test.ts for the gate's own behaviour.
+    for (const dockerfile of [read("Dockerfile"), read("Dockerfile.worker")]) {
+      expect(dockerfile).toContain("node scripts/deploy/write-migration-manifest.mjs");
+      expect(dockerfile).toContain(
+        "COPY --from=build /app/deploy/expected-migrations.json ./deploy/expected-migrations.json",
+      );
+      expect(dockerfile).toContain(
+        "COPY --from=build /app/scripts/deploy/await-migrations.mjs ./scripts/deploy/await-migrations.mjs",
+      );
+      expect(dockerfile).toContain(
+        "COPY --from=build /app/scripts/deploy/migration-versions.mjs ./scripts/deploy/migration-versions.mjs",
+      );
+    }
+  });
+
   it("keeps Railway Dockerfiles portable across service IDs", () => {
     expect(read("Dockerfile")).not.toContain("--mount=type=cache");
     expect(read("Dockerfile.worker")).not.toContain("--mount=type=cache");
@@ -88,6 +107,16 @@ describe("container delivery contract", () => {
 
   it("runs a provider-free runtime validator inside the worker image", () => {
     expect(read("Dockerfile.worker")).toContain("dist/worker/validate-runtime.mjs");
+  });
+
+  it("self-tests the deploy migration gate inside both images, offline, in CI", () => {
+    const workflow = read(".github/workflows/docker-image.yml");
+    expect(workflow).toContain(
+      "--network=none --entrypoint node clinical-kb-app:ci scripts/deploy/await-migrations.mjs --self-test",
+    );
+    expect(workflow).toContain(
+      "--network=none --entrypoint node clinical-kb-worker:ci scripts/deploy/await-migrations.mjs --self-test",
+    );
   });
 
   it("includes the new Docker hardening scripts", () => {
