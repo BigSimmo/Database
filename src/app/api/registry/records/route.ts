@@ -24,6 +24,11 @@ import {
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
 import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
+import {
+  bundledServiceGovernance,
+  bundledServicesMissingFrom,
+  preferBundledServiceRecord,
+} from "@/lib/site-content/bundled-service-catalogue";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -230,7 +235,22 @@ export async function GET(request: Request) {
         });
         observed.source = result.source;
         const activeReleaseId = siteContentSnapshotReleaseId(result.snapshot);
-        return result.records.map((entry) => preferBundledFormRecord(kind, entry, { activeReleaseId }));
+        const refreshed = result.records.map((entry) =>
+          kind === "form"
+            ? preferBundledFormRecord(kind, entry, { activeReleaseId })
+            : preferBundledServiceRecord(entry, { activeReleaseId }),
+        );
+        if (kind === "form") return refreshed;
+        // Services only. The served release is still the 2026-08-24 freeze, which predates the 17
+        // records added by #2814, so the list is topped up with them under their own conservative
+        // governance -- never the release's sign-off. Empty once a real release is active.
+        return [
+          ...refreshed,
+          ...bundledServicesMissingFrom(
+            refreshed.map((entry) => entry.record),
+            { activeReleaseId },
+          ).map((record) => ({ record, governance: bundledServiceGovernance(record) })),
+        ];
       },
     });
     const records = canonical.records.map((entry) => entry.record);
