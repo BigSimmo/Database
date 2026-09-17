@@ -255,14 +255,21 @@ matched literally (see [Open](#open)).
 
 ## Merge authority
 
-**Owner-merge rule (owner ruling 2026-09-16).** Three kinds of PR are **owner-merged, not
-agent-merged**:
+**Owner-merge rule (owner ruling 2026-09-17, narrowing the 2026-09-16 ruling).** One kind of PR is
+**owner-merged, not agent-merged**: any PR touching `supabase/`.
 
-- clinical-content PRs (`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk: true`);
-- any PR touching `supabase/`;
-- any PR touching a RAG-ranking surface (see `AGENTS.md` `# RAG ranking protection`).
+The 2026-09-16 ruling also held clinical-content PRs (`scripts/pr-policy.mjs`
+`classifyPullRequestFiles` → `clinicalRisk: true`) and RAG-ranking PRs. **It no longer does.**
+`clinicalRiskPatterns` matches most of `src/lib/**`, so the hold came to rest on nearly every PR,
+refactors included; a label applied that often stops being a review, and the owner asked for it
+back. Those PRs keep every other control — the clinical governance preflight, the `RAG impact:`
+body line, the canary-pair requirement, CODEOWNERS review, and exclusion from the unattended
+`Clear PRs` batch, where `scripts/pr-batch-core.mjs` now carries its own
+`clinical-review-required` rule rather than inheriting one from `ownerMergeReasons`. `supabase/`
+stays held because merging it is the one action here with no undo: it reaches the live clinical
+database within seconds, with no deploy step in between.
 
-For these, the required `Owner approval` status stays yellow (pending) until Josh adds the
+For an owner-merge PR, the required `Owner approval` status stays yellow (pending) until Josh adds the
 `owner-approved` label himself; any new push to the branch removes that label. This is enforced
 by the `PR policy` workflow (#2830, #2842): the label counts only when the repository owner
 applied it — not through a GitHub App — after the PR's latest push. A label that does not count
