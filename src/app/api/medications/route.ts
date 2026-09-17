@@ -239,6 +239,7 @@ export async function GET(request: Request) {
           slug: null,
           seeds,
           signal,
+          cache: true,
           mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
             record: finalRenderPayload as unknown as MedicationRecord,
             governance: {
