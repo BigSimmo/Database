@@ -7,6 +7,7 @@ import {
   isSmartNaturalSearchMode,
   smartLocalOnlyModeIds,
   smartNaturalSearchModeIds,
+  smartSearchContentTerms,
 } from "@/lib/smart-search-intent";
 
 describe("interpretSmartSearch", () => {
@@ -134,4 +135,73 @@ describe("interpretSmartSearch", () => {
       });
     },
   );
+});
+
+/**
+ * The two-to-three word dead zone.
+ *
+ * `smartSearchContentTerms` used to return ONLY the curated expansions whenever the query was not
+ * classified as natural language, and `naturalLanguage` needs a curated rule, a question mark, a
+ * conversational opener, or four tokens. So a plain two- or three-word query that matched no rule
+ * produced no terms at all, and every consumer scoring against those terms scored zero.
+ *
+ * One token still worked, because a single word is a substring of the haystack. Four tokens
+ * worked, because they cleared the natural-language bar. Two and three fell in the hole -- which
+ * is most of how people actually search.
+ *
+ * Reported by the 2026-09-17 external audit as a calculators problem ("anxiety screening" finds
+ * nothing while "anxiety" finds GAD-7). It was never mode-specific: every mode using this helper
+ * had the same hole.
+ *
+ * Measured before and after on the real calculator catalogue: "anxiety screening" went 0 hits to
+ * 2 including GAD-7, "depression screening" 0 to 2, and "GAD-7" stayed at exactly 1.
+ */
+describe("short plain queries contribute their own subject words", () => {
+  it.each([
+    ["services", "youth counselling"],
+    ["calculators", "anxiety screening"],
+    ["tools", "interaction checker"],
+  ] as const)("returns subject terms for a two-word %s query", (mode, query) => {
+    const terms = smartSearchContentTerms(mode, query);
+    expect(terms.length).toBeGreaterThan(0);
+    for (const word of query.split(" ")) expect(terms).toContain(word);
+  });
+
+  it("still returns nothing extra for a code, which must be matched as written", () => {
+    // The guard on the fix. Tokenising an identifier into subject words adds noise the identity
+    // matchers already handle better, so `literalIdentifier` keeps these on the old path.
+    for (const code of ["GAD-7", "PHQ-9", "F32.1"]) {
+      expect(interpretSmartSearch("calculators", code).literalIdentifier).toBe(true);
+      expect(smartSearchContentTerms("calculators", code)).toEqual([]);
+    }
+  });
+
+  it("does not reclassify a short query as a natural-language question", () => {
+    // Only the terms changed. `naturalLanguage` still means "read this as a question", and
+    // everything keyed off it -- including the curated-term recomputation -- is untouched.
+    expect(interpretSmartSearch("calculators", "anxiety screening")).toMatchObject({
+      naturalLanguage: false,
+      literalIdentifier: false,
+    });
+  });
+
+  it("keeps curated expansions ahead of the query's own words", () => {
+    // The ordering contract the helper's own comment states: a governed phrase outranks an
+    // incidental word from the question. Unchanged by the fix.
+    const terms = smartSearchContentTerms("services", "young person");
+    expect(terms.indexOf("youth")).toBeLessThan(terms.indexOf("person"));
+  });
+
+  it("still drops stop words and the mode's own noun", () => {
+    // `modeSearchWords` is keyed per mode and only `calculators`, `factsheets` and `dictionary`
+    // have an entry, so this is asserted where the mechanism actually applies. Noted while
+    // writing it: `services` has no such list, so "service" survives as a subject term there and
+    // matches most of the catalogue. Left alone -- filling that list is a relevance decision
+    // about the services mode, not part of this fix.
+    const terms = smartSearchContentTerms("calculators", "a screening tool for anxiety");
+    expect(terms).toContain("anxiety");
+    expect(terms).not.toContain("a");
+    expect(terms).not.toContain("for");
+    expect(terms).not.toContain("tool");
+  });
 });

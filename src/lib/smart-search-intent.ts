@@ -33,6 +33,15 @@ export type SmartSearchInterpretation = {
   originalQuery: string;
   naturalLanguage: boolean;
   expansions: string[];
+  /**
+   * The query is a code, identifier or mode that must be matched as written -- `GAD-7`, `F32.1`,
+   * a form number -- rather than broken into subject words.
+   *
+   * Distinct from `naturalLanguage: false`, which those queries also carry. Both say "do not
+   * treat this as a question"; only this one says "do not tokenise it either". Splitting them is
+   * what lets a short plain query contribute its own words while a code still cannot.
+   */
+  literalIdentifier: boolean;
 };
 
 type ExpansionRule = { pattern: RegExp; terms: readonly string[] };
@@ -267,12 +276,12 @@ export function isSmartLocalOnlyMode(modeId: AppModeId): modeId is SmartLocalOnl
 export function interpretSmartSearch(modeId: AppModeId, query: string): SmartSearchInterpretation {
   const originalQuery = query.trim();
   if (!originalQuery || !isSmartNaturalSearchMode(modeId)) {
-    return { modeId, originalQuery, naturalLanguage: false, expansions: [] };
+    return { modeId, originalQuery, naturalLanguage: false, expansions: [], literalIdentifier: true };
   }
 
   const withoutTerminalPunctuation = originalQuery.replace(/[?!.,;:]+$/u, "").trim();
   if (compactCodePattern.test(withoutTerminalPunctuation) || embeddedIdentifierPattern.test(originalQuery)) {
-    return { modeId, originalQuery, naturalLanguage: false, expansions: [] };
+    return { modeId, originalQuery, naturalLanguage: false, expansions: [], literalIdentifier: true };
   }
 
   const expansions = modeExpansionRules[modeId]
@@ -289,7 +298,7 @@ export function interpretSmartSearch(modeId: AppModeId, query: string): SmartSea
     conversationalLeadPattern.test(originalQuery) ||
     tokenCount >= 4;
 
-  return { modeId, originalQuery, naturalLanguage, expansions: uniqueExpansions };
+  return { modeId, originalQuery, naturalLanguage, expansions: uniqueExpansions, literalIdentifier: false };
 }
 
 export function smartSearchExpansions(modeId: AppModeId, query: string): string[] {
@@ -305,7 +314,9 @@ export function smartSearchExpansions(modeId: AppModeId, query: string): string[
  */
 export function smartSearchContentTerms(modeId: AppModeId, query: string): string[] {
   const interpretation = interpretSmartSearch(modeId, query);
-  if (!interpretation.naturalLanguage) return interpretation.expansions;
+  // A code or identifier is matched as written; tokenising `GAD-7` or `F32.1` into subject words
+  // adds noise that the identity matchers already handle better.
+  if (interpretation.literalIdentifier) return interpretation.expansions;
 
   const ignored = isSmartNaturalSearchMode(modeId) ? modeSearchWords[modeId] : undefined;
   // Recompute the curated terms straight from the matching rules rather than
