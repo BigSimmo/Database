@@ -108,6 +108,20 @@ const clinicalRiskPatterns = [
   // (e.g. Caring Contacts interface vocabulary, overlay definitions, clinical safety checks).
   // Weakening or altering them is the clinical evasion route (#97W4FD).
   /^tests\/(?:caring-contacts-(?:interface-vocabulary|overlay-definitions)\.test|calculator-mockup-clinical-safety\.test|helpers\/caring-contacts-prohibited-language)\.ts$/,
+  // Owner ruling 2026-09-17, after the clinical review of #2838: that PR withheld a
+  // contaminated generated differential body (differential-curated.ts,
+  // differential-detail.ts) and applied it at four separate call sites
+  // (differential-fixtures.ts, differentials.ts, registry-corpus.ts, the page). None of
+  // "differential-curated", "differential-detail", "differential-fixtures", "differentials"
+  // or "differential-detail-page" contain a token from the set above, so a differential-only
+  // change to any of them — including a future withholding fix like this one — could merge
+  // without review. The token set does already match differential-search-composition.ts (via
+  // "search"), differential-stream-model.ts (via "mode", inside "model") and
+  // differentials-search-request.ts (via "search"); the three patterns below are additive,
+  // not a replacement for the token set.
+  /^src\/lib\/differential[^/]*\.ts$/,
+  /^src\/components\/differentials\//,
+  /^scripts\/build-cross-mode-differentials-index\.mjs$/,
 ];
 
 /**
@@ -1523,6 +1537,16 @@ function selfTest() {
   // Still narrow: the rest of on-call is not swept in by the repository entry.
   assert.equal(classifyPullRequestFiles(["src/lib/on-call/api-schemas.ts"]).clinicalRisk, false);
   assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
+  // Owner ruling 2026-09-17, after the clinical review of #2838: differential-diagnosis code and
+  // content are clinical-risk even though most of these file names carry no clinical token.
+  assert.equal(classifyPullRequestFiles(["src/lib/differential-detail.ts"]).clinicalRisk, true);
+  assert.equal(
+    classifyPullRequestFiles(["src/components/differentials/differential-detail-page.tsx"]).clinicalRisk,
+    true,
+  );
+  assert.equal(classifyPullRequestFiles(["scripts/build-cross-mode-differentials-index.mjs"]).clinicalRisk, true);
+  // Near miss: an unrelated UI component is not swept in by the differential patterns.
+  assert.equal(classifyPullRequestFiles(["src/components/ui/button.tsx"]).clinicalRisk, false);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
   assert.equal(classifyPullRequestFiles(["src/lib/search-route-ownership.ts"]).ui, true);
