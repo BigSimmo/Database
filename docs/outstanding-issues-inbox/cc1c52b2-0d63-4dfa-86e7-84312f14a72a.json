@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "cc1c52b2-0d63-4dfa-86e7-84312f14a72a",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Safety chips are labelled by broad first-match keywords: an instruction to cease a drug gets no label at all, and 'immediately' does not match the red-flag pattern that matches 'immediate'",
+    "detail": "CHARACTERISED AND PINNED, NOT FIXED, in PR #2860 (tests/clinical-safety.test.ts, 'safety finding precision'). Raised by the 2026-09-17 external audit (its finding C4). Its separate numeric-truncation claim is REFUTED and should not be re-checked: truncateAtSafeBoundary (clinical-safety.ts:77-88) drops a whole numeric token rather than cutting inside one, fixed twice since audit L111 and pinned by two committed tests. WHAT IS REAL: extractSafetyFindings labels a passage with safetyPatterns.find - the FIRST entry in a severity-ordered array whose regex matches - over tokens broad enough to appear in ordinary clinical prose. Now demonstrated by committed tests: 'Review the chart again in six weeks' is Monitoring; 'Avoid delay in transferring the patient' is Contraindication, the top severity, stop tone, danger colour; 'Monitor the full blood count weekly and avoid missing a sample' is Contraindication because avoid sits earlier in the array than monitor. THE FALSE NEGATIVE IS THE MORE DANGEROUS DIRECTION and was uncovered: no pattern knows cease, withhold, hold the dose, boxed warning, black box, hypersensitivity or anaphylaxis, so a passage whose entire content is a stop instruction produces NO finding. FOUND WHILE WRITING THOSE TESTS, and not in the audit: every red-flag token is wrapped in word boundaries, so 'immediate' matches 'with immediate effect' and does NOT match 'immediately', the commoner clinical phrasing. That is a plain regex defect, not the first-match-wins mechanism, and it has its own pinned case. WHY IT WAS NOT FIXED: answerSupportPriority (src/components/clinical-dashboard/evidence-panels.tsx:139-147) promotes the most severe safety finding AHEAD OF EVERYTHING ELSE as the answer's headline support card, so changing which passages carry a label changes what a clinician sees first. That is an owner decision about clinical display, not a defect to fix in passing. NEXT: decide the vocabulary (the adverb-form defect is the cheapest and least contentious part), and decide separately whether a regex-derived finding should hold the headline position at all. When the labels change, update the characterisation tests and move their reasoning with them - a green run there is not evidence the labels are clinically right.",
+    "source": "tests/clinical-safety.test.ts precision cases added in PR #2860; code read of src/lib/clinical-safety.ts and evidence-panels.tsx at origin/main 6f0a3d444; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
+    "issueUlid": "01M2R5V086GHC4XZAD8NY13YSG"
+  }
+}

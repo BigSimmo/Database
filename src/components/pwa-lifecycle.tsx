@@ -22,6 +22,18 @@ const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
 const IOS_INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-ios-install-dismissed-at";
 const INSTALL_DISMISSAL_MS = 30 * 24 * 60 * 60 * 1000;
+/**
+ * Dismissing the update notice used to set a ref and nothing else, so it came back on the next
+ * page load -- and it sits over the bottom-right corner, where content and controls are. The
+ * install prompt has been persisting its dismissal since it was written; this is the same
+ * treatment for the same reason (2026-09-17 audit, finding L4).
+ *
+ * Keyed by the waiting worker's script URL rather than a bare flag, so dismissing THIS update
+ * does not suppress the NEXT one: a clinician who says "later" to one version must still be
+ * offered the one after it. Short window -- an update is worth re-offering the same day.
+ */
+const UPDATE_DISMISSAL_KEY = "clinical-kb-pwa-update-dismissed-at";
+const UPDATE_DISMISSAL_MS = 6 * 60 * 60 * 1000;
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const PWA_CACHE_PREFIX = "clinical-kb-pwa-";
 const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
@@ -68,6 +80,27 @@ function wasInstallRecentlyDismissed(key: string = INSTALL_DISMISSAL_KEY) {
     // remains a progressive enhancement, so a storage failure is non-fatal.
   }
   return false;
+}
+
+function wasUpdateRecentlyDismissed() {
+  try {
+    const dismissedAt = Number(window.localStorage.getItem(UPDATE_DISMISSAL_KEY));
+    if (!Number.isFinite(dismissedAt) || dismissedAt <= 0) return false;
+    if (Date.now() - dismissedAt < UPDATE_DISMISSAL_MS) return true;
+    window.localStorage.removeItem(UPDATE_DISMISSAL_KEY);
+  } catch {
+    // Storage can be unavailable in private/restricted contexts. Re-offering the update is the
+    // safe failure: the notice is an offer, and showing it twice costs less than never showing it.
+  }
+  return false;
+}
+
+function rememberUpdateDismissal() {
+  try {
+    window.localStorage.setItem(UPDATE_DISMISSAL_KEY, String(Date.now()));
+  } catch {
+    // See above: the in-session ref still suppresses it for this page view.
+  }
 }
 
 function rememberInstallDismissal(key: string = INSTALL_DISMISSAL_KEY) {
@@ -433,6 +466,10 @@ export function PwaLifecycle() {
     }
     if (process.env.NODE_ENV !== "production" && pwaDevFlag !== "1") return;
 
+    // Seeded before anything can expose a waiting worker, so a dismissal from an earlier page
+    // view is honoured rather than re-offered on every navigation.
+    if (wasUpdateRecentlyDismissed()) updateDismissedRef.current = true;
+
     let cancelled = false;
     let cancelScheduledRegistration: () => void = () => {};
     const registrationCleanups = new Set<() => void>();
@@ -592,6 +629,7 @@ export function PwaLifecycle() {
 
   const dismissUpdate = () => {
     updateDismissedRef.current = true;
+    rememberUpdateDismissal();
     setWaitingWorker(null);
     setActivatedUpdateReady(false);
   };

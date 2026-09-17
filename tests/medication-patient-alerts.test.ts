@@ -3,10 +3,15 @@ import { describe, expect, it } from "vitest";
 import { composeMedicationVerdict } from "@/lib/medication-interactions";
 import { getMedicationRecord, loadMedicationSnapshot } from "@/lib/medication-snapshot";
 import {
+  DEFAULT_THRESHOLD_MARKER,
+  ELDERLY_AGE_YEARS,
   evaluatePatientAlerts,
   formatUnassessedSentence,
   isProfileEmpty,
   noticeToneForSemanticTone,
+  PAEDIATRIC_AGE_YEARS,
+  QTC_PROLONGED_MS,
+  RENAL_IMPAIRMENT_EGFR,
   type MedicationConsideration,
   type PatientProfile,
 } from "@/lib/medication-patient-alerts";
@@ -125,18 +130,79 @@ describe("evaluatePatientAlerts — factor triggers", () => {
   });
 
   it("derives renal/qtc/elderly/paediatric factors when no match covers them", () => {
+    // Every reason here is marked: none of these numbers came from the medication's own record.
     const renal = recordWith({ factors: ["renal"], action: "dose-adjust", match: {} });
-    expect(reasons(evaluatePatientAlerts(renal, { egfr: 45 }).considerations)).toContain("Renal impairment (eGFR 45)");
+    expect(reasons(evaluatePatientAlerts(renal, { egfr: 45 }).considerations)).toContain(
+      `Renal impairment (eGFR 45)${DEFAULT_THRESHOLD_MARKER}`,
+    );
     expect(evaluatePatientAlerts(renal, { egfr: 80 }).considerations).toHaveLength(0);
 
     const qtc = recordWith({ factors: ["qtc"], action: "monitor", match: {} });
-    expect(reasons(evaluatePatientAlerts(qtc, { qtc: 470 }).considerations)).toContain("QTc 470 ≥ 450 ms");
+    expect(reasons(evaluatePatientAlerts(qtc, { qtc: 470 }).considerations)).toContain(
+      `QTc 470 ≥ 450 ms${DEFAULT_THRESHOLD_MARKER}`,
+    );
 
     const elderly = recordWith({ factors: ["elderly"], action: "caution", match: {} });
-    expect(reasons(evaluatePatientAlerts(elderly, { ageYears: 80 }).considerations)).toContain("Age 80 ≥ 65");
+    expect(reasons(evaluatePatientAlerts(elderly, { ageYears: 80 }).considerations)).toContain(
+      `Age 80 ≥ 65${DEFAULT_THRESHOLD_MARKER}`,
+    );
 
     const paed = recordWith({ factors: ["paediatric"], action: "caution", match: {} });
-    expect(reasons(evaluatePatientAlerts(paed, { ageYears: 5 }).considerations)).toContain("Age 5 < 18");
+    expect(reasons(evaluatePatientAlerts(paed, { ageYears: 5 }).considerations)).toContain(
+      `Age 5 < 18${DEFAULT_THRESHOLD_MARKER}`,
+    );
+  });
+
+  /**
+   * The fallback constants are not the defect -- they are correctly reached only when the
+   * medication's own record has no covering `match` key, and that precedence is already pinned
+   * below. The defect is that a reason they produce used to read EXACTLY like a catalogue-derived
+   * one: `QTc 465 ≥ 470 ms` from the record and `QTc 465 ≥ 450 ms` from this file, same shape,
+   * same badge, nothing to tell a prescriber which number they are looking at.
+   *
+   * The `unassessed` machinery does not cover it. That reports a missing INPUT; this is an
+   * unsourced THRESHOLD, and a prescriber would treat the two differently.
+   *
+   * Raised by the 2026-09-17 external audit (its finding C5), which framed it as the fallbacks
+   * firing wrongly. They do not. This is the part of that finding that survived checking.
+   */
+  describe("provenance of fallback thresholds", () => {
+    it("marks a reason derived from a default threshold", () => {
+      const record = recordWith({ factors: ["qtc"], action: "monitor", match: {} });
+      const [reason] = reasons(evaluatePatientAlerts(record, { qtc: 470 }).considerations);
+      expect(reason).toContain(DEFAULT_THRESHOLD_MARKER);
+    });
+
+    it("leaves a catalogue-derived reason unmarked, so the marker means something", () => {
+      // A test that only checked the marker's presence would pass just as happily if every
+      // reason carried it, which would make it noise rather than information.
+      const record = recordWith({ factors: ["qtc"], action: "monitor", match: { qtc: { gte: 500 } } });
+      const [reason] = reasons(evaluatePatientAlerts(record, { qtc: 510 }).considerations);
+      expect(reason).toBe("QTc 510 ≥ 500 ms");
+      expect(reason).not.toContain(DEFAULT_THRESHOLD_MARKER);
+    });
+
+    it("pins the threshold values themselves", () => {
+      // These are clinical numbers with no citation in the repository, and the comment beside
+      // them still carries an undischarged "confirm against the BigSimmo/Medications reference".
+      // Pinned so changing one is a deliberate, reviewed act rather than a drive-by edit.
+      expect(RENAL_IMPAIRMENT_EGFR).toBe(60);
+      expect(QTC_PROLONGED_MS).toBe(450);
+      expect(ELDERLY_AGE_YEARS).toBe(65);
+      expect(PAEDIATRIC_AGE_YEARS).toBe(18);
+    });
+
+    it("records that QTc cannot be sex-specific here, because sex is not collected", () => {
+      // Conventional QTc thresholds differ by sex (~450 ms male, ~470 ms female). PatientProfile
+      // has no sex field at all, so the single value is not a shortcut -- the input does not
+      // exist. The direction is the safe one: 450 is the LOWER cut-off, so it over-triggers for
+      // a female patient rather than missing her. Recorded here rather than silently changed,
+      // because collecting sex is a product and privacy decision, not a code fix.
+      const record = recordWith({ factors: ["qtc"], action: "monitor", match: {} });
+      const profile: Record<string, unknown> = { qtc: 460, sex: "female" };
+      const fired = reasons(evaluatePatientAlerts(record, profile as never).considerations);
+      expect(fired).toEqual([`QTc 460 ≥ 450 ms${DEFAULT_THRESHOLD_MARKER}`]);
+    });
   });
 
   it("does not double-report a factor already covered by a match key", () => {
@@ -314,7 +380,9 @@ describe("evaluatePatientAlerts — bare-renal fail-safe (no false all-clear on 
 
   it("still fires renal impairment on a low input", () => {
     const record = recordWith({ factors: ["renal"], action: "contraindication", match: {} });
-    expect(reasons(evaluatePatientAlerts(record, { egfr: 20 }).considerations)).toContain("Renal impairment (eGFR 20)");
+    expect(reasons(evaluatePatientAlerts(record, { egfr: 20 }).considerations)).toContain(
+      `Renal impairment (eGFR 20)${DEFAULT_THRESHOLD_MARKER}`,
+    );
   });
 
   it("routes a non-contraindication bare-renal row to the advisory tier, never the blocking one", () => {

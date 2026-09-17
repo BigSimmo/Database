@@ -199,6 +199,100 @@ describe("search scope filters", () => {
     expect(() => searchScopeFiltersSchema.parse({ labelTypesAny: ["not-a-label-type"] })).toThrow();
   });
 
+  /**
+   * The owner predicate itself had no test at all, in 469 lines. That matters more here than the
+   * usual missing-coverage complaint, because this predicate is safe only by REFERENCE to
+   * something outside the file: a null owner is admitted as public without also testing the
+   * `public_corpus` marker, and the only reason that is not a tenancy hole is the database
+   * constraint `documents_ownerless_requires_publication_marker` plus the `status = 'indexed'`
+   * filter, which together make the two definitions equivalent.
+   *
+   * Nothing said so, in the code or in a test. Someone dropping the status filter as a tidy-up,
+   * or reusing this resolver over a table without the constraint, re-opened it silently. These
+   * cases pin both halves of that argument to the query the resolver actually sends.
+   *
+   * Written 2026-09-17 while verifying an external audit, which reported the predicate
+   * divergence as a live tenancy defect. It is not -- the database closed it on 2026-09-02 -- but
+   * the absence of any test was real.
+   */
+  describe("owner predicate", () => {
+    /** Runs the resolver with one filter, so it reaches the database rather than short-circuiting. */
+    async function documentsQueryFor(accessScope: { ownerId?: string; includePublic: boolean }) {
+      const supabase = supabaseMock(() => ({ data: [], error: null }));
+      await resolveSearchScope({
+        supabase: supabase as never,
+        accessScope,
+        filters: { sourceStatuses: ["current"] },
+      });
+      const call = supabase.calls.find((entry) => entry.table === "documents");
+      expect(call).toBeDefined();
+      return call!;
+    }
+
+    it("restricts an anonymous reader to ownerless rows", async () => {
+      const call = await documentsQueryFor({ includePublic: true });
+      expect(call.filters).toContainEqual({ column: "owner_id", value: null });
+      expect(call.orFilters.join(" ")).not.toContain("owner_id.eq.");
+    });
+
+    it("only ever asks for indexed rows, which is half of why the null-owner test is safe", async () => {
+      // The database permits an ownerless row with no publication marker in exactly one state:
+      // `status = 'failed'` quarantine. This filter is what excludes it. Drop it and the
+      // predicate above stops being equivalent to the two-signal one in public-api-access.ts.
+      for (const scope of [
+        { includePublic: true },
+        { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: true },
+        { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+      ]) {
+        const call = await documentsQueryFor(scope);
+        expect(call.filters).toContainEqual({ column: "status", value: "indexed" });
+      }
+    });
+
+    it("gives a signed-in reader their own rows and the public ones, and no others", async () => {
+      const call = await documentsQueryFor({ ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: true });
+      expect(call.orFilters).toContain(`owner_id.eq.aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa,owner_id.is.null`);
+    });
+
+    it("withholds public rows from an owner-scoped reader who did not ask for them", async () => {
+      const call = await documentsQueryFor({ ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false });
+      expect(call.filters).toContainEqual({ column: "owner_id", value: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+      expect(call.filters).not.toContainEqual({ column: "owner_id", value: null });
+      expect(call.orFilters.join(" ")).not.toContain("owner_id.is.null");
+    });
+
+    it("resolves the empty scope to nothing rather than to the whole corpus", async () => {
+      // `{ includePublic: false }` with no owner is the shape `retrievalAccessScopeKey` calls
+      // "empty". It used to satisfy `publicOnly` and return the entire public corpus -- the exact
+      // opposite of what it asks for. Latent, because `resolveRetrievalAccessScope` always sets
+      // includePublic, but the fix had to be an explicit refusal: the branch chain has no final
+      // `else`, so a scope that merely stopped being `publicOnly` would have gone to the database
+      // with NO owner predicate at all and returned every tenant's documents.
+      const from = () => {
+        throw new Error("an empty access scope must never reach the database");
+      };
+      await expect(
+        resolveSearchScope({ supabase: { from } as never, accessScope: { includePublic: false } }),
+      ).resolves.toMatchObject({ documentIds: [], matchedDocumentCount: 0, summary: "No matching documents" });
+    });
+
+    it("refuses the empty scope even when filters and explicit ids are supplied", async () => {
+      // The refusal is ahead of every other branch on purpose: an empty scope carrying explicit
+      // document ids must not be able to buy its way past it.
+      const from = () => {
+        throw new Error("an empty access scope must never reach the database");
+      };
+      await expect(
+        resolveSearchScope({
+          supabase: { from } as never,
+          accessScope: { includePublic: false },
+          documentIds: ["11111111-1111-4111-8111-111111111111"],
+          filters: { sourceStatuses: ["current"] },
+        }),
+      ).resolves.toMatchObject({ documentIds: [], matchedDocumentCount: 0 });
+    });
+  });
+
   it("does not enumerate every public document when no filters are requested", async () => {
     const from = () => {
       throw new Error("public all-document scope should be enforced by the retrieval owner sentinel");
