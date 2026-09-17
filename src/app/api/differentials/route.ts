@@ -10,6 +10,7 @@ import { deriveGovernanceFromSnapshot, type DifferentialRecordKind } from "@/lib
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import { loadDifferentialSnapshot } from "@/lib/differential-seed";
 import {
+  differentialPresentations,
   differentialRecords,
   rankDifferentialRecords,
   rankPresentationWorkflows,
@@ -23,6 +24,11 @@ import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import {
+  catalogueListFallbackBudgetMs,
+  catalogueListScope,
+  readCatalogueWithSeedFallback,
+} from "@/lib/site-content/catalogue-seed-fallback";
+import {
   canonicalSiteContentGovernance,
   readCanonicalSiteContentRecords,
 } from "@/lib/site-content/site-content-publication";
@@ -31,6 +37,23 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
+
+/**
+ * THE SERVER'S OWN DEADLINE IS `catalogueListFallbackBudgetMs` BELOW, NOT A ROUTE SEGMENT CONFIG.
+ *
+ * Until 2026-09-17 nothing bounded this route at all: the only limits in the system were the
+ * browser's 45 s abort (`searchRequestTimeoutMs`) and Railway's 30 s edge kill, and neither stops
+ * the SERVER working. A request the reader had already abandoned kept holding a connection and
+ * burning database time, which is part of how one slow catalogue read saturated Postgres for
+ * every other mode at once.
+ *
+ * `export const maxDuration` does NOT fix that here, and was removed after being tried. Next only
+ * writes it into the build output for a deployment platform to enforce; this app ships as a
+ * Dockerfile running `next start` on Railway, which never reads it. It would have looked like a
+ * deadline and been a no-op — the same shape of defect as the catalogue cache that shipped on
+ * 2026-09-16 and stored nothing in production for eight days. If a real per-route ceiling is
+ * wanted, it has to be an AbortController in code, as `readCatalogueWithSeedFallback` already is.
+ */
 
 const differentialListQuerySchema = z.object({
   kind: z.enum(["presentation", "diagnosis"]).optional().default("diagnosis"),
@@ -121,21 +144,43 @@ export async function GET(request: Request) {
     const snapshot = loadDifferentialSnapshot();
     const seedGovernance = deriveGovernanceFromSnapshot(snapshot);
     if (kind === "presentation") {
-      const canonical = await readCanonicalSiteContentRecords({
-        supabase,
+      // `differentialPresentations()` (the scoped catalogue), NOT `snapshot.presentations` (the
+      // raw loader output). The canonical branch below maps every row through
+      // `scopePresentationWorkflow`, so seeding from the unscoped snapshot would let a seed read
+      // and a live read of the same workflow return different criterion scopes — the exact
+      // divergence `scopeDifferentialRecord` documents as the thing to prevent, and the UI
+      // defaults an unscoped criterion to diagnosis-specific. It mattered little while seeds were
+      // reached only by an uninitialised corpus; the fallback below makes that path routine.
+      const presentationSeeds = differentialPresentations().map((workflow) => ({
+        workflow,
+        governance: {
+          sourceStatus: seedGovernance.source_status,
+          validationStatus: seedGovernance.validation_status,
+        },
+      }));
+      const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+      const canonical = await readCatalogueWithSeedFallback({
         kind: "presentation",
-        slug: null,
-        seeds: snapshot.presentations.map((workflow) => ({
-          workflow,
-          governance: {
-            sourceStatus: seedGovernance.source_status,
-            validationStatus: seedGovernance.validation_status,
-          },
-        })),
-        mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-          workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
-          governance: canonicalSiteContentGovernance(canonicalRecord),
-        }),
+        scope: catalogueListScope,
+        seeds: presentationSeeds,
+        signal: request.signal,
+        budgetMs: catalogueListFallbackBudgetMs,
+        read: async (signal) => {
+          const result = await readCanonicalSiteContentRecords({
+            supabase,
+            kind: "presentation",
+            slug: null,
+            seeds: presentationSeeds,
+            signal,
+            cache: true,
+            mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+              workflow: scopePresentationWorkflow(finalRenderPayload as unknown as DifferentialPresentationWorkflow),
+              governance: canonicalSiteContentGovernance(canonicalRecord),
+            }),
+          });
+          observed.source = result.source;
+          return result.records;
+        },
       });
       const presentations = canonical.records.map((entry) => entry.workflow);
       const ranked = q ? rankPresentationWorkflows(presentations, q, limit) : null;
@@ -145,23 +190,42 @@ export async function GET(request: Request) {
           presentations: ranked ? ranked.map((match) => match.workflow) : presentations,
           matches: ranked ? presentationMatchesPayload(ranked) : undefined,
           total: presentations.length,
+          degraded: canonical.degraded,
           governance: Object.fromEntries(canonical.records.map((entry) => [entry.workflow.id, entry.governance])),
         },
-        { request, fixture: canonical.source === "seed_uninitialized" },
+        // Not widened to `canonical.degraded`: `fixture` lengthens public cacheability, which is
+        // right for an uninitialised corpus and wrong for a degraded read that may heal in the
+        // thirty-second cooldown. Same reasoning as the registry list route.
+        { request, fixture: observed.source === "seed_uninitialized" },
       );
     }
-    const canonical = await readCanonicalSiteContentRecords({
-      supabase,
+    const differentialSeeds = differentialRecords.map((record) => ({
+      record,
+      governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
+    }));
+    const observed: { source: "canonical_public" | "seed_uninitialized" } = { source: "canonical_public" };
+    const canonical = await readCatalogueWithSeedFallback({
       kind: "differential",
-      slug: null,
-      seeds: differentialRecords.map((record) => ({
-        record,
-        governance: { sourceStatus: seedGovernance.source_status, validationStatus: seedGovernance.validation_status },
-      })),
-      mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
-        record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
-        governance: canonicalSiteContentGovernance(canonicalRecord),
-      }),
+      scope: catalogueListScope,
+      seeds: differentialSeeds,
+      signal: request.signal,
+      budgetMs: catalogueListFallbackBudgetMs,
+      read: async (signal) => {
+        const result = await readCanonicalSiteContentRecords({
+          supabase,
+          kind: "differential",
+          slug: null,
+          seeds: differentialSeeds,
+          signal,
+          cache: true,
+          mapRecord: ({ canonicalRecord, finalRenderPayload }) => ({
+            record: scopeDifferentialRecord(finalRenderPayload as unknown as DifferentialRecord),
+            governance: canonicalSiteContentGovernance(canonicalRecord),
+          }),
+        });
+        observed.source = result.source;
+        return result.records;
+      },
     });
     const records = canonical.records.map((entry) => entry.record);
     const ranked = q ? rankDifferentialRecords(records, q, limit) : null;
@@ -171,9 +235,10 @@ export async function GET(request: Request) {
         records: ranked ? ranked.map((match) => match.record) : records,
         matches: ranked ? recordMatchesPayload(ranked) : undefined,
         total: records.length,
+        degraded: canonical.degraded,
         governance: Object.fromEntries(canonical.records.map((entry) => [entry.record.slug, entry.governance])),
       },
-      { request, fixture: canonical.source === "seed_uninitialized" },
+      { request, fixture: observed.source === "seed_uninitialized" },
     );
   } catch (error) {
     if (error instanceof AuthenticationError) {
