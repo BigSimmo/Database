@@ -6,7 +6,7 @@ import {
   isIndexableAustralianSource,
   isSourceLicencePolicy,
 } from "@/lib/australian-source-catalogue";
-import { diagnosisFullText, presentationFullText } from "@/lib/differentials";
+import { diagnosisFullText, presentationFullText, scopeDifferentialRecord } from "@/lib/differentials";
 import type { DifferentialPresentationWorkflow, DifferentialRecord } from "@/lib/differential-snapshot";
 import {
   rowToDifferentialRecord,
@@ -648,7 +648,16 @@ export function medicationRowsToCorpusEntries(rows: readonly MedicationRecordRow
 export function differentialRowsToCorpusEntries(rows: readonly DifferentialRecordRow[]): RegistryCorpusEntry[] {
   return rows.map((row) => {
     const isPresentation = row.kind === "presentation";
-    const payload = isPresentation ? rowToPresentationWorkflow(row) : rowToDifferentialRecord(row);
+    // `rowToDifferentialRecord` is a bare `row.payload`, so a persisted row that
+    // predates a withhold arrives with its contaminated body intact. This is the
+    // clinical output path — the chunks built here are what answer generation
+    // retrieves — so it needs the same projection the page and the API use, not
+    // just the raw payload. Fixing the record reads and leaving this open would
+    // protect what a clinician browses while the product still quoted the wrong
+    // diagnosis back at them.
+    const payload = isPresentation
+      ? rowToPresentationWorkflow(row)
+      : scopeDifferentialRecord(rowToDifferentialRecord(row));
     return differentialRecordToCorpusEntry(payload, row.kind, {
       ownerId: row.owner_id,
       recordId: row.id,

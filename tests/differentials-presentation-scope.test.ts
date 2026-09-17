@@ -77,7 +77,17 @@ describe("differentials presentation scope", () => {
       .filter((group) => {
         const hinges = new Set(group.records.map((record) => record.clinicalHinge.trim()).filter(Boolean));
         if (hinges.size !== 1) return false;
-        return group.records.some((record) => record.clinicalHingeScope !== "presentation");
+        // A record with no hinge at all cannot be claiming the group's as its
+        // own, which is what this test is named for. That case exists because a
+        // record whose generated body was found to describe a different
+        // diagnosis has its hinge withheld before scoping runs, and the scope
+        // classifier then reads an empty hinge as diagnosis-scoped. Nothing
+        // renders either way — the consumers print `clinicalHinge` and it is
+        // empty — so the record belongs outside this check, not inside it with
+        // a scope label invented to satisfy the guard.
+        return group.records.some(
+          (record) => record.clinicalHinge.trim() && record.clinicalHingeScope !== "presentation",
+        );
       })
       .map((group) => group.title);
     expect(offenders).toEqual([]);
