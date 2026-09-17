@@ -38,9 +38,9 @@
 #   repository variables: set once, true forever. Once REINDEX_REAPER_APPLY is on, the only
 #   remaining per-run control is `client_payload.apply` on a `repository_dispatch` — and
 #   dispatch needs only `contents: write`, which every collaborator PAT holds and which at
-#   least two agent-driven workflows in this repo already have (`codex-run-pr-operator.yml`
-#   via `secrets.GH_TOKEN`, and `claude.yml`, which any non-bot comment containing `@claude`
-#   can trigger). The safe way to arm the apply path is a GitHub Environment with REQUIRED
+#   least one agent-driven workflow in this repo already has (`claude.yml`, which any non-bot
+#   comment containing `@claude` can trigger). The safe way to arm the apply path is a GitHub
+#   Environment with REQUIRED
 #   REVIEWERS on a separate apply job, so a human approves each deletion. That environment
 #   does not exist yet and is not referenced here on purpose: naming a missing environment in
 #   an `environment:` key makes GitHub auto-create it UNPROTECTED, which would read as safer

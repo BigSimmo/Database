@@ -1,6 +1,8 @@
 import formulationConceptIndexJson from "@/data/formulation-concept-index.json";
 import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
+const TITLE_COLLATOR = new Intl.Collator("en-AU");
+
 /**
  * The client-side half of the concept library.
  *
@@ -153,5 +155,5 @@ export function searchFormulationConcepts(
       return score > 0 ? { concept, score } : null;
     })
     .filter((result): result is FormulationConceptResult => Boolean(result))
-    .sort((left, right) => right.score - left.score || left.concept.title.localeCompare(right.concept.title, "en-AU"));
+    .sort((left, right) => right.score - left.score || TITLE_COLLATOR.compare(left.concept.title, right.concept.title));
 }

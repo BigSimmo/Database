@@ -12696,6 +12696,12 @@ create index site_content_sync_events_target_idx
 create index site_content_release_records_public_idx
   on public.site_content_release_records(release_id, logical_id)
   where public_visible and not tombstone;
+-- text_pattern_ops so the bootstrap branch of read_site_content_public_records can use a real
+-- index range for `logical_id like <kind prefix> || '%'`; the default-collation index above cannot
+-- serve a prefix range. See 20260916190000_seal_bootstrap_release_and_drop_per_read_digest.sql.
+create index site_content_release_records_public_prefix_idx
+  on public.site_content_release_records(release_id, logical_id text_pattern_ops)
+  where public_visible and not tombstone;
 
 create or replace function public.guard_site_content_immutable_row()
 returns trigger
@@ -13422,6 +13428,47 @@ update public.site_content_sync_state set
   active_release_digest = '57f6ec90225fc4341b446705f50a48b132f2872172d8f93888bf921fe7bfa1bc'
 where singleton;
 -- END GENERATED SITE CONTENT BOOTSTRAP RELEASE
+
+-- PLACEMENT IS LOAD BEARING. These two guards seal the retained epoch-zero populations against
+-- INSERT and the table against TRUNCATE (20260916190000). They must stay AFTER the bootstrap seed
+-- insert above, or a fresh replay of this mirror fails on its own seed. The sibling
+-- site_content_release_records_immutable trigger can sit next to the table because it only covers
+-- UPDATE and DELETE. In the migration chain this ordering is automatic (20260824122000 seeds
+-- first); in this single-file mirror it is manual.
+--
+-- Both are `enable always`, so unlike site_content_release_records_immutable they still fire under
+-- session_replication_role = replica. Together with the release-id <-> release_digest binding
+-- (public.site_content_release_id) they are what makes the per-read
+-- public.site_content_bootstrap_digest recomputation unnecessary; the full cryptographic
+-- re-derivation and per-row structural sweep continue to live in read_site_content_health() and in
+-- public.site_content_retained_bootstrap_valid.
+create or replace function public.guard_site_content_sealed_bootstrap()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception using errcode = '55000', message = 'site_content_sealed_bootstrap_release';
+end;
+$$;
+
+create trigger site_content_release_records_bootstrap_sealed
+before insert on public.site_content_release_records
+for each row
+when (new.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+  or new.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+  or new.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
+execute function public.guard_site_content_sealed_bootstrap();
+
+alter table public.site_content_release_records
+  enable always trigger site_content_release_records_bootstrap_sealed;
+
+create trigger site_content_release_records_no_truncate
+before truncate on public.site_content_release_records
+for each statement execute function public.guard_site_content_sealed_bootstrap();
+
+alter table public.site_content_release_records
+  enable always trigger site_content_release_records_no_truncate;
 
 create or replace function public.site_content_record_governance_hash(p_record jsonb)
 returns text
@@ -16379,7 +16426,9 @@ security definer
 set search_path = ''
 as $$
   select coalesce((
-    select r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+    select (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and r.target_change_epoch = 0
       and r.previous_release_id is null
       and r.registry_version = 'site-content-bootstrap-public-release-v1'
@@ -16405,6 +16454,45 @@ as $$
           or rr.embedding_fingerprint is distinct from 'bootstrap-no-embedding-1536-v1'
           or rr.embedding_value_digest is not null or rr.embedding is not null
           or rr.tombstone or not rr.public_visible))
+    from public.site_content_releases r
+    where r.id = p_release_id
+  ), false);
+$$;
+
+-- The cheap retained-bootstrap predicate used by the public read path
+-- (20260916190000_seal_bootstrap_release_and_drop_per_read_digest.sql). This is
+-- site_content_retained_bootstrap_valid above with exactly two predicates removed -- the aggregate
+-- `r.release_digest = public.site_content_bootstrap_digest(r.id)` and the per-row structural NOT
+-- EXISTS -- and nothing added. Both removed predicates walked all 843 frozen rows on EVERY public
+-- registry request (the digest canonicalising 9.5 MB through the recursive plpgsql
+-- site_content_canonical_json, the sweep detoasting every `record` jsonb), which is what made
+-- psychiatry.tools take seconds per page. They are now guaranteed structurally instead: the
+-- population is verified once inside that migration's own transaction, and the rows are immutable
+-- against UPDATE/DELETE (site_content_release_records_immutable) and sealed against INSERT and
+-- TRUNCATE (site_content_release_records_bootstrap_sealed / _no_truncate, both `enable always`).
+-- What is left is release-row metadata, the O(1) id <-> digest binding through
+-- site_content_release_id, and one index-only count over the primary key.
+create function public.site_content_retained_bootstrap_sealed(
+  p_release_id uuid,
+  p_release_digest text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce((
+    select (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
+      and r.target_change_epoch = 0
+      and r.previous_release_id is null
+      and r.registry_version = 'site-content-bootstrap-public-release-v1'
+      and r.generation_id = 'bootstrap-v1'
+      and r.release_digest = p_release_digest
+      and r.id = public.site_content_release_id(r.release_digest, 0, 'bootstrap-v1')
+      and r.expected_record_count > 0
     from public.site_content_releases r
     where r.id = p_release_id
   ), false);
@@ -16485,9 +16573,11 @@ set search_path = ''
 as $$
   select case
     when not p_initialized and p_receipt_id is null
-      and p_active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+      and (p_active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or p_active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or p_active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and p_served_change_epoch = 0
-      and public.site_content_retained_bootstrap_valid(p_active_release_id, p_active_release_digest)
+      and public.site_content_retained_bootstrap_sealed(p_active_release_id, p_active_release_digest)
       then 'bootstrap'
     when p_initialized and exists (
       select 1
@@ -16801,6 +16891,8 @@ revoke all on function public.site_content_receipt_bytes_valid(text, text, uuid,
   from public, anon, authenticated, service_role;
 revoke all on function public.site_content_retained_bootstrap_valid(uuid, text)
   from public, anon, authenticated, service_role;
+revoke all on function public.site_content_retained_bootstrap_sealed(uuid, text)
+  from public, anon, authenticated, service_role;
 revoke all on function public.site_content_initial_adoption_closure_valid(bigint)
   from public, anon, authenticated, service_role;
 revoke all on function public.site_content_current_transition_kind(text, uuid, text, boolean, bigint)
@@ -16811,6 +16903,7 @@ revoke all on function public.guard_site_content_sync_state_transition_pointer()
   from public, anon, authenticated, service_role;
 alter function public.site_content_receipt_bytes_valid(text, text, uuid, text, jsonb) owner to postgres;
 alter function public.site_content_retained_bootstrap_valid(uuid, text) owner to postgres;
+alter function public.site_content_retained_bootstrap_sealed(uuid, text) owner to postgres;
 alter function public.site_content_initial_adoption_closure_valid(bigint) owner to postgres;
 alter function public.site_content_current_transition_kind(text, uuid, text, boolean, bigint) owner to postgres;
 alter function public.site_content_current_transition_source_release_id(text) owner to postgres;
@@ -16839,9 +16932,18 @@ as $$
       coalesce(r.state = 'active' and r.release_digest = s.active_release_digest and (
         s.transition_kind in ('activation','rollback')
         or (s.transition_kind = 'bootstrap'
-          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
+          and (r.id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+            or r.id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+            or r.id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
           and r.target_change_epoch = 0
-          and r.release_digest = public.site_content_bootstrap_digest(r.id))
+          -- Was: r.release_digest = public.site_content_bootstrap_digest(r.id).
+          -- The digest is bound to the pinned id by site_content_release_id (a four-key hash), the
+          -- rows are immutable against UPDATE/DELETE (site_content_release_records_immutable) and,
+          -- from this migration, sealed against INSERT and TRUNCATE
+          -- (site_content_release_records_bootstrap_sealed / _no_truncate, both `enable always`).
+          -- The cryptographic re-derivation and the per-row structural sweep now run only in
+          -- read_site_content_health(), plus once in this migration's own verification block.
+          and r.id = public.site_content_release_id(r.release_digest, 0, 'bootstrap-v1'))
       ), false) valid
     from state s left join active_release r on true
   ), outstanding as (
@@ -16882,7 +16984,9 @@ as $$
     join public.site_content_release_records rr on rr.release_id = s.active_release_id
     where rr.public_visible and not rr.tombstone
       and rr.target_publication_id is null
-      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or rr.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
+      and (rr.release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+        or rr.release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+        or rr.release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid)
       and k.prefix is not null
       and rr.logical_id like k.prefix || '%'
       and (p_slug is null or rr.logical_id = k.prefix || p_slug)
@@ -16905,7 +17009,9 @@ as $$
       'state', case
         when not s.valid then 'unavailable'
         when not s.initialized then 'unavailable'
-        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid or s.active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid) then 'unavailable'
+        when (s.active_release_id = 'e4a1dd29-14f6-556c-8fb7-f4f947d8b846'::uuid
+          or s.active_release_id = '91ceaa8d-470c-5661-8ce6-980c2a1bb137'::uuid
+          or s.active_release_id = 'ddc94ecf-3527-5b4d-846b-af5724b428ca'::uuid) then 'unavailable'
         when exists (select 1 from outstanding) then 'updating'
         else 'current'
       end

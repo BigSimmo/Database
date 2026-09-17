@@ -5,8 +5,8 @@
  * Modes:
  *   --validate-only
  *       Offline contract check: the fixture manifest, the lab config, and the Gate B
- *       decision-record template. No measurements needed; this is what
- *       `npm run check:docling-lab` runs and what CI covers via the unit test.
+ *       decision-record template. No measurements needed; this is what CI covers via
+ *       the unit test.
  *   --validate-record <path> [--final]
  *       Validate a copied Gate B decision record (template mode by default; --final
  *       for an owner-filled record after a dispatched run).

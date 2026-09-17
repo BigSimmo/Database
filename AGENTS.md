@@ -90,8 +90,8 @@ seconds, with no deploy step in between), `# RAG ranking protection`, `# Railway
 
 | Topic                                                                                                                     | Full text                                                                                    |
 | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Gate selection, the verification tier table, the gate arbiter                                                             | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
-| Open PR sync, the `Run PR` sweep, babysitting a PR, review coverage, PR bundling                                          | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
+| Gate selection, the verification tier table, gate receipts                                                                | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
+| The whole PR lifecycle for every tool: open, follow CI, review threads, records, merge authority, landed, sync, sweeps    | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
 | The `upload` shortcut                                                                                                     | [`docs/agents/upload-shortcut.md`](docs/agents/upload-shortcut.md)                           |
 | Button and route wiring, the bundle budget                                                                                | [`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md)         |
 | External skill precedence, evidence and calibration                                                                       | [`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md)       |
@@ -105,7 +105,7 @@ Five sections stay here in full because a committed test or script reads their e
 `## Bare PR publication is not readiness work`, the format-before-push rule,
 `# Search chrome behaviour`, `## Anti-conflict and CI-speed operating procedure`, and
 `## Codex Cloud environment`. Their wording is code, not prose — moving or rewording it fails
-`verify:cheap`.
+`verify:full` (and CI).
 
 <!-- BEGIN:dependency-shortcut -->
 
@@ -184,7 +184,7 @@ For the verification principle, the tier table, and the rest of the gate-selecti
 
 ## Do not pay twice for the verdict GitHub is about to reach
 
-For the rule against re-deriving a verdict GitHub is about to reach, the gate arbiter's inputs and non-negotiable boundaries, and the browser-gate planner that narrows `verify:ui` to the specs a diff can actually break (`npm run plan:browser`), see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
+For the rule against re-deriving a verdict GitHub is about to reach, gate receipts, and the browser-gate planner that narrows `verify:ui` to the specs a diff can actually break (`npm run plan:browser`), see [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md).
 <!-- END:process-hardening -->
 
 <!-- BEGIN:page-and-button-wiring -->
@@ -298,22 +298,25 @@ For the rules on pasting the decisive gate line, stating verified versus assumed
   `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
   Full contract: `docs/database-drift-detection.md`.
 
-## Owner-merge rule (owner ruling 2026-09-16)
+## Owner-merge rule (owner ruling 2026-09-17, narrowing the 2026-09-16 ruling)
 
-Three kinds of PR are **owner-merged, not agent-merged**: clinical-content PRs
-(`scripts/pr-policy.mjs` `classifyPullRequestFiles` → `clinicalRisk: true`), any PR touching
-`supabase/`, and any PR touching a RAG-ranking surface (see "RAG ranking protection" below).
-For these, the required `PR policy` check stays red until Josh adds the `owner-approved`
-label himself; any new push to the branch removes that label. Agents must never add the
-`owner-approved` label, merge one of these PRs directly, or arm or re-arm auto-merge on one
-(see the auto-merge exception above). This is enforced by `PR policy` (#2830): the label counts
-only when the repository owner applied it, not through a GitHub App, after the PR's latest push.
+Any PR touching `supabase/` is **owner-merged, not agent-merged**. The required `Owner approval`
+status stays yellow (pending) on it until Josh adds the `owner-approved` label himself after the
+latest push (#2830, #2842). Agents must never add that label, merge one of these PRs, or arm or
+re-arm auto-merge on one; an armed one is reported, not disarmed.
 
-This does not relax existing migration discipline: **a migration already on `main` must
-never be edited.** If a change is needed, ship it as a new migration with the newest
-timestamp — never rewrite or mark-repair history in place (see the guard-migration contract
-above). `PR policy` blocks an edit, deletion or rename of an applied migration, and an added
-migration dated at or before the newest one on `main`.
+**Clinical-content and RAG-ranking PRs are no longer held for the label** (owner ruling
+2026-09-17, narrowing 2026-09-16). `clinicalRiskPatterns` matches most of `src/lib/**`, so the
+hold came to rest on nearly every PR — pure refactors included — and a label applied that often
+stops being a review. Those PRs keep every other control: the clinical governance preflight, the
+`RAG impact:` body line, the canary-pair requirement, and exclusion from the unattended
+`Clear PRs` batch (`clinical-review-required` and `rag-evidence-required` in
+`scripts/pr-batch-core.mjs`). `supabase/` stays held because merging it is the one action here
+with no undo — it reaches the live clinical database within seconds, with no deploy step between.
+
+`PR policy` also blocks edits to applied migrations and out-of-order or future-dated
+migrations: **a migration already on `main` must never be edited** — ship a new migration with the
+newest timestamp. Full rule: [Merge authority](docs/agents/pull-request-workflow.md#merge-authority).
 
 <!-- END:supabase-project-safety -->
 
@@ -328,12 +331,23 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
   (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
   tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
-  editing, even when the change looks incidental (refactor, rename, "just a comment").
-- **PR gate.** PRs touching those surfaces fail `pr-policy` without an explicit `RAG impact:`
-  line in the body — either `RAG impact: no retrieval behaviour change — <reason>` or
-  `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The source-pin contract
-  test (`tests/rag-imputation-contract.test.ts`) additionally goes red on any edit to the
-  imputation formulas or release-comparator key order.
+  editing, even when the change looks incidental (refactor, rename, "just a comment"). The same
+  applies to the two producers of retrieval inputs that sit outside `src/lib/rag/**` and are
+  easy to mistake for plain ingestion: the text producers (`src/lib/chunking.ts`,
+  `src/lib/extractors/**`, `worker/python/extract_pdf_assets.py`), which decide what ever
+  becomes a chunk or a citation, and the structured-evidence producers
+  (`src/lib/document-index-units.ts`, `src/lib/model-index-extraction.ts`,
+  `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
+  whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
+  of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
+- **PR nudge (advisory since 2026-09-17).** PRs touching those surfaces get a `pr-policy`
+  **warning** — not a block — when the body has no explicit `RAG impact:` line. Still write one,
+  because it is the fastest way to tell a reviewer whether ordering moved: either
+  `RAG impact: no retrieval behaviour change — <reason>` or
+  `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The real safeguards are
+  unchanged and both still fail closed: the live eval-canary below, and the source-pin contract
+  test (`tests/rag-imputation-contract.test.ts`), which goes red on any edit to the imputation
+  formulas or release-comparator key order.
 - **Canary for behaviour.** Any retrieval/ranking/ordering behaviour change requires a live
   eval-canary before/after pair (doc/content recall pinned 1.0, zero per-case rr regressions)
   before it is trusted; regression → immediate single-commit revert + confirmation run.
@@ -384,29 +398,35 @@ For the `upload` safe Git handoff workflow — protected branches, required insp
 
 ## Open PR branch sync (anti-churn)
 
-For the anti-churn branch-sync mitigations and the `git merge-tree` test that tells staleness from a real conflict, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+**Sync an open PR branch with `main` (merge `main` in, or `update-branch`) at most once, and only
+when the PR is otherwise ready — required checks green, review threads resolved — and GitHub reports
+it out of date: the ruleset's strict up-to-date rule blocks the merge until then. Never sync while
+its CI is still running or while it has failing checks or open review work; sync earlier only for a
+real conflict (`git merge-tree --write-tree origin/main <tip>` is dirty) or when the owner asks.**
+
+For the rest of the anti-churn branch-sync mitigations, see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync).
 <!-- END:pr-branch-sync -->
 
 ## Run PR shortcut
 
-For the `Run PR` open-PR maintenance sweep — what it authorizes, its hard guardrails, and its procedure, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the `Run PR` open-PR maintenance sweep — what it authorizes, its hard guardrails, and its procedure, see [Run PR](docs/agents/pull-request-workflow.md#run-pr).
 <!-- END:run-pr-shortcut -->
 
 ## Clear PRs shortcut
 
-When the user says `Clear PRs` (case-insensitive, entire message after trimming), invoke the sequential PR batch runner using [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md#clear-prs-shortcut). This authorizes the documented batch actions without another launch confirmation. Read that procedure before dispatch; do not substitute the maintenance-only `Run PR` sweep.
+When the user says `Clear PRs` (case-insensitive, entire message after trimming), invoke the sequential PR batch runner using [Clear PRs](docs/agents/pull-request-workflow.md#clear-prs). This authorizes the documented batch actions without another launch confirmation. Read that procedure before dispatch; do not substitute the maintenance-only `Run PR` sweep.
 
 ## Babysit the pull request, then stop
 
-For the 30-minute post-PR CI budget, what may be done inside it, and how it is enforced, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+Follow a PR's CI while it is useful, fix only this change's breakage, stop when CI settles, and never park a cron job on a PR — see [Follow CI](docs/agents/pull-request-workflow.md#follow-ci) for detail and how the no-cron rule is enforced. Review-thread handling for every tool is in [Review threads](docs/agents/pull-request-workflow.md#review-threads).
 
 ## Automated review coverage (owner decision, 2026-08-22)
 
-For the 2026-08-22 owner decision on automated review coverage, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For the 2026-08-22 owner decision on automated review coverage, see [Automated review coverage](docs/agents/pull-request-workflow.md#automated-review-coverage-owner-decision-2026-08-22).
 
 ## PR bundling (reduce one-task-one-PR churn)
 
-For when a task may ride an already-open PR, the two-way low-risk test, and what must never be bundled, see [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md).
+For when a task may ride an already-open PR, the two-way low-risk test, and what must never be bundled, see [Bundling](docs/agents/pull-request-workflow.md#bundling).
 <!-- BEGIN:anti-conflict-speed -->
 
 ## Anti-conflict and CI-speed operating procedure
@@ -418,14 +438,14 @@ Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — wi
 - Prefer fewer, shorter-lived PRs. Bundle independently low-risk append-only docs/ledger chores (see "## PR bundling") instead of one PR per line.
 - Start from a fresh `origin/main` worktree/branch (`newtask`); do not pile new work onto a stale head that already shares hot files with the open queue.
 - The legacy `docs/branch-review-ledger.md` and `docs/outstanding-issues.md` are **serial-only**: normal PRs must not add rows there. `npm run ledger:append` creates an immutable review record; `npm run issues:add|update|queue|done` creates one immutable inbox request (`queue` corrects a recommended-execution-queue row; see ledger `#M6JNR8`). One fresh-base, cross-worktree-locked `npm run issues:reconcile` operation applies landed requests to the canonical issue ledger. `check:ledger-write-discipline` rejects direct table-row edits, changed request records, deleted requests, and a canonical issue diff that does not exactly equal its recorded reconciliation transaction.
-- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run `git merge-tree --write-tree origin/main <tip>`. Clean tree + behind = sync; dirty tree = real conflict.
+- Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, run `git merge-tree --write-tree origin/main <tip>`. A clean tree means the branch is only behind — sync it once, when it is otherwise ready (see the rule above); a dirty tree means a real conflict (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)).
 
 ### Speed CI without skipping quality
 
-- Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule to branch syncs: for a behind-but-clean PR with required CI in flight, wait, then perform at most one late `update-branch` / `git merge origin/main` after review and fix work is assembled. Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
+- Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule whenever a real conflict actually needs resolving: wait for required CI in flight, then perform the `update-branch` / `git merge origin/main` once review and fix work is assembled. Being merely behind is a reason to sync only once, when the PR is otherwise ready (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)). Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
 - For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited file.
-- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, `update-branch`/merge-main-in syncs, and bundled additions may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first. **Exception:** an owner-merge PR (clinical-content, `supabase/`, or RAG-ranking — see "Owner-merge rule" below) must never be armed by an agent. If you find one armed, report it rather than disarming it: `PR policy` already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs explicit authorization.
-- Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. Behind-but-clean heads use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, bundled additions, and an `update-branch`/merge-main-in sync that the branch-sync rule above allows (a real conflict, or the owner asks) may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first. **Exception:** an owner-merge PR (one touching `supabase/` — see "Owner-merge rule" below) must never be armed by an agent. If you find one armed, report it rather than disarming it: the required `Owner approval` status already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs explicit authorization.
+- Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. When a sync is actually warranted (a real conflict, or the owner asks), use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
 - Triage and repair actionable review threads early; reply before resolving (`<!-- codex-thread-disposition:resolved -->`). Leave ambiguous or product-sensitive threads open for the owner.
 - Babysit dormant: observe fresh CI only at meaningful stage boundaries (at most once every 5 min, ≤30 min per run). If queued/running at limit, record run URL as deferred and continue sweep.
 - For sweeps needing local repair, prepare one isolated, exact-lock worktree via `node scripts/setup-codex-worktree.mjs`.
@@ -457,15 +477,6 @@ For the repo-local skill catalogue and the foundational orchestration skills, se
 ## Outstanding-work memory (`/issues`)
 
 For the `/issues` durable cross-session ledger and its inbox and reconciliation discipline, see [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md).
-
-## Codex GitHub review behavior
-
-For Codex's automated GitHub pull request review and auto-resolve behavior — severity
-calibration, PR risk detection, cost controls, the review comment lifecycle, the automatic
-resolve trigger, and the primary PR command — see
-[`docs/agents/codex-github-review.md`](docs/agents/codex-github-review.md). That file is the
-exact text `scripts/check-codex-autofix-workflow.mjs` enforces against the live workflow; do not
-let a copy in this file drift from it.
 
 ## Codex Cloud environment
 

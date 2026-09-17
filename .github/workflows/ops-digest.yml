@@ -18,8 +18,8 @@ on:
         default: false
         type: boolean
   schedule:
-    # 20 minutes past each hour. History is keyed to UTC hourly buckets.
-    - cron: "20 * * * *"
+    # Once daily at 22:00 UTC.
+    - cron: "0 22 * * *"
 
 concurrency:
   group: ops-digest

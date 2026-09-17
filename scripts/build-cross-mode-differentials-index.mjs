@@ -15,7 +15,7 @@
 // index.test.ts additionally asserts the committed index equals the live projection.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "data", "differentials-snapshot.json");
@@ -24,6 +24,20 @@ const presentationDisplaySource = join(root, "src", "data", "differential-presen
 const checkOnly = process.argv.includes("--check");
 
 const snapshot = JSON.parse(readFileSync(source, "utf8"));
+
+// The curated overlay is the single source of truth for which records withhold
+// their generated body, so this reads it rather than keeping a second list that
+// could drift. Node 24 strips the types on import, and the overlay's only import
+// is type-only, so no alias resolution or build step is involved.
+// tests/cross-mode-differentials-index.test.ts locks this index to the live
+// projection, which applies the same withhold — without this the two diverge and
+// the "Also in your library" strip keeps showing the wrong diagnosis's summary.
+const { curatedDifferentials } = await import(pathToFileURL(join(root, "src", "lib", "differential-curated.ts")).href);
+const withheldSlugs = new Set(
+  Object.entries(curatedDifferentials)
+    .filter(([, entry]) => entry.generatedBodyUnreliable === true)
+    .map(([slug]) => slug),
+);
 const presentationDisplayMetadata = JSON.parse(readFileSync(presentationDisplaySource, "utf8")).presentations;
 
 // Bare-number aliases (e.g. a field-weight "1.1" leaked from snapshot template
@@ -59,9 +73,15 @@ const catalog = {
   // This repeats the rule in withPresentationScope() in src/lib/differentials.ts
   // because this generator is plain JS and cannot import it; the index test holds
   // the two to the same answer.
+  //
+  // The withhold is a second, narrower reason to drop a hinge: a record whose
+  // generated body was found to describe a different diagnosis loses it whether
+  // or not it is a shared group hinge. The two rules overlap on today's one
+  // withheld record — its hinge is also a group hinge — and neither makes the
+  // other redundant, so both are applied.
   diagnoses: snapshot.diagnoses.map((diagnosis) => {
     const hinge = diagnosis.clinicalHinge?.trim() ?? "";
-    const ownHinge = hinge && !presentationHinges.has(hinge) ? hinge : "";
+    const ownHinge = hinge && !presentationHinges.has(hinge) && !withheldSlugs.has(diagnosis.slug) ? hinge : "";
     return {
       slug: diagnosis.slug,
       title: diagnosis.title,

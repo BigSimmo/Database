@@ -59,26 +59,6 @@ const reviewedActionPins = new Map([
       ["ef8bb1e43bf303cff727a1dd0b8837029fe982a2", "v1.0.215"],
     ]),
   ],
-  // Reviewed 2026-08-13 for the credential-isolated Run PR operator: annotated
-  // tag v1 peels to this commit. The action keeps OPENAI_API_KEY behind its
-  // local proxy and runs the repair as an unprivileged user; GitHub mutation
-  // credentials remain confined to later clean jobs.
-  [
-    "openai/codex-action",
-    new Map([
-      ["52fe01ec70a42f454c9d2ebd47598f9fd6893d56", "v1"],
-      // Reviewed 2026-08-24 for PR #2325 (Dependabot github-actions group):
-      // annotated tag v1 now peels to this commit (v1.12). Changelog for
-      // v1.11-v1.12 covers Linux runner privilege isolation and Responses
-      // API proxy credential handling, rejecting Codex arguments/config
-      // overrides that conflict with protected execution settings,
-      // requiring unprivileged user namespaces for drop-sudo, and
-      // documentation of runner/permission-profile requirements — hardening
-      // in the same direction this repo already relies on, no relaxation of
-      // the credential-isolation contract.
-      ["86365089eb2b84e0a8fb0717b304f8bdcb13b20e", "v1"],
-    ]),
-  ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/cache/restore", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/cache/save", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
