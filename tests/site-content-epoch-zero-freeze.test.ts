@@ -95,6 +95,10 @@ const RETAINED_BOOTSTRAP_RELEASE_IDS = [
 const RETAINED_BOOTSTRAP_PIN_MIGRATIONS = [
   "supabase/migrations/20260916143000_dual_pin_retained_bootstrap_check_constraints.sql",
   "supabase/migrations/20260916160000_triple_pin_retained_bootstrap_release_ids.sql",
+  // Names the retained set in the INSERT seal's WHEN clause and in the three predicates it makes
+  // cheap (site_content_retained_bootstrap_sealed / _valid / current_transition_kind). It widens
+  // pins and seals the epoch-zero population; it never rewrites the frozen seed.
+  "supabase/migrations/20260916190000_seal_bootstrap_release_and_drop_per_read_digest.sql",
 ];
 const QUOTED_UUID = /'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'/g;
 /** All-zero / all-one style placeholders the retrieval migrations use as owner sentinels. */

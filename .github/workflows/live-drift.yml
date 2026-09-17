@@ -66,26 +66,42 @@ jobs:
       - name: Guard Supabase project identity
         run: npm run check:supabase-project
 
+      # This runs BEFORE the drift comparison and in a wide wait-until-applied
+      # mode. On a push trigger this job starts within seconds of the merge, but
+      # the Supabase GitHub integration applies migrations out-of-band (measured
+      # ~34 s); three of four push-triggered runs sampled on 2026-09-16 read the
+      # live schema mid-apply and reported false drift (a constraint read as
+      # null mid drop/re-add, a function hash captured before its migration
+      # applied). check:migration-history already retries when a local migration
+      # version is not yet in live history (see PENDING_SETTLE_ATTEMPTS in
+      # scripts/check-migration-history-alignment.ts); `--max-wait-ms` widens
+      # that budget from the check's own ~90s default to ten minutes so the
+      # schema has settled before check:drift ever samples it. This still fails
+      # exactly as before if migrations are genuinely never applied within that
+      # window — it only waits longer before giving up.
+      - name: Align migration history for Supabase Preview
+        id: migration-history
+        run: |
+          set -o pipefail
+          npm run check:migration-history -- --max-wait-ms 600000 2>&1 | tee migration-history-output.txt
+
       - name: Compare live schema drift
         id: drift
+        if: ${{ !cancelled() }}
         run: |
           # The default step shell is `bash -e`, which has no pipefail, so a
           # failing check:drift would be masked by tee's exit code without this.
           set -o pipefail
           npm run check:drift 2>&1 | tee drift-output.txt
 
-      - name: Align migration history for Supabase Preview
-        if: ${{ !cancelled() }}
-        run: |
-          set -o pipefail
-          npm run check:migration-history 2>&1 | tee migration-history-output.txt
-
       - name: Capture drift and migration-history findings
         id: findings
         if: always()
         run: |
-          # Keep a migration-history failure visible rather than publishing a
-          # successful drift result as the explanation for the failed job.
+          # Capture whichever output files exist: migration-history always runs
+          # first, and drift still runs (if: !cancelled()) even after a
+          # migration-history failure, so a reader sees both checks' evidence
+          # rather than one check's failure standing in for the other's result.
           {
             echo "findings<<LIVE_DRIFT_FINDINGS_EOF"
             if [ -f drift-output.txt ]; then

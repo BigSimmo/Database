@@ -313,7 +313,10 @@ function StreamGroupingControl({
 }) {
   const optionClass = (selected: boolean) =>
     [
-      "inline-flex min-h-10 items-center rounded-lg border px-3 text-xs font-bold transition-colors motion-reduce:transition-none",
+      // `min-h-tap`, not `min-h-10`: this control renders in the results band's
+      // utility rail, which is a swipe rail below `lg` rather than below `sm`,
+      // so it is a live phone tap target and was under the 48px floor.
+      "inline-flex min-h-tap items-center rounded-lg border px-3 text-xs font-bold transition-colors motion-reduce:transition-none",
       "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
       selected
         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"

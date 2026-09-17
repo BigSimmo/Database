@@ -304,8 +304,15 @@ function sortedWarnings(values: readonly SourceCatalogueWarning[]) {
   return [...new Set(values)].sort(compareText);
 }
 
+// Hoisted collators. `localeCompare(value, locale, options)` is specified as
+// constructing a fresh Intl.Collator per call, so building them once here is the
+// same comparison with the construction cost paid once instead of O(n log n)
+// times per sort. Ordering is byte-identical — see tests/source-catalogue-collation.test.ts.
+const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
+const FULL_COLLATOR = new Intl.Collator("en-AU");
+
 function compareText(left: string, right: string) {
-  return left.localeCompare(right, "en-AU", { sensitivity: "base" }) || left.localeCompare(right, "en-AU");
+  return BASE_COLLATOR.compare(left, right) || FULL_COLLATOR.compare(left, right);
 }
 
 function canonicalReferenceKey(input: ClinicalSourceReferenceInput) {
@@ -474,14 +481,25 @@ export function canonicalizeSourceReferences(
 ): ClinicalSourceCatalogueEntry[] {
   const identityGroups = new Map<string, ClinicalSourceReferenceInput[]>();
   const unresolvedByKey = new Map<string, ClinicalSourceReferenceInput[]>();
+  // Append in place rather than rebuilding each group array. Rebuilding copied the
+  // whole accumulated group per input, so one heavily-shared identity cost O(n^2).
+  // Append order and Map insertion order are unchanged, so grouping is identical.
+  const appendTo = (
+    groups: Map<string, ClinicalSourceReferenceInput[]>,
+    key: string,
+    input: ClinicalSourceReferenceInput,
+  ) => {
+    const existing = groups.get(key);
+    if (existing) existing.push(input);
+    else groups.set(key, [input]);
+  };
   for (const input of inputs) {
     const identity = baseIdentity(input);
     if (identity === "provisional:unresolved") {
-      const key = canonicalReferenceKey(input);
-      unresolvedByKey.set(key, [...(unresolvedByKey.get(key) ?? []), input]);
+      appendTo(unresolvedByKey, canonicalReferenceKey(input), input);
       continue;
     }
-    identityGroups.set(identity, [...(identityGroups.get(identity) ?? []), input]);
+    appendTo(identityGroups, identity, input);
   }
 
   const entries = [...unresolvedByKey.entries()]

@@ -30,6 +30,10 @@ export const readPresentationCandidateRecords = cache(async (slugs: readonly str
     kind: "differential",
     slug: null,
     seeds: differentialRecords,
+    // A LIST read: it pulls the whole differential catalogue and filters in memory, so it is the
+    // same shared, public, non-owner-scoped read search caches. The per-slug reads below stay
+    // uncached on purpose, so an operator publishing a record sees it on its detail page at once.
+    cache: true,
   });
   return records.filter((record) => requested.has(record.slug)).map(scopeDifferentialRecord);
 });

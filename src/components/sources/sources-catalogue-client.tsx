@@ -22,7 +22,7 @@ import { Chip } from "@/components/ui/chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import type {
-  ClinicalSourceCatalogueEntry,
+  ClinicalSourceClientEntry,
   SourceCatalogueFilters,
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
@@ -73,8 +73,10 @@ function modeLabel(modeId: AppModeId) {
   return appModeDefinition(modeId).label;
 }
 
+const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
+
 function compareText(left: string, right: string) {
-  return left.localeCompare(right, "en-AU", { sensitivity: "base" });
+  return BASE_COLLATOR.compare(left, right);
 }
 
 function uniqueSorted(values: readonly string[]) {
@@ -95,7 +97,7 @@ function uniqueSorted(values: readonly string[]) {
  * local calendar date, because a UTC instant formatted west of UTC shows the
  * previous month.
  */
-function latestKnownDate(entry: ClinicalSourceCatalogueEntry) {
+function latestKnownDate(entry: ClinicalSourceClientEntry) {
   const candidates = [entry.reviewDate, entry.publicationDate].filter((value): value is string => Boolean(value));
   const parsed = candidates
     .map((value) => ({ value, time: Date.parse(value) }))
@@ -106,7 +108,7 @@ function latestKnownDate(entry: ClinicalSourceCatalogueEntry) {
   return { label: entry.reviewDate === parsed[0].value ? "reviewed" : "published", text };
 }
 
-function SourceTile({ entry }: { entry: ClinicalSourceCatalogueEntry }) {
+function SourceTile({ entry }: { entry: ClinicalSourceClientEntry }) {
   const flags = sourceAttentionFlags(entry);
   const usageGroups = groupSourceUsagesByMode(entry.usedBy);
   const recordTotal = usageGroups.reduce((total, group) => total + group.recordCount, 0);
@@ -195,7 +197,7 @@ export function SourcesCatalogueClient({
   entries,
   hostedDocuments,
 }: {
-  entries: readonly ClinicalSourceCatalogueEntry[];
+  entries: readonly ClinicalSourceClientEntry[];
   hostedDocuments: "available" | "unavailable";
 }) {
   const pathname = usePathname();

@@ -1,6 +1,8 @@
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import type { SourceUsage } from "@/lib/sources/catalogue-types";
 
+const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
+
 /**
  * Where a source is used in PsychSift, in reader-facing terms.
  *
@@ -125,7 +127,7 @@ export function groupSourceUsagesByMode(usages: readonly SourceUsage[]): readonl
     byMode.set(usage.modeId, group);
   }
 
-  const compare = (left: string, right: string) => left.localeCompare(right, "en-AU", { sensitivity: "base" });
+  const compare = (left: string, right: string) => BASE_COLLATOR.compare(left, right);
 
   return [...byMode.entries()]
     .map(([modeId, records]) => {
