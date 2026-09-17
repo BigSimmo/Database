@@ -290,8 +290,9 @@ request; the only standing batch authority is [`Clear PRs`](#clear-prs), which n
 the owner-merge rule. [`Run PR`](#run-pr) never merges and never arms.
 
 **Auto-merge state is user-owned once the PR exists.** Automation must not disable or re-enable
-it. Ordinary fast-forward commits and pushes to fix CI or review findings, `update-branch` /
-merge-main-in syncs, and bundled additions are allowed while auto-merge is armed — GitHub
+it. Ordinary fast-forward commits and pushes to fix CI or review findings, bundled additions, and an `update-branch` /
+merge-main-in sync that [Branch sync](#branch-sync) allows (a real conflict, or the owner asks)
+are allowed while auto-merge is armed — GitHub
 re-validates required checks against the new head before it will merge, so an additive push
 cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather
 than blocks for this case). Never force-push, rewrite history, or change the PR's base/target

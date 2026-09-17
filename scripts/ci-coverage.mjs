@@ -22,6 +22,16 @@ import path from "node:path";
  */
 const npmRunScript = (line) => line.match(/^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)\s*(?:#.*)?$/)?.[1];
 
+/** A `run: |` or `run: >` block opener; its body is the following more-indented lines. */
+const isRunBlockOpener = (line) => /^\s*(?:-\s*)?run:\s*[|>][-+]?\s*$/.test(line);
+
+/** Whether one shell line inside a `run:` block invokes `npm run <name>` as a command (not a comment). */
+const shellLineRunsScript = (line, name) =>
+  !/^\s*#/.test(line) &&
+  line
+    .split(/[\s;&|()]+/)
+    .some((token, index, tokens) => token === "npm" && tokens[index + 1] === "run" && tokens[index + 2] === name);
+
 /**
  * Local gate name -> the CI script that covers it under a different name.
  * e.g. locally `npm run test` is the plain Vitest run, and CI enforces it as
@@ -133,9 +143,23 @@ export function deriveCiCoverage(projectRoot, gate, { scope = null, readFile = r
   const lines = ci.split(/\r?\n/);
   const equivalent = CI_EQUIVALENT.get(gate);
 
-  /** Every CI line index whose `run:` invokes `name`. */
+  /**
+   * Every CI line index whose `run:` invokes `name`: a single-line `run: npm run <name>`, or a
+   * `run: |` block with `npm run <name>` on any body line (reported at the `run:` line, so the
+   * step's guards are found the same way).
+   */
   const stepsRunning = (name) =>
-    lines.map((line, index) => (npmRunScript(line) === name ? index : -1)).filter((index) => index >= 0);
+    lines.flatMap((line, index) => {
+      if (npmRunScript(line) === name) return [index];
+      if (!isRunBlockOpener(line)) return [];
+      const indent = line.search(/\S/);
+      for (let next = index + 1; next < lines.length; next += 1) {
+        if (lines[next].trim() === "") continue;
+        if (lines[next].search(/\S/) <= indent) break;
+        if (shellLineRunsScript(lines[next], name)) return [index];
+      }
+      return [];
+    });
 
   /** Aggregate CI scripts whose package.json body invokes `name`. */
   const aggregatesRunning = (name) =>

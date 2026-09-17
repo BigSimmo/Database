@@ -80,4 +80,29 @@ describe("ci coverage — evaluates step and job guards", () => {
     });
     expect(coverage.covered).toBe(false);
   });
+
+  it("finds a gate invoked inside a multi-line run block, as CI runs the e2e shards", () => {
+    const ci = [
+      "jobs:",
+      "  e2e:",
+      "    if: needs.changes.outputs.ui_changed == 'true'",
+      "    steps:",
+      "      - name: Chromium production journeys",
+      "        run: |",
+      '          if [ "$EVENT" = "pull_request" ]; then',
+      "            npm run test:e2e:pr:shard -- --shard 1 --exclude-critical",
+      "          fi",
+      "      - name: Unrelated",
+      "        run: |",
+      "          # npm run test:e2e:pr is only mentioned here",
+      "          echo done",
+    ].join("\n");
+    const readFile = ((file: string) =>
+      String(file).endsWith("package.json") ? JSON.stringify({ scripts: {} }) : ci) as never;
+    const at = (gate: string, ui: boolean) =>
+      deriveCiCoverage(projectRoot, gate, { scope: { ui_changed: ui }, readFile }).covered;
+    expect(at("test:e2e:pr:shard", true)).toBe(true);
+    expect(at("test:e2e:pr:shard", false)).toBe(false);
+    expect(at("test:e2e:pr", true)).toBe(false);
+  });
 });
