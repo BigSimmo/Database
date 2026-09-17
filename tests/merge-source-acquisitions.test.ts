@@ -17,13 +17,16 @@ import {
 } from "../scripts/merge-source-acquisitions";
 import type { SourceAcquisitionRecord } from "../src/lib/sources/acquisition-ledger";
 import {
+  assertGithubAllowed,
   consecutivePairs,
   countHotFileConflicts,
   countMergeCommits,
   countMergeCommitsAcrossPRs,
   isMergeOrResolveHeadline,
   parseMergeTreeConflicts,
+  preResolutionHead,
   prsTouchingFile,
+  sortByMergedAt,
 } from "../scripts/measure-hot-file-conflicts.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
@@ -392,5 +395,48 @@ describe("measure-hot-file-conflicts pure counting", () => {
       { number: 11, mergeCommits: 2 },
       { number: 12, mergeCommits: 0 },
     ]);
+  });
+
+  it("refuses to query GitHub without explicit --allow-github", () => {
+    expect(() => assertGithubAllowed({ since: "2026-08-01" })).toThrow(/--allow-github/);
+    expect(() => assertGithubAllowed({ since: "2026-08-01", allowGithub: true })).not.toThrow();
+  });
+
+  it("orders merged PRs by mergedAt before pairing, whatever order gh returned", () => {
+    const prs = [
+      { number: 7, mergedAt: "2026-09-03T00:00:00Z" },
+      { number: 5, mergedAt: "2026-09-01T00:00:00Z" },
+      { number: 6, mergedAt: "2026-09-02T00:00:00Z" },
+    ];
+    expect(sortByMergedAt(prs).map((pr: { number: number }) => pr.number)).toEqual([5, 6, 7]);
+    expect(prs.map((pr) => pr.number)).toEqual([7, 5, 6]);
+  });
+
+  it("measures the head before the first merge-in commit, not the resolved final head", () => {
+    const pr = {
+      headRefOid: "final",
+      commits: [
+        { oid: "c1", messageHeadline: "feat: add source" },
+        { oid: "c2", messageHeadline: "feat: add another" },
+        { oid: "m1", messageHeadline: "Merge branch 'main' into feature" },
+        { oid: "final", messageHeadline: "fix: after merge" },
+      ],
+    };
+    expect(preResolutionHead(pr)).toBe("c2");
+    expect(preResolutionHead({ headRefOid: "h", commits: [{ oid: "h", messageHeadline: "feat: x" }] })).toBe("h");
+    expect(preResolutionHead({ headRefOid: "h" })).toBe("h");
+  });
+
+  it("counts an uncomputable merge as unavailable, never as clean", () => {
+    const pairs = [
+      [
+        { number: 1, headRefOid: "a1" },
+        { number: 2, headRefOid: "missing" },
+      ],
+    ];
+    const result = countHotFileConflicts(pairs, filePath, () => null);
+    expect(result.conflicting).toBe(0);
+    expect(result.unavailable).toBe(1);
+    expect(result.details[0].unavailable).toBe(true);
   });
 });

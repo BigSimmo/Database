@@ -10,12 +10,18 @@
  * `scripts/merge-source-acquisitions.ts`) is worth doing, and later, whether
  * it worked.
  *
- * Usage: node scripts/measure-hot-file-conflicts.mjs --since 2026-08-01 [--file <path>]
+ * Usage: node scripts/measure-hot-file-conflicts.mjs --since 2026-08-01 --allow-github [--file <path>]
  *
- * Talks to GitHub via `gh pr list` and to local git via `git merge-tree` —
- * both real provider/repo reads, gated behind the CLI entrypoint below. The
- * counting logic itself (exported) takes plain data and is unit-testable
- * without either.
+ * Talks to GitHub via `gh pr list` and to local git via `git merge-tree`. GitHub is a
+ * provider, so the CLI refuses to run without the explicit `--allow-github` flag (the
+ * repository's provider-confirmation boundary). The counting logic itself (exported) takes
+ * plain data and is unit-testable without either.
+ *
+ * What it compares: each PR's PRE-RESOLUTION head — the last commit before the PR first merged
+ * a base branch in — because a PR's final head already contains any conflict resolution and
+ * would merge cleanly against its predecessor, undercounting exactly the work being measured.
+ * PRs are paired in merge order (sorted by `mergedAt`). A head that is not in the local object
+ * database is reported as unavailable, never counted as a clean merge.
  */
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -29,6 +35,32 @@ const DEFAULT_FILE_PATH = "src/data/source-acquisitions.json";
 /** PRs whose changed-file list includes `filePath`. */
 export function prsTouchingFile(prs, filePath) {
   return prs.filter((pr) => Array.isArray(pr.files) && pr.files.some((file) => file.path === filePath));
+}
+
+/** Merged PRs in merge order: ascending `mergedAt`, ties by PR number. `gh pr list` guarantees no order. */
+export function sortByMergedAt(prs) {
+  return [...prs].sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt) || a.number - b.number);
+}
+
+/**
+ * The commit to compare for a PR: the last commit before its first merge-in commit (a headline
+ * starting "Merge"), i.e. the head before any base sync or conflict resolution. Falls back to
+ * `headRefOid` when the PR has no merge-in commit or no commit list.
+ */
+export function preResolutionHead(pr) {
+  const commits = Array.isArray(pr.commits) ? pr.commits : [];
+  const firstMerge = commits.findIndex((commit) => /^merge/i.test(commit.messageHeadline ?? ""));
+  if (firstMerge > 0 && commits[firstMerge - 1]?.oid) return commits[firstMerge - 1].oid;
+  return pr.headRefOid;
+}
+
+/** Throws unless the caller explicitly authorised GitHub access. */
+export function assertGithubAllowed(flags) {
+  if (!flags.allowGithub) {
+    throw new Error(
+      "Refusing to query GitHub without --allow-github: gh pr list is a provider call and needs explicit confirmation.",
+    );
+  }
 }
 
 /** Consecutive (adjacent, in list order) pairs — the order the caller supplies is the order compared. */
@@ -59,17 +91,29 @@ export function parseMergeTreeConflicts(output) {
 }
 
 /**
- * Counts how many of `pairs` conflict on `filePath`, per `mergeTreeConflicts`
- * — an injected `(headA, headB) => string[]` so this stays pure for tests.
+ * Counts how many of `pairs` conflict on `filePath`, per `mergeTreeConflicts` — an injected
+ * `(headA, headB) => string[] | null` so this stays pure for tests. `null` means the merge could
+ * not be computed (for example a head missing locally); such pairs are counted as unavailable,
+ * never as clean.
  */
 export function countHotFileConflicts(pairs, filePath, mergeTreeConflicts) {
   const details = pairs.map(([a, b]) => {
-    const conflicts = mergeTreeConflicts(a.headRefOid, b.headRefOid);
-    return { a: a.number, b: b.number, conflictedFiles: conflicts, conflict: conflicts.includes(filePath) };
+    const conflicts = mergeTreeConflicts(preResolutionHead(a), preResolutionHead(b));
+    if (conflicts === null) {
+      return { a: a.number, b: b.number, conflictedFiles: [], conflict: false, unavailable: true };
+    }
+    return {
+      a: a.number,
+      b: b.number,
+      conflictedFiles: conflicts,
+      conflict: conflicts.includes(filePath),
+      unavailable: false,
+    };
   });
   return {
     total: pairs.length,
     conflicting: details.filter((entry) => entry.conflict).length,
+    unavailable: details.filter((entry) => entry.unavailable).length,
     details,
   };
 }
@@ -102,9 +146,11 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--since") flags.since = argv[++i];
     else if (arg === "--file") flags.file = argv[++i];
+    else if (arg === "--allow-github") flags.allowGithub = true;
     else throw new Error(`Unrecognized argument: ${arg}`);
   }
-  if (!flags.since) throw new Error("Usage: measure-hot-file-conflicts.mjs --since YYYY-MM-DD [--file <path>]");
+  if (!flags.since)
+    throw new Error("Usage: measure-hot-file-conflicts.mjs --since YYYY-MM-DD --allow-github [--file <path>]");
   return flags;
 }
 
@@ -119,7 +165,7 @@ function fetchMergedPRs(since) {
       "--search",
       `merged:>=${since}`,
       "--json",
-      "number,headRefOid,files,commits",
+      "number,headRefOid,mergedAt,files,commits",
       "--limit",
       "500",
     ],
@@ -128,11 +174,24 @@ function fetchMergedPRs(since) {
   return JSON.parse(raw);
 }
 
+/** Conflicted paths, or `null` when the merge cannot be computed (missing commit or git failure). */
 function gitMergeTreeConflicts(headA, headB) {
+  for (const head of [headA, headB]) {
+    try {
+      execFileSync("git", ["cat-file", "-e", `${head}^{commit}`], { stdio: "ignore" });
+    } catch {
+      return null;
+    }
+  }
   try {
-    execFileSync("git", ["merge-tree", "--write-tree", "--name-only", headA, headB], { encoding: "utf8" });
+    execFileSync("git", ["merge-tree", "--write-tree", "--name-only", headA, headB], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return [];
   } catch (error) {
+    // Exit status 1 means "merged with conflicts"; anything else is an operational failure.
+    if (error.status !== 1) return null;
     const output = typeof error.stdout === "string" ? error.stdout : (error.stdout?.toString() ?? "");
     return parseMergeTreeConflicts(output);
   }
@@ -140,8 +199,9 @@ function gitMergeTreeConflicts(headA, headB) {
 
 function main() {
   const flags = parseArgs(process.argv.slice(2));
+  assertGithubAllowed(flags);
   const allMerged = fetchMergedPRs(flags.since);
-  const touching = prsTouchingFile(allMerged, flags.file);
+  const touching = sortByMergedAt(prsTouchingFile(allMerged, flags.file));
   const pairs = consecutivePairs(touching);
   const conflicts = countHotFileConflicts(pairs, flags.file, gitMergeTreeConflicts);
   const mergeCommits = countMergeCommitsAcrossPRs(touching);
@@ -150,6 +210,9 @@ function main() {
   console.log(`Merged PRs touching ${flags.file}: ${touching.length}`);
   console.log(`Consecutive pairs both touching it: ${conflicts.total}`);
   console.log(`Pairs that actually conflict on it: ${conflicts.conflicting}`);
+  if (conflicts.unavailable > 0) {
+    console.log(`Pairs not measurable (a head missing locally — fetch it and rerun): ${conflicts.unavailable}`);
+  }
   console.log(`Merge/resolve-headline commits across those PRs: ${mergeCommits.total}`);
   if (mergeCommits.total > 0) {
     for (const entry of mergeCommits.perPr) {
