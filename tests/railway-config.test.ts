@@ -12,6 +12,7 @@ type RailwayConfig = {
     healthcheckTimeout?: number;
     restartPolicyType?: string;
     restartPolicyMaxRetries?: number;
+    preDeployCommand?: string[];
   };
 };
 
@@ -69,6 +70,22 @@ describe("Railway config as code", () => {
   it("keeps the queue-draining worker alive after repeated failures", () => {
     expect(worker.deploy).toMatchObject({ restartPolicyType: "ALWAYS" });
     expect(worker.deploy).not.toHaveProperty("restartPolicyMaxRetries");
+  });
+
+  it("gates both services' deploys behind the pre-deploy migration check (docs/worker-deploy-runbook.md §0)", () => {
+    // deploy.preDeployCommand blocks (report mode: only observes) the deploy
+    // until scripts/deploy/await-migrations.mjs confirms this build's expected
+    // migrations are present in live history — see tests/deploy-migration-gate.test.ts
+    // for the gate's own behaviour.
+    expect(app.deploy?.preDeployCommand).toEqual(["node /app/scripts/deploy/await-migrations.mjs"]);
+    expect(worker.deploy?.preDeployCommand).toEqual(["node /app/scripts/deploy/await-migrations.mjs"]);
+  });
+
+  it("rebuilds both services when the deploy migration gate's scripts change", () => {
+    expect(triggersDeploy(app, "scripts/deploy/await-migrations.mjs")).toBe(true);
+    expect(triggersDeploy(app, "scripts/deploy/migration-versions.mjs")).toBe(true);
+    expect(triggersDeploy(worker, "scripts/deploy/await-migrations.mjs")).toBe(true);
+    expect(triggersDeploy(worker, "scripts/deploy/migration-versions.mjs")).toBe(true);
   });
 
   it.each([

@@ -54,6 +54,13 @@ const clinicalRiskPatterns = [
   // unreviewed content reachability, clinical content policy) so it keeps the
   // full token set.
   /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|therap|mode|review|policy|content|unreviewed|medication)/i,
+  // Owner ruling 2026-09-17, after a clinical-governance review of the list above: patient
+  // addresses, referral intake and retention live in caring-contacts; the database clients
+  // hold the service-role key; on-call/repository.ts hides personal entries from other users.
+  // None of those names matched the token set, so these changes could merge without review.
+  /^src\/lib\/caring-contacts(?:-server)?\//,
+  /^src\/lib\/supabase\//,
+  /^src\/lib\/on-call\/repository\.ts$/,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
@@ -166,6 +173,24 @@ const ragRankingPatterns = [
   // nine Australian publishers and had to declare its RAG impact voluntarily, because this gate
   // did not ask.
   /^src\/lib\/(?:source-authority-registry|australian-source-priority)\.ts$/,
+  // Ingestion decides the TEXT that becomes chunks, embeddings and cited evidence, so it
+  // moves retrieval outcomes one step further back than ranking does. None of these files
+  // matched any pattern here -- src/lib/chunking.ts classified as neither ragRanking nor
+  // clinicalRisk -- and the AGENTS.md "Flag it" list did not name them either, so nothing
+  // asked at either end. Added 2026-09-16 after PR #2810 changed PDF table extraction,
+  // altering the text served as clinical evidence, and had to declare its RAG impact
+  // voluntarily because this gate did not ask. Same remedy, and same reason, as the
+  // 2026-09-07 source-authority addition above; AGENTS.md was corrected in the same change.
+  /^src\/lib\/chunking\.ts$/,
+  /^src\/lib\/extractors\//,
+  /^worker\/python\/extract_pdf_assets\.py$/,
+  // The other producer of retrieval inputs, missed by src/lib/rag/** only because these three
+  // sit one directory up. searchIndexUnitCandidates queries match_document_index_units_hybrid_v2
+  // unconditionally in the candidate fan-out, so the index units built and embedded here --
+  // tables, workflows, algorithms, aliases, typed signals -- decide what that branch can surface.
+  // deep-memory.ts also exports applyMemoryCardBoosts, which rescores SearchResult[] in that same
+  // path, so it is a ranking surface outright. Added 2026-09-16 on Codex review of PR #2832.
+  /^src\/lib\/(?:document-index-units|model-index-extraction|deep-memory)\.ts$/,
   /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
   /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
   /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
@@ -313,6 +338,34 @@ export function classifyPullRequestFiles(files) {
     migration: normalized.some((file) => migrationPatterns.some((pattern) => pattern.test(file))),
     ui: normalized.some((file) => uiPatterns.some((pattern) => pattern.test(file))),
   };
+}
+
+// PR_POLICY_BODY.md is a transport file: ci.yml's `sync-pr-policy-body` job pastes it into
+// the description of any PR whose OWN diff adds or modifies it (see `## Apply PR_POLICY_BODY.md
+// to pull request description`), then leaves the file itself sitting on the branch. Nothing
+// deletes it before merge unless someone remembers to, so it has landed on `main` repeatedly —
+// ~35 add/remove churn commits by 2026-09-16 — where it is stale, fully-checked prose with no
+// `<!-- GOVERNANCE_PREFLIGHT -->` placeholder for the sync job to fill in. Blocking any PR that
+// still carries it (added, modified, or merely present unremoved) forces it out of the branch
+// before merge, so it can never accumulate on `main` again while the sync mechanism stays usable
+// for whichever environment drops the file in to seed a description.
+const PR_POLICY_BODY_FILENAME = "PR_POLICY_BODY.md";
+
+/**
+ * True when the PR's diff leaves `PR_POLICY_BODY.md` present (added, modified, renamed in, or
+ * simply listed as an unchanged file in a `files`-only call). A `removed` status — the only way
+ * to satisfy this gate — returns false. Prefers `fileStatuses` (authoritative on rename/removal);
+ * falls back to a plain `files` list when `fileStatuses` is not supplied.
+ */
+export function prPolicyBodyTransportViolation({ fileStatuses, files }) {
+  if (Array.isArray(fileStatuses)) {
+    return fileStatuses.some(
+      (file) =>
+        normalizePath(file?.filename) === PR_POLICY_BODY_FILENAME &&
+        String(file?.status ?? "").toLowerCase() !== "removed",
+    );
+  }
+  return (files ?? []).some((file) => normalizePath(file) === PR_POLICY_BODY_FILENAME);
 }
 
 // The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
@@ -715,6 +768,15 @@ export function evaluatePullRequestPolicy({
     ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
     : [];
   const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
+
+  // Blocking gate: PR_POLICY_BODY.md must never land on main — see the comment above
+  // prPolicyBodyTransportViolation for why a lingering copy is dangerous.
+  if (prPolicyBodyTransportViolation({ fileStatuses, files })) {
+    errors.push(
+      "PR_POLICY_BODY.md is a transport file: CI has synced it into this PR's description; delete it from the branch before merge so it never lands on main.",
+    );
+  }
+
   const summary = section(body, "Summary");
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
@@ -1114,6 +1176,22 @@ function selfTest() {
   assert.equal(classifyPullRequestFiles(["tests/ranking-tuning.test.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/source-authority-registry.ts"]).ragRanking, true);
   assert.equal(classifyPullRequestFiles(["src/lib/australian-source-priority.ts"]).ragRanking, true);
+  // Ingestion text surfaces: what gets chunked is a retrieval input, so these must ask for a
+  // RAG impact declaration. PR #2810 changed the first of these and the gate stayed silent.
+  assert.equal(classifyPullRequestFiles(["src/lib/chunking.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["worker/python/extract_pdf_assets.py"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/document.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/extractors/pdf-extraction-budget.ts"]).ragRanking, true);
+  // Structured-evidence producers: index units are queried directly by the candidate fan-out,
+  // and deep-memory.ts rescores results outright via applyMemoryCardBoosts.
+  assert.equal(classifyPullRequestFiles(["src/lib/document-index-units.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/model-index-extraction.ts"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/deep-memory.ts"]).ragRanking, true);
+  // Still narrow: adjacent ingestion machinery that does not decide chunk TEXT, index-unit
+  // content, or a score stays out. Orchestration that only calls the producers is not itself
+  // a producer.
+  assert.equal(classifyPullRequestFiles(["src/lib/ingestion-audit.ts"]).ragRanking, false);
+  assert.equal(classifyPullRequestFiles(["src/lib/reindex-pipeline.ts"]).ragRanking, false);
   // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
   // protected axis here; generation keeps the governance gate only).
   assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
@@ -1163,6 +1241,14 @@ function selfTest() {
   // Unreviewed clinical content switches and mode reachability in src/lib (#P5542X).
   assert.equal(classifyPullRequestFiles(["src/lib/clinical-content-policy.ts"]).clinicalRisk, true);
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).clinicalRisk, true);
+  // Owner ruling 2026-09-17: patient-address, referral and database-key code is clinical-risk
+  // even though no file name carries a clinical token.
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts/assignment.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/caring-contacts-server/config.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/supabase/admin.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/repository.ts"]).clinicalRisk, true);
+  // Still narrow: the rest of on-call is not swept in by the repository entry.
+  assert.equal(classifyPullRequestFiles(["src/lib/on-call/api-schemas.ts"]).clinicalRisk, false);
   assert.equal(classifyPullRequestFiles(["src/lib/therapies.ts"]).clinicalRisk, true);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
   assert.equal(classifyPullRequestFiles(["src/lib/app-modes.ts"]).ui, true);
@@ -1924,6 +2010,59 @@ $migration$;
     3,
   );
   assert.doesNotMatch(replayApproved.errors.join(" "), /Owner merge required/);
+
+  // --- PR_POLICY_BODY.md must never land on main (transport file, see the comment above
+  // prPolicyBodyTransportViolation) --------------------------------------------------------
+  const addedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "added", previous_filename: null }],
+  });
+  assert.equal(addedPrPolicyBody.ok, false, "an added PR_POLICY_BODY.md must block");
+  assert.match(addedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const modifiedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(modifiedPrPolicyBody.ok, false, "a modified PR_POLICY_BODY.md must block");
+  assert.match(modifiedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const removedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "chore: retire the PR policy transport file",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "removed", previous_filename: null }],
+  });
+  assert.equal(removedPrPolicyBody.ok, true, "removing PR_POLICY_BODY.md must never block");
+  assert.doesNotMatch(removedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY/);
+
+  const unrelatedPr = evaluatePullRequestPolicy({
+    title: "docs: clarify the release checklist",
+    body: completeBody,
+    headRef: "codex/release-checklist",
+    files: ["docs/process-hardening.md"],
+    fileStatuses: [{ filename: "docs/process-hardening.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(unrelatedPr.ok, true, "a PR that never touches PR_POLICY_BODY.md must be unaffected");
+
+  // Fallback path: fileStatuses absent, only a bare `files` list supplied (e.g. an older caller).
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["PR_POLICY_BODY.md"] }),
+    true,
+    "the files-only fallback must still catch a present PR_POLICY_BODY.md",
+  );
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["docs/process-hardening.md"] }),
+    false,
+    "the files-only fallback must not flag an unrelated PR",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
