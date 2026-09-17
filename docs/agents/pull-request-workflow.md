@@ -164,7 +164,7 @@ still open.
 
 **Validate before acting.** A bot finding is a claim. Validate it against the current PR head and
 surrounding code, reproducing with the narrowest offline check when feasible. For Bugbot, accept
-findings only from `cursor[bot]` with account type `Bot` (Cursor's `pr-bugbot` agent).
+findings only from `cursor[bot]` with account type `Bot`.
 
 **Dispose of each unresolved thread on the current head:**
 
