@@ -40,7 +40,7 @@ describe("authored Do now steps are never truncated", () => {
       ["postpartum-psychosis", /perinatal mental health service/i],
       ["catatonia-in-mood-disorder", /Escalate urgently/i],
       ["clozapine-specific-adverse-effects-toxicity", /clozapine coordinator/i],
-      ["lithium-physiological-withdrawal-tremor", /Escalate for a level above the therapeutic range/i],
+      ["lithium-physiological-withdrawal-tremor", /Escalate for neurological signs/i],
     ];
 
     for (const [slug, expected] of cases) {
