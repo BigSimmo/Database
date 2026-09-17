@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "28c4e9fc-ea7d-4477-8f4c-74a63e53ec42",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Republish site_content: the live rows still carry the withheld lithium record's contaminated text",
+    "detail": "The lithium-physiological-withdrawal-tremor record's generated body (clinical hinge, sections, immediate actions, current presentation) was found to describe akathisia and drug-induced parkinsonism, and is withheld in the repo from 2026-09-16 (withholdGeneratedBody, applied in loadDifferentialSnapshot). The live site_content rows were seeded from the epoch-zero population frozen in supabase/migrations/20260824122000_add_site_content_release_and_outbox.sql and still hold the contaminated text, so it remains readable from the live database and reachable by retrieval. CI only CHECKS site content (build-site-content-manifest --check, check-site-content-freshness); nothing in CI or the Railway deploy republishes it. Closing this needs an operator run of scripts/sync-site-content-corpus.ts with --write, which requires --project-ref/--confirm-project-ref sjrfecxgysukkwxsowpy, --recovery-evidence, --provider-authorization and the expected state/plan/reconciliation digests. That is a governed live clinical database write and falls under the provider confirmation boundary, so it is the owner's to schedule. Do a --dry-run first and confirm the plan touches only this record.",
+    "source": "Session 2026-09-16/17, differentials withhold work",
+    "issueUlid": "01M2PT6ZGY4ZWQB3BYTWA2PSX2"
+  }
+}

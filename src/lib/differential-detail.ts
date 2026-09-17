@@ -254,6 +254,22 @@ export function differentialGroupLabel(record: DifferentialRecord): string {
   return record.currentPresentation.find((value) => value.trim())?.trim() ?? "";
 }
 
+/**
+ * The warning that goes above generated first-moves: they are written about the
+ * presentation group and stamped onto every diagnosis in it, so unlabelled they
+ * read as specific to this one.
+ *
+ * Shared rather than duplicated because it now has two surfaces — the desktop
+ * rail and the phone card — and the phone card shipped without it, which is
+ * exactly the drift a second copy invites.
+ */
+export function differentialGroupScopeNote(record: DifferentialRecord): string {
+  const group = differentialGroupLabel(record);
+  return group
+    ? `Applies to the ${group} group — not specific to ${record.title}`
+    : `Applies to the presentation group — not specific to ${record.title}`;
+}
+
 /** Label for a section whose text describes the presentation group rather than
  *  this diagnosis, or null when the section is the diagnosis's own. */
 export function sectionScopeLabel(section: DifferentialSection, record: DifferentialRecord): string | null {
@@ -320,31 +336,50 @@ export function formatExportedDate(exportedAt: string): string {
 /** Trailing counts for the section rail. `null` means the tab carries no
  *  countable collection, so the rail renders the label alone rather than a
  *  misleading zero — Source is a governance panel, not a list of things. */
-export function detailTabCounts(record: DifferentialRecord): Record<DifferentialDetailTabId, number | null> {
+export function detailTabCounts(
+  record: DifferentialRecord,
+  compareCount?: number,
+): Record<DifferentialDetailTabId, number | null> {
   return {
     // No count. "Overview 6" would be a tally of section rows, which is a fact
     // about the layout rather than about the patient — and the tab already
     // carries that number in its section-sheet detail line.
     overview: null,
-    // The compare queue is this diagnosis plus everything it is compared against,
-    // which is the number the Compare button has always shown.
-    compare: record.related.length + 1,
+    // The compare queue is this diagnosis plus everything it is compared against.
+    // Passed in rather than recomputed: the queue is capped and only carries
+    // related diagnoses that resolve to a page, so deriving it here from
+    // `record.related` made the tab disagree with the Compare button on the same
+    // screen — "Compare (3)" on the control, "Compare (4)" on the tab.
+    compare: compareCount ?? record.related.length + 1,
     map: record.related.length + 1,
     related: record.related.length || null,
     source: null,
   };
 }
 
-/** Ordered first moves for the Overview rail. Curated steps where a record has
- *  them, otherwise the record's own immediate actions. Capped because a rail
- *  block that runs past the fold stops being a summary. */
+/**
+ * Ordered first moves. Clinician-authored steps where a record has them,
+ * otherwise the record's own generated immediate actions.
+ *
+ * `generatedLimit` caps the GENERATED fallback only, which is unreviewed and
+ * often runs to a noisy list. An authored list is returned whole. That
+ * distinction was bought the hard way on 2026-09-16: the cap applied to both,
+ * seven of the ten authored records carry five steps, and in six of those the
+ * fifth is the escalation instruction — "escalate to intensive care", "involve
+ * the perinatal mental health service", "escalate for a seizure". The only
+ * surface rendering these steps was therefore dropping the escalation from
+ * every one of them. A reviewed clinical list is not the layout's to shorten;
+ * if it ever grows too long for a surface, that surface discloses the rest.
+ */
 export function resolveDoNowSteps(
   record: DifferentialRecord,
   curated: DifferentialCuratedEntry | null,
-  limit = 4,
+  generatedLimit = 4,
 ): string[] {
   const authored = curated?.doNow;
-  const source = authored?.length ? authored : record.immediateActions;
+  const isAuthored = Boolean(authored?.length);
+  const source = isAuthored ? authored! : record.immediateActions;
+  const limit = isAuthored ? Number.POSITIVE_INFINITY : generatedLimit;
   const seen = new Set<string>();
   const steps: string[] = [];
   for (const raw of source) {
@@ -367,6 +402,42 @@ export function doNowStepsAreCurated(curated: DifferentialCuratedEntry | null): 
 
 export function curatedContentNote(curated: DifferentialCuratedEntry | null): string | null {
   return curated?.contentNote ?? null;
+}
+
+/**
+ * True when this record's generated sections must not be rendered at all.
+ *
+ * Distinct from `curatedContentNote`, which warns about a body that is still
+ * shown. This withholds it. See the field's own comment in
+ * `differential-curated.ts` for the ruling behind it.
+ */
+export function generatedBodyWithheld(curated: DifferentialCuratedEntry | null): boolean {
+  return curated?.generatedBodyUnreliable === true;
+}
+
+/**
+ * Strip the generated body from a record whose export is known to describe a
+ * different diagnosis.
+ *
+ * Every field emptied here is one the generated export asserts *about this
+ * diagnosis*: the sections, the clinical hinge, the immediate actions and the
+ * current-presentation list. The safety snapshot and investigations are correct
+ * for the record and stay. `related` stays too, because emptying it would take
+ * the Compare, Map and Related tabs down with it for no safety gain — the nodes
+ * describe real conditions, they are just the wrong siblings, which the content
+ * note says.
+ *
+ * Every consumer of these fields already handles the empty case, so one call at
+ * the page boundary is enough: the hinge block returns null, the section list
+ * renders nothing, and the clipboard text drops both. Records that are not
+ * withheld are returned by identity, so this costs nothing on the other 200.
+ */
+export function withholdGeneratedBody(
+  record: DifferentialRecord,
+  curated: DifferentialCuratedEntry | null,
+): DifferentialRecord {
+  if (!generatedBodyWithheld(curated)) return record;
+  return { ...record, sections: [], clinicalHinge: "", immediateActions: [], currentPresentation: [] };
 }
 
 export function hasCuratedContent(curated: DifferentialCuratedEntry | null): boolean {

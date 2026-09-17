@@ -266,10 +266,11 @@ agent-merged**:
 - any PR touching `supabase/`;
 - any PR touching a RAG-ranking surface (see `AGENTS.md` `# RAG ranking protection`).
 
-For these, the required `PR policy` check stays red until Josh adds the `owner-approved` label
-himself; any new push to the branch removes that label. This is enforced by `PR policy` (#2830):
-the label counts only when the repository owner applied it — not through a GitHub App — after
-the PR's latest push. `PR policy` also blocks an edit, deletion, or rename of an applied
+For these, the required `Owner approval` status stays yellow (pending) until Josh adds the
+`owner-approved` label himself; any new push to the branch removes that label. This is enforced
+by the `PR policy` workflow (#2830, #2842): the label counts only when the repository owner
+applied it — not through a GitHub App — after the PR's latest push. A label that does not count
+leaves the status pending with the reason in its description, and a warning in `PR policy`. `PR policy` also blocks an edit, deletion, or rename of an applied
 migration, and an added migration dated at or before the newest one on `main` (out-of-order or
 future-dated). A migration already on `main` is never edited; ship a new migration with the
 newest timestamp (`AGENTS.md` `# Supabase project safety`).
@@ -280,12 +281,13 @@ Agents must never, on an owner-merge PR:
 - merge it directly;
 - arm or re-arm auto-merge on it, or bundle work onto it.
 
-If you find an owner-merge PR already armed, **report it rather than disarming it**: `PR policy`
-already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs
+If you find an owner-merge PR already armed, **report it rather than disarming it**: the required
+`Owner approval` status already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs
 explicit authorization.
 
-**The `Owner approval` status (2026-09-17, rollout in two steps).** Josh reads a red ✗ as a
-broken PR, so the hold is moving from a red `PR policy` failure to its own yellow commit status.
+**The `Owner approval` status (2026-09-17, rolled out in two steps, both done).** Josh reads a
+red ✗ as a broken PR, so the hold is no longer a red `PR policy` failure but its own yellow
+commit status.
 `PR policy` posts `Owner approval` on the PR head: `pending` (yellow — "Waiting for Josh…")
 while his approval is outstanding or the PR is a draft, and `success` when the PR needs no owner
 merge or he has approved that head. A required context blocks merge until it is `success`, and
@@ -295,12 +297,12 @@ until only one remains. Runs for one PR queue rather than cancel, so an older ru
 land after a newer verdict. `neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
 preflight, `RAG impact:`, migration history, the forgery tripwire below) stay red in `PR policy`.
 
-**Order matters.** If `PR policy` stopped failing on held PRs before the ruleset required
-`Owner approval`, every held PR would become mergeable. So:
+**Order mattered, and still does.** If `PR policy` stopped failing on held PRs while the ruleset
+did not require `Owner approval`, every held PR would be mergeable. The sequence was:
 
-1. **Step 1 (merged first).** `PR policy` posts `Owner approval` in shadow and still fails red
-   on the hold. Nothing becomes mergeable.
-2. **Live ruleset change (owner, by hand).** Ruleset `Protections` (18011271) → required status
+1. **Step 1 (#2842, merged).** `PR policy` posted `Owner approval` in shadow and still failed
+   red on the hold.
+2. **Live ruleset change (done 2026-09-17, read back).** Ruleset `Protections` (18011271) → required status
    checks → add context **`Owner approval`** with source **GitHub Actions (integration 15368)**, keeping `Gitleaks`, `PR required` and `PR policy`. Before adding it, confirm open
    ordinary PRs already carry a green `Owner approval` (each gets one on its next push, edit,
    label change or ready-for-review; re-running an old run does not, because a re-run uses the
@@ -308,21 +310,21 @@ preflight, `RAG impact:`, migration history, the forgery tripwire below) stay re
    posts no `Owner approval` for `merge_group` events: this repository has no merge queue, but
    if one is ever enabled, add a `merge_group` status path to `pr-policy.yml` **before** (or
    together with) requiring `Owner approval`, or every queued PR waits on "Expected".
-3. **Step 2 (a second, small PR, merged only once the ruleset change is visibly live).** In
-   `evaluatePullRequestPolicy`, stop pushing the `Owner merge required (…)` error when the
-   workflow reports the hold through the status, and update the self-test
-   (`step 1 keeps the red hold`) and `check-pr-policy-workflow.mjs` to match. The batch runner
-   (`pr-batch-core.mjs`) must keep today's error so it still excludes owner-merge PRs.
+3. **Step 2 (done).** The workflow calls `evaluatePullRequestPolicy` with
+   `ownerHoldViaStatus: true`, so it no longer pushes the red `Owner merge required (…)` error;
+   the hold is carried only by `Owner approval`. Without that option the error is still raised,
+   which is what keeps the batch runner (`pr-batch-core.mjs`) excluding owner-merge PRs.
 
-Between step 1 and step 2 a held PR shows both a red `PR policy` and a yellow `Owner approval`.
-Reverting step 2 opens nothing; removing the ruleset entry after step 2 makes held PRs
-mergeable — remove it only together with a revert of step 2.
+**Never remove `Owner approval` from ruleset 18011271 without first reverting step 2** (the
+`ownerHoldViaStatus: true` line in `pr-policy.yml`). With step 2 in place and the ruleset entry
+gone, every held PR is mergeable. Reverting step 2 on its own is always safe — it only brings the
+red error back.
 
 **Who can forge a required check.** The integration pin excludes a personal access token acting
 as BigSimmo, but not a workflow: any workflow that runs this branch's own code (`pull_request`,
 `push`, `workflow_dispatch`) is also GitHub Actions, so a job named `PR policy`, or a step with
 `statuses: write` posting `Owner approval`, would be attributed to integration 15368. That gap
-exists for today's `PR policy` too. `PR policy` now fails when a changed workflow or composite
+applies equally to `PR policy`. `PR policy` now fails when a changed workflow or composite
 action that can run branch code names a protected context or can write commit statuses. This is
 a tripwire, not a boundary — an expression-built name or a later re-post gets past it. The
 boundary needs live settings: post `Owner approval` from a dedicated GitHub App whose key lives
