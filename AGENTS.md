@@ -328,7 +328,15 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
   (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
   tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
-  editing, even when the change looks incidental (refactor, rename, "just a comment").
+  editing, even when the change looks incidental (refactor, rename, "just a comment"). The same
+  applies to the two producers of retrieval inputs that sit outside `src/lib/rag/**` and are
+  easy to mistake for plain ingestion: the text producers (`src/lib/chunking.ts`,
+  `src/lib/extractors/**`, `worker/python/extract_pdf_assets.py`), which decide what ever
+  becomes a chunk or a citation, and the structured-evidence producers
+  (`src/lib/document-index-units.ts`, `src/lib/model-index-extraction.ts`,
+  `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
+  whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
+  of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
 - **PR gate.** PRs touching those surfaces fail `pr-policy` without an explicit `RAG impact:`
   line in the body — either `RAG impact: no retrieval behaviour change — <reason>` or
   `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The source-pin contract
