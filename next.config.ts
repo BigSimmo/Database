@@ -165,6 +165,34 @@ const nextConfig: NextConfig = {
   // legitimate at these paths is shadowed. build-therapies-index.mjs --check
   // fails if an alias file reappears, since a real file would win over this
   // rewrite and then silently go stale on the next regeneration.
+  /**
+   * Paths people type, bookmark or are told to visit, which had no route and returned 404:
+   * `/login`, `/signin`, `/settings` and `/about` (found by the 2026-09-17 audit, finding L3).
+   *
+   * Redirects rather than new pages on purpose. Each of these already HAS a home in the app --
+   * the account wall on Favourites, the settings dialog, the privacy page -- and adding a real
+   * route would mean a second surface to keep in step with the first, plus an orphan-route entry
+   * for a page that only forwards.
+   *
+   * Permanent: these destinations are where the feature lives, not a temporary arrangement.
+   */
+  async redirects() {
+    return [
+      // Sign-in has no page of its own. Favourites is the account wall, and it already says what
+      // signing in gets you, which a bare login form would not.
+      { source: "/login", destination: "/favourites", permanent: true },
+      { source: "/signin", destination: "/favourites", permanent: true },
+      { source: "/sign-in", destination: "/favourites", permanent: true },
+      // Settings is a dialog, so it is addressed by the query parameter SettingsStateProvider
+      // consumes and then strips.
+      { source: "/settings", destination: "/?settings=open", permanent: true },
+      // The nearest thing to an "about this product" page, and the one that answers what a
+      // clinician arriving at /about actually wants to know: what this is and what it does with
+      // what they type.
+      { source: "/about", destination: "/privacy", permanent: true },
+    ];
+  },
+
   async rewrites() {
     const alias = (name: string, asset: string) => ({
       source: `/therapy-compass-data/${name}`,
