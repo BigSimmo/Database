@@ -106,11 +106,11 @@ function scoreChunk(row: DocumentChunkSearchRow, query: string, terms: string[])
   const coveredImportantTerms = coveredTermsFor(row, importantTerms);
   const textRank = Number(row.text_rank ?? 0);
   const trigramScore = Number(row.trigram_score ?? 0);
-  // Each chunk's heading and content are split once here. Previously every term
-  // re-lowercased and re-split the whole chunk body, so a six-term query walked
-  // the same multi-kilobyte string a dozen times per row.
-  const headingWords = wordBoundaryWords(heading);
-  const contentWords = wordBoundaryWords(content);
+  // Each chunk's heading and content are already lowercased above; split with the
+  // same /[^a-z0-9]+/ pattern wordBoundaryWords uses after toLowerCase, so we skip
+  // a redundant full-string lowercasing allocation per chunk on this hot path.
+  const headingWords = heading.split(/[^a-z0-9]+/);
+  const contentWords = content.split(/[^a-z0-9]+/);
   const hasExactPhrase =
     content.includes(normalizedQuery) && terms.every((term) => matchesTermInWords(contentWords, term));
   let score = hasExactPhrase ? 2.4 : 0;
