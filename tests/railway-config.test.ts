@@ -30,8 +30,15 @@ function watchPatternMatches(pattern: string, filePath: string) {
   return normalizedPath === normalizedPattern;
 }
 
+// Gitignore-style, as Railway documents: a "!" pattern excludes files a preceding rule
+// included, and the last matching pattern wins.
 function triggersDeploy(config: RailwayConfig, filePath: string) {
-  return (config.build?.watchPatterns ?? []).some((pattern) => watchPatternMatches(pattern, filePath));
+  let included = false;
+  for (const pattern of config.build?.watchPatterns ?? []) {
+    const negated = pattern.startsWith("!");
+    if (watchPatternMatches(negated ? pattern.slice(1) : pattern, filePath)) included = !negated;
+  }
+  return included;
 }
 
 describe("Railway config as code", () => {
@@ -141,6 +148,27 @@ describe("Railway config as code", () => {
   ])("does not deploy either service for non-runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(false);
     expect(triggersDeploy(worker, filePath)).toBe(false);
+  });
+
+  it.each(["data/repo-awareness-snapshot.json", "data/outstanding-issues-snapshot.json"])(
+    "does not redeploy either service for the developer-area metadata snapshot %s",
+    (filePath) => {
+      expect(triggersDeploy(app, filePath)).toBe(false);
+      expect(triggersDeploy(worker, filePath)).toBe(false);
+    },
+  );
+
+  it("places each exclusion after the rule it narrows, which Railway requires", () => {
+    for (const config of [app, worker]) {
+      const patterns = config.build?.watchPatterns ?? [];
+      for (const [index, pattern] of patterns.entries()) {
+        if (!pattern.startsWith("!")) continue;
+        const target = pattern.slice(1);
+        expect(
+          patterns.slice(0, index).some((earlier) => !earlier.startsWith("!") && watchPatternMatches(earlier, target)),
+        ).toBe(true);
+      }
+    }
   });
 
   it("keeps service-specific inputs isolated", () => {
