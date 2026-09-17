@@ -91,8 +91,9 @@ exception: it stops at the URL and never follows CI at all.
 
 Following the PR is ordinary work:
 
-- Read checks, workflow runs, and job logs; re-run a failed job; sync the branch from `main` when
-  it is behind but the merge tree is clean (see [Branch sync](#branch-sync)).
+- Read checks, workflow runs, and job logs; re-run a failed job; only merge `main` into the
+  branch when [Branch sync](#branch-sync) actually calls for it (a real conflict, or the owner
+  asks) — being behind is not by itself a reason to sync.
 - Fix **only what this change broke** and push the fix. The smallest correct gate still applies
   to every fix before it is pushed. Never weaken workflows or delete required checks to force
   green.
@@ -340,16 +341,19 @@ Squash-merge history has twice orphaned a late follow-up commit and once needed 
 
 <a id="open-pr-branch-sync-anti-churn"></a>
 
-Open PR heads go stale whenever `main` advances. GitHub frequently labels those branches
-`CONFLICTING` / `DIRTY` even when `git merge-tree` is clean — that is staleness, not an
-unresolvable content fight, and it blocks squash auto-merge.
+**Never merge `main` into an open PR branch (and never call `update-branch`) unless
+`git merge-tree --write-tree origin/main <tip>` shows a real conflict, or the owner asks. Being
+behind is not a reason: GitHub's strict up-to-date rule is satisfied at merge time.**
 
-**Diagnose first.** Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, compare
-`behind_by` and run `git merge-tree --write-tree origin/main <tip>` against a freshly fetched
-`origin/main`. Clean tree + behind = sync; dirty tree = real conflict. If the tree merge is clean,
-sync the branch instead of rewriting product code.
+Open PR heads go stale whenever `main` advances, and GitHub frequently labels those branches
+`CONFLICTING` / `DIRTY` even when `git merge-tree` is clean. That is staleness, not an
+unresolvable content fight — and per the rule above, staleness alone is not a reason to touch the
+branch. Diagnose before assuming otherwise: compare `behind_by` and run
+`git merge-tree --write-tree origin/main <tip>` against a freshly fetched `origin/main`. A clean
+tree means the branch is only stale, not blocked, and needs nothing from you; a dirty tree means a
+real conflict, which does need resolving.
 
-**How to sync.**
+**How to sync, when the rule above actually calls for it** (a real conflict, or the owner asks).
 
 - Automatic `GITHUB_TOKEN` branch updates are prohibited: bot-authored heads leave required checks
   awaiting approval. `npm run check:github-actions` guards this policy.
@@ -361,15 +365,13 @@ sync the branch instead of rewriting product code.
   `do not merge` title.
 - Leave active PRs alone unless the user asks (`Run PR`, sync, or a named PR).
 
-**Settle first.** Before mutating an open PR with `update-branch` or `git merge origin/main`,
-check whether its current head has required CI in flight. If the branch is merely behind and the
-merge tree is clean, let that run settle and sync once, late, after review/fix work is assembled.
-Preempt an in-flight run only when the branch is genuinely blocking-conflicted or the user
-explicitly asks for an immediate sync; do not disable `cancel-in-progress` for PR branches.
-`npm run sync:pr-branches:apply` enforces this guard; do not bypass it with a direct update call
-merely to make the PR current. The
-same settle-first rule applies to ordinary pushes: assemble every commit for a head before the
-first push, or wait for the current run to settle.
+**Settle first.** Even when the rule above calls for a sync, check whether the branch's current
+head has required CI in flight before mutating it with `update-branch` or `git merge origin/main`;
+wait for that run to settle rather than preempting it. Preempt an in-flight run only when the
+branch is genuinely blocking-conflicted or the user explicitly asks for an immediate sync; do not
+disable `cancel-in-progress` for PR branches. The same settle-first rule applies to ordinary
+pushes: assemble every commit for a head before the first push, or wait for the current run to
+settle.
 
 **Resolving real conflicts.**
 
@@ -398,7 +400,8 @@ workflow.
 Goal: for every open pull request (drafts included) — fix failing required CI checks (the
 `pr-required` aggregate in `.github/workflows/ci.yml`), address unresolved review threads (fix
 actionable ones, reply, resolve — per [Review threads](#review-threads)), and merge `origin/main`
-into branches that are behind or conflicting (per [Branch sync](#branch-sync)), then push.
+into branches with a real conflict per [Branch sync](#branch-sync) (being merely behind is not a
+reason to sync), then push.
 
 Authorization: the user typing `Run PR` IS the explicit user confirmation required by the "API
 and provider confirmation boundary" and the `pr-ci-fix` routing rule — but only for these
