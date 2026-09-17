@@ -81,9 +81,22 @@ function reasonText(result) {
 }
 
 /**
+ * @typedef {object} CaptureProvenance
+ * @property {string} capturedAt
+ * @property {string} nodeVersion
+ * @property {string | null} commitSha
+ * @property {string | null} lockfileSha256
+ * @property {string} scope
+ */
+
+/**
  * Provenance for the measurement itself. This answers "was this report produced,
  * and from what" independently of what it found — the distinction the whole
  * module exists for. Deliberately excludes registry URLs and auth configuration.
+ *
+ * @param {Record<string, string | undefined>} [env]
+ * @param {() => string | Buffer} [readLockfile]
+ * @returns {CaptureProvenance}
  */
 export function captureProvenance(env = process.env, readLockfile = () => readFileSync("package-lock.json")) {
   let lockfileSha256 = null;
@@ -107,6 +120,11 @@ export function captureProvenance(env = process.env, readLockfile = () => readFi
  * state is "ok" | "findings" | "unavailable". Passing raw npm objects is no longer
  * supported, deliberately — the ambiguity between an empty object and an absent
  * measurement is the defect this signature removes. Returns Markdown.
+ *
+ * @param {{state: string, value: any, reasonCode?: string}} outdatedResult
+ * @param {{state: string, value: any, reasonCode?: string}} auditResult
+ * @param {CaptureProvenance | null} [provenance]
+ * @returns {string}
  */
 export function renderDependencyReport(outdatedResult, auditResult, provenance = null) {
   const stamp = new Date().toISOString();
@@ -172,6 +190,9 @@ export function renderDependencyReport(outdatedResult, auditResult, provenance =
  * Returns "unknown" when the audit did not produce a validated observation. That
  * value is deliberately NOT "none": the workflow's evidence gate fails on it,
  * where "none" would have published a missing measurement as a clean one.
+ *
+ * @param {{state: string, value: any}} auditResult
+ * @returns {"unknown" | "none" | "low" | "moderate" | "high" | "critical"}
  */
 export function highestSeverity(auditResult) {
   if (auditResult?.state === "unavailable") return "unknown";
