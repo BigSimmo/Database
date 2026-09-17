@@ -1,13 +1,14 @@
 ---
 name: run-pr
-description: Run the automated open-PR maintenance sweep on bigsimmo/database — fix failing CI on every open PR, address and resolve review threads, merge origin/main into drifted branches, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
+description: Run the automated open-PR maintenance sweep on bigsimmo/database — fix failing CI on every open PR, address and resolve review threads, merge origin/main into branches with a real conflict, and push fixes. Use when the user types "Run PR" as the task message, or asks to sweep/fix/maintain all open PRs. "Run PR" is standing authorization for GitHub reads, pushes to PR feature branches, thread replies/resolutions, and CI re-runs; it never authorizes merging into main, closing PRs, force-pushes, branch deletion, auto-merge, or provider-backed gates.
 ---
 
 # run-pr — open-PR maintenance sweep
 
 One-shot sweep over every open pull request on `bigsimmo/database` (drafts included): fix failing
-required CI checks, address unresolved review threads, merge `origin/main` into behind or
-conflicting branches, push the results, record the ledger, and report per-PR before/after state.
+required CI checks, address unresolved review threads, merge `origin/main` into branches with a
+real conflict (being merely behind is not a reason to sync), push the results, record the ledger,
+and report per-PR before/after state.
 The policy source is [Run PR](../../../docs/agents/pull-request-workflow.md#run-pr) in the shared PR rulebook; this skill is the
 canonical Claude Code procedure and does not restate that policy.
 
@@ -58,16 +59,15 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`. E
 unresolved threads immediately and repair clear, scoped findings before waiting for CI, per
 [Review threads](../../../docs/agents/pull-request-workflow.md#review-threads).
 
-### Step 2 — settle current-head CI, then repair branch drift
+### Step 2 — settle current-head CI, then repair a real conflict
 
-Apply [Branch sync](../../../docs/agents/pull-request-workflow.md#branch-sync) (settle first, `git merge-tree` before calling a
-conflict real, mechanical versus non-trivial conflicts, never ours/theirs). Tools:
+Apply [Branch sync](../../../docs/agents/pull-request-workflow.md#branch-sync): never merge `main`
+in merely because a branch is behind — `git merge-tree --write-tree origin/main <tip>` decides
+whether there is a real conflict, and being behind is not one. Tools, only once that check finds a
+real conflict:
 
-- Behind but cleanly mergeable, no local checkout needed → the explicitly authenticated user via
-  `mcp__github__update_pull_request_branch`, `npm run sync:pr-branches:apply`, or
-  `gh api .../update-branch`, then re-fetch.
-- Conflicting, or checked out anyway → `git switch <branch>` after fetch, then
-  `git merge origin/main`; push with plain `git push`.
+- `git switch <branch>` after fetch, then `git merge origin/main`; push with plain `git push`.
+  Mechanical versus non-trivial conflicts, never ours/theirs — per Branch sync.
 - For a sweep likely to need a local repair, prepare one isolated worktree before its first local
   gate using `node scripts/setup-codex-worktree.mjs`. Reuse only its byte-identical complete
   installation; do not compensate for a partial install with ad-hoc dependency links.
