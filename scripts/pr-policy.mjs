@@ -61,6 +61,14 @@ const clinicalRiskPatterns = [
   /^src\/lib\/caring-contacts(?:-server)?\//,
   /^src\/lib\/supabase\//,
   /^src\/lib\/on-call\/repository\.ts$/,
+  // Same gap, same shape, found on 2026-09-17 while verifying an external audit:
+  // public-api-access.ts holds `withOwnerReadScope`, the single definition of what an
+  // unauthenticated caller may read. It requires BOTH a null owner and the `public_corpus`
+  // publication marker, and the document list and every signed-URL route read through it.
+  // Weakening that one predicate republishes the corpus. The path matched no token in the
+  // set above -- not auth, not privacy, not document -- so a change to it could merge with
+  // no clinical governance preflight at all.
+  /^src\/lib\/public-api-access\.ts$/,
   // Presentation surfaces (pages + components) are clinical-risk only when they
   // touch access control, privacy, patient data, or document upload/download —
   // NOT merely because a UI file lives under a clinically-named directory (the
