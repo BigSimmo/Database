@@ -2,9 +2,9 @@
 /**
  * browser-test-plan.mjs — choose the smallest browser gate that still covers a change.
  *
- * `gate-receipts.mjs` removed local-versus-local duplication. `gate-arbiter.mjs`
- * weighs the local-versus-CI duplication for the static gates. Neither touches the
- * single most expensive run in this repository:
+ * `gate-receipts.mjs` removes local-versus-local duplication for the static gates.
+ * Neither it nor anything else touches the single most expensive run in this
+ * repository:
  *
  *     npm run verify:ui   ->   646 Chromium tests, ~25 minutes
  *
@@ -16,10 +16,9 @@
  * the focused selection for the same diffs took 37s and 6.1s and reached the same
  * verdict.
  *
- * The arbiter cannot answer this one. Its lever is DEFERRAL — run the gate or hand
- * it to CI — and `ui` is in `NEVER_DEFER_CLASSES`, correctly: a UI change with no
- * browser evidence at all before a push is not a bet this repository takes. So the
- * lever here is a different one:
+ * Deferral — run the gate or hand it to CI wholesale — is not a safe lever here: a
+ * UI change with no browser evidence at all before a push is not a bet this
+ * repository takes. So the lever is a different one:
  *
  *     not "run it or skip it", but "run the part of it that can actually fail"
  *
@@ -46,9 +45,8 @@
  *
  * - **Fail closed to `full`.** Every uncertainty — an unreadable file, a changed UI
  *   source with no owning spec, an unrecognised path — escalates. A bug here costs
- *   a full local run, never a missed one. That is the opposite of the arbiter's
- *   fail-open contract, and deliberately so: the arbiter's failure mode is a
- *   redundant run, this one's would be an unrun journey.
+ *   a full local run, never a missed one: deliberately the opposite direction from a
+ *   fail-open check, because this planner's failure mode would be an unrun journey.
  * - **CI is never advised by this file.** It plans local work only. GitHub keeps
  *   running exactly what it runs today.
  * - **A narrowed run is not a full run.** The plan says which level it chose and
@@ -71,7 +69,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { deriveCiCoverage } from "./gate-arbiter.mjs";
+import { deriveCiCoverage } from "./ci-coverage.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 

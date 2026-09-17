@@ -12,6 +12,7 @@ type RailwayConfig = {
     healthcheckTimeout?: number;
     restartPolicyType?: string;
     restartPolicyMaxRetries?: number;
+    preDeployCommand?: string[];
   };
 };
 
@@ -29,8 +30,15 @@ function watchPatternMatches(pattern: string, filePath: string) {
   return normalizedPath === normalizedPattern;
 }
 
+// Gitignore-style, as Railway documents: a "!" pattern excludes files a preceding rule
+// included, and the last matching pattern wins.
 function triggersDeploy(config: RailwayConfig, filePath: string) {
-  return (config.build?.watchPatterns ?? []).some((pattern) => watchPatternMatches(pattern, filePath));
+  let included = false;
+  for (const pattern of config.build?.watchPatterns ?? []) {
+    const negated = pattern.startsWith("!");
+    if (watchPatternMatches(negated ? pattern.slice(1) : pattern, filePath)) included = !negated;
+  }
+  return included;
 }
 
 describe("Railway config as code", () => {
@@ -69,6 +77,22 @@ describe("Railway config as code", () => {
   it("keeps the queue-draining worker alive after repeated failures", () => {
     expect(worker.deploy).toMatchObject({ restartPolicyType: "ALWAYS" });
     expect(worker.deploy).not.toHaveProperty("restartPolicyMaxRetries");
+  });
+
+  it("gates both services' deploys behind the pre-deploy migration check (docs/worker-deploy-runbook.md §0)", () => {
+    // deploy.preDeployCommand blocks (report mode: only observes) the deploy
+    // until scripts/deploy/await-migrations.mjs confirms this build's expected
+    // migrations are present in live history — see tests/deploy-migration-gate.test.ts
+    // for the gate's own behaviour.
+    expect(app.deploy?.preDeployCommand).toEqual(["node /app/scripts/deploy/await-migrations.mjs"]);
+    expect(worker.deploy?.preDeployCommand).toEqual(["node /app/scripts/deploy/await-migrations.mjs"]);
+  });
+
+  it("rebuilds both services when the deploy migration gate's scripts change", () => {
+    expect(triggersDeploy(app, "scripts/deploy/await-migrations.mjs")).toBe(true);
+    expect(triggersDeploy(app, "scripts/deploy/migration-versions.mjs")).toBe(true);
+    expect(triggersDeploy(worker, "scripts/deploy/await-migrations.mjs")).toBe(true);
+    expect(triggersDeploy(worker, "scripts/deploy/migration-versions.mjs")).toBe(true);
   });
 
   it.each([
@@ -124,6 +148,27 @@ describe("Railway config as code", () => {
   ])("does not deploy either service for non-runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(false);
     expect(triggersDeploy(worker, filePath)).toBe(false);
+  });
+
+  it.each(["data/repo-awareness-snapshot.json", "data/outstanding-issues-snapshot.json"])(
+    "does not redeploy either service for the developer-area metadata snapshot %s",
+    (filePath) => {
+      expect(triggersDeploy(app, filePath)).toBe(false);
+      expect(triggersDeploy(worker, filePath)).toBe(false);
+    },
+  );
+
+  it("places each exclusion after the rule it narrows, which Railway requires", () => {
+    for (const config of [app, worker]) {
+      const patterns = config.build?.watchPatterns ?? [];
+      for (const [index, pattern] of patterns.entries()) {
+        if (!pattern.startsWith("!")) continue;
+        const target = pattern.slice(1);
+        expect(
+          patterns.slice(0, index).some((earlier) => !earlier.startsWith("!") && watchPatternMatches(earlier, target)),
+        ).toBe(true);
+      }
+    }
   });
 
   it("keeps service-specific inputs isolated", () => {

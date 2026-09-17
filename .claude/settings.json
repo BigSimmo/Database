@@ -135,9 +135,6 @@
       "Bash(npm run verify:phone-chrome)",
       "Bash(npm run plan:browser)",
       "Bash(npm run plan:browser --*)",
-      "Bash(npm run arbiter)",
-      "Bash(npm run arbiter --*)",
-      "Bash(npm run arbiter:status)",
       "Bash(npm run receipts)",
       "Bash(npm run check:browser-test-plan)",
       "Bash(npm run ensure)",
@@ -381,7 +378,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Monitor|ScheduleWakeup|CronCreate|.*[Pp]ull_?[Rr]equest.*|.*workflow_(run|job).*|.*check_(run|suite).*|.*job_log.*|.*pr_status.*|.*update_branch.*",
+        "matcher": "CronCreate",
         "hooks": [
           {
             "type": "command",

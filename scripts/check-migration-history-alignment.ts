@@ -1,6 +1,7 @@
-import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadEnvConfig } from "@next/env";
+
+import { listLocalMigrationVersions } from "./deploy/migration-versions.mjs";
 
 loadEnvConfig(process.cwd());
 
@@ -186,13 +187,7 @@ export async function resolveAlignment(args: {
 }
 
 function localMigrationVersions(migrationsDir: string): string[] {
-  return readdirSync(migrationsDir)
-    .map((name) => {
-      const match = /^(\d{14})_.*\.sql$/.exec(name);
-      return match?.[1] ?? null;
-    })
-    .filter((version): version is string => Boolean(version))
-    .sort();
+  return listLocalMigrationVersions(migrationsDir);
 }
 
 function authHeaders(serviceKey: string): Record<string, string> {

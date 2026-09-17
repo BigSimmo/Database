@@ -8,7 +8,7 @@ or script pins. When a copy elsewhere disagrees with this file, this file wins; 
 The stages, in the order a pull request lives through them:
 
 1. [Open](#open) — the two publication routes, the PR body, arming auto-merge
-2. [Follow CI](#follow-ci) — the 30-minute budget
+2. [Follow CI](#follow-ci) — follow while useful, stop when it settles, never park a cron on it
 3. [Review threads](#review-threads) — one rule for fixing, replying, and resolving
 4. [Records](#records) — review records and ledger PRs
 5. [Merge authority](#merge-authority) — who may merge what, and the owner-merge rule
@@ -85,16 +85,15 @@ in-flight run. Do not undraft a PR merely to obtain an automated review (see
 
 <a id="babysit-the-pull-request-then-stop"></a>
 
-This budget applies to every tool. Opening the PR through the handoff route is the handoff, but
-walking away the instant it exists is not useful either — a required check that goes red ninety
-seconds later is still this session's to fix, and this is the cheapest moment to fix it. So the
-session gets a **budget**, not a ban: after the PR is created, follow its CI for **at most 30
-minutes**, then stop. The bare publication route is the exception: it stops at the URL.
+**Follow a PR's CI while it is useful, fix only this change's breakage, stop when CI settles,
+and never park a cron job on a PR.** That is the whole rule. The bare publication route is the
+exception: it stops at the URL and never follows CI at all.
 
-Inside that budget, following the PR is ordinary work:
+Following the PR is ordinary work:
 
-- Read checks, workflow runs, and job logs; re-run a failed job; sync the branch from `main` when
-  it is behind but the merge tree is clean (see [Branch sync](#branch-sync)).
+- Read checks, workflow runs, and job logs; re-run a failed job; only merge `main` into the
+  branch when [Branch sync](#branch-sync) actually calls for it (a real conflict, or the owner
+  asks) — being behind is not by itself a reason to sync.
 - Fix **only what this change broke** and push the fix. The smallest correct gate still applies
   to every fix before it is pushed. Never weaken workflows or delete required checks to force
   green.
@@ -115,7 +114,7 @@ What counts as CI:
   fallback in [`../codex-review-protocol.md`](../codex-review-protocol.md) ("CI observation
   fallback") and report CI as unobserved rather than passing, absent, or failed.
 
-When the 30 minutes are up, or CI settles, whichever comes first:
+Once CI settles, or a run is not this change's to fix:
 
 - Leave any owed review record per [Records](#records).
 - Give the user the PR URL, a short summary, and **plainly where CI stands** — green, red with
@@ -123,35 +122,22 @@ When the 30 minutes are up, or CI settles, whichever comes first:
 - Then stop. The merge, review-bot findings, and anything still unresolved are the user's call,
   and a later session (or an explicit [`Run PR`](#run-pr) sweep) is where that work belongs.
 
-Never park a cron job or other open-ended watch on the PR. A cron entry outlives the session, so
-nothing can stop it afterwards — that is the unbounded loop this budget exists to prevent, and
-it is denied for the whole session regardless of how much budget is left.
+**Never park a cron job or other open-ended watch on the PR.** A cron entry outlives the session,
+so nothing can stop it afterwards — that is the unbounded loop this rule exists to prevent.
 
-**Inside a sweep** ([Run PR](#run-pr), a babysit of several PRs), the same 30-minute ceiling
-applies per CI run, but the sweep does not wait on it: take no more than one status snapshot
-every five minutes at meaningful stage boundaries, and if the run is still queued or in progress
-at the limit, record it as deferred with its run URL and continue.
+**Inside a sweep** ([Run PR](#run-pr), following several PRs at once), a separate pacing ceiling
+applies to _observing other PRs'_ CI: AGENTS.md "Anti-conflict and CI-speed operating procedure"
+caps it at one status snapshot every five minutes and ≤30 minutes per run, recording a still-queued
+or still-running check as deferred with its run URL rather than waiting on it. That ceiling is
+about sweep pacing, not about how long a session may follow its own just-opened PR.
 
 **Claude Code enforcement.** `.claude/hooks/pr-handoff-stop.sh` (registered in
-`.claude/settings.json`) drops a session-scoped marker, stamped with the open time, when a
-PR-creating call — `gh pr create` or any `create_pull_request` MCP tool — returns a real PR URL.
-It then measures the budget from that stamp:
-
-- **Inside the budget** — shell polling (`gh pr checks|status|view|…`, `gh run …`,
-  `gh api …actions/runs`, `sync:pr-branches`), GitHub MCP PR/CI tools, `Monitor`, and
-  `ScheduleWakeup` all pass. Only `CronCreate` is denied.
-- **Past the budget** — all of those are denied, so the session reports and stops rather than
-  drifting into an open-ended supervision shift.
-
-Committing, pushing, ledger appends, and PR create/merge (`gh pr merge`, `merge_pull_request`)
-stay allowed throughout. The budget is `CLAUDE_PR_BABYSIT_BUDGET_MINUTES` (default 30, clamped
-to 1..240). To keep watching past it on an explicit user ask, prefix a shell command with
-`CLAUDE_ALLOW_PR_FOLLOW=1`, or delete the marker the deny message names. Sessions that never
-create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix` work, and review sessions on someone
-else's PR still function normally. Known wording gap: the hook's post-create context message
-still reads as the bare route ("hand over its URL and stop … unless the user expressly asks"),
-and `tests/bare-pr-publication-policy.test.ts` pins that wording; the enforced ceiling is the
-same either way, and this section is the rule.
+`.claude/settings.json`) drops a session-scoped marker when a PR-creating call — `gh pr create`
+or any `create_pull_request` MCP tool — returns a real PR URL, and denies `CronCreate` for the
+rest of that session. Nothing else is restricted: `gh pr` reads, GitHub MCP PR/CI tools,
+`Monitor`, `ScheduleWakeup`, committing, pushing, ledger appends, and PR create/merge are all
+ordinary work. Sessions that never create a PR are untouched, so `Run PR` sweeps, `pr-ci-fix`
+work, and review sessions on someone else's PR still function normally.
 
 ## Review threads
 
@@ -294,14 +280,59 @@ If you find an owner-merge PR already armed, **report it rather than disarming i
 already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs
 explicit authorization.
 
+**The `Owner approval` status (2026-09-17, rollout in two steps).** Josh reads a red ✗ as a
+broken PR, so the hold is moving from a red `PR policy` failure to its own yellow commit status.
+`PR policy` posts `Owner approval` on the PR head: `pending` (yellow — "Waiting for Josh…")
+while his approval is outstanding or the PR is a draft, and `success` when the PR needs no owner
+merge or he has approved that head. A required context blocks merge until it is `success`, and
+statuses are per commit, so a new push is unreported (also blocking) until its own run decides.
+A status belongs to the commit, so when one commit heads several open PRs it stays `pending`
+until only one remains. Runs for one PR queue rather than cancel, so an older run's write cannot
+land after a newer verdict. `neutral` is not used because GitHub counts it as passing. Genuine policy failures (governance
+preflight, `RAG impact:`, migration history, the forgery tripwire below) stay red in `PR policy`.
+
+**Order matters.** If `PR policy` stopped failing on held PRs before the ruleset required
+`Owner approval`, every held PR would become mergeable. So:
+
+1. **Step 1 (merged first).** `PR policy` posts `Owner approval` in shadow and still fails red
+   on the hold. Nothing becomes mergeable.
+2. **Live ruleset change (owner, by hand).** Ruleset `Protections` (18011271) → required status
+   checks → add context **`Owner approval`** with source **GitHub Actions (integration 15368)**, keeping `Gitleaks`, `PR required` and `PR policy`. Before adding it, confirm open
+   ordinary PRs already carry a green `Owner approval` (each gets one on its next push, edit,
+   label change or ready-for-review; re-running an old run does not, because a re-run uses the
+   workflow revision it started with) — otherwise they show "Expected" and wait. `PR policy`
+   posts no `Owner approval` for `merge_group` events: this repository has no merge queue, but
+   if one is ever enabled, add a `merge_group` status path to `pr-policy.yml` **before** (or
+   together with) requiring `Owner approval`, or every queued PR waits on "Expected".
+3. **Step 2 (a second, small PR, merged only once the ruleset change is visibly live).** In
+   `evaluatePullRequestPolicy`, stop pushing the `Owner merge required (…)` error when the
+   workflow reports the hold through the status, and update the self-test
+   (`step 1 keeps the red hold`) and `check-pr-policy-workflow.mjs` to match. The batch runner
+   (`pr-batch-core.mjs`) must keep today's error so it still excludes owner-merge PRs.
+
+Between step 1 and step 2 a held PR shows both a red `PR policy` and a yellow `Owner approval`.
+Reverting step 2 opens nothing; removing the ruleset entry after step 2 makes held PRs
+mergeable — remove it only together with a revert of step 2.
+
+**Who can forge a required check.** The integration pin excludes a personal access token acting
+as BigSimmo, but not a workflow: any workflow that runs this branch's own code (`pull_request`,
+`push`, `workflow_dispatch`) is also GitHub Actions, so a job named `PR policy`, or a step with
+`statuses: write` posting `Owner approval`, would be attributed to integration 15368. That gap
+exists for today's `PR policy` too. `PR policy` now fails when a changed workflow or composite
+action that can run branch code names a protected context or can write commit statuses. This is
+a tripwire, not a boundary — an expression-built name or a later re-post gets past it. The
+boundary needs live settings: post `Owner approval` from a dedicated GitHub App whose key lives
+in an environment secret limited to `main`, and pin the ruleset to that app.
+
 **Ordinary PRs.** An agent may arm squash auto-merge when it opens the PR (see [Open](#open)).
 Merging a PR directly into `main` or any protected branch still needs the user's explicit
 request; the only standing batch authority is [`Clear PRs`](#clear-prs), which never overrides
 the owner-merge rule. [`Run PR`](#run-pr) never merges and never arms.
 
 **Auto-merge state is user-owned once the PR exists.** Automation must not disable or re-enable
-it. Ordinary fast-forward commits and pushes to fix CI or review findings, `update-branch` /
-merge-main-in syncs, and bundled additions are allowed while auto-merge is armed — GitHub
+it. Ordinary fast-forward commits and pushes to fix CI or review findings, bundled additions, and an `update-branch` /
+merge-main-in sync that [Branch sync](#branch-sync) allows (a real conflict, or the owner asks)
+are allowed while auto-merge is armed — GitHub
 re-validates required checks against the new head before it will merge, so an additive push
 cannot make it merge something unvalidated (`guard-push.mjs`'s auto-merge guard warns rather
 than blocks for this case). Never force-push, rewrite history, or change the PR's base/target
@@ -351,16 +382,19 @@ Squash-merge history has twice orphaned a late follow-up commit and once needed 
 
 <a id="open-pr-branch-sync-anti-churn"></a>
 
-Open PR heads go stale whenever `main` advances. GitHub frequently labels those branches
-`CONFLICTING` / `DIRTY` even when `git merge-tree` is clean — that is staleness, not an
-unresolvable content fight, and it blocks squash auto-merge.
+**Never merge `main` into an open PR branch (and never call `update-branch`) unless
+`git merge-tree --write-tree origin/main <tip>` shows a real conflict, or the owner asks. Being
+behind is not a reason: GitHub's strict up-to-date rule is satisfied at merge time.**
 
-**Diagnose first.** Before calling GitHub `DIRTY`/`CONFLICTING` a real conflict, compare
-`behind_by` and run `git merge-tree --write-tree origin/main <tip>` against a freshly fetched
-`origin/main`. Clean tree + behind = sync; dirty tree = real conflict. If the tree merge is clean,
-sync the branch instead of rewriting product code.
+Open PR heads go stale whenever `main` advances, and GitHub frequently labels those branches
+`CONFLICTING` / `DIRTY` even when `git merge-tree` is clean. That is staleness, not an
+unresolvable content fight — and per the rule above, staleness alone is not a reason to touch the
+branch. Diagnose before assuming otherwise: compare `behind_by` and run
+`git merge-tree --write-tree origin/main <tip>` against a freshly fetched `origin/main`. A clean
+tree means the branch is only stale, not blocked, and needs nothing from you; a dirty tree means a
+real conflict, which does need resolving.
 
-**How to sync.**
+**How to sync, when the rule above actually calls for it** (a real conflict, or the owner asks).
 
 - Automatic `GITHUB_TOKEN` branch updates are prohibited: bot-authored heads leave required checks
   awaiting approval. `npm run check:github-actions` guards this policy.
@@ -372,15 +406,13 @@ sync the branch instead of rewriting product code.
   `do not merge` title.
 - Leave active PRs alone unless the user asks (`Run PR`, sync, or a named PR).
 
-**Settle first.** Before mutating an open PR with `update-branch` or `git merge origin/main`,
-check whether its current head has required CI in flight. If the branch is merely behind and the
-merge tree is clean, let that run settle and sync once, late, after review/fix work is assembled.
-Preempt an in-flight run only when the branch is genuinely blocking-conflicted or the user
-explicitly asks for an immediate sync; do not disable `cancel-in-progress` for PR branches.
-`npm run sync:pr-branches:apply` enforces this guard; do not bypass it with a direct update call
-merely to make the PR current. The
-same settle-first rule applies to ordinary pushes: assemble every commit for a head before the
-first push, or wait for the current run to settle.
+**Settle first.** Even when the rule above calls for a sync, check whether the branch's current
+head has required CI in flight before mutating it with `update-branch` or `git merge origin/main`;
+wait for that run to settle rather than preempting it. Preempt an in-flight run only when the
+branch is genuinely blocking-conflicted or the user explicitly asks for an immediate sync; do not
+disable `cancel-in-progress` for PR branches. The same settle-first rule applies to ordinary
+pushes: assemble every commit for a head before the first push, or wait for the current run to
+settle.
 
 **Resolving real conflicts.**
 
@@ -409,7 +441,8 @@ workflow.
 Goal: for every open pull request (drafts included) — fix failing required CI checks (the
 `pr-required` aggregate in `.github/workflows/ci.yml`), address unresolved review threads (fix
 actionable ones, reply, resolve — per [Review threads](#review-threads)), and merge `origin/main`
-into branches that are behind or conflicting (per [Branch sync](#branch-sync)), then push.
+into branches with a real conflict per [Branch sync](#branch-sync) (being merely behind is not a
+reason to sync), then push.
 
 Authorization: the user typing `Run PR` IS the explicit user confirmation required by the "API
 and provider confirmation boundary" and the `pr-ci-fix` routing rule — but only for these

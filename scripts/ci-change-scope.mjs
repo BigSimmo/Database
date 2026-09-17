@@ -604,7 +604,14 @@ const containerPatterns = [
   "scripts/generate-worker-python-lock.mjs",
   "scripts/check-worker-python-lock.mjs",
   "tests/container-ci-contract.test.ts",
+  "tests/deploy-migration-gate.test.ts",
   /^scripts\/(check-node-engine|check-upload-limit-parity|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks|app-container-smoke|check-image-content-contract|trivy-image-scan|resolve-oci-image-digest|generate-worker-python-lock|check-worker-python-lock)\.(?:cjs|mjs)$/,
+  // scripts/deploy/** is baked into both runner images at build time (the
+  // pre-deploy migration gate: await-migrations.mjs, migration-versions.mjs,
+  // write-migration-manifest.mjs) and CI proves it with a --self-test run
+  // against each built image (docker-image.yml), so a gate-only edit must
+  // still run the container job rather than only the light static route.
+  /^scripts\/deploy\/.+/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -1557,6 +1564,19 @@ function selfTest() {
   assertScope("upload-limit-parity-input", ["scripts/check-upload-limit-parity.mjs"], {
     source_changed: true,
     coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
+  // The pre-deploy migration gate is baked into both runner images and
+  // self-tested there (docker-image.yml); a gate-only edit must still run the
+  // container job, not just the light static/source route.
+  assertScope("deploy-migration-gate-script", ["scripts/deploy/await-migrations.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    container_changed: true,
+    build_changed: true,
+  });
+  assertScope("deploy-migration-gate-manifest-writer", ["scripts/deploy/write-migration-manifest.mjs"], {
     container_changed: true,
     build_changed: true,
   });
