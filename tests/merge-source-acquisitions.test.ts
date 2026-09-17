@@ -230,7 +230,7 @@ describe("--fix-order CLI", () => {
 
       expect(afterSecond).toBe(afterFirst);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }, 30_000);
 
@@ -249,7 +249,7 @@ describe("--fix-order CLI", () => {
       const reformatted = await prettierFormat(raw, { ...options, filepath: file, parser: "json" });
       expect(reformatted).toBe(raw);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }, 30_000);
 });
@@ -269,7 +269,7 @@ describe("--check-order CLI exit code", () => {
       const result = runCli(["--check-order", "--file", file]);
       expect(result.status, result.stderr).toBe(0);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }, 30_000);
 
@@ -281,7 +281,7 @@ describe("--check-order CLI exit code", () => {
       const result = runCli(["--check-order", "--file", file]);
       expect(result.status).toBe(1);
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
   }, 30_000);
 });
