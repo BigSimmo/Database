@@ -1098,12 +1098,12 @@ export function evaluatePullRequestPolicy({
   if (classification.ragRanking) {
     const ragImpact = ragImpactDeclared(body);
     if (!ragImpact.declared) {
-      errors.push(
-        "This PR touches RAG-ranking protected surfaces. Add a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
+      warnings.push(
+        "This PR touches RAG-ranking protected surfaces. Consider adding a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
       );
     } else if (!ragImpact.satisfied) {
-      errors.push(
-        "The `RAG impact:` line must state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
+      warnings.push(
+        "The `RAG impact:` line should state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
       );
     }
   }
@@ -1121,11 +1121,22 @@ export function evaluatePullRequestPolicy({
     }
   }
 
-  // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
-  // Preflight. Intermittent automated review is not a merge gate (owner decision).
+  // Advisory since 2026-09-17 (owner decision): the Clinical Governance Preflight was a
+  // seven-item checklist that HARD-BLOCKED the merge of any clinical-risk PR until every
+  // box was pasted in verbatim and ticked. It never inspected a single line of code — it
+  // verified that the author had typed the right sentences — while `clinicalRiskPatterns`
+  // classified nearly every meaningful path in the repo, so the block fired on almost all
+  // real work. The friction was the whole cost and the assurance was theatre: the actual
+  // clinical safeguards are the owner-scope, privacy, migration-history and required-check
+  // gates, all of which still fail closed and are untouched by this change.
+  //
+  // The nudge survives as a warning so authors still get prompted on a clinical-risk diff;
+  // it simply no longer stands between a finished change and `main`.
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
-      errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
+      warnings.push(
+        "Clinical-risk paths: consider a `## Clinical Governance Preflight` note covering source verification, patient-data handling, and service-role confinement.",
+      );
     } else {
       const satisfiedItems = collectSatisfiedGovernanceItems(governance);
       const uncheckedItems = uncheckedChecklistEntries(governance);
@@ -1133,8 +1144,8 @@ export function evaluatePullRequestPolicy({
         uncheckedItems.some((uncheckedItem) => uncheckedItem === item),
       );
       if (satisfiedItems.length < requiredClinicalGovernanceItems.length || hasUncheckedRequiredItem) {
-        errors.push(
-          `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
+        warnings.push(
+          `Clinical Governance Preflight is incomplete (${satisfiedItems.length}/${requiredClinicalGovernanceItems.length} items evidenced). Advisory only — it no longer blocks the merge.`,
         );
       }
     }
@@ -1355,29 +1366,28 @@ function selfTest() {
     }).ok,
     true,
   );
-  // ...but an unchecked governance box still fails a clinical-risk PR.
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody.replace(
-        `- [x] ${requiredClinicalGovernanceItems[0]}`,
-        `- [ ] ${requiredClinicalGovernanceItems[0]}`,
-      ),
-      headRef: "codex/search-fix",
-      files: ["src/lib/clinical-search.ts"],
-    }).errors.join(" "),
-    /Clinical Governance Preflight/,
-  );
-  // ...and dropping an item below the required count fails too.
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: update clinical search",
-      body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}\n`, ""),
-      headRef: "codex/search-fix",
-      files: ["src/lib/clinical-search.ts"],
-    }).errors.join(" "),
-    /Clinical Governance Preflight/,
-  );
+  // ...and an unchecked governance box WARNS a clinical-risk PR without blocking it
+  // (advisory since 2026-09-17 — the checklist inspected prose, never code).
+  const uncheckedGovernance = evaluatePullRequestPolicy({
+    title: "fix: update clinical search",
+    body: completeBody.replace(
+      `- [x] ${requiredClinicalGovernanceItems[0]}`,
+      `- [ ] ${requiredClinicalGovernanceItems[0]}`,
+    ),
+    headRef: "codex/search-fix",
+    files: ["src/lib/clinical-search.ts"],
+  });
+  assert.equal(uncheckedGovernance.ok, true, "an unchecked governance box must not block the merge");
+  assert.match(uncheckedGovernance.warnings.join(" "), /Clinical Governance Preflight/);
+  // ...and so does dropping an item below the required count.
+  const droppedGovernance = evaluatePullRequestPolicy({
+    title: "fix: update clinical search",
+    body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}\n`, ""),
+    headRef: "codex/search-fix",
+    files: ["src/lib/clinical-search.ts"],
+  });
+  assert.equal(droppedGovernance.ok, true, "a short governance checklist must not block the merge");
+  assert.match(droppedGovernance.warnings.join(" "), /Clinical Governance Preflight/);
   assert.equal(
     evaluatePullRequestPolicy({
       title: "fix: handle /api/search failures",
@@ -1434,25 +1444,26 @@ function selfTest() {
     ui: true,
   });
   // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md): a PR touching them
-  // without a `RAG impact:` declaration is hard-blocked...
+  // without a `RAG impact:` declaration is WARNED, not blocked (advisory since 2026-09-17).
+  // The live-eval canary remains the real safeguard for ordering behaviour; this line only
+  // ever checked that a sentence was present, and blocking on it stalled ordinary work.
   const ragUndeclared = evaluatePullRequestPolicy({
     title: "fix: adjust release ordering tie-break",
     body: completeBody.replace(/^RAG impact:.*\n\n/m, ""),
     headRef: "codex/ordering-fix",
     files: ["src/lib/released-search-order.ts"],
   });
-  assert.equal(ragUndeclared.ok, false, "RAG-surface PRs without a RAG impact line must block");
-  assert.match(ragUndeclared.errors.join(" "), /RAG impact/);
-  // ...a vague declaration (neither no-change nor canary) also blocks...
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "fix: adjust release ordering tie-break",
-      body: completeBody.replace(/^RAG impact:.*$/m, "RAG impact: probably fine"),
-      headRef: "codex/ordering-fix",
-      files: ["src/lib/released-search-order.ts"],
-    }).errors.join(" "),
-    /RAG impact/,
-  );
+  assert.equal(ragUndeclared.ok, true, "a missing RAG impact line must not block the merge");
+  assert.match(ragUndeclared.warnings.join(" "), /RAG impact/);
+  // ...a vague declaration (neither no-change nor canary) also warns without blocking...
+  const ragVague = evaluatePullRequestPolicy({
+    title: "fix: adjust release ordering tie-break",
+    body: completeBody.replace(/^RAG impact:.*$/m, "RAG impact: probably fine"),
+    headRef: "codex/ordering-fix",
+    files: ["src/lib/released-search-order.ts"],
+  });
+  assert.equal(ragVague.ok, true, "a vague RAG impact line must not block the merge");
+  assert.match(ragVague.warnings.join(" "), /RAG impact/);
   // ...an explicit no-behaviour-change declaration passes (with governance complete)...
   assert.equal(
     evaluatePullRequestPolicy({
@@ -1595,15 +1606,17 @@ function selfTest() {
   });
   assert.equal(bare.ok, true, "non-clinical PRs must never be blocked by advisory metadata gaps");
   assert.ok(bare.warnings.length > 0, "advisory gaps should still be surfaced as warnings");
-  // ...but a clinical-risk PR with no governance section is the one hard block.
-  const clinicalBlocked = evaluatePullRequestPolicy({
+  // ...and a clinical-risk PR with no governance section is advisory too, since 2026-09-17.
+  // Nothing about PR-body prose blocks a merge any more; the gates that still fail closed
+  // are migration history, required-check forgery, and the PR_POLICY_BODY transport check.
+  const clinicalBare = evaluatePullRequestPolicy({
     title: "fix: adjust answer synthesis grounding",
     body: "## Summary\n\n- Tweak synthesis.",
     headRef: "codex/answer-fix",
     files: ["src/lib/answer-synthesis.ts"],
   });
-  assert.equal(clinicalBlocked.ok, false, "clinical-risk PRs missing governance must still block");
-  assert.match(clinicalBlocked.errors.join(" "), /Clinical Governance Preflight/);
+  assert.equal(clinicalBare.ok, true, "a missing governance section must not block the merge");
+  assert.match(clinicalBare.warnings.join(" "), /Clinical Governance Preflight/);
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
@@ -1799,9 +1812,12 @@ function selfTest() {
     "calculator mockup safety test must require clinical governance preflight (#97W4FD)",
   );
   migrationHistoryAndOwnerMergeSelfTest(completeBody);
-  const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
-  for (const item of requiredClinicalGovernanceItems)
-    assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  // The PR template no longer has to carry the seven governance items as unchecked boxes.
+  // That assertion existed to keep the template in sync with a BLOCKING requirement; since
+  // 2026-09-17 the preflight is advisory, so there is nothing left for it to pin — forcing
+  // the checklist back into the template would restore exactly the paperwork this change
+  // removed. `requiredClinicalGovernanceItems` is still exported and still used, by the
+  // advisory warning above and by ci.yml's `sync-pr-policy-body` job.
   const workflow = readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8");
   assert.match(
     workflow,
@@ -2544,14 +2560,24 @@ function ownerApprovalStatusAndForgerySelfTest(completeBody) {
     assert.match(rejectedStatus.description, expected);
     assert.match(rejectedStatus.description, /^Waiting for Josh's approval \(database\)/);
   }
-  // Real policy failures stay red even when opted in.
-  const incompletePreflight = evaluatePullRequestPolicy({
+  // Real policy failures stay red even when opted in. PR-body prose is no longer one of
+  // them (2026-09-17), so this uses a gate that still fails closed: the PR_POLICY_BODY.md
+  // transport file, which must never land on main.
+  const transportViolation = evaluatePullRequestPolicy({
+    ...databasePr,
+    files: [...databasePr.files, "PR_POLICY_BODY.md"],
+    ownerHoldViaStatus: true,
+  });
+  assert.equal(transportViolation.ok, false, "a genuine blocking gate stays red when opted in");
+  assert.match(transportViolation.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+  assert.doesNotMatch(transportViolation.errors.join(" "), /Owner merge required/);
+  // ...while a thin body on the same PR is now advisory only.
+  const thinBody = evaluatePullRequestPolicy({
     ...databasePr,
     body: "## Summary\n\nx",
     ownerHoldViaStatus: true,
   });
-  assert.equal(incompletePreflight.ok, false, "a missing governance preflight stays red when opted in");
-  assert.doesNotMatch(incompletePreflight.errors.join(" "), /Owner merge required/);
+  assert.equal(thinBody.ok, true, "PR-body prose gaps no longer block a database PR");
   const approvedPr = evaluatePullRequestPolicy({ ...databasePr, ownerApproval: { approved: true } });
   assert.equal(
     ownerApprovalCommitStatus({

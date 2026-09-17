@@ -4,45 +4,36 @@
 
 ## Verification
 
-- [ ] `npm run verify:pr-local`
+Paste the decisive line from whatever you ran — exit code 0 alone is not proof.
 
-During development, use `npm run verify:cheap` as the faster iteration gate before the final PR-local preflight.
+- [ ] Checks run:
 
-- [ ] `npm run verify:ui` when UI, routing, styling, browser behavior, reduced-motion, or forced-colors behavior changed
-- [ ] `npm run verify:release` before release or handoff confidence claims
+Use `npm run test:focused -- --files <paths>` while iterating, `npm run verify:cheap` (lint +
+typecheck + unit tests) before opening a PR, and `npm run verify:full` only when a change is
+broad enough to warrant the whole static suite. `npm run verify:ui` covers UI, routing, styling,
+reduced-motion and forced-colors changes.
 
-For retrieval, ranking, selection, chunking, source/citation rendering, or answer-contract changes, `verify:pr-local` runs `eval:rag:offline` automatically. Run the offline command directly during iteration before spending a live eval.
-
-- [ ] **`npm run eval:retrieval:quality` (must stay 36/36) when retrieval, ranking, selection, chunking, or scoring behavior changed** — provider-backed and CI cannot run it (needs live keys): owner-run or explicitly approved, then paste the summary; otherwise write `Verification not run: <reason>`. A metadata/governance-weighting change once buried correct docs (recall 1.0→0.76) and only this eval caught it.
-- [ ] `npm run eval:rag -- --limit 15` + `npm run eval:quality -- --rag-only` when answer generation, the synthesis prompt, or answer post-processing changed (grounded-supported must not drop; citation-failure 0) — provider-backed: owner-run or explicitly approved; otherwise `Verification not run: <reason>`
-- [ ] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed
-- [ ] `npm run check:deployment-readiness` when deployment startup, hosting, or rollout behavior changed
-
-<!-- Use `Verification not run: <reason>` or `UI verification not run: <reason>` when a required local gate cannot be run; do not leave an unchecked box as the only evidence. -->
+Nothing in this template blocks a merge. The gates that fail closed are migration history,
+required-check forgery, and CI itself.
 
 ## Risk and rollout
 
-Complete this section for clinical, data, API, auth/privacy, workflow, dependency, build, or deployment changes.
+Worth a line for clinical, data, auth/privacy, migration, dependency, or deployment changes.
 
 - Risk:
 - Rollback:
 - Provider or production effects: None / describe the explicitly authorized effect
-- RAG impact: Required if touching RAG ranking surfaces (`src/lib/rag/`, retrieval RPCs, golden fixtures, ranking tests; see `docs/rag-behaviour/safeguards.md`). Must use one of:
-  - `RAG impact: no retrieval behaviour change — <reason>`
-  - `RAG impact: behaviour change — canary pair <baseline run> -> <post run>`
-  - (Use `RAG impact: none` or omit for non-RAG PRs)
 
-## Clinical Governance Preflight
+<!--
+Provider-backed evals are owner-run and never automatic:
+  `npm run eval:retrieval:quality` (must stay 36/36) — retrieval, ranking, selection, chunking
+  `npm run eval:rag -- --limit 15` + `npm run eval:quality -- --rag-only` — answer generation
+For RAG ranking surfaces, a `RAG impact:` line is advisory but still the fastest way to tell a
+reviewer whether ordering moved. See docs/rag-behaviour/safeguards.md.
 
-Complete this section when the change touches ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output.
-
-- [ ] Source-backed claims still require linked source verification before clinical use
-- [ ] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
-- [ ] Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)
-- [ ] Service-role keys and private document access remain server-only
-- [ ] Demo/synthetic content remains clearly separated from real clinical sources
-- [ ] Source metadata, review status, and outdated/unknown-source behavior remain conservative
-- [ ] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
+Merging a `supabase/migrations/**` change applies it to the LIVE clinical database within
+seconds. There is no separate deploy step to wait for.
+-->
 
 ## Notes
 
