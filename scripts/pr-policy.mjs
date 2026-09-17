@@ -340,6 +340,34 @@ export function classifyPullRequestFiles(files) {
   };
 }
 
+// PR_POLICY_BODY.md is a transport file: ci.yml's `sync-pr-policy-body` job pastes it into
+// the description of any PR whose OWN diff adds or modifies it (see `## Apply PR_POLICY_BODY.md
+// to pull request description`), then leaves the file itself sitting on the branch. Nothing
+// deletes it before merge unless someone remembers to, so it has landed on `main` repeatedly —
+// ~35 add/remove churn commits by 2026-09-16 — where it is stale, fully-checked prose with no
+// `<!-- GOVERNANCE_PREFLIGHT -->` placeholder for the sync job to fill in. Blocking any PR that
+// still carries it (added, modified, or merely present unremoved) forces it out of the branch
+// before merge, so it can never accumulate on `main` again while the sync mechanism stays usable
+// for whichever environment drops the file in to seed a description.
+const PR_POLICY_BODY_FILENAME = "PR_POLICY_BODY.md";
+
+/**
+ * True when the PR's diff leaves `PR_POLICY_BODY.md` present (added, modified, renamed in, or
+ * simply listed as an unchanged file in a `files`-only call). A `removed` status — the only way
+ * to satisfy this gate — returns false. Prefers `fileStatuses` (authoritative on rename/removal);
+ * falls back to a plain `files` list when `fileStatuses` is not supplied.
+ */
+export function prPolicyBodyTransportViolation({ fileStatuses, files }) {
+  if (Array.isArray(fileStatuses)) {
+    return fileStatuses.some(
+      (file) =>
+        normalizePath(file?.filename) === PR_POLICY_BODY_FILENAME &&
+        String(file?.status ?? "").toLowerCase() !== "removed",
+    );
+  }
+  return (files ?? []).some((file) => normalizePath(file) === PR_POLICY_BODY_FILENAME);
+}
+
 // The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
 // no-behaviour-change statement (with a reason) or a canary-pair reference. Matched anywhere
 // in the body, list-marker tolerant, case-insensitive.
@@ -740,6 +768,15 @@ export function evaluatePullRequestPolicy({
     ? fileStatuses.map((file) => file?.previous_filename).filter(Boolean)
     : [];
   const classification = classifyPullRequestFiles([...(files ?? []), ...renamedFromPaths]);
+
+  // Blocking gate: PR_POLICY_BODY.md must never land on main — see the comment above
+  // prPolicyBodyTransportViolation for why a lingering copy is dangerous.
+  if (prPolicyBodyTransportViolation({ fileStatuses, files })) {
+    errors.push(
+      "PR_POLICY_BODY.md is a transport file: CI has synced it into this PR's description; delete it from the branch before merge so it never lands on main.",
+    );
+  }
+
   const summary = section(body, "Summary");
   // The summary must be its own prose: content nested under a sub-heading
   // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
@@ -1973,6 +2010,59 @@ $migration$;
     3,
   );
   assert.doesNotMatch(replayApproved.errors.join(" "), /Owner merge required/);
+
+  // --- PR_POLICY_BODY.md must never land on main (transport file, see the comment above
+  // prPolicyBodyTransportViolation) --------------------------------------------------------
+  const addedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "added", previous_filename: null }],
+  });
+  assert.equal(addedPrPolicyBody.ok, false, "an added PR_POLICY_BODY.md must block");
+  assert.match(addedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const modifiedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "docs: refresh the PR policy template",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(modifiedPrPolicyBody.ok, false, "a modified PR_POLICY_BODY.md must block");
+  assert.match(modifiedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY\.md is a transport file/);
+
+  const removedPrPolicyBody = evaluatePullRequestPolicy({
+    title: "chore: retire the PR policy transport file",
+    body: completeBody,
+    headRef: "codex/pr-policy-body",
+    files: ["PR_POLICY_BODY.md"],
+    fileStatuses: [{ filename: "PR_POLICY_BODY.md", status: "removed", previous_filename: null }],
+  });
+  assert.equal(removedPrPolicyBody.ok, true, "removing PR_POLICY_BODY.md must never block");
+  assert.doesNotMatch(removedPrPolicyBody.errors.join(" "), /PR_POLICY_BODY/);
+
+  const unrelatedPr = evaluatePullRequestPolicy({
+    title: "docs: clarify the release checklist",
+    body: completeBody,
+    headRef: "codex/release-checklist",
+    files: ["docs/process-hardening.md"],
+    fileStatuses: [{ filename: "docs/process-hardening.md", status: "modified", previous_filename: null }],
+  });
+  assert.equal(unrelatedPr.ok, true, "a PR that never touches PR_POLICY_BODY.md must be unaffected");
+
+  // Fallback path: fileStatuses absent, only a bare `files` list supplied (e.g. an older caller).
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["PR_POLICY_BODY.md"] }),
+    true,
+    "the files-only fallback must still catch a present PR_POLICY_BODY.md",
+  );
+  assert.equal(
+    prPolicyBodyTransportViolation({ files: ["docs/process-hardening.md"] }),
+    false,
+    "the files-only fallback must not flag an unrelated PR",
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -25,11 +25,9 @@ When invoked with a PR number, branch, or URL:
 5. Skip or disagree with speculative/style findings: reply with a concise
    disposition and leave the thread open when human judgment is required.
 6. After a valid fix, and only with explicit user authorization for these
-   mutations: commit, push to the feature branch, reply on the thread with the
-   fix summary and SHA, then use the authorized direct resolution tool. The Run
-   PR shortcut supplies only its enumerated GitHub authorization. If direct
-   resolution is unavailable, only the trusted Codex autofix identity may use
-   the repository disposition marker; otherwise leave the thread open.
+   mutations: commit, push to the feature branch, then reply and resolve per
+   [Review threads](../../docs/agents/pull-request-workflow.md#review-threads). The Run PR shortcut supplies
+   only its enumerated GitHub authorization.
 7. Never merge to main, force-push, close the PR, weaken CI, or run
    provider-backed gates without separate explicit authorization. A Run PR
    sweep never authorizes provider-backed gates.
