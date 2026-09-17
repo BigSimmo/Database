@@ -12,6 +12,10 @@ import {
   verifyCanaryResults,
 } from "./pr-batch-core.mjs";
 
+// This runner no longer dispatches to (or waits on) the Codex operator or
+// autofix workflows, so their files are not part of the trusted controller
+// policy any more; both are being retired separately, and pinning their
+// content here would crash controllerHash() the moment they are deleted.
 export const CONTROL_FILES = [
   "scripts/pr-batch-core.mjs",
   "scripts/pr-batch-github.mjs",
@@ -20,11 +24,6 @@ export const CONTROL_FILES = [
   "scripts/pr-batch-policy.mjs",
   "scripts/pr-policy.mjs",
   ".github/workflows/pr-batch-runner.yml",
-  ".github/workflows/pr-batch-review-wake.yml",
-  ".github/workflows/codex-autofix-review-comments.yml",
-  ".github/workflows/codex-run-pr-operator.yml",
-  ".github/codex/prompts/run-pr-operator.md",
-  ".github/codex/run-pr-result.schema.json",
 ];
 export const controllerHash = () =>
   digest(
@@ -85,7 +84,6 @@ export class GitHubBatch {
     this.now = now;
     this.stateSigningKey = stateSigningKey;
     this.canaryCache = new Map();
-    this.activeWorkers = null;
   }
 
   async enabled() {
@@ -271,7 +269,9 @@ export class GitHubBatch {
       required,
       approvals,
       queue,
-      mergeMethod: repository.allow_merge_commit ? "merge" : repository.allow_squash_merge ? "squash" : null,
+      // Owner decision 2026-09-16: squash is the preferred merge method wherever
+      // the repository allows it; fall back to merge commits only when it does not.
+      mergeMethod: repository.allow_squash_merge ? "squash" : repository.allow_merge_commit ? "merge" : null,
     };
   }
 
@@ -412,22 +412,8 @@ export class GitHubBatch {
     const workerRuns = latestRuns.filter(
       (run) => internal.test(run.name) && run.status !== "completed" && run.id !== this.runId,
     );
-    if (!this.activeWorkers) {
-      this.activeWorkers = [];
-      for (const status of ["in_progress", "queued", "waiting", "pending"]) {
-        this.activeWorkers.push(
-          ...(await this.gh.paginate(this.gh.rest.actions.listWorkflowRuns, {
-            ...this.repo,
-            workflow_id: "codex-run-pr-operator.yml",
-            status,
-            per_page: 100,
-          })),
-        );
-      }
-    }
-    const standaloneOutstanding = this.activeWorkers.some(
-      (run) => run.display_title === `PR operator #${number}` || run.display_title === "Codex Run PR operator",
-    );
+    // No standalone-operator check here: the runner no longer dispatches or
+    // waits on the Codex operator workflow, which is being retired separately.
     let connectorRepairOutstanding = false;
     if (threads.length) {
       const comments = await this.gh.paginate(this.gh.rest.issues.listComments, {
@@ -476,7 +462,7 @@ export class GitHubBatch {
         lanes.some((run) => run.status !== "completed") ||
         relevantChecks.some((check) => check.status !== "completed") ||
         latestStatuses.some((status) => status.state === "pending"),
-      busy: workerRuns.length > 0 || connectorRepairOutstanding || standaloneOutstanding,
+      busy: workerRuns.length > 0 || connectorRepairOutstanding,
       behind: compare.ahead_by > 0,
       conflicting,
       conflictPaths,
@@ -561,19 +547,6 @@ export class GitHubBatch {
         pull_number: pending.number,
         expected_head_sha: pending.head,
       });
-    } else if (pending.kind === "repair") {
-      await this.gh.rest.actions.createWorkflowDispatch({
-        ...this.repo,
-        workflow_id: "codex-run-pr-operator.yml",
-        ref: "main",
-        inputs: {
-          pr_number: String(pending.number),
-          codex_task_url: state.manifest.authorization,
-          confirmation: "I authorized this PR in the linked Codex task",
-          batch_id: state.manifest.id,
-          batch_operation: pending.id,
-        },
-      });
     } else if (pending.kind === "merge") {
       const protection = await this.protections();
       const latest = await this.inspect(pending.number, { protection, state });
@@ -611,19 +584,6 @@ export class GitHubBatch {
     } else throw new Error(`Unsupported batch mutation: ${pending.kind}`);
   }
 
-  async findRepair(pending) {
-    const runs = await this.gh.paginate(this.gh.rest.actions.listWorkflowRuns, {
-      ...this.repo,
-      workflow_id: "codex-run-pr-operator.yml",
-      event: "workflow_dispatch",
-      created: `>=${pending.at}`,
-      per_page: 100,
-    });
-    const matches = runs.filter((run) => run.display_title === `PR batch repair ${pending.id}`);
-    if (matches.length > 1) throw new Error("Duplicate repair dispatches detected");
-    return matches[0] ?? null;
-  }
-
   async verifySync(pending, evidence) {
     if (evidence.head === pending.head) return !evidence.behind;
     const commit = (await this.gh.rest.git.getCommit({ ...this.repo, commit_sha: evidence.head })).data;
@@ -632,35 +592,6 @@ export class GitHubBatch {
     return (
       commit.parents.length === 2 && commit.parents[0].sha === pending.head && commit.parents[1].sha === pending.base
     );
-  }
-
-  async recoverWorker(state, pending, run) {
-    const pr = (await this.gh.rest.pulls.get({ ...this.repo, pull_number: pending.number })).data;
-    if (![pending.head, pending.resultHead].includes(pr.head.sha))
-      throw new Error("Recovery head is outside the sealed operation");
-    await this.assertMutation(state, pending, pr.head.sha);
-    const jobs = await this.gh.paginate(this.gh.rest.actions.listJobsForWorkflowRun, {
-      ...this.repo,
-      run_id: run.id,
-      filter: "latest",
-      per_page: 100,
-    });
-    const failed = jobs.filter((job) => failures.has(job.conclusion));
-    if (
-      !failed.length ||
-      failed.some(
-        (job) =>
-          ![
-            "Verify and publish an ordinary fast-forward update",
-            "Reply, resolve, rerun, and verify bounded mutations",
-          ].includes(job.name),
-      )
-    )
-      throw new Error("Recovery would repeat an unbudgeted repair stage");
-    await this.gh.request("POST /repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs", {
-      ...this.repo,
-      run_id: run.id,
-    });
   }
 
   async postMergeFailure(state) {

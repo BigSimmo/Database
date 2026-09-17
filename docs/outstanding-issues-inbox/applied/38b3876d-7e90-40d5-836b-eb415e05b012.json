@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "38b3876d-7e90-40d5-836b-eb415e05b012",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Three systems correctly detect production failures and report to nobody: the live monitor, Sentry, and CI on main",
+    "detail": "EVIDENCE, all read 2026-09-17. (1) LIVE DOMAIN MONITOR. .github/workflows/live-domain-monitor.yml runs every 6h and its 'Catalogue search returns live results' step has failed on EVERY run since 2026-09-16T18:34 (18:34, then 01:03, 06:47 and 12:41 on 2026-09-17). It was correctly reporting that Forms, Services and Medications were answering from the in-bundle catalogue. Nobody acted on it for ~18h; it was found only because the owner reported the symptom by hand. This is the second time this exact workflow has been the thing that knew: its own header records that it stayed green through a 3-day rollback loop in September and the freshness check was added afterwards. (2) SENTRY. Project javascript-nextjs, org clinibase-xz: 640+ 'Unhandled server request error' events over 11 days with the stack trace in app/api/differentials/route.js, still firing minutes before the owner asked. No alert rule fired. (3) CI ON MAIN. Ledger #T82ND3 already records main red for six of its last eight pushes with nothing blocking or reporting it. THE COMMON DEFECT IS NOT DETECTION, IT IS DELIVERY. All three signals existed, were accurate, and were cost-free. The 2026-09-09 to 2026-09-16 outage lasted seven days and the 2026-09-06 to 2026-09-17 Differentials failure eleven, both while at least one of these three was correctly red. Adding more checks has negative value until a red check reaches a human. NEXT, cheapest first: (a) confirm whether GitHub already emails the owner on scheduled-workflow failure and whether those mails are being delivered and read - this may be a notification-settings fix with no engineering at all; (b) a Sentry alert rule on error rate for /api/differentials and /api/search; (c) decide the policy question #T82ND3 raises, which is whether a red main is allowed to be silent. STOP: do not add further monitoring checks before (a) is answered. The repository already has more working detection than it has attention.",
+    "source": "Direct reads of live-domain-monitor run history, Sentry issue list, and ledger #T82ND3; session 01XGpedMgoXWK3U3fn2TWTzR, 2026-09-17.",
+    "issueUlid": "01M2QPC3QXTN512MBBWEWHTM8E"
+  }
+}

@@ -61,48 +61,6 @@ other half of this rule, and it is what this playbook's own PR did.
 
 ## 2. Do not buy the same verdict twice
 
-### 2.1 Ask the arbiter first
-
-```bash
-npm run arbiter -- <gate>     # RUN / DEFER / PROVEN, with its evidence
-npm run arbiter:status        # the yield ledger and the duplication bill so far
-```
-
-`scripts/gate-arbiter.mjs` weighs three things: whether CI re-runs this gate **for this change**
-(evaluating the step's and the job's own `if:` conditions, not merely their presence in the YAML),
-the gate's rolling yield on this class of change, and whether a verdict already exists for exactly
-this content.
-
-What it can and cannot do, because both matter:
-
-- **Only `docs` (3 clean runs) and `source` (12) can ever defer.** `db`, `rag`, `deps`,
-  `container`, `workflow`, `ui` and `unknown` never defer, however clean the history — the same
-  fail-closed routing CI itself uses.
-- **It fails open.** Missing data, unreadable CI, an unknown class, a git failure — every one runs
-  the gate.
-- **It is advisory by default** and prints its verdict; only `GATE_ARBITER=enforce` makes the
-  wrappers act on it. `CI` being set disables it outright.
-- **A deferred gate is not a passed gate.** Report it as "deferred to CI — `<gate>` has caught
-  nothing in N consecutive `<class>` runs". The tool prints that instruction itself.
-- Its ledger lives under `node_modules/.cache/`, so a fresh or reinstalled worktree starts cold and
-  defers nothing until the window fills.
-
-### 2.2 Tell it what CI already proved
-
-```bash
-npm run arbiter -- record-ci <40-char-sha> lint typecheck test
-```
-
-Reading GitHub is provider-backed, so the arbiter never fetches — the session that looked at CI
-passes on what it saw. It **refuses a bare invocation** (one observed green job must not become
-proof for every gate), requires a full SHA that resolves in this repository, and only consumes the
-record when the working tree is clean **and** identical to that SHA.
-
-The common waste this kills: CI goes green on a branch head, and a later session runs the whole
-suite again on that same head.
-
-### 2.3 Receipts kill the local-vs-local repeat
-
 `scripts/gate-receipts.mjs` memoises `lint`, `typecheck` and non-coverage Vitest against a content
 signature, so an identical re-run on unchanged content exits immediately.
 
@@ -166,8 +124,8 @@ Two things worth knowing:
 - The `newtask` skill still prescribes `npm ci`. That is the slower path. On this machine a full
   install has been measured at roughly an hour.
 - The donor copy deliberately excludes `.cache`, so a seeded worktree has no eslint cache, no
-  `.tsbuildinfo`, and **no receipts or arbiter ledger**. The first gates there run cold. That is
-  correct, not a bug.
+  `.tsbuildinfo`, and **no receipt store**. The first gates there run cold. That is correct, not a
+  bug.
 
 Also: **git refuses to check out a branch that another worktree already holds.** A resume
 instruction that says `git checkout <branch>` will simply fail if that branch is live elsewhere.
@@ -347,6 +305,6 @@ Non-negotiable, and none of the above touches them:
    caught only by looking at the rendered screen at 390 / 820 / 1440.
 5. **Provider-backed gates stay behind explicit approval** — `verify:release`, `eval:*`,
    `check:supabase-project`, `test:live`.
-6. **CI stays the authority.** Receipts and the arbiter are disabled outright when `CI` is set, and
+6. **CI stays the authority.** Receipts are disabled outright when `CI` is set, and
    `check:gate-manifest` enforces that CI never runs less of the local static set than the local
    chain does. Nothing local can weaken a required check, and nothing here tries to.

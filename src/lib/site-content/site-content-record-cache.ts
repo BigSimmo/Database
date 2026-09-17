@@ -32,9 +32,12 @@
  * CONSERVATIVE BY CONSTRUCTION. Three rules keep a cache from prolonging a degraded or
  * mid-publication state, which on clinical content matters more than the latency it buys:
  *
- *   1. Only a `current` snapshot is stored. `updating` (a publication is outstanding) and
- *      `unavailable` (no valid release) are re-read every time, so a degraded catalogue is
- *      re-checked on each request rather than pinned for the whole window.
+ *   1. Only a settled snapshot is stored: `current`, or a retained epoch-zero bootstrap, which
+ *      is frozen by definition. `updating` (a publication is outstanding) and a genuinely broken
+ *      `unavailable` are re-read every time, so a degraded catalogue is re-checked on each
+ *      request rather than pinned for the whole window. See `rowsAreCacheable` for why the
+ *      bootstrap belongs on the cacheable side and why it is matched by release id, not by the
+ *      absence of `current`.
  *   2. A failed blocking read is never stored and never served. The caller's existing fallback
  *      to the in-bundle seed catalogue stays reachable. A failed BACKGROUND refresh is
  *      different and deliberately does not evict: the last known-good canonical rows keep
@@ -44,6 +47,8 @@
  *      search. Keep them short enough that an operator publishing a change does not think the
  *      publication failed.
  */
+
+import { isRetainedBootstrapReleaseId } from "@/lib/site-content/site-content-health";
 
 /** How long a cached catalogue is served without any refresh at all. */
 export const siteContentRecordCacheTtlMs = 15_000;
@@ -94,13 +99,37 @@ function cacheKey(kind: string, slug: string | null) {
 }
 
 /**
- * The snapshot the RPC returns alongside every row. Only `current` is cacheable; see rule 1.
- * A payload we cannot read is treated as not cacheable rather than assumed healthy.
+ * The snapshot the RPC returns alongside every row. A payload we cannot read is treated as not
+ * cacheable rather than assumed healthy.
+ *
+ * TWO states are cacheable, and the second is the one production is actually in.
+ *
+ *   * `current` — the healthy steady state. Rule 1 above.
+ *   * A RETAINED EPOCH-ZERO BOOTSTRAP, which `read_site_content_public_records` reports as
+ *     `unavailable` because it hard-codes the bootstrap release id to that state
+ *     (`20260916103000_push_kind_filter_into_site_content_public_records.sql`). Production has
+ *     served that bootstrap since 2026-08-24 (ledger `#HTZPQ8`), so this cache stored NOTHING
+ *     between the day it shipped and the day this was fixed, and every request paid the full
+ *     canonical read. Measured live 2026-09-17: worst call 92,319 ms, and 63% of all slow
+ *     database time on the instance.
+ *
+ * Caching the bootstrap does not weaken rule 1, because rule 1 is about not pinning a state the
+ * control plane is moving through. A retained bootstrap is not a state anything is moving
+ * through: it is frozen by definition, it changes only when an operator publishes a new release
+ * (which changes the release id and so misses this test), and it is therefore the single most
+ * cacheable thing the control plane can return. `updating` and a genuinely broken `unavailable`
+ * are still re-read every time.
+ *
+ * The bootstrap is recognised POSITIVELY, by release id, through the same canonical helper the
+ * form-record gate uses. Never widen this to "not current" — that would cache real breakage.
  */
 function rowsAreCacheable(rows: SiteContentRecordRows) {
   const snapshot = rows.find((row) => row.snapshot != null)?.snapshot;
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return false;
-  return (snapshot as Record<string, unknown>).state === "current";
+  const state = (snapshot as Record<string, unknown>).state;
+  if (state === "current") return true;
+  const releaseId = (snapshot as Record<string, unknown>).releaseId;
+  return typeof releaseId === "string" && isRetainedBootstrapReleaseId(releaseId);
 }
 
 /**

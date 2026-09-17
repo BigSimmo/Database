@@ -1,14 +1,12 @@
 # Webhooks
 
-This repo ships three webhook integrations. Two are inbound receivers under
-`src/app/api/webhooks/`; one is an outbound GitHub Actions notifier. All three
-share the same optional chat destinations.
+This repo ships two webhook integrations, both inbound receivers under
+`src/app/api/webhooks/`. They share the same optional chat destinations.
 
 | #   | Integration                          | Direction | Entry point                                   |
 | --- | ------------------------------------ | --------- | --------------------------------------------- |
 | 1   | Railway deploy → chat                | inbound   | `POST /api/webhooks/railway`                  |
-| 2   | GitHub CI failure → chat             | outbound  | `.github/workflows/notify-ci-failure.yml`     |
-| 3   | Supabase document change → ingestion | inbound   | `POST /api/webhooks/supabase/document-change` |
+| 2   | Supabase document change → ingestion | inbound   | `POST /api/webhooks/supabase/document-change` |
 
 ## Chat destinations (shared)
 
@@ -24,8 +22,7 @@ then failed and rolled back over three days with every alert discarded on this p
 - `SLACK_WEBHOOK_URL` — a Slack incoming webhook (`{ "text": … }`).
 - `DISCORD_WEBHOOK_URL` — a Discord webhook (`{ "content": … }`).
 
-The GitHub workflow reads these from repository **secrets** of the same name; the
-inbound receivers read them from server env (`src/lib/env.ts`).
+The inbound receivers read them from server env (`src/lib/env.ts`).
 
 Store every secret below in Railway/GitHub secret stores — never in the repo.
 
@@ -68,26 +65,15 @@ every one answered `401`, while the investigation was looking at the third row.
 
 > Chat destination: this receiver forwards through `postChatNotification`, which
 > reads `SLACK_WEBHOOK_URL`/`DISCORD_WEBHOOK_URL` from **server env** — set them on
-> the Railway `Database` service, not only as GitHub repo secrets. With the token
-> set but no chat URL in server env the receiver authenticates and returns
-> `200 { "forwarded": false }`, so deploy alerts are silently undelivered. The
-> repo secrets in §2 cover only the GitHub CI-failure workflow.
+> the Railway `Database` service. With the token set but no chat URL in server env
+> the receiver authenticates and returns `200 { "forwarded": false }`, so deploy
+> alerts are silently undelivered.
 
 > Note: the receiver runs inside the app being deployed, so a notification about
 > a deploy that takes the app fully down may not be delivered. Pair it with an
 > external uptime monitor for hard-down detection.
 
-## 2. GitHub CI failure → chat
-
-`.github/workflows/notify-ci-failure.yml` triggers on `workflow_run: completed`
-for the key workflows (CI, SAST, Secret Scan, PR Policy, and the scheduled
-monitors) and pings chat when a run on `main` or `release/*` fails.
-
-**Setup.** Add repository secrets `SLACK_WEBHOOK_URL` and/or `DISCORD_WEBHOOK_URL`.
-No secret → the workflow logs "nothing to notify" and exits cleanly. It posts with
-`curl` only (no external actions), so the pinned-action allowlist is not involved.
-
-## 3. Supabase document change → ingestion
+## 2. Supabase document change → ingestion
 
 `POST /api/webhooks/supabase/document-change` turns the polling ingestion path
 into an event-driven one: when a `public.documents` row is inserted outside the

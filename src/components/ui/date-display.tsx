@@ -34,6 +34,23 @@ const DATE_ONLY = { day: "2-digit", month: "2-digit", year: "numeric", timeZone:
 const DATE_TIME = { ...DATE_ONLY, hour: "2-digit", minute: "2-digit", hour12: false } as const;
 
 /**
+ * Built once, not per render. Every date a clinician reads goes through this
+ * component, so a list page constructs one formatter per row otherwise, and
+ * `Intl.DateTimeFormat` construction is roughly 66x the cost of a `.format()`
+ * call on an existing one. The locale, options and timezone are constants, so a
+ * shared instance formats identically to a fresh one.
+ */
+const DATE_ONLY_FORMAT = new Intl.DateTimeFormat("en-AU", DATE_ONLY);
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-AU", DATE_TIME);
+const PERTH_CALENDAR_DAY_FORMAT = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Australia/Perth",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+const RELATIVE_FORMAT = new Intl.RelativeTimeFormat("en-AU", { numeric: "auto" });
+
+/**
  * `2026-03-14` carries no time. Formatting it with hour+minute would print
  * `14/03/2026, 08:00` — a precision that was never recorded, invented on a
  * provenance strip a clinician is being asked to trust.
@@ -73,12 +90,7 @@ function parseClinicalIsoDate(value: string): Date | null {
 
 /** The Perth calendar day as `YYYY-MM-DD`, so "days ago" counts days, not 24-hour blocks. */
 function perthCalendarDay(instant: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Perth",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(instant);
+  return PERTH_CALENDAR_DAY_FORMAT.format(instant);
 }
 
 function calendarDayDelta(from: Date, to: Date) {
@@ -89,7 +101,7 @@ function calendarDayDelta(from: Date, to: Date) {
 
 export function relativeCalendarPhrase(value: Date, now: Date) {
   const days = calendarDayDelta(now, value);
-  const format = new Intl.RelativeTimeFormat("en-AU", { numeric: "auto" });
+  const format = RELATIVE_FORMAT;
   if (Math.abs(days) < 31) return format.format(days, "day");
   if (Math.abs(days) < 365) return format.format(Math.round(days / 30), "month");
   return format.format(Math.round(days / 365), "year");
@@ -117,7 +129,7 @@ export function DateDisplay({
   }
 
   const withTime = kind === "generated" && !DATE_ONLY_ISO.test(trimmed);
-  const absolute = new Intl.DateTimeFormat("en-AU", withTime ? DATE_TIME : DATE_ONLY).format(parsed);
+  const absolute = (withTime ? DATE_TIME_FORMAT : DATE_ONLY_FORMAT).format(parsed);
   // A review date is a commitment, not an ambience — it never softens into
   // "in about a month". `generated` is a fixed stamp of this answer's run.
   const relativeAllowed = relative && kind === "event" && now > 0;
