@@ -20,10 +20,7 @@ import { medicationIndication, rankMedicationRecords, type MedicationRecord } fr
 import { catalogueSearchScope, readCatalogueWithSeedFallback } from "@/lib/site-content/catalogue-seed-fallback";
 import { readCanonicalSiteContentRecords } from "@/lib/site-content/site-content-publication";
 import { preferBundledFormRecord, siteContentSnapshotReleaseId } from "@/lib/site-content/prefer-bundled-form-record";
-import {
-  bundledServicesMissingFrom,
-  preferBundledServiceRecord,
-} from "@/lib/site-content/bundled-service-catalogue";
+import { bundledServicesMissingFrom, preferBundledServiceRecord } from "@/lib/site-content/bundled-service-catalogue";
 import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
