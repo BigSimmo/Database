@@ -14,6 +14,7 @@ import {
   sourceTopicLabel,
 } from "@/lib/sources/browse-facets";
 import type { ClinicalSourceCatalogueEntry, SourceGeographyScope } from "@/lib/sources/catalogue-types";
+import { projectSourceCatalogueForClient } from "@/lib/sources/catalogue-view";
 import { loadSourceCatalogue } from "@/lib/sources/load-source-catalogue";
 import { SOURCE_BAND_LABELS, SOURCE_BAND_TONES } from "@/lib/sources/rating-method";
 import { sourceAttentionFlags, sourceProvenanceNotes } from "@/lib/sources/source-status-presentation";
@@ -57,7 +58,14 @@ export async function SourcesCataloguePage(): Promise<ReactNode> {
   // `hostedDocuments` travels with the entries: when the document lookup is
   // unavailable the catalogue is repository-only, and the page has to be able
   // to say so rather than presenting a partial list as the whole registry.
-  return <SourcesCatalogueClient entries={catalogue.entries} hostedDocuments={catalogue.hostedDocuments} />;
+  // Projected, not the raw records: the two rating fields nothing renders are a
+  // fifth of this page's serialised payload across 866 entries.
+  return (
+    <SourcesCatalogueClient
+      entries={projectSourceCatalogueForClient(catalogue.entries)}
+      hostedDocuments={catalogue.hostedDocuments}
+    />
+  );
 }
 
 export async function SourcesTopicsPage(): Promise<ReactNode> {

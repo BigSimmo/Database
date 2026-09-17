@@ -1,6 +1,7 @@
 import type { AppModeId } from "@/lib/app-modes";
 import type {
   ClinicalSourceCatalogueEntry,
+  ClinicalSourceClientEntry,
   ClinicalSourceReferenceInput,
   ClinicalSourceType,
   SourceCatalogueFilters,
@@ -24,7 +25,7 @@ export function compareText(left: string, right: string) {
 
 /** The catalogue's own quality order. Exported so the browse summaries pick the
     same lead source the catalogue would list first. */
-export function compareQuality(left: ClinicalSourceCatalogueEntry, right: ClinicalSourceCatalogueEntry) {
+export function compareQuality(left: ClinicalSourceClientEntry, right: ClinicalSourceClientEntry) {
   return (
     BAND_ORDER[left.rating.band] - BAND_ORDER[right.rating.band] ||
     right.rating.score - left.rating.score ||
@@ -53,7 +54,7 @@ function presentValues<T extends string>(values: readonly (T | null)[]) {
 
 export function parseSourceCatalogueFilters(
   params: ReadableSearchParams,
-  entries: readonly ClinicalSourceCatalogueEntry[],
+  entries: readonly ClinicalSourceClientEntry[],
 ): SourceCatalogueFilters {
   const sortValue = params.get("sort");
   return {
@@ -101,7 +102,7 @@ function matchesAny<T>(selection: readonly T[], values: readonly T[]) {
   return selection.length === 0 || values.some((value) => selection.includes(value));
 }
 
-function matchesFilters(entry: ClinicalSourceCatalogueEntry, filters: SourceCatalogueFilters) {
+function matchesFilters(entry: ClinicalSourceClientEntry, filters: SourceCatalogueFilters) {
   const query = normalizeSearchValue(filters.q);
   if (
     query &&
@@ -135,12 +136,12 @@ function dateValue(value: string | null) {
   return Number.isNaN(timestamp) ? Number.NEGATIVE_INFINITY : timestamp;
 }
 
-function mostRecentDate(entry: ClinicalSourceCatalogueEntry) {
+function mostRecentDate(entry: ClinicalSourceClientEntry) {
   return Math.max(dateValue(entry.publicationDate), dateValue(entry.reviewDate), dateValue(entry.expiryDate));
 }
 
 export function filterAndSortSourceCatalogue(
-  entries: readonly ClinicalSourceCatalogueEntry[],
+  entries: readonly ClinicalSourceClientEntry[],
   filters: SourceCatalogueFilters,
 ) {
   const filtered = entries.filter((entry) => matchesFilters(entry, filters));
@@ -184,7 +185,30 @@ export function formatCatalogueMonth(value: string | null): string | null {
   return CATALOGUE_MONTH_FORMAT.format(date);
 }
 
-export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceCatalogueEntry[]) {
+/**
+ * Drop the two rating fields nothing renders before the catalogue crosses to the
+ * browser: `weights` is the `SOURCE_RATING_WEIGHTS` constant repeated on every
+ * entry, and `reasons` restates `dimensions` as prose. Both remain on the
+ * server-side record. Every other field is passed through unchanged, so nothing a
+ * page displays, filters or sorts by is affected.
+ */
+export function projectSourceCatalogueForClient(
+  entries: readonly ClinicalSourceCatalogueEntry[],
+): ClinicalSourceClientEntry[] {
+  // Built field by field rather than by omission, so adding a field to
+  // `ClinicalSourceRating` fails this function's return type instead of silently
+  // widening what the browser receives.
+  return entries.map((entry) => ({
+    ...entry,
+    rating: {
+      score: entry.rating.score,
+      band: entry.rating.band,
+      dimensions: entry.rating.dimensions,
+    },
+  }));
+}
+
+export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceClientEntry[]) {
   return {
     total: entries.length,
     australian: entries.filter(
