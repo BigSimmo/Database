@@ -21,7 +21,7 @@
   "reportKeyNote": "Copied verbatim from the run artifact's stamped reportKey. model_version, embedding_version, and index_version are programme-wide comparability qualifiers not exercised by this extraction benchmark — no model, embedding, or database call occurs inside the sandbox.",
   "qualifiers": {
     "extractorVersions": {
-      "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.0, worker/python/requirements.txt)",
+      "legacy": "src/lib/extractors/document.ts + worker/python/extract_pdf_assets.py (pymupdf==1.28.2, worker/python/requirements.txt)",
       "docling": "docling==2.120.2 (eval/docling/requirements.txt)"
     },
     "workflowRunUrl": "https://github.com/BigSimmo/Database/actions/runs/32176604314",
