@@ -4,7 +4,6 @@ import {
   createBatch,
   decide,
   eligibility,
-  failureFingerprint,
   report,
   validTaskReference,
 } from "../scripts/pr-batch-core.mjs";
@@ -73,7 +72,6 @@ function fakeApi(initial = batch([pr(1), pr(2)])) {
   ]);
   const effects: Array<{ kind: string; number: number }> = [];
   let clock = now;
-  let repairRun: Record<string, unknown> | null = null;
   const api = {
     actor: "BigSimmo",
     runId: 1,
@@ -97,15 +95,10 @@ function fakeApi(initial = batch([pr(1), pr(2)])) {
     execute: async (_state: unknown, pending: { kind: string; number: number }) => {
       effects.push({ kind: pending.kind, number: pending.number });
     },
-    findRepair: async () => repairRun,
     verifySync: async () => true,
-    recoverWorker: async () => undefined,
     evidence,
     effects,
     read: () => structuredClone(stored),
-    setRun: (run: Record<string, unknown>) => {
-      repairRun = run;
-    },
   };
   return api;
 }
@@ -160,10 +153,18 @@ describe("PR batch decisions", () => {
       decide(selected(), pr(1, { inFlight: true, failures: [{ name: "lint", conclusion: "failure" }] }), now),
     ).toMatchObject({ action: "wait" });
   });
-  it("combines sync with evidenced repair rather than publishing a sync first", () => {
-    expect(decide(selected(), pr(1, { behind: true, threads: [{ id: "t1", revision: "1" }] }), now).action).toBe(
-      "repair",
-    );
+  it("never syncs a PR that still has a conflict, a failing check, or an unresolved thread — sync is only the last, clean step before merge", () => {
+    expect(decide(selected(), pr(1, { behind: true, threads: [{ id: "t1", revision: "1" }] }), now)).toMatchObject({
+      action: "park",
+      reason: "needs-repair: unresolved-threads",
+    });
+    expect(decide(selected(), pr(1, { behind: true, conflicting: true }), now)).toMatchObject({
+      action: "park",
+      reason: "needs-repair: conflicting",
+    });
+    expect(
+      decide(selected(), pr(1, { behind: true, failures: [{ name: "CI", conclusion: "failure" }] }), now),
+    ).toMatchObject({ action: "park", reason: "needs-repair: failing-checks" });
     expect(decide(selected(), pr(1, { behind: true }), now).action).toBe("sync");
   });
   it("preserves missing checks and approvals as blockers", () => {
@@ -173,17 +174,12 @@ describe("PR batch decisions", () => {
     });
     expect(decide(selected(), pr(1, { reviewsSatisfied: false }), now).action).toBe("wait");
   });
-  it("caps repeated blockers and repair sessions", () => {
-    const state = selected();
-    const evidence = pr(1, { threads: [{ id: "t", revision: "1" }] });
-    state.entries[0].fingerprints.push(failureFingerprint(evidence));
-    expect(decide(state, evidence, now)).toMatchObject({ action: "park", reason: "repeated-blocker-without-progress" });
-    state.entries[0].fingerprints = [];
-    state.entries[0].attempts = 3;
-    expect(decide(state, evidence, now).reason).toBe("repair-budget-exhausted");
-    state.entries[0].attempts = 0;
-    state.repairs = 30;
-    expect(decide(state, evidence, now).reason).toBe("repair-budget-exhausted");
+  it.each([
+    [{ conflicting: true }, "needs-repair: conflicting"],
+    [{ failures: [{ name: "CI", conclusion: "failure" }] }, "needs-repair: failing-checks"],
+    [{ threads: [{ id: "t", revision: "1" }] }, "needs-repair: unresolved-threads"],
+  ])("parks immediately on %j — no repair is ever dispatched", (changes, reason) => {
+    expect(decide(selected(), pr(1, changes), now)).toMatchObject({ action: "park", reason });
   });
   it("never parks or rearms an armed PR", () => {
     const state = selected();
@@ -220,14 +216,14 @@ describe("durable sequential runner", () => {
     expect(api.read().pending?.base).toBe("c".repeat(40));
     expect(api.read().repairs).toBe(0);
   });
-  it("does not dispatch twice when an acknowledgement is lost", async () => {
-    const api = fakeApi();
+  it("parks a PR with unresolved threads without ever dispatching a repair", async () => {
+    const api = fakeApi(batch([pr(1)]));
     api.evidence.set(1, pr(1, { threads: [{ id: "t", revision: "1" }] }));
-    await wake(api);
-    await wake(api);
-    await wake(api);
-    expect(api.effects).toEqual([{ kind: "repair", number: 1 }]);
-    expect(api.read().repairs).toBe(1);
+    const result = await wake(api);
+    expect(api.effects).toEqual([]);
+    expect(api.read().entries[0]).toMatchObject({ state: "parked", reason: "needs-repair: unresolved-threads" });
+    expect(api.read().repairs).toBe(0);
+    expect(result.status).toBe("completed_with_unresolved");
   });
   it("never journals another transition for unchanged waiting evidence", async () => {
     const api = fakeApi();

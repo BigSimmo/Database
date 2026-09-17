@@ -238,18 +238,9 @@ export function transition(state, now, kind, detail = {}) {
   return state;
 }
 
-export function failureFingerprint(evidence) {
-  return digest({
-    base: evidence.base,
-    conflicts: evidence.conflictPaths ?? [],
-    failures: (evidence.failures ?? []).map((failure) => [failure.name, failure.signature ?? failure.conclusion]),
-    threads: (evidence.threads ?? []).map((thread) => [thread.id, thread.revision]),
-  });
-}
-
 // Pure decision function. The runtime journals each mutation intent before calling
 // GitHub; a wake with a pending intent must reconcile it before making a decision.
-/** @returns {{action: string, reason?: string, number?: number, commit?: string, fingerprint?: string}} */
+/** @returns {{action: string, reason?: string, number?: number, commit?: string}} */
 export function decide(state, evidence, now) {
   validateState(state);
   if (state.status !== "running") return { action: "idle" };
@@ -285,15 +276,16 @@ export function decide(state, evidence, now) {
       return { action: "pause", reason: "armed-pr-needs-repair" };
     return { action: "wait", reason: "github-merge-pending" };
   }
-  // Settle one CI wave before a repair publication; real conflicts can prevent CI.
+  // Settle one CI wave before deciding a real blocker exists; real conflicts can prevent CI.
   if (evidence.inFlight && !evidence.conflicting) return { action: "wait", reason: "ci-in-flight" };
-  if (evidence.conflicting || evidence.failures.length || evidence.threads.length) {
-    const fingerprint = failureFingerprint(evidence);
-    if (entry.fingerprints.includes(fingerprint)) return stop("repeated-blocker-without-progress");
-    if (entry.attempts >= state.manifest.perPr || state.repairs >= state.manifest.total)
-      return stop("repair-budget-exhausted");
-    return { action: "repair", fingerprint };
-  }
+  // No automated repair is dispatched for any of these; the PR is parked with a
+  // reason naming the blocker so a person can act, and the batch moves on.
+  if (evidence.conflicting) return stop("needs-repair: conflicting");
+  if (evidence.failures.length) return stop("needs-repair: failing-checks");
+  if (evidence.threads.length) return stop("needs-repair: unresolved-threads");
+  // The one sanctioned sync: only for the active PR, only once it has no
+  // conflicts, failures, threads, or in-flight CI, and only because the branch
+  // ruleset requires an up-to-date branch to merge.
   if (evidence.behind) return { action: "sync" };
   if (!evidence.requiredGreen) return { action: "wait", reason: "required-checks-missing-or-pending" };
   if (!evidence.reviewsSatisfied) return { action: "wait", reason: "approval-required" };

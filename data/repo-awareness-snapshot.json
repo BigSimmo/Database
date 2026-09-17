@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-16"
+    "committed_at": "2026-09-17"
   },
   "routes": {
     "modes": [
@@ -3239,11 +3239,6 @@
       {
         "path": "docs/superpowers/specs/2026-08-05-editable-pin-menu-mockups-design.md",
         "section": "superpowers",
-        "catalogued": true
-      },
-      {
-        "path": "docs/agents/codex-github-review.md",
-        "section": "agents",
         "catalogued": true
       },
       {

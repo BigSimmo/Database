@@ -42,10 +42,7 @@ Babysit / Run PR record policy (never push a record-only tip; one Run PR record 
 ## Resolve review threads after fixing them
 
 Resolving the review thread a fix answers is part of the same unit of work as pushing the fix.
-The single rule every tool follows — authority, validation, reply before resolving, what to leave
-open for Josh, and who may use the disposition marker — is
-[Review threads](pull-request-workflow.md#review-threads). The automated Codex resolve workflow's
-marker convention is in "Review comment lifecycle" in
-[`codex-github-review.md`](codex-github-review.md).
+The single rule every tool follows — authority, validation, reply before resolving, and what to
+leave open for Josh — is [Review threads](pull-request-workflow.md#review-threads).
 
 <!-- END:resolve-review-threads-after-fixing -->

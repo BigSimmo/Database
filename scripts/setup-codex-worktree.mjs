@@ -200,13 +200,15 @@ export function main(projectRoot = process.cwd(), options = {}) {
   assertRuntime(root);
 
   const currentInstallationComplete = installationIsComplete(root);
+  // Name the checked root in every verdict: run from the wrong directory (a shell whose cwd reset to
+  // the main checkout), this script reports on that checkout's dependencies, not the worktree's.
   if (options.dryRun && currentInstallationComplete) {
-    log("DRY RUN: existing dependencies match package-lock.json.");
+    log(`DRY RUN: existing dependencies in ${root} match package-lock.json.`);
     return;
   }
   if (currentInstallationComplete) {
     installHooks(root);
-    log("PASS: existing dependencies match package-lock.json.");
+    log(`PASS: existing dependencies in ${root} match package-lock.json.`);
     return;
   }
 
@@ -237,7 +239,7 @@ export function main(projectRoot = process.cwd(), options = {}) {
 
   if (!installationIsComplete(root)) fail("Installed dependencies do not match package-lock.json.");
   installHooks(root);
-  log("PASS: worktree dependencies match package-lock.json.");
+  log(`PASS: worktree dependencies in ${root} match package-lock.json.`);
 }
 
 const isDirectExecution = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
