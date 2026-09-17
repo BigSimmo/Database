@@ -48,30 +48,12 @@ describe("M20: the worker's Python parsing stack has a vulnerability signal", ()
     const afterScan = workflow.slice(scanIndex);
     // The scan output is kept, summarised into the job summary, and the
     // follow-up step exits non-zero on HIGH/CRITICAL outside pull-request
-    // runs so the scheduled/main run fails and notify-ci-failure.yml (which
-    // already watches "Docker image build") delivers it to chat.
+    // runs so the scheduled/main run fails and is visible in the Actions tab.
     expect(afterScan).toContain("GITHUB_STEP_SUMMARY");
     expect(afterScan).toMatch(/Fail on HIGH\/CRITICAL image findings/);
     expect(afterScan).toMatch(/github\.event_name != 'pull_request'/);
     expect(afterScan).toMatch(/github\.event_name != 'merge_group'/);
     expect(afterScan).toMatch(/exit 1/);
-  });
-});
-
-describe("M25: the daily staging tenancy harness has a failure reporting path", () => {
-  it("is watched by notify-ci-failure.yml under its exact workflow name", () => {
-    const name = read(".github/workflows/staging-tenancy.yml")
-      .match(/^name:\s*(.+)$/m)?.[1]
-      ?.trim();
-    expect(name).toBe("Staging tenancy isolation");
-    const notify = read(".github/workflows/notify-ci-failure.yml");
-    const watched = notify.match(/workflows:\n((?:\s+(?:- |#).*\n)+)/)?.[1] ?? "";
-    const names = watched
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith("- "))
-      .map((line) => line.slice(2).trim());
-    expect(names).toContain(name);
   });
 });
 
@@ -145,7 +127,7 @@ describe("L38: the @claude workflows enforce the collaborator boundary they desc
   const trusted = `contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)`;
   const trustedReview = `contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)`;
 
-  it.each([".github/workflows/claude.yml", ".github/workflows/claude-backlink.yml"])(
+  it.each([".github/workflows/claude.yml"])(
     "%s admits only owner, member or collaborator authors",
     (path) => {
       const workflow = read(path);
@@ -258,30 +240,6 @@ describe("L91: every CODEOWNERS pattern matches something in the tree", () => {
     expect(patterns).toContain("/src/lib/rag/");
     expect(patterns).not.toContain("/src/lib/rag.ts");
     expect(patterns).not.toContain("/src/lib/rag-*.ts");
-  });
-});
-
-describe("L92: the Codex auto-resolve high-risk deployment-file list names files that exist", () => {
-  const workflow = read(".github/workflows/codex-autofix-review-comments.yml");
-  const line = workflow.split("\n").find((candidate) => /Dockerfile/.test(candidate) && /railway/.test(candidate));
-  const source = line?.match(/\/(\^.*\$)\/,?\s*$/)?.[1];
-  const pattern = source ? new RegExp(source) : null;
-
-  it("declares a deployment-file pattern", () => {
-    expect(pattern).not.toBeNull();
-  });
-
-  it.each(["Dockerfile", "Dockerfile.worker", "railway.app.json", "railway.worker.json"])(
-    "classifies %s as high risk",
-    (file) => {
-      expect(exists(file)).toBe(true);
-      expect(pattern!.test(file)).toBe(true);
-    },
-  );
-
-  it.each(["railway.json", "nixpacks.toml"])("does not keep naming the absent %s", (file) => {
-    expect(exists(file)).toBe(false);
-    expect(source).not.toContain(file.replace(".", "\\."));
   });
 });
 

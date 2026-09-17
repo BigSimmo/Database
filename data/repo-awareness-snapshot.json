@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-16"
+    "committed_at": "2026-09-17"
   },
   "routes": {
     "modes": [
@@ -3242,11 +3242,6 @@
         "catalogued": true
       },
       {
-        "path": "docs/agents/codex-github-review.md",
-        "section": "agents",
-        "catalogued": true
-      },
-      {
         "path": "docs/care-plan/reports/task-11-report.md",
         "section": "care-plan",
         "catalogued": true
@@ -4655,11 +4650,6 @@
         "path": "docs/governance-incident-runbooks.md",
         "section": "root",
         "catalogued": true
-      },
-      {
-        "path": "docs/pr-batch-runner.md",
-        "section": "root",
-        "catalogued": false
       },
       {
         "path": "docs/caring-contacts/phase-2a-sdd-archive/task-19-report.md",

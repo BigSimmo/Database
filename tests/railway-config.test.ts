@@ -115,12 +115,12 @@ describe("Railway config as code", () => {
   });
 
   it.each([
-    ".github/workflows/codex-autofix-review-comments.yml",
+    ".github/workflows/pr-policy.yml",
     "AGENTS.md",
     "README.md",
     "docs/deployment-architecture.md",
     "tests/rag-trust.test.ts",
-    "scripts/check-codex-autofix-workflow.mjs",
+    "scripts/pr-policy.mjs",
   ])("does not deploy either service for non-runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(false);
     expect(triggersDeploy(worker, filePath)).toBe(false);
