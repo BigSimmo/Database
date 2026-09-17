@@ -44,6 +44,72 @@ npm run reindex:health   # ok:true, and the RPC signatures accept p_worker_id
 
 If migrations are still outstanding, stop here and apply them first.
 
+### 0.1 Automated pre-deploy gate
+
+Railway deploys the app and worker images, and the Supabase GitHub integration
+applies merged migrations, **independently and unordered** — there is no
+built-in "migrations before code" ordering. `railway.app.json` and
+`railway.worker.json` each declare a `deploy.preDeployCommand` that runs
+`node /app/scripts/deploy/await-migrations.mjs` before the new container
+starts serving traffic. The command reads a manifest of migration versions
+baked into the image at build time
+(`scripts/deploy/write-migration-manifest.mjs`, from `supabase/migrations`)
+and reads the live database's migration history
+(`public.migration_history_versions()`) to see whether every expected version
+is present.
+
+Three modes, controlled by the `DEPLOY_MIGRATION_GATE` Railway service
+variable. Any other value (a typo, a stray space) is treated as `report` and
+logs a warning — an unrecognised value must never be the reason a deploy
+blocks:
+
+- **`report` (default for this change).** Makes exactly ONE read, logs `PASS`
+  or the missing versions / read error, and always exits 0 immediately — no
+  polling, no wait. Use this to watch how the gate behaves against real
+  deploys before it can block one.
+- **`enforce`.** Polls every `DEPLOY_MIGRATION_GATE_POLL_S` seconds (default
+  20, floored at 1) and fails the pre-deploy step (blocking the deploy) if
+  migrations are still missing, or the migration-history read keeps failing,
+  once `DEPLOY_MIGRATION_GATE_MAX_WAIT_S` (default 600, capped at 3000) has
+  elapsed. A non-numeric, blank, zero, or negative value for either setting
+  falls back to its default rather than becoming an unbounded wait (`NaN`) or
+  a flood of reads (`0`). A later change switches the default to `enforce`
+  once `report` mode has been observed.
+- **`off`.** Skips the check entirely — no read of migration history at all.
+  **Emergency override**: set `DEPLOY_MIGRATION_GATE=off` on the affected
+  Railway service if the gate itself is misbehaving and blocking a deploy that
+  needs to go out.
+
+The gate needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (both
+already set as Railway service variables) to read migration history; in
+`report` mode a missing variable only logs a warning, in `enforce` mode it
+fails closed. The whole check runs inside a fail-safe wrapper: a missing or
+corrupt manifest, a malformed URL, or any other unexpected error exits 0
+unless the mode is exactly `enforce` — a bug in this script itself must not be
+able to block a deploy in `report` mode. It never logs the service-role key or
+a full URL — only the project host.
+
+Known gaps, by design:
+
+- **A staging or other non-production database without the RPC (or with a
+  different service-role key) will block `enforce` mode**, since the read
+  itself fails there. Set `DEPLOY_MIGRATION_GATE=off` on that Railway
+  environment, or confirm the target database has applied
+  `20260820120000_migration_history_versions_rpc.sql`, before switching that
+  environment to `enforce`.
+- **A migration-only merge (no `src/`/`worker/` change) triggers no app or
+  worker deploy at all**, so this gate never runs for it. It only ever checks
+  migrations expected by the code that is _actually being deployed_ — it is
+  not a general "are migrations applied" monitor. That job stays with the
+  post-merge `live-drift` workflow (see "Supabase project safety" in
+  `AGENTS.md`).
+- **The gate trusts migration-history rows, not applied schema.** It reads
+  `supabase_migrations.schema_migrations` the same way
+  `check-migration-history-alignment.ts` does, so a version recorded there
+  without its statements ever executing (the `#Q5JHBJ` shape — a mark-applied
+  repair, or a partially-failed apply) reads as present. `check:drift`, not
+  this gate, is what verifies the live schema itself.
+
 ---
 
 ## 1. Build — CI is the build contract
