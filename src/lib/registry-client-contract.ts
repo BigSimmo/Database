@@ -21,6 +21,13 @@ export type RegistryListResponse = {
   verifiedCount: number;
   demoMode?: boolean;
   governance: RegistryListGovernance;
+  /**
+   * The list was answered from the in-bundle catalogue because the canonical read could not be
+   * completed. The records are real; the list may not include the most recent publication. Kept
+   * on every view, counts included, because a count from the seed list is exactly as capable of
+   * being out of date as the rows are.
+   */
+  degraded?: boolean;
 };
 
 export type RegistryRecordResponse = {
@@ -262,7 +269,8 @@ function listBase(value: JsonRecord): boolean {
     nonNegativeInteger(value.total) &&
     nonNegativeInteger(value.verifiedCount) &&
     (value.demoMode === undefined || typeof value.demoMode === "boolean") &&
-    (value.publicAccess === undefined || typeof value.publicAccess === "boolean")
+    (value.publicAccess === undefined || typeof value.publicAccess === "boolean") &&
+    (value.degraded === undefined || typeof value.degraded === "boolean")
   );
 }
 
@@ -271,13 +279,16 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
   if (!candidate || !listBase(candidate)) return null;
 
   if (view === "summary") {
-    if (!hasOnlyKnownKeys(candidate, ["total", "verifiedCount", "demoMode", "publicAccess"])) return null;
+    if (!hasOnlyKnownKeys(candidate, ["total", "verifiedCount", "demoMode", "publicAccess", "degraded"])) {
+      return null;
+    }
     return {
       records: [],
       total: candidate.total as number,
       verifiedCount: candidate.verifiedCount as number,
       demoMode: candidate.demoMode as boolean | undefined,
       governance: {},
+      degraded: candidate.degraded as boolean | undefined,
     };
   }
 
@@ -292,8 +303,8 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
       // the reader as "the registry could not be searched". Accepted and ignored: ranking for
       // these views is done on the client from `records`.
       view === "full"
-        ? ["records", "total", "verifiedCount", "governance", "matches", "demoMode", "publicAccess"]
-        : ["records", "total", "verifiedCount", "matches", "demoMode", "publicAccess"],
+        ? ["records", "total", "verifiedCount", "governance", "matches", "demoMode", "publicAccess", "degraded"]
+        : ["records", "total", "verifiedCount", "matches", "demoMode", "publicAccess", "degraded"],
     )
   ) {
     return null;
@@ -306,6 +317,7 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
     verifiedCount: candidate.verifiedCount as number,
     demoMode: candidate.demoMode as boolean | undefined,
     governance: view === "full" ? (candidate.governance as RegistryListGovernance) : {},
+    degraded: candidate.degraded as boolean | undefined,
   };
 }
 

@@ -119,6 +119,25 @@ describe("registry-client-contract", () => {
     expect(parseRegistryListResponse(payload, "full")).not.toBeNull();
   });
 
+  it("keeps the degraded flag on every list view instead of dropping it", () => {
+    // The route only emits this when it served the in-bundle catalogue. Dropping it in the
+    // parser is how the reader ends up looking at a seed list with nothing to tell them so.
+    expect(parseRegistryListResponse({ ...buildFullListPayload(), degraded: true }, "full")?.degraded).toBe(true);
+    expect(parseRegistryListResponse({ ...buildSearchListPayload(), degraded: true }, "search")?.degraded).toBe(true);
+    expect(
+      parseRegistryListResponse({ total: 3, verifiedCount: 1, degraded: true, publicAccess: true }, "summary")
+        ?.degraded,
+    ).toBe(true);
+  });
+
+  it("leaves degraded undefined on a healthy response", () => {
+    expect(parseRegistryListResponse(buildFullListPayload(), "full")?.degraded).toBeUndefined();
+  });
+
+  it("rejects a non-boolean degraded value rather than treating it as truthy", () => {
+    expect(parseRegistryListResponse({ ...buildFullListPayload(), degraded: "yes" }, "full")).toBeNull();
+  });
+
   it("still rejects a list payload carrying a key the route never emits", () => {
     const payload = { ...buildFullListPayload(), unexpectedKey: true };
     expect(parseRegistryListResponse(payload, "full")).toBeNull();
