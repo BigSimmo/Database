@@ -427,12 +427,25 @@ export function measureBudgetRoutes(measuredFiles, routeChunks, routeBudgets) {
  *
  * @param {string} serverAppDir
  * @param {Record<string, { rawBytesCeiling?: number; gzipBytesCeiling?: number; maxRawBytes?: number; maxGzipBytes?: number }>} [serverPagesConfig]
- * @param {{ existsSync?: (p: string) => boolean; readFileSync?: (p: string) => Buffer }} [fsOptions]
+ * @param {{ existsSync?: (p: string) => boolean; readFileSync?: (p: string) => Buffer; readdirSync?: (p: string) => string[] }} [fsOptions]
  * @returns {Record<string, ServerHtmlPayloadMeasurement>}
  */
 export function measureServerHtmlPayloads(serverAppDir, serverPagesConfig, fsOptions = {}) {
   const fileExists = fsOptions.existsSync ?? existsSync;
   const fileRead = fsOptions.readFileSync ?? readFileSync;
+  const readDirectory = fsOptions.readdirSync ?? readdirSync;
+
+  // Next strips route groups from the URL but keeps them in the build output, so
+  // `/sources/search` is emitted under `(search-app)/sources/search`. Almost
+  // every route in this app lives in a group, so without this the block could
+  // only guard the handful that do not, and a configured route would silently
+  // report "missing" instead of guarding anything.
+  let routeGroups = [];
+  try {
+    routeGroups = readDirectory(serverAppDir).filter((name) => name.startsWith("(") && name.endsWith(")"));
+  } catch {
+    routeGroups = [];
+  }
   /** @type {Record<string, ServerHtmlPayloadMeasurement>} */
   const results = {};
   const defaults = {
@@ -448,14 +461,19 @@ export function measureServerHtmlPayloads(serverAppDir, serverPagesConfig, fsOpt
     const gzipCeiling = config.gzipBytesCeiling ?? config.maxGzipBytes ?? 350_000;
 
     const normalizedRoute = route.startsWith("/") ? route.slice(1) : route;
-    const candidates = [
-      path.join(serverAppDir, `${normalizedRoute}.html`),
-      path.join(serverAppDir, normalizedRoute, "page.html"),
-      path.join(serverAppDir, `${normalizedRoute}.rsc`),
-      path.join(serverAppDir, normalizedRoute, "page.rsc"),
-      path.join(serverAppDir, `${normalizedRoute}.js`),
-      path.join(serverAppDir, normalizedRoute, "page.js"),
-    ];
+    // Prerendered HTML first, then the flight payload, then the compiled server
+    // module: a dynamic route emits only the last of the three.
+    const candidates = ["", ...routeGroups].flatMap((group) => {
+      const base = group ? path.join(serverAppDir, group) : serverAppDir;
+      return [
+        path.join(base, `${normalizedRoute}.html`),
+        path.join(base, normalizedRoute, "page.html"),
+        path.join(base, `${normalizedRoute}.rsc`),
+        path.join(base, normalizedRoute, "page.rsc"),
+        path.join(base, `${normalizedRoute}.js`),
+        path.join(base, normalizedRoute, "page.js"),
+      ];
+    });
 
     const match = candidates.find((cand) => fileExists(cand));
     if (!match) {

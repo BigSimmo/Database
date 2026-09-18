@@ -13,6 +13,11 @@
     "/mockups/development/review-state": {
       "rawBytesCeiling": 2500000,
       "gzipBytesCeiling": 350000
+    },
+    "/sources/search": {
+      "rawBytesCeiling": 20000,
+      "gzipBytesCeiling": 6000,
+      "required": true
     }
   },
   "routes": {
