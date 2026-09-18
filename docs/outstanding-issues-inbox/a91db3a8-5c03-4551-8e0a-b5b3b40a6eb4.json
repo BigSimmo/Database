@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a91db3a8-5c03-4551-8e0a-b5b3b40a6eb4",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#F5GHS1",
+    "detail": "Nineteen sources from the 2026-09 dictionary handover are held because their canonical URL host is not in GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts. Among them are three National Outcomes and Casemix Collection metadata records on meteor.aihw.gov.au, which is AIHW's own metadata registry and carries stable content identifiers. The owner declined to widen host policy when asked on 2026-09-16, so this is recorded rather than actioned. Widening the list also requires updating the pinned host count. PARKED 2026-09-18: the owner declined to widen GOVERNED_SOURCE_HOSTS when asked on 2026-09-16, so this is a decision already made, not outstanding work. It is kept only so the nineteen held sources, including the three AIHW METEOR records, stay visible. TO UNBLOCK: an owner decision to add the specific hosts, which also requires updating the pinned host count.",
+    "baseRowFingerprint": "292a00ecbcb6138ba36365a533a559cddde61e16d473ea15951a72de2dc02334"
+  }
+}
