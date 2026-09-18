@@ -88,15 +88,42 @@ function NumberField({
   min: number;
   max: number;
 }) {
+  // Invariant: unless the field is flagged out-of-range, the text on screen is a
+  // number the shared profile actually holds. The box owns its draft only for as
+  // long as the store still agrees with the value that draft last committed.
+  //
+  // `committed` is what THIS field last wrote — `null` for a partial or
+  // out-of-range entry, which is rejected rather than stored. Comparing the
+  // incoming value against it, instead of against the previous prop, is what
+  // separates this field's own write echoing back through the store from news
+  // arriving elsewhere (a second mounted copy of the panel, a unit conversion, a
+  // clear), and the two need opposite handling:
+  //
+  //   echo -> leave the text exactly as typed. Re-deriving it from the number
+  //           rewrites "095" to "95" and "1.0" to "1" between keystrokes, which
+  //           moves the caret and, in the creatinine field, turns an in-progress
+  //           "1.02" into "12".
+  //   news -> adopt it, even over an out-of-range draft. The previous version
+  //           skipped the sync whenever the current text was out of range, so a
+  //           rejected entry stayed on screen indefinitely while the profile held
+  //           something else: #WFARS3, where a refused CrCl "420" was still in the
+  //           box when 95 was typed after it, reading 42095, and where one mount
+  //           could show 420 while the alert engine ran on the 95 another mount
+  //           had stored.
+  //
+  // Out-of-range text is still kept for in-place correction: a rejection writes
+  // `null`, which equals `committed`, so nothing re-syncs and the error stays.
   const [text, setText] = useState(value == null ? "" : String(value));
-  const [syncedValue, setSyncedValue] = useState<number | null>(value ?? null);
+  const [committed, setCommitted] = useState<number | null>(value ?? null);
+
+  const incoming = value ?? null;
+  if (incoming !== committed) {
+    setCommitted(incoming);
+    setText(incoming == null ? "" : String(incoming));
+  }
 
   const parsed = parseNumber(text);
   const outOfRange = parsed !== null && (parsed < min || parsed > max);
-  if ((value ?? null) !== syncedValue) {
-    setSyncedValue(value ?? null);
-    if (!outOfRange) setText(value == null ? "" : String(value));
-  }
 
   return (
     <TextField
@@ -108,9 +135,11 @@ function NumberField({
       value={text}
       onChange={(event) => {
         const raw = event.target.value;
+        const entered = parseNumber(raw);
+        const next = entered !== null && entered >= min && entered <= max ? entered : null;
         setText(raw);
-        const next = parseNumber(raw);
-        onChange(next !== null && next >= min && next <= max ? next : null);
+        setCommitted(next);
+        onChange(next);
       }}
       error={outOfRange ? `Enter ${min}–${max}${unit ? ` ${unit}` : ""}.` : undefined}
       className="nums"

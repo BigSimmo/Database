@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ec9ad375-11ca-427b-833f-acac79f0570b",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The same word-boundary defect that hid 'immediately' also makes 'Escalate' and 'Monitoring' match nothing",
+    "detail": "FOUND AND VERIFIED 2026-09-18 while fixing the adverb half of #GHC4XZ, by running the live regexes. src/lib/clinical-safety.ts wraps each alternation in \\b...\\b, which requires a word boundary IMMEDIATELY after the listed token. Three tokens are therefore shorter than the words they were meant to catch. One was fixed under #GHC4XZ ('immediate' now 'immediate(?:ly)?'). TWO REMAIN, both measured, not inferred: (1) the escalation entry lists 'escalat', so \\b(escalat|...)\\b matches NEITHER 'escalate' NOR 'escalation' - confirmed, 'Escalate to the consultant.' produces no finding at all. The Escalation label fires today only via 'senior review', 'specialist review', 'urgent review', 'higher level' or 'transfer', so the entry's headline token is dead. Note this also contradicts a comment in tests/clinical-safety.test.ts that asserted the escalation entry 'uses a prefix and so is unaffected'; that comment was corrected in the same PR. (2) the monitoring entry lists 'monitor', so 'Monitoring should continue for eighteen weeks.' produces no finding - confirmed. The clozapine demo passages survive only because they also contain fbc/anc/metabolic. WHY NOT FIXED IN THE SAME PR: both are label CHANGES a clinician sees, and the most severe finding is promoted to the headline support card, so they need the same owner sign-off the vocabulary change got. Fixing 'escalat' would move e.g. 'Escalate if symptoms worsen' from Caveat to Escalation; fixing 'monitor' turns silent passages into Monitoring chips. NEXT: decide both alongside the open SAFETY-CHIP-VOCABULARY assurance decision in docs/clinical-hazard-controls.json, then fix with characterisation tests moved, as #GHC4XZ did.",
+    "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN), PR for #GHC4XZ; regexes executed against origin/main 28dabe0c3",
+    "issueUlid": "01M2TF8EYN9XRDF70A9MB3JBSM"
+  }
+}
