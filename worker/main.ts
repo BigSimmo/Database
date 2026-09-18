@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { decodeJobTransitionResult, isMissingFunctionError } from "./job-transitions";
 import { captureWorkerException, flushWorkerErrorTracking } from "./observability";
 import { env } from "../src/lib/env";
 import { buildChunks } from "../src/lib/chunking";
@@ -164,7 +165,7 @@ async function updateDocument(documentId: string, ownerId: string | null, patch:
       p_metadata_patch: metadataPatch,
     });
     if (!error) return;
-    if (!isMissingSchemaError(error)) throw supabaseStageError("apply document metadata patch", error);
+    if (!isMissingFunctionError(error)) throw supabaseStageError("apply document metadata patch", error);
 
     // Expand/contract fallback before the R5 migration is applied: best-effort
     // shallow merge against the current row (still races under reclaim, same as
@@ -190,32 +191,13 @@ async function updateDocument(documentId: string, ownerId: string | null, patch:
   }
 }
 
-async function markSupersededSiblingJobs(job: JobRow) {
-  const { error } = await supabase
-    .from("ingestion_jobs")
-    .update({
-      status: "completed",
-      stage: "superseded by successful index",
-      progress: 100,
-      error_message: null,
-      locked_at: null,
-      locked_by: null,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("document_id", job.document_id)
-    .neq("id", job.id)
-    .is("locked_by", null)
-    .in("status", ["pending", "processing", "failed"]);
-  if (error) throw supabaseStageError("mark superseded ingestion jobs", error);
-}
-
 async function updateBatch(batchId: string | null) {
   if (!batchId) return;
 
   const { error: refreshError } = await supabase.rpc("refresh_import_batch_status", { p_batch_id: batchId });
   if (!refreshError) return;
 
-  if (!isMissingSchemaError(refreshError)) {
+  if (!isMissingFunctionError(refreshError)) {
     console.warn(
       "Import batch status refresh failed",
       safeErrorLogDetails(supabaseStageError("refresh import batch status", refreshError)),
@@ -261,36 +243,35 @@ async function completeJob(job: JobRow, stage: string) {
     // Audit R1: the RPC returns ok:false when this worker no longer holds the
     // lease (a stale reclaim took it). The reclaiming worker owns the outcome —
     // do not fall back or clobber its state.
-    if ((data as { ok?: boolean } | null)?.ok === false) {
+    const outcome = decodeJobTransitionResult(data);
+    if (outcome.kind === "lease_lost") {
       console.warn("Ingestion completion skipped; lease lost to a reclaim", safeIngestionJobLog(job.id));
       return;
+    }
+    if (outcome.kind === "undecided") {
+      // Reading `?.ok === false` alone let null and `{}` through as success, and
+      // the worker then invalidated caches for a commit it never confirmed.
+      throw new Error(`Ingestion completion returned no usable result (${outcome.reason}).`);
     }
     invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
     return;
   }
-  if (!isMissingSchemaError(error)) throw supabaseStageError("complete ingestion job", error);
-
-  const { error: updateError } = await supabase
-    .from("ingestion_jobs")
-    .update({
-      status: "completed",
-      stage,
-      progress: 100,
-      locked_at: null,
-      locked_by: null,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", job.id)
-    .eq("locked_by", workerId);
-  if (updateError) throw supabaseStageError("complete ingestion job fallback", updateError);
-
-  try {
-    await markSupersededSiblingJobs(job);
-  } catch (siblingError) {
-    console.warn("Non-fatal error superseding sibling jobs", safeErrorLogDetails(siblingError));
+  // No client-side reconstruction of this transaction. The unfenced fallback that
+  // used to live here nulled `locked_by` on an `.eq("id", job.id)` match, then
+  // superseded siblings, refreshed the batch and invalidated caches WITHOUT
+  // checking that a row had changed — so a worker whose lease had already been
+  // reclaimed could finish the new owner's job on its behalf, from stale state.
+  // complete_ingestion_job does all of that in one fenced transaction and is in
+  // supabase/schema.sql; a database without it is not one this worker can safely
+  // write to. Leaving the job in `processing` hands it to the documented
+  // lease-recovery path, which is recoverable. A wrongly-completed document is a
+  // document nothing ever retries.
+  if (isMissingFunctionError(error)) {
+    throw new Error(
+      "complete_ingestion_job is unavailable; refusing the unfenced fallback. Apply the pending migrations.",
+    );
   }
-  await updateBatch(job.batch_id);
-  invalidateRagCachesForDocumentMutation(job.documents.owner_id ?? "anonymous");
+  throw supabaseStageError("complete ingestion job", error);
 }
 
 async function completeStrictEnrichmentJob(job: JobRow) {
@@ -352,33 +333,27 @@ async function failOrRetryJob(args: {
   if (!error) {
     // Audit R1: ok:false means this worker lost the lease; the reclaimer owns
     // the document/job state, so do not fall back and demote it.
-    if ((data as { ok?: boolean } | null)?.ok === false) {
+    const outcome = decodeJobTransitionResult(data);
+    if (outcome.kind === "lease_lost") {
       console.warn("Ingestion fail/retry skipped; lease lost to a reclaim", safeIngestionJobLog(args.job.id));
       return;
     }
+    if (outcome.kind === "undecided") {
+      throw new Error(`Ingestion fail/retry returned no usable result (${outcome.reason}).`);
+    }
     return;
   }
-  if (!isMissingSchemaError(error)) throw supabaseStageError("fail or retry ingestion job", error);
-
-  await updateDocument(args.job.document_id, args.job.documents.owner_id, {
-    status: args.documentStatus,
-    error_message: args.errorMessage,
-  });
-  await updateJob(args.job.id, {
-    status: args.retry ? "pending" : "failed",
-    stage: args.stage,
-    progress: args.retry ? 0 : 100,
-    error_message: args.errorMessage,
-    locked_at: null,
-    locked_by: null,
-    ...(args.nextRunAt ? { next_run_at: args.nextRunAt } : {}),
-    completed_at: args.retry ? null : new Date().toISOString(),
-  });
-  await updateBatch(args.job.batch_id);
-}
-
-function isMissingSchemaError(error: { message?: string; code?: string }) {
-  return /could not find the function|schema cache|PGRST20\d/i.test(error.message ?? "") || error.code === "PGRST202";
+  // This fallback was the sharper of the two. `updateDocument` filters by
+  // `owner_id` — an OWNERSHIP check, not a lease check — and `updateJob` filters
+  // by `id` alone, so a worker that had already lost its lease could demote the
+  // new owner's document to `failed` and null out the lock it no longer held.
+  // Nothing in either write asked whether this worker still owned the job.
+  if (isMissingFunctionError(error)) {
+    throw new Error(
+      "fail_or_retry_ingestion_job is unavailable; refusing the unfenced fallback. Apply the pending migrations.",
+    );
+  }
+  throw supabaseStageError("fail or retry ingestion job", error);
 }
 
 function workerBackoffMs(failures: number) {

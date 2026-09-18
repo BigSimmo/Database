@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "657503b0-efad-4802-8476-3fae8ed245fc",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#N9XFVN",
+    "detail": "scripts/lib/parse-differentials-export.ts now emits presentation scope directly (commit 4628295f5), but the committed data/differentials-snapshot.json predates it and cannot be regenerated in a cloud session: scripts/import-differentials-export.ts reads a Windows workstation path (C:/Users/joshs/AppData/Local/Temp/differentials-data.zip). Until then withPresentationScope() in src/lib/differentials.ts derives the same labels at load time, which keeps the app correct but means the file and the runtime describe the record differently. Next action: re-run npm-equivalent 'node scripts/run-tsx.mjs scripts/import-differentials-export.ts --zip=<path> --write' on the workstation, confirm the emitted scope matches the derivation, then consider retiring the derivation. PARKED 2026-09-18: the import script reads a zip at a Windows workstation path that exists only on the owner's machine, so no cloud session can regenerate the snapshot. The app stays correct meanwhile because withPresentationScope() derives the same labels at load time. TO UNBLOCK: run the import on the workstation with the zip, confirm the emitted scope matches the derivation, then consider retiring the derivation.",
+    "baseRowFingerprint": "e72a4509d04033bc3f96710f9866e8b5c888cbc55ffb651750858d6c50e9ab40"
+  }
+}

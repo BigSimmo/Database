@@ -37,6 +37,14 @@ jobs:
       # Consumed by drift-routing below. Job outputs survive a failed job as long
       # as the step that set them ran, which is why the capture step is always().
       findings: ${{ steps.findings.outputs.findings }}
+      # What was actually compared, and against which database. A green run used
+      # to publish "the live drift check is green again" carrying none of this,
+      # so the comment that CLOSED the issue was the one piece of evidence in the
+      # thread that said nothing about what had been checked.
+      comparison: ${{ steps.findings.outputs.comparison }}
+      history: ${{ steps.findings.outputs.history }}
+      project_ref: ${{ steps.findings.outputs.project_ref }}
+      checked_sha: ${{ steps.findings.outputs.checked_sha }}
 
     steps:
       - name: Checkout
@@ -114,6 +122,44 @@ jobs:
             echo "LIVE_DRIFT_FINDINGS_EOF"
           } >> "$GITHUB_OUTPUT"
 
+          # The two lines that say WHAT was compared, carried separately so the
+          # green path can publish them. check:drift prints "Drift manifest: …"
+          # and "Compared N extensions, N tables, …" before any verdict; an
+          # absent pair means the comparison never reached that point, which is
+          # not the same as finding nothing.
+          {
+            echo "comparison<<LIVE_DRIFT_COMPARISON_EOF"
+            if [ -f drift-output.txt ]; then
+              grep -E '^(Drift manifest:|Compared )' drift-output.txt | head -4 || true
+            fi
+            echo "LIVE_DRIFT_COMPARISON_EOF"
+            echo "history<<LIVE_DRIFT_HISTORY_EOF"
+            if [ -f migration-history-output.txt ]; then
+              grep -E '^(Local migration versions:|Remote migration versions:|Remote-only|Local-only|Migration history alignment)' migration-history-output.txt | head -8 || true
+            fi
+            echo "LIVE_DRIFT_HISTORY_EOF"
+            echo "project_ref=${SUPABASE_PROJECT_REF}"
+            echo "checked_sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      # The issue gets a bounded head -80 / tail -80 slice; everything past that
+      # was lost with the runner. A real drift report can be hundreds of lines and
+      # the truncated tail is exactly where the unexplained entries sit.
+      - name: Upload full drift diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: live-drift-diagnostics
+          path: |
+            drift-output.txt
+            migration-history-output.txt
+          retention-days: 30
+          # `warn`, not `error`: a preflight or install failure legitimately
+          # produces neither file, and that job has already failed for a reason
+          # the run log states. Turning that into a second failure would just
+          # obscure the first.
+          if-no-files-found: warn
+
   # Split out so issues: write is scoped to a job that never installs or executes
   # repository code — the drift job above keeps contents: read only.
   drift-routing:
@@ -131,6 +177,10 @@ jobs:
         env:
           DRIFT_RESULT: ${{ needs.live-drift.result }}
           DRIFT_FINDINGS: ${{ needs.live-drift.outputs.findings }}
+          DRIFT_COMPARISON: ${{ needs.live-drift.outputs.comparison }}
+          DRIFT_HISTORY: ${{ needs.live-drift.outputs.history }}
+          DRIFT_PROJECT_REF: ${{ needs.live-drift.outputs.project_ref }}
+          DRIFT_CHECKED_SHA: ${{ needs.live-drift.outputs.checked_sha }}
         with:
           script: |
             const title = "Live drift check failing";
@@ -140,28 +190,61 @@ jobs:
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             const result = process.env.DRIFT_RESULT || "unknown";
             const findings = (process.env.DRIFT_FINDINGS || "").trim();
+            const comparison = (process.env.DRIFT_COMPARISON || "").trim();
+            const history = (process.env.DRIFT_HISTORY || "").trim();
+            const projectRef = (process.env.DRIFT_PROJECT_REF || "").trim() || "unrecorded";
+            const checkedSha = (process.env.DRIFT_CHECKED_SHA || "").trim();
             const now = new Date().toISOString();
+            // Stable marker written into every body this workflow authors, so a
+            // human retitling the issue does not orphan it AND a green run has
+            // something safer than "first open issue with the label" to match on.
+            const MARKER = "<!-- live-drift-routing:v1 -->";
 
-            // One pinned issue, found by label so a retitle by a human does not
-            // orphan it and start a second thread.
             const { data: open } = await github.rest.issues.listForRepo({
               owner,
               repo,
               state: "open",
               labels: label,
             });
-            const existing = open.find((issue) => issue.title === title) ?? open[0];
+            // Ownership, in descending confidence: this workflow's own marker,
+            // then the exact title. `?? open[0]` used to be the last fallback —
+            // harmless when UPDATING a body, but on the green path it CLOSES
+            // whatever it picked, and any open issue carrying this label
+            // qualified. Closing someone else's issue is not recoverable by a
+            // workflow, so the fallback is gone from the matching entirely.
+            const owned = (issue) => String(issue.body ?? "").includes(MARKER) || issue.title === title;
+            const existing = open.find(owned) ?? null;
 
             if (result === "success") {
               if (!existing) {
-                core.info("Live drift check is green and no failure issue is open.");
+                const skipped = open.length > 0 ? ` (${open.length} labelled issue(s) are not this workflow's)` : "";
+                core.info(`Live drift check is green and no failure issue of ours is open${skipped}.`);
                 return;
               }
+              // A green run used to say only "green again" — the one comment in
+              // the thread that closed it carried no statement of what had been
+              // compared, against which database, at which commit. "The job
+              // exited 0" is a fact about the job, not about the schema.
               await github.rest.issues.createComment({
                 owner,
                 repo,
                 issue_number: existing.number,
-                body: `Resolved — the live drift check is green again as of ${now}.\n\nRun: ${runUrl}`,
+                body: [
+                  `Resolved — the live drift check is green again as of ${now}.`,
+                  "",
+                  `- Run: ${runUrl}`,
+                  `- Project: \`${projectRef}\``,
+                  checkedSha ? `- Checked-out commit: \`${checkedSha.slice(0, 12)}\`` : "- Checked-out commit: unrecorded",
+                  "",
+                  comparison
+                    ? `### What was compared\n\n\`\`\`\n${comparison}\n\`\`\``
+                    : "### What was compared\n\n⚠ The comparison summary was not captured, so this green result states that the job exited cleanly and **not** what it compared. Read the run log before treating this as parity.",
+                  history ? `\n### Migration history\n\n\`\`\`\n${history}\n\`\`\`` : "",
+                  "",
+                  "Schema parity is an object-inventory comparison. Data, cron and configuration",
+                  "effects are not represented in it.",
+                  MARKER,
+                ].join("\n"),
               });
               await github.rest.issues.update({
                 owner,
@@ -181,7 +264,12 @@ jobs:
               `- Latest failing run: ${runUrl}`,
               `- Job result: \`${result}\``,
               `- Trigger: \`${context.eventName}\``,
+              `- Project: \`${projectRef}\``,
+              checkedSha ? `- Checked-out commit: \`${checkedSha.slice(0, 12)}\`` : "- Checked-out commit: unrecorded",
               `- Last updated: ${now}`,
+              "",
+              "Full untruncated output is the `live-drift-diagnostics` artifact on the run above;",
+              "the findings below are a bounded slice.",
               "",
               findings
                 ? `### Drift findings\n\n\`\`\`\n${findings}\n\`\`\``
@@ -189,6 +277,7 @@ jobs:
               "",
               "Remediation context: `docs/database-remediation-plan.md`, `docs/database-drift-detection.md`.",
               "Never fix drift with raw SQL against live — codify it (migration + `schema.sql` mirror + regenerated manifest).",
+              MARKER,
             ].join("\n");
 
             if (existing) {

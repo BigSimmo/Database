@@ -107,6 +107,56 @@ describe("production error tracking privacy boundary", () => {
     expect(event.exception?.values?.[0].mechanism).toBeUndefined();
   });
 
+  /**
+   * `@sentry/core` emits `auto.ai.openai.stream-response`, and this repo installs that
+   * instrumentation (`src/lib/observability/agent-monitoring.ts`). A pattern without the hyphen
+   * rejects it and relabels the event `generic` — fabricating the very signal the mechanism exists
+   * to carry, and doing it on the OpenAI path specifically.
+   */
+  it("keeps a hyphenated SDK mechanism type rather than relabelling it generic", () => {
+    const event = privacySafeErrorEvent({
+      type: undefined,
+      exception: {
+        values: [
+          { type: "Error", value: "boom", mechanism: { type: "auto.ai.openai.stream-response", handled: false } },
+        ],
+      },
+    });
+
+    expect(event.exception?.values?.[0].mechanism).toEqual({
+      type: "auto.ai.openai.stream-response",
+      handled: false,
+    });
+  });
+
+  it("accepts the SDK mechanism types this application can actually produce", () => {
+    for (const type of [
+      "generic",
+      "instrument",
+      "onunhandledrejection",
+      "auto.function.nextjs.on_request_error",
+      "auto.http.nextjs.api_handler",
+      "auto.db.supabase.auth",
+    ]) {
+      const event = privacySafeErrorEvent({
+        type: undefined,
+        exception: { values: [{ type: "Error", value: "boom", mechanism: { type, handled: true } }] },
+      });
+      expect(event.exception?.values?.[0].mechanism?.type).toBe(type);
+    }
+  });
+
+  it("replaces an over-long mechanism type", () => {
+    const event = privacySafeErrorEvent({
+      type: undefined,
+      exception: {
+        values: [{ type: "Error", value: "boom", mechanism: { type: `auto.${"a".repeat(80)}`, handled: true } }],
+      },
+    });
+
+    expect(event.exception?.values?.[0].mechanism?.type).toBe("generic");
+  });
+
   it("initializeErrorTracking is a DSN/status probe and does not throw without Sentry", async () => {
     const { initializeErrorTracking } = await import("@/lib/observability/error-tracking");
     await expect(initializeErrorTracking()).resolves.toBeTypeOf("boolean");

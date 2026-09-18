@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6b47f761-4006-45d7-98a2-5d7c14645905",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#TN512M",
+    "detail": "EVIDENCE 2026-09-18, a concrete instance of exactly what this row describes. The Live domain monitor has concluded 'failure' on every scheduled run checked -- runs 266, 267 and 268 (2026-09-17 06:47, 12:41 and 18:36 UTC) -- always at the same step and for the same reason: 'services: answering from the in-bundle catalogue because the published one could not be read.' The check is correct, specific and cheap: in the same runs the other two probes pass with real numbers (forms 5 results in 1132ms, medications 5 in 1217ms) and the deployment-freshness step passes, so it is not a broken monitor. It reached nobody for days. In the same window the owner reported Answer mode slow from a browser, which is the second time in a fortnight that an operator found a live problem before any of the three detection systems delivered one. The underlying catalogue fault is #HTZPQ8 and is separately confirmed by a live read on another branch; recorded here because the defect this row names is DELIVERY, and this is the clearest worked example of it to date. Nothing was changed: per this row's own STOP, no further monitoring check was added.",
+    "baseRowFingerprint": "da3306428b5e7b101bf382022af4ec54a6e8b4e989b3d8f0c9a177207a0eba35"
+  }
+}
