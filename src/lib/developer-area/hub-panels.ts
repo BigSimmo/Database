@@ -104,6 +104,21 @@ export const HUB_PANELS: readonly HubPanel[] = [
     phase: 1,
     href: "/mockups/development/hazards",
   },
+  // Named for the question it answers -- what is waiting on a person -- and
+  // scoped to the seven record families this repository holds on disk. It is a
+  // read-only aggregation: the page publishes, approves and unhides nothing, and
+  // the summary must never imply otherwise. It deliberately does not say "all"
+  // or "every clinical record": a family whose review state lives somewhere this
+  // repository does not hold would be invisible to it, and a queue claiming
+  // completeness is exactly the claim a reviewer would trust and should not.
+  {
+    id: "clinical-sign-off",
+    name: "Clinical sign-off queue",
+    summary: "Records waiting on a person, in the review vocabulary each one uses",
+    group: "clinical",
+    phase: 1,
+    href: "/mockups/development/clinical-sign-off",
+  },
 
   // No `environment` card: the environment strip renders as its own section on
   // the hub, so a card pointing at `#developer-hub-environment` would be a
