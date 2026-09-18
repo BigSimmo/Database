@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "34cf6f42-2e0f-4587-8ce8-da686bde2f52",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Refuted: do not add an elapsed-time counter to the answer wait; it was built, argued against and deleted",
+    "detail": "Recorded 2026-09-18 after the owner reported Answer mode slow and an elapsed counter was proposed (by me) as the first fix. It is a refuted approach and the repository already answered it, but the answer is spread across three files and cost a full agent investigation to reassemble. THE DECISION: src/components/clinical-dashboard/answer-status.tsx:230-236 states it in the code -- 'Deliberately a single threshold rather than a running counter: the old panel re-rendered Ns elapsed every second in the one position the eye already rests on, which makes the wait the subject. Nothing can be done with the number while the search is healthy.' The design record is src/components/answer-loading-redesign-mockups.tsx:827-832 ('The counter makes the wait the subject'), still served at /mockups/answer-loading-redesign. answer-status.tsx:373-379 calls the removed completion line 'a last vestige of the elapsed counter'. THE GUARDS that fail on any attempt: tests/answer-progress-ui-smoke.spec.ts:488 asserts the progress line contains no digit at all (await expect(line).not.toContainText(/d/)), and tests/answer-progress.test.ts:137-148 asserts the same across six stages; the governing rule is answer-progress.ts:78-101, 'The wait shows no number the reader cannot reconcile with something on screen.' THREE FURTHER OBSTACLES if anyone revisits: the design-system contract pins visibleLiveRegions for this file at exactly 1 (scripts/design-system-contract-baseline.json:173) so a second visible aria-live node fails the ratchet, and aria-hidden inside the existing live region is not an escape hatch because the mutation still occurs inside it; the Playwright geometry ratchet caps the section at 96px across six widths (answer-progress-ui-smoke.spec.ts:568-589), which a third line at 320px breaks; and a 1000ms tick has no matching motion-duration token, which the hardcoded-duration gate baselines at 0. WHAT IS ACTUALLY TRUE about the wait, and is not disputed: generation is buffered by design (token streaming is a refuted clinical-safety control, docs/rag-behaviour/refuted-approaches.md:139, tracked as #100), so time-to-first-prose equals total generation time and the screen is unchanging throughout -- docs/audit/latency-audit-2026-07-28.md:89. The remedy on file is #100 Phase 2 (per-section verified delivery), not a counter.",
+    "source": "2026-09-18 session; agent investigation of answer-status.tsx, answer-progress.ts and their guards",
+    "issueUlid": "01M2T8F2PWADM67AQ878GDKVMQ"
+  }
+}
