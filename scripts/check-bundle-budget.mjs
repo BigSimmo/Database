@@ -1084,6 +1084,40 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
     const prevMockups = budget?.mockups?.gzipBytes ?? null;
     const prevTotal = budget?.totalGzipBytes ?? null;
 
+    /**
+     * The COMMITTED baseline's own provenance, captured before `next` overwrites
+     * it. Two different baselines exist in every refresh run and the report has to
+     * name which one produced the comparison: the committed comparator the
+     * `previousGzipBytes` numbers came from, and the candidate this run measured
+     * and proposes. Emitting only the candidate's SHA — which is what the response
+     * used to do — reads as though the drift was measured against the commit it
+     * was measured AT.
+     *
+     * Tolerances travel with it for the same reason the numbers do. The workflow
+     * used to state "10% and 25%" as prose, which silently stops being true the
+     * moment either value is edited in bundle-budget.json.
+     */
+    const comparator = {
+      source: budget?.baselineSource ?? null,
+      updatedAt: budget?.updatedAt ?? null,
+      enforce: Boolean(budget?.enforce),
+      totalGzipBytes: prevTotal,
+      tolerancePct: {
+        production: budget?.production?.tolerancePct ?? 10,
+        mockups: budget?.mockups?.tolerancePct ?? 25,
+      },
+      warnTolerancePct: {
+        production: budget?.production?.warnTolerancePct ?? 5,
+        mockups: budget?.mockups?.warnTolerancePct ?? 15,
+      },
+      routes: Object.fromEntries(
+        Object.entries(budget?.routes ?? {}).map(([route, config]) => [
+          route,
+          { gzipBytes: config?.gzipBytes ?? null, tolerancePct: config?.tolerancePct ?? 10 },
+        ]),
+      ),
+    };
+
     const next = {
       ...budget,
       production: { ...(budget.production ?? {}), gzipBytes: productionGzipBytes },
@@ -1116,6 +1150,17 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
         updatedAt: nowIso,
         baselineSource,
         baselineCommitDistance: provenance.commitDistance,
+        // The committed baseline the drift below was measured AGAINST, kept
+        // distinct from `baselineSource`, which is the candidate this run
+        // measured and proposes for adoption. Nothing here is adopted: the
+        // refreshed file is an artifact, never a commit.
+        comparator,
+        measurement: {
+          measuredSha: baselineSource,
+          distanceFromCheckedOutHead: provenance.commitDistance,
+          observedAt: nowIso,
+          nodeVersion: process.version,
+        },
         production: {
           gzipBytes: productionGzipBytes,
           previousGzipBytes: prevProduction,
@@ -1124,12 +1169,14 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
             prevProduction != null && prevProduction > 0
               ? ((productionGzipBytes - prevProduction) / prevProduction) * 100
               : 0,
+          tolerancePct: comparator.tolerancePct.production,
         },
         mockups: {
           gzipBytes: mockupGzipBytes,
           previousGzipBytes: prevMockups,
           diffBytes: prevMockups != null ? mockupGzipBytes - prevMockups : null,
           diffPct: prevMockups != null && prevMockups > 0 ? ((mockupGzipBytes - prevMockups) / prevMockups) * 100 : 0,
+          tolerancePct: comparator.tolerancePct.mockups,
           chunks: mockupExclusive.size,
           routes: mockupRouteCount,
         },
@@ -1146,6 +1193,7 @@ export function runBundleBudgetCheck(argv = process.argv.slice(2)) {
                   prevRouteBytes != null && prevRouteBytes > 0
                     ? ((measurement.gzipBytes - prevRouteBytes) / prevRouteBytes) * 100
                     : 0,
+                tolerancePct: comparator.routes[route]?.tolerancePct ?? 10,
               },
             ];
           }),
