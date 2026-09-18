@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "203996cc-e195-4b5e-b37e-5b2b9581a6da",
+  "createdOn": "2026-09-18",
+  "action": "done",
+  "payload": {
+    "id": "#V98SPY",
+    "outcome": "Verified already implemented, no code written. PR #2881 (merged 2026-09-18) traced the unbroken chain: universal-search.ts:805 sets the group flag, parseGroup preserves it across the NDJSON stream, groupIsWorthShowing (use-universal-search.ts:123) lets a degraded empty group through, and universal-search-command-surface.tsx:827 wraps the group heading in withCatalogueDegradedNotice. The row's premise that no component consumes the flag was out of date.",
+    "baseRowFingerprint": "b7e6919bb105fe23ca7e665ae219bc96d0e584c8f93696d97a38ab80f37a7d8e"
+  }
+}
