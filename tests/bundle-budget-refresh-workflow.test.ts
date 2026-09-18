@@ -166,3 +166,48 @@ describe("bundle-budget refresh stays report-only", () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe("bundle-budget refresh report provenance", () => {
+  const publishStep = sourceFrom(job, "      - name: Publish to rolling issue", { label: "publish step" });
+
+  it("labels binary units as KiB, matching the script that does the same division", () => {
+    // `(value / 1024)` labelled "kB" understated every number in the rolling
+    // issue by ~2.4% against the SI reading. scripts/check-bundle-budget.mjs has
+    // always labelled its identical division KiB; this helper shared its name and
+    // disagreed with it.
+    expect(publishStep).toContain("KiB");
+    expect(publishStep).not.toMatch(/toFixed\(1\)\} kB/);
+  });
+
+  it("renders tolerances from the measurement rather than restating them as prose", () => {
+    // "Production and mockup tolerances are 10% and 25% respectively" silently
+    // stops being true the moment either value is edited in bundle-budget.json.
+    expect(publishStep).not.toContain("tolerances are 10% and 25%");
+    expect(publishStep).toContain("tolerancePct");
+    expect(publishStep).toContain("| tolerance |");
+  });
+
+  it("names the comparator and the candidate as different baselines", () => {
+    // The old line — "Measured at <sha> (N commit(s) behind HEAD)" — showed only
+    // the candidate, so a reader could take it for the baseline compared against.
+    expect(publishStep).toContain("comparator");
+    expect(publishStep).toContain("Candidate (measured by THIS run");
+    expect(publishStep).not.toMatch(/commit\(s\) behind HEAD/);
+    expect(publishStep).toContain("checked-out HEAD at measurement time");
+  });
+
+  it("reports whether the evidence artifact actually uploaded", () => {
+    // A successful measurement whose artifact failed to upload is not a durable
+    // evidence package, and must not read as though it were.
+    expect(job).toContain("id: evidence");
+    expect(publishStep).toContain("ARTIFACT_OUTCOME: ${{ steps.evidence.outcome }}");
+    expect(publishStep).toContain("Evidence artifact upload:");
+  });
+
+  it("still refuses to commit, push or open a PR for the refreshed baseline", () => {
+    // The report-only contract is the reason this workflow is safe to run on a
+    // schedule; none of the above may weaken it.
+    expect(job).not.toMatch(/git (commit|push)|create-pull-request|peter-evans/);
+    expect(workflow).toContain("contents: read");
+  });
+});

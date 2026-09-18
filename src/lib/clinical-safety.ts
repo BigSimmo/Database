@@ -21,12 +21,37 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   {
     kind: "contraindication",
     label: "Contraindication",
-    pattern: /\b(contraindicat\w*|do not use|avoid|not recommended|must not)\b/i,
+    // `hypersensitivity` is deliberately split across this tier and the next. The
+    // phrase forms here — "known hypersensitivity", "hypersensitivity to <drug>" —
+    // name a property of the patient that forbids the drug, which is what this
+    // tier means. A bare mention ("hypersensitivity reactions have been reported")
+    // is an adverse-effect statement, so it is caught one tier down rather than
+    // promoted to the top severity and the danger colour.
+    pattern:
+      /\b(contraindicat\w*|do not use|avoid|not recommended|must not|known hypersensitivity|hypersensitivity to)\b/i,
   },
   {
     kind: "red_flag",
     label: "Red flag",
-    pattern: /\b(red flag|urgent|emergency|immediate|severe|toxicity|seizure|chest pain|dyspnoea)\b/i,
+    // `immediate(?:ly)?`: every token here is wrapped in \b...\b, so a bare
+    // `immediate` matched "with immediate effect" and MISSED "immediately", the
+    // commoner clinical phrasing — a silent no-finding, not a wrong label.
+    //
+    // The stop instructions (cease/withhold/hold the dose) sit here rather than in
+    // `contraindication` because they are event-driven: stop the drug now, because
+    // something has happened. A contraindication is a standing property of the
+    // patient ("do not use in severe hepatic impairment"). Keeping them at this
+    // tier also means no passage that reads "Contraindication" today changes.
+    //
+    // `boxed warning` / `black box` is the strongest labelled warning a regulator
+    // applies, but it does not forbid prescribing, so it is a red flag rather than
+    // a contraindication. `anaphyla\w*` is an acute emergency, the same class as
+    // `seizure` and `chest pain` already in this tier.
+    //
+    // `hold` is only ever matched inside a dose phrase; a bare \bhold\b matches
+    // ordinary prose ("hold the view that ...").
+    pattern:
+      /\b(red flag|urgent|emergency|immediate(?:ly)?|severe|toxicity|seizure|chest pain|dyspnoea|ceas(?:e|es|ed|ing)|withhold\w*|withheld|hold (?:the next |the |further |all |any |subsequent |next )?doses?|boxed warning|black box|hypersensitivity|anaphyla\w*)\b/i,
   },
   {
     kind: "escalation",

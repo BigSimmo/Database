@@ -77,6 +77,26 @@ where created_at > now() - interval '24 hours'
 group by 1;
 ```
 
+The query above needs database access and answers "how slow, across everyone". For the
+complementary question — "where did the time go in ONE request, from where I am sitting" — the
+answer route already returns a `Server-Timing` header splitting the request into auth, ratelimit,
+scope, search, rpc, embedding, rerank, generation and total. This prints it as a table:
+
+```text
+node scripts/probe-answer-timing.mjs --allow-provider
+```
+
+It asks the live site one real question, so it spends OpenAI credit and writes a `rag_queries`
+row; it refuses to run without that flag (or `ALLOW_ANSWER_TIMING_PROBE=true`), per the API and
+provider confirmation boundary. `LIVE_DOMAIN_URL` and `ANSWER_PROBE_QUERY` override the defaults.
+Read its output with the nesting in mind: `search` already contains `rpc`, `embedding` and
+`rerank`, and `answer`/`total` are whole-request totals, so the column does not sum.
+
+**This does not make the section above alerted.** It is an operator probe run by hand, not a
+monitor: nothing schedules it and no workflow calls it, so the `Manual SQL - not alerted` label
+stands and no `OPS_*` code exists for answer latency. `#TN512M` is the reason it was deliberately
+left unscheduled — detection here already outruns attention.
+
 ### Database latency — Sentry production DB span SLO (#183)
 
 _Sentry-side alert - provisioning unverified. Nothing in this repository provisions, reads, or tests this alert; `SENTRY_AUTH_TOKEN` appears only in the build-time sourcemap upload (`next.config.ts`). Treat the criteria below as the intended Sentry configuration, not as proof an alert exists._
