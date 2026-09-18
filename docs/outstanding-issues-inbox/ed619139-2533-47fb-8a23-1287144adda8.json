@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ed619139-2533-47fb-8a23-1287144adda8",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The source authority register carries two entries keyed american-psychiatric-association, both coded APA, with different jurisdictions; the later one silently wins every lookup",
+    "detail": "Noticed 2026-09-18 while registering the five blocked publishers (PR #2880) and deliberately not touched there, because src/lib/source-authority-registry.ts is a protected RAG-ranking surface and a duplicate-key removal changes which record answers a lookup. Both entries are catalogueIdentityOnly, so neither reaches runtime retrieval classification today and nothing is currently mis-ranked - which is why this is P3 rather than higher. The hazard is latent: the two differ in jurisdictions, object literal order alone decides which survives, and if either entry is ever made runtime-classifiable the resolved jurisdiction becomes whichever one happened to be written second. Next: confirm the two entries against the publisher, merge them into one with the union of aliases and the correct jurisdictions, and add a register test that fails on any duplicate key or duplicate code. Flag the RAG surface before editing, per AGENTS.md.",
+    "source": "Observed during PR #2880 (merged 2026-09-18) and recorded rather than fixed in place",
+    "issueUlid": "01M2TQB6RNT9MZ7V8M4555TD5Q"
+  }
+}
