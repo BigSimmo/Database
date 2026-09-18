@@ -38,15 +38,18 @@ import { resolve } from "node:path";
 import { clinicalRegistryRowsToCorpusEntries } from "@/lib/registry-corpus";
 import type { RegistryRecordRow } from "@/lib/registry-records";
 import { dynamicLogicalId } from "@/lib/site-content/adapters";
+import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import {
   buildRegistryReconciliationReport,
+  canonicalCandidate,
+  type CanonicalPublicRegistrySnapshot,
   type RegistryReconciliationCandidate,
 } from "@/lib/site-content/adapters/registry";
 import {
   assertSiteContentReconciliationInput,
   reconciliationHash,
 } from "@/lib/site-content/site-content-reconciliation";
-import type { SiteContentRecord } from "@/lib/site-content/site-content-contracts";
+import type { ExistingSiteContentReleaseRecord } from "@/lib/site-content/site-content-sync";
 
 type Options = { population: string; kind: "service" | "form"; batchSize: number; out: string };
 
@@ -71,24 +74,67 @@ function parseOptions(argv: readonly string[]): Options {
   return options as Options;
 }
 
-/** The published record for each logical id, from the operator export. Never from a candidate. */
-function publishedRecords(populationPath: string): Map<string, SiteContentRecord> {
+/** Published fingerprints per logical id, from the operator export. Never from a candidate. */
+function publishedRecords(populationPath: string): Map<string, ExistingSiteContentReleaseRecord> {
   const population = JSON.parse(readFileSync(resolve(populationPath), "utf8")) as {
     version?: string;
-    existingReleaseRecords?: Array<Record<string, unknown>>;
+    existingReleaseRecords?: ExistingSiteContentReleaseRecord[];
   };
   if (population.version !== "site-content-population-export-v1") {
     throw new Error(
       "Population export has the wrong version; regenerate it with scripts/sql/operator-export-site-content-population.sql.",
     );
   }
-  // The export carries fingerprints, not the record body. The reader's own projection is what the
-  // public site serves, so the snapshot fields come from there; see main().
-  const byLogicalId = new Map<string, SiteContentRecord>();
+  // Fingerprint-shaped only (ExistingSiteContentReleaseRecord). The triage snapshot type is the
+  // same shape; do not cast these into SiteContentRecord.
+  const byLogicalId = new Map<string, ExistingSiteContentReleaseRecord>();
   for (const row of population.existingReleaseRecords ?? []) {
-    byLogicalId.set(String(row.logicalId), row as unknown as SiteContentRecord);
+    byLogicalId.set(row.logicalId, row);
   }
   return byLogicalId;
+}
+
+/**
+ * Trusted snapshots for `buildRegistryReconciliationReport` — population fingerprints plus the
+ * adapter canonical's publicRecordId / route. Distinct from the plan's trustedSnapshots, which
+ * require publicRecordId === logicalId (see file header).
+ */
+function triageTrustedSnapshots(
+  candidates: readonly RegistryReconciliationCandidate[],
+  published: Map<string, ExistingSiteContentReleaseRecord>,
+): CanonicalPublicRegistrySnapshot[] {
+  const byLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
+  for (const candidate of candidates) {
+    const group = byLogicalId.get(candidate.logicalId) ?? [];
+    group.push(candidate);
+    byLogicalId.set(candidate.logicalId, group);
+  }
+  const snapshots: CanonicalPublicRegistrySnapshot[] = [];
+  for (const [logicalId, group] of [...byLogicalId.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const row = published.get(logicalId);
+    if (!row) continue;
+    const canonical = canonicalCandidate(group);
+    if (!canonical) continue;
+    const route = registryCorpusDetailHref({
+      kind: canonical.entry.kind,
+      slug: canonical.entry.slug,
+      subkind: canonical.entry.subkind,
+      recordId: canonical.entry.recordId,
+    });
+    if (!route) {
+      throw new Error(`Canonical candidate for ${logicalId} has no public route.`);
+    }
+    snapshots.push({
+      version: "clinical-kb-site-canonical-public-snapshot-v1",
+      publicRecordId: canonical.publicRecordId ?? canonical.entry.recordId,
+      logicalId,
+      route,
+      contentHash: row.contentHash,
+      governanceHash: row.governanceFingerprint,
+      publicationVersion: row.publicationFingerprint,
+    });
+  }
+  return snapshots;
 }
 
 async function main() {
@@ -122,19 +168,23 @@ async function main() {
     explicitlyReconciled: false,
   }));
 
-  // Trusted snapshots: one per logical group, from the PUBLISHED side, keyed by logicalId as the
-  // plan validator requires (publicRecordId === logicalId).
   const groups = [...new Set(candidates.map((candidate) => candidate.logicalId))].sort();
   const missing = groups.filter((logicalId) => !published.has(logicalId));
-  const report = buildRegistryReconciliationReport(candidates, []);
+  // Triage with real trusted snapshots from the population export — empty [] made every
+  // single-candidate group look like needsReview and the mechanical write path unreachable.
+  const triageSnapshots = triageTrustedSnapshots(candidates, published);
+  const report = buildRegistryReconciliationReport(candidates, triageSnapshots);
   const needsReview = report.groups.filter((g) => g.disposition === "divergent_requires_administrator_review");
 
   console.log(`Reconciliation plan — kind=${options.kind}`);
   console.log(`  owner rows            ${rows.length}`);
   console.log(`  logical groups        ${groups.length}`);
   console.log(`  published groups      ${published.size}`);
+  console.log(`  triage snapshots      ${triageSnapshots.length}`);
   console.log(`  groups not published  ${missing.length}`);
   console.log(`  needs owner review    ${needsReview.length}`);
+  console.log(`  adoptable             ${report.adoptableCount}`);
+  console.log(`  identical duplicates  ${report.identicalDuplicateCount}`);
 
   // THE REFUSAL. Everything below would be mechanical; this is the part that is not.
   if (needsReview.length > 0 || missing.length > 0) {
@@ -161,27 +211,50 @@ async function main() {
     return;
   }
 
-  // Mechanical from here: exactly one `adopt` per group, `identical_duplicate` for siblings that
-  // provably equal it, and never a `retire`.
+  // Mechanical from here: exactly one `adopt` per group for the adapter's canonicalCandidate,
+  // `identical_duplicate` for siblings in an adoptable / identical_duplicates group, never a `retire`.
+  // Do not use group[0] — that is clinical_registryRowsToCorpusEntries order, not reconcileCanonicalPublicSiteContent.
+  const candidatesByLogicalId = new Map<string, RegistryReconciliationCandidate[]>();
+  for (const candidate of candidates) {
+    const group = candidatesByLogicalId.get(candidate.logicalId) ?? [];
+    group.push(candidate);
+    candidatesByLogicalId.set(candidate.logicalId, group);
+  }
+  const canonicalByLogicalId = new Map<string, RegistryReconciliationCandidate>();
+  for (const [logicalId, group] of candidatesByLogicalId) {
+    const canonical = canonicalCandidate(group);
+    if (!canonical) {
+      throw new Error(`No adapter canonical candidate for adoptable group ${logicalId}.`);
+    }
+    canonicalByLogicalId.set(logicalId, canonical);
+  }
+
   const dispositions = candidates
     .map((candidate) => {
       const snapshot = published.get(candidate.logicalId)!;
       const row = rowById.get(candidate.entry.recordId);
       const updatedAt = (row as unknown as { updated_at?: string } | undefined)?.updated_at;
       if (!updatedAt) throw new Error(`No updated_at for ${candidate.logicalId}; sourceVersion cannot be derived.`);
-      const group = candidates.filter((other) => other.logicalId === candidate.logicalId);
-      const isCanonical = group[0]!.entry.recordId === candidate.entry.recordId;
+      const canonical = canonicalByLogicalId.get(candidate.logicalId)!;
+      const isCanonical = canonical.entry.recordId === candidate.entry.recordId;
+      const route =
+        registryCorpusDetailHref({
+          kind: candidate.entry.kind,
+          slug: candidate.entry.slug,
+          subkind: candidate.entry.subkind,
+          recordId: candidate.entry.recordId,
+        }) ?? `/${options.kind}s/${candidate.entry.slug}`;
       return {
-        contentHash: String((snapshot as unknown as Record<string, unknown>).contentHash),
-        disposition: isCanonical ? "adopt" : "identical_duplicate",
+        contentHash: snapshot.contentHash,
+        disposition: isCanonical ? ("adopt" as const) : ("identical_duplicate" as const),
         logicalId: candidate.logicalId,
-        publicationVersion: String((snapshot as unknown as Record<string, unknown>).publicationFingerprint),
+        publicationVersion: snapshot.publicationFingerprint,
         sourceKind: options.kind,
         sourceRowId: candidate.entry.recordId,
         sourceVersion: new Date(updatedAt).toISOString(),
-        trustedGovernanceHash: String((snapshot as unknown as Record<string, unknown>).governanceFingerprint),
+        trustedGovernanceHash: snapshot.governanceFingerprint,
         trustedPublicRecordId: candidate.logicalId,
-        trustedRoute: `/${options.kind}s/${candidate.entry.slug}`,
+        trustedRoute: route,
       };
     })
     .sort(
@@ -191,16 +264,24 @@ async function main() {
         left.sourceRowId.localeCompare(right.sourceRowId),
     );
 
+  // Plan trustedSnapshots use publicRecordId === logicalId (validator convention).
   const trustedSnapshots = groups.map((logicalId) => {
-    const snapshot = published.get(logicalId)! as unknown as Record<string, unknown>;
-    const slug = logicalId.split(":").slice(1).join(":");
+    const snapshot = published.get(logicalId)!;
+    const canonical = canonicalByLogicalId.get(logicalId)!;
+    const route =
+      registryCorpusDetailHref({
+        kind: canonical.entry.kind,
+        slug: canonical.entry.slug,
+        subkind: canonical.entry.subkind,
+        recordId: canonical.entry.recordId,
+      }) ?? `/${options.kind}s/${canonical.entry.slug}`;
     return {
-      contentHash: String(snapshot.contentHash),
-      governanceHash: String(snapshot.governanceFingerprint),
+      contentHash: snapshot.contentHash,
+      governanceHash: snapshot.governanceFingerprint,
       logicalId,
-      publicationVersion: String(snapshot.publicationFingerprint),
+      publicationVersion: snapshot.publicationFingerprint,
       publicRecordId: logicalId, // the validator requires these to be equal
-      route: `/${options.kind}s/${slug}`,
+      route,
     };
   });
 
