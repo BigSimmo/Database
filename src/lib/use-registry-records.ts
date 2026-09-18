@@ -25,6 +25,11 @@ export type RegistryRecordsState = {
   /** Authoritative validation status per slug from the API, so callers count
    *  reviewed records from governance rather than the copied fixture JSON. */
   governance: Record<string, RegistryValidationStatus>;
+  /** The API served the in-bundle catalogue because the canonical read could
+   *  not be completed. The records are real but the list may lag what was
+   *  published, and the surface has to say so rather than let the reader
+   *  assume it is current. */
+  degraded: boolean;
 };
 
 /** Hook return: the list state plus a `refetch` that re-runs the request — e.g.
@@ -65,7 +70,18 @@ function recordsState(
   view: RegistryListView,
   extra: Partial<RegistryRecordsState> = {},
 ): RegistryRecordsKeyedState {
-  return { status, records: [], total: 0, verifiedCount: 0, demoMode: false, governance: {}, kind, view, ...extra };
+  return {
+    status,
+    records: [],
+    total: 0,
+    verifiedCount: 0,
+    demoMode: false,
+    governance: {},
+    degraded: false,
+    kind,
+    view,
+    ...extra,
+  };
 }
 
 /** Owner-scoped registry list (Services/Forms home and search surfaces). Choose
@@ -175,6 +191,7 @@ export function useRegistryRecords(
             verifiedCount: payload.verifiedCount,
             demoMode: Boolean(payload.demoMode),
             governance,
+            degraded: Boolean(payload.degraded),
           }),
         );
       })

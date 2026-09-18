@@ -7,6 +7,7 @@ import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { AsyncButton, cn } from "@/components/ui-primitives";
 import { appModeSearchConfig, type AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
+import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 
 /**
  * How far the count can be trusted. This is a union rather than a pair of
@@ -149,6 +150,7 @@ export function SearchResultsHeaderBand({
   resultNoun: resultNounOverride,
   hideEmptyQuery = false,
   emptyQueryLabel,
+  catalogueDegraded = false,
   className,
 }: {
   modeId: AppModeId;
@@ -168,6 +170,15 @@ export function SearchResultsHeaderBand({
   onRetry?: () => void | Promise<void>;
   /** Replaces Retry when recovery is not a re-request (e.g. a sign-in link). */
   faultAction?: ReactNode;
+  /**
+   * The catalogue behind this count was served from the in-bundle seed list because the
+   * published one could not be read. Distinct from `status="partial"`, which says a source
+   * failed and the count is short: here the count is complete for the list that was searched,
+   * and what the reader cannot otherwise tell is that the list itself may lag what was
+   * published. The wording is `catalogueDegradedNotice`, shared with every other surface that
+   * says this, so it can never drift into a second phrasing.
+   */
+  catalogueDegraded?: boolean;
   view?: "table" | "list";
   onViewChange?: (view: "table" | "list") => void;
   sortValue?: ResultSortValue;
@@ -438,6 +449,17 @@ export function SearchResultsHeaderBand({
                   {partial ? (
                     <span className="text-[color:var(--warning)]" title="Some result sources could not be loaded">
                       {" · some sources unavailable"}
+                    </span>
+                  ) : null}
+                  {/* Same nesting rule as `partial` above: inside the count phrase, not a
+                      sibling flex item, so the live region's textContent keeps the space
+                      before the middot. */}
+                  {catalogueDegraded ? (
+                    <span
+                      className="text-[color:var(--warning)]"
+                      title="This list was served from the built-in catalogue because the published one could not be read"
+                    >
+                      {` · ${catalogueDegradedNotice}`}
                     </span>
                   ) : null}
                 </span>
