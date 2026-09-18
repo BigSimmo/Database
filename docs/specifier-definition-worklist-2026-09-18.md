@@ -77,6 +77,56 @@ The five categories carrying the commonest presentations in general adult psychi
 neurodevelopmental, schizophrenia spectrum, bipolar, depressive and anxiety disorders — hold **192
 items and not one definition between them**.
 
+## Decisions settled 2026-09-18
+
+Owner instruction, 2026-09-18: proceed on the recommendations. These four are now settled and every
+later entry depends on them.
+
+| Decision                                              | Settled as                                                                                       | Why                                                                                                                                                                                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Sign-off value** for `review.clinicianReviewStatus` | `clinician-reviewed-approved`                                                                    | Unambiguous, matches the field's hyphenated style, and satisfies the display adapter's whole-word check for both "reviewed" and "approved". It had no value at all before, because nothing had ever been signed.                                                        |
+| **Who may set it**                                    | A single named clinician — today the owner                                                       | The field exists to record that a specific qualified person stood behind the entry. Anything broader empties it of meaning.                                                                                                                                             |
+| **Unit of work**                                      | One definition per specifier, plus a per-disorder exception note only where it genuinely differs | Nine separately written definitions of the same specifier drift, and a reader comparing two of them cannot tell whether a difference is clinical or accidental. This makes every difference deliberate. Abandon it if the first entry shows the nine really do diverge. |
+| **Group B scope**                                     | Severity and remission for sexual dysfunctions and paraphilic disorders are **out of scope**     | 41 of the 164 undefined severity items, in areas where a severity qualifier changes management far less than in mood or substance disorders. Deciding they are out is worth more than ranking them, because it leaves a Group B that could actually be finished.        |
+
+Not settled, and not settleable here: **no clinical definition is written by tooling or by an AI
+assistant, and no entry's review status is raised without a named clinician behind it.** Writing the
+text and then marking it reviewed would defeat the control this catalogue exists to have. The
+worksheet leaves the clinical statements blank for exactly that reason.
+
+## Catalogue audit result, run offline 2026-09-18
+
+The catalogue half of #229 can be answered without provider access, because
+`scripts/lib/governance-catalogue-audit.ts` is pure and takes parsed JSON. Both catalogues were
+enumerated and passed to `auditReviewAttribution` from `scripts/audit-source-governance.ts`:
+
+```
+CATALOGUE COVERAGE
+  differential-diagnoses       observed  201  no declared count
+  differential-presentations   observed   31  no declared count
+  specifier-items              observed  585  agrees
+  specifier-universal          observed   18  agrees
+  TOTAL                        observed  835
+
+REVIEWER ATTRIBUTION
+  audited_record_count   835
+  reviewed_record_count  0
+  violations             0
+```
+
+**All 835 records are now reachable by the audit, and not one of them is marked reviewed.** Zero
+violations is not a clean bill of health: a violation is a record that _claims_ review without naming
+a reviewer, and no record claims review at all. The debt is complete rather than partial, which is a
+cleaner starting position than a mixture would have been — there is nothing to un-approve.
+
+Both specifier populations agree with the count the file declares about itself. The two differential
+populations declare no count, so traversal is the only figure available for them.
+
+**Still needs the live run.** This covers the committed catalogues only. The Supabase-backed half of
+`npm run audit:source-governance` — documents, labels and their review metadata — was not run: this
+session has no Supabase credentials (`SUPABASE_SERVICE_ROLE_KEY` is absent), so it is unavailable here
+rather than declined. It remains the one command that sizes the rest of #229.
+
 ## How the backlog splits for triage
 
 Three groups, by what getting the specifier wrong would change. The split is mechanical (label and

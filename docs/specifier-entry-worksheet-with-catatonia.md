@@ -10,14 +10,21 @@ in [`specifier-definition-worklist-2026-09-18.md`](specifier-definition-worklist
 recognition criteria are the most stable part of it — so it proves the method without spending the
 hardest clinical judgement first.**
 
-## Before filling anything in: two decisions this worksheet assumes
+## Two decisions this worksheet rests on, both settled 2026-09-18
 
-1. **Unit of work.** This worksheet is built for _one definition plus per-disorder exceptions_. If the
-   nine turn out to diverge enough that nine separate definitions are right, that will be visible by
-   the third row and the worksheet should be abandoned rather than forced.
-2. **Sign-off value.** There is no approved value for `review.clinicianReviewStatus` yet, because
-   nothing in the catalogue has ever been signed. Section 4 leaves it blank. Pick it once here and it
-   is settled for all 585 items.
+1. **Unit of work: one definition plus per-disorder exceptions.** This worksheet is built for that
+   shape. If the nine turn out to diverge enough that nine separate definitions are right, it will be
+   visible by the third row, and the worksheet should be abandoned rather than forced.
+2. **Sign-off value: `clinician-reviewed-approved`.** The field had no approved value before, because
+   nothing in the catalogue had ever been signed. It satisfies the display adapter's whole-word check
+   for both "reviewed" and "approved", and it is now the value for all 585 items. Only a named
+   clinician sets it.
+
+**Who fills this in.** A clinician, and only a clinician. The blanks are not a formatting gap for
+tooling or an AI assistant to close: writing the clinical text and then setting
+`review.clinicianReviewStatus` to approved would defeat the one control this catalogue has. The
+placeholder text currently in all nine entries is not a draft to improve either — it is a marker that
+no qualified person has looked yet, and it should be replaced outright rather than edited.
 
 ## 1 — The shared definition (write once)
 
@@ -170,7 +177,7 @@ For each of the nine, in `data/specifiers-content.json`:
 | `definition.status`               | `needs-manual-or-clinician-verification`                                 | `defined`                                           |
 | `definitionStatus`                | `needs-manual-or-clinician-verification`                                 | `defined`                                           |
 | `review.sourceVerificationStatus` | `source-needs-formal-review`                                             | `source-verified`                                   |
-| `review.clinicianReviewStatus`    | `clinician-review-pending`                                               | _(the value decided above)_                         |
+| `review.clinicianReviewStatus`    | `clinician-review-pending`                                               | `clinician-reviewed-approved`                       |
 | `review.changedSinceReview`       | `true`                                                                   | `false`                                             |
 
 `review.rowKey` and `review.contentHash` are not hand-edited — `rowKey` is the address and
