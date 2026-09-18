@@ -425,6 +425,41 @@ test.describe("PsychSift PWA", () => {
     expect(overlap).toBe(0);
   });
 
+  test("keeps the notice stack itself click-through on a mode with no bottom composer", async ({ page }) => {
+    // #E6142T, and the reason this guard is narrow. The 2026-09-17 audit reported the notice
+    // intercepting clicks on non-answer modes, and attributed it to the stack being moved out of
+    // the corner only under `body:has(form.answer-footer-search-edge)`. Measured on 2026-09-18,
+    // that attribution is wrong: Documents, Tools and Differentials have NO fixed bottom composer
+    // at desktop width at all, so there was never a composer collision for that selector to avoid.
+    //
+    // What IS true is that the cards inside the stack are solid, and in the bottom-right corner
+    // they land on page content. Repositioning does not fix it -- moving the stack to the top on
+    // every wide view was measured too, and it merely traded one set of covered controls for
+    // another. The real question is whether a floating notice may cover content at all, which is a
+    // design decision and is recorded as such rather than guessed at here.
+    //
+    // So this pins the one invariant that must hold either way: the CONTAINER never takes the
+    // pointer. It is what keeps the gaps between cards click-through, and it is a single CSS
+    // declaration away from silently regressing.
+    await page.setViewportSize({ width: 1024, height: 800 });
+    await page.goto("/?mode=tools&pwa-dev=0", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 20_000 });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
+
+    await page.evaluate(() => {
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      Object.assign(event, {
+        prompt: () => Promise.resolve(),
+        userChoice: Promise.resolve({ outcome: "accepted", platform: "web" }),
+      });
+      window.dispatchEvent(event);
+    });
+
+    const stack = page.locator(".pwa-notice-stack");
+    await expect(stack).toBeVisible();
+    await expect(stack).toHaveCSS("pointer-events", "none");
+  });
+
   test("serves a cold offline fallback, recovers online, and keeps private URLs out of CacheStorage", async ({
     context,
     page,

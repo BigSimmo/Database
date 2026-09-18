@@ -27,6 +27,22 @@ describe("SearchResultsHeaderBand", () => {
     expect(screen.getByRole("status")).toHaveTextContent("12 services");
   });
 
+  it("says the catalogue may be out of date without disowning the count", () => {
+    render(<SearchResultsHeaderBand modeId="differentials" query="delirium" matchCount={7} catalogueDegraded />);
+
+    // The count is still a real count of the list that was searched. What the reader could not
+    // otherwise tell is that the list itself came from the in-bundle catalogue.
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("7");
+    expect(status).toHaveTextContent("may be out of date");
+  });
+
+  it("stays silent about staleness when the published catalogue was read", () => {
+    render(<SearchResultsHeaderBand modeId="differentials" query="delirium" matchCount={7} />);
+
+    expect(screen.getByRole("status")).not.toHaveTextContent("may be out of date");
+  });
+
   it("can omit the empty-query fallback so browse is count plus Filter only", () => {
     render(
       <SearchResultsHeaderBand
