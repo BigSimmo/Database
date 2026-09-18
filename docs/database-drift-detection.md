@@ -287,11 +287,15 @@ pass; the finding is the point.
 side but not in `schema.sql` as platform provenance and prints it as an info line — right for the
 live gate, where Supabase provisions `pg_net` and `pgsodium` that no migration creates. On this
 comparison the "live" side is the migration chain, which is our own code, so the parity script
-re-promotes those to `unexpected_live` findings. There is already a real one:
-`20260901033250_enable_staging_privacy_retention_schedules.sql` runs
-`create extension if not exists pg_cron` and `supabase/schema.sql` never declares it, so under the
-inherited rule the pair reported nothing at all. An extension the emulator image genuinely
-provisions belongs in `supabase/chain-mirror-allowlist.json` as a reviewed entry, one at a time.
+re-promotes those to `unexpected_live` findings. That re-promotion has already paid for itself:
+it surfaced `pg_cron`, which
+`20260901033250_enable_staging_privacy_retention_schedules.sql` creates and `supabase/schema.sql`
+did not declare, so under the inherited rule the pair reported nothing at all. **That gap is now
+closed** — `e15534b830` (2026-09-12) added the same `create extension if not exists pg_cron with
+schema pg_catalog` statement to the mirror, so the two sides agree and `pg_cron` is not, and must
+not be, allowlisted. An extension the emulator image genuinely provisions is a different thing and
+belongs in `supabase/chain-mirror-allowlist.json` as a reviewed entry, one at a time; `pg_net` is
+the only one.
 
 `check:drift` compares **live** against `supabase/schema.sql`. CI's `db-reset-verify`
 proves the migration chain **applies** (`supabase migration up --local`) and that the
@@ -330,19 +334,28 @@ does not work: a mirror database created inside the emulator has no `auth` schem
 the bare image means driving the whole chain by hand rather than through
 `supabase migration up`.
 
-**Report-only, with an expiry.** The gate lands printing divergences rather than
-blocking, because the existing set (backlog item 10 above, plus schema.sql-only
-storage buckets) has never been measured and blocking on an unmeasured set just
-teaches people to ignore a red check. It emits a `::warning::` on any divergence and a
-second one if either step produced no evidence, so a silently-crashing gate cannot be
-mistaken for a clean one. `tests/chain-mirror-parity.test.ts` ties the mode to the
-failure tolerance — `--strict` and `continue-on-error` cannot coexist — and expires
-report-only mode on **2026-12-01**, after which the suite goes red until the phase
-ends.
+**BLOCKING since 2026-09-18.** The gate landed report-only, printing divergences rather
+than failing, because the existing set (backlog item 10 above, plus schema.sql-only
+storage buckets) had never been measured, and blocking on an unmeasured set just
+teaches people to ignore a red check. `tests/chain-mirror-parity.test.ts` gave that
+phase an expiry of **2026-12-01**, after which the suite would go red until it ended.
 
-**Ending report-only** is one small PR: take the divergence list from a real run's job
-summary, commit it to `supabase/chain-mirror-allowlist.json` with a reason each, add
-`--strict`, and delete the `continue-on-error` lines in the same change.
+It ended early, because the measurement came in. The whole migration chain was
+replayed, its `schema_drift_snapshot()` captured, and compared in blocking mode against
+a freshly regenerated manifest: **zero divergence** across tables, views, functions,
+indexes, policies, constraints, triggers and storage buckets, with the single
+allowlisted `pg_net` entry. The predicted ~13 keys do not exist. Both measurements —
+CI's first real run on 2026-09-02 and the local one on 2026-09-18 — agree.
+
+`tests/chain-mirror-parity.test.ts` ties the mode to the failure tolerance: blocking
+mode and `continue-on-error` cannot coexist, and it reads the mode from the step's run
+lines with YAML comments stripped, because a comment that quotes the flag makes a
+deleted flag undetectable. That is not hypothetical — on 2026-09-18 removing the real
+flag left every test in the file green until the detection was narrowed.
+
+**If a divergence ever appears**, it is a finding before it is an allowlist entry: fix
+the mirror or fix the migration, and only excuse it here when it is genuinely the
+two-different-images asymmetry, with a reason recorded.
 
 **`supabase/chain-mirror-allowlist.json` is not `supabase/drift-allowlist.json`, and
 they must never merge.** An entry in the live allowlist blinds the weekly live-drift
