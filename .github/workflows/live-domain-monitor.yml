@@ -27,11 +27,14 @@ jobs:
     name: Probe public domain
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    outputs:
+      findings: ${{ steps.findings.outputs.findings }}
     env:
       # Repository variable overrides the default (e.g. a staging cutover).
       LIVE_DOMAIN_URL: ${{ vars.LIVE_DOMAIN_URL || 'https://psychiatry.tools' }}
     steps:
       - name: Root renders the app shell
+        id: root_shell
         run: |
           set -euo pipefail
           body="$(curl -sSL --fail --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors "$LIVE_DOMAIN_URL/")"
@@ -45,6 +48,7 @@ jobs:
           }
 
       - name: Health endpoint reports ok in live mode
+        id: health
         run: |
           set -euo pipefail
           health="$(curl -sSL --fail --max-time 30 --retry 2 --retry-delay 10 --retry-all-errors "$LIVE_DOMAIN_URL/api/health")"
@@ -59,6 +63,7 @@ jobs:
           }
 
       - name: Key routes stay reachable
+        id: routes
         run: |
           set -euo pipefail
           # -L follows the /applications -> /tools canonicalisation either side
@@ -73,6 +78,7 @@ jobs:
           done
 
       - name: WWW and TLS answer
+        id: www_tls
         run: |
           set -euo pipefail
           # Only meaningful for the canonical production domain; an overridden
@@ -116,6 +122,7 @@ jobs:
           sparse-checkout-cone-mode: false
 
       - name: Live deployment has not been stranded behind main
+        id: deployment_freshness
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -139,4 +146,146 @@ jobs:
       # It probes only the catalogue domains, never `documents`, so the monitor triggers no
       # embedding call and stays inside this file's no-providers contract.
       - name: Catalogue search returns live results
+        id: catalogue_search
         run: node scripts/check-live-search-results.mjs
+
+      # Name the probes that failed, so the routing job below can say what broke rather
+      # than only that something did. Reads step outcomes rather than parsing logs.
+      - name: Record which probes failed
+        id: findings
+        if: always()
+        env:
+          ROOT_SHELL: ${{ steps.root_shell.outcome }}
+          HEALTH: ${{ steps.health.outcome }}
+          ROUTES: ${{ steps.routes.outcome }}
+          WWW_TLS: ${{ steps.www_tls.outcome }}
+          DEPLOYMENT_FRESHNESS: ${{ steps.deployment_freshness.outcome }}
+          CATALOGUE_SEARCH: ${{ steps.catalogue_search.outcome }}
+        run: |
+          set -uo pipefail
+          {
+            echo "findings<<LIVE_MONITOR_FINDINGS_EOF"
+            report() {
+              if [ "$2" != "success" ] && [ -n "$2" ]; then
+                echo "- $1: $2"
+              fi
+            }
+            report "Root renders the app shell" "${ROOT_SHELL:-}"
+            report "Health endpoint reports ok in live mode" "${HEALTH:-}"
+            report "Key routes stay reachable" "${ROUTES:-}"
+            report "WWW and TLS answer" "${WWW_TLS:-}"
+            report "Live deployment has not been stranded behind main" "${DEPLOYMENT_FRESHNESS:-}"
+            report "Catalogue search returns live results" "${CATALOGUE_SEARCH:-}"
+            echo "LIVE_MONITOR_FINDINGS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  # WHY THIS EXISTS. "A red run is the alert" was true only if a red run reached somebody.
+  # Measured 2026-09-18: this monitor failed on every one of its eight consecutive scheduled runs
+  # from 2026-09-16T18:34 to 2026-09-18T12:40, correctly reporting that Forms, Services and
+  # Medications were answering from the in-bundle catalogue on the live site, and nobody acted for
+  # 42 hours. The owner confirmed the failure emails arrive and are not read. Ledger #TN512M: the
+  # common defect is delivery, not detection, and adding further checks has negative value until a
+  # red check reaches a human. So this adds no probe — only a delivery path the owner named.
+  #
+  # Split into its own job so `issues: write` is scoped away from the probe job, which keeps
+  # `contents: read` and runs curl against a public domain. Same shape as live-drift.yml.
+  monitor-routing:
+    name: Route monitor status to the pinned issue
+    needs: probe
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Open, update or close the pinned monitor issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PROBE_RESULT: ${{ needs.probe.result }}
+          PROBE_FINDINGS: ${{ needs.probe.outputs.findings }}
+          LIVE_DOMAIN_URL: ${{ vars.LIVE_DOMAIN_URL || 'https://psychiatry.tools' }}
+        with:
+          script: |
+            const title = "Live domain monitor failing";
+            const label = "live-monitor-failure";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const result = process.env.PROBE_RESULT || "unknown";
+            const findings = (process.env.PROBE_FINDINGS || "").trim();
+            const domain = process.env.LIVE_DOMAIN_URL || "the live domain";
+            const now = new Date().toISOString();
+
+            // One pinned issue, found by label so a retitle by a human does not orphan it and
+            // start a second thread.
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              labels: label,
+            });
+            const existing = open.find((issue) => issue.title === title) ?? open[0];
+
+            if (result === "success") {
+              if (!existing) {
+                core.info("Live domain monitor is green and no failure issue is open.");
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Resolved — the live domain monitor is green again as of ${now}.\n\nRun: ${runUrl}`,
+              });
+              await github.rest.issues.update({
+                owner,
+                repo,
+                issue_number: existing.number,
+                state: "closed",
+                state_reason: "completed",
+              });
+              core.info(`Closed #${existing.number} after a green monitor run.`);
+              return;
+            }
+
+            const body = [
+              `The live domain monitor is failing against ${domain}. This issue is updated in place`,
+              "by `.github/workflows/live-domain-monitor.yml`; it closes automatically on the next",
+              "green run, so an open issue means the live site is still degraded right now.",
+              "",
+              `- Latest failing run: ${runUrl}`,
+              `- Job result: \`${result}\``,
+              `- Trigger: \`${context.eventName}\``,
+              `- Last updated: ${now}`,
+              "",
+              findings
+                ? `### Failing probes\n\n${findings}`
+                : "### Failing probes\n\nNone recorded — the job failed before the probes ran, so this is **not** evidence the site is healthy. Read the run log linked above.",
+              "",
+              "A catalogue-search failure means readers are being served the in-bundle seed catalogue",
+              "instead of the published one, so Medications, Forms and Services can be missing anything",
+              "published since the last release. Start with the latency of the",
+              "`read_site_content_public_records` RPC; context in `src/lib/site-content/catalogue-seed-fallback.ts`.",
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Still failing as of ${now} — ${runUrl}`,
+              });
+              core.warning(`Live domain monitor failing; updated #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title,
+                labels: [label],
+                body,
+              });
+              core.warning(`Live domain monitor failing; opened #${created.data.number}.`);
+            }
