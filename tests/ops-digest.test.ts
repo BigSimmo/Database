@@ -149,6 +149,35 @@ describe("renderDigest", () => {
     expect(md).toContain(code);
   });
 
+  it("names the build it measured and when the container answered", () => {
+    // Without this the digest could not tell a healthy NEW deploy from a healthy
+    // three-day-old one — the exact state the live site sat in while 24 rollbacks
+    // went unnoticed. The payload has always carried deploymentCommitSha; nothing
+    // read it.
+    const md = renderDigest({
+      status: "ok",
+      demoMode: false,
+      uptimeSeconds: 7200,
+      timestamp: "2026-09-17T05:29:38.022Z",
+      deploymentCommitSha: "a3cfb6362782d2025643371bf0746472515e33ad",
+      checks: { supabase: "ok", supabaseConfig: "ok" },
+    });
+    expect(md).toContain("**Build:** `a3cfb6362782`");
+    expect(md).toContain("**Container answered:** 2026-09-17T05:29:38.022Z");
+  });
+
+  it("omits the build line when the probe never came back", () => {
+    // An absent build line must read as "the probe did not answer", not as a
+    // deployment whose identity is unknown to us.
+    const md = renderDigest(null, { error: "timeout after 20000ms" });
+    expect(md).not.toContain("**Build:**");
+  });
+
+  it("reports an answering container whose build SHA is missing as unknown", () => {
+    const md = renderDigest({ status: "ok", timestamp: "2026-09-17T05:29:38.022Z", checks: {} });
+    expect(md).toContain("**Build:** unknown");
+  });
+
   it("renders an unreachable digest when the probe failed", () => {
     const md = renderDigest(null, { error: "timeout after 20000ms" });
     expect(md).toContain("unreachable");
