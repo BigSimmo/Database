@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3376192d-a008-4b86-a646-b4daaa72eb4b",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#CHPC5C",
+    "detail": "Observed 2026-09-07 on PR #2721 (branch claude/rag-review-fallback-grounded-flip). tests/ui-tools.spec.ts:2928 'differentials compare queue launches presentation comparison' failed in CI Production UI (3): the compare-open click never navigated, expected /differentials/presentations/acute-confusion-encephalopathy, still on /differentials/compare?ids=wernicke-encephalopathy after the 30s toHaveURL timeout, test duration 33.5s. Measured locally four ways: same branch full shard 3 reproduced it once (1 failed, 206 passed, 8.5m), same branch full shard 3 second run 207 passed (7.7m), the test alone on the branch passed in 6.4s, origin/main 0177bed18 full shard 3 207 passed (7.6m) and the test alone passed in 6.1s. So it is nondeterministic under shard load, not caused by that PR (which changes src/lib/rag only and cannot reach differentials routing), and it is well under the three-reproductions-on-one-SHA bar for tests/flake-ledger.json. Recorded so a second sighting is recognised as a pattern rather than re-diagnosed from scratch. Next: if it recurs, capture the trace from the CI diagnostics artifact and check whether the compare-open handler waits on a client-side data load that has no deterministic settle signal in the test. Do not quarantine on a single reproduction. PARKED 2026-09-18: one reproduction under shard load, well under the three-on-one-SHA bar for the flake ledger, and the diagnosis needs a CI trace artifact captured while it is failing. A speculative wait added to the test now would be a guess at the cause. TO UNBLOCK: on the next sighting, pull the trace from the CI diagnostics artifact and check whether the compare-open navigation is racing an unhydrated link - the destination route has a role=status 'Loading presentation' skeleton that would give the test a deterministic settle signal if that is what it turns out to be.",
+    "baseRowFingerprint": "653e91cfc27fec29dda0f9ecf47c5b9e74a4d303dbcb28af80a51d45a8cc2801"
+  }
+}
