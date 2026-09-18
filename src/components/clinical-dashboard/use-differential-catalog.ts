@@ -17,6 +17,12 @@ export type DifferentialSearchState = {
   status: "loading" | "refetching" | "ready" | "unauthorized" | "error";
   matches: DifferentialSearchMatches;
   demoMode: boolean;
+  /** Either catalogue was answered from the in-bundle list because the canonical
+   *  read could not be completed. The matches are real; the list may not include
+   *  the most recent publication, and the surface has to say so. Degraded if
+   *  EITHER request degraded — a reader cannot tell which half of a merged
+   *  result set a given row came from, so the caveat has to cover both. */
+  degraded: boolean;
 };
 
 const emptyDifferentialMatches: DifferentialSearchMatches = { diagnoses: [], presentations: [] };
@@ -53,6 +59,7 @@ const resultCacheTtlMs = 5 * 60 * 1000;
 type DifferentialSearchCacheEntry = {
   matches: DifferentialSearchMatches;
   demoMode: boolean;
+  degraded: boolean;
   expiresAt: number;
 };
 
@@ -116,11 +123,12 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
 
   const [state, setState] = useState<DifferentialSearchState>(() =>
     cached
-      ? { status: "ready", matches: cached.matches, demoMode: cached.demoMode }
+      ? { status: "ready", matches: cached.matches, demoMode: cached.demoMode, degraded: cached.degraded }
       : {
           status: requestKey ? "loading" : "ready",
           matches: emptyDifferentialMatches,
           demoMode: false,
+          degraded: false,
         },
   );
   // Reset to loading during render when the query or auth identity changes
@@ -140,8 +148,8 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
     if (!requestKey || identityChanged) {
       setState(
         requestKey
-          ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false }
-          : { status: "ready", matches: emptyDifferentialMatches, demoMode: false },
+          ? { status: "loading", matches: emptyDifferentialMatches, demoMode: false, degraded: false }
+          : { status: "ready", matches: emptyDifferentialMatches, demoMode: false, degraded: false },
       );
     } else if (credentialChanged && !requestChanged && (state.status === "ready" || state.status === "refetching")) {
       setState({ ...state, status: "refetching" });
@@ -150,15 +158,15 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       // render/effect cache short-circuits cannot paint stale ready matches
       // without revalidating the new Authorization header.
       if (cacheKey) differentialSearchCache.delete(cacheKey);
-      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false, degraded: false });
     } else if (credentialChanged && cached) {
       // Query changed in the same pulse as the credential: show the warm hit
       // but stay in refetching so the new Authorization header is revalidated.
-      setState({ status: "refetching", matches: cached.matches, demoMode: cached.demoMode });
+      setState({ status: "refetching", matches: cached.matches, demoMode: cached.demoMode, degraded: cached.degraded });
     } else if (cached) {
-      setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode });
+      setState({ status: "ready", matches: cached.matches, demoMode: cached.demoMode, degraded: cached.degraded });
     } else {
-      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false });
+      setState({ status: "loading", matches: emptyDifferentialMatches, demoMode: false, degraded: false });
     }
   }
 
@@ -180,7 +188,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
       // entry that survived the failed attempt. Use refetching (not loading):
       // the render short-circuit still promotes loading+cache → ready.
       if (cacheKey) differentialSearchCache.delete(cacheKey);
-      return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false };
+      return { status: "refetching", matches: emptyDifferentialMatches, demoMode: false, degraded: false };
     });
     setRetryAttempt((attempt) => attempt + 1);
   }, [cacheKey, requestKey, setState]);
@@ -218,20 +226,22 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
             // Session is invalid for this client identity — drop every cached hit so
             // a later retype of any prior query cannot resurrect authorized matches.
             differentialSearchCache.clear();
-            setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false });
+            setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false, degraded: false });
             return;
           }
           if (!diagnosisResponse.ok || !presentationResponse.ok) {
-            setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
+            setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false, degraded: false });
             return;
           }
           const diagnosisPayload = (await diagnosisResponse.json()) as {
             matches?: DifferentialSearchMatches["diagnoses"];
             demoMode?: boolean;
+            degraded?: boolean;
           };
           const presentationPayload = (await presentationResponse.json()) as {
             matches?: DifferentialSearchMatches["presentations"];
             demoMode?: boolean;
+            degraded?: boolean;
           };
           if (controller.signal.aborted || !isCurrentRequest()) return;
           const matches: DifferentialSearchMatches = {
@@ -239,8 +249,11 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
             presentations: presentationPayload.matches ?? [],
           };
           const demoMode = Boolean(diagnosisPayload.demoMode || presentationPayload.demoMode);
-          writeDifferentialCache(cacheKey, { matches, demoMode });
-          setState({ status: "ready", matches, demoMode });
+          // Either half falling back to seeds makes the merged list stale, and nothing on a
+          // result card says which half it came from — so the caveat covers the whole set.
+          const degraded = Boolean(diagnosisPayload.degraded || presentationPayload.degraded);
+          writeDifferentialCache(cacheKey, { matches, demoMode, degraded });
+          setState({ status: "ready", matches, demoMode, degraded });
         })
         .catch((error: unknown) => {
           if (
@@ -249,7 +262,7 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
             (error instanceof DOMException && error.name === "AbortError")
           )
             return;
-          setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
+          setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false, degraded: false });
         });
     }, debounceMs);
 
@@ -270,10 +283,10 @@ export function useDifferentialSearch(query: string): DifferentialSearchResult {
   ]);
 
   if (!requestKey) {
-    return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, refetch };
+    return { status: "ready", matches: emptyDifferentialMatches, demoMode: false, degraded: false, refetch };
   }
   if (cached && state.status !== "unauthorized" && state.status !== "error" && state.status !== "refetching") {
-    return { status: "ready", matches: cached.matches, demoMode: cached.demoMode, refetch };
+    return { status: "ready", matches: cached.matches, demoMode: cached.demoMode, degraded: cached.degraded, refetch };
   }
   return { ...state, refetch };
 }
