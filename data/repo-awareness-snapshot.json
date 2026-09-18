@@ -4667,6 +4667,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/specifier-definition-worklist-2026-09-18.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/pr-batch-runner.md",
         "section": "root",
         "catalogued": false
@@ -5253,6 +5258,11 @@
       },
       {
         "path": "docs/filter-contract.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/specifier-entry-worksheet-with-catatonia.md",
         "section": "root",
         "catalogued": true
       },
