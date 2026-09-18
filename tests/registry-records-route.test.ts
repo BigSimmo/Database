@@ -736,12 +736,47 @@ describe("registry records survive an unusable catalogue", () => {
       const { GET } = await import("../src/app/api/registry/records/route");
 
       const response = await GET(request("/api/registry/records?kind=form"));
-      const payload = (await response.json()) as { records: unknown[] };
+      const payload = (await response.json()) as { records: unknown[]; degraded?: boolean };
 
       expect(response.status).toBe(200);
       expect(payload.records.length).toBeGreaterThan(0);
+      // The records are real, but they came from the in-bundle list. Saying so is the whole
+      // point: without this key the reader cannot tell this response from a current one.
+      expect(payload.degraded).toBe(true);
       expectPrivateCache(response);
     },
     20_000,
   );
+
+  it("does not claim degraded when the canonical read succeeds", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=form"));
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    // Absent, not `false`: a healthy response is byte-for-byte what it always was.
+    expect("degraded" in payload).toBe(false);
+  });
+
+  it("keeps a degraded list publicly uncacheable so a recovered database is not shadowed", async () => {
+    const { clearCatalogueSeedFallbackCooldown } = await import("@/lib/site-content/catalogue-seed-fallback");
+    clearCatalogueSeedFallbackCooldown();
+    const client = createSupabaseMock(undefined, {
+      canonicalRead: () => Promise.reject(new Error("canonical read failed")),
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=form"));
+
+    expect(((await response.json()) as { degraded?: boolean }).degraded).toBe(true);
+    // Emitting the flag must not have widened `fixture`: pinning the seed list in front of a
+    // database that may recover in thirty seconds would be worse than the silence it replaced.
+    expectPrivateCache(response);
+  });
 });
