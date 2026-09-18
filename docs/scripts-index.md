@@ -232,7 +232,9 @@ worker still prints an internally consistent pass count.
 ### Live/staging verification [live]
 
 `soak-test.ts`, `test-cross-tenant-staging.ts` (the executable owner-boundary proof behind
-`docs/staging-tenancy-release-evidence.md`), `deployment-boot-smoke.mjs`, `run-live-tests.mjs`.
+`docs/staging-tenancy-release-evidence.md`), `deployment-boot-smoke.mjs`, `run-live-tests.mjs`,
+`probe-answer-timing.mjs` (asks the live site one question and prints the `Server-Timing`
+breakdown of where the answer's seconds went; refuses without `--allow-provider`).
 These reach live providers — they need explicit confirmation before running.
 
 ### Browser and performance capture [infra]

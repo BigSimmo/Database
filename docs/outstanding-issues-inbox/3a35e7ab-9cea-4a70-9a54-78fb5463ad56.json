@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3a35e7ab-9cea-4a70-9a54-78fb5463ad56",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A refused patient number still survives a profile clear performed from another mounted panel",
+    "detail": "REMAINDER OF #WFARS3, deliberately not fixed in the 2026-09-18 PR that fixed the main defect. The NumberField sync now adopts a real value arriving from elsewhere, so a panel can no longer display a CrCl the profile does not hold. TWO ROUTES REMAIN OPEN. (1) A CLEAR IS INDISTINGUISHABLE FROM A REJECTION. A refused out-of-range entry stores null, and so does a profile-wide clear, so the field cannot tell 'my entry was refused' from 'the whole profile was wiped by another mounted copy of the panel, or by sign-out'. Reproduced: panel A holds a refused CrCl 420, panel B clears the profile, and A still shows 420. Typing 95 into it then reads 42095 - the originally reported symptom. THE FIX IS KNOWN AND DRAFTED: a clearGeneration counter incremented in clearPatientProfile and a new resetPatientProfile in src/lib/patient-profile-storage.ts, surfaced through patient-profile-context.tsx via useSyncExternalStore, and used as the resetNonce in patient-profile-panel.tsx so every mount remounts its entry fields on any clear. It was held back because it changes when inputs remount - they would now also remount on a sign-out clear, which destroys and rebuilds the input elements and so drops focus if a field happened to be focused at that instant. Clears are deliberate and infrequent, so the exposure looks nil, but it is a behaviour change outside the typing path and wants a deliberate decision. (2) THE SINGLE-MOUNT CASE IS NOT A CODE DEFECT. If a clinician gets a refused 420 into the box and, without clearing it, clicks at the end and types 95, they see 42095 - that is simply typing into a box that already had text, and the field is red throughout. Closing it needs a design decision (clear refused text on blur, or a visible clear-this-field control), not a bug fix. NEXT: decide (2) as a product question, then land (1) with the drafted patch plus the seventh DOM test that was written for it and held back with it.",
+    "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN); reproduced in jsdom against origin/main 28dabe0c3",
+    "issueUlid": "01M2TF8WMQDTAMMKKH8QER2QEQ"
+  }
+}

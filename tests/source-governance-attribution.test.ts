@@ -113,9 +113,27 @@ describe("source governance reviewer attribution", () => {
         hasAttribution: true,
         attribution: "Dr. John Smith",
       });
+    });
+
+    it("CONTRACT CHANGED: a bare job title in an identity field is no longer attribution", () => {
+      // This assertion previously read `hasAttribution: true` for
+      // `reviewed_by: "Consultant Psychiatrist"`. It is inverted deliberately,
+      // not deleted: a qualification names a role and nobody in particular, so it
+      // cannot be traced back to whoever performed the review and cannot support
+      // a clinical approval. The placeholder blocklist never caught it, because a
+      // job title is a perfectly non-trivial string.
       expect(extractReviewerAttribution({ reviewed_by: "Consultant Psychiatrist" })).toMatchObject({
+        hasAttribution: false,
+        qualificationOnly: true,
+      });
+
+      // Matching is whole-string and exact, so a real reviewer who happens to
+      // carry their title with them is unaffected.
+      expect(extractReviewerAttribution({ reviewed_by: "Dr Jane Doe (Consultant Psychiatrist)" })).toMatchObject({
         hasAttribution: true,
-        attribution: "Consultant Psychiatrist",
+      });
+      expect(extractReviewerAttribution({ reviewed_by: "Psychiatrist Lead, SMHS" })).toMatchObject({
+        hasAttribution: true,
       });
     });
 

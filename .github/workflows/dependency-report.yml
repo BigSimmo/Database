@@ -53,13 +53,21 @@ jobs:
           # currently a fixed enum / plain integer produced by our own script.
           OUTDATED_COUNT: ${{ steps.report.outputs.outdated }}
           SEVERITY: ${{ steps.report.outputs.severity }}
+          EVIDENCE_COMPLETE: ${{ steps.report.outputs.evidence_complete }}
+          OUTDATED_STATE: ${{ steps.report.outputs.outdated_state }}
+          AUDIT_STATE: ${{ steps.report.outputs.audit_state }}
         with:
           script: |
             const fs = require("fs");
             const label = "dependency-report";
             const body = fs.readFileSync("dependency-report.md", "utf8");
-            const outdated = Number(process.env.OUTDATED_COUNT || "0");
-            const severity = process.env.SEVERITY || "none";
+            // `outdated` is the string "unknown" when the check never produced a
+            // result, so it is deliberately NOT coerced with Number(): that would
+            // turn a failed measurement back into 0, which is exactly the erasure
+            // this workflow's evidence gate exists to stop.
+            const outdated = process.env.OUTDATED_COUNT || "unknown";
+            const severity = process.env.SEVERITY || "unknown";
+            const evidenceComplete = process.env.EVIDENCE_COMPLETE === "true";
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -85,7 +93,10 @@ jobs:
               });
               issueNumber = created.data.number;
             }
-            // Notify only when there are high/critical vulns.
+            // Notify on high/critical vulns, AND on a missing measurement. An
+            // unmeasured fortnight is not a quiet one: severity "unknown" means
+            // nobody looked, and staying silent about that is how a broken report
+            // reads as a clean bill of health for weeks.
             if (severity === "high" || severity === "critical") {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -94,4 +105,31 @@ jobs:
                 body: `⚠ ${severity} vulnerability present (${outdated} outdated direct deps) — ${new Date().toISOString()}`,
               });
               core.warning(`Dependency audit highest severity: ${severity}`);
+            } else if (!evidenceComplete) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body:
+                  `⚠ Dependency evidence incomplete — outdated: \`${process.env.OUTDATED_STATE}\`, ` +
+                  `audit: \`${process.env.AUDIT_STATE}\` — ${new Date().toISOString()}. ` +
+                  "The report above records what was and was not measured. Absent counts are unknown, not zero.",
+              });
+              core.warning("Dependency report published with an incomplete measurement.");
             }
+
+      # The report is published FIRST and the run fails AFTER, deliberately. The
+      # incomplete digest is the evidence of what went wrong, so it must reach the
+      # rolling issue even when the run goes red; failing before publishing would
+      # leave the previous fortnight's numbers standing as the newest thing anyone
+      # sees. Ordinary vulnerability findings do NOT fail this job — they are data
+      # for the existing security gates. Only missing evidence does.
+      - name: Require a complete measurement
+        if: ${{ steps.report.outputs.evidence_complete != 'true' }}
+        env:
+          OUTDATED_STATE: ${{ steps.report.outputs.outdated_state }}
+          AUDIT_STATE: ${{ steps.report.outputs.audit_state }}
+        run: |
+          echo "::error::Dependency report could not measure its inputs (outdated=$OUTDATED_STATE, audit=$AUDIT_STATE)."
+          echo "The published report says so explicitly. Absent counts are unknown, not zero."
+          exit 1

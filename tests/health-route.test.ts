@@ -82,6 +82,19 @@ async function payload(response: Response) {
   return (await response.json()) as Record<string, unknown>;
 }
 
+/**
+ * Wait for a condition instead of guessing a number of microtask ticks.
+ * `healthResponse` reaches the Supabase probe through a `Promise.all` of dynamic
+ * imports, so "has the probe started yet" is several unpredictable ticks away
+ * from the call that started it.
+ */
+async function waitFor(predicate: () => boolean, label: string) {
+  for (let attempt = 0; attempt < 500 && !predicate(); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  if (!predicate()) throw new Error(`timed out waiting for ${label}`);
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
@@ -371,6 +384,113 @@ describe("GET /api/health/ready", () => {
       expect(third.status).toBe(200);
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it("collapses a burst that arrives while the probe is still running (#L29)", async () => {
+    mockEnv({ configured: true });
+    // A probe that has not settled. The cache alone could never collapse these:
+    // it only holds a FINISHED result, so every hit during the probe itself was a
+    // fresh miss that started another one — and a burst during a slow probe is
+    // precisely what Railway's healthcheck retries produce on a cold container.
+    let release!: (value: { ok: true; checkedAt: string }) => void;
+    const probeSupabaseHealth = vi.fn(
+      () =>
+        new Promise<{ ok: true; checkedAt: string }>((resolve) => {
+          release = resolve;
+        }),
+    );
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
+    vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+    const { GET } = await import("../src/app/api/health/ready/route");
+
+    const inFlight = [
+      GET(new Request("http://localhost/api/health/ready")),
+      GET(new Request("http://localhost/api/health/ready")),
+      GET(new Request("http://localhost/api/health/ready")),
+    ];
+    await waitFor(() => probeSupabaseHealth.mock.calls.length > 0, "the shared probe to start");
+    expect(probeSupabaseHealth, "three concurrent misses must share one probe").toHaveBeenCalledTimes(1);
+
+    release({ ok: true, checkedAt: new Date().toISOString() });
+    const responses = await Promise.all(inFlight);
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200]);
+    // Each joined caller needs its OWN response: a NextResponse body stream reads
+    // once, so sharing one instance would leave all but the first with nothing.
+    const bodies = await Promise.all(responses.map((response) => payload(response)));
+    for (const body of bodies) expect(body.checks).toMatchObject({ supabase: "ok" });
+  });
+
+  it("starts the cache window when the probe finishes, not when the request arrived", async () => {
+    vi.useFakeTimers();
+    try {
+      mockEnv({ configured: true });
+      let release!: (value: { ok: true; checkedAt: string }) => void;
+      const probeSupabaseHealth = vi.fn(
+        () =>
+          new Promise<{ ok: true; checkedAt: string }>((resolve) => {
+            release = resolve;
+          }),
+      );
+      vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({ id: "admin" })) }));
+      vi.doMock("@/lib/supabase/health", () => ({ probeSupabaseHealth }));
+      const { GET } = await import("../src/app/api/health/ready/route");
+
+      const slow = GET(new Request("http://localhost/api/health/ready"));
+      // Outlive the whole 2 s window before answering. Measured from request
+      // start, the resulting entry would be born already expired — so the slower
+      // the container, the less the cache helped, which is backwards.
+      await vi.advanceTimersByTimeAsync(3_000);
+      release({ ok: true, checkedAt: new Date().toISOString() });
+      expect((await slow).status).toBe(200);
+
+      const next = await GET(new Request("http://localhost/api/health/ready"));
+      expect(next.status).toBe(200);
+      expect(probeSupabaseHealth, "the entry must still be usable after a slow probe").toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fails closed on an unexpected throw and recovers on the next request", async () => {
+    vi.resetModules();
+    // healthResponse guards its own Supabase faults, so reaching the route's catch
+    // takes something it does not: a malformed request URL, a module-load failure,
+    // a body that will not serialise. Whatever the cause, the answer is the same —
+    // a thrown probe is not evidence the container is healthy, and it must never
+    // fall back to a stale success. Railway reads the status code to decide
+    // whether to keep this container in rotation.
+    let attempt = 0;
+    vi.doMock("@/lib/health-response", () => ({
+      healthResponse: async () => {
+        attempt += 1;
+        if (attempt === 1) throw new Error("service-role-key rejected by dependency");
+        return Response.json({ status: "ok", checks: { supabase: "ok" } }, { status: 200 });
+      },
+    }));
+    try {
+      const { GET } = await import("../src/app/api/health/ready/route");
+
+      const failed = await GET(new Request("http://localhost/api/health/ready"));
+      expect(failed.status).toBe(503);
+      const failedBody = await payload(failed);
+      expect(failedBody.status).toBe("degraded");
+      expect(JSON.stringify(failedBody), "a thrown dependency message must not be echoed").not.toContain(
+        "service-role-key",
+      );
+
+      // The rejected promise must not stay pinned as the in-flight one: clearing
+      // it only on success would hold every later caller on the same failure for
+      // the life of the process.
+      const recovered = await GET(new Request("http://localhost/api/health/ready"));
+      expect(recovered.status).toBe(200);
+      expect(attempt).toBe(2);
+    } finally {
+      // `vi.doMock` registrations outlive `vi.resetModules()` and the shared
+      // afterEach, so without this the stub answers for every later test in this
+      // file — which is what it did, silently, on the first full-suite run.
+      vi.doUnmock("@/lib/health-response");
+      vi.resetModules();
     }
   });
 });

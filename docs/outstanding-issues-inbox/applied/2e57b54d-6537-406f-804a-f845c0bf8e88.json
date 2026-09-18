@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2e57b54d-6537-406f-804a-f845c0bf8e88",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Answer mode re-confirmed slow on the live site by the owner, and still nothing measures it",
+    "detail": "Owner report 2026-09-18 from Perth, after the 2026-09-17 audit work merged: the page is slow BEFORE typing, 15-45 seconds to something readable, on EVERY question, not just the first. CORRECTION TO AN EARLIER CLAIM: PRs #2849 and #2855 did not fix this. Both addressed the catalogue read path (Services/Forms/Medications/Differentials); neither touched src/lib/rag/** or /api/answer/**, confirmed by git log and by grepping for read_site_content_public_records under those trees. Saying the audit latency finding was already fixed was wrong. ELIMINATED, with evidence: (a) production is NOT stale -- the live-domain-monitor deployment-freshness step passed 2026-09-17T18:36 ('Live deployment is at the branch head'); (b) the catalogue database defect IS genuinely fixed -- the same run measured forms 1132ms and medications 1217ms, against the 8656ms mean / 17263ms max recorded in docs/audit/2026-09-16-catalogue-read-latency.md. STILL UNMEASURED, and the likely shape: last figures on file are retrieval ~1s fast path / ~6.7s hybrid against a 25s budget with generation ~19s (#231), so generation probably dominates; separately, delivery is structurally uncached -- no route is static (src/app/layout.tsx:114-115 headers()+cookies(), src/app/(search-app)/page.tsx:51 connection()), there is no CDN in front of the origin anywhere in the repo, and public/sw.js:3-6 makes navigations network-only, which matches 'slow every time, not just the first' exactly. App is declared in Railway Singapore (railway.app.json:38-41) with Supabase in Sydney; measured Singapore-Sydney PostgREST round trip is 145-340ms, and the live region is declared in a config-as-code file docs/deployment-architecture.md:258-263 warns Railway does not auto-discover, with no test asserting it -- so the live region is unverified from the repository. NEXT: run 'node scripts/probe-answer-timing.mjs --allow-provider' from Perth (added in this change; provider-backed, refuses without the flag). It prints the per-stage Server-Timing split for one real request. If generation dominates, the work is #231 and #100 Phase 2; if first-byte on the page dominates, it is delivery and #016 (RB-1, nonce CSP forcing every route dynamic). Do not raise answerRouteBudgetMs and do not weaken a clinical gate -- AGENTS.md and #231 both forbid it.",
+    "source": "Owner report 2026-09-18; four agent investigations of the answer path, telemetry, wait UI and hosting",
+    "issueUlid": "01M2T8FKPFGCB0DVMDYG2X1TKK"
+  }
+}

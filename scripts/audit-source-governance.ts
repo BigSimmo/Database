@@ -11,6 +11,11 @@ import {
   type BmjThirdPartyAttestationEvent,
 } from "@/lib/source-review";
 import type { DocumentLabel } from "@/lib/types";
+import {
+  enumerateDifferentialAuditRecords,
+  enumerateSpecifierAuditRecords,
+  type CataloguePopulation,
+} from "./lib/governance-catalogue-audit";
 
 export type AuditableRecord = {
   record: Record<string, unknown>;
@@ -66,6 +71,56 @@ const TRIVIAL_REVIEWER_PATTERNS = new Set([
 
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
+/**
+ * Bare job titles, which identify a role and nobody in particular.
+ *
+ * These are NOT placeholders, so TRIVIAL_REVIEWER_PATTERNS never caught them, and
+ * `reviewed_by: "Consultant Psychiatrist"` satisfied the reviewer-attribution
+ * gate — a state the previous test suite asserted as correct. It names a
+ * qualification, not the person who performed the review, so it cannot be traced
+ * back to anyone and cannot support a clinical approval.
+ *
+ * MATCHED WHOLE-STRING AND EXACT, after case and whitespace normalisation. No
+ * substring or fuzzy matching, deliberately: a real reviewer may well be
+ * "Dr Jane Doe (Consultant Psychiatrist)" or "Psychiatrist Lead, SMHS", and
+ * rejecting those would trade a false pass for a false failure on genuine data.
+ * The narrow rule catches the field that holds nothing but a title.
+ */
+const ROLE_ONLY_REVIEWER_TERMS = new Set([
+  "clinician",
+  "clinical nurse",
+  "clinical psychologist",
+  "clinical reviewer",
+  "consultant",
+  "consultant physician",
+  "consultant psychiatrist",
+  "doctor",
+  "general practitioner",
+  "gp",
+  "intern",
+  "medical officer",
+  "nurse",
+  "pharmacist",
+  "physician",
+  "psychiatrist",
+  "psychologist",
+  "registrar",
+  "resident",
+  "reviewer",
+  "senior registrar",
+  "specialist",
+]);
+
+/**
+ * True when a string names only a role. Applied at the attribution level rather
+ * than inside isNonTrivialReviewerString, which is a placeholder detector and is
+ * pinned broadly by its own tests.
+ */
+export function isRoleOnlyReviewerString(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return ROLE_ONLY_REVIEWER_TERMS.has(value.trim().toLowerCase().replace(/\s+/g, " "));
+}
+
 export function isNonTrivialReviewerString(value: unknown): value is string {
   if (typeof value !== "string") return false;
   const trimmed = value.trim();
@@ -99,6 +154,8 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
   hasAttribution: boolean;
   attribution: unknown;
   foundFields: Record<string, unknown>;
+  /** True when the only non-trivial value found was a role/title, not an identity. */
+  qualificationOnly?: boolean;
 } {
   const metadata = metadataRecord(record.metadata);
   const reviewChecklist = metadataRecord(record.reviewChecklist);
@@ -112,14 +169,11 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
     ["reviewer", record.reviewer],
     ["reviewer_id", record.reviewer_id],
     ["reviewer_name", record.reviewer_name],
-    ["reviewerQualification", record.reviewerQualification],
-    ["reviewer_qualification", record.reviewer_qualification],
     ["metadata.reviewedBy", metadata.reviewedBy],
     ["metadata.reviewed_by", metadata.reviewed_by],
     ["metadata.reviewer", metadata.reviewer],
     ["metadata.reviewer_id", metadata.reviewer_id],
     ["metadata.reviewer_name", metadata.reviewer_name],
-    ["metadata.reviewer_qualification", metadata.reviewer_qualification],
     ["metadata.clinical_validation_evidence.attested_by", clinicalValidationEvidence.attested_by],
     ["metadata.clinical_validation_evidence.reviewer_id", clinicalValidationEvidence.reviewer_id],
     ["reviewChecklist.reviewedBy", reviewChecklist.reviewedBy],
@@ -129,15 +183,37 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
     ["attestation.attested_by", attestation.attested_by],
   ];
 
+  /**
+   * Fields that describe a ROLE, not a person.
+   *
+   * These used to sit in the list above, so "psychiatrist" or "Consultant
+   * Psychiatrist" satisfied the reviewer-attribution gate. The only filter was a
+   * placeholder blocklist (unknown, tbd, test…), and a job title is not a
+   * placeholder — it is a real string that identifies nobody. A qualification can
+   * support an identity; it cannot be one, because it cannot be traced back to
+   * who actually performed the review.
+   */
+  const qualificationEntries: Array<[string, unknown]> = [
+    ["reviewerQualification", record.reviewerQualification],
+    ["reviewer_qualification", record.reviewer_qualification],
+    ["metadata.reviewer_qualification", metadata.reviewer_qualification],
+  ];
+
   const foundFields: Record<string, unknown> = {};
-  for (const [key, value] of candidateEntries) {
+  for (const [key, value] of [...candidateEntries, ...qualificationEntries]) {
     if (value !== undefined && value !== null) {
       foundFields[key] = value;
     }
   }
 
+  const roleOnlyIdentity = candidateEntries.some(([, value]) => isRoleOnlyReviewerString(value));
+  const qualificationOnly =
+    roleOnlyIdentity || qualificationEntries.some(([, value]) => isNonTrivialReviewerString(value));
+
   for (const [, value] of candidateEntries) {
-    if (isNonTrivialReviewerString(value)) {
+    // A role in an identity field is still a role. `isNonTrivialReviewerString`
+    // cannot judge this — a job title is a perfectly non-trivial string.
+    if (isNonTrivialReviewerString(value) && !isRoleOnlyReviewerString(value)) {
       return { hasAttribution: true, attribution: value.trim(), foundFields };
     }
     if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -150,27 +226,28 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
         "reviewer_id",
         "user_id",
         "email",
-        "qualification",
-        "reviewer_qualification",
-        "title",
+        // "qualification", "reviewer_qualification" and "title" deliberately
+        // absent: a nested role identifies no more of a person than a top-level
+        // one does. They are still collected into foundFields above so the
+        // violation can name them.
       ];
       for (const innerKey of innerCandidateKeys) {
         const innerVal = obj[innerKey];
-        if (isNonTrivialReviewerString(innerVal)) {
+        if (isNonTrivialReviewerString(innerVal) && !isRoleOnlyReviewerString(innerVal)) {
           return { hasAttribution: true, attribution: innerVal.trim(), foundFields };
         }
       }
     }
     if (Array.isArray(value) && value.length > 0) {
       for (const item of value) {
-        if (isNonTrivialReviewerString(item)) {
+        if (isNonTrivialReviewerString(item) && !isRoleOnlyReviewerString(item)) {
           return { hasAttribution: true, attribution: item.trim(), foundFields };
         }
         if (item && typeof item === "object" && !Array.isArray(item)) {
           const obj = item as Record<string, unknown>;
-          for (const innerKey of ["name", "id", "reviewer_id", "email", "qualification"]) {
+          for (const innerKey of ["name", "id", "reviewer_id", "email"]) {
             const innerVal = obj[innerKey];
-            if (isNonTrivialReviewerString(innerVal)) {
+            if (isNonTrivialReviewerString(innerVal) && !isRoleOnlyReviewerString(innerVal)) {
               return { hasAttribution: true, attribution: innerVal.trim(), foundFields };
             }
           }
@@ -179,7 +256,10 @@ export function extractReviewerAttribution(record: Record<string, unknown>): {
     }
   }
 
-  return { hasAttribution: false, attribution: null, foundFields };
+  // Reached only when no identity field matched. A qualification present here is
+  // worth naming in the violation, because "reviewed by a psychiatrist" and
+  // "reviewed by nobody recorded" need different follow-up.
+  return { hasAttribution: false, attribution: null, foundFields, qualificationOnly };
 }
 
 export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttributionAuditReport {
@@ -191,7 +271,7 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
     if (!isReviewed) continue;
 
     reviewedCount += 1;
-    const { hasAttribution, foundFields } = extractReviewerAttribution(item.record);
+    const { hasAttribution, foundFields, qualificationOnly } = extractReviewerAttribution(item.record);
 
     if (!hasAttribution) {
       const attributionFieldNames = Object.keys(foundFields).sort();
@@ -205,8 +285,9 @@ export function auditReviewAttribution(records: AuditableRecord[]): ReviewAttrib
         source: item.source,
         review_status: rawStatus ?? "reviewed",
         found_attribution: redactedAttributionFields,
-        reason:
-          attributionFieldNames.length === 0
+        reason: qualificationOnly
+          ? `Record is marked as reviewed but the only attribution is a qualification or title, which names a role rather than the person who reviewed it. Fields present: ${attributionFieldNames.join(", ")}.`
+          : attributionFieldNames.length === 0
             ? "Record is marked as reviewed but has no reviewer attribution (e.g. reviewedBy or reviewer field is missing)."
             : `Record is marked as reviewed but reviewer attribution contains empty or trivial placeholder value(s) in: ${attributionFieldNames.join(", ")}.`,
       });
@@ -621,40 +702,16 @@ export async function main(argv = process.argv.slice(2)) {
     }
   }
 
-  const differentialsSource = await loadStaticJson<
-    { records?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
-  >("data/differentials-snapshot.json");
-  const diffItems = Array.isArray(differentialsSource) ? differentialsSource : (differentialsSource?.records ?? []);
-  for (const diff of diffItems) {
-    auditableRecords.push({
-      record: diff,
-      recordType: "differential",
-      identifier:
-        stringValue(diff.id ?? diff.slug) !== "missing"
-          ? String(diff.id ?? diff.slug)
-          : String(diff.title ?? "unknown"),
-      title:
-        stringValue(diff.title ?? diff.name) !== "missing" ? String(diff.title ?? diff.name) : "Unnamed differential",
-      source: "data/differentials-snapshot.json",
-    });
-  }
-
-  const specifiersSource = await loadStaticJson<
-    { specifiers?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
-  >("data/specifiers-content.json");
-  const specItems = Array.isArray(specifiersSource) ? specifiersSource : (specifiersSource?.specifiers ?? []);
-  for (const spec of specItems) {
-    auditableRecords.push({
-      record: spec,
-      recordType: "specifier",
-      identifier:
-        stringValue(spec.id ?? spec.slug) !== "missing"
-          ? String(spec.id ?? spec.slug)
-          : String(spec.title ?? "unknown"),
-      title: stringValue(spec.title ?? spec.name) !== "missing" ? String(spec.title ?? spec.name) : "Unnamed specifier",
-      source: "data/specifiers-content.json",
-    });
-  }
+  // These two catalogues were read at keys that do not exist — `.records` and
+  // `.specifiers` — and both reads ended in `?? []`. 835 clinical records
+  // contributed nothing while the audit reported success on them. The adapters
+  // below raise rather than return an empty population, because "this key is
+  // missing" and "there is nothing here" are opposite findings.
+  const cataloguePopulations: CataloguePopulation[] = [
+    ...enumerateDifferentialAuditRecords(await loadStaticJson<unknown>("data/differentials-snapshot.json")),
+    ...enumerateSpecifierAuditRecords(await loadStaticJson<unknown>("data/specifiers-content.json")),
+  ];
+  for (const population of cataloguePopulations) auditableRecords.push(...population.records);
 
   const reviewerAttributionAudit = auditReviewAttribution(auditableRecords);
   const debtPolicyFailures: string[] = [];
@@ -762,6 +819,14 @@ export async function main(argv = process.argv.slice(2)) {
     source_authority: sourceAuthorityAudit,
     passed_source_authority_gate: sourceAuthorityAudit.passed,
     passed_reviewer_attribution_gate: reviewerAttributionAudit.passed,
+    // What the audit actually enumerated, per population. Without this the
+    // report stated a verdict on the catalogues without stating whether it had
+    // read them — and for 835 records the answer was no.
+    catalogue_coverage: cataloguePopulations.map((population) => ({
+      population: population.name,
+      declared: population.declared,
+      observed: population.observed,
+    })),
     debt_policy: debtPolicy
       ? {
           path: debtPolicy.path,
@@ -802,6 +867,11 @@ export async function main(argv = process.argv.slice(2)) {
     console.log(
       `Extraction quality: ${Object.entries(report.extraction_quality_counts)
         .map(([value, count]) => `${value}=${count}`)
+        .join(", ")}`,
+    );
+    console.log(
+      `Catalogue coverage: ${report.catalogue_coverage
+        .map((entry) => `${entry.population}=${entry.observed}${entry.declared !== null ? `/${entry.declared}` : ""}`)
         .join(", ")}`,
     );
     console.log(

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7b020ebe-3856-4055-8308-9d0553e9d3fa",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#JGPRVP",
+    "detail": "The 2026-09-16 Differentials handover proposes a differentials source/evidence provider (crosswalk ps-diff-map-06) requiring a real native recordId, recordLabel and field in ClinicalSourceReferenceInput.usage. repositorySourceProviders in src/lib/sources/repository-providers.ts still has no differentials provider, and the package cannot supply one: all 385 claims in payload/data/claims.json carry currentLocation.repository null, 377 point at an external canonical-v2 artifact, and their recordIds are handover-internal (ps-diff-block-*, ps-diff-entity-*) rather than repository slugs. The 28 passage-checked claims are all reviewStatus requires_clinical_review with productionEligible false and no reviewer, and four of the nine sources they anchor are among the 20 held records. Building the adapter now would mean inventing the claim-to-record mapping, which the handover forbids. Next action: before any adapter work, get a verified mapping from each admissible claim to a real differentials slug and field, plus clinical sign-off on the claims themselves. Write the failing usage test first, per the handover acceptance criterion. PARKED 2026-09-18: blocked on inputs this repository does not have. All 385 claims carry a null repository location and handover-internal record ids, the 28 passage-checked claims are all requires_clinical_review with no reviewer, and the handover itself forbids inventing the mapping. TO UNBLOCK: a verified mapping from each admissible claim to a real differentials slug and field, plus clinical sign-off on the claims. Write the failing usage test first, per the handover acceptance criterion.",
+    "baseRowFingerprint": "99b9be1ba6adb9156e3573d5cef4b10d5637131c5075f09f0d47af54e17901b2"
+  }
+}

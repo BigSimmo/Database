@@ -153,6 +153,27 @@ export function renderDigest(health, meta = {}) {
   lines.push(`### Ops digest — ${stamp}`, "", `**Service readiness:** ${badge}`);
   if (meta.error) lines.push("", `> Probe error: \`${meta.error}\``);
 
+  /**
+   * WHICH BUILD THIS MEASURED, and when the container answered.
+   *
+   * The digest rendered readiness, SLO, cache and spend without ever saying what
+   * was running, so a reader could not tell a healthy new deploy from a healthy
+   * three-day-old one — which is precisely the state the site sat in for three
+   * days while 24 rollbacks went unnoticed. The payload has carried
+   * `deploymentCommitSha` all along (src/lib/health-response.ts:249) and nothing
+   * read it.
+   *
+   * `stamp` above is render time. `health.timestamp` is when the container
+   * answered. They differ by the probe round trip, and on a timeout only the
+   * first exists — so an absent build line means the probe did not come back,
+   * not that the deployment is unknown to us.
+   */
+  if (health?.deploymentCommitSha || health?.timestamp) {
+    const sha = health.deploymentCommitSha ? `\`${String(health.deploymentCommitSha).slice(0, 12)}\`` : "unknown";
+    const observed = health.timestamp ?? "not reported";
+    lines.push(`**Build:** ${sha}  ·  **Container answered:** ${observed}`);
+  }
+
   if (health) {
     if (typeof health.uptimeSeconds === "number") {
       const h = Math.floor(health.uptimeSeconds / 3600);

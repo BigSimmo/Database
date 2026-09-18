@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9a306b74-8db2-497b-b6f0-3e34dfacc9c8",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The green 'Owner approval' badge tells reviewers there is no clinical or RAG-ranking change, on PRs that contain one",
+    "detail": "READ FROM THE CODE AND OBSERVED LIVE ON TWO PRs, 2026-09-18. The VERDICT is correct and is not in question: the 2026-09-17 owner ruling narrowed the merge hold to supabase/ only, and ownerMergeReasons (scripts/pr-policy.mjs:800-805) implements exactly that - it returns ['database'] for a supabase/ path and [] for everything else. THE STATED REASON IS THE DEFECT. When reasons.length === 0, ownerApprovalVerdict (pr-policy.mjs:883-887) emits the hardcoded description 'Not needed: no clinical, database or RAG-ranking change.' That sentence is asserted on EVERY PR that does not touch supabase/, whether or not the PR contains a clinical or RAG-ranking change. OBSERVED: PR #2885 changes src/lib/clinical-safety.ts (which pr-policy itself classifies clinical-risk) and src/components/clinical-dashboard/patient-profile-panel.tsx (clinical-risk via the 'patient' token), and alters which safety warning a clinician sees first on an answer plus a field feeding dose calculation. Its Owner approval status reads, verbatim, 'Not needed: no clinical, database or RAG-ranking change.' THE SHARPEST DEMONSTRATION IS IN THE FILE'S OWN SELF-TEST: pr-policy.mjs:2261 asserts ownerMergeReasons for ['src/lib/rag/rag.ts'] equals [], so a PR editing the core RAG module would display 'no RAG-ranking change' on a green badge. WHY THIS MATTERS RATHER THAN BEING COSMETIC: this repository already has a written rule that a status claim is dangerous exactly when it is believed (see the deferred-deploy prohibition in AGENTS.md, which exists because PR #2502 carried a false claim into a merge). A reviewer scanning a green badge that says 'no clinical change' on a clinical PR is being told the opposite of the truth at the moment they decide whether to look closer, and the automated reviewers were unavailable on both PRs that day, so the badge was a larger share of the signal than usual. THE FIX IS ONE LINE: make the description name the control that actually exists, e.g. 'Not needed: no supabase/ change.' Do not widen ownerMergeReasons - the narrowing was a deliberate owner ruling and is not what is wrong here. Update the pinned description in the pr-policy self-tests in the same change.",
+    "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN); code read of scripts/pr-policy.mjs at 8790d8a74, and the live Owner approval status on PRs #2882 and #2885",
+    "issueUlid": "01M2TH7BJK9Y6MKNJ7E07DDFTE"
+  }
+}
