@@ -10,7 +10,18 @@ import type {
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 
-type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
+export type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
+
+/**
+ * How many sources one catalogue page carries.
+ *
+ * The catalogue is sliced on the server, before the entries cross the RSC
+ * boundary, for the reason `ReviewStatePageContent` records: slicing in the
+ * client after the whole array has already been serialised does not reduce
+ * anything that was transferred. 50 matches `REVIEW_STATE_PAGE_SIZE`, which is
+ * the size this repository has already proven renders responsively.
+ */
+export const SOURCE_CATALOGUE_PAGE_SIZE = 50;
 const BAND_ORDER = { A: 0, B: 1, C: 2, D: 3, excluded: 4 } as const;
 
 /** Shared with `browse-facets.ts` so a facet list cannot order itself differently
@@ -206,6 +217,78 @@ export function projectSourceCatalogueForClient(
       dimensions: entry.rating.dimensions,
     },
   }));
+}
+
+/** The four narrowing dimensions the filter sheet offers. */
+export type SourceCatalogueFacetKey = "band" | "jurisdiction" | "topic" | "usedBy";
+
+export type SourceCatalogueFacetOptionCount = { value: string; count: number };
+
+export type SourceCatalogueFacetCounts = Record<SourceCatalogueFacetKey, SourceCatalogueFacetOptionCount[]>;
+
+const FACET_SELECTION_FIELD = {
+  band: "bands",
+  jurisdiction: "jurisdictions",
+  topic: "topics",
+  usedBy: "usedBy",
+} as const satisfies Record<SourceCatalogueFacetKey, keyof SourceCatalogueFilters>;
+
+function facetValuesOf(entry: ClinicalSourceClientEntry, key: SourceCatalogueFacetKey): readonly string[] {
+  if (key === "band") return [entry.rating.band];
+  if (key === "jurisdiction") return [entry.geography.scope];
+  if (key === "topic") return entry.topics;
+  return entry.usedBy.map((usage) => usage.modeId);
+}
+
+/** Option order as the filter sheet has always shown it: base-collated, deduplicated. */
+function uniqueSortedFacetValues(values: readonly string[]) {
+  return [...new Set(values)].sort((left, right) => BASE_COLLATOR.compare(left, right));
+}
+
+/**
+ * Every filter option, with the number of sources it would leave visible.
+ *
+ * This used to run in the browser, once per option per render, over all 866
+ * entries — which is the other half of why the whole catalogue had to be
+ * serialised to the client. The counts are derived here instead, from the full
+ * catalogue the server already holds, and only the resulting `{value, count}`
+ * pairs travel.
+ *
+ * The count is the union-widening one the sheet has always shown: "how many
+ * sources would be visible if this option were ticked as well". Narrowing the
+ * candidate set once per facet, rather than re-running every filter for every
+ * option, is an optimisation only — `tests/source-catalogue-pagination.test.ts`
+ * pins it against the naive definition.
+ */
+export function deriveSourceCatalogueFacetCounts(
+  entries: readonly ClinicalSourceClientEntry[],
+  filters: SourceCatalogueFilters,
+): SourceCatalogueFacetCounts {
+  const counts = {} as SourceCatalogueFacetCounts;
+  for (const key of ["band", "jurisdiction", "topic", "usedBy"] as const) {
+    const selected: readonly string[] = filters[FACET_SELECTION_FIELD[key]];
+    // Everything the other filters admit. A facet never narrows its own option
+    // counts, so this candidate set is shared by all of that facet's options.
+    const withoutFacet: SourceCatalogueFilters = {
+      ...filters,
+      ...(key === "band"
+        ? { bands: [] }
+        : key === "jurisdiction"
+          ? { jurisdictions: [] }
+          : key === "topic"
+            ? { topics: [] }
+            : { usedBy: [] }),
+    };
+    const candidates = entries.filter((entry) => matchesFilters(entry, withoutFacet));
+    counts[key] = uniqueSortedFacetValues(entries.flatMap((entry) => facetValuesOf(entry, key))).map((value) => {
+      const widened = selected.includes(value) ? selected : [...selected, value];
+      return {
+        value,
+        count: candidates.filter((entry) => matchesAny(widened, facetValuesOf(entry, key))).length,
+      };
+    });
+  }
+  return counts;
 }
 
 export function deriveSourceCatalogueFacets(entries: readonly ClinicalSourceClientEntry[]) {
