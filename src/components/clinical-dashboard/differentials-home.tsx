@@ -1195,6 +1195,10 @@ function SearchResultsView({
             </Link>
           </>
         }
+        // /api/differentials has said `degraded` since #2849 and no differentials surface read
+        // it, so a search answered entirely from the in-bundle catalogue looked exactly like one
+        // read from the published list. Same wording as every other surface that says this.
+        catalogueDegraded={catalog.degraded}
         sortValue={sortValue}
         onSortChange={setSortValue}
         appliedFilters={appliedFilters}

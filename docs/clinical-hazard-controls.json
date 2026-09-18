@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "authority": "Static evidence register only. It does not establish clinical adequacy, regulatory classification, or risk acceptance.",
-  "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+  "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
   "reviewedAt": "2026-08-23",
   "reviewExpiresAt": "2026-11-23",
   "hazards": [
     {
       "id": "H1",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical safety owner",
@@ -24,7 +24,7 @@
     {
       "id": "H2",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Source governance owner",
@@ -36,7 +36,7 @@
     {
       "id": "H3",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical UX owner",
@@ -48,7 +48,7 @@
     {
       "id": "H4",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
@@ -60,7 +60,7 @@
     {
       "id": "H5",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
@@ -76,7 +76,7 @@
     {
       "id": "H6",
       "state": "partial",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Application security owner",
@@ -90,7 +90,7 @@
     {
       "id": "CLINICAL-TRUTH-AUTHORITY",
       "state": "open",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical governance authority",
@@ -100,12 +100,46 @@
     {
       "id": "EXTERNAL-RISK-ACCEPTANCE",
       "state": "open",
-      "reviewedCommit": "883f1007a85cd4e02198f39c12c4a4e467d4b89e",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Authorised risk owner",
       "evidenceReferences": ["docs/clinical-hazard-analysis.md", "docs/clinical-governance.md"],
       "residualRisk": "No authorised external clinical or regulatory risk acceptance is recorded."
+    },
+    {
+      "id": "SAFETY-CHIP-VOCABULARY",
+      "state": "open",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
+      "reviewedAt": "2026-09-18",
+      "reviewExpiresAt": "2026-12-18",
+      "owner": "Clinical governance authority",
+      "evidenceReferences": [
+        "docs/audit/2026-09-17-external-audit-refutations.md",
+        "src/lib/clinical-safety.ts",
+        "tests/clinical-safety.test.ts"
+      ],
+      "residualRisk": "Safety chips are labelled by the first matching entry in a severity-ordered keyword list, over tokens common in ordinary clinical prose. Two consequences need a clinician's decision. First, the false negative: before 2026-09-18 no pattern knew cease, withhold, hold the dose, boxed warning, black box, hypersensitivity or anaphylaxis, so a passage whose entire content was a stop instruction produced no finding at all; the vocabulary added to close that is a clinical wording judgement and is not clinician-approved. Second, and still entirely open: the most severe finding is promoted ahead of everything else as the answer's headline support card, so a regular-expression match decides what a clinician reads first. Whether a keyword-derived finding should hold that position at all has not been decided. A green test run proves the labels are stable, never that they are clinically right."
+    },
+    {
+      "id": "DICTIONARY-PUBLISHER-AGENCIES",
+      "state": "open",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
+      "reviewedAt": "2026-09-18",
+      "reviewExpiresAt": "2026-12-18",
+      "owner": "Clinical governance authority",
+      "evidenceReferences": ["src/data/dictionary-source-dispositions.json", "src/lib/source-authority-registry.ts"],
+      "residualRisk": "Four dictionary sources are held because the publisher field names a description rather than an agency: WA-MHAS 'Government of Western Australia', WA-AHLO 'WA Health service providers', WA-MHERL 'Mental Health Commission / WA Health' (two bodies in one field) and 4AT-OFFICIAL '4AT developers'. Establishing the real agency needs the four canonical pages read, which this environment's network policy blocks, so they stay held. Two findings do not need those pages and need a decision. (1) The register contradicts itself: source-authority-registry.ts registers 'Government of Western Australia' at line 509 (catalogue-identity only, added 2026-09-16 by commit 255b9c1fe) while the comment at lines 558-564 still states that string was deliberately not registered. One of the two is wrong and the comment misleads anyone reading it. (2) Correcting any publisher only clears the acquisition gate if the new name resolves in that register, and the register is a protected retrieval-ranking surface, so a metadata correction is also a retrieval change. Neither was edited here."
+    },
+    {
+      "id": "PATIENT-NUMERIC-FIELD-DISPLAY",
+      "state": "open",
+      "reviewedCommit": "ff57ec6d0903ead5647db968436be911a744567d",
+      "reviewedAt": "2026-09-18",
+      "reviewExpiresAt": "2026-12-18",
+      "owner": "Clinical governance authority",
+      "evidenceReferences": ["src/components/clinical-dashboard/patient-profile-panel.tsx"],
+      "residualRisk": "The patient-profile number fields (age, eGFR, serum creatinine, creatinine clearance, QTc) can display a value that disagrees with the value actually stored and used by the calculators. Every keystroke writes to a shared store, a partial entry below the field minimum is stored as null, and the panel is mounted three times at once over that one store. The standing clinical question, independent of any fix: what should a clinical number field do with a partial or out-of-range entry, and is it ever acceptable for the number on screen to differ from the number a dose calculation uses? Until that is answered, a displayed creatinine clearance or QTc must not be treated as confirmation that the stored value is the same."
     }
   ]
 }
