@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 
 import {
   ACQUISITION_METADATA_DEFECTS,
+  acquisitionAttestedContentSha256,
   acquisitionLedgerIssues,
   acquisitionRecordGeography,
   acquisitionRecordWarnings,
@@ -334,5 +335,68 @@ describe("source acquisition catalogue integration", () => {
     ]);
 
     expect(queue.map((entry) => entry.id)).toEqual(["local", "national"]);
+  });
+});
+
+/**
+ * Structured attestation (#4DFNHJ). Before this, who signed a record off and when
+ * lived only in prose in `dispositionReason` and `notes`, so the 2026-09-16
+ * metadata corrections invalidated six earlier owner sign-offs with nothing in the
+ * gate able to notice. The digest is the Therapy catalogue's proven
+ * `therapyReviewedContentSha256` pattern applied to the source ledger.
+ */
+describe("source acquisition attestation", () => {
+  function attested(overrides: Partial<SourceAcquisitionRecord> = {}) {
+    const signed = record({
+      validationStatus: "locally_reviewed",
+      attestedBy: "Owner",
+      attestedAt: "2026-09-18",
+      ...overrides,
+    });
+    return { ...signed, attestedAgainstSha256: acquisitionAttestedContentSha256(signed) };
+  }
+
+  it("leaves a record with no attestation alone, which is every record today", () => {
+    expect(issuesFor()).toEqual([]);
+    expect(sourceAcquisitionRecords.every((entry) => entry.attestedAgainstSha256 === undefined)).toBe(true);
+  });
+
+  it("accepts an attestation written against the record as it stands", () => {
+    expect(acquisitionLedgerIssues([attested()])).toEqual([]);
+  });
+
+  it("reports an attestation as stale once the metadata it covers changes", () => {
+    const signed = attested();
+    const corrected = { ...signed, version: "December 2025 revision" };
+    expect(acquisitionLedgerIssues([corrected])).toEqual([
+      "ocp-wa-test-guideline: attestedAgainstSha256 is stale; content changed after sign-off",
+    ]);
+  });
+
+  it("does not treat writing the digest itself as a change to the record", () => {
+    const signed = attested();
+    expect(acquisitionAttestedContentSha256(signed)).toBe(signed.attestedAgainstSha256);
+    expect(acquisitionAttestedContentSha256({ ...signed, attestedBy: "Someone else" })).toBe(
+      signed.attestedAgainstSha256,
+    );
+  });
+
+  it("requires an attestation to name who signed off and when", () => {
+    const signed = attested();
+    expect(acquisitionLedgerIssues([{ ...signed, attestedBy: null }])).toEqual([
+      "ocp-wa-test-guideline: an attestation must record attestedBy, attestedAt and attestedAgainstSha256; missing attestedBy",
+    ]);
+  });
+
+  it("rejects a malformed digest rather than calling it stale", () => {
+    expect(issuesFor({ attestedBy: "Owner", attestedAt: "2026-09-18", attestedAgainstSha256: "not-a-digest" })).toEqual(
+      ["ocp-wa-test-guideline: attestedAgainstSha256 must be a lower-case 64-character SHA-256 digest"],
+    );
+  });
+
+  it("holds attestedAt to the same exact-date rule as every other ledger date", () => {
+    expect(issuesFor({ attestedBy: "Owner", attestedAt: "September 2026", attestedAgainstSha256: null })).toContain(
+      'ocp-wa-test-guideline: attestedAt must be an exact YYYY-MM-DD date, got "September 2026"',
+    );
   });
 });
