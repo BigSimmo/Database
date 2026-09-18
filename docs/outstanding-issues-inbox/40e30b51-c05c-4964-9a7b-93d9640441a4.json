@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "40e30b51-c05c-4964-9a7b-93d9640441a4",
+  "createdOn": "2026-09-18",
+  "action": "done",
+  "payload": {
+    "id": "#E0FSGS",
+    "outcome": "DISPROVEN BY MEASUREMENT 2026-09-17/18, not fixed-since — the condition this row describes does not exist on main. The row states supabase/schema.sql 'has not been replayable since before 2026-09-16' and that 'drift:manifest cannot run at all'. npm run drift:manifest was run twice for PRs #2855 and #2858 and completed both times, replaying schema.sql from scratch into the pinned supabase/postgres:17.6.1.127 container in 47s and 58s with no error. The committed supabase/drift-manifest.json on main records a successful replay whose schema_sha256 equals the actual sha256 of main's supabase/schema.sql. CI's db-reset-verify job, which runs drift:manifest and check:drift-manifest-freshness, passed on both PRs. WHAT ACTUALLY HAPPENED: PR #2814 regenerated the frozen bootstrap inside three already-applied migrations, moving the identity to 91ceaa8d/860 records; PR #2828 (a0c9339d3d, merged 2026-09-16 18:52 UTC) reverted it and restored e4a1dd29/843/57f6ec90, regenerating the manifest in the same change. This row was written into the ledger by f7ebde7e on 2026-09-17, over 15 hours AFTER that repair had landed, from a measurement taken during the broken window. IT MATTERS THAT THIS CLOSES: the row instructs the next reader to re-key the bootstrap release UUID across the live clinical control plane — 68 occurrences across supabase/ — to fix a condition that is not present.",
+    "baseRowFingerprint": "fbece059f279e31093296bf9d1bc3364c9c962f246395659672d298b8226f922"
+  }
+}
