@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "cdff9407-ba5c-40a7-8397-a284ef1fd6ac",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#8GB18R",
+    "detail": "PARTIAL 2026-09-18 (PR #2881, merged). /api/registry/records now emits degraded (only when true), parseRegistryListResponse accepts it in both the full and search allow-lists, and the services/forms document-search surface renders it through withCatalogueDegradedNotice on the results heading and catalogueDegradedNotice on the count band. A latent bug was fixed in the same pass: registryListPayload returns matches for every non-summary view once the request carries q, and matches was in neither allow-list, so a searched list request would have parsed as null and told the reader the registry could not be searched for a response that arrived completely intact. Regression-tested in both views. STILL OPEN, which is why this row is not closed: (1) /api/medications emits the same state as retainedSnapshot: true and no medications surface renders it; (2) services-navigator-page.tsx and forms-search-results-page.tsx read the same registry list, own their own header bands, and show no notice.",
+    "baseRowFingerprint": "5390664ae46da59fbd08bf80d992a3b487120bf02070a9ce71df67e6a153ec0e"
+  }
+}
