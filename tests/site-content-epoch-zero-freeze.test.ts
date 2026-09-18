@@ -84,6 +84,10 @@ const APPLIED_MIGRATIONS = [
   HEALTH_PROBE_MIGRATION,
   TRANSITIONS_MIGRATION,
   "supabase/migrations/20260916103000_push_kind_filter_into_site_content_public_records.sql",
+  // Replaces the health probe's body to evaluate site_content_bootstrap_digest once per release
+  // instead of once per stored column. It carries the frozen id because the body it replaces
+  // already did: the release it checks is still the epoch-zero freeze. It mints nothing.
+  "supabase/migrations/20260918120000_evaluate_bootstrap_digest_once_per_health_read.sql",
 ];
 /** Later regenerated ids a live / replayed DB may still hold; never remove, never mint another. */
 const RETAINED_BOOTSTRAP_RELEASE_IDS = [

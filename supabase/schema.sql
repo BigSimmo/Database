@@ -15229,8 +15229,8 @@ as $$
         and r.state = 'active' and s.active_release_digest = r.release_digest
         and r.expected_record_count = 843 and r.expected_tombstone_count = 0
         and (select count(*) from active_records) = 843
+        and r.dynamic_state_digest = r.release_digest
         and r.release_digest = public.site_content_bootstrap_digest(r.id)
-        and r.dynamic_state_digest = public.site_content_bootstrap_digest(r.id)
         and not exists (select 1 from active_records rr where rr.target_publication_id is not null
           or rr.record is null or rr.render_payload is null or rr.record->>'logicalId' is distinct from rr.logical_id
           or rr.record->>'body' is distinct from rr.normalized_text
@@ -15330,8 +15330,8 @@ as $$
           and p.id = public.site_content_release_id(p.release_digest, 0, 'bootstrap-v1')
           and p.expected_record_count = 843 and p.expected_tombstone_count = 0
           and (select count(*) from public.site_content_release_records rr where rr.release_id = p.id) = 843
+          and p.dynamic_state_digest = p.release_digest
           and p.release_digest = public.site_content_bootstrap_digest(p.id)
-          and p.dynamic_state_digest = public.site_content_bootstrap_digest(p.id)
           and not exists (select 1 from public.site_content_release_records rr
             where rr.release_id = p.id and (rr.target_publication_id is not null
               or rr.record is null or rr.render_payload is null
