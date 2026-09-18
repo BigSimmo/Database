@@ -557,7 +557,7 @@ jobs:
         uses: ./.github/actions/setup-node-cached
 
       - name: Install deterministic Python PDF test prerequisite
-        run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.2"
+        run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
 
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
@@ -1668,3 +1668,181 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+  # WHY THIS EXISTS. Every job above answers the question "is this change broken?". Nothing
+  # answered "is `main` broken right now?", and the difference is not academic: `pr-required` is a
+  # PR-scoped aggregate, so a post-merge failure has nothing left to block and nobody to tell.
+  # Measured 2026-09-16 (ledger #T82ND3): CI on `main` failed six of its last eight pushes since
+  # 2026-09-13 and no workflow reported it. Re-read 2026-09-18 across the four most recent red main
+  # runs (35345371375, 35336141954, 35327912411, 35274280932): in all four the ONLY failing jobs
+  # were `release-browser-matrix (firefox)` and `(webkit)` — ledger #9Z197J — while `pr-required`
+  # concluded success each time. So main has been persistently red, correctly, and silently.
+  #
+  # Ledger #TN512M states the general finding this job acts on: the common defect across the live
+  # monitor, Sentry and CI is DELIVERY, not detection. All three signals were accurate and free;
+  # none reached a person. This job therefore adds no check. It adds the delivery path, in the
+  # shape live-drift.yml and live-domain-monitor.yml (PR #2877) already use: one pinned issue found
+  # by label, updated in place, closed automatically on the next green `main` run.
+  #
+  # It is REPORT ONLY and mutates no branch — `scripts/check-github-action-pins.mjs` forbids
+  # workflow-authored branch mutation, and a red `main` is a fact to deliver, not to auto-repair.
+  #
+  # #9Z197J's own recorded remedy is exactly this and explicitly NOT the alternative: do not add
+  # `release-browser-matrix` to `pr-required`'s needs (it never runs on a pull_request event, so
+  # aggregating a skipped job would change nothing) — fix the post-merge signal so a red matrix on
+  # main is visible and owned rather than ambient.
+  #
+  # Split into its own job so `issues: write` never lands on a job that checks out or executes
+  # repository code; every job above keeps the workflow-level `contents: read`.
+  main-failure-routing:
+    name: Route main CI status to the pinned issue
+    # These three are the terminal jobs of a `main` push. `pr-required` already aggregates every
+    # other job's result, and `release-browser-matrix` plus `visual-baseline` are the two that sit
+    # outside it and still run on push. Waiting on all three is what makes the job enumeration
+    # below a complete picture of the run rather than a snapshot of it mid-flight.
+    needs: [pr-required, release-browser-matrix, visual-baseline]
+    # `always()`, not `!cancelled()`: a cancelled `main` run verified nothing, and a run that
+    # quietly verified nothing is the state this whole job exists to stop being invisible.
+    if: ${{ always() && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      # Read-only, and only to name the failing jobs. Without it the issue could say that the run
+      # was red but not which job broke, which is the difference between an alert and a rumour.
+      actions: read
+
+    steps:
+      - name: Open, update or close the pinned main-failure issue
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        # Step results travel through env, never inline template expansion inside `script:`.
+        # Every routing workflow in this repo does this deliberately: an expression interpolated
+        # into the script body is a template-injection surface.
+        env:
+          PR_REQUIRED_RESULT: ${{ needs.pr-required.result }}
+          BROWSER_MATRIX_RESULT: ${{ needs.release-browser-matrix.result }}
+          VISUAL_BASELINE_RESULT: ${{ needs.visual-baseline.result }}
+          HEAD_SHA: ${{ github.sha }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        with:
+          script: |
+            const title = "CI on main is failing";
+            const label = "main-ci-failure";
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const headSha = (process.env.HEAD_SHA || "").trim();
+            // First line only. A squash-merge body carries the whole PR description, and the issue
+            // needs the commit identified, not reproduced.
+            const headSubject = (process.env.HEAD_MESSAGE || "").split("\n")[0].trim();
+            const now = new Date().toISOString();
+            // Stable ownership marker written into every body this job authors. Matching on it
+            // first means a human retitling the issue cannot orphan it, and — the part that
+            // actually matters — the green path never closes an issue this job did not open.
+            const MARKER = "<!-- main-ci-routing:v1 -->";
+
+            const declared = {
+              "PR required": process.env.PR_REQUIRED_RESULT || "unknown",
+              "release-browser-matrix": process.env.BROWSER_MATRIX_RESULT || "unknown",
+              "Visual baselines (advisory)": process.env.VISUAL_BASELINE_RESULT || "unknown",
+            };
+            const badResult = (value) => value === "failure" || value === "cancelled" || value === "unknown";
+            const red = Object.entries(declared).some(([, value]) => badResult(value));
+
+            // Name the individual jobs, including each matrix leg, so the issue says
+            // "release-browser-matrix (webkit)" rather than only that something went red. Falls
+            // back to the three declared results above if the listing is unavailable — a naming
+            // failure must never swallow the alert itself.
+            let failingJobs = [];
+            let jobListing = "listed";
+            try {
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                owner,
+                repo,
+                run_id: context.runId,
+                per_page: 100,
+              });
+              failingJobs = jobs
+                .filter((job) => job.conclusion === "failure" || job.conclusion === "cancelled")
+                .map((job) => `- \`${job.name}\`: ${job.conclusion}`);
+            } catch (error) {
+              jobListing = `unavailable (${error.message})`;
+              core.warning(`Could not list jobs for this run: ${error.message}`);
+            }
+            if (failingJobs.length === 0 && jobListing !== "listed") {
+              failingJobs = Object.entries(declared)
+                .filter(([, value]) => badResult(value))
+                .map(([name, value]) => `- \`${name}\`: ${value}`);
+            }
+
+            const { data: open } = await github.rest.issues.listForRepo({ owner, repo, state: "open", labels: label });
+            const owned = (issue) => String(issue.body ?? "").includes(MARKER) || issue.title === title;
+            const existing = open.find(owned) ?? null;
+
+            if (!red) {
+              if (!existing) {
+                core.info("CI on main is green and no failure issue of ours is open.");
+                return;
+              }
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: [
+                  `Resolved — CI on \`main\` is green again as of ${now}.`,
+                  "",
+                  `- Run: ${runUrl}`,
+                  headSha ? `- Commit: \`${headSha.slice(0, 12)}\`${headSubject ? ` — ${headSubject}` : ""}` : "- Commit: unrecorded",
+                  "",
+                  "This states that the jobs which ran concluded successfully. Jobs skipped by",
+                  "change-scope routing verified nothing either way, so this is not a statement",
+                  "about the parts of the tree this push did not touch.",
+                  MARKER,
+                ].join("\n"),
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: "closed", state_reason: "completed" });
+              core.info(`Closed #${existing.number} after a green main run.`);
+              return;
+            }
+
+            const body = [
+              "CI is failing on `main`. This issue is updated in place by `.github/workflows/ci.yml`",
+              "and closes automatically on the next green `main` run, so an open issue means `main`",
+              "is red **right now** — not that it once was.",
+              "",
+              `- Latest failing run: ${runUrl}`,
+              headSha ? `- Commit: \`${headSha.slice(0, 12)}\`${headSubject ? ` — ${headSubject}` : ""}` : "- Commit: unrecorded",
+              `- Last updated: ${now}`,
+              "",
+              failingJobs.length > 0
+                ? `### Failing jobs\n\n${failingJobs.join("\n")}`
+                : `### Failing jobs\n\nNone could be named (job listing ${jobListing}), so this is **not** evidence that the run is healthy. Read the run log linked above.`,
+              "",
+              "### Terminal job results",
+              "",
+              ...Object.entries(declared).map(([name, value]) => `- \`${name}\`: ${value}`),
+              "",
+              "A `cancelled` result is not a pass. It means that job verified nothing, which on `main`",
+              "is indistinguishable from not having run at all.",
+              "",
+              "`pr-required` is a PR-scoped aggregate, so nothing here blocked a merge and nothing",
+              "will. Triage order: open the run, read the first failing job, and check whether the",
+              "same job failed on the preceding `main` commit — a failure that predates this commit",
+              "is a standing defect rather than a regression this push introduced.",
+              MARKER,
+            ].join("\n");
+
+            if (existing) {
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, body });
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `Still failing as of ${now} — ${runUrl}`,
+              });
+              core.warning(`CI on main is failing; updated #${existing.number}.`);
+            } else {
+              const created = await github.rest.issues.create({ owner, repo, title, labels: [label], body });
+              core.warning(`CI on main is failing; opened #${created.data.number}.`);
+            }
