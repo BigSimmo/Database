@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d9fb1584-6155-4dc3-a6ab-d31eb3694ed1",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The clinical hazard register pins a reviewedCommit that a squash merge orphans, so updating the register turns CI red on main and on every branch that syncs it",
+    "detail": "Happened 2026-09-18 and cost most of a working day across three sessions. scripts/check-clinical-hazard-controls.mjs requires every reviewedCommit in docs/clinical-hazard-controls.json to exist AND be an ancestor of HEAD, and to contain every cited control, test and evidence path. PR #2882 recorded its own pre-squash branch head (ecc217acd) in all twelve entries; the squash merge orphaned that object, so from the moment #2882 landed, Static PR checks failed on main at the Clinical hazard-controls register step and on every branch that merged main - the aggregate PR required check went red with it, blocking five unrelated PRs. It was repaired by hand in #2891 (repointed to ff57ec6d, the #2882 squash commit and the minimal ancestor still carrying docs/audit/2026-09-17-external-audit-refutations.md), with a duplicate attempt in #2892 closed as superseded. The trap is structural, not a one-off: any future register update that names its own branch head will do it again, and the author cannot know the squash SHA before the merge. Next: pick a durable mechanism - a post-merge job that repoints the register to the squash commit, a check that accepts the commit which introduced the file's current content, or a pre-merge guard that refuses a reviewedCommit not already on main.",
+    "source": "2026-09-18 session; incident spans PRs #2882, #2891, #2892",
+    "issueUlid": "01M2TPJRBKD7K71CKXTPG08N63"
+  }
+}
