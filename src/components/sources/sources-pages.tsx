@@ -6,7 +6,7 @@ import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { SourceMethodReferenceContent } from "@/components/reference/source-method-reference-content";
 import { SourcesBrowseClient } from "@/components/sources/sources-browse-client";
-import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
+import { SourcesCatalogueContent } from "@/components/sources/sources-catalogue-content";
 import { Chip } from "@/components/ui/chip";
 import {
   derivePublisherBrowseSummaries,
@@ -33,6 +33,17 @@ function titleCase(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+/** Next serves route search params as a plain record; the catalogue reads them
+    through the `URLSearchParams` shape its parser and the client both use. */
+function toSearchParams(params: Record<string, string | string[] | undefined> | undefined) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (Array.isArray(value)) for (const item of value) search.append(key, item);
+    else if (value !== undefined) search.append(key, value);
+  }
+  return search;
+}
+
 const LONG_DATE_FORMAT = new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric" });
 
 function dateOrNull(value: string | null) {
@@ -53,17 +64,24 @@ function PageName({ children }: { children: string }) {
   return <h1 className="sr-only">{children}</h1>;
 }
 
-export async function SourcesCataloguePage(): Promise<ReactNode> {
+export async function SourcesCataloguePage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+} = {}): Promise<ReactNode> {
   const catalogue = await loadSourceCatalogue();
   // `hostedDocuments` travels with the entries: when the document lookup is
   // unavailable the catalogue is repository-only, and the page has to be able
   // to say so rather than presenting a partial list as the whole registry.
   // Projected, not the raw records: the two rating fields nothing renders are a
-  // fifth of this page's serialised payload across 866 entries.
+  // fifth of this page's serialised payload across 866 entries. The projection
+  // and the pagination below are complementary — one trims every entry, the
+  // other stops 816 of them being sent at all.
   return (
-    <SourcesCatalogueClient
+    <SourcesCatalogueContent
       entries={projectSourceCatalogueForClient(catalogue.entries)}
       hostedDocuments={catalogue.hostedDocuments}
+      searchParams={toSearchParams(searchParams)}
     />
   );
 }

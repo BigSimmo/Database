@@ -29,8 +29,8 @@ import {
   formulationDomainsInUse,
   formulationDomainGroups,
   formulationSearchPresets,
-  searchFormulationMechanisms,
-} from "@/lib/formulation";
+  searchFormulationMechanismIndex,
+} from "@/lib/formulation-mechanism-index";
 import { formulationConceptDomainsInUse, searchFormulationConcepts } from "@/lib/formulation-concept-search";
 
 /**
@@ -99,11 +99,11 @@ function FormulationResults({ query }: { query: string }) {
   const searchQuery = query.trim() ? deferredQuery : "";
   const results = useMemo(() => {
     // Cleared live query should restore the full browse catalogue immediately.
-    if (!query.trim()) return searchFormulationMechanisms("", { domains });
+    if (!query.trim()) return searchFormulationMechanismIndex("", { domains });
     // Empty deferred while live query has text would score every mechanism —
     // treat that lag as "no results yet" instead of dumping the full catalogue.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domains, interpretNaturalLanguage: true });
+    return searchFormulationMechanismIndex(deferredQuery, { domains, interpretNaturalLanguage: true });
   }, [domains, deferredQuery, query]);
   const hasUniqueTopMatch = results.length > 0 && (results.length < 2 || results[0].score !== results[1].score);
   // Contextual factors rank separately and always sit below the mechanisms, so
@@ -151,7 +151,7 @@ function FormulationResults({ query }: { query: string }) {
           const candidateDomains = new Set([...domains, item]);
           const withCandidate = pendingRanking
             ? 0
-            : searchFormulationMechanisms(searchQuery, {
+            : searchFormulationMechanismIndex(searchQuery, {
                 domains: candidateDomains,
                 interpretNaturalLanguage: true,
               }).length +
