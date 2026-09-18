@@ -24,7 +24,9 @@ function canonicalJson(value: unknown): string {
   throw new Error(`Reconciliation canonical JSON cannot encode ${typeof value}.`);
 }
 
-function reconciliationHash(value: unknown): string {
+/** The canonical-JSON sha256 a reconciliation plan is keyed by. Exported so a plan BUILDER
+ *  computes its digests with the same rule the validator and the SQL side apply. */
+export function reconciliationHash(value: unknown): string {
   return createHash("sha256").update(canonicalJson(value)).digest("hex");
 }
 
