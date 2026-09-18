@@ -99,6 +99,33 @@ where a severity qualifier changes management much less than it does in mood or 
 is worth deciding which disorders in Group B are worth the effort before starting it, rather than
 working through 193 rows in file order.
 
+## Group A is 17 definitions, not 63
+
+The 63 rows carry only **17 distinct specifier labels**. Ten of them are the same specifier repeated
+across disorders, and those ten account for 56 of the 63 rows.
+
+| Distinct specifier                       | Rows | Disorders it appears on                                                                                                                                                                                                                  |
+| ---------------------------------------- | ---: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| With catatonia                           |    9 | Autism Spectrum Disorder; Brief Psychotic Disorder; Schizophreniform Disorder; Schizophrenia; Schizoaffective Disorder; Psychotic Disorder Due to Another Medical Condition; Bipolar I; Bipolar II; Major Depressive Disorder            |
+| With onset during intoxication           |    8 | The eight substance/medication-induced disorders (psychotic, bipolar, depressive, anxiety, OCD, sleep, sexual dysfunction, mental disorders)                                                                                             |
+| With onset during withdrawal             |    8 | The same eight                                                                                                                                                                                                                           |
+| With mixed features                      |    7 | Bipolar I; Bipolar II; Substance/Medication-Induced Bipolar; Bipolar Due to Another Medical Condition; Major Depressive Disorder; Substance/Medication-Induced Depressive Disorder; Depressive Disorder Due to Another Medical Condition |
+| With good or fair insight                |    5 | OCD; Body Dysmorphic Disorder; Hoarding Disorder; Olfactory Reference Disorder (both entries)                                                                                                                                            |
+| With poor insight                        |    5 | The same five                                                                                                                                                                                                                            |
+| With peripartum onset                    |    4 | Brief Psychotic Disorder; Bipolar I; Bipolar II; Major Depressive Disorder                                                                                                                                                               |
+| With absent insight / delusional beliefs |    4 | OCD; Body Dysmorphic Disorder; Hoarding Disorder; Olfactory Reference Disorder (ICD-11 / DSM-5-TR Sec III)                                                                                                                               |
+| With mood-congruent psychotic features   |    3 | Bipolar I; Bipolar II; Major Depressive Disorder                                                                                                                                                                                         |
+| With mood-incongruent psychotic features |    3 | Bipolar I; Bipolar II; Major Depressive Disorder                                                                                                                                                                                         |
+| **Seven one-off rows**                   |    7 | Stereotypic Movement Disorder (self-injurious behaviour); Catatonia (three context rows); Delirium (intoxication and withdrawal delirium); Olfactory Reference Disorder (absent insight)                                                 |
+
+**This does not mean one definition can be pasted across a row's disorders, and that is the clinical
+judgement to make first.** Whether "with catatonia" carries the same requirement on autism spectrum
+disorder as it does on schizophrenia, and whether "with mixed features" means the same thing applied to
+a depressive episode as to a manic one, are exactly the questions a shared definition would paper over.
+The right unit of work is probably one definition per specifier plus a note on each disorder where it
+differs — but deciding that is the first thing to settle, because it sets the shape of every entry that
+follows.
+
 ## Group A — the 63 items, by disorder
 
 Each row carries its stable `rowKey`, which is how an entry is addressed in the catalogue file.
