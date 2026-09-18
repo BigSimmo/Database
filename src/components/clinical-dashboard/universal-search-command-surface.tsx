@@ -150,6 +150,15 @@ type DropdownItem = {
   label: string;
   onSelect: () => void;
   render: (active: boolean) => ReactNode;
+  /**
+   * An explicit accessible name, for an option whose rendered content does not
+   * carry the whole meaning. The cross-mode chips are the case this exists for:
+   * their visible lead ("Search "<query>" in") sits outside every `role="option"`,
+   * so a screen reader announced the destination alone — "Forms", with no
+   * indication of what activating it would do. Sighted readers get the lead from
+   * the row; this gives everyone else the same sentence.
+   */
+  ariaLabel?: string;
 };
 
 function OptionShell({ active, children, hint }: { active: boolean; children: ReactNode; hint: string }) {
@@ -384,7 +393,12 @@ function CommandDropdown({
               {section.layout === "chips" ? (
                 <div className="flex flex-wrap items-center gap-1.5 px-2.5 py-1.5">
                   {query ? (
-                    <span className="text-xs font-semibold text-[color:var(--text-muted)]">
+                    // Presentational: this lead is what makes the chips beside it mean
+                    // "search elsewhere" rather than "Forms". It is not inside any
+                    // `role="option"`, so instead of leaving a screen reader to infer the
+                    // connection from a loose text node, each chip carries the whole
+                    // sentence in its own `aria-label` and this copy is hidden from them.
+                    <span aria-hidden="true" className="text-xs font-semibold text-[color:var(--text-muted)]">
                       Search &ldquo;{query}&rdquo; in
                     </span>
                   ) : null}
@@ -394,6 +408,7 @@ function CommandDropdown({
                       id={item.id}
                       role="option"
                       aria-selected={activeItemId === item.id}
+                      aria-label={item.ariaLabel}
                       onMouseEnter={() => onHoverItem(item.id)}
                       onMouseDown={(event) => {
                         event.preventDefault();
@@ -960,6 +975,11 @@ export function UniversalSearchCommandSurface({
           return {
             id: nextId(),
             label: targetMode.label,
+            // The count rides the name rather than being left as a bare "(2)" for a
+            // screen reader to read as punctuation.
+            ariaLabel: `Search "${trimmedQuery}" in ${targetMode.label}${
+              typeof targetCount === "number" ? `, ${targetCount} ${targetCount === 1 ? "match" : "matches"}` : ""
+            }`,
             onSelect: () => {
               onDropdownOpenChange(false);
               onCrossMode(target, trimmedQuery);
