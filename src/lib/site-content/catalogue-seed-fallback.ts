@@ -75,6 +75,13 @@ function cooldownKey(scope: string, kind: string) {
 }
 
 /**
+ * Exported so the Sentry Logs allowlist can be pinned against it. The forwarding bridge rewrites
+ * any message it does not recognise to a bare "Application error", so a drift between this string
+ * and `SENTRY_LOG_MESSAGES.CATALOGUE_SEED_FALLBACK` silently un-does the point of logging it.
+ */
+export const catalogueSeedFallbackLogMessage = "Canonical catalogue read failed; search is serving in-bundle seeds";
+
+/**
  * Falling back MUST be loud. The 2026-09-16 outage lasted seven days because degradation was
  * silent: the endpoint answered HTTP 200 with an empty body and nothing was logged, so there was
  * no error rate to spike and no signal to alert on. A fallback that hides the failure it is
@@ -88,7 +95,7 @@ function cooldownKey(scope: string, kind: string) {
  * all — the read fetches every record of a kind — and none is passed here.
  */
 function reportFallback(kind: string, error: unknown, budgetMs: number, cooldownMs: number) {
-  logger.error("Canonical catalogue read failed; search is serving in-bundle seeds", {
+  logger.error(catalogueSeedFallbackLogMessage, {
     catalogue_kind: kind,
     failure: error instanceof Error ? error.name : typeof error,
     detail: error instanceof Error ? error.message : undefined,
