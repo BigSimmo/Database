@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "314508be-58a3-445e-a9fe-92c5731a2e80",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#3PW9TY",
+    "detail": "PARTIAL 2026-09-18 (PR #2881, merged). useDifferentialSearch now carries the degraded flag in state and in its LRU entry, so a cache hit cannot quietly heal it, and merges the diagnosis and presentation requests with OR because a result card does not say which catalogue it came from; the search results band shows the pinned catalogueDegradedNotice wording. STILL OPEN, which is why this row is not closed: the compact 'Also in...' strip (universal-search-also-matches.tsx) filters to groups with items and shows no notice, unlike the command surface it sits beneath.",
+    "baseRowFingerprint": "4fc285afd49fb8dd17470f2d4b10c73edc9a6e753a06a7cb6041d28e1c20ba6b"
+  }
+}
