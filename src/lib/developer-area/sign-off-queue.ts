@@ -86,7 +86,12 @@ function formsFamily(): SignOffFamily {
       key: `form:${details.id}`,
       id: details.id,
       title: `Form ${details.form} — ${details.name}`,
-      nativeStatus: details.contentReviewStatus,
+      // `contentReviewStatus` is optional on the catalogue type: a form absent
+      // from the review register carries none. `form-catalog.ts` states the
+      // default explicitly — a missing row is a gap in the record, not evidence
+      // of review — so it falls to `drafted` here, which is also why the filter
+      // above keeps such a form in the queue rather than dropping it.
+      nativeStatus: details.contentReviewStatus ?? "drafted",
       statusLabel: "Drafted, no clinician sign-off",
       requires:
         "A named reviewer checks the operational guidance against the Act and the current approved form, then records status, reviewedBy and reviewedAt.",
