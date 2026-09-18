@@ -66,9 +66,9 @@ describe("Railway config as code", () => {
   });
 
   it("declares the Sentry source-map build arguments so a Railway variable can reach the build", () => {
-    // next.config.ts gates withSentryConfig on all three being present at build time. Railway
-    // only exposes a variable to a Docker build when the Dockerfile declares the matching
-    // argument, so dropping any of these makes an operator's variable a silent no-op.
+    // next.config.ts gates withSentryConfig on all three being present at build time, and a build
+    // argument the Dockerfile does not declare is not in the build environment at all — so
+    // dropping any of these makes an operator's Railway variable a silent no-op.
     expect(appDockerfile).toContain("ARG SENTRY_AUTH_TOKEN=");
     expect(appDockerfile).toContain("ARG SENTRY_ORG=");
     expect(appDockerfile).toContain("ARG SENTRY_PROJECT=");

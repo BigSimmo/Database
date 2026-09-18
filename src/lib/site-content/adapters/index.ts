@@ -338,7 +338,9 @@ export type DynamicSiteContentReconciliation = Omit<RegistryReconciliationCandid
   recordId: string;
 };
 
-function dynamicLogicalId(entry: RegistryCorpusEntry) {
+/** The logical identity a persisted registry row publishes under. Exported so a read-only
+ *  reconciliation report derives it from here rather than reimplementing the rule. */
+export function dynamicLogicalId(entry: RegistryCorpusEntry) {
   if (entry.kind === "differential") return `differentials:${entry.subkind}:${entry.slug}`;
   const domain = entry.kind === "medication" ? "medications" : `${entry.kind}s`;
   return `${domain}:${entry.slug}`;

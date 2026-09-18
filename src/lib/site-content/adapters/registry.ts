@@ -129,7 +129,9 @@ function registryPublicGovernanceHash(record: SiteContentRecord) {
   });
 }
 
-function expectedCanonicalPublicRegistrySnapshot(
+/** The canonical-public snapshot a record implies. Exported so a read-only reconciliation
+ *  report builds its baseline with the production rule rather than reimplementing it. */
+export function expectedCanonicalPublicRegistrySnapshot(
   publicRecordId: string,
   record: SiteContentRecord,
 ): CanonicalPublicRegistrySnapshot {
