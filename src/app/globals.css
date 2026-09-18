@@ -2821,6 +2821,83 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+/* BEGIN prompt rail scroll affordance */
+/* The one-line rail's discoverable edge control (#2M4PX1).
+   
+   The rail cannot be allowed to wrap: `ui-overlap` pins one chip row and a
+   160px composer at 1280px and 1920px, and `search-route-ownership` reads
+   `flex-wrap: nowrap` / `overflow-x: auto` straight out of the rail block
+   above. So the chips past the right edge stay reachable only by a horizontal
+   gesture, and the trailing fade mask — added for phones, where a swipe is the
+   obvious move — does not read as "this scrolls" on a tablet or a trackpad.
+   These are that missing affordance.
+
+   Absolutely positioned, and that is the whole trick: a 48px control in the
+   flow would grow the 32px rail and with it the composer height the
+   `--spacing-mode-home-composer-*` reserves are sized for. The viewport is the
+   rail's own box rather than the row's, so the leading control cannot land on
+   top of the "Prompts" label.
+
+   Hidden below 640px on purpose. The mode-home rail is `display: none` there
+   and the other scroll rails are a phone's to swipe; two 48px discs over a
+   32px chip row would cover the chips they exist to reveal. */
+.answer-suggestion-chips-viewport {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.answer-suggestion-scroll-control {
+  position: absolute;
+  top: 50%;
+  z-index: var(--z-raised);
+  display: none;
+  min-width: var(--spacing-tap);
+  min-height: var(--spacing-tap);
+  place-items: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.answer-suggestion-scroll-control-back {
+  inset-inline-start: 0;
+}
+
+.answer-suggestion-scroll-control-forward {
+  inset-inline-end: 0;
+}
+
+@media (min-width: 640px) {
+  .answer-suggestion-scroll-control {
+    display: grid;
+  }
+}
+
+/* The painted part. Chip-sized so the control reads as a member of the rail it
+   moves rather than a piece of page chrome parked on top of it. */
+.answer-suggestion-scroll-control-face {
+  --answer-suggestion-scroll-face-size: calc(var(--spacing-tap) - 1rem);
+  display: grid;
+  width: var(--answer-suggestion-scroll-face-size);
+  height: var(--answer-suggestion-scroll-face-size);
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-heading);
+}
+
+.answer-suggestion-scroll-control:hover .answer-suggestion-scroll-control-face {
+  border-color: var(--clinical-accent-border);
+  background: var(--clinical-accent-soft);
+  color: var(--clinical-accent);
+}
+/* END prompt rail scroll affordance */
+
 .answer-suggestion-chip {
   display: inline-flex;
   max-width: min(100%, 18rem);
