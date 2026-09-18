@@ -3712,6 +3712,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/site-content-publication-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
         "section": "superpowers",
         "catalogued": true
