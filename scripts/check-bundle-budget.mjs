@@ -426,7 +426,7 @@ export function measureBudgetRoutes(measuredFiles, routeChunks, routeBudgets) {
  * Guards large server pages such as /mockups/development/review-state against unchecked growth.
  *
  * @param {string} serverAppDir
- * @param {Record<string, { rawBytesCeiling?: number; gzipBytesCeiling?: number; maxRawBytes?: number; maxGzipBytes?: number }>} [serverPagesConfig]
+ * @param {Record<string, { rawBytesCeiling?: number; gzipBytesCeiling?: number; maxRawBytes?: number; maxGzipBytes?: number; required?: boolean }>} [serverPagesConfig]
  * @param {{ existsSync?: (p: string) => boolean; readFileSync?: (p: string) => Buffer; readdirSync?: (p: string) => string[] }} [fsOptions]
  * @returns {Record<string, ServerHtmlPayloadMeasurement>}
  */
