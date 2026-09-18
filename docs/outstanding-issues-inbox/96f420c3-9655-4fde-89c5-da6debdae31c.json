@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "96f420c3-9655-4fde-89c5-da6debdae31c",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "read_site_content_health() canonicalises the whole frozen corpus several times in one call",
+    "detail": "COUNTED FROM THE SQL TEXT ON 2026-09-16, NOT MEASURED. Inside read_site_content_health() (supabase/schema.sql:15112-15342) there are four site_content_bootstrap_digest call sites — :15184 and :15185 in the bootstrap CTE (release_digest and dynamic_state_digest, which are equal for the bootstrap release) and :15285 and :15286 in the rollback CTE — plus two further whole-release aggregates via site_content_release_digest and a direct site_content_dynamic_state_digest. Each whole-corpus evaluation canonicalises 9,522,923 bytes and 164,820 JSON nodes through site_content_canonical_json, a recursive plpgsql function with one invocation per node, so each pass is roughly 165k plpgsql invocations and 55k planned aggregate subqueries. One investigation put the repeat count at five; four bootstrap_digest sites is what the current mirror contains, and how many are actually EVALUATED per call depends on planner materialisation and on which branches are reachable — nobody has measured it. THE FIX, and it is small: fold each PAIR that compares two stored columns to the same freshly computed digest into one evaluation (a scalar subquery or lateral computing the digest once and comparing both columns to it). No semantic change, roughly halves the work. RELATED: ledger #458SAC records the measured ~7s cost of this RPC against live and its 24 failed production deploys between 2026-09-11 and 2026-09-14, and asks for an EXPLAIN baseline; this row is the concrete mechanism and fix that #458SAC's next action was looking for, and the two should be read together. WHY IT IS NOT URGENT: the RPC is deliberately off the readiness path (src/lib/health-response.ts:148-158), so this is cost on the token-gated deep health probe and check:production-readiness, not on any user request. GATE: this is a SQL change, so it ships as a new forward migration and needs an approved merge window; run check:migration-role and check:function-grants, and regenerate the drift manifest. Context: docs/audit/2026-09-16-catalogue-read-latency.md.",
+    "source": "docs/audit/2026-09-16-catalogue-read-latency.md; Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D), catalogue read-latency investigation",
+    "issueUlid": "01M2P2PH3K08W0F7RMG48DBCXF"
+  }
+}

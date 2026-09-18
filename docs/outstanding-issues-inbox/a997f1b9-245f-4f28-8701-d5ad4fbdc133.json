@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a997f1b9-245f-4f28-8701-d5ad4fbdc133",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#5AA5CD",
+    "detail": "THE BLOCKING READ THIS ROW ASKED FOR HAS BEEN DONE, 2026-09-17/18. The row ends: 'NEXT: read the live site_content_releases row to establish which release the production database is serving and whether it still holds e4a1dd29. That single fact decides whether this is a mechanical refresh or a production-behaviour change needing a deploy plan. STOP: do not run bootstrap:refresh --write and merge without that read and an approved Supabase window.' The read: live holds exactly ONE release, e4a1dd29-14f6-556c-8fb7-f4f947d8b846, state=active, 843 records, release_digest 57f6ec90..., site_content_sync_state.initialized=false. SO PRODUCTION IS STILL SERVING THE RETAINED BOOTSTRAP e4a1dd29, and the answer to the row's own question is that regenerating the freeze WOULD be a production-behaviour change, not a mechanical refresh. The STOP therefore stands, and is now evidenced rather than precautionary. This is no longer hypothetical: PR #2814 did regenerate the frozen blobs, moved the identity to 91ceaa8d/860 records, and the post-merge live-drift run went red on the two constraints that embed the id; PR #2828 reverted it. See also the related stale row #E0FSGS, which was written from a measurement taken during that broken window and is being closed as disproven. THE CORRECT ROUTE for catalogue growth is the publication pipeline in docs/site-content-sync-runbook.md, never a freeze regeneration — the runbook says so explicitly. That pipeline has still never been run (zero publications, zero sync events, zero plans, zero receipts). Its review size is now measured in PR #2872.",
+    "baseRowFingerprint": "0efce8fbcc16336269daf2e88820afab8e0116bf28041f21a9a655605c9f5c9c"
+  }
+}
