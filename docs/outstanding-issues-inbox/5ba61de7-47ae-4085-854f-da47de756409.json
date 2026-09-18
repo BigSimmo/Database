@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5ba61de7-47ae-4085-854f-da47de756409",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "scripts/run-vitest.mjs ignores HEAVY_RUN_WAIT_TIMEOUT_MS, so the documented remedy for lock contention does not reach the unit step of verify:cheap",
+    "detail": "Verified 2026-09-18 by reading the three runners on main. scripts/run-heavy.mjs:47 and scripts/run-playwright.mjs:110 both read HEAVY_RUN_WAIT_TIMEOUT_MS and pass it to acquireHeavyRunLock as waitTimeoutMs; scripts/run-vitest.mjs:122 calls acquireHeavyRunLock with no waitTimeoutMs and no try/catch at all, so it takes the mode default and an admission refusal surfaces as an unhandled throw. Consequence: with several worktrees active, an operator told to re-run verify:cheap with HEAVY_RUN_WAIT_TIMEOUT_MS set gets lint and typecheck to queue for the machine-wide lock while the unit step still refuses immediately, and the only way through is a manual retry loop. Two agents hit this on 2026-09-18 with six worktrees running. Fails closed rather than open, so this is lost time and not a false pass, which is why it is P3. Next: give run-vitest the same waitTimeoutMs pass-through and the same ADMISSION_BUSY_EXIT 75 handling its two siblings already have, and extend tests/test-runner-safety.test.ts to cover the third runner.",
+    "source": "2026-09-18 session; observed by two parallel agents, then confirmed by reading the three runner scripts",
+    "issueUlid": "01M2TPK2PKM8SP5M5Z2T35D4PN"
+  }
+}
