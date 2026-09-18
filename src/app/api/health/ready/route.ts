@@ -7,24 +7,46 @@ export const dynamic = "force-dynamic";
 // #L29: Railway's healthcheck target, so it cannot be gated behind auth or a
 // durable per-request rate limit — the limiter itself would need a database
 // round trip to check, defeating the point of bounding unauthenticated
-// Supabase load. This route's response never depends on the caller (it always
-// forces the deep probe, allows it unauthenticated, and omits every
-// diagnostic field regardless of any token header — see the options below),
-// so a short in-process cache of the whole computed result is safe: a burst
-// of hits within the window shares one Supabase probe instead of paying for
-// one each.
+// Supabase load. This route's response never depends on the caller: it forces
+// the deep probe, allows it unauthenticated, and `probes: "readiness"` turns
+// every optional probe off regardless of any token header (see the contract in
+// health-response.ts). So a short in-process cache of the whole computed result
+// is safe, and a burst of hits within the window shares one Supabase probe
+// instead of paying for one each.
 const READY_CACHE_TTL_MS = 2_000;
-let cachedReady: { expiresAt: number; body: unknown; status: number } | null = null;
 
-export async function GET(request: Request) {
-  const now = Date.now();
-  if (cachedReady && cachedReady.expiresAt > now) {
-    return NextResponse.json(cachedReady.body, {
-      status: cachedReady.status,
-      headers: { "Cache-Control": "no-store" },
-    });
-  }
+type ReadySnapshot = { body: unknown; status: number };
 
+let cachedReady: (ReadySnapshot & { expiresAt: number }) | null = null;
+
+/**
+ * The single in-flight probe, so a burst that arrives on a COLD cache shares one
+ * Supabase round trip too.
+ *
+ * The cache alone only collapsed hits that arrived after a probe had already
+ * finished. Every hit during the probe itself — the window that matters, because
+ * it is exactly when the container is slow — was a fresh miss that started
+ * another one. Railway's healthcheck retries during a slow start, so the
+ * cold-container case was the one where this endpoint multiplied load rather
+ * than bounding it.
+ */
+let pendingReady: Promise<ReadySnapshot> | null = null;
+
+/**
+ * Each caller gets its own response object.
+ *
+ * `NextResponse` carries a body stream that can only be read once, so handing the
+ * same instance to several joined callers would leave all but the first with an
+ * already-consumed body. The cached snapshot is plain data for that reason.
+ */
+function respond(snapshot: ReadySnapshot) {
+  return NextResponse.json(snapshot.body, {
+    status: snapshot.status,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
+async function computeReadySnapshot(request: Request): Promise<ReadySnapshot> {
   // `probes: "readiness"` is the whole contract, and it replaced six `include*: false` lines.
   //
   // Those six were a deny-list, and a deny-list on this endpoint is a deploy outage waiting for
@@ -43,7 +65,51 @@ export async function GET(request: Request) {
     allowUnauthenticatedDeep: true,
     probes: "readiness",
   });
-  const body = (await response.clone().json()) as unknown;
-  cachedReady = { expiresAt: now + READY_CACHE_TTL_MS, body, status: response.status };
-  return response;
+  return { body: (await response.json()) as unknown, status: response.status };
+}
+
+export async function GET(request: Request) {
+  const cached = cachedReady;
+  if (cached && cached.expiresAt > Date.now()) return respond(cached);
+
+  // Join an in-flight probe rather than starting a second one.
+  const joined = pendingReady;
+  if (joined) {
+    try {
+      return respond(await joined);
+    } catch {
+      return unavailable();
+    }
+  }
+
+  const operation = computeReadySnapshot(request).then((snapshot) => {
+    // The window opens when the probe FINISHES, not when the request arrived.
+    // Measuring it from request start meant a probe slower than the interval
+    // produced an entry that was already expired on arrival — so the slower the
+    // container, the less the cache helped, which is backwards.
+    cachedReady = { ...snapshot, expiresAt: Date.now() + READY_CACHE_TTL_MS };
+    return snapshot;
+  });
+  pendingReady = operation;
+
+  try {
+    return respond(await operation);
+  } catch {
+    // Fail closed and coarsely. An unexpected throw is not evidence the container
+    // is healthy, and it must never fall back to a stale success: Railway reads
+    // the status code to decide whether to keep this container in rotation, and
+    // `scripts/lib/deployment-rag-activation.mjs` fails
+    // `check:production-readiness` on a non-2xx. Nothing about the error is
+    // echoed — a thrown dependency message is exactly the disclosure the 503 path
+    // in health-response.ts already refuses to make.
+    return unavailable();
+  } finally {
+    // Cleared on rejection as well, or one failed probe would pin every later
+    // caller to the same rejected promise for the life of the process.
+    if (pendingReady === operation) pendingReady = null;
+  }
+}
+
+function unavailable() {
+  return NextResponse.json({ status: "degraded" }, { status: 503, headers: { "Cache-Control": "no-store" } });
 }
