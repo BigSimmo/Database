@@ -541,14 +541,27 @@ describe("differential rowGovernance", () => {
     expect(governance.sourceStatus).toBe("outdated");
   });
 
-  it("re-evaluates outdated status when last_reviewed_at is newer than reference", () => {
+  it("CONTRACT CHANGED: a review date three days in the future does not clear outdated", () => {
+    // This previously expected "current". A mistyped year is the only way a
+    // review date lands meaningfully ahead of the reference, and it must not read
+    // as a fresh check. One day of tolerance covers clock skew; three days is a
+    // data error. registry-records.ts bounds the same way.
     const row = makeDifferentialRow({
       source_status: "outdated",
       last_reviewed_at: "2026-09-05T00:00:00.000Z",
     });
     const governance = rowGovernance(row, new Date("2026-09-02T00:00:00.000Z"));
-    expect(governance.sourceStatus).toBe("current");
+    expect(governance.sourceStatus).toBe("outdated");
+    // The date is still surfaced — it is reported, just not treated as evidence.
     expect(governance.lastReviewedAt).toBe("2026-09-05T00:00:00.000Z");
+  });
+
+  it("accepts a review dated within the future-date tolerance as a re-verification", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-02T18:00:00.000Z",
+    });
+    expect(rowGovernance(row, new Date("2026-09-02T00:00:00.000Z")).sourceStatus).toBe("current");
   });
 
   it("re-evaluates outdated status to review_due when review_due_at has passed", () => {
@@ -561,12 +574,78 @@ describe("differential rowGovernance", () => {
     expect(governance.sourceStatus).toBe("review_due");
   });
 
-  it("re-evaluates outdated status when an explicit re-verification timestamp is present", () => {
+  it("CONTRACT CHANGED: source.lastUpdated alone does not clear a supersession", () => {
+    // This previously expected "current", and it is the sharpest case. Supersession
+    // is a recorded clinical judgement about THIS RECORD. `source.lastUpdated`
+    // says when the upstream document changed — which is not evidence that anyone
+    // re-examined this record against it, and certainly not that the replacement
+    // content was reviewed. The old predicate accepted the mere EXISTENCE of the
+    // field.
     const row = makeDifferentialRow({
       source_status: "outdated",
       source: { label: "Updated Source", lastUpdated: "2026-09-05" },
     });
-    const governance = rowGovernance(row, new Date("2026-09-10T00:00:00.000Z"));
-    expect(governance.sourceStatus).toBe("current");
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("outdated");
+  });
+
+  it("keeps outdated when the only evidence is an old review date", () => {
+    // The other half of the old `hasValidReviewDate || …` predicate: any parseable
+    // date, however old, promoted a superseded record back to current.
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2019-01-01T00:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("outdated");
+  });
+
+  it("keeps outdated when the review date is implausibly far in the future", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2126-01-01T00:00:00.000Z",
+      review_due_at: null,
+    });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("outdated");
+  });
+
+  it("keeps outdated when the review date is unparseable", () => {
+    const row = makeDifferentialRow({ source_status: "outdated", last_reviewed_at: "not a date" });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("outdated");
+  });
+
+  it("clears outdated on a complete recorded review cycle, and still reports the lapse", () => {
+    // A review date together with a review-due date is what a governed review
+    // actually writes, so it counts — but a due date already past reads review_due,
+    // not current.
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-01T00:00:00.000Z",
+      review_due_at: "2026-09-05T00:00:00.000Z",
+    });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("review_due");
+  });
+
+  it("never promotes a cleared record whose source still says it was not checked", () => {
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      last_reviewed_at: "2026-09-01T00:00:00.000Z",
+      review_due_at: "2027-09-05T00:00:00.000Z",
+      source: { label: "Some Source", note: "not checked" },
+    });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z")).sourceStatus).toBe("unknown");
+  });
+
+  it("leaves clinical validation status untouched by any source-freshness decision", () => {
+    // Two separate axes: a source can go stale without un-approving the clinical
+    // review, and vice versa.
+    const row = makeDifferentialRow({
+      source_status: "outdated",
+      validation_status: "approved",
+      last_reviewed_at: "2019-01-01T00:00:00.000Z",
+    });
+    expect(rowGovernance(row, new Date("2026-09-10T00:00:00.000Z"))).toMatchObject({
+      sourceStatus: "outdated",
+      validationStatus: "approved",
+    });
   });
 });
