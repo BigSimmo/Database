@@ -1160,6 +1160,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/clinical-sign-off",
+        "file": "src/app/mockups/development/clinical-sign-off/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/out-of-area",
         "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
         "area": "mockup"
@@ -3705,6 +3710,11 @@
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/site-content-publication-handover.md",
+        "section": "root",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
