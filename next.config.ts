@@ -226,6 +226,12 @@ export default async function loadNextConfig() {
     authToken: process.env.SENTRY_AUTH_TOKEN,
     release: { name: resolveSentryRelease() },
     silent: process.env.NODE_ENV === "production",
+    // A diagnostic feature must never be able to block a clinical deploy. Without this, an expired
+    // token, a Sentry outage, or blocked egress fails `next build` inside the Docker build and so
+    // fails the Railway deployment of the app itself. Unreachable until an operator supplies the
+    // three build variables — which is precisely what the Dockerfile ARG block enables, so it
+    // became reachable in the same change that declared them.
+    errorHandler: () => {},
     // Browser telemetry is intentionally disabled by the repository privacy
     // policy, so there is no Sentry router-transition hook to register.
     suppressOnRouterTransitionStartWarning: true,
