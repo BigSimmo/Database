@@ -633,6 +633,10 @@ export const sourceAuthorityRegistry = [
     key: "centre-of-perinatal-excellence",
     codes: ["COPE"],
     publisher: "Centre of Perinatal Excellence",
+    // COPE prints the acronym as part of its own name, so a record that copies the
+    // masthead verbatim must still resolve to this entry rather than fall through
+    // to "publisher not in the register".
+    publisherAliases: ["COPE: Centre of Perinatal Excellence", "Centre of Perinatal Excellence (COPE)"],
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
@@ -674,6 +678,99 @@ export const sourceAuthorityRegistry = [
     jurisdictions: ["International", "Global"],
     scope: "international",
     tier: "supplementary",
+    catalogueIdentityOnly: true,
+  }),
+  /*
+   * Publishers the 2026-09 Therapy and Services handovers named that the register
+   * still could not place (ledger #RR3N4H and #YDENFM). Same reasoning, and the
+   * same safety setting, as the two blocks above: without an entry
+   * `acquisitionLedgerIssues` cannot derive a jurisdiction for the publisher, so
+   * every source it publishes is refused by the acquisition gate and can never
+   * leave D band — which is what left eight Australian sources held while the 14
+   * UK NICE guidelines were admitted, inverting the WA-first order the
+   * acquisition protocol requires.
+   *
+   * Every entry here is `catalogueIdentityOnly: true`. That is the whole safety
+   * argument, not a formality: `sourceAuthorityIsRuntimeClassifiable` excludes
+   * them from `registeredCodes`, and `sourceAuthorityForPublisher` /
+   * `sourceAuthorityForPublisherCode` return null for them, so none of them
+   * reaches the runtime classification that steers retrieval selection.
+   * Registering one outright would be a retrieval-behaviour change and needs the
+   * evaluation the RAG safeguards require.
+   * `tests/therapy-services-source-registration.test.ts` holds that boundary.
+   *
+   * None of these is a WA or Australian clinical authority for treatment guidance
+   * by virtue of being named here. Each is registered as the issuer of its own
+   * material and nothing wider. The Department of Communities and the City of
+   * Vincent are named agencies, not the "Government of Western Australia"
+   * catch-all the block above deliberately refused: a catch-all would resolve
+   * every WA government document to one authority, whereas these two resolve only
+   * their own.
+   */
+  authority({
+    key: "centre-for-clinical-interventions",
+    codes: ["CCI"],
+    publisher: "Centre for Clinical Interventions",
+    publisherAliases: [
+      "Centre for Clinical Interventions (CCI)",
+      "Centre for Clinical Interventions, North Metropolitan Health Service",
+    ],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "phoenix-australia",
+    codes: ["PHOENIXAU"],
+    publisher: "Phoenix Australia",
+    publisherAliases: [
+      "Phoenix Australia - Centre for Posttraumatic Mental Health",
+      "Phoenix Australia Centre for Posttraumatic Mental Health",
+      "Australian Centre for Posttraumatic Mental Health",
+    ],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "monash-university",
+    codes: ["MONASH"],
+    publisher: "Monash University",
+    publisherAliases: [
+      "Monash University Department of Psychiatry",
+      "Monash Centre for Health Research and Implementation",
+      "Monash Centre for Health Research and Implementation, Monash University",
+    ],
+    jurisdictions: nationalJurisdictions,
+    scope: "australian_national",
+    tier: "australian_national",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "wa-department-of-communities",
+    codes: ["DOCWA"],
+    publisher: "Department of Communities (WA)",
+    publisherAliases: [
+      "Department of Communities",
+      "Department of Communities Western Australia",
+      "WA Department of Communities",
+      "Government of Western Australia Department of Communities",
+    ],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    catalogueIdentityOnly: true,
+  }),
+  authority({
+    key: "city-of-vincent",
+    codes: ["VINCENT"],
+    publisher: "City of Vincent",
+    publisherAliases: ["The City of Vincent"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
     catalogueIdentityOnly: true,
   }),
 ] satisfies SourceAuthorityDefinition[];
