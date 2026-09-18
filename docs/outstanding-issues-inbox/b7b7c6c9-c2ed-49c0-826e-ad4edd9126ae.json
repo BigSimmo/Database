@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b7b7c6c9-c2ed-49c0-826e-ad4edd9126ae",
+  "createdOn": "2026-09-17",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "pr-policy treats the differential data as clinical-risk but not the code that interprets it",
+    "detail": "scripts/pr-policy.mjs classifyPullRequestFiles marks data/differentials-snapshot.json as a clinical-risk surface, but src/lib/differential-records.ts is not matched by clinicalRiskPatterns. That file decides whether a stored 'outdated' record is presented as current or outdated, so the governed data is protected and the code deriving its clinical status is not. Found while fixing the rowGovernance re-verification defect (PR for claude/differential-governance). Not fixed in that PR deliberately: widening clinicalRiskPatterns changes which future PRs are held for governance preflight, which is a governance-surface decision for the owner, not a side effect of a behaviour fix. Options are (a) add the three record-governance modules to clinicalRiskPatterns, (b) add only differential-records.ts, or (c) accept the asymmetry and record why.",
+    "source": "Nine-issue packet review, 2026-09-17",
+    "issueUlid": "01M2RFBX2E86E34TYWAMD86M01"
+  }
+}
