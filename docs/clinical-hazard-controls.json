@@ -12,15 +12,8 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical safety owner",
-      "controlSymbols": [
-        "extractClinicalValueAtoms",
-        "verifyAnswerNumbers",
-        "applyNumericVerification"
-      ],
-      "controlPaths": [
-        "src/lib/answer-verification.ts",
-        "src/lib/rag/rag-claim-support.ts"
-      ],
+      "controlSymbols": ["extractClinicalValueAtoms", "verifyAnswerNumbers", "applyNumericVerification"],
+      "controlPaths": ["src/lib/answer-verification.ts", "src/lib/rag/rag-claim-support.ts"],
       "tests": [
         "tests/answer-verification.test.ts",
         "tests/rag-content-accuracy.test.ts",
@@ -35,18 +28,9 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Source governance owner",
-      "controlSymbols": [
-        "sourceGovernanceWarnings",
-        "deriveTrust"
-      ],
-      "controlPaths": [
-        "src/lib/source-governance.ts",
-        "src/lib/answer-render-policy.ts"
-      ],
-      "tests": [
-        "tests/source-governance.test.ts",
-        "tests/answer-render-policy.test.ts"
-      ],
+      "controlSymbols": ["sourceGovernanceWarnings", "deriveTrust"],
+      "controlPaths": ["src/lib/source-governance.ts", "src/lib/answer-render-policy.ts"],
+      "tests": ["tests/source-governance.test.ts", "tests/answer-render-policy.test.ts"],
       "residualRisk": "Repository controls surface review state and cap high-risk trust, but source currency and clinical validation require human authority."
     },
     {
@@ -56,16 +40,9 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical UX owner",
-      "controlSymbols": [
-        "formatAnswerRenderCopyText"
-      ],
-      "controlPaths": [
-        "src/lib/answer-render-policy.ts"
-      ],
-      "tests": [
-        "tests/answer-render-policy.test.ts",
-        "tests/ward-output.test.ts"
-      ],
+      "controlSymbols": ["formatAnswerRenderCopyText"],
+      "controlPaths": ["src/lib/answer-render-policy.ts"],
+      "tests": ["tests/answer-render-policy.test.ts", "tests/ward-output.test.ts"],
       "residualRisk": "Canonical answer copy preserves table and safety context; every secondary quote/export path is not asserted by one end-to-end clinical acceptance test."
     },
     {
@@ -75,19 +52,9 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
-      "controlSymbols": [
-        "assessAndEnforceClaimSupport",
-        "collectSourceCandidates"
-      ],
-      "controlPaths": [
-        "src/lib/rag/rag-claim-support.ts",
-        "src/lib/answer-render-policy.ts"
-      ],
-      "tests": [
-        "tests/rag-claim-support.test.ts",
-        "tests/answer-render-policy.test.ts",
-        "tests/rag-trust.test.ts"
-      ],
+      "controlSymbols": ["assessAndEnforceClaimSupport", "collectSourceCandidates"],
+      "controlPaths": ["src/lib/rag/rag-claim-support.ts", "src/lib/answer-render-policy.ts"],
+      "tests": ["tests/rag-claim-support.test.ts", "tests/answer-render-policy.test.ts", "tests/rag-trust.test.ts"],
       "residualRisk": "Deterministic claim support and provenance labels do not prove that a clinically plausible source or claim is true."
     },
     {
@@ -97,14 +64,8 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Answer quality owner",
-      "controlSymbols": [
-        "deriveTrust",
-        "deriveConfidence"
-      ],
-      "controlPaths": [
-        "src/lib/answer-render-policy.ts",
-        "src/lib/rag/rag-answer-support.ts"
-      ],
+      "controlSymbols": ["deriveTrust", "deriveConfidence"],
+      "controlPaths": ["src/lib/answer-render-policy.ts", "src/lib/rag/rag-answer-support.ts"],
       "tests": [
         "tests/answer-render-policy.test.ts",
         "tests/rag-score.test.ts",
@@ -119,18 +80,9 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Application security owner",
-      "controlSymbols": [
-        "neutralizeIdentityField",
-        "fenceSourceEvidence",
-        "neutralizePromptInstructions"
-      ],
-      "controlPaths": [
-        "src/lib/rag/rag-source-block.ts",
-        "src/lib/source-text-sanitizer.ts"
-      ],
-      "tests": [
-        "tests/rag-injection.test.ts"
-      ],
+      "controlSymbols": ["neutralizeIdentityField", "fenceSourceEvidence", "neutralizePromptInstructions"],
+      "controlPaths": ["src/lib/rag/rag-source-block.ts", "src/lib/source-text-sanitizer.ts"],
+      "tests": ["tests/rag-injection.test.ts"],
       "residualRisk": "Prompt-facing identity fields are neutralized and evidence is fenced; faithful-but-wrong or corrupted clinical source content remains an open clinical-truth hazard."
     }
   ],
@@ -142,9 +94,7 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Clinical governance authority",
-      "evidenceReferences": [
-        "docs/clinical-hazard-analysis.md"
-      ],
+      "evidenceReferences": ["docs/clinical-hazard-analysis.md"],
       "residualRisk": "Static tests establish code behavior, not clinical truth, source authority, or clinical adequacy."
     },
     {
@@ -154,10 +104,7 @@
       "reviewedAt": "2026-08-23",
       "reviewExpiresAt": "2026-11-23",
       "owner": "Authorised risk owner",
-      "evidenceReferences": [
-        "docs/clinical-hazard-analysis.md",
-        "docs/clinical-governance.md"
-      ],
+      "evidenceReferences": ["docs/clinical-hazard-analysis.md", "docs/clinical-governance.md"],
       "residualRisk": "No authorised external clinical or regulatory risk acceptance is recorded."
     },
     {
@@ -181,10 +128,7 @@
       "reviewedAt": "2026-09-18",
       "reviewExpiresAt": "2026-12-18",
       "owner": "Clinical governance authority",
-      "evidenceReferences": [
-        "src/data/dictionary-source-dispositions.json",
-        "src/lib/source-authority-registry.ts"
-      ],
+      "evidenceReferences": ["src/data/dictionary-source-dispositions.json", "src/lib/source-authority-registry.ts"],
       "residualRisk": "Four dictionary sources are held because the publisher field names a description rather than an agency: WA-MHAS 'Government of Western Australia', WA-AHLO 'WA Health service providers', WA-MHERL 'Mental Health Commission / WA Health' (two bodies in one field) and 4AT-OFFICIAL '4AT developers'. Establishing the real agency needs the four canonical pages read, which this environment's network policy blocks, so they stay held. Two findings do not need those pages and need a decision. (1) The register contradicts itself: source-authority-registry.ts registers 'Government of Western Australia' at line 509 (catalogue-identity only, added 2026-09-16 by commit 255b9c1fe) while the comment at lines 558-564 still states that string was deliberately not registered. One of the two is wrong and the comment misleads anyone reading it. (2) Correcting any publisher only clears the acquisition gate if the new name resolves in that register, and the register is a protected retrieval-ranking surface, so a metadata correction is also a retrieval change. Neither was edited here."
     },
     {
@@ -194,9 +138,7 @@
       "reviewedAt": "2026-09-18",
       "reviewExpiresAt": "2026-12-18",
       "owner": "Clinical governance authority",
-      "evidenceReferences": [
-        "src/components/clinical-dashboard/patient-profile-panel.tsx"
-      ],
+      "evidenceReferences": ["src/components/clinical-dashboard/patient-profile-panel.tsx"],
       "residualRisk": "The patient-profile number fields (age, eGFR, serum creatinine, creatinine clearance, QTc) can display a value that disagrees with the value actually stored and used by the calculators. Every keystroke writes to a shared store, a partial entry below the field minimum is stored as null, and the panel is mounted three times at once over that one store. The standing clinical question, independent of any fix: what should a clinical number field do with a partial or out-of-range entry, and is it ever acceptable for the number on screen to differ from the number a dose calculation uses? Until that is answered, a displayed creatinine clearance or QTc must not be treated as confirmation that the stored value is the same."
     }
   ]

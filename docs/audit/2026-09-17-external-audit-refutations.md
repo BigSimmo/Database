@@ -42,11 +42,11 @@ Refuted, and it should not be re-checked. `truncateAtSafeBoundary`
 (`src/lib/clinical-safety.ts:77-88`) drops a whole numeric token rather than cutting inside one. It
 was fixed twice since audit L111 and is pinned by two committed tests.
 
-The *other* half of C4 is real and is tracked separately — see "Real, and being acted on" below.
+The _other_ half of C4 is real and is tracked separately — see "Real, and being acted on" below.
 
 ### 4. Railway webhook secret not timing-safe (part of its C11) — re-verified 2026-09-18
 
-It is timing-safe. `src/lib/webhooks/secret-auth.ts` gates on byte length (line 14) *before*
+It is timing-safe. `src/lib/webhooks/secret-auth.ts` gates on byte length (line 14) _before_
 calling `timingSafeEqual` (line 15), which is the comparison a crafted multi-byte token would
 otherwise exploit. A header is consulted (line 28) before the query token (line 37).
 
