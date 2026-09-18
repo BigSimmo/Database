@@ -762,6 +762,18 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   own "Other status" section, verbatim, rather than dropping it.
   `/mockups/development/clinical-answer-failures` — open ledger items that name one of the
   repository's clinical eval questions by case id, presented as references rather than as verdicts.
+  `/mockups/development/clinical-sign-off` (`clinical-sign-off/page.tsx`, Server Component over
+  `src/lib/developer-area/sign-off-queue.ts`) — every clinical record this repository holds on disk
+  that is waiting for a person to sign it off, read live from the seven files that already hold
+  them: WA MHA form guidance, formulation mechanisms, differentials, the dictionary editorial
+  layer, specifiers, Therapy Compass records, and captured source acquisitions. Read-only: it
+  publishes, approves and unhides nothing. It deliberately introduces no shared review-status type
+  — the seven families use five unrelated vocabularies (`drafted`, `clinical_review_required`,
+  `unverified`, `pending`/`publicationAllowed`, `clinician-review-pending`, `needs_review`,
+  `candidate`/`validationStatus`), each keeps its own, and every row prints its source's word
+  verbatim beside the display label produced at that boundary. It is the only surface in the app
+  that renders the 333 dictionary sense drafts, whose sole other importer is a contract test; they
+  stay unpublished, and `assertNoDraftIsPublished` remains the gate.
   `/mockups/development/corpus-health` (`corpus-health/page.tsx`, Server Component) — the library at
   rest rather than in flight: counts by status, documents that finished `indexed` with zero chunks,
   failures with the recorded reason, and the extraction-quality distribution. It authenticates via
@@ -789,7 +801,9 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `tests/repo-awareness-snapshot.test.ts`, `tests/developer-panel-page-shell.dom.test.tsx`,
   `tests/developer-routes-page.dom.test.tsx`, `tests/developer-documentation-page.dom.test.tsx`,
   `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`,
-  `tests/developer-ingestion-page.dom.test.tsx`.
+  `tests/developer-ingestion-page.dom.test.tsx`, `tests/sign-off-queue.test.ts` (pins the per-family
+  sign-off counts so the panel cannot silently report zero, and asserts the five review
+  vocabularies stay unmerged).
 
 ### Care Plan (`src/app/mockups/care-plan/`, `src/components/care-plan/mockups/`)
 
