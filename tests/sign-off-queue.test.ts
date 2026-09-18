@@ -4,6 +4,7 @@ import { loadSignOffQueue, type SignOffFamilyId } from "@/lib/developer-area/sig
 import { assertNoDraftIsPublished, dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
+import { loadSpecifiersContent } from "@/lib/specifiers-content";
 
 /**
  * The failure this file exists to prevent is a silent zero.
@@ -28,7 +29,11 @@ const EXPECTED: Record<SignOffFamilyId, number> = {
   differentials: 232,
   // 333 sense drafts + 96 definition reviews.
   dictionary: 429,
-  specifiers: 585,
+  // 585 per-disorder catalogue items + the 18 universal specifiers, which carry
+  // the same `clinician-review-pending` state on the same field but sit outside
+  // the catalogue and outside `publicSpecifierRecords()`, so they are listed
+  // unlinked.
+  specifiers: 603,
   therapy: 205,
   // 77 records carry disposition `candidate`; 75 of those are still
   // `validationStatus: unverified` and so appear in acquisitionReviewQueue().
@@ -118,6 +123,24 @@ describe("clinical sign-off queue", () => {
     expect(nativeStatusFor("specifiers")).toContain("clinician-review-pending");
     expect(nativeStatusFor("therapy")).toBe("needs_review");
     expect(nativeStatusFor("sources")).toContain("validationStatus: unverified");
+  });
+
+  it("lists the universal specifiers the family note claims are pending, unlinked because no route renders one", () => {
+    // The family note tells the reader how many universals are pending. Before
+    // this guard the reader was told 18 and shown none of them, which is the one
+    // way a sign-off queue can mislead: describing records it does not list.
+    const content = loadSpecifiersContent();
+    const specifiers = queue.families.find((family) => family.id === "specifiers")!;
+    const universals = specifiers.rows.filter((row) => row.key.startsWith("specifier-universal:"));
+
+    expect(universals.length).toBe(content.universalSpecifiers.length);
+    expect(universals.length).toBe(content.stats.universalSpecifiers);
+    expect(specifiers.rows.length).toBe(content.stats.itemsPendingClinicianReview + universals.length);
+    // Unlinked on purpose: publicSpecifierRecords() is curated records plus
+    // specifierCatalogItems(), and a universal is in neither, so /specifiers/<slug>
+    // would not resolve for one.
+    expect(universals.every((row) => row.href === null)).toBe(true);
+    expect(universals.every((row) => row.nativeStatus.includes("clinician-review-pending"))).toBe(true);
   });
 
   it("gives every row an id, a title, a sign-off requirement and either a real route or none", () => {

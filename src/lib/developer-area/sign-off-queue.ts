@@ -238,14 +238,34 @@ function specifiersFamily(): SignOffFamily {
         "A clinician confirms the specifier against current DSM-5-TR / ICD-11 materials; the auto-generated definition is withheld until then.",
       href: `/specifiers/${item.slug}`,
     }));
+  // The universal specifiers sit outside the per-disorder catalogue and carry
+  // the same `clinician-review-pending` state on the same field. The family note
+  // already told the reader they were pending, so omitting them made this page
+  // describe records it did not list — the one failure mode a sign-off queue
+  // cannot have. They are deliberately unlinked: `publicSpecifierRecords()` is
+  // built from curated records plus `specifierCatalogItems()`, and a universal is
+  // in neither, so `/specifiers/<slug>` would not resolve for one.
+  const universals = content.universalSpecifiers
+    .filter((specifier) => specifier.review.clinicianReviewStatus !== "clinician-reviewed")
+    .map<SignOffRow>((specifier) => ({
+      family: "specifiers",
+      key: `specifier-universal:${specifier.review.rowKey}`,
+      id: specifier.review.rowKey,
+      title: `Universal · ${specifier.title}`,
+      nativeStatus: `${specifier.review.clinicianReviewStatus} (source: ${specifier.review.sourceVerificationStatus})`,
+      statusLabel: "Clinician review pending",
+      requires:
+        "A clinician confirms the specifier against current DSM-5-TR / ICD-11 materials; it applies across disorders, so a wrong reading here carries further than a single catalogue entry.",
+      href: null,
+    }));
   return {
     id: "specifiers",
     name: "Specifiers",
     source: "data/specifiers-content.json",
     nativeField: "review.clinicianReviewStatus",
-    note: `The export's own stats record ${content.stats.itemsPendingClinicianReview} specifier items pending clinician review, and a further ${content.universalSpecifiers.length} universal specifiers carry the same pending status outside the per-disorder catalogue. Specifiers is an aide-memoire reference surface, not automated clinical decision support.`,
-    unrouted: false,
-    rows: items,
+    note: `The export's own stats record ${content.stats.itemsPendingClinicianReview} specifier items pending clinician review, and a further ${content.universalSpecifiers.length} universal specifiers carry the same pending status outside the per-disorder catalogue. Both are listed here; the universals are the rows with no link, because no route renders one. Specifiers is an aide-memoire reference surface, not automated clinical decision support.`,
+    unrouted: true,
+    rows: [...items, ...universals],
   };
 }
 
