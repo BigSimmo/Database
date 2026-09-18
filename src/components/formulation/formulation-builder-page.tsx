@@ -29,17 +29,17 @@ import { InformationPageHeader } from "@/components/information-page-shell";
 import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 
 import {
-  findFormulationMechanism,
+  findFormulationMechanismSummary,
   formulationDomains,
   formulationDraftFor,
   formulationQualityPrompts,
   formulationSectionsForTemplate,
   formulationTemplates,
   normalizeMechanismSelection,
-  searchFormulationMechanisms,
+  searchFormulationMechanismIndex,
   suggestionsForFormulationSection,
-  type FormulationMechanism,
-} from "@/lib/formulation";
+  type FormulationMechanismSummary,
+} from "@/lib/formulation-mechanism-index";
 
 const builderSteps = [
   { id: "select", label: "Select", description: "Mechanisms" },
@@ -107,7 +107,7 @@ function BuilderThread({
   templateId,
   completedQuality,
 }: {
-  mechanisms: FormulationMechanism[];
+  mechanisms: FormulationMechanismSummary[];
   templateId: string;
   completedQuality: number;
 }) {
@@ -218,18 +218,18 @@ export function FormulationBuilderPage({
   const selectedMechanisms = useMemo(
     () =>
       selectedIds
-        .map((id) => findFormulationMechanism(id))
-        .filter((mechanism): mechanism is FormulationMechanism => Boolean(mechanism)),
+        .map((id) => findFormulationMechanismSummary(id))
+        .filter((mechanism): mechanism is FormulationMechanismSummary => Boolean(mechanism)),
     [selectedIds],
   );
   const visibleMechanisms = useMemo(() => {
     // Cleared live query should restore the full browse catalogue immediately.
     if (!query.trim()) {
-      return searchFormulationMechanisms("", { domain }).map((result) => result.mechanism);
+      return searchFormulationMechanismIndex("", { domain }).map((result) => result.mechanism);
     }
     // Empty deferred while live query has text would score every mechanism.
     if (!deferredQuery.trim()) return [];
-    return searchFormulationMechanisms(deferredQuery, { domain, interpretNaturalLanguage: true }).map(
+    return searchFormulationMechanismIndex(deferredQuery, { domain, interpretNaturalLanguage: true }).map(
       (result) => result.mechanism,
     );
   }, [domain, deferredQuery, query]);
