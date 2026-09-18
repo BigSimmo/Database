@@ -22,7 +22,8 @@ import {
  * If one of these fails, do not relax it.
  */
 
-const realHeader = "auth;dur=181, ratelimit;dur=64, scope;dur=402, search;dur=1130, rpc;dur=880, generation;dur=18940, answer;dur=20120, total;dur=20770";
+const realHeader =
+  "auth;dur=181, ratelimit;dur=64, scope;dur=402, search;dur=1130, rpc;dur=880, generation;dur=18940, answer;dur=20120, total;dur=20770";
 
 describe("parseServerTiming", () => {
   it("reads the header /api/answer actually emits", () => {

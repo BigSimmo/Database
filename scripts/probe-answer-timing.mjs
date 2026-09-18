@@ -132,7 +132,10 @@ export function summariseAnswerTiming(entries, clientTotalMs = null) {
   // The dominant phase is chosen among the three that do not overlap: everything before the
   // search, the search itself, and writing the answer.
   const candidates = [
-    { label: "everything before the search starts", durMs: rows.some((row) => row.group === "preamble") ? preambleMs : null },
+    {
+      label: "everything before the search starts",
+      durMs: rows.some((row) => row.group === "preamble") ? preambleMs : null,
+    },
     { label: "searching the documents", durMs: value("search") },
     { label: "writing the answer", durMs: value("generation") },
   ].filter((candidate) => typeof candidate.durMs === "number");
@@ -168,7 +171,10 @@ export function renderAnswerTimingReport(summary) {
     lines.push(`${label.padEnd(46)}${seconds(row.durMs).padStart(8)}  ${percent(row.share)}`);
   }
   if (typeof summary.clientTotalMs === "number") {
-    lines.push("", `${"Measured from here, including network".padEnd(46)}${seconds(summary.clientTotalMs).padStart(8)}`);
+    lines.push(
+      "",
+      `${"Measured from here, including network".padEnd(46)}${seconds(summary.clientTotalMs).padStart(8)}`,
+    );
     if (typeof summary.overheadMs === "number") {
       lines.push(`${"  of which network and queueing".padEnd(46)}${seconds(summary.overheadMs).padStart(8)}`);
     }
