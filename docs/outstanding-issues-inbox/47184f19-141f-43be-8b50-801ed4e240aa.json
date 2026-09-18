@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "47184f19-141f-43be-8b50-801ed4e240aa",
+  "createdOn": "2026-09-18",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Three differential presentation workflows carry an id identical to a diagnosis slug, so any surface keying both families on one identifier silently drops three records",
+    "detail": "Verified 2026-09-18 against data/differentials-snapshot.json on main (67b86374e): diagnoses are keyed by slug, presentations by id, and three values collide across the two families - substance-intoxication, substance-withdrawal and depression. There are 201 diagnoses and 31 presentations, so a list keyed on that one identifier renders 229 rows under a heading that says 232, and the reader is given no sign that three records are missing. Found while building the clinical sign-off queue (PR #2883), which works around it by giving each row a key distinct from its record id and pinning uniqueness in a test; the collision in the data itself is untouched. Next: decide whether the two families should share an identifier namespace at all, and if so which one yields, then fix the export rather than each consumer.",
+    "source": "Found and independently reproduced during the 2026-09-18 outstanding-issues session; workaround shipped in PR #2883",
+    "issueUlid": "01M2TPJCX5HNJF5XAC54MATHAJ"
+  }
+}
