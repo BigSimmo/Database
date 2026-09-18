@@ -298,6 +298,13 @@ Each row carries its stable `rowKey`, which is how an entry is addressed in the 
 - [Insight] With poor insight `specifier:icd:olfactory-reference-disorder:insight:with-poor-insight`
 - [Insight] With absent insight `specifier:icd:olfactory-reference-disorder:insight:with-absent-insight`
 
+## The first entry is drafted
+
+The "with catatonia" entry — the recommended starting point, and the most reused of the 17 — is laid
+out field by field in [`specifier-entry-worksheet-with-catatonia.md`](specifier-entry-worksheet-with-catatonia.md),
+with all nine disorders enumerated and every clinical statement left blank. The worked example below
+explains the method; the worksheet is the method applied to a specific entry.
+
 ## Worked example — Major Depressive Disorder, "With mixed features"
 
 `specifier:dep:major-depressive-disorder:episode-specifiers:with-mixed-features`
