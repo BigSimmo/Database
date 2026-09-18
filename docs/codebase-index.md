@@ -762,7 +762,8 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   own "Other status" section, verbatim, rather than dropping it.
   `/mockups/development/clinical-answer-failures` — open ledger items that name one of the
   repository's clinical eval questions by case id, presented as references rather than as verdicts.
-  `/mockups/development/clinical-sign-off` (`clinical-sign-off/page.tsx`, Server Component over
+  `/mockups/development/clinical-sign-off` (`clinical-sign-off/page.tsx`, a thin async wrapper over
+  the synchronous `src/components/developer-area/hub/sign-off-queue-page-content.tsx`, itself over
   `src/lib/developer-area/sign-off-queue.ts`) — every clinical record this repository holds on disk
   that is waiting for a person to sign it off, read live from the seven files that already hold
   them: WA MHA form guidance, formulation mechanisms, differentials, the dictionary editorial
@@ -773,7 +774,12 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `candidate`/`validationStatus`), each keeps its own, and every row prints its source's word
   verbatim beside the display label produced at that boundary. It is the only surface in the app
   that renders the 333 dictionary sense drafts, whose sole other importer is a contract test; they
-  stay unpublished, and `assertNoDraftIsPublished` remains the gate.
+  stay unpublished, and `assertNoDraftIsPublished` remains the gate. One family is
+  shown at a time (`?family=`), 50 records at a time within it (`?page=`), both
+  sliced server-side in `sign-off-queue-page-content.tsx` following the
+  `ReviewStatePageContent` precedent — rendering all 1,592 rows produced a 4.66 MB
+  response. Every family's total stays on screen on every page, and the route
+  carries a `serverPages` ceiling in `bundle-budget.json`.
   `/mockups/development/corpus-health` (`corpus-health/page.tsx`, Server Component) — the library at
   rest rather than in flight: counts by status, documents that finished `indexed` with zero chunks,
   failures with the recorded reason, and the extraction-quality distribution. It authenticates via
@@ -803,7 +809,9 @@ freshness.ts` is the label-agnostic content-age helper both the ledger and the r
   `tests/developer-test-health-page.dom.test.tsx`, `tests/developer-review-state-page.dom.test.tsx`,
   `tests/developer-ingestion-page.dom.test.tsx`, `tests/sign-off-queue.test.ts` (pins the per-family
   sign-off counts so the panel cannot silently report zero, and asserts the five review
-  vocabularies stay unmerged).
+  vocabularies stay unmerged), `tests/developer-sign-off-page.dom.test.tsx` (pins that one family's
+  page of rows is rendered rather than the whole queue, and that every family's total stays visible
+  while it is).
 
 ### Care Plan (`src/app/mockups/care-plan/`, `src/components/care-plan/mockups/`)
 
