@@ -1000,6 +1000,26 @@ describe("measureServerHtmlPayloads", () => {
     expect(measurement.reason).toContain("exceeds");
   });
 
+  it("resolves a route that Next emitted inside a route group", () => {
+    // `/sources/search` is built to `(search-app)/sources/search/page.js`: Next
+    // strips route groups from the URL but keeps them in the output tree. Almost
+    // every route in this app lives in a group, so a measurer that only looked
+    // at the flat path would report every configured route as missing.
+    const results = measureServerHtmlPayloads(
+      "app",
+      { "/sources/search": { rawBytesCeiling: 5000, gzipBytesCeiling: 1000, required: true } },
+      {
+        existsSync: (p) => p === path.join("app", "(search-app)", "sources", "search", "page.js"),
+        readFileSync: () => Buffer.from("export default function Page() { return null; }"),
+        readdirSync: () => ["(search-app)", "api", "sources"],
+      },
+    );
+    const measurement = results["/sources/search"];
+    expect(measurement.found).toBe(true);
+    expect(measurement.status).toBe("ok");
+    expect(measurement.file).toBe(path.join("app", "(search-app)", "sources", "search", "page.js"));
+  });
+
   it("finds server page artifact when only page.js candidate exists", () => {
     const results = measureServerHtmlPayloads(
       "app",

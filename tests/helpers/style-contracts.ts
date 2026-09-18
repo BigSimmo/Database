@@ -384,6 +384,10 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Answer suggestions and smart search.
   "answer-suggestion-chip": "answer suggestion rail — no effect contract yet (#094)",
   "answer-suggestion-chip-icon": "answer suggestion rail — no effect contract yet (#094)",
+  "answer-suggestion-scroll-control":
+    "one-line rail edge control — its absolute positioning is what keeps a 48px target out of the 32px rail, and ui-overlap measures exactly that (tap floor, and the composer still 160px with the control rendered); no computed-effect contract yet (#094)",
+  "answer-suggestion-scroll-control-face":
+    "one-line rail edge control face — painted chip inside the tap target; visibility and label covered by ui-overlap, effect not contracted (#094)",
   "search-example-ticker": "home example ticker line — reduced-motion behaviour covered by ui-accessibility",
   "search-example-ticker-query": "home example ticker line — reduced-motion behaviour covered by ui-accessibility",
   "smart-search-phone-ticker": "smart-search ticker title line — no contract yet (#094)",

@@ -1032,7 +1032,7 @@ tests to run.
 
 Registered public components: 55
 Components with a valid design-sync preview: 55
-Components with product imports: 43
+Components with product imports: 44
 
 This generated snapshot is a local source-derived inventory. It does not assert remote design-project publication.
 
@@ -1069,7 +1069,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `OverlayRoot`            | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PageHeader`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              16 |
-| `Pagination`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
+| `Pagination`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `PanelHeading`           | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               2 |
 | `Progress`               | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `Quantity`               | answer   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
