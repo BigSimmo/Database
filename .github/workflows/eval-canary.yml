@@ -199,6 +199,22 @@ jobs:
 
       # Dispatch failures matter as much as scheduled ones — a red dispatch is usually one
       # half of a canary pair gating a behaviour change, so it must not fail silently.
+      #
+      # TWO OUTCOMES, NOT ONE (ledger #SXPQ0A). `failure()` has always covered a run that
+      # COMPLETED and then missed a blocking threshold — `eval:quality --fail-on-threshold` sets
+      # exit code 1 (scripts/eval-quality.ts), `run-eval-safe.mjs` propagates it, and the step runs
+      # under `set -o pipefail`, so the job goes red and this step fires. What was missing is that
+      # the issue then said "evaluation did not complete" about an evaluation that completed
+      # perfectly and reported a real quality verdict. Measured: the answer-quality subset has
+      # failed the same three cases (clozapine-monitoring, clozapine-monitoring-paraphrase,
+      # nocc-requirements) on every run since 2026-08-23 while golden retrieval passed throughout,
+      # and #SXPQ0A records that as "nothing tracks it" — because the one rolling thread was
+      # titled as an infrastructure outage and read as one.
+      #
+      # So the title is now derived from the failure class the analyzer already computes, and the
+      # two classes get separate threads. The word "regression" is deliberately still absent from
+      # every title: PR #629 removed it precisely because provider/quota failures were being filed
+      # as retrieval regressions, and `tests/eval-canary-workflow.test.ts` pins that.
       - name: Open or update canary failure issue
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch')
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -243,6 +259,36 @@ jobs:
               answer_targeting: "${{ steps.answer_targeting.outcome }}",
             };
             const trigger = context.eventName === "schedule" ? "Weekly (scheduled)" : "Dispatched";
+
+            // A run that reached a verdict and failed it is a different event from a run that
+            // never got there, and it needs a different thread, a different title and a different
+            // first move. `probable-regression` is the analyzer's name for "a completed evaluation
+            // reported failing cases or blocking threshold failures" — it is only reached after
+            // the environment and provider/quota/auth branches have been ruled out, which is what
+            // makes it safe to assert completion in the title.
+            const completed = diagnosis.category === "probable-regression";
+            const title = completed
+              ? "Eval canary failure: a completed evaluation missed its blocking threshold"
+              : "Eval canary failure: evaluation did not complete";
+
+            // Name the half that failed. Golden retrieval and the answer-quality subset have
+            // different owners and different stop rules, and #SXPQ0A exists because a red canary
+            // that never said which one was failing read as "retrieval has regressed" when
+            // retrieval was passing every case throughout.
+            const half =
+              stepOutcomes.golden_retrieval === "failure"
+                ? "golden retrieval (live corpus)"
+                : stepOutcomes.answer_quality === "failure"
+                  ? "the answer-quality subset (live generation)"
+                  : "a step before either evaluation ran";
+
+            // The blocking-failure list from the answer-quality report, verbatim. Without it the
+            // issue records that a threshold failed but not which cases, which is the difference
+            // between a tracked defect and a recurring alarm.
+            const blocking = failureText
+              .match(/\nBlocking failures:\s*\n([\s\S]*?)(?=\nAccepted metadata-debt failures:|\nAll threshold failures:|$)/)?.[1]
+              ?.trim();
+
             const body = [
               `${trigger} eval canary failed on ${new Date().toISOString()}.`,
               "",
@@ -250,31 +296,55 @@ jobs:
               "",
               `Failure class: ${diagnosis.category} (${diagnosis.confidence})`,
               `Reason: ${diagnosis.reason}`,
+              `Failing half: ${half}`,
               `Step outcomes: ${JSON.stringify(stepOutcomes)}`,
               "",
-              "Triage order (docs/observability-slos.md §3): inspect the failed step first.",
-              "Resolve provider quota/auth/config failures before rerunning; for completed evals,",
-              "check hybrid_rpc_errors and `npm run check:indexing`, then investigate corpus or code drift.",
-              "Do not bisect or revert code until provider health and the failure class are confirmed.",
+              completed
+                ? [
+                    "**The evaluation completed.** This is a quality verdict, not an outage: the run",
+                    "reached a threshold and missed it. Do not rerun hoping for green, and do not treat",
+                    "provider health as the first suspect.",
+                    "",
+                    blocking ? `### Blocking threshold failures\n\n\`\`\`\n${blocking}\n\`\`\`` : "",
+                    blocking
+                      ? ""
+                      : "The blocking-failure list could not be read from the eval logs, so this issue records that a threshold failed but not which cases. Read the `eval-canary-output` artifact on the run above.",
+                    "STOP — do not relax the threshold, add `acceptSourceOnly` to the failing cases, or",
+                    "edit the golden fixture to get this green. Retrieval and ranking are a protected",
+                    "surface: any change there needs a paid live canary pair and explicit owner approval",
+                    "(AGENTS.md \u201cRAG ranking protection\u201d). The half that is still passing remains a valid",
+                    "baseline in the meantime.",
+                  ].join("\n")
+                : [
+                    "Triage order (docs/observability-slos.md §3): inspect the failed step first.",
+                    "Resolve provider quota/auth/config failures before rerunning; for completed evals,",
+                    "check hybrid_rpc_errors and `npm run check:indexing`, then investigate corpus or code drift.",
+                    "Do not bisect or revert code until provider health and the failure class are confirmed.",
+                  ].join("\n"),
             ].join("\n");
+
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: "open",
               labels: label,
             });
-            if (existing.length > 0) {
+            // Matched by title, not `existing[0]`. The two classes are separate threads on purpose:
+            // appending a completed-evaluation verdict to a thread titled "did not complete" is how
+            // three answer-quality cases stayed untracked for three weeks.
+            const thread = existing.find((issue) => issue.title === title);
+            if (thread) {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                issue_number: existing[0].number,
+                issue_number: thread.number,
                 body,
               });
             } else {
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: "Eval canary failure: evaluation did not complete",
+                title,
                 labels: [label],
                 body,
               });

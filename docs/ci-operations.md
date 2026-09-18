@@ -84,6 +84,42 @@ Scheduled automation runs on off-peak schedules to maintain repository baseline 
 - **Early Visibility:** By executing cold builds (`check-bundle-budget.mjs --refresh-baseline`) and reporting metrics into a rolling GitHub issue, accumulated bundle growth from merged PRs is surfaced before crossing the 10% failure threshold.
 - **Report-Only Invariant:** The workflow never auto-commits or pushes changes; baseline refreshes remain explicit, reviewed human pull requests.
 
+## When `main` goes red (#T82ND3, #TN512M)
+
+`pr-required` is a **pull-request** aggregate. Once a change is merged there is nothing left for it
+to block, so before 2026-09-18 a failing `main` run told nobody: CI on `main` failed six of its last
+eight pushes from 2026-09-13 with no workflow reporting it, and across the four most recent red runs
+(`35345371375`, `35336141954`, `35327912411`, `35274280932`) the only failing jobs were
+`release-browser-matrix (firefox)` and `(webkit)` while `pr-required` concluded success each time.
+
+- **Delivery, not detection.** `.github/workflows/ci.yml` now ends with a `main-failure-routing` job.
+  On a push to `main` it opens or updates one pinned issue labelled `main-ci-failure`, names the
+  individual failing jobs (including each matrix leg), and **closes the issue on the next green
+  `main` run**. An open issue therefore means `main` is red right now, not that it once was.
+- **Report only.** It mutates no branch and re-runs nothing. `scripts/check-github-action-pins.mjs`
+  forbids workflow-authored branch mutation, and a red `main` is a fact to deliver, not to repair
+  automatically.
+- **Scoped privilege.** `issues: write` and `actions: read` live on that job alone, which checks out
+  no code and runs nothing from the repository. Every other job in `ci.yml` keeps `contents: read`.
+- **Do not "fix" this by widening PR checks.** `release-browser-matrix` never runs on a
+  `pull_request` event, so adding it to `pr-required`'s `needs` would aggregate a skipped job and
+  change nothing, while making every branch wait on a ~45-minute matrix (#9Z197J).
+
+### Reading an unexplained `pr-required` failure (#K06J63)
+
+On 2026-09-07 `pr-required` went red several times on a UI-only branch while every local gate was
+green, and the branch merged with the cause never identified — because the failing job's log was
+never opened. A theory was offered and disproved instead. **Read the log first; theorise second.**
+
+- If a Claude Code session cannot reach the CI logs because the PR-handoff marker is armed, ask the
+  owner to unlock it (`CLAUDE_ALLOW_PR_FOLLOW=1 rm "$(git rev-parse --absolute-git-dir)/claude-pr-handoff-<session-id>"`)
+  **before** spending the session on hypotheses. As of 2026-09-18 that marker denies only
+  `CronCreate`, so a blocked log read is a signal that something else is in the way — say which.
+- Record the failing job name and its first error line in the branch review record even when the
+  fix is obvious. "Red, cause unknown, merged anyway" is the outcome this row exists to stop.
+- Two contributing factors worth ruling out before blaming the change: a second agent pushing to the
+  same branch concurrently, and a large number of `main` merges landing during the session.
+
 ## Operational Invariants (#055, #0H0S89, #6GW95D)
 
 Repository stability depends on strict operational invariants that prevent automation drift, silent regression, and workspace destruction.
