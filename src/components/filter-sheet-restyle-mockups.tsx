@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/components/ui-primitives";
-import { searchFormulationMechanisms } from "@/lib/formulation";
+import { searchFormulationMechanismIndex } from "@/lib/formulation-mechanism-index";
 
 /**
  * Restyling the shared filter sheet — three style directions, plus the answer to
@@ -87,7 +87,7 @@ const MECHANISMS: ReadonlyArray<{ name: string; domains: ReadonlyArray<string> }
 
 /** The query in the screenshot's band, resolved to the mechanisms it returns. */
 export const filterSheetRestyleCurrentQuery = "Worry";
-export const filterSheetRestyleCurrentSubset = searchFormulationMechanisms(filterSheetRestyleCurrentQuery).map(
+export const filterSheetRestyleCurrentSubset = searchFormulationMechanismIndex(filterSheetRestyleCurrentQuery).map(
   (result) => result.mechanism.name,
 );
 

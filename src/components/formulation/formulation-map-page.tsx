@@ -12,13 +12,19 @@ import {
 } from "@/components/formulation/formulation-ui";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { InformationPageHeader } from "@/components/information-page-shell";
-import { findFormulationMechanism, formulationDomainGroups, formulationMechanisms } from "@/lib/formulation";
+import {
+  findFormulationMechanismSummary,
+  formulationDomainGroups,
+  formulationMechanismIndex,
+} from "@/lib/formulation-mechanism-index";
 
 export function FormulationMapPage({ initialId }: { initialId?: string }) {
   const initial =
-    findFormulationMechanism(initialId ?? "") ?? findFormulationMechanism("rumination") ?? formulationMechanisms[0];
+    findFormulationMechanismSummary(initialId ?? "") ??
+    findFormulationMechanismSummary("rumination") ??
+    formulationMechanismIndex[0];
   const [selectedId, setSelectedId] = useState(initial.id);
-  const selected = findFormulationMechanism(selectedId) ?? initial;
+  const selected = findFormulationMechanismSummary(selectedId) ?? initial;
 
   return (
     <FormulationPageShell>
@@ -56,7 +62,7 @@ export function FormulationMapPage({ initialId }: { initialId?: string }) {
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="grid min-w-0 gap-4 md:grid-cols-2" aria-label="Mechanisms grouped by formulation domain">
           {formulationDomainGroups.map((group) => {
-            const mechanisms = formulationMechanisms.filter((mechanism) =>
+            const mechanisms = formulationMechanismIndex.filter((mechanism) =>
               mechanism.domains.some((domain) => group.domains.includes(domain as never)),
             );
             return (
