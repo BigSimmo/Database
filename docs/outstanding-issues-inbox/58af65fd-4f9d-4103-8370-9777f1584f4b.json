@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "58af65fd-4f9d-4103-8370-9777f1584f4b",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#BPPRG2",
+    "detail": "SENTRY_AUTH_TOKEN, SENTRY_ORG and SENTRY_PROJECT are all absent from the production Database service (confirmed 2026-09-16 via Railway list-variables), so next.config.ts skips withSentryConfig entirely and no maps are uploaded. docs/error-tracking.md already records this as a deliberate operator decision, so this is a standing choice rather than a defect. The fragmentation it caused is now fixed independently: the fingerprint normalises build-volatile chunk filenames and mangled identifiers (tests/error-tracking-fingerprint-stability.test.ts). Supplying the three values would still make frames readable, at the cost of build-time provider coupling; the token needs only project release/sourcemap scope. Revisit if a production fault cannot be diagnosed from route, exception type and the stable frame tail alone. PARKED 2026-09-18: docs/error-tracking.md already records leaving the source maps unuploaded as a deliberate operator decision, and supplying the three values is a provider-backed change to production secrets. The fragmentation this caused was fixed independently by the fingerprint normalisation. TO UNBLOCK: only worth revisiting if a production fault cannot be diagnosed from route, exception type and the stable frame tail; then set SENTRY_AUTH_TOKEN, SENTRY_ORG and SENTRY_PROJECT on the Database service.",
+    "baseRowFingerprint": "be81829f9b0dbf760c895512393fdf6bac779f43016dfa9706c3ce36243d7a4c"
+  }
+}
