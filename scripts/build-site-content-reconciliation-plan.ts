@@ -184,10 +184,11 @@ async function main() {
         trustedRoute: `/${options.kind}s/${candidate.entry.slug}`,
       };
     })
-    .sort((left, right) =>
-      `${left.logicalId} ${left.sourceKind} ${left.sourceRowId}`.localeCompare(
-        `${right.logicalId} ${right.sourceKind} ${right.sourceRowId}`,
-      ),
+    .sort(
+      (left, right) =>
+        left.logicalId.localeCompare(right.logicalId) ||
+        left.sourceKind.localeCompare(right.sourceKind) ||
+        left.sourceRowId.localeCompare(right.sourceRowId),
     );
 
   const trustedSnapshots = groups.map((logicalId) => {
