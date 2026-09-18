@@ -8,7 +8,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const workflowPath = path.join(repoRoot, ".github", "workflows", "live-drift.yml");
 const workflow = readFileSync(workflowPath, "utf8").replace(/\r\n/g, "\n");
 
-type Issue = { number: number; title: string };
+type Issue = { number: number; title: string; body?: string };
 type RepositoryCoordinates = { owner: string; repo: string };
 
 type ScriptFunction = (
@@ -73,7 +73,15 @@ type Calls = {
   warnings: string[];
 };
 
-async function runRoutingScript(options: { findings?: string; openIssues?: Issue[]; result: string }) {
+async function runRoutingScript(options: {
+  findings?: string;
+  comparison?: string;
+  history?: string;
+  projectRef?: string;
+  checkedSha?: string;
+  openIssues?: Issue[];
+  result: string;
+}) {
   const calls: Calls = { closed: [], comments: [], created: [], listed: [], updatedBodies: [], warnings: [] };
 
   const github = {
@@ -145,16 +153,28 @@ async function runRoutingScript(options: { findings?: string; openIssues?: Issue
     },
   };
 
-  const previous = { findings: process.env.DRIFT_FINDINGS, result: process.env.DRIFT_RESULT };
+  const keys = [
+    "DRIFT_RESULT",
+    "DRIFT_FINDINGS",
+    "DRIFT_COMPARISON",
+    "DRIFT_HISTORY",
+    "DRIFT_PROJECT_REF",
+    "DRIFT_CHECKED_SHA",
+  ] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   process.env.DRIFT_RESULT = options.result;
   process.env.DRIFT_FINDINGS = options.findings ?? "";
+  process.env.DRIFT_COMPARISON = options.comparison ?? "";
+  process.env.DRIFT_HISTORY = options.history ?? "";
+  process.env.DRIFT_PROJECT_REF = options.projectRef ?? "sjrfecxgysukkwxsowpy";
+  process.env.DRIFT_CHECKED_SHA = options.checkedSha ?? "a3cfb6362782d2025643371bf0746472515e33ad";
   try {
     await routingScript(github, context, core);
   } finally {
-    if (previous.result === undefined) delete process.env.DRIFT_RESULT;
-    else process.env.DRIFT_RESULT = previous.result;
-    if (previous.findings === undefined) delete process.env.DRIFT_FINDINGS;
-    else process.env.DRIFT_FINDINGS = previous.findings;
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
   }
 
   return calls;
@@ -331,5 +351,104 @@ describe("live-drift failure routing", () => {
 
     expect(calls.closed).toHaveLength(0);
     expect(calls.updatedBodies).toEqual([expect.objectContaining({ ...repositoryCoordinates, issue_number: 1234 })]);
+  });
+});
+
+describe("live-drift green runs carry their own evidence", () => {
+  const comparison =
+    "Drift manifest: generated 2026-09-16T12:00:00.000Z from schema.sql 819db2576117…\n" +
+    "Compared 6 extensions, 60 tables, 1 views, 171 functions, 270 indexes, 58 policies, 370 constraints, 41 triggers, 2 storage_buckets against live.";
+  const history =
+    "Local migration versions: 245\nRemote migration versions: 245 (read via rpc)\nRemote-only (Preview blockers): 0";
+
+  it("states what was compared, against which project, at which commit", async () => {
+    // "The job exited 0" is a fact about the job, not about the schema. The
+    // comment that CLOSES the issue used to be the one message in the thread
+    // saying nothing about what had been checked.
+    const calls = await runRoutingScript({ comparison, history, openIssues: [pinnedIssue], result: "success" });
+    const [resolved] = calls.comments;
+    expect(resolved.body).toContain("Compared 6 extensions, 60 tables");
+    expect(resolved.body).toContain("Local migration versions: 245");
+    expect(resolved.body).toContain("`sjrfecxgysukkwxsowpy`");
+    expect(resolved.body).toContain("`a3cfb6362782`");
+    expect(calls.closed).toHaveLength(1);
+  });
+
+  it("says so loudly when a green run captured no comparison summary", async () => {
+    // A skipped or truncated comparison must never read as parity.
+    const calls = await runRoutingScript({ comparison: "", openIssues: [pinnedIssue], result: "success" });
+    expect(calls.comments[0].body).toContain("not** what it compared");
+    expect(calls.comments[0].body).not.toContain("Compared ");
+  });
+
+  it("does not present object-inventory parity as whole-database parity", async () => {
+    const calls = await runRoutingScript({ comparison, openIssues: [pinnedIssue], result: "success" });
+    expect(calls.comments[0].body).toContain("Data, cron and configuration");
+  });
+});
+
+describe("live-drift issue ownership", () => {
+  const unrelated: Issue = { number: 77, title: "Someone else's schema question" };
+
+  it("never closes a labelled issue this workflow does not own", async () => {
+    // `open.find(title match) ?? open[0]` was harmless while UPDATING a body and
+    // unrecoverable on the green path, where it closes whatever it picked. Any
+    // open issue carrying the live-drift-failure label qualified.
+    const calls = await runRoutingScript({ openIssues: [unrelated], result: "success" });
+    expect(calls.closed).toHaveLength(0);
+    expect(calls.comments).toHaveLength(0);
+  });
+
+  it("still finds its own issue after a human retitles it", async () => {
+    // The reason the fallback existed. A marker in the body keeps that tolerance
+    // without betting an unrelated issue's open state on list ordering.
+    const retitled: Issue = {
+      number: 1234,
+      title: "Drift — renamed by a human",
+      body: "…previous body…\n<!-- live-drift-routing:v1 -->",
+    };
+    const calls = await runRoutingScript({
+      comparison: "Compared 60 tables",
+      openIssues: [retitled],
+      result: "success",
+    });
+    expect(calls.closed).toEqual([
+      expect.objectContaining({ issue_number: 1234, state: "closed", state_reason: "completed" }),
+    ]);
+  });
+
+  it("prefers its own marked issue over an unrelated one listed first", async () => {
+    const marked: Issue = { number: 1234, title: "Live drift check failing" };
+    const calls = await runRoutingScript({ openIssues: [unrelated, marked], result: "success" });
+    expect(calls.closed).toEqual([expect.objectContaining({ issue_number: 1234 })]);
+  });
+
+  it("writes the ownership marker into every body it authors", async () => {
+    const created = await runRoutingScript({ findings: sampleFindings, result: "failure" });
+    expect(created.created[0].body).toContain("<!-- live-drift-routing:v1 -->");
+    const updated = await runRoutingScript({
+      findings: sampleFindings,
+      openIssues: [pinnedIssue],
+      result: "failure",
+    });
+    expect(updated.updatedBodies[0].body).toContain("<!-- live-drift-routing:v1 -->");
+  });
+});
+
+describe("live-drift diagnostics artifact", () => {
+  it("uploads the untruncated output the issue can only slice", () => {
+    // The issue body gets head -80 / tail -80. A real drift report runs to
+    // hundreds of lines and the truncated tail is where the unexplained entries
+    // sit; without an artifact that evidence died with the runner.
+    expect(workflow).toContain("name: live-drift-diagnostics");
+    expect(workflow).toMatch(/Upload full drift diagnostics[\s\S]*if: always\(\)/);
+    expect(workflow).toMatch(/live-drift-diagnostics[\s\S]*drift-output\.txt/);
+    expect(workflow).toMatch(/live-drift-diagnostics[\s\S]*migration-history-output\.txt/);
+  });
+
+  it("keeps migration-history settling ahead of the comparison", () => {
+    // Unchanged by the reporting work above, and re-pinned here because these
+    // edits sit in the same steps.
+    expect(workflow.indexOf("npm run check:migration-history")).toBeLessThan(workflow.indexOf("npm run check:drift"));
   });
 });

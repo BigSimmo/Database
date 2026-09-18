@@ -45,7 +45,11 @@ import {
 import type { CaringContactRepository, WriteContext } from "@/lib/caring-contacts/repository";
 import { parseJsonBody } from "@/lib/validation/body";
 
-import { isCaringContactsWorkspaceEnabled, resolveCaringContactsActor } from "./session";
+import {
+  CaringContactsProductionSessionError,
+  isCaringContactsWorkspaceEnabled,
+  resolveCaringContactsActor,
+} from "./session";
 import { caringContactsStore } from "./store";
 
 /**
@@ -79,6 +83,11 @@ const REFUSAL_STATUS: Readonly<Record<string, number>> = Object.freeze(
     // 423 Locked: the service-wide safety stop is a deliberate hold on this resource, not a fault
     // and not a permission problem. It clears when three distinct roles approve the restart.
     "service-stopped": 423,
+    // 401, not 404. Live mode has already passed `isCaringContactsWorkspaceEnabled`, so the
+    // workspace demonstrably exists and saying "sign in" gives nothing away that the enabled
+    // workspace has not already given away. The 404 oracle argument belongs to the disabled case
+    // above, which is a different thing entirely.
+    "session-required": 401,
   }),
 );
 
@@ -197,13 +206,33 @@ export async function auditedRead<T>(
 }
 
 /**
+ * Live mode resolves its actor from a signed production session cookie and THROWS when it cannot,
+ * rather than returning null. Nothing used to catch that, so an unauthenticated live request left
+ * this boundary as an unhandled exception -- a 500 with a stack trace, which is neither a refusal
+ * the client can act on nor a shape the audit trail models. This turns it into the named refusal
+ * it always was. Every other error still propagates: a store fault is not a session fault.
+ */
+async function resolveActorOrRefusal(): Promise<{ actor: Actor } | { refusal: Response }> {
+  try {
+    return { actor: await resolveCaringContactsActor() };
+  } catch (error) {
+    if (error instanceof CaringContactsProductionSessionError) {
+      return { refusal: refusalResponse("session-required") };
+    }
+    throw error;
+  }
+}
+
+/**
  * A read that is audited whether or not it succeeds. HTTP-shaped: turns `auditedRead`'s outcome
  * into the response every read route already returned before the two were split apart.
  */
 export function readHandler<T>(config: ReadHandlerConfig<T>): (request: NextRequest) => Promise<Response> {
   return async (request: NextRequest): Promise<Response> => {
     if (!isCaringContactsWorkspaceEnabled()) return demoUnavailableResponse();
-    const actor = await resolveCaringContactsActor();
+    const resolved = await resolveActorOrRefusal();
+    if ("refusal" in resolved) return resolved.refusal;
+    const { actor } = resolved;
     const store = await caringContactsStore();
     const objectId = config.access.objectId(request);
 
@@ -323,7 +352,9 @@ export function writeHandler<TBody, TResult>(
       return invalidRequestResponse();
     }
 
-    const actor = await resolveCaringContactsActor();
+    const resolved = await resolveActorOrRefusal();
+    if ("refusal" in resolved) return resolved.refusal;
+    const { actor } = resolved;
     const action = typeof config.action === "function" ? config.action(body) : config.action;
     const decision = canPerformCaringContactAction(actor, action, { teamId: actor.teamId });
     const store = await caringContactsStore();

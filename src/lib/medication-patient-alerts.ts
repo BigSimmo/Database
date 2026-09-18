@@ -111,6 +111,27 @@ export const RENAL_IMPAIRMENT_EGFR = 60; // mL/min; CKD stage 3+.
 export const QTC_PROLONGED_MS = 450; // ms; sex-agnostic conservative threshold.
 export const ELDERLY_AGE_YEARS = 65;
 export const PAEDIATRIC_AGE_YEARS = 18;
+
+/**
+ * Appended to any reason produced by the constants above rather than by the medication's own
+ * catalogue record.
+ *
+ * Without it the two are indistinguishable on screen: a catalogue-derived reason reads
+ * `QTc 465 ≥ 470 ms` and a fallback one reads `QTc 465 ≥ 450 ms`, the same shape, the same
+ * badge, no way to tell that the second number came from this file instead of from the
+ * medication. The existing `unassessed` machinery does not cover this -- it reports a missing
+ * INPUT, and says nothing about an unsourced THRESHOLD, which is a different question a
+ * prescriber would answer differently.
+ *
+ * Kept short because reasons render as badges beside the medication, and kept in one place so
+ * the clinical owner can change the wording without hunting through five branches.
+ */
+export const DEFAULT_THRESHOLD_MARKER = " (default threshold)";
+
+/** Marks a reason as derived from this file's fallback constants, not from the catalogue. */
+function fromDefaultThreshold(reason: string): string {
+  return `${reason}${DEFAULT_THRESHOLD_MARKER}`;
+}
 export const SCR_UMOL_PER_MGDL = 88.4; // serum creatinine unit conversion factor.
 
 export const MEDICATION_FACTOR_LABELS: Record<string, string> = {
@@ -322,8 +343,10 @@ function evaluateRow(patient: MedicationPatientMetadata, profile: PatientProfile
     } else if (factor === "renal" && !coversRenal) {
       const egfr = numberField(profile.egfr);
       const crcl = numberField(profile.crcl);
-      if (egfr !== null && egfr < RENAL_IMPAIRMENT_EGFR) reasons.push(`Renal impairment (eGFR ${egfr})`);
-      else if (crcl !== null && crcl < RENAL_IMPAIRMENT_EGFR) reasons.push(`Renal impairment (CrCl ${crcl})`);
+      if (egfr !== null && egfr < RENAL_IMPAIRMENT_EGFR)
+        reasons.push(fromDefaultThreshold(`Renal impairment (eGFR ${egfr})`));
+      else if (crcl !== null && crcl < RENAL_IMPAIRMENT_EGFR)
+        reasons.push(fromDefaultThreshold(`Renal impairment (CrCl ${crcl})`));
       // Fail-safe: flag the gate unassessed when EITHER renal input is missing and
       // neither fired. A renal contraindication clears only when both eGFR and CrCl
       // are present and non-firing, so an input rejected as out-of-range (nulled by
@@ -335,14 +358,14 @@ function evaluateRow(patient: MedicationPatientMetadata, profile: PatientProfile
       else if (profile.hepatic !== "none") reasons.push(`${capitalize(profile.hepatic)} hepatic impairment`);
     } else if (factor === "elderly" && !coversAge) {
       if (age === null) missingGates.push("age");
-      else if (age >= ELDERLY_AGE_YEARS) reasons.push(`Age ${age} ≥ ${ELDERLY_AGE_YEARS}`);
+      else if (age >= ELDERLY_AGE_YEARS) reasons.push(fromDefaultThreshold(`Age ${age} ≥ ${ELDERLY_AGE_YEARS}`));
     } else if (factor === "paediatric" && !coversAge) {
       if (age === null) missingGates.push("age");
-      else if (age < PAEDIATRIC_AGE_YEARS) reasons.push(`Age ${age} < ${PAEDIATRIC_AGE_YEARS}`);
+      else if (age < PAEDIATRIC_AGE_YEARS) reasons.push(fromDefaultThreshold(`Age ${age} < ${PAEDIATRIC_AGE_YEARS}`));
     } else if (factor === "qtc" && !coversQtc) {
       const qtc = numberField(profile.qtc);
       if (qtc === null) missingGates.push("QTc");
-      else if (qtc >= QTC_PROLONGED_MS) reasons.push(`QTc ${qtc} ≥ ${QTC_PROLONGED_MS} ms`);
+      else if (qtc >= QTC_PROLONGED_MS) reasons.push(fromDefaultThreshold(`QTc ${qtc} ≥ ${QTC_PROLONGED_MS} ms`));
     }
   }
 
