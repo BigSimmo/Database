@@ -1160,6 +1160,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/development/clinical-sign-off",
+        "file": "src/app/mockups/development/clinical-sign-off/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/ward-flow/out-of-area",
         "file": "src/app/mockups/ward-flow/out-of-area/page.tsx",
         "area": "mockup"

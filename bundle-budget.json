@@ -14,6 +14,10 @@
       "rawBytesCeiling": 2500000,
       "gzipBytesCeiling": 350000
     },
+    "/mockups/development/clinical-sign-off": {
+      "rawBytesCeiling": 750000,
+      "gzipBytesCeiling": 110000
+    },
     "/sources/search": {
       "rawBytesCeiling": 20000,
       "gzipBytesCeiling": 6000,

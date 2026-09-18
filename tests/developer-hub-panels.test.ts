@@ -151,6 +151,27 @@ describe("ingestion panel (2026-08-25)", () => {
   });
 });
 
+describe("clinical sign-off queue panel (2026-09-18)", () => {
+  it("ships in the clinical group with the route it names", () => {
+    const panel = HUB_PANELS.find((entry) => entry.id === "clinical-sign-off");
+    expect(panel).toBeDefined();
+    expect(panel!.phase).toBe(1);
+    expect(panel!.group).toBe("clinical");
+    expect(panel!.href).toBe("/mockups/development/clinical-sign-off");
+  });
+
+  it("never lets the card claim completeness or the power to sign anything off", () => {
+    // Two failure modes, both worse than no card. "Every clinical record" is a
+    // coverage claim the page cannot make good on -- it reads the seven families
+    // this repository holds on disk and knows nothing about any other. And the
+    // page is read-only aggregation, so a verb suggesting it approves, publishes
+    // or clears records would promise a control that does not exist.
+    const panel = HUB_PANELS.find((entry) => entry.id === "clinical-sign-off");
+    expect(panel!.summary).not.toMatch(/\ball\b|\bevery\b|complete/i);
+    expect(panel!.summary).not.toMatch(/approve|publish|clear|unhide/i);
+  });
+});
+
 describe("placeholder pruning (2026-08-25)", () => {
   // `errors`, `budgets`, `commands`, `decision-log` and `database-drift` were
   // deliberately removed, not renamed or moved — each restated a fact a gate
