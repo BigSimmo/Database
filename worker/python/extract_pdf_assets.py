@@ -7,7 +7,7 @@ import sys
 from statistics import median
 
 try:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz  # PyMuPDF (fitz alias deprecated in 1.28.2+)
 except Exception as exc:
     print(f"PyMuPDF is required for robust PDF extraction: {exc}", file=sys.stderr)
     sys.exit(2)
