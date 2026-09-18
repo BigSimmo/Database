@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f32417f0-8182-4f01-ba9c-479767f05256",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#JHT39N",
+    "detail": "WA-MHAS records 'Government of Western Australia', WA-AHLO records 'WA Health service providers', WA-MHERL records 'Mental Health Commission / WA Health' (two publishers in one field), and 4AT-OFFICIAL records '4AT developers'. None was registered in src/lib/source-authority-registry.ts on purpose: a catch-all entry for the Crown would resolve every WA government document to a single authority, which is worse than leaving the records held. Establish the actual publishing agency for each and correct the publisher field, then re-run npm run check:source-acquisitions. PARKED 2026-09-18 on the research, with two findings recorded that did not need it. The four canonical pages cannot be read from this environment: the network egress proxy answers 403 to CONNECT for wa.gov.au, fsfhg.health.wa.gov.au, mhc.wa.gov.au and the4at.com, verified directly by curl, so no publisher was established and all four stay held. WHAT WAS FOUND WITHOUT THE PAGES, now an open assurance decision (DICTIONARY-PUBLISHER-AGENCIES in docs/clinical-hazard-controls.json, visible in the developer hub): (1) source-authority-registry.ts:509 registers 'Government of Western Australia' as catalogue-identity-only, added 2026-09-16 by commit 255b9c1fe, while the comment at 558-564 still states that exact string was deliberately not registered - one of the two is wrong and the comment misleads the next reader; (2) correcting any publisher only clears the acquisition gate if the new name resolves in that register, which is a protected retrieval-ranking surface, so a metadata correction is also a retrieval change. Note tests/dictionary-sense-drafts.test.ts requires at least three of the four to keep the blocker, so at most one could ever be cleared alone. TO UNBLOCK: read the four page footers from an unrestricted network, or have the owner paste them.",
+    "baseRowFingerprint": "984a47af6c050670e6c7de3a63b49acda5f96abf6eebbb3e419b0c2686453b4a"
+  }
+}
