@@ -37,6 +37,7 @@ import {
 import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
+  SearchResultsSkeleton,
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import {
@@ -813,6 +814,15 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
           summary={{ count: displayedMatches.length, noun: displayedMatches.length === 1 ? "form" : "forms" }}
           chromeResetKey={query}
         />
+        {/* Every registry state renders SOMETHING here. Until #6GR6B8 the body
+            was `null` whenever the records were not ready, so a search that was
+            still loading, one refused for an expired session, and one whose
+            request failed all produced the same thing: an empty page under a
+            band. "transport" is indexed six ways in the register and named as a
+            broad term in the ranker, so a blank list was never the catalogue
+            saying no — it was the page not saying which of the three had
+            happened. In a clinical corpus a silent zero is read as "no such
+            form exists", which is the one meaning none of these states carry. */}
         {registryReady ? (
           <>
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
@@ -837,7 +847,24 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             )}
             <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
-        ) : null}
+        ) : registry.status === "loading" ? (
+          <SearchResultsSkeleton />
+        ) : (
+          /* Unauthorised and failed are both `degraded`: the search never ran,
+             so the copy must not send the reader off to fix a query or a filter
+             that was not the problem. The band above names which one it is and
+             owns the retry / sign-in action; this states plainly that the result
+             set is not a finding. The filter routes ride along because a filter
+             carried in the URL outlives the request that failed, and clearing it
+             is the one recovery the reader can make from here. */
+          <SearchResultsEmptyState
+            modeId="forms"
+            query={query}
+            degraded
+            appliedFilters={appliedFilters}
+            onClearFilters={activeFilterCount > 0 ? clearFilters : undefined}
+          />
+        )}
         <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>
         <div className="lg:hidden">{supportsPathwayClaims ? <MobilePathway /> : null}</div>
         {registryReady && supportsPathwayClaims ? <VerifiedFooter /> : null}
