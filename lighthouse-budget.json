@@ -20,34 +20,34 @@
   },
   "baseline": {
     "desktop-documents-search": {
-      "lcpMs": 867.85825,
-      "cls": 0.02697755226478497,
-      "tbtMs": 6.999999999999886,
-      "fcpMs": 343.9685,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+      "lcpMs": 841.7170000000001,
+      "cls": 0,
+      "tbtMs": 39.99999999999977,
+      "fcpMs": 343.0868,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
     },
     "desktop-root": {
-      "lcpMs": 785.6470000000003,
-      "cls": 0.00702033096926714,
-      "tbtMs": 28.99999999999966,
-      "fcpMs": 341.12940000000003,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+      "lcpMs": 891.473,
+      "cls": 0,
+      "tbtMs": 56,
+      "fcpMs": 342.9892,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
     },
     "mobile-documents-search": {
-      "lcpMs": 2281.896,
+      "lcpMs": 2358.884,
       "cls": 0,
-      "tbtMs": 490.62100000000055,
-      "fcpMs": 2281.896,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+      "tbtMs": 512.9340000000007,
+      "fcpMs": 2358.884,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
     },
     "mobile-root": {
-      "lcpMs": 2274.017,
+      "lcpMs": 2340.184,
       "cls": 0,
-      "tbtMs": 436.59999999994034,
-      "fcpMs": 2274.017,
-      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36"
+      "tbtMs": 494.55799999999954,
+      "fcpMs": 2340.184,
+      "chromeVersion": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36"
     }
   },
-  "updatedAt": "2026-08-23T11:30:00.000Z",
+  "updatedAt": "2026-09-18T20:27:48.423Z",
   "$routes": "Only surfaces that still render. `/therapy-compass`, `/dsm` and `/forms` were removed when home consolidation turned them into redirect stubs: Lighthouse followed the 307 and graded `/?mode=<id>` against a baseline captured on the retired detailed home, which the checker reports as \"measured a different page than requested\". All three now render the same shared home as `/`, so removing them costs duplication rather than coverage. Restoring per-mode coverage means measuring the `<mode>/search` results routes, and those need baseline rows the dispatch-only refresh job records — do that rather than hand-writing numbers."
 }
