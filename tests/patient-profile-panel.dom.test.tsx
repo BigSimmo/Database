@@ -142,3 +142,113 @@ describe("PatientProfilePanel — physiological input validation", () => {
     expect(storedProfile().scr).toBe(0.3);
   });
 });
+
+function renderTwoPanels() {
+  return render(
+    <PatientProfileProvider>
+      <div data-testid="patient-panel-a">
+        <PatientProfilePanel />
+      </div>
+      <div data-testid="patient-panel-b">
+        <PatientProfilePanel />
+      </div>
+    </PatientProfileProvider>,
+  );
+}
+
+/**
+ * Types one character at a time the way a browser does — appending at the caret
+ * to whatever the box is already showing — and returns what was displayed after
+ * each keystroke. Setting the whole value in a single `fireEvent.change` cannot
+ * see #WFARS3 at all: the defect is text the field was still holding.
+ */
+function typeDigits(input: HTMLInputElement, characters: string): string[] {
+  const displayed: string[] = [];
+  for (const character of characters) {
+    fireEvent.change(input, { target: { value: `${input.value}${character}` } });
+    displayed.push(input.value);
+  }
+  return displayed;
+}
+
+describe("PatientProfilePanel — CrCl and QTc entry (#WFARS3)", () => {
+  it("shows exactly the digits typed into CrCl, with nothing left in front of them", () => {
+    renderPanel();
+    const crcl = screen.getByTestId("patient-crcl") as HTMLInputElement;
+
+    expect(typeDigits(crcl, "95")).toEqual(["9", "95"]);
+    expect(storedProfile().crcl).toBe(95);
+  });
+
+  it("treats a partial QTc as unassessed rather than as a number under the floor", () => {
+    renderPanel();
+    const qtc = screen.getByTestId("patient-qtc") as HTMLInputElement;
+
+    expect(typeDigits(qtc, "420")).toEqual(["4", "42", "420"]);
+    expect(storedProfile().qtc).toBe(420);
+
+    // Backspacing into a partial is not a QTc of 42 — it is no QTc at all, and
+    // the field says so rather than leaving 420 in the profile.
+    fireEvent.change(qtc, { target: { value: "42" } });
+    expect(storedProfile().qtc).toBeNull();
+    expect(qtc).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("keeps an out-of-range CrCl visible for correction in place, and stores nothing", () => {
+    renderPanel();
+    const crcl = screen.getByTestId("patient-crcl") as HTMLInputElement;
+
+    typeDigits(crcl, "420");
+
+    expect(crcl.value).toBe("420");
+    expect(storedProfile().crcl).toBeNull();
+  });
+
+  it("never leaves one panel showing a CrCl the profile does not hold", () => {
+    renderTwoPanels();
+    const panelA = within(screen.getByTestId("patient-panel-a"));
+    const panelB = within(screen.getByTestId("patient-panel-b"));
+
+    // A QTc-sized number typed into CrCl is refused: 420 mL/min is out of range.
+    typeDigits(panelA.getByTestId("patient-crcl") as HTMLInputElement, "420");
+    expect(storedProfile().crcl).toBeNull();
+
+    // The real CrCl is then entered on the other mounted copy of the panel.
+    typeDigits(panelB.getByTestId("patient-crcl") as HTMLInputElement, "95");
+    expect(storedProfile().crcl).toBe(95);
+
+    // The first panel must follow the profile. Showing 420 beside alerts that
+    // are being computed from 95 is the dosing hazard this case exists for.
+    const crclA = panelA.getByTestId("patient-crcl") as HTMLInputElement;
+    expect(crclA.value).toBe("95");
+    expect(crclA).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("does not rewrite an in-progress creatinine entry under the caret", () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole("radio", { name: "mg/dL" }));
+    const scr = screen.getByTestId("patient-scr") as HTMLInputElement;
+
+    // A number input reports "" for the intermediate "1." — the value IDL only
+    // yields a valid floating-point number — and "1.0" for the keystroke after
+    // it. Re-deriving the text from the stored number turns that "1.0" back into
+    // "1", so the next digit lands as 12 mg/dL: a creatinine an order of
+    // magnitude out, entered by a clinician who typed 1.02, in range and so
+    // stored without any complaint. This is the silent half of #WFARS3.
+    fireEvent.change(scr, { target: { value: "1" } });
+    fireEvent.change(scr, { target: { value: "" } });
+    fireEvent.change(scr, { target: { value: "1.0" } });
+    expect(scr.value).toBe("1.0");
+
+    expect(typeDigits(scr, "2")).toEqual(["1.02"]);
+    expect(storedProfile().scr).toBe(1.02);
+  });
+
+  it("does not renumber a leading zero while it is still being typed", () => {
+    renderPanel();
+    const crcl = screen.getByTestId("patient-crcl") as HTMLInputElement;
+
+    expect(typeDigits(crcl, "095")).toEqual(["0", "09", "095"]);
+    expect(storedProfile().crcl).toBe(95);
+  });
+});
