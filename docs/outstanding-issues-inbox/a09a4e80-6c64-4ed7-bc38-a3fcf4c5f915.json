@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a09a4e80-6c64-4ed7-bc38-a3fcf4c5f915",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#231",
+    "detail": "UPDATE 2026-09-18 (offline code read, four agent investigations, no provider access): THE MEASUREMENT THIS ROW ASKS FOR IS ALREADY BUILT. src/lib/rag/rag-generation-degradation.ts:40-59 already declares GenerationAttempt { ordinal, stage: initial|quality_retry|truncation_recovery, route, outcome, responseReceived, latencyMs, timeoutMs }, and classifyGenerationDegradation (:90-109) already returns provider_initial_attempt_timeout for a single zero-response timeout versus provider_quality_retry_exhausted for ladder exhaustion -- exactly the two mechanisms this row says are conflated. Per-attempt latency is measured unconditionally in a finally at rag-provider.ts:188-190, and the per-attempt timeout differs per rung via generationRequestTimeoutMs (rag-route-budget.ts:129-133). tests/rag-generation-degradation.test.ts:212 already pins the distinction. TWO REASONS IT IS INVISIBLE: the recorder is constructed enabled only for candidate/shadow/canary rollout modes (rag.ts:2978-2984), and its output lands on answer.generationDegradation which reaches only rag-eval-diagnostics.ts:211, never rag_queries.metadata. SO THE REMAINING WORK IS A SWITCH AND A WIRE, NOT A BUILD. Note the metadata route constrains the shape: extendedAnswerTelemetryFields (rag-answer-telemetry-metadata.ts:36) admits finite numbers only, so an array or object is silently dropped -- flatten to scalar keys, or write a top-level metadata key the way answer_retry_reasons does at rag.ts:3595. Also note the existing test seam generationAttemptElapsedMs in tests/rag-answer-fallback.test.ts:187,462 gives deterministic per-attempt durations with no new harness. NOT DONE HERE: owner asked this session to stay out of the RAG files.",
+    "baseRowFingerprint": "0447c3270981bbdcbc4302e5153f30eb6dbcc532a2e6469d4114fb079c2e22e1"
+  }
+}
