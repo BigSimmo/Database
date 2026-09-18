@@ -113,6 +113,24 @@ Only a reviewed source may be adopted into clinical content. Set `validationStat
 or to `approved` where local governance has formally approved it. `npm run check:source-acquisitions`
 prints the outstanding queue, most local first.
 
+### Recording the attestation itself
+
+A record may also carry `attestedBy`, `attestedAt` and `attestedAgainstSha256`. All three are
+optional, and all three are the owner's to write; an agent never records a sign-off on the owner's
+behalf.
+
+`attestedAgainstSha256` is a digest of everything in the record except the attestation fields, so
+it pins exactly what was signed off. Compute it with `acquisitionAttestedContentSha256` from
+`src/lib/sources/acquisition-ledger.ts`. If any other field is later corrected, the digest no
+longer matches and `npm run check:source-acquisitions` reports the record as
+`attestedAgainstSha256 is stale; content changed after sign-off` instead of leaving it quietly
+`locally_reviewed`.
+
+That is the gap this closes. On 2026-09-16 a batch of metadata corrections invalidated six earlier
+owner sign-offs, and because sign-off lived only in prose in `dispositionReason` and `notes`,
+nothing read it and nothing noticed. The pattern is the Therapy catalogue's
+`therapyReviewedContentSha256`, which has held that line for the therapy records.
+
 ## 5. What happens automatically
 
 - Every capture appears at `/sources` with its band, score, jurisdiction and warnings.
