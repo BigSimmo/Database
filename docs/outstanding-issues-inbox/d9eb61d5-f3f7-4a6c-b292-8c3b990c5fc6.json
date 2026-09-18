@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d9eb61d5-f3f7-4a6c-b292-8c3b990c5fc6",
+  "createdOn": "2026-09-18",
+  "action": "done",
+  "payload": {
+    "id": "#744BAH",
+    "outcome": "Recorded 2026-09-18 in docs/audit/2026-09-17-external-audit-refutations.md (commit ecc217acd). Eight refutations written down with their evidence; four of them - the ownerless-documents constraint, the byte-length gate ahead of timingSafeEqual, the auth callback fixing its origin before any path is parsed, and claim support capping high to medium - were independently re-read against origin/main 28dabe0c3 while writing the record rather than carried over. Also records which findings were real but already decided, the one real finding now being acted on (safety-chip labelling, #GHC4XZ), and the two questions still needing a person: whether the live site is fast again after PR #2849/#2855, and whether CARING_CONTACTS_DEMO_ENABLED is set in production. Indexed in docs/README.md along with four audit documents that were missing from it.",
+    "baseRowFingerprint": "b40994e8a5f4acfc19a1dc71f4e823ee4fde347afed443c2826114b63fde22d5"
+  }
+}

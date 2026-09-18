@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8c8e73cf-2331-4eaf-b156-d5b4549d69df",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#RA0QAH",
+    "detail": "GENERIC HALF CLOSED BY MEASUREMENT 2026-09-07; the row stays open only for three unexplained specs. This row's fixed member left a standing worry in its own text: that the Next 16 prefetch-header trap is generic to any Playwright assertion trying to tell a prefetch from a navigation, and was worth grepping for. GREPPED, on origin/main 0177bed: grep -rn 'next-router-prefetch' over tests/, src/ and scripts/ returns two hits, both inside the already-fixed tests/ui-smoke.spec.ts:1354 block (its explanatory comment and the corrected guard). There is no second occurrence anywhere in the repository, so that specific trap is not lurking elsewhere and no further code fix follows from it. WHAT REMAINS UNEXPLAINED: the other three single-spec Production UI failures of 2026-09-02. This row never named them, and the only pointers are CI runs 33610490607 and 33613433031, which are past the useful retention window for reading logs. With no spec identities and no reproduction, any fix would be a guess, and guessing at flakiness is how a real failure gets quarantined by accident. RECOMMENDATION: leave open at P3 as a watch item, not a work item. If a fourth single-spec Production UI failure appears, capture the spec identity and the run URL AT THAT MOMENT - that is the missing input - then reproduce with --repeat-each on the same SHA before touching anything. Do not quarantine; tests/flake-ledger.json still holds one entry and it is not one of these. PARKED 2026-09-18, and this row's own recommendation says the same: a watch item, not a work item. The two CI runs that held the only evidence are past their retention window, so the three unexplained specs cannot be identified now, and guessing at flakiness is how a real failure gets quarantined by accident. TO UNBLOCK: capture the spec identity and run URL at the moment a fourth single-spec Production UI failure appears, then reproduce with --repeat-each on that same SHA.",
+    "baseRowFingerprint": "6c3df7e72571973a4a8157b45a805a035a577f87b88fa53fe5b61e2894f9b5ce"
+  }
+}

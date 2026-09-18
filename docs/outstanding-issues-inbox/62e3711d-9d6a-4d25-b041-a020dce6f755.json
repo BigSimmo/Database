@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "62e3711d-9d6a-4d25-b041-a020dce6f755",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#PVZB5E",
+    "detail": "MEASURED 2026-09-17 on live psychiatry.tools, read-only. First call to a route was consistently far slower than the warm call that followed: /api/documents?limit=10 took 5.47 s then settled at 1.29-1.52 s; /api/search/universal?q=lithium took 2.35 s then 0.75 s; /sources/search 1.77 s then 1.40 s. So a clinician opening the app between patients, after it has been quiet, can wait several seconds on the first action. CONFIG, read via the Railway MCP on 2026-09-17: production service Database in project Database (5deaad0b-675a-4c13-978e-5ca2b5b877f9) runs multiRegionConfig asia-southeast1-eqsg3a with numReplicas 1, healthcheckPath /api/health/ready, healthcheckTimeout 60. CAUSE NOT ESTABLISHED: a single replica means no warm instance to absorb the first hit, but this could equally be per-route module initialisation in a Node production build (src/data alone is 4.9 MB of JSON, and src/lib/sources/repository-providers.ts imports therapies-source.json at 2.6 MB plus dsm-clinical-content.json at 448 KB), or container sleep. Further production reads in that session were blocked, so nothing below the service config was checked. NEXT ACTION: read the deploy/runtime settings for sleep behaviour and the boot timeline in Railway logs, and separately time a cold Node start of the production build locally to split module init from container start. Only then decide between a second replica, a warmer, or deferring the heavy JSON imports. GATE: any replica or runtime change is a production mutation and needs explicit owner authorisation per AGENTS.md Railway project safety. PARKED 2026-09-18: the cause is still not established, and both halves of the next action are gated - reading Railway deploy settings and boot logs is provider-backed, and any replica or warmer change is a production mutation needing explicit owner authorisation. TO UNBLOCK: approve the Railway runtime read, and separately time a cold Node start of the production build to split module initialisation from container start before choosing between a second replica, a warmer, or deferring the heavy JSON imports.",
+    "baseRowFingerprint": "5889c314b7b2c77e90135a60855677188e4b16c0d1632565ef77ca1c0b22eff3"
+  }
+}
