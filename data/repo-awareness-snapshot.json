@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-17"
+    "committed_at": "2026-09-18"
   },
   "routes": {
     "modes": [
@@ -3707,6 +3707,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/site-content-publication-handover.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/plans/2026-08-23-favourites-and-reconciliation.md",
         "section": "superpowers",
         "catalogued": true
@@ -6884,6 +6889,14 @@
         "checks": "ledger lookup; cherry-pick+three-dot; blob existence on main; gh PR #1338 CLOSED; GitHub reads explicitly authorized; no non-GitHub provider checks."
       },
       {
+        "date": "2026-09-17",
+        "ref": "claude/charming-newton-xbp799",
+        "head": "0496590aa21c803ebef3c53cf1b0db5231acf4e7",
+        "scope": "prlanded",
+        "outcome": "PR #2860 landed correctly. Squash merge (single parent 95785dddc); squash commit 0496590aa and merged branch tip 12159df3e share tree 788439593ffc8377e264c018d882de8bee461c21 byte for byte, so every line of the branch landed and the two-dot diff is empty. No orphaned late commits: the head GitHub merged equals the last head pushed. Remote branch auto-deleted on merge. Nine authored commits acting on the 2026-09-17 external audit plus one merge of main.",
+        "checks": "CI run 17152 conclusion success on the full non-draft suite (Production UI 1/2/3, Production UI critical, Ward Flow browser journeys, Build, Unit coverage, Lighthouse budget, Caring Contacts database, Container images, Static PR checks, Safety and config, PR policy, PR mergeability, Semgrep, Gitleaks, GitGuardian); Owner approval 'Not needed: no clinical, database or RAG-ranking change'; mergeable_state clean at merge. Pre-push local gate: npm run verify:cheap exit 0, 21340 tests passed. Post-merge: check:outstanding-issues and check:ledger-write-discipline both pass."
+      },
+      {
         "date": "2026-07-13",
         "ref": "codex/openai-gpt56-rag-upgrade",
         "head": "04c1d0b036cae8af4dabfc692055c7aab93d5888",
@@ -7642,6 +7655,14 @@
         "scope": "repo-wide outstanding-work reconciliation and cleanup",
         "outcome": "No high-confidence P0/P1 remained in the locally executable scope. Fixed the stale architecture index for DSM/specifier routes, pruned redundant Knip configuration, removed the unused `SignedImage` default export, and reconciled maintained docs so completed/superseded plans no longer present as active work. Retained explicitly blocked work: provider-gated operator actions, the live-eval shadow reindex harness, deep-memory section-ownership design, and RAG follow-ups that require live evidence or product/security decisions. Full Knip findings were triaged rather than mass-deleted; unresolved-import scan is clean.",
         "checks": "Offline `npm run verify:cheap` passed with 2,417 tests/1 skipped; docs links 806, script refs 264, codebase index 35/35; Knip unresolved scan clean; typecheck clean; focused Vitest 15/15; env-name parity clean; `git diff --check`. Provider-backed Supabase/OpenAI/GitHub/Railway, dependency audit, browser, build, drift, and release gates not run."
+      },
+      {
+        "date": "2026-09-06",
+        "ref": "dependabot/pip/eval/docling/docling-python-55e33de552 (PR #2646)",
+        "head": "0c5e99919250cc61c5a9102ee6a37e54c0e5699b",
+        "scope": "Run PR sweep: CI fix",
+        "outcome": "Unit coverage failure fixed: dependabot bumped docling to 2.124.0 in eval/docling/requirements.txt but did not update the docling-lab-contract pin manifest (eval/docling/report/lab-config.json); updated the manifest string to match. No unresolved review threads.",
+        "checks": "npx vitest run tests/docling-lab-contract.test.ts (23 passed); no provider-backed checks run"
       },
       {
         "date": "2026-07-13",
