@@ -189,7 +189,11 @@ export function renderAnswerTimingReport(summary) {
   return lines.join("\n");
 }
 
-/** @param {string[]} argv @param {NodeJS.ProcessEnv} env */
+/**
+ * @param {string[]} argv
+ * @param {Record<string, string | undefined>} env  only the opt-in key is read, so the caller need
+ *   not supply a whole ProcessEnv — a test asserting the refusal should not have to fake NODE_ENV.
+ */
 export function providerAccessAuthorized(argv = process.argv, env = process.env) {
   return argv.includes(allowProviderFlag) || env[allowProviderEnv] === "true";
 }
