@@ -21,6 +21,9 @@ export function useDeferredRegistrySearch(
   recordSearchMatches: DeferredRegistrySearchMatch[];
   recordSearchMode: "forms" | "services";
   recordStatus: RegistryRequestStatus;
+  /** The catalogue behind these matches came from the in-bundle seed list, so
+   *  the results are real but the list may lag what was published. */
+  recordsDegraded: boolean;
 } {
   const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
     enabled: searchMode === "services" || searchMode === "forms",
@@ -52,5 +55,6 @@ export function useDeferredRegistrySearch(
     recordSearchMatches,
     recordSearchMode: searchMode === "forms" ? "forms" : "services",
     recordStatus: registryRecords.status,
+    recordsDegraded: registryRecords.degraded,
   };
 }

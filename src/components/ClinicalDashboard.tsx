@@ -397,7 +397,10 @@ function ClinicalDashboardContent({
   // Record matches come from the owner-scoped registry API (mock fixtures in
   // demo mode); ranking stays client-side (deferred) so live-typing stays
   // responsive and the registry is fetched once per active mode.
-  const { recordSearchMatches, recordSearchMode, recordStatus } = useDeferredRegistrySearch(searchMode, query);
+  const { recordSearchMatches, recordSearchMode, recordStatus, recordsDegraded } = useDeferredRegistrySearch(
+    searchMode,
+    query,
+  );
   // The thread mirror ref must never outlive the answer it describes: every
   // reset path nulls `answer`, so clearing here covers them all (mode
   // switches, new chat, differentials/services clears) without each caller
@@ -3663,6 +3666,7 @@ function ClinicalDashboardContent({
                         recordMatches={recordSearchMatches}
                         recordMode={recordSearchMode}
                         recordStatus={recordStatus}
+                        recordDegraded={recordsDegraded}
                         showRecordMatches={searchMode === "services" || searchMode === "forms"}
                         query={query}
                         loading={loading}
