@@ -261,7 +261,10 @@ function reconciliationContentHash(candidate: RegistryReconciliationCandidate) {
   });
 }
 
-function canonicalCandidate(candidates: readonly RegistryReconciliationCandidate[]) {
+/** The adapter's canonical pick for a logical group — same path adoption uses.
+ *  Exported so the reconciliation-plan builder cannot invent a third notion of
+ *  "first in the candidates list". */
+export function canonicalCandidate(candidates: readonly RegistryReconciliationCandidate[]) {
   const reconciled = reconcileCanonicalPublicSiteContent(
     candidates.map((candidate) => ({
       candidate,
