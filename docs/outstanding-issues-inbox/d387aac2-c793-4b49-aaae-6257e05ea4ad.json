@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d387aac2-c793-4b49-aaae-6257e05ea4ad",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#2AB2NJ",
+    "detail": "Packet S5 (PR #2056, merge 093f9340c) landed the B1 telemetry gap assessment: the one proven gap is verification_latency_ms, now persisted behind RAG_TELEMETRY_EXTENDED (typed, default false) via the allow-listed projection module with canary-absence tests. Enabling it in production is an owner decision gated on a dashboard consumer existing (no consumer today), and is a Railway env change (provider-backed, explicit approval; rollback = set false). Next: when a dashboard question needs verification latency, set RAG_TELEMETRY_EXTENDED=true on the Database service after confirming the canary-absence tests are still green on main. Stop: do not enable speculatively; do not add unproven fields. PARKED 2026-09-18 (nothing codeable here): an owner decision plus a Railway production environment change, both needing explicit authorisation. TO UNBLOCK: when a dashboard question actually needs verification latency, confirm the canary-absence tests are still green on main, then set RAG_TELEMETRY_EXTENDED=true on the Database service; rollback is setting it back to false.",
+    "baseRowFingerprint": "b7968eeadba34e8f3ed4134fbb8d776bb8b76441e6b8255a3dcf85dc8d64d689"
+  }
+}
