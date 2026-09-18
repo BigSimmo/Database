@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { deriveGovernanceColumns } from "@/lib/registry-records";
 import { parseRegistryListResponse, parseRegistryRecordResponse } from "@/lib/registry-client-contract";
-import { getServiceRecord, serviceRecords } from "@/lib/services";
+import { getServiceRecord, rankServiceRecords, serviceRecords } from "@/lib/services";
 
 /** Mirrors the demo/public-access "full" list payload built by
  *  GET /api/registry/records (publicRegistryPayload + registryListPayload)
@@ -21,6 +21,43 @@ function buildFullListPayload() {
     verifiedCount: 0,
     governance,
     demoMode: true,
+  };
+}
+
+/** Mirrors the same payload for a request that carries `q`, which is the only
+ *  thing that makes the route emit `matches` — the shape that used to make the
+ *  whole response unparseable. Compact records, exactly as the search view sends. */
+function buildSearchListPayload() {
+  const records = serviceRecords.slice(0, 20);
+  const matches = rankServiceRecords(records, "clinic", 10, [], true);
+  return {
+    records: records.map((record) => ({
+      slug: record.slug,
+      title: record.title,
+      subtitle: record.subtitle,
+      route: record.route,
+      statusChips: record.statusChips,
+      primaryContact: record.primaryContact,
+      tags: record.tags,
+      catchments: record.catchments,
+    })),
+    matches: matches.map((match) => ({
+      record: {
+        slug: match.service.slug,
+        title: match.service.title,
+        subtitle: match.service.subtitle,
+        route: match.service.route,
+        statusChips: match.service.statusChips,
+        primaryContact: match.service.primaryContact,
+        tags: match.service.tags,
+        catchments: match.service.catchments,
+      },
+      score: match.score,
+      reasons: match.reasons,
+    })),
+    total: records.length,
+    verifiedCount: 0,
+    publicAccess: true,
   };
 }
 
@@ -63,6 +100,28 @@ describe("registry-client-contract", () => {
     expect(parsed).not.toBeNull();
     const roundTripped = parsed?.records.find((record) => record.slug === withProvenance!.slug);
     expect(roundTripped?.verification?.availabilityStatus).toBe(withProvenance!.verification?.availabilityStatus);
+  });
+
+  it("parses a search-view list payload that carries ranked matches", () => {
+    // Regression: `matches` is emitted by the route for any non-summary view once `q` is
+    // present, and it was missing from the allow-list. The parser returned null, and the
+    // client reports null as "the registry could not be searched" — a broken search surface
+    // for a response that was completely valid.
+    const payload = buildSearchListPayload();
+    expect(payload.matches.length).toBeGreaterThan(0);
+    const parsed = parseRegistryListResponse(payload, "search");
+    expect(parsed).not.toBeNull();
+    expect(parsed?.records.length).toBe(payload.records.length);
+  });
+
+  it("parses a full-view list payload that carries ranked matches", () => {
+    const payload = { ...buildFullListPayload(), matches: buildSearchListPayload().matches };
+    expect(parseRegistryListResponse(payload, "full")).not.toBeNull();
+  });
+
+  it("still rejects a list payload carrying a key the route never emits", () => {
+    const payload = { ...buildFullListPayload(), unexpectedKey: true };
+    expect(parseRegistryListResponse(payload, "full")).toBeNull();
   });
 
   it("parses a real generated service registry detail payload", () => {

@@ -286,9 +286,14 @@ export function parseRegistryListResponse(value: unknown, view: RegistryListView
     !candidate.records.every(serviceRecord) ||
     !hasOnlyKnownKeys(
       candidate,
+      // `matches` has to be listed even though nothing here reads it. The route builds it for
+      // EVERY non-summary view whenever the request carries `q`, and an unknown key rejects the
+      // whole response — so a searched list would have arrived intact and still been reported to
+      // the reader as "the registry could not be searched". Accepted and ignored: ranking for
+      // these views is done on the client from `records`.
       view === "full"
-        ? ["records", "total", "verifiedCount", "governance", "demoMode", "publicAccess"]
-        : ["records", "total", "verifiedCount", "demoMode", "publicAccess"],
+        ? ["records", "total", "verifiedCount", "governance", "matches", "demoMode", "publicAccess"]
+        : ["records", "total", "verifiedCount", "matches", "demoMode", "publicAccess"],
     )
   ) {
     return null;
