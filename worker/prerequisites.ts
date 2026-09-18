@@ -50,7 +50,7 @@ export function checkPythonPdfPrerequisites(): Promise<PrerequisiteCheck> {
   const script = [
     "import json",
     "result = {'ok': True, 'missing': []}",
-    "for name in ['fitz', 'PIL', 'pytesseract']:",
+    "for name in ['pymupdf', 'PIL', 'pytesseract']:",
     "    try:",
     "        __import__(name)",
     "    except Exception as exc:",
