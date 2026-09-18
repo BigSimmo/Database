@@ -91,14 +91,25 @@ export function CalculatorSheet({
       onKeyDown={trapTab}
       className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6"
     >
-      <button
-        type="button"
-        aria-label="Close calculator"
-        tabIndex={-1}
+      {/* The backdrop is a click-to-close LAYER, not a second control. It was a
+          `<button aria-label="Close calculator">`, which put two elements
+          answering to the name "Close" in one dialog — and because it is
+          `absolute inset-0` it also spans BEHIND the panel, so which one a
+          "Close" lookup or a stray click reached was decided by DOM order alone
+          (#EKB6XR). Presentational and aria-hidden now: the header button is the
+          dialog's one named close, Escape is the keyboard route, and this stays
+          the pointer shortcut it always was.
+
+          Both layers carry an explicit rung from the ladder rather than relying
+          on paint order — `--z-overlay` (80) under `--z-modal` (100) — so the
+          panel sits above the sheet of glass that covers the whole viewport. */}
+      <div
+        aria-hidden="true"
+        data-testid="calculator-sheet-backdrop"
         onClick={onClose}
-        className="absolute inset-0 animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
+        className="absolute inset-0 z-[80] animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
       />
-      <div className="relative flex max-h-[calc(100dvh-max(0.75rem,var(--safe-area-top)))] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-h-[92dvh] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
+      <div className="relative z-[100] flex max-h-[calc(100dvh-max(0.75rem,var(--safe-area-top)))] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-h-[92dvh] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
         <header className="modal-landscape-container grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Icon className="size-icon-md" aria-hidden="true" />
