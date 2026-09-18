@@ -26,6 +26,17 @@ const localOnlySmartModes = [
   ["dictionary", "/dictionary/search", "term for hearing a voice that is not there", "Hallucination"],
 ] as const;
 
+/**
+ * A cross-mode chip is named by what it does — `Search "<query>" in Forms` —
+ * rather than by its destination alone, so an `exact: true` match on the mode
+ * label no longer reaches one. The exclusion assertions below keep the exact
+ * match (a list option really is named by its label) and add this form, because
+ * a negative assertion that can no longer match anything proves nothing.
+ */
+function crossModeChipName(mode: string) {
+  return new RegExp(`\\bin ${mode}(,|$)`);
+}
+
 function composer(page: Page) {
   return visibleByTestId(page, "global-search-input");
 }
@@ -100,12 +111,14 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
       }
       for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
         await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
+        await expect(page.getByRole("option", { name: crossModeChipName(excludedMode) })).toHaveCount(0);
       }
     } else {
       await expect(page.getByTestId("smart-search-intent-cue")).toContainText("Smart search");
       await expect(page.getByRole("listbox")).toBeVisible();
       for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
         await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
+        await expect(page.getByRole("option", { name: crossModeChipName(excludedMode) })).toHaveCount(0);
       }
       if (mode === "prescribing") {
         for (const documentAction of ["Browse library", "Scope sources", "Recent documents"]) {
