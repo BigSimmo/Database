@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 
 import {
   ResultFilterSheet,
@@ -19,6 +19,7 @@ import {
   type AppliedFilterChip,
 } from "@/components/clinical-dashboard/search-results-header-band";
 import { Chip } from "@/components/ui/chip";
+import { Pagination } from "@/components/ui/pagination";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import type {
@@ -27,9 +28,9 @@ import type {
   SourceQualityBand,
 } from "@/lib/sources/catalogue-types";
 import {
-  filterAndSortSourceCatalogue,
   formatCatalogueMonth,
-  parseSourceCatalogueFilters,
+  type SourceCatalogueFacetCounts,
+  type SourceCatalogueFacetKey,
 } from "@/lib/sources/catalogue-view";
 import { SOURCE_BAND_LABELS, SOURCE_BAND_TONES } from "@/lib/sources/rating-method";
 import { sourceAttentionFlags } from "@/lib/sources/source-status-presentation";
@@ -51,6 +52,12 @@ import { groupSourceUsagesByMode } from "@/lib/sources/source-usage-presentation
  * belong on the record, not in the narrowing control. Their URL parameters still
  * parse, so a deep link from Publishers or a saved catalogue link keeps working
  * and shows up as a removable applied chip.
+ *
+ * `entries` is the current page's slice only — 50 sources, cut server-side by
+ * `SourcesCatalogueContent` before anything crosses the RSC boundary. The
+ * filters, the facet option counts and the total match count are computed there
+ * too, against the whole catalogue, so narrowing still searches all 866 sources
+ * while the browser only ever receives the page it is showing.
  */
 
 const jurisdictionLabels: Record<string, string> = {
@@ -71,16 +78,6 @@ function jurisdictionLabel(scope: string) {
 
 function modeLabel(modeId: AppModeId) {
   return appModeDefinition(modeId).label;
-}
-
-const BASE_COLLATOR = new Intl.Collator("en-AU", { sensitivity: "base" });
-
-function compareText(left: string, right: string) {
-  return BASE_COLLATOR.compare(left, right);
-}
-
-function uniqueSorted(values: readonly string[]) {
-  return [...new Set(values)].sort(compareText);
 }
 
 /**
@@ -168,8 +165,6 @@ function SourceTile({ entry }: { entry: ClinicalSourceClientEntry }) {
   );
 }
 
-type FacetKey = "band" | "jurisdiction" | "topic" | "usedBy";
-
 /** Every filter group that can be active, including the ones only a deep link sets. */
 const chipGroups = [
   {
@@ -196,9 +191,22 @@ const chipGroups = [
 export function SourcesCatalogueClient({
   entries,
   hostedDocuments,
+  filters,
+  facetCounts,
+  totalMatches,
+  page,
+  pageCount,
+  startIndex,
 }: {
+  /** The current page's slice, already filtered and sorted on the server. */
   entries: readonly ClinicalSourceClientEntry[];
   hostedDocuments: "available" | "unavailable";
+  filters: SourceCatalogueFilters;
+  facetCounts: SourceCatalogueFacetCounts;
+  totalMatches: number;
+  page: number;
+  pageCount: number;
+  startIndex: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -206,27 +214,39 @@ export function SourcesCatalogueClient({
   const filterPanelId = useId();
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const filters = useMemo(() => parseSourceCatalogueFilters(searchParams, entries), [entries, searchParams]);
-  const visibleEntries = useMemo(() => filterAndSortSourceCatalogue(entries, filters), [entries, filters]);
-
+  // Narrowing resets the page. Page 12 of a 2-page result is the state a saved
+  // link, a removed chip or a widened facet would otherwise leave behind, and it
+  // reads as an empty catalogue rather than as a stale page number.
   const setParamValues = (key: string, values: readonly string[]) => {
     const next = new URLSearchParams();
     for (const [candidateKey, candidateValue] of searchParams.entries()) {
-      if (candidateKey !== key) next.append(candidateKey, candidateValue);
+      if (candidateKey !== key && candidateKey !== "page") next.append(candidateKey, candidateValue);
     }
     for (const value of values) next.append(key, value);
     const suffix = next.toString();
     router.replace(`${pathname}${suffix ? `?${suffix}` : ""}`, { scroll: false });
   };
 
-  const selectedValues = (key: FacetKey): readonly string[] => {
+  const goToPage = (next: number) => {
+    const params = new URLSearchParams();
+    for (const [candidateKey, candidateValue] of searchParams.entries()) {
+      if (candidateKey !== "page") params.append(candidateKey, candidateValue);
+    }
+    if (next > 1) params.append("page", String(next));
+    const suffix = params.toString();
+    // `push`, not `replace`: a page move is navigation, and Back has to return
+    // the reader to the page they came from.
+    router.push(`${pathname}${suffix ? `?${suffix}` : ""}`);
+  };
+
+  const selectedValues = (key: SourceCatalogueFacetKey): readonly string[] => {
     if (key === "band") return filters.bands;
     if (key === "jurisdiction") return filters.jurisdictions;
     if (key === "topic") return filters.topics;
     return filters.usedBy;
   };
 
-  const toggleFacet = (key: FacetKey, value: string) => {
+  const toggleFacet = (key: SourceCatalogueFacetKey, value: string) => {
     const current = selectedValues(key);
     setParamValues(key, current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
   };
@@ -240,63 +260,40 @@ export function SourcesCatalogueClient({
     setParamValues(key, current);
   };
 
-  /** How many sources this option would leave visible if it were ticked as well. */
-  const optionCount = (key: FacetKey, value: string) => {
-    const current = selectedValues(key);
-    const widened = current.includes(value) ? current : [...current, value];
-    const candidate: SourceCatalogueFilters = {
-      ...filters,
-      ...(key === "band"
-        ? { bands: widened as SourceCatalogueFilters["bands"] }
-        : key === "jurisdiction"
-          ? { jurisdictions: widened as SourceCatalogueFilters["jurisdictions"] }
-          : key === "topic"
-            ? { topics: [...widened] }
-            : { usedBy: widened as SourceCatalogueFilters["usedBy"] }),
-    };
-    return filterAndSortSourceCatalogue(entries, candidate).length;
-  };
-
-  const facetOptions = (key: FacetKey, values: readonly string[], format: (value: string) => string) =>
-    values.map((value) => {
-      const count = optionCount(key, value);
-      return {
-        value,
-        label: format(value),
-        hint: `${count} ${count === 1 ? "source" : "sources"}`,
-        hintLabel: String(count),
-        disabled: count === 0 && !selectedValues(key).includes(value),
-      };
-    });
+  /**
+   * The option list and its union-widening counts, both derived server-side over
+   * the whole catalogue. This used to re-filter all 866 entries once per option
+   * per render in the browser.
+   */
+  const facetOptions = (key: SourceCatalogueFacetKey, format: (value: string) => string) =>
+    facetCounts[key].map(({ value, count }) => ({
+      value,
+      label: format(value),
+      hint: `${count} ${count === 1 ? "source" : "sources"}`,
+      hintLabel: String(count),
+      disabled: count === 0 && !selectedValues(key).includes(value),
+    }));
 
   const bandGroup = resultFilterFacetGroup({
     id: "source-band",
     label: "Quality band",
     description: "Organisational review rating. It is not a clinical endorsement.",
     selected: new Set(filters.bands),
-    options: facetOptions(
-      "band",
-      uniqueSorted(entries.map((entry) => entry.rating.band)),
-      (value) => SOURCE_BAND_LABELS[value as SourceQualityBand] ?? titleCase(value),
-    ),
+    options: facetOptions("band", (value) => SOURCE_BAND_LABELS[value as SourceQualityBand] ?? titleCase(value)),
     onToggle: (value) => toggleFacet("band", value),
   });
   const jurisdictionGroup = resultFilterFacetGroup({
     id: "source-jurisdiction",
     label: "Jurisdiction",
     selected: new Set(filters.jurisdictions),
-    options: facetOptions(
-      "jurisdiction",
-      uniqueSorted(entries.map((entry) => entry.geography.scope)),
-      jurisdictionLabel,
-    ),
+    options: facetOptions("jurisdiction", jurisdictionLabel),
     onToggle: (value) => toggleFacet("jurisdiction", value),
   });
   const topicGroup = resultFilterFacetGroup({
     id: "source-topic",
     label: "Topic",
     selected: new Set(filters.topics),
-    options: facetOptions("topic", uniqueSorted(entries.flatMap((entry) => entry.topics)), titleCase),
+    options: facetOptions("topic", titleCase),
     onToggle: (value) => toggleFacet("topic", value),
   });
   const usedByGroup = resultFilterFacetGroup({
@@ -304,11 +301,7 @@ export function SourcesCatalogueClient({
     label: "Used in",
     description: "The part of PsychSift whose records cite the source.",
     selected: new Set(filters.usedBy),
-    options: facetOptions(
-      "usedBy",
-      uniqueSorted(entries.flatMap((entry) => entry.usedBy.map((usage) => usage.modeId))),
-      (value) => modeLabel(value as AppModeId),
-    ),
+    options: facetOptions("usedBy", (value) => modeLabel(value as AppModeId)),
     onToggle: (value) => toggleFacet("usedBy", value),
   });
   const sortGroup = resultFilterGroup({
@@ -346,7 +339,7 @@ export function SourcesCatalogueClient({
   const clearQuery = () => {
     const next = new URLSearchParams();
     for (const [candidateKey, candidateValue] of searchParams.entries()) {
-      if (candidateKey !== "q") next.append(candidateKey, candidateValue);
+      if (candidateKey !== "q" && candidateKey !== "page") next.append(candidateKey, candidateValue);
     }
     const suffix = next.toString();
     router.push(`${pathname}${suffix ? `?${suffix}` : ""}`);
@@ -384,9 +377,9 @@ export function SourcesCatalogueClient({
           <SearchResultsHeaderBand
             modeId="sources"
             query={filters.q}
-            matchCount={visibleEntries.length}
+            matchCount={totalMatches}
             status="ready"
-            resultNoun={visibleEntries.length === 1 ? "source" : "sources"}
+            resultNoun={totalMatches === 1 ? "source" : "sources"}
             hideEmptyQuery
             emptyQueryLabel="Source catalogue"
             filterLabel="Filter sources"
@@ -409,7 +402,7 @@ export function SourcesCatalogueClient({
             description="Narrow the catalogue by rating, jurisdiction, topic, or the part of PsychSift that uses the source."
             groups={[bandGroup, jurisdictionGroup, topicGroup, usedByGroup, sortGroup]}
             onClearAll={activeFilterCount > 0 ? clearFilters : undefined}
-            summary={{ count: visibleEntries.length, noun: visibleEntries.length === 1 ? "source" : "sources" }}
+            summary={{ count: totalMatches, noun: totalMatches === 1 ? "source" : "sources" }}
             chromeResetKey={filters.q}
           />
           {/* One quiet line, not the bordered banner this replaced. The count
@@ -427,12 +420,24 @@ export function SourcesCatalogueClient({
         </>
       }
     >
-      {visibleEntries.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
-          {visibleEntries.map((entry) => (
-            <SourceTile key={entry.id} entry={entry} />
-          ))}
-        </div>
+      {entries.length ? (
+        <>
+          <div className="grid gap-3 md:grid-cols-2">
+            {entries.map((entry) => (
+              <SourceTile key={entry.id} entry={entry} />
+            ))}
+          </div>
+          <Pagination
+            className="pt-4"
+            page={page}
+            pageCount={pageCount}
+            onPageChange={goToPage}
+            label="Source catalogue pages"
+            summary={`${startIndex + 1}\u2013${startIndex + entries.length} of ${totalMatches} ${
+              totalMatches === 1 ? "source" : "sources"
+            }`}
+          />
+        </>
       ) : (
         <SearchResultsEmptyState
           modeId="sources"

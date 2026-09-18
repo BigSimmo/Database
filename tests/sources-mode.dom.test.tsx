@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DictionarySourcesRedirect from "@/app/(search-app)/dictionary/sources/page";
-import { SourcesCatalogueClient } from "@/components/sources/sources-catalogue-client";
+import { SourcesCatalogueContent } from "@/components/sources/sources-catalogue-content";
 import {
   SourceDetailPage,
   SourcesMethodPage,
@@ -12,6 +12,7 @@ import {
   SourcesTopicsPage,
 } from "@/components/sources/sources-pages";
 import { SOURCE_RATING_WEIGHTS, type ClinicalSourceCatalogueEntry } from "@/lib/sources/catalogue-types";
+import { projectSourceCatalogueForClient } from "@/lib/sources/catalogue-view";
 
 // Cross-mode "also matches" panel is an AuthProvider-backed component of its own;
 // it is exercised by tests/ui-universal-search.spec.ts, not by this page's unit test.
@@ -119,6 +120,24 @@ const fixtureEntries: ClinicalSourceCatalogueEntry[] = [
   }),
 ];
 
+/**
+ * The catalogue route is sliced, filtered and counted on the server now, so the
+ * page under test is `SourcesCatalogueContent` — the synchronous server half —
+ * rather than the client component, which no longer receives the whole
+ * catalogue or parses the URL itself. `currentSearchParams` still drives the
+ * mocked `useSearchParams` because the client keeps building the links it
+ * navigates to from it, so one assignment continues to configure both halves.
+ */
+function catalogue(hostedDocuments: "available" | "unavailable") {
+  return (
+    <SourcesCatalogueContent
+      entries={projectSourceCatalogueForClient(fixtureEntries)}
+      hostedDocuments={hostedDocuments}
+      searchParams={currentSearchParams}
+    />
+  );
+}
+
 beforeEach(() => {
   currentSearchParams = new URLSearchParams();
   currentPathname = "/sources/search";
@@ -132,7 +151,7 @@ afterEach(cleanup);
 
 describe("Sources catalogue", () => {
   it("leads with the sources themselves, each carrying its band and where it is used", () => {
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
 
     // No page title block, no count tiles, no panel of selects before the results.
     expect(screen.getByRole("heading", { level: 1, name: "Source catalogue" })).toBeInTheDocument();
@@ -150,7 +169,7 @@ describe("Sources catalogue", () => {
   });
 
   it("keeps governance codes off the card and shows only states that change a decision", () => {
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
 
     // `verification_unknown` is review bookkeeping; `review_due` is not.
     expect(screen.queryByText(/verification unknown/i)).not.toBeInTheDocument();
@@ -159,7 +178,7 @@ describe("Sources catalogue", () => {
   });
 
   it("says the list is incomplete when the hosted-document loader cannot be reached", () => {
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="unavailable" />);
+    render(catalogue("unavailable"));
 
     // The count is wrong in this state, so the reader has to be told before
     // reading it as the whole registry.
@@ -170,7 +189,7 @@ describe("Sources catalogue", () => {
 
   it("reads application usage from the URL and narrows the visible sources", () => {
     currentSearchParams = new URLSearchParams("usedBy=dictionary");
-    const view = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    const view = render(catalogue("available"));
 
     expect(screen.getByRole("status")).toHaveTextContent("1 source");
     expect(screen.getByText("Zulu Australian guideline")).toBeVisible();
@@ -179,7 +198,7 @@ describe("Sources catalogue", () => {
 
     view.unmount();
     currentSearchParams = new URLSearchParams("band=D&publisher=Legacy+Publisher");
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
     expect(screen.getByRole("status")).toHaveTextContent("1 source");
     expect(screen.getByText("Alpha review source")).toBeVisible();
   });
@@ -188,7 +207,7 @@ describe("Sources catalogue", () => {
     currentSearchParams = new URLSearchParams(
       "band=A&band=D&usedBy=dictionary&usedBy=factsheets&publisher=Legacy+Publisher",
     );
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
 
     for (const name of [
       "Remove Quality band: A · Preferred filter",
@@ -209,7 +228,7 @@ describe("Sources catalogue", () => {
 
   it("removes a comma-delimited filter value while preserving its siblings", () => {
     currentSearchParams = new URLSearchParams("band=A%2CD&usedBy=dictionary");
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
 
     fireEvent.click(screen.getByRole("button", { name: "Remove Quality band: D · Review required filter" }));
 
@@ -217,20 +236,20 @@ describe("Sources catalogue", () => {
   });
 
   it("sorts by quality by default, honours an ordering deep link, and clears filters while keeping the query", () => {
-    const quality = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    const quality = render(catalogue("available"));
     const qualityTitles = screen.getAllByRole("link", { name: /view source details/i });
     expect(qualityTitles[0]).toHaveAccessibleName(/Zulu Australian guideline/);
 
     quality.unmount();
     currentSearchParams = new URLSearchParams("sort=title");
-    const title = render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    const title = render(catalogue("available"));
     expect(screen.getAllByRole("link", { name: /view source details/i })[0]).toHaveAccessibleName(
       /Alpha review source/,
     );
 
     title.unmount();
     currentSearchParams = new URLSearchParams("q=ranzcp&band=A&publisher=Legacy+Publisher");
-    render(<SourcesCatalogueClient entries={fixtureEntries} hostedDocuments="available" />);
+    render(catalogue("available"));
     expect(screen.getByRole("status")).toHaveTextContent("0 sources");
     fireEvent.click(screen.getAllByRole("button", { name: /clear all filters|clear filters/i })[0]);
     expect(routerReplace).toHaveBeenLastCalledWith("/sources/search?q=ranzcp", { scroll: false });
