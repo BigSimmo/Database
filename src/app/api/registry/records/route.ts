@@ -261,6 +261,13 @@ export async function GET(request: Request) {
       {
         ...registryListPayload(kind, records, governanceBySlug, q, limit, view),
         publicAccess: true,
+        // Say it out loud. The records below are real, but they came from the in-bundle
+        // catalogue because the canonical read could not finish inside its budget, so the list
+        // may not carry the most recent publication. Emitted only when true, so a healthy
+        // response is byte-for-byte what it was. `/api/medications` and `/api/differentials`
+        // already do this; this route computed the flag and threw it away, which left the
+        // reader unable to tell a current list from a stale one.
+        ...(canonical.degraded ? { degraded: true } : {}),
       },
       {
         request,

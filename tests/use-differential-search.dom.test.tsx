@@ -513,3 +513,70 @@ describe("useDifferentialSearch retry", () => {
     expect(result.current.status).toBe("ready");
   });
 });
+
+describe("useDifferentialSearch surfaces a degraded catalogue", () => {
+  function respond(options: { diagnosisDegraded?: boolean; presentationDegraded?: boolean }) {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        jsonResponse(
+          String(input).includes("kind=diagnosis")
+            ? {
+                matches: [{ record: { slug: "delirium", title: "Delirium" }, score: 5, reasons: ["title"] }],
+                demoMode: true,
+                ...(options.diagnosisDegraded ? { degraded: true } : {}),
+              }
+            : {
+                matches: [{ workflow: { slug: "confusion", title: "Confusion" }, score: 4, reasons: ["title"] }],
+                demoMode: true,
+                ...(options.presentationDegraded ? { degraded: true } : {}),
+              },
+        ),
+      ),
+    );
+  }
+
+  it.each([
+    ["the diagnosis catalogue", { diagnosisDegraded: true }],
+    ["the presentation catalogue", { presentationDegraded: true }],
+    ["both catalogues", { diagnosisDegraded: true, presentationDegraded: true }],
+  ])("reports degraded when %s fell back to the in-bundle list", async (_label, options) => {
+    respond(options);
+    const { result } = renderHook(() => useDifferentialSearch("delirium"));
+    await advanceDebounce();
+    await flushMicrotasks();
+
+    expect(result.current.status).toBe("ready");
+    // Either half being stale makes the merged result set stale: a result card does not say
+    // which catalogue it came from, so the caveat has to cover the whole list.
+    expect(result.current.degraded).toBe(true);
+  });
+
+  it("reports a healthy catalogue as not degraded", async () => {
+    respond({});
+    const { result } = renderHook(() => useDifferentialSearch("delirium"));
+    await advanceDebounce();
+    await flushMicrotasks();
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.degraded).toBe(false);
+  });
+
+  it("keeps the flag on a cache hit rather than quietly healing it", async () => {
+    respond({ diagnosisDegraded: true });
+    const { result, rerender } = renderHook(({ query }) => useDifferentialSearch(query), {
+      initialProps: { query: "delirium" },
+    });
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.degraded).toBe(true);
+
+    rerender({ query: "psychosis" });
+    await advanceDebounce();
+    await flushMicrotasks();
+    rerender({ query: "delirium" });
+    await flushMicrotasks();
+
+    expect(result.current.status).toBe("ready");
+    expect(result.current.degraded).toBe(true);
+  });
+});
