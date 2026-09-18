@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8e986088-c528-429c-80fc-7ee5ad5761bb",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "site_content_canonical_json is recursive plpgsql, so release activation will slow the same way the read path did once a release exceeds a couple of thousand records",
+    "detail": "READ FROM THE SQL ON 2026-09-16, NOT MEASURED. site_content_canonical_json (supabase/schema.sql:12746) is a recursive plpgsql function: one invocation per JSON node, and a string_agg subquery over jsonb_each or jsonb_array_elements at every container. It defines EVERY fingerprint in the site-content control plane — release digest, contentHash, publicationVersion, governance and lineage hashes, plan and receipt identities — and is reimplemented in JS and pinned by tests/site-content-p03-baseline.test.ts, so it cannot be rewritten without invalidating stored digests across the live database. Measured proxy for its cost: the 843-record epoch-zero freeze canonicalises to 9,522,923 bytes across 164,820 JSON nodes (55,103 containers), i.e. ~165k plpgsql invocations and ~55k planned aggregate subqueries per pass, and two such passes per HTTP request cost about four seconds against live — see docs/audit/2026-09-16-catalogue-read-latency.md. The read path is being fixed by removing the calls. The WRITE path cannot be: site_content_dynamic_state_digest, site_content_release_digest, stage_site_content_sync_event, activate_site_content_release and rollback_site_content_release all canonicalise the full release by design and must keep doing so. Today that is tolerable because activation is rare and operator-driven. It scales linearly in node count, so a release of 2,000+ records makes activation slow in exactly the same way, and an activation that exceeds its statement timeout fails a publication rather than a page view. WHAT TO DO: nothing yet — this is a recorded scaling limit, not a defect. BEFORE the catalogue grows materially past the freeze, time one activation against a realistic release on a local Postgres (npm run check:site-content-control-plane already replays the control plane in Docker) and record the node-count-to-seconds curve, so the ceiling is known before an operator hits it mid-publication. DO NOT rewrite site_content_canonical_json to a set-based or C-backed equivalent as a performance fix: any byte-level difference changes every stored fingerprint, and a C extension cannot be installed by migration on Supabase.",
+    "source": "docs/audit/2026-09-16-catalogue-read-latency.md; Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D), catalogue read-latency investigation",
+    "issueUlid": "01M2P2Q02BGQR7DE5Z48476ZKN"
+  }
+}

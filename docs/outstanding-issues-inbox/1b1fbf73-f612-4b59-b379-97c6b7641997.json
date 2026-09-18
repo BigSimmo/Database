@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "1b1fbf73-f612-4b59-b379-97c6b7641997",
+  "createdOn": "2026-09-16",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "site_content_release_records_immutable is not 'enable always', so session_replication_role = replica bypasses the freeze's only structural protection",
+    "detail": "READ FROM THE SCHEMA ON 2026-09-16, NOT EXPLOITED OR TESTED. supabase/schema.sql:12722-12724 creates site_content_release_records_immutable as an ordinary row trigger (before update or delete ... execute function guard_site_content_immutable_row). PostgreSQL does not fire an ordinary trigger when session_replication_role = 'replica', so a session that sets that GUC can UPDATE or DELETE rows of the frozen epoch-zero release with nothing raising. That is not a theoretical technique in this repository: scripts/check-site-content-control-plane.mjs:889-894 uses exactly it against a sibling table. TWO FURTHER GAPS IN THE SAME SEAL: the trigger covers only UPDATE and DELETE, so nothing prevents a row being INSERTED into a retained bootstrap release (it need only satisfy site_content_release_records_check1), and TRUNCATE is a statement-level event a row trigger never sees. Until the catalogue read-latency migration lands, the per-read bootstrap digest recomputation is the only thing that detects an inserted row, and it detects it after the fact — see docs/audit/2026-09-16-catalogue-read-latency.md. HOW MUCH THIS MATTERS, stated honestly: setting session_replication_role needs the same superuser or postgres privilege an attacker would need to write the rows anyway, and such an attacker could equally replace the digest function. So the value here is against ACCIDENT — a half-applied migration, a bad replay, a partial restore, or a script that sets the GUC for an unrelated reason and then touches this table — not against a determined adversary. THE FIX: 'alter table public.site_content_release_records enable always trigger site_content_release_records_immutable', plus an 'enable always' before-insert trigger restricted to the retained bootstrap release ids and an 'enable always' before-truncate statement trigger. All transactional, no index build. SEQUENCE IT WITH the read-latency migration, which needs the same seal to justify removing the per-read digest; doing it separately means doing the same CREATE TRIGGER lock twice. GATE: SQL, so it ships as a new forward migration and needs an approved merge window. RUN check:site-content-control-plane in Docker FIRST — its own fixtures rely on session_replication_role on a sibling table, and an 'enable always' trigger on this one must be proven not to break them before merging.",
+    "source": "docs/audit/2026-09-16-catalogue-read-latency.md; Claude Code session 2026-09-16 (session_01GJHMbC4s2S2n8aChAxVF1D), catalogue read-latency investigation",
+    "issueUlid": "01M2P2QFGQ4W704K34MD30SX6G"
+  }
+}

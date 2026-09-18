@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "78c73376-efbe-49ba-ad41-5d93a8f10524",
+  "createdOn": "2026-09-18",
+  "action": "done",
+  "payload": {
+    "id": "#YE6BZB",
+    "outcome": "MEASURED 2026-09-17. This row asked for an EXPLAIN baseline on read_site_content_public_records, noting it sits on the search request path and had never been measured. Step 0 of scripts/operator-explain-site-content-public-records.sql reads pg_stat_statements, and that read answered it without an EXPLAIN at all: 11 calls, 95,216 ms total, mean 8,656 ms, max 17,263 ms, over a 3h20m window (stats reset 10:00 UTC). A mean across every call in the window, not a slow-query tail, and roughly double the ~4.2s the 2026-09-16 audit had estimated from the browser side. AFTER the fix (migration 20260916190000, PR #2855): the same statement now averages about 80 ms across the 47 calls since it applied. Live HTTP, same probes before and after: /api/differentials 7.30s -> ~1.4s; /api/registry/records?kind=service 6.01s -> ~1.6s; universal search services group, which had been abandoning its budget and serving bundled data, 133 ms answering from the database. The numbers are recorded in docs/audit/2026-09-16-catalogue-read-latency.md, which previously said the per-unit cost was not established. The full EXPLAIN (ANALYZE) script remains available if the cost ever needs attributing WITHIN the function rather than totalled.",
+    "baseRowFingerprint": "ea1828acdcd80608a5aa6e618fa2206335c98d94452993c2451e87c3ef4a09ec"
+  }
+}
