@@ -5,15 +5,21 @@ re-report findings this repository has already answered, and so the hours spent 
 refutation are not spent again.
 **Subject:** an external audit of `psychiatry.tools`, supplied as `PSYCHSIFT-AUDIT-REPORT-2026-09-17.md`.
 **Checked against:** `origin/main` 6f0a3d444 on 2026-09-17 (session `01B5auxdz8JsfzSnDezMWz1n`, three
-parallel code-review agents, PR #2860). Four of the eight refutations below were independently
+parallel code-review agents, PR #2860). Six of the eight refutations below were independently
 re-read against `origin/main` 28dabe0c3 on 2026-09-18 while writing this record; those are marked.
+The two unmarked ones (findings 1 and 7) rest on that earlier session's evidence.
 
 ## The single biggest reason it was wrong
 
-**The audit read commit `a5c3c42b6`, thirty-one commits behind `main`.** Five of its findings had
-already been answered by work in this repository before the audit was written. That is not a
-criticism of the auditor so much as a process note: an audit of this repository must state the
-commit it read, and the commit must be current, or most of its output is archaeology.
+**The audit read commit `a5c3c42b6`, thirty-two commits behind the `main` it was checked against (`git rev-list --count a5c3c42b6..6f0a3d444` = 32; the ledger row that prompted this record said thirty-one, and that figure was never re-measured).** Of the eight findings
+refuted below, **three had already been fixed by work committed here before the audit was written**
+(its L1/L2 hang, its C3 tenancy report, and the numeric-truncation half of C4), **four describe code
+that was never broken** (the webhook compare, the auth-callback redirect, the claim-support cap and
+the prompt chip), and one is a notice working as designed.
+
+That is not a criticism of the auditor so much as a process note: an audit of this repository must
+state the commit it read, and the commit must be current, or a good part of its output is
+archaeology.
 
 ## Refuted, with the evidence
 
@@ -36,7 +42,7 @@ predicates differ in wording and agree in force.
 `#ZBAC9D` is the identifier of the change that **closed** this. It is not an open finding, and it
 should not be cited as one.
 
-### 3. Safety-chip numeric truncation (part of its C4)
+### 3. Safety-chip numeric truncation (part of its C4) — re-verified 2026-09-18
 
 Refuted, and it should not be re-checked. `truncateAtSafeBoundary`
 (`src/lib/clinical-safety.ts:77-88`) drops a whole numeric token rather than cutting inside one. It
@@ -69,11 +75,11 @@ is not `direct`, a `high` confidence is rewritten to `medium`.
 That is the notice working as designed. The real gap is the surfaces that fall back **without**
 showing it, which are already open as `#V98SPY`, `#8GB18R` and `#3PW9TY`.
 
-### 8. Differentials prompt chip (its L8)
+### 8. Differentials prompt chip (its L8) — re-verified 2026-09-18
 
 Every quick-action chip in every mode fills the search box and waits for submit
 (`src/components/clinical-dashboard/master-search-header.tsx:746-920`). None of them submits on
-click.
+click: across that whole range there is not one call to `requestSubmit` or `handleSubmit(`.
 
 ## Real, but already decided — do not reverse
 
@@ -102,5 +108,6 @@ Both were blocked by network policy from the session that did this work, and rem
 
 ## For the next audit
 
-State the commit you read, and read a current one. Of the findings above, five were already closed
-in this repository at the time of writing, and two of those had a dated record explaining how.
+State the commit you read, and read a current one. Three of the findings above were already fixed
+here at the time of writing, and two of those had a dated record in this same directory explaining
+how. Four more describe code that had never behaved the way the finding claimed.
