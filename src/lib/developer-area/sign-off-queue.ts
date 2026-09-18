@@ -33,16 +33,18 @@ import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
  * pins the per-family counts so the page cannot silently report zero.
  */
 export type SignOffFamilyId =
-  | "wa-mha-forms"
-  | "formulation"
-  | "differentials"
-  | "dictionary"
-  | "specifiers"
-  | "therapy"
-  | "sources";
+  "wa-mha-forms" | "formulation" | "differentials" | "dictionary" | "specifiers" | "therapy" | "sources";
 
 export type SignOffRow = {
   family: SignOffFamilyId;
+  /**
+   * Unique across the whole queue, and the only value safe to use as a React
+   * key. The record ids are not: three differential presentation workflows
+   * (`substance-intoxication`, `substance-withdrawal`, `depression`) share an id
+   * with a diagnosis record of the same name, so keying a list on `id` would
+   * silently render three fewer rows than the count above it claims.
+   */
+  key: string;
   /** The record's own id or slug, as its source file writes it. */
   id: string;
   title: string;
@@ -81,6 +83,7 @@ function formsFamily(): SignOffFamily {
     .filter((details) => details.contentReviewStatus !== "reviewed")
     .map<SignOffRow>((details) => ({
       family: "wa-mha-forms",
+      key: `form:${details.id}`,
       id: details.id,
       title: `Form ${details.form} — ${details.name}`,
       nativeStatus: details.contentReviewStatus,
@@ -108,6 +111,7 @@ function formulationFamily(): SignOffFamily {
     .filter((mechanism) => mechanism.reviewStatus !== "reviewed")
     .map<SignOffRow>((mechanism) => ({
       family: "formulation",
+      key: `formulation:${mechanism.id}`,
       id: mechanism.id,
       title: mechanism.name,
       nativeStatus: mechanism.reviewStatus,
@@ -134,6 +138,7 @@ function differentialsFamily(): SignOffFamily {
 
   const diagnoses = snapshot.diagnoses.map<SignOffRow>((record) => ({
     family: "differentials",
+    key: `differential-diagnosis:${record.slug}`,
     id: record.slug,
     title: record.title,
     nativeStatus: `validation_status: ${governance.validation_status} (source_status: ${governance.source_status})`,
@@ -146,6 +151,7 @@ function differentialsFamily(): SignOffFamily {
 
   const presentations = snapshot.presentations.map<SignOffRow>((workflow) => ({
     family: "differentials",
+    key: `differential-presentation:${workflow.id}`,
     id: workflow.id,
     title: workflow.title,
     nativeStatus: `validation_status: ${governance.validation_status} (source_status: ${governance.source_status})`,
@@ -169,6 +175,7 @@ function differentialsFamily(): SignOffFamily {
 function dictionaryFamily(): SignOffFamily {
   const senses = dictionarySenseDrafts.map<SignOffRow>((draft) => ({
     family: "dictionary",
+    key: `dictionary-sense:${draft.id}`,
     id: draft.id,
     // The corpus writes most expansions as "TOKEN — meaning" already, so
     // prefixing the token unconditionally produced "4AT — 4AT — rapid delirium
@@ -183,6 +190,7 @@ function dictionaryFamily(): SignOffFamily {
 
   const reviews = dictionaryDefinitionReviews.map<SignOffRow>((review) => ({
     family: "dictionary",
+    key: `dictionary-definition:${review.id}`,
     id: review.id,
     title: `${review.title} — ${review.verdict}`,
     // These records carry no `clinicalApproval` field of their own; the
@@ -216,6 +224,7 @@ function specifiersFamily(): SignOffFamily {
     .filter((item) => item.review.clinicianReviewStatus !== "clinician-reviewed")
     .map<SignOffRow>((item) => ({
       family: "specifiers",
+      key: `specifier:${item.slug}`,
       id: item.slug,
       title: `${item.disorderName} · ${item.groupLabel} · ${item.label}`,
       nativeStatus: `${item.review.clinicianReviewStatus} (source: ${item.review.sourceVerificationStatus})`,
@@ -238,6 +247,7 @@ function specifiersFamily(): SignOffFamily {
 function therapyFamily(): SignOffFamily {
   const rows = therapyRecords.filter(therapyNeedsReview).map<SignOffRow>((record) => ({
     family: "therapy",
+    key: `therapy:${record.slug}`,
     id: record.slug,
     title: record.name,
     nativeStatus: record.reviewStatus,
@@ -269,6 +279,7 @@ function sourcesFamily(): SignOffFamily {
   // acquisition protocol reads them in.
   const rows = acquisitionReviewQueue().map<SignOffRow>((record) => ({
     family: "sources",
+    key: `source-acquisition:${record.id}`,
     id: record.id,
     title: record.title,
     nativeStatus: `${record.disposition} / validationStatus: ${record.validationStatus} (rung ${record.rung})`,
