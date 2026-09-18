@@ -160,7 +160,9 @@ async function main() {
   let baselineEstablished = report.adoptableCount > 0;
 
   console.log(`Reconciliation review size — kind=${options.kind}, release ${activeReleaseId}`);
-  console.log(`  initialized=${initialized}  snapshotState=${snapshot?.state ?? "(none)"}  changeEpoch=${snapshot?.changeEpoch ?? "(none)"}`);
+  console.log(
+    `  initialized=${initialized}  snapshotState=${snapshot?.state ?? "(none)"}  changeEpoch=${snapshot?.changeEpoch ?? "(none)"}`,
+  );
   console.log("");
   console.log(`  owner rows (candidates)          ${candidates.length}`);
   console.log(`  logical groups                   ${report.groups.length}`);
@@ -263,13 +265,18 @@ async function main() {
     console.log("");
     console.log("  Groups needing a decision:");
     for (const group of needsReview.slice(0, 40)) {
-      console.log(`    ${group.logicalId}  (${group.candidateCount} candidate(s), ${group.normalizedContentHashes.length} distinct content hash(es))`);
+      console.log(
+        `    ${group.logicalId}  (${group.candidateCount} candidate(s), ${group.normalizedContentHashes.length} distinct content hash(es))`,
+      );
     }
     if (needsReview.length > 40) console.log(`    … and ${needsReview.length - 40} more`);
   }
 
   if (options.out) {
-    writeFileSync(resolve(options.out), `${JSON.stringify({ activeReleaseId, kind: options.kind, report }, null, 2)}\n`);
+    writeFileSync(
+      resolve(options.out),
+      `${JSON.stringify({ activeReleaseId, kind: options.kind, report }, null, 2)}\n`,
+    );
     console.log("");
     console.log(`  Wrote ${options.out}`);
   }
