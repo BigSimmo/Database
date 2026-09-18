@@ -99,6 +99,30 @@ where a severity qualifier changes management much less than it does in mood or 
 is worth deciding which disorders in Group B are worth the effort before starting it, rather than
 working through 193 rows in file order.
 
+## Category 20 is a parallel ICD-11 view, not a category
+
+All ten disorders in "20. ICD-11 Specifics" also appear under their clinical category: catatonia,
+olfactory reference disorder, body-focused repetitive behaviour disorder, complex PTSD, partial
+dissociative identity disorder, trance disorder, bodily distress disorder, compulsive sexual behaviour
+disorder, gender incongruence and gaming disorder. That accounts for all 19 of its items.
+
+It is **not** straightforward duplication, and reading it as duplication would delete real content.
+Catatonia is the clearest case: the schizophrenia-spectrum entry carries the DSM three-way context
+(associated with another mental disorder / catatonic disorder due to another medical condition /
+unspecified catatonia) while the category-20 entry carries the ICD-11 three-way context (associated
+with another mental disorder / induced by psychoactive substances including medications / secondary to
+a medical condition not classified elsewhere). Two manuals, two structures, same diagnosis.
+
+The pairing is not applied consistently, though. Olfactory reference disorder appears twice with the
+_same_ `icd11Context` sentence verbatim and differing only in one insight label — "with absent
+insight/delusional beliefs" in the OCD category against "with absent insight" in category 20. Whether
+that is the DSM wording paired against the ICD-11 wording, or an artefact, is a clinical judgement
+and is not resolved here.
+
+Two consequences for anyone counting: the catalogue holds 585 item rows but fewer than 585 distinct
+clinical statements, and an entry written in one category does not automatically answer its partner in
+category 20.
+
 ## Group A is 17 definitions, not 63
 
 The 63 rows carry only **17 distinct specifier labels**. Ten of them are the same specifier repeated
