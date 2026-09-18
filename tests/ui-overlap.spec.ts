@@ -584,7 +584,15 @@ test.describe("Tablet usability regressions", () => {
     });
     await page.goto("/forms/search?q=transport&run=1", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByText("Search could not complete")).toBeVisible();
+    // Two nodes carry this copy and both are meant to: the visible paragraph,
+    // and the sr-only live region the empty state populates after mount so the
+    // degraded state is announced rather than heard as a silent zero. Playwright
+    // matches text by substring, so the bare string resolved to both and failed
+    // strict mode. Name each one instead of loosening the assertion.
+    await expect(page.getByText("Search could not complete", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Search could not complete\. Part of the search index did not respond/)).toHaveCount(
+      1,
+    );
     await expect(page.getByText(/^No matches for/)).toHaveCount(0);
   });
 
