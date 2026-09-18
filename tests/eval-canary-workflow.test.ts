@@ -55,12 +55,58 @@ describe("eval canary workflow input", () => {
   });
 
   it("distinguishes provider outages from retrieval regressions in the failure issue", () => {
-    expect(workflow).toContain('title: "Eval canary failure: evaluation did not complete"');
+    expect(workflow).toContain('"Eval canary failure: evaluation did not complete"');
     expect(workflow).toContain("Resolve provider quota/auth/config failures before rerunning");
     expect(workflow).toContain(
       "Do not bisect or revert code until provider health and the failure class are confirmed",
     );
+    // PR #629 removed this wording because provider quota and auth failures were being filed as
+    // retrieval regressions. Titles derived from the failure class must not reintroduce it.
     expect(workflow).not.toContain("Eval canary regression:");
+  });
+
+  /**
+   * TWO OUTCOMES, NOT ONE (ledger #SXPQ0A). `failure()` already covered a run that COMPLETED and
+   * then missed a blocking threshold: `eval:quality --fail-on-threshold` sets exit code 1
+   * (scripts/eval-quality.ts), `run-eval-safe.mjs` propagates it, and the step runs under
+   * `set -o pipefail`. What was missing is that the issue then said "evaluation did not complete"
+   * about an evaluation that completed and returned a real quality verdict — so the answer-quality
+   * subset failed the same three cases on every run from 2026-08-23 and read as an outage.
+   */
+  it("titles a completed-but-failing evaluation as a verdict, not an outage", () => {
+    expect(workflow).toContain('const completed = diagnosis.category === "probable-regression"');
+    expect(workflow).toContain('"Eval canary failure: a completed evaluation missed its blocking threshold"');
+    expect(workflow).toContain("**The evaluation completed.** This is a quality verdict, not an outage");
+  });
+
+  // Golden retrieval and the answer-quality subset have different owners and different stop rules.
+  // A red canary that does not say which half failed reads as "retrieval has regressed" while
+  // retrieval is passing every case.
+  it("names which half of the canary failed and which cases blocked", () => {
+    expect(workflow).toContain('stepOutcomes.golden_retrieval === "failure"');
+    expect(workflow).toContain('stepOutcomes.answer_quality === "failure"');
+    expect(workflow).toContain("Blocking threshold failures");
+    expect(workflow).toContain("`Failing half: ${half}`");
+  });
+
+  /**
+   * The two classes are separate threads on purpose: appending a completed-evaluation verdict to a
+   * thread titled "did not complete" is how three answer-quality cases stayed untracked for three
+   * weeks. Matching on `existing[0]` is what produced that.
+   */
+  it("keeps the two failure classes in separate threads", () => {
+    expect(workflow).toContain("const thread = existing.find((issue) => issue.title === title)");
+    expect(workflow).not.toContain("issue_number: existing[0].number");
+  });
+
+  /**
+   * The canary is the pair-comparison instrument for every protected RAG change. An issue that
+   * invites the reader to make the threshold green is worse than no issue, so the stop rule
+   * travels with the alert rather than living only in AGENTS.md.
+   */
+  it("carries the protected-surface stop rule into the issue body", () => {
+    expect(workflow).toContain("do not relax the threshold, add `acceptSourceOnly` to the failing cases");
+    expect(workflow).toContain("needs a paid live canary pair and explicit owner approval");
   });
 
   it("captures eval logs and adds deterministic failure classification to the issue", () => {
