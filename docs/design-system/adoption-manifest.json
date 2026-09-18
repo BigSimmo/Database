@@ -1408,6 +1408,7 @@
       "testFiles": [
         "tests/design-sync-visual-exports.test.ts",
         "tests/developer-review-state-page.dom.test.tsx",
+        "tests/developer-sign-off-page.dom.test.tsx",
         "tests/ui-v2-components.dom.test.tsx"
       ],
       "baseline": {
