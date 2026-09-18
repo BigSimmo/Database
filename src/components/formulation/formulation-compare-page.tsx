@@ -22,14 +22,14 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { InformationPageHeader } from "@/components/information-page-shell";
 import {
   comparisonGuideFor,
-  findFormulationMechanism,
-  formulationMechanisms,
-  type FormulationMechanism,
-} from "@/lib/formulation";
+  findFormulationMechanismSummary,
+  formulationMechanismIndex,
+  type FormulationMechanismSummary,
+} from "@/lib/formulation-mechanism-index";
 
 const COMPARE_PATH = "/formulation/compare";
 
-const catalogItems: CompareCatalogItem[] = formulationMechanisms.map((mechanism) => ({
+const catalogItems: CompareCatalogItem[] = formulationMechanismIndex.map((mechanism) => ({
   id: mechanism.id,
   title: mechanism.name,
   snippet: mechanism.summary,
@@ -49,7 +49,7 @@ const starterChips: CompareStarterChip[] = [
   },
 ];
 
-function comparisonRows(left: FormulationMechanism, right: FormulationMechanism) {
+function comparisonRows(left: FormulationMechanismSummary, right: FormulationMechanismSummary) {
   return [
     { label: "Definition", left: left.definition, right: right.definition },
     { label: "Core process", left: left.coreProcess, right: right.coreProcess },
@@ -67,8 +67,9 @@ function comparisonRows(left: FormulationMechanism, right: FormulationMechanism)
 
 export function FormulationComparePage({ initialLeft, initialRight }: { initialLeft?: string; initialRight?: string }) {
   const router = useRouter();
-  const left = initialLeft ? (findFormulationMechanism(initialLeft) ?? null) : null;
-  const right = initialRight && initialRight !== left?.id ? (findFormulationMechanism(initialRight) ?? null) : null;
+  const left = initialLeft ? (findFormulationMechanismSummary(initialLeft) ?? null) : null;
+  const right =
+    initialRight && initialRight !== left?.id ? (findFormulationMechanismSummary(initialRight) ?? null) : null;
   const ready = Boolean(left && right);
   const guide = left && right ? comparisonGuideFor(left.id, right.id) : null;
   const rows = left && right ? comparisonRows(left, right) : [];
