@@ -1,7 +1,27 @@
 import formulationContentJson from "@/data/formulation-content.json";
 import type { FormulationEvidenceRef } from "@/lib/formulation-concepts";
+import { comparisonGuideFor } from "@/lib/formulation-mechanism-index";
+import {
+  normalizeFormulationText,
+  rankFormulationMechanisms,
+  type FormulationMechanismRankOptions,
+} from "@/lib/formulation-mechanism-ranking";
 import { expandedSmartSearchQuery } from "@/lib/smart-search-intent";
 
+/**
+ * The full mechanism records.
+ *
+ * Everything here is server-side. The browser reads the trimmed index in
+ * `formulation-mechanism-index.ts` instead: this module statically imports the
+ * whole 108,724-byte content bundle, of which `evidence` alone is 20,467 bytes
+ * that only the server-rendered mechanism page ever reads.
+ * `tests/formulation-mechanism-index.test.ts` pins the two in step and pins
+ * that no client component reaches this module by any import path.
+ *
+ * Templates, sections, quality prompts, domains, domain groups, presets and the
+ * comparison guidance are re-exported from that index rather than read twice, so
+ * there is one copy of each and no way for the two halves to disagree.
+ */
 export type FormulationMechanism = {
   id: string;
   name: string;
@@ -48,27 +68,33 @@ export type FormulationMechanism = {
   version: string;
 };
 
-export type FormulationTemplate = { id: string; label: string };
+/**
+ * The trimmed record the browser receives, re-exported so the full module still
+ * owns the public name — the bridge `formulation-concepts.ts` uses for
+ * `FormulationConceptGroup`.
+ */
+export type { FormulationMechanismSummary } from "@/lib/formulation-mechanism-index";
+export type {
+  FormulationQualityPrompt,
+  FormulationSection,
+  FormulationTemplate,
+  MechanismComparisonGuide,
+} from "@/lib/formulation-mechanism-index";
 
-export type FormulationSection = {
-  id: string;
-  label: string;
-  prompt: string;
-  group: string[];
-};
-
-export type FormulationQualityPrompt = {
-  id: string;
-  label: string;
-  prompt: string;
-};
-
-export type MechanismComparisonGuide = {
-  mostUsefulDistinction: string;
-  commonConfusion: string;
-  treatmentImplicationDifference: string;
-  assessmentQuestion: string;
-};
+export {
+  comparisonGuideFor,
+  formulationDomainGroups,
+  formulationDomains,
+  formulationDomainsInUse,
+  formulationDraftFor,
+  formulationQualityPrompts,
+  formulationSearchPresets,
+  formulationSections,
+  formulationSectionsForTemplate,
+  formulationTemplates,
+  normalizeMechanismSelection,
+  suggestionsForFormulationSection,
+} from "@/lib/formulation-mechanism-index";
 
 export type FormulationSource = {
   id: string;
@@ -77,12 +103,7 @@ export type FormulationSource = {
 };
 
 type FormulationContentBundle = {
-  domains: string[];
   mechanisms: FormulationMechanism[];
-  formulationTemplates: FormulationTemplate[];
-  formulationSections: FormulationSection[];
-  formulationQualityPrompts: FormulationQualityPrompt[];
-  comparisonGuidance: Record<string, MechanismComparisonGuide>;
   sourceLibrary: Record<string, FormulationSource>;
   sourceWarnings: {
     prototype: string;
@@ -96,108 +117,27 @@ type FormulationContentBundle = {
 
 const formulationContent = formulationContentJson as unknown as FormulationContentBundle;
 
-export const formulationDomains = formulationContent.domains;
 export const formulationMechanisms = formulationContent.mechanisms;
-export const formulationTemplates = formulationContent.formulationTemplates;
-export const formulationSections = formulationContent.formulationSections;
-export const formulationQualityPrompts = formulationContent.formulationQualityPrompts;
 export const formulationSourceLibrary = formulationContent.sourceLibrary;
-/**
- * The domains at least one mechanism actually carries — 9 of the 12 declared.
- *
- * `formulationDomains` is the taxonomy. Offering it as a filter meant three
- * controls (Biological, Social, Cultural) that can never return anything: they
- * are declared in the bundle but carried by 0 of the 12 mechanisms. Under the
- * union counting rule a permanently empty option reports the unchanged total
- * rather than zero, so it looks identical to a full one — which is why
- * `docs/filter-contract.md` says derive the option list from the data and never
- * declare it. Taxonomy order is preserved so the filter reads in the same order
- * as the rest of the mode.
- */
-export const formulationDomainsInUse = formulationDomains.filter((domain) =>
-  formulationMechanisms.some((mechanism) => mechanism.domains.includes(domain)),
-);
-
-export const formulationSearchPresets = [
-  { label: "I keep going over it", query: "I keep going over it" },
-  { label: "What if something goes wrong?", query: "What if something goes wrong?" },
-  { label: "Zero to one hundred", query: "It goes from zero to one hundred" },
-  { label: "I do not need anyone", query: "I do not need anyone" },
-  { label: "If it is not perfect", query: "If it is not perfect, it is a failure" },
-] as const;
-
-export const formulationDomainGroups = [
-  {
-    id: "meaning",
-    label: "Meaning and belief",
-    description: "How experience is interpreted and organised.",
-    domains: ["Cognition", "Developmental", "Cultural"],
-  },
-  {
-    id: "emotion",
-    label: "Emotion and threat",
-    description: "Affect, trauma responses, and risk-relevant escalation.",
-    domains: ["Affect", "Trauma", "Risk", "Biological"],
-  },
-  {
-    id: "response",
-    label: "Coping and action",
-    description: "What the person does to manage distress or uncertainty.",
-    domains: ["Behaviour", "Social"],
-  },
-  {
-    id: "relationship",
-    label: "Relationship and protection",
-    description: "Attachment strategies, interpersonal patterns, and defences.",
-    domains: ["Attachment", "Interpersonal", "Defence"],
-  },
-] as const;
-
-function normalize(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function unique(values: string[]) {
-  return Array.from(new Set(values));
-}
 
 export function findFormulationMechanism(id: string) {
   return formulationMechanisms.find((mechanism) => mechanism.id === id);
 }
 
-export function normalizeMechanismSelection(ids: string[]) {
-  const knownIds = new Set(formulationMechanisms.map((mechanism) => mechanism.id));
-  return unique(ids).filter((id) => knownIds.has(id));
-}
-
-export function formulationSectionsForTemplate(templateId: string) {
-  return formulationSections.filter((section) => section.group.includes(templateId));
-}
-
-export function comparisonGuideFor(leftId: string, rightId: string) {
-  const direct = formulationContent.comparisonGuidance[`${leftId}__${rightId}`];
-  if (direct) return direct;
-  const reverse = formulationContent.comparisonGuidance[`${rightId}__${leftId}`];
-  if (!reverse) return undefined;
-  return reverse;
-}
-
 export function relatedFormulationMechanisms(mechanism: FormulationMechanism, limit = 4) {
   const sourceDomains = new Set(mechanism.domains);
-  const sourceSymptoms = new Set(mechanism.symptoms.map(normalize));
-  const sourceContexts = new Set(mechanism.diagnosticContexts.map(normalize));
+  const sourceSymptoms = new Set(mechanism.symptoms.map(normalizeFormulationText));
+  const sourceContexts = new Set(mechanism.diagnosticContexts.map(normalizeFormulationText));
 
   return formulationMechanisms
     .filter((candidate) => candidate.id !== mechanism.id)
     .map((candidate) => {
       const sharedDomains = candidate.domains.filter((domain) => sourceDomains.has(domain)).length;
-      const sharedSymptoms = candidate.symptoms.filter((symptom) => sourceSymptoms.has(normalize(symptom))).length;
+      const sharedSymptoms = candidate.symptoms.filter((symptom) =>
+        sourceSymptoms.has(normalizeFormulationText(symptom)),
+      ).length;
       const sharedContexts = candidate.diagnosticContexts.filter((context) =>
-        sourceContexts.has(normalize(context)),
+        sourceContexts.has(normalizeFormulationText(context)),
       ).length;
       const hasComparisonGuide = Boolean(comparisonGuideFor(mechanism.id, candidate.id));
       return {
@@ -210,158 +150,24 @@ export function relatedFormulationMechanisms(mechanism: FormulationMechanism, li
     .map(({ candidate }) => candidate);
 }
 
-function searchText(mechanism: FormulationMechanism) {
-  return normalize(
-    [
-      mechanism.name,
-      mechanism.definition,
-      mechanism.summary,
-      mechanism.coreProcess,
-      mechanism.formulationUse,
-      ...mechanism.symptoms,
-      ...mechanism.diagnosticContexts,
-      ...mechanism.domains,
-      ...mechanism.tags,
-      ...mechanism.clinicalClues,
-      ...mechanism.patientPhrases,
-      ...mechanism.fitIndicators,
-    ].join(" "),
-  );
-}
-
+/**
+ * The full records, ranked by the shared algorithm the client index also uses.
+ *
+ * Kept here rather than moved wholesale to the index module because a server
+ * caller reads fields the browser never receives: `catalogue-evidence.ts` builds
+ * its extract from `caveats` and its review state from `sourceStatus`.
+ */
 export function searchFormulationMechanisms(
   query: string,
   // `domains` is many-of-N, OR within the group: a mechanism carries 3.92 of
   // them on average, so asking for Affect OR Risk must widen rather than
   // intersect. Empty means no constraint. `domain` is the older one-of-N form,
   // still used by the builder page's own select.
-  options: {
-    domain?: string;
-    domains?: ReadonlySet<string>;
-    interpretNaturalLanguage?: boolean;
-    expansions?: readonly string[];
-  } = {},
+  options: FormulationMechanismRankOptions & { interpretNaturalLanguage?: boolean } = {},
 ) {
-  const normalizedQuery = normalize(
-    options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query,
+  return rankFormulationMechanisms(
+    formulationMechanisms,
+    normalizeFormulationText(options.interpretNaturalLanguage ? expandedSmartSearchQuery("formulation", query) : query),
+    options,
   );
-  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
-  const expansionTokens = Array.from(
-    new Set((options.expansions ?? []).flatMap((expansion) => normalize(expansion).split(" ").filter(Boolean))),
-  );
-  const domainFacets = options.domains;
-
-  return formulationMechanisms
-    .map((mechanism, index) => {
-      if (options.domain && options.domain !== "all" && !mechanism.domains.includes(options.domain)) return null;
-      if (domainFacets?.size && !mechanism.domains.some((domain) => domainFacets.has(domain))) return null;
-
-      const haystack = searchText(mechanism);
-      const name = normalize(mechanism.name);
-      const phrases = normalize(mechanism.patientPhrases.join(" "));
-      const clues = normalize(mechanism.clinicalClues.join(" "));
-      const tags = normalize(mechanism.tags.join(" "));
-      let score = normalizedQuery ? 0 : formulationMechanisms.length - index;
-
-      if (normalizedQuery) {
-        if (name === normalizedQuery) score += 80;
-        else if (name.includes(normalizedQuery)) score += 48;
-        if (phrases.includes(normalizedQuery)) score += 55;
-        if (clues.includes(normalizedQuery)) score += 35;
-        if (tags.includes(normalizedQuery)) score += 28;
-        for (const token of queryTokens) {
-          if (name.includes(token)) score += 14;
-          if (phrases.includes(token)) score += 10;
-          if (clues.includes(token)) score += 8;
-          if (haystack.includes(token)) score += 3;
-        }
-        for (const token of expansionTokens) {
-          if (name.includes(token)) score += 5;
-          if (phrases.includes(token)) score += 4;
-          if (clues.includes(token)) score += 3;
-          if (haystack.includes(token)) score += 1;
-        }
-      }
-
-      return score > 0 ? { mechanism, score } : null;
-    })
-    .filter((result): result is { mechanism: FormulationMechanism; score: number } => Boolean(result))
-    .sort((left, right) => right.score - left.score || left.mechanism.name.localeCompare(right.mechanism.name));
-}
-
-export function suggestionsForFormulationSection(mechanisms: FormulationMechanism[], sectionId: string) {
-  const bySection: Record<string, string[]> = {
-    symptoms: mechanisms.flatMap((mechanism) => mechanism.symptoms),
-    predisposing: mechanisms.flatMap((mechanism) => mechanism.predisposing),
-    precipitating: mechanisms.flatMap((mechanism) => mechanism.precipitating),
-    perpetuating: mechanisms.flatMap((mechanism) => mechanism.perpetuating),
-    protective: mechanisms.flatMap((mechanism) => mechanism.protective),
-    trigger: mechanisms.flatMap((mechanism) => mechanism.precipitating),
-    meaning: mechanisms.map((mechanism) => mechanism.coreProcess),
-    response: mechanisms.flatMap((mechanism) => mechanism.clinicalClues),
-    repair: mechanisms.flatMap((mechanism) => mechanism.treatmentImplications),
-    treatment: mechanisms.flatMap((mechanism) => mechanism.treatmentImplications),
-    risk: mechanisms
-      .filter((mechanism) => mechanism.domains.includes("Risk"))
-      .flatMap((mechanism) => mechanism.clinicalClues),
-  };
-
-  return unique(bySection[sectionId] ?? []).slice(0, 4);
-}
-
-export function formulationDraftFor({
-  mechanisms,
-  templateId,
-  notes,
-  qualityNotes,
-}: {
-  mechanisms: FormulationMechanism[];
-  templateId: string;
-  notes: Record<string, string>;
-  qualityNotes: Record<string, string>;
-}) {
-  const sections = formulationSectionsForTemplate(templateId);
-  const lines: string[] = [`${templateId} formulation`, ""];
-
-  const presenting = notes.presenting?.trim();
-  if (presenting) lines.push("Presenting problem", presenting, "");
-
-  lines.push("Working mechanism hypotheses");
-  if (mechanisms.length) {
-    lines.push(...mechanisms.map((mechanism) => `- ${mechanism.exampleSentence}`));
-  } else {
-    lines.push("- Select mechanisms and add case evidence before using this draft.");
-  }
-  lines.push("");
-
-  // A section the clinician left blank used to be filled with the library's own
-  // prompts for the selected mechanisms, unlabelled and indistinguishable from
-  // elicited history once the draft was copied into a record. Missing case
-  // evidence has to stay missing: the prompts are still one click away behind
-  // "Use suggestions", which is an explicit clinician action.
-  for (const section of sections) {
-    if (section.id === "presenting") continue;
-    const note = notes[section.id]?.trim();
-    lines.push(section.label);
-    lines.push(note || "- No case evidence recorded.");
-    lines.push("");
-  }
-
-  lines.push("Treatment leverage");
-  if (mechanisms.length) {
-    lines.push(...mechanisms.map((mechanism) => `- ${mechanism.name}: ${mechanism.treatmentLeverage}`));
-  } else {
-    lines.push("- Link treatment targets to supported mechanism hypotheses.");
-  }
-
-  const completedQuality = formulationQualityPrompts
-    .map((prompt) => ({ prompt, note: qualityNotes[prompt.id]?.trim() }))
-    .filter((item) => Boolean(item.note));
-  if (completedQuality.length) {
-    lines.push("", "Quality review");
-    for (const item of completedQuality) lines.push(`${item.prompt.label}: ${item.note}`);
-  }
-
-  lines.push("", "Draft for clinical review. Check context, alternatives, risk, culture, and disconfirming evidence.");
-  return lines.join("\n");
 }
