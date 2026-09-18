@@ -627,35 +627,86 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor(content)).toBe(label);
   });
 
-  it("carries no safety label at all for an instruction to stop a drug", () => {
-    // THE FALSE NEGATIVE, and it is the more dangerous direction. No pattern knows `cease`,
-    // `withhold`, `hold the dose`, `boxed warning`, `black box`, `hypersensitivity` or
-    // `anaphylaxis`. A passage whose entire content is a stop instruction produces nothing.
-    expect(labelFor("Cease clozapine and withhold further doses if the neutrophil count falls.")).toBeUndefined();
-    expect(labelFor("Boxed warning: fatal agranulocytosis has been reported.")).toBeUndefined();
-    expect(labelFor("Stop the infusion if anaphylaxis occurs.")).toBeUndefined();
+  it("labels an instruction to stop a drug, on the stop instruction itself (#GHC4XZ)", () => {
+    // THIS WAS THE FALSE NEGATIVE, and it was the more dangerous direction: no pattern knew
+    // `cease`, `withhold`, `hold the dose`, `boxed warning`, `black box`, `hypersensitivity` or
+    // `anaphylaxis`, so a passage whose entire content was a stop instruction produced nothing at
+    // all. Owner-approved on 2026-09-18; all seven now match.
+    //
+    // They sit in `red_flag`, not `contraindication`, because a stop instruction is event-driven
+    // ("stop now, because X has happened") while a contraindication is a standing property of the
+    // patient ("do not use in severe hepatic impairment"). Both kinds carry the `stop` tone, so the
+    // reader gets the danger colour either way -- and keeping them one tier down means no passage
+    // that reads "Contraindication" today changes label. The single exception is
+    // `known hypersensitivity` / `hypersensitivity to`, which name a patient property and so belong
+    // at the top tier; bare `hypersensitivity` stays here, where an adverse-effect sentence belongs.
+    expect(labelFor("Cease clozapine and withhold further doses if the neutrophil count falls.")).toBe("Red flag");
+    expect(labelFor("Boxed warning: fatal agranulocytosis has been reported.")).toBe("Red flag");
+    expect(labelFor("Stop the infusion if anaphylaxis occurs.")).toBe("Red flag");
+    expect(labelFor("Patients with known hypersensitivity should not receive this drug.")).toBe("Contraindication");
   });
 
-  it("labels a stop instruction only when an unrelated word happens to match", () => {
-    // The same clinical instruction, labelled Red flag -- not because it says to cease the drug,
-    // but because `immediate` appears. The label is an accident of vocabulary, not a reading of
-    // the instruction.
+  it("labels a stop instruction on the verb, not on an incidental urgency word (#GHC4XZ)", () => {
+    // This case used to pass for the wrong reason: the label came from `immediate`, not from
+    // `cease`, so the same instruction without an urgency word produced nothing at all. Both forms
+    // now reach Red flag through `cease` itself, which is why the bare form is asserted beside it --
+    // drop `cease` from the pattern and the second line goes red while the first stays green.
     expect(labelFor("Cease clozapine, with immediate effect, if the neutrophil count falls.")).toBe("Red flag");
+    expect(labelFor("Cease clozapine if the neutrophil count falls.")).toBe("Red flag");
   });
 
-  it("does not match the adverb form of its own red-flag token", () => {
-    // Found while writing the case above, and worth its own line because it is not the
-    // first-match-wins mechanism -- it is a plain regex defect. Every red-flag token is wrapped in
-    // \b...\b, so `\bimmediate\b` matches "with immediate effect" and does NOT match
-    // "immediately", which is the far commoner clinical phrasing. Same for `escalat` vs the
-    // escalation entry, which uses a prefix and so is unaffected.
-    expect(labelFor("Cease clozapine immediately if the neutrophil count falls.")).toBeUndefined();
-    expect(labelFor("Cease clozapine, with immediate effect, if the neutrophil count falls.")).toBe("Red flag");
+  it("matches both the adjective and the adverb form of its red-flag token (#GHC4XZ)", () => {
+    // Not the first-match-wins mechanism -- a plain regex defect. Every red-flag token is wrapped
+    // in \b...\b, so `\bimmediate\b` matched "with immediate effect" and did NOT match
+    // "immediately", the far commoner clinical phrasing. That was a silent no-finding, not a wrong
+    // label. Fixed by `immediate(?:ly)?`; the pair is pinned here because the pair IS the defect,
+    // and the probes below carry no other safety token, so only the adverb fix can satisfy them.
+    //
+    // Correcting an earlier note on this line: the escalation entry is NOT unaffected. `escalat`
+    // is not a prefix match -- `\b(escalat|...)\b` demands a word boundary straight after
+    // "escalat", so it matches neither "escalate" nor "escalation", and that entry fires today only
+    // via "senior review" / "specialist review" / "urgent review" / "transfer". Deliberately left
+    // alone: fixing it moves labels of its own and is a separate owner decision (see #GHC4XZ).
+    expect(labelFor("Seek help immediately.")).toBe("Red flag");
+    expect(labelFor("Discontinue with immediate effect.")).toBe("Red flag");
   });
 
   it("takes the first matching pattern in severity order, not the most relevant one", () => {
     // A passage that is plainly about monitoring is labelled Contraindication because `avoid`
     // appears earlier in the array. This is the mechanism behind every case above.
     expect(labelFor("Monitor the full blood count weekly and avoid missing a sample.")).toBe("Contraindication");
+  });
+
+  it("labels a bare stop instruction with no other safety word in it (#GHC4XZ)", () => {
+    // The core of the fix. Neither sentence contains a single token the array knew before -- no
+    // urgency word, no monitoring word, no dose word -- so each one returned nothing at all and the
+    // clinician was shown no chip for a passage whose entire content is "stop the drug".
+    //
+    // `ceasing` and `ceased` are included deliberately: "cease" is the Australian register (US
+    // texts say "discontinue"), and the past participle carries real instructions, e.g. "if
+    // clozapine is ceased for more than 48 hours, restart titration".
+    expect(labelFor("Cease clozapine and arrange haematology follow-up.")).toBe("Red flag");
+    expect(labelFor("Ceasing lithium abruptly increases relapse risk.")).toBe("Red flag");
+  });
+
+  it("matches `hold` only as a dose instruction, never as ordinary prose (#GHC4XZ)", () => {
+    // The reason the pattern spells out `hold <qualifier> dose(s)` instead of a bare \bhold\b:
+    // "hold the view that", "hold a discussion", "hold off" are ordinary English, and a bare token
+    // would paint them with the danger tone. The negative case is the guard -- it is what stops a
+    // later "simplification" of this alternation.
+    expect(labelFor("Hold the next dose and arrange a haematology opinion.")).toBe("Red flag");
+    expect(labelFor("Hold the view that a depot would suit this patient better.")).toBeUndefined();
+  });
+
+  it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {
+    // NOT a passing behaviour -- a known false positive, pinned so it is deliberate rather than
+    // discovered later. "The tremor ceased overnight." is an observation, not an instruction, and
+    // it now carries the top-severity stop tone.
+    //
+    // It is accepted because the alternative is reinstating the silent miss on the commonest stop
+    // phrasing in the corpus, and because this failure is LOUD: the clinician sees a chip and can
+    // read past it in a second. The failure it replaces was a passage reading "cease clozapine"
+    // with no chip at all. If the vocabulary is ever narrowed, this is the case to revisit first.
+    expect(labelFor("The tremor ceased overnight.")).toBe("Red flag");
   });
 });

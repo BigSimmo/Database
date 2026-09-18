@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "11195e1b-cc08-43a7-af50-23b982263297",
+  "createdOn": "2026-09-18",
+  "action": "update",
+  "payload": {
+    "id": "#VKH7N1",
+    "detail": "Run 32111839806 (canary pair 32100681177 -> 32111839806, otherwise green): strong generation took 20.2 s on neuroleptic-side-effect-escalation, flagged as a non-blocking latency advisory. Answer was still grounded via the source-backed extractive fallback. Watch on subsequent canaries; escalate only if it repeats or worsens. PARKED 2026-09-18: closing this needs a provider-backed eval-canary dispatch (roughly 1-2 US dollars) which is never automatic and needs explicit owner approval, and there is nothing to fix until a second sighting shows it is not a one-off. TO UNBLOCK: approve one canary pair and compare the neuroleptic-side-effect-escalation latency against the 20 s advisory.",
+    "baseRowFingerprint": "24deddcf1dbbed0ef59552a10eded17b37cbdff9d6cee74de1cf0f8cb4171587"
+  }
+}

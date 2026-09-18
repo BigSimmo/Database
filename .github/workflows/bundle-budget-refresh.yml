@@ -87,6 +87,7 @@ jobs:
       # The refreshed file ships as an artifact instead; a human applies it in a
       # normal PR after deciding the growth is legitimate.
       - name: Upload refreshed baseline and measurement
+        id: evidence
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bundle-budget-refresh
@@ -106,6 +107,7 @@ jobs:
           # the GitHub Actions template-injection pattern. The measurement itself
           # is read from the JSON file on disk for the same reason.
           REFRESH_OUTCOME: ${{ steps.refresh.outcome }}
+          ARTIFACT_OUTCOME: ${{ steps.evidence.outcome }}
           MEASUREMENT_FILE: bundle-budget-refresh.json
         with:
           script: |
@@ -116,34 +118,58 @@ jobs:
             const outcome = process.env.REFRESH_OUTCOME || "unknown";
 
             const pct = (value) => (typeof value === "number" ? `${value >= 0 ? "+" : ""}${value.toFixed(2)}%` : "n/a");
-            const kb = (value) => (typeof value === "number" ? `${(value / 1024).toFixed(1)} kB` : "n/a");
+            // KiB, not kB. This divides by 1024, which is binary, and labelling it
+            // kB understated every number in this issue by ~2.4% against the SI
+            // reading. scripts/check-bundle-budget.mjs does the same division and
+            // has always labelled it correctly; this helper shares its name and
+            // disagreed with it.
+            const kib = (value) => (typeof value === "number" ? `${(value / 1024).toFixed(1)} KiB` : "n/a");
+            // A bucket whose measurement or comparator is absent is INCOMPLETE
+            // evidence, not zero bytes and not zero drift.
+            const tol = (value) => (typeof value === "number" ? `${value}%` : "unstated");
 
             let body;
             if (outcome === "success") {
               const measurement = JSON.parse(fs.readFileSync(process.env.MEASUREMENT_FILE, "utf8"));
+              const comparator = measurement.comparator ?? {};
+              const meta = measurement.measurement ?? {};
               const rows = [
-                `| production | ${kb(measurement.production?.gzipBytes)} | ${kb(measurement.production?.previousGzipBytes)} | ${pct(measurement.production?.diffPct)} |`,
-                `| mockups (scratch) | ${kb(measurement.mockups?.gzipBytes)} | ${kb(measurement.mockups?.previousGzipBytes)} | ${pct(measurement.mockups?.diffPct)} |`,
+                `| production | ${kib(measurement.production?.gzipBytes)} | ${kib(measurement.production?.previousGzipBytes)} | ${pct(measurement.production?.diffPct)} | ${tol(measurement.production?.tolerancePct)} |`,
+                `| mockups (scratch) | ${kib(measurement.mockups?.gzipBytes)} | ${kib(measurement.mockups?.previousGzipBytes)} | ${pct(measurement.mockups?.diffPct)} | ${tol(measurement.mockups?.tolerancePct)} |`,
                 ...Object.entries(measurement.routes ?? {}).map(
-                  ([route, r]) => `| route \`${route}\` | ${kb(r.gzipBytes)} | ${kb(r.previousGzipBytes)} | ${pct(r.diffPct)} |`,
+                  ([route, r]) =>
+                    `| route \`${route}\` | ${kib(r.gzipBytes)} | ${kib(r.previousGzipBytes)} | ${pct(r.diffPct)} | ${tol(r.tolerancePct)} |`,
                 ),
               ];
+              // A measured run whose evidence artifact never uploaded is not a
+              // durable evidence package, so say which of the two happened rather
+              // than letting a green measurement imply both.
+              const artifactState = process.env.ARTIFACT_OUTCOME || "unknown";
               body = [
                 `_Updated ${measurement.updatedAt} — [run](${runUrl})._`,
                 "",
                 "Cold-build measurement of current bundle weight against the committed",
                 "`bundle-budget.json` baseline. **Report only** — no baseline was committed by this run.",
                 "",
-                "| bucket | measured (gzip) | committed baseline | drift |",
-                "| --- | --- | --- | --- |",
+                "| bucket | measured (gzip) | committed baseline | drift | tolerance |",
+                "| --- | --- | --- | --- | --- |",
                 ...rows,
                 "",
-                `Total: ${kb(measurement.totalGzipBytes)} gzip across ${measurement.files} chunk(s).`,
-                `Measured at \`${String(measurement.baselineSource ?? "").slice(0, 12)}\` (${measurement.baselineCommitDistance ?? "?"} commit(s) behind HEAD).`,
+                `Total: ${kib(measurement.totalGzipBytes)} gzip across ${measurement.files} chunk(s).`,
                 "",
-                "Production and mockup tolerances are 10% and 25% respectively. When production",
-                "drift approaches its ceiling, either find the regression or refresh the baseline",
-                "deliberately in a reviewed PR:",
+                "**Which baseline is which.** Two are involved and only one produced the drift above.",
+                "",
+                `- Comparator (the \`bundle-budget.json\` committed on \`main\`, and the source of every`,
+                `  \"committed baseline\" number above): \`${String(comparator.source ?? "unresolved").slice(0, 12)}\`,`,
+                `  recorded ${comparator.updatedAt ?? "at an unrecorded time"}.`,
+                `- Candidate (measured by THIS run, proposed for adoption, **not** committed):`,
+                `  \`${String(meta.measuredSha ?? measurement.baselineSource ?? "unresolved").slice(0, 12)}\`,`,
+                `  ${meta.distanceFromCheckedOutHead ?? measurement.baselineCommitDistance ?? "?"} commit(s) from this run's`,
+                `  checked-out HEAD at measurement time (${meta.observedAt ?? measurement.updatedAt}).`,
+                "",
+                `Evidence artifact upload: \`${artifactState}\`. Tolerances in the table are read from the`,
+                "committed baseline, not restated here. When production drift approaches its ceiling,",
+                "either find the regression or refresh the baseline deliberately in a reviewed PR:",
                 "",
                 "```",
                 "rm -rf .next && npm run build",

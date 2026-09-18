@@ -58,15 +58,18 @@ ARG MAX_UPLOAD_MB=
 # source maps and runtime Sentry events on the same release identity.
 ARG RAILWAY_GIT_COMMIT_SHA=
 # Sentry source-map upload, inert until an operator supplies all three on the Railway service.
-# Declaring them here is not optional bookkeeping: per the note above, Railway exposes a variable
-# to a Docker build ONLY when the Dockerfile declares the matching build argument, so setting
-# these on the service alone would leave next.config.ts skipping withSentryConfig with no error
-# and no uploaded maps — a change that looks applied and does nothing.
+# Declaring them here is not optional bookkeeping. A build argument the Dockerfile does not
+# declare is simply not in the build environment, so a value set on the Railway service cannot
+# reach next.config.ts and withSentryConfig stays skipped — no error, no uploaded maps, a change
+# that looks applied and does nothing. (The reference-variable note above is the same trap in the
+# narrower form Railway documents; this is the plain Docker version of it.)
 #
-# No ENV lines: an ARG is already in the environment of this stage's RUN, and keeping the token
-# out of the stage's ENV metadata limits where it is recorded. It still lands in the build
-# history like any build argument, so this must be a token scoped to project release/sourcemap
-# upload ONLY, never a broader-scoped one.
+# No ENV lines: an ARG is already in the environment of this stage's RUN, so promoting it to ENV
+# would only widen where it is recorded. This is a multi-stage build and the published image is
+# the separate `runner` stage, so the token does not travel to Railway's registry — but it IS in
+# this builder stage's environment and readable by every script `npm run build` invokes. That,
+# not the shipped artefact, is why it must be a token scoped to project release/sourcemap upload
+# ONLY, never a broader-scoped one.
 ARG SENTRY_AUTH_TOKEN=
 ARG SENTRY_ORG=
 ARG SENTRY_PROJECT=

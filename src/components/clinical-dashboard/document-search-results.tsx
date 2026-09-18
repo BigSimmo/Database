@@ -69,6 +69,7 @@ import {
 } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import { compactBestUseTitle } from "@/lib/compact-best-use-title";
+import { withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 import {
   buildSmartDocumentTagFacetIndex,
   filterDocumentsBySmartTagFacetIndex,
@@ -637,10 +638,14 @@ function SearchRecordResults({
   matches,
   query,
   mode,
+  degraded = false,
 }: {
   matches: SearchRecordMatch[];
   query: string;
   mode: SearchRecordMode;
+  /** Served from the in-bundle catalogue: the records are real, the list may
+   *  not include the most recent publication, and the heading says so. */
+  degraded?: boolean;
 }) {
   if (matches.length === 0) return null;
   const copy = searchRecordConfig[mode];
@@ -657,7 +662,9 @@ function SearchRecordResults({
             <FileText className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">{copy.heading}</h3>
+            <h3 className="text-base font-semibold text-[color:var(--text-heading)]">
+              {withCatalogueDegradedNotice(copy.heading, degraded)}
+            </h3>
             <p className={cn("text-sm leading-5", textMuted)}>
               {matches.length} structured {copy.recordLabel}
               {matches.length === 1 ? "" : "s"} matched
@@ -808,6 +815,7 @@ function DocumentSearchResultsPanelImpl({
   recordMatches = [],
   recordMode = "services",
   recordStatus = "ready",
+  recordDegraded = false,
   showRecordMatches = false,
   query,
   loading,
@@ -836,6 +844,9 @@ function DocumentSearchResultsPanelImpl({
   recordMatches?: SearchRecordMatch[];
   recordMode?: SearchRecordMode;
   recordStatus?: RegistryRequestStatus;
+  /** The services/forms catalogue was served from the in-bundle seed list, so
+   *  the matches are real but the list may lag what was published. */
+  recordDegraded?: boolean;
   showRecordMatches?: boolean;
   query: string;
   loading: boolean;
@@ -1473,6 +1484,9 @@ function DocumentSearchResultsPanelImpl({
               : (unavailable?.status ?? (loading ? "loading" : retrievalDegraded ? "partial" : "ready"))
           }
           faultBody={showRecordMatches ? undefined : (unavailableMessage ?? undefined)}
+          // Only the record path can carry it: the documents path counts retrieval
+          // matches, which have no seed catalogue behind them.
+          catalogueDegraded={showRecordMatches && recordDegraded}
           sortValue={sortValue}
           onSortChange={matches.length > 0 ? setSortValue : undefined}
           // Library has left the rail. It sat adjacent to Filter while answering
@@ -1524,7 +1538,7 @@ function DocumentSearchResultsPanelImpl({
       {showRecordMatches ? (
         <>
           {recordBandOwnsFault ? null : <RecordRegistryNotice status={recordStatus} mode={recordMode} />}
-          <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} />
+          <SearchRecordResults matches={recordMatches} query={query} mode={recordMode} degraded={recordDegraded} />
         </>
       ) : null}
 
