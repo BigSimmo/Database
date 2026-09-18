@@ -468,3 +468,145 @@ test.describe("Header element overlap coverage", () => {
     expect(tickerBox!.height, "phone ticker must meet the tap-target floor on /documents").toBeGreaterThanOrEqual(48);
   });
 });
+
+/**
+ * Tablet regressions, measured at the width they were reported at.
+ *
+ * There is no tablet Playwright project — the config has a 390px phone and a
+ * 1280px desktop and nothing between — and adding one would multiply every
+ * journey in the required matrix. These four cases opt into 820px inside the
+ * existing chromium project instead, which is the width all four defects were
+ * found at and the width none of them is otherwise measured at.
+ */
+test.describe("Tablet usability regressions", () => {
+  test.use({ viewport: { width: 820, height: 1180 } });
+
+  // #2M4PX1. The rail must stay one line at every sm+ width — the test above
+  // pins that at 1280 and 1920, and globals.css is read for `flex-wrap: nowrap`
+  // by tests/search-route-ownership.test.ts. So the chips that do not fit are
+  // reachable by a horizontal gesture only, and the trailing fade mask does not
+  // announce one. Specifiers is the mode whose prompt copy actually overflows.
+  test("the one-line prompt rail offers a real control to reach its clipped chips", async ({ page }) => {
+    await mockDemoDashboard(page);
+    await page.goto("/?mode=specifiers", { waitUntil: "domcontentloaded" });
+    await expect(async () => {
+      await expect(page.locator("header#search")).toHaveCount(1);
+      await expect(page.getByTestId("smart-search-prompt-row")).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+
+    const promptRow = page.getByTestId("smart-search-prompt-row");
+    const forward = promptRow.getByTestId("answer-suggestion-scroll-forward");
+    await expect(forward, "the rail overflows at 820px, so the control must be offered").toBeVisible();
+
+    // Production tap floor, and never min-h-11: TOKENS.md records 44px as the
+    // value that reintroduces a known ui-smoke sub-pixel flake.
+    const box = await forward.boundingBox();
+    expect(box, "the scroll control must render").not.toBeNull();
+    expect(box!.height, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
+    expect(box!.width, "scroll control must meet the 48px tap floor").toBeGreaterThanOrEqual(48);
+
+    const railSelector = '[data-testid="smart-search-prompt-row"] .answer-suggestion-chips';
+    const before = await page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector);
+    await forward.click();
+    await expect
+      .poll(async () => page.evaluate((selector) => document.querySelector(selector)!.scrollLeft, railSelector), {
+        message: "the control must actually move the rail",
+        timeout: 5_000,
+      })
+      .toBeGreaterThan(before);
+    await expect(promptRow.getByTestId("answer-suggestion-scroll-back")).toBeVisible();
+
+    // The contract the affordance had to be designed around: one row of chips,
+    // and a composer still the settled 160px with the control rendered.
+    const geometry = await page.evaluate((selector) => {
+      const slot = document.getElementById("mode-home-desktop-composer-slot");
+      const chips = document.querySelector(selector);
+      if (!slot || !chips) return null;
+      return {
+        chipRows: new Set([...chips.children].map((chip) => Math.round(chip.getBoundingClientRect().top))).size,
+        chipCount: chips.children.length,
+        composerHeight: Math.round(slot.getBoundingClientRect().height),
+      };
+    }, railSelector);
+    expect(geometry, "home composer and prompt rail must render").not.toBeNull();
+    expect(geometry!.chipCount, "the rail must carry prompts to be worth measuring").toBeGreaterThan(1);
+    expect(geometry!.chipRows, "prompt chips must still share one row").toBe(1);
+    expect(geometry!.composerHeight, "the control must not grow the shared 160px stack").toBe(160);
+  });
+
+  // #SFFGYD. These three carried `min-h-12 … sm:min-h-10`, so they met the floor
+  // on a phone and stood at 40px from 640px up — every tablet, every desktop.
+  test("services result-card actions keep the 48px tap floor", async ({ page }) => {
+    await mockDemoDashboard(page);
+    await page.goto("/services/search?q=crisis&run=1", { waitUntil: "domcontentloaded" });
+    await expect(async () => {
+      await expect(page.locator("header#search")).toHaveCount(1);
+      await expect(page.getByRole("link", { name: /^Review referral for / }).first()).toBeVisible();
+    }).toPass({ timeout: 30_000 });
+
+    const controls = [
+      page.getByRole("link", { name: /^Review referral for / }).first(),
+      page.getByRole("button", { name: /^Add .+ to shortlist$/ }).first(),
+      page.getByRole("button", { name: /^(Save|Remove) .+ (to|from) favourites$/ }).first(),
+    ];
+    for (const control of controls) {
+      const name = await control.getAttribute("aria-label");
+      const box = await control.boundingBox();
+      expect(box, `${name}: control must render`).not.toBeNull();
+      expect(box!.height, `${name}: must meet the 48px tap floor at 820px`).toBeGreaterThanOrEqual(48);
+    }
+  });
+
+  // #EKB6XR. Two elements answered to "Close": the header button and a
+  // full-viewport backdrop button that also spans behind the panel.
+  test("the calculator sheet has exactly one named close, and the backdrop still closes it", async ({ page }) => {
+    await mockDemoDashboard(page);
+    await page.goto("/calculators/search?q=phq", { waitUntil: "domcontentloaded" });
+    await page
+      .getByRole("button", { name: /^Open PHQ-9/ })
+      .first()
+      .click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: /close/i })).toHaveCount(1);
+
+    await page.getByTestId("calculator-sheet-backdrop").click({ position: { x: 10, y: 10 } });
+    await expect(dialog).toHaveCount(0);
+  });
+
+  // #6GR6B8 (c). "transport" is indexed six ways in the register, so a blank
+  // list was the page failing to say the search had not run.
+  test("a forms search whose registry fails says so instead of showing nothing", async ({ page }) => {
+    await mockDemoDashboard(page);
+    await page.route(/\/api\/registry\/records\?/, async (route) => {
+      await route.fulfill({ status: 500, json: { error: "registry unavailable" } });
+    });
+    await page.goto("/forms/search?q=transport&run=1", { waitUntil: "domcontentloaded" });
+
+    // Two nodes carry this copy and both are meant to: the visible paragraph,
+    // and the sr-only live region the empty state populates after mount so the
+    // degraded state is announced rather than heard as a silent zero. Playwright
+    // matches text by substring, so the bare string resolved to both and failed
+    // strict mode. Name each one instead of loosening the assertion.
+    await expect(page.getByText("Search could not complete", { exact: true })).toBeVisible();
+    await expect(page.getByText(/^Search could not complete\. Part of the search index did not respond/)).toHaveCount(
+      1,
+    );
+    await expect(page.getByText(/^No matches for/)).toHaveCount(0);
+  });
+
+  // #3CJPX5. The shared home writes document.title imperatively and never gave
+  // it back, so the last mode selected on `/` stayed in the tab afterwards.
+  test("leaving the shared home hands the page title back to the next route", async ({ page }) => {
+    await mockDemoDashboard(page);
+    await page.goto("/?mode=calculators", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveTitle("Clinical Calculators | PsychSift");
+
+    // A CLIENT navigation is the whole test. A fresh load would read the new
+    // route's server metadata and pass however the imperative write behaved.
+    await page.getByRole("link", { name: "Show all calculators" }).first().click();
+    await expect(page).toHaveURL(/\/calculators\/search/);
+    await expect(page).toHaveTitle("Search clinical calculators | PsychSift");
+  });
+});

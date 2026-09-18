@@ -150,8 +150,13 @@ for (const colorScheme of ["light", "dark"] as const) {
     test.skip(browserName !== "chromium", "forced-colors emulation is Chromium-only");
     await page.setViewportSize({ width: 320, height: 760 });
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active", colorScheme });
+    // The catalogue is paginated server-side at 50 entries, and the default
+    // order is by quality band — so `excluded` sources now sit on the last page,
+    // not the first. The band filter is what puts one in front of the assertion;
+    // the point of the check is unchanged: the lowest band's chip tone has to
+    // survive forced colors.
     const surfaces = [
-      ["/sources/search", "sources-catalogue-main"],
+      ["/sources/search?band=excluded", "sources-catalogue-main"],
       ["/sources/topics", "sources-topics-main"],
       ["/sources/publishers", "sources-publishers-main"],
     ] as const;
@@ -159,7 +164,7 @@ for (const colorScheme of ["light", "dark"] as const) {
     for (const [route, testId] of surfaces) {
       await page.goto(route);
       await expectSingleSettledOwner(page.getByTestId(testId));
-      if (route === "/sources/search") {
+      if (route.startsWith("/sources/search")) {
         await expect(
           page
             .getByTestId("chip")
