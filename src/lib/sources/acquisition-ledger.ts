@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { canonicalizeSourceReferences, safeHttpsUrl } from "@/lib/sources/catalogue-core";
 import type {
   ClinicalSourceReferenceInput,
@@ -94,7 +96,59 @@ export type SourceAcquisitionRecord = {
   dispositionReason: string | null;
   supersededBy: string[];
   notes: string | null;
+  /**
+   * Structured owner attestation. All three fields are optional, and they are the
+   * owner's to write: no agent may record a sign-off on the owner's behalf.
+   *
+   * Until now a record said who signed it off and when only in prose, inside
+   * `dispositionReason` and `notes`. Nothing read that prose, so the metadata
+   * corrections of 2026-09-16 silently invalidated six earlier owner sign-offs and
+   * the six records stayed `locally_reviewed` as though nothing had happened.
+   *
+   * `attestedAgainstSha256` pins the record's own content at the moment of
+   * sign-off. A later edit to any field the attestation covers no longer matches
+   * that digest, so `acquisitionLedgerIssues` reports the attestation as stale
+   * instead of letting the record keep a review it no longer has. This is the
+   * Therapy catalogue's proven `therapyReviewedContentSha256` pattern
+   * (`scripts/lib/therapy-review-contract.mjs`), applied to the source ledger.
+   */
+  attestedBy?: string | null;
+  attestedAt?: string | null;
+  attestedAgainstSha256?: string | null;
 };
+
+/**
+ * The attestation fields themselves, which are excluded from the digest they
+ * attest to — otherwise writing the digest would immediately invalidate it.
+ */
+export const ACQUISITION_ATTESTATION_FIELDS = ["attestedBy", "attestedAt", "attestedAgainstSha256"] as const;
+
+const attestationFields = new Set<string>(ACQUISITION_ATTESTATION_FIELDS);
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+
+function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.keys(record)
+        .sort()
+        .map((key) => [key, canonicalJson(record[key])]),
+    );
+  }
+  return value;
+}
+
+/**
+ * A content-only digest of a ledger record: changing any field other than the
+ * attestation itself invalidates the sign-off that pinned it.
+ */
+export function acquisitionAttestedContentSha256(record: SourceAcquisitionRecord): string {
+  const content = Object.fromEntries(Object.entries(record).filter(([key]) => !attestationFields.has(key)));
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalJson(content)))
+    .digest("hex");
+}
 
 /**
  * Warnings that mean the metadata itself is incomplete or contradictory. These
@@ -171,6 +225,11 @@ export function acquisitionRecordWarnings(record: SourceAcquisitionRecord): Sour
 export function acquisitionRecordGeography(record: SourceAcquisitionRecord): SourceGeographyScope {
   const [entry] = canonicalizeSourceReferences([acquisitionReference(record)]);
   return entry ? entry.geography.scope : "unknown";
+}
+
+/** An optional field counts as written only when it carries real text. */
+function presentText(value: string | null | undefined): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function requireText(value: string | null, field: string, id: string, issues: string[]) {
@@ -278,6 +337,25 @@ export function acquisitionLedgerIssues(
     }
     if (record.disposition !== "adopted" && !record.dispositionReason?.trim()) {
       issues.push(`${id}: a ${record.disposition} source must record why`);
+    }
+
+    // Structured attestation. A record carries none until the owner writes one, so
+    // absence is normal and never an issue. Once written, the sign-off must name
+    // who and when, and must still be against the record as it now stands — the
+    // check the six silently invalidated 2026-09-16 sign-offs had no way to fail.
+    const attestation = ACQUISITION_ATTESTATION_FIELDS.filter((field) => presentText(record[field]) !== null);
+    if (attestation.length > 0 && attestation.length < ACQUISITION_ATTESTATION_FIELDS.length) {
+      const missing = ACQUISITION_ATTESTATION_FIELDS.filter((field) => presentText(record[field]) === null);
+      issues.push(
+        `${id}: an attestation must record attestedBy, attestedAt and attestedAgainstSha256; missing ${missing.join(", ")}`,
+      );
+    }
+    requireStrictDate(presentText(record.attestedAt), "attestedAt", id, issues);
+    const attestedAgainst = presentText(record.attestedAgainstSha256);
+    if (attestedAgainst && !SHA256_PATTERN.test(attestedAgainst)) {
+      issues.push(`${id}: attestedAgainstSha256 must be a lower-case 64-character SHA-256 digest`);
+    } else if (attestedAgainst && attestedAgainst !== acquisitionAttestedContentSha256(record)) {
+      issues.push(`${id}: attestedAgainstSha256 is stale; content changed after sign-off`);
     }
 
     if (record.disposition !== "rejected") {
