@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSharedHomeDocumentTitle } from "@/components/clinical-dashboard/use-shared-home-document-title";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { useIndexingAdminDesktopLayout } from "@/components/clinical-dashboard/use-indexing-admin-desktop-layout";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
@@ -122,7 +123,7 @@ import {
   setupRecheckPollMs,
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
-import { answerRecovery, errorCopy, sharedHomeDocumentTitle } from "@/lib/ui-copy";
+import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
@@ -2987,10 +2988,10 @@ function ClinicalDashboardContent({
   // The mode pill rewrites the shared-home URL with history.replaceState rather
   // than asking Next to navigate. Server metadata therefore cannot update after
   // an in-place mode choice; keep the accessible browser title aligned with the
-  // visible mode heading on that client-only path as well.
-  useEffect(() => {
-    if (showSharedHome) document.title = sharedHomeDocumentTitle(searchMode);
-  }, [searchMode, showSharedHome]);
+  // visible mode heading on that client-only path as well — and give the title
+  // back when the shared home stops owning it, or the last mode title written
+  // here strands itself on the next route (#3CJPX5).
+  useSharedHomeDocumentTitle(showSharedHome, searchMode);
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
   const activeIndexingWorkCount =
