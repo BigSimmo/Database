@@ -62,14 +62,43 @@ function activeLevel(): LogLevel {
 
 type SentryLogForwarder = (level: "warn" | "error", message: string, context?: Record<string, unknown>) => void;
 
-let sentryLogForwarder: SentryLogForwarder | null = null;
+/**
+ * WHY A GLOBAL AND NOT A MODULE-LOCAL `let`.
+ *
+ * Next bundles `instrumentation.ts` — which loads `sentry.server.config.ts` and is the only thing
+ * that registers this bridge — separately from route handlers. The two can therefore hold
+ * different instances of this module: the registration lands on one copy, and every `logger.warn`
+ * and `logger.error` in a route reads the other, where the forwarder is still `null`. Nothing
+ * throws, nothing warns, and the logs simply never leave the process.
+ *
+ * MEASURED 2026-09-18 against the live project. Thirty days of Sentry Logs contained exactly two
+ * distinct messages — "API rate limit durable check unavailable" (165) and "API rate limited" (3)
+ * — both emitted by direct `sentryLog.*` calls from `api-rate-limit.ts`, which do not use this
+ * bridge. There were zero "Application error", zero "Application warn" and zero "API request
+ * failed": the three messages only this bridge can produce. So it had never delivered a single log
+ * in production. Every deliberate `logger.error` in the application was invisible, including
+ * `jsonError`'s "API request failed" and the catalogue fallback's alarm — the one whose own header
+ * insists that "falling back MUST be loud" because a silent degradation cost seven days in
+ * September.
+ *
+ * A `Symbol.for` key on `globalThis` is shared by every copy of this module in the process, so
+ * registration survives however the bundler splits it. Keep it: a module-local binding here is
+ * correct-looking and does not work.
+ */
+const SENTRY_LOG_FORWARDER_KEY = Symbol.for("psychsift.logger.sentryLogForwarder");
+
+type ForwarderHost = { [SENTRY_LOG_FORWARDER_KEY]?: SentryLogForwarder | null };
+
+function currentSentryLogForwarder(): SentryLogForwarder | null {
+  return (globalThis as ForwarderHost)[SENTRY_LOG_FORWARDER_KEY] ?? null;
+}
 
 /**
  * Register a Sentry Logs bridge from server instrumentation after `Sentry.init`.
  * Kept as a callback so this module never imports `@sentry/nextjs` (bundler-safe).
  */
 export function registerSentryLogForwarder(forwarder: SentryLogForwarder | null) {
-  sentryLogForwarder = forwarder;
+  (globalThis as ForwarderHost)[SENTRY_LOG_FORWARDER_KEY] = forwarder;
 }
 
 function emit(level: LogLevel, message: string, context?: Record<string, unknown>) {
@@ -88,9 +117,10 @@ function emit(level: LogLevel, message: string, context?: Record<string, unknown
   else console.log(line);
 
   // Forward warn/error to privacy-scrubbed Sentry Logs when instrumentation registered a bridge.
-  if ((level === "warn" || level === "error") && sentryLogForwarder) {
+  const forwarder = currentSentryLogForwarder();
+  if ((level === "warn" || level === "error") && forwarder) {
     try {
-      sentryLogForwarder(level, message, redacted);
+      forwarder(level, message, redacted);
     } catch {
       // Optional observability must never interfere with request handling.
     }

@@ -36,6 +36,13 @@ export const SENTRY_LOG_MESSAGES = {
   AUDIT_LOG_WRITE_FAILED: "Audit log write failed",
   AUDIT_LOG_WRITE_THREW: "Audit log write threw",
   HYBRID_RPC_FAILED: "hybrid_rpc_failed",
+  /**
+   * The registry catalogue fell back to in-bundle seeds. Its own module insists this must be
+   * loud, because a silent degradation of exactly this kind cost seven days in September 2026.
+   * Without the entry the bridge rewrites it to "Application error", which is unsearchable and
+   * says nothing about which catalogue or why.
+   */
+  CATALOGUE_SEED_FALLBACK: "Canonical catalogue read failed; search is serving in-bundle seeds",
   RAILWAY_WEBHOOK_SHAPE_MISMATCH: "Railway webhook payload did not match expected shape",
   REINDEX_FLAG_CLEAR_FAILED: "Failed to clear reindex_requested flag",
   BULK_DOCUMENT_EDIT_FAILED: "Bulk document edit failed for a document",
@@ -68,6 +75,12 @@ const SAFE_LOG_ATTRIBUTE_KEYS = new Set([
   "provider_mode",
   "error_name",
   "sql_state",
+  // Catalogue seed fallback: which catalogue, what kind of failure, and the budgets it breached.
+  // `detail` is deliberately absent — it is error.message, which is free-form provider text.
+  "catalogue_kind",
+  "failure",
+  "budget_ms",
+  "cooldown_ms",
   "file_type",
   "size_bytes",
   "component",
