@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8e64a5a6-ec28-49a1-a7d9-f58d6d7d698d",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#EKB6XR",
+    "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Scope re-read while blocked: the duplicate-close half is ALREADY FIXED (calculator-sheet.tsx makes the backdrop aria-hidden and leaves one named Close on size-tap, with 6 jsdom cases in tests/calculator-sheet-close.dom.test.tsx and a Playwright case in tests/ui-overlap.spec.ts). What genuinely remains is the PHQ-9 control hit testing and the >=44px contract, for which there is no elementFromPoint assertion anywhere. Also noted: the sheet is not portalled through OverlayPortal, so it still inherits any transformed ancestor the search page grows.",
+    "baseRowFingerprint": "4ce7e96c184cc11480ab41064461d27abd10ece2a54c86b6633c1013ffd46c78"
+  }
+}

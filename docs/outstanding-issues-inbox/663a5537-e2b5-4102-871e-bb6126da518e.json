@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "663a5537-e2b5-4102-871e-bb6126da518e",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#8GB18R",
+    "outcome": "Fixed 2026-09-19 in PR #2905. medication-prescribing-workspace.tsx, services-navigator-page.tsx and forms-search-results-page.tsx now pass catalogueDegraded to SearchResultsHeaderBand. RetainedSnapshotNotice was unified rather than replaced: it keeps its title, icon and body detail but states the fault in the one pinned catalogueDegradedNotice phrase, because the drawer sits directly under the band and two phrasings of one fact read as two problems. ALSO FIXED, and it is the part that mattered: use-medication-catalog.ts parsed the response with a blind cast, which is how the original silence was possible. Replaced with an envelope-exhaustive parser modelled on parseRegistryListResponse -- deliberately NOT record-exhaustive, because the records array is the database's own render_payload and a key-exhaustive record check would blank the mode the first time a record gains a field. 240 passed across 19 suites; each new test proved to bite by reverting its fix.",
+    "baseRowFingerprint": "7e0008be9d0ab0cfcdde138edf8e77633fbe7056857c0d9319664cff16c19da1"
+  }
+}

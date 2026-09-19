@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "71da98d4-6641-47ff-b4fa-e8aab42cfa53",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#86E34T",
+    "outcome": "Closed 2026-09-19, rescoped. The premise was already stale: src/lib/differential-records.ts has matched clinicalRiskPatterns since 2026-09-17 via /^src\\/lib\\/differential[^/]*\\.ts$/. Verified by executing the classifier. The real remaining gap was its sibling registry-records.ts (medication-records.ts was already covered); owner chose to add it, done by exact path in PR #2920. Classifying every tracked file before and after gives a one-line diff, so nothing else was swept in. Noted for the owner: registry-seed.ts imports rowGovernance and stays clinicalRisk=false -- it seeds rather than decides, but it is the nearest remaining neighbour.",
+    "baseRowFingerprint": "a84f762f56164fdb7fb98f6ecddaa7a79d67f1d074a9eae00a6273c1451a1355"
+  }
+}

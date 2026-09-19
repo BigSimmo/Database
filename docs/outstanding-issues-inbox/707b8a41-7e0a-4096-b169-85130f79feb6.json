@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "707b8a41-7e0a-4096-b169-85130f79feb6",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#9XRDF7",
+    "outcome": "Fixed 2026-09-19 in PR #2905, owner-approved for both words. escalat -> escalat(?:e|es|ed|ing|ion|ions) and monitor -> monitor(?:s|ed|ing)?, using explicit suffix groups rather than \\w* because escalat\\w* also matches 'escalator' -- a fall note would have arrived with an Escalation chip. MEASURED, not predicted, over a 42-phrase corpus with the live regexes: 10 phrasings gain Escalation, 4 gain Monitoring, and SEVEN move from one visible label to another (Dose limit->Escalation x2, Monitoring->Escalation, Exclusion->Escalation, Caveat->Escalation, Exclusion->Monitoring, Caveat->Monitoring). Nothing already at Contraindication or Red flag changes. THE ROW'S ASSUMPTION WAS WRONG: widening a mid-array entry does not only add findings, it takes passages from every tier below, because safetyPatterns.find returns the first match in severity order. One accepted false positive pinned: 'Blood pressure monitors must be calibrated annually.' now reads Monitoring. 39 passed in clinical-safety.test.ts (was 32); no other suite needed editing.",
+    "baseRowFingerprint": "d030f93ab9f44dea9407f2caa3a8211819cee9a2a6f657eca7f476d3db804f94"
+  }
+}

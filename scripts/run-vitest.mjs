@@ -12,6 +12,19 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const vitestBin = path.join(projectRoot, "node_modules", "vitest", "vitest.mjs");
 const args = process.argv.slice(2);
 
+const configuredWaitTimeoutMs = Number(process.env.HEAVY_RUN_WAIT_TIMEOUT_MS);
+const waitTimeoutMs = Number.isFinite(configuredWaitTimeoutMs) ? configuredWaitTimeoutMs : undefined;
+/** Keep in sync with `HEAVY_RUN_ADMISSION_BUSY_*` in `scripts/guard-push.mjs`. */
+export const ADMISSION_BUSY_EXIT = 75;
+export const ADMISSION_BUSY_MARKER = "DATABASE_HEAVY_RUN_ADMISSION_BUSY";
+// Anchored to the coordinator's own capacity messages (test-run-lock.mjs
+// busyMessage() and the initializing branch), following run-playwright.mjs rather
+// than run-heavy.mjs: a loose prose match also catches inherited-lease mismatches
+// and coordinator setup failures, which are configuration bugs and must keep
+// failing with the ordinary exit 1.
+export const ADMISSION_BUSY_PATTERN =
+  /^(?:Database focused-test capacity is full|Another Database heavyweight command is active|A Database heavyweight coordinator is being initialized\b.*retry shortly\.)/;
+
 export const VITEST_BUILTIN_REPORTERS = new Set([
   "default",
   "agent",
@@ -119,7 +132,29 @@ export async function main() {
     process.exit(0);
   }
 
-  const lock = acquireHeavyRunLock({ projectRoot, command: `vitest ${args.join(" ")}`, mode });
+  // Admission refusal must be distinguishable from a test failure. Without this,
+  // a refused run threw out of `main()` and exited 1 with a stack trace, so an
+  // agent waiting on a busy coordinator was told its code was broken (#M8SP5M).
+  // `run-heavy.mjs` and `run-playwright.mjs` have had this since they were written.
+  let lock;
+  try {
+    lock = acquireHeavyRunLock({
+      projectRoot,
+      command: `vitest ${args.join(" ")}`,
+      mode,
+      ...(waitTimeoutMs === undefined ? {} : { waitTimeoutMs }),
+    });
+  } catch (error) {
+    const message = String(error?.message ?? error);
+    if (ADMISSION_BUSY_PATTERN.test(message)) {
+      console.error(ADMISSION_BUSY_MARKER);
+      console.error(`Vitest did not run: ${message}`);
+      console.error("Wait for the active heavyweight run to finish, then retry this command.");
+      process.exit(ADMISSION_BUSY_EXIT);
+    }
+    console.error(message);
+    process.exit(1);
+  }
   const configuredWorkers = Number(process.env.VITEST_MAX_WORKERS);
   const sharedWorkers =
     Number.isFinite(configuredWorkers) && configuredWorkers > 0 ? Math.min(configuredWorkers, 2) : 2;
