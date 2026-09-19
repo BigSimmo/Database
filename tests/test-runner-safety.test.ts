@@ -369,6 +369,92 @@ describe("repository-wide heavyweight lock", () => {
     expect(output).not.toContain("Wait for the active heavyweight run to finish, then retry this command.");
   });
 
+  // The third runner was the odd one out until 2026-09-19 (#M8SP5M): it called
+  // acquireHeavyRunLock with no waitTimeoutMs and no try/catch, so a refused run
+  // escaped as an unhandled throw at exit 1 -- the same exit a genuinely failing
+  // test suite produces. Parallel agents read that as "my change broke the build".
+  it("fails a blocked vitest run with the contention exit code, not a test-failure exit code", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-vitest-admission-");
+    const repositoryIdentity = testRunLockInternals.resolveRepositoryIdentity(projectRoot);
+    const blockingLock = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "other-worktree"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "other worktree unit run",
+    });
+    const childEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      HEAVY_RUN_WAIT_TIMEOUT_MS: "0",
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+    };
+    delete childEnvironment[testRunLockInternals.tokenEnvironmentKey];
+    delete childEnvironment[testRunLockInternals.pathEnvironmentKey];
+
+    try {
+      const result = spawnSync(
+        process.execPath,
+        ["scripts/run-vitest.mjs", "run", "--reporter=dot", "clinical-kb-never-matches"],
+        { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+
+      expect(childProcessExitCode(result)).toBe(75);
+      expect(output).toContain("DATABASE_HEAVY_RUN_ADMISSION_BUSY");
+      expect(output).toContain("Vitest did not run: Another Database heavyweight command is active");
+      expect(output).toContain("Wait for the active heavyweight run to finish, then retry this command.");
+      // The decisive negative: no vitest process started, so no result was produced
+      // that a caller could mistake for a verdict.
+      expect(output).not.toMatch(/\b0 passed\b/);
+    } finally {
+      blockingLock.release();
+    }
+  });
+
+  it("honours HEAVY_RUN_WAIT_TIMEOUT_MS in the vitest runner", () => {
+    const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+    const baseDirectory = temporaryDirectory("clinical-kb-vitest-wait-timeout-");
+    const repositoryIdentity = testRunLockInternals.resolveRepositoryIdentity(projectRoot);
+    const blockingLock = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "other-worktree"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "other worktree unit run",
+    });
+    const childEnvironment: NodeJS.ProcessEnv = {
+      ...process.env,
+      // Long enough to be clearly deliberate, short enough that a runner which
+      // ignored it and fell back to the 15-minute exclusive default would hang
+      // this test rather than pass it.
+      HEAVY_RUN_WAIT_TIMEOUT_MS: "1500",
+      TEMP: baseDirectory,
+      TMP: baseDirectory,
+      TMPDIR: baseDirectory,
+    };
+    delete childEnvironment[testRunLockInternals.tokenEnvironmentKey];
+    delete childEnvironment[testRunLockInternals.pathEnvironmentKey];
+
+    try {
+      const startedAt = Date.now();
+      const result = spawnSync(
+        process.execPath,
+        ["scripts/run-vitest.mjs", "run", "--reporter=dot", "clinical-kb-never-matches"],
+        { cwd: projectRoot, encoding: "utf8", env: childEnvironment },
+      );
+      const elapsedMs = Date.now() - startedAt;
+
+      expect(childProcessExitCode(result)).toBe(75);
+      expect(elapsedMs).toBeGreaterThanOrEqual(1200);
+      expect(elapsedMs).toBeLessThan(60_000);
+    } finally {
+      blockingLock.release();
+    }
+  }, 90_000);
+
   it("admits two focused leases from different worktrees while keeping heavyweight work exclusive", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-shared-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
