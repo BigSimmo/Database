@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
-import { PATIENT_PROFILE_STORAGE_KEY } from "@/lib/patient-profile-storage";
+import { clearPatientProfile, PATIENT_PROFILE_STORAGE_KEY } from "@/lib/patient-profile-storage";
 
 function renderPanel() {
   return render(
@@ -250,5 +250,82 @@ describe("PatientProfilePanel — CrCl and QTc entry (#WFARS3)", () => {
 
     expect(typeDigits(crcl, "095")).toEqual(["0", "09", "095"]);
     expect(storedProfile().crcl).toBe(95);
+  });
+});
+
+/**
+ * #DTAMMK — a refused entry is stored as `null`, and so is a cleared profile, so
+ * the store alone can never tell a field "your entry was refused" apart from
+ * "the whole profile was wiped". The panel's reset nonce used to be local state,
+ * incremented only by that panel's own Clear button, so a clear performed
+ * anywhere else — a second mounted copy of the panel, or sign-out — left every
+ * other mount's refused draft on screen. The fix is a clear generation shared
+ * through the profile store.
+ */
+describe("PatientProfilePanel — a clear performed elsewhere (#DTAMMK)", () => {
+  it("drops a refused entry when another mounted panel clears the profile", () => {
+    renderTwoPanels();
+    const panelA = within(screen.getByTestId("patient-panel-a"));
+    const panelB = within(screen.getByTestId("patient-panel-b"));
+
+    // A real age on the other panel, so the profile is non-empty and Clear is enabled.
+    typeDigits(panelB.getByTestId("patient-age") as HTMLInputElement, "70");
+    // A QTc-sized number typed into CrCl is refused: nothing is stored, and the
+    // text stays on screen for correction in place.
+    typeDigits(panelA.getByTestId("patient-crcl") as HTMLInputElement, "420");
+    expect(storedProfile().crcl).toBeNull();
+    expect((panelA.getByTestId("patient-crcl") as HTMLInputElement).value).toBe("420");
+
+    // The whole profile is then cleared from the other mounted panel.
+    fireEvent.click(panelB.getByRole("button", { name: "Clear" }));
+
+    // The refused draft must go with it. Left behind, the next entry lands after
+    // it: typing 95 into a box still holding 420 reads 42095 mL/min.
+    const crclA = panelA.getByTestId("patient-crcl") as HTMLInputElement;
+    expect(crclA.value).toBe("");
+    expect(crclA).not.toHaveAttribute("aria-invalid");
+    expect(typeDigits(crclA, "95")).toEqual(["9", "95"]);
+    expect(storedProfile().crcl).toBe(95);
+  });
+
+  it("drops a refused entry when the account transition clears the profile", () => {
+    renderPanel();
+    fireEvent.change(screen.getByTestId("patient-age"), { target: { value: "70" } });
+    const crcl = screen.getByTestId("patient-crcl") as HTMLInputElement;
+    typeDigits(crcl, "420");
+    expect(storedProfile().crcl).toBeNull();
+
+    // Sign-out / session expiry / user change, straight through the store.
+    act(() => {
+      clearPatientProfile();
+    });
+
+    expect((screen.getByTestId("patient-age") as HTMLInputElement).value).toBe("");
+    const crclAfter = screen.getByTestId("patient-crcl") as HTMLInputElement;
+    expect(crclAfter.value).toBe("");
+    expect(crclAfter).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("resets a focused field in place rather than remounting it out from under the caret", () => {
+    renderTwoPanels();
+    const panelA = within(screen.getByTestId("patient-panel-a"));
+    const panelB = within(screen.getByTestId("patient-panel-b"));
+
+    typeDigits(panelB.getByTestId("patient-age") as HTMLInputElement, "70");
+    const crclA = panelA.getByTestId("patient-crcl") as HTMLInputElement;
+    typeDigits(crclA, "420");
+    crclA.focus();
+    expect(document.activeElement).toBe(crclA);
+
+    fireEvent.click(panelB.getByRole("button", { name: "Clear" }));
+
+    // The reset clears the draft by adjusting the field's own state, not by
+    // changing its React key: the same input element is still in the document
+    // and still holds focus. A key-driven remount would destroy this node and
+    // drop focus to the body mid-entry.
+    expect(crclA.value).toBe("");
+    expect(crclA.isConnected).toBe(true);
+    expect(document.activeElement).toBe(crclA);
+    expect(panelA.getByTestId("patient-crcl")).toBe(crclA);
   });
 });

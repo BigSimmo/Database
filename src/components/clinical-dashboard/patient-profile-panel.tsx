@@ -79,6 +79,7 @@ function NumberField({
   testId,
   min,
   max,
+  resetNonce,
 }: {
   label: string;
   unit?: string;
@@ -87,6 +88,8 @@ function NumberField({
   testId?: string;
   min: number;
   max: number;
+  /** Changes whenever the whole profile is cleared, from anywhere. */
+  resetNonce: number;
 }) {
   // Invariant: unless the field is flagged out-of-range, the text on screen is a
   // number the shared profile actually holds. The box owns its draft only for as
@@ -113,11 +116,25 @@ function NumberField({
   //
   // Out-of-range text is still kept for in-place correction: a rejection writes
   // `null`, which equals `committed`, so nothing re-syncs and the error stays.
+  //
+  // Which is precisely why the store alone cannot end that hold. A clear also
+  // writes `null`, so `incoming !== committed` is false either way and the
+  // refused text sits there through a clear performed anywhere else — #DTAMMK,
+  // where panel A kept showing a refused CrCl of 420 after panel B wiped the
+  // profile, and the 95 typed next read 42095. `resetNonce` is the missing
+  // signal: it changes on every profile-wide clear, whoever asked for it, and
+  // it is the ONLY thing that can distinguish the two identical nulls.
   const [text, setText] = useState(value == null ? "" : String(value));
   const [committed, setCommitted] = useState<number | null>(value ?? null);
+  const [syncedNonce, setSyncedNonce] = useState(resetNonce);
 
   const incoming = value ?? null;
-  if (incoming !== committed) {
+  if (syncedNonce !== resetNonce) {
+    // A clear outranks the hold: adopt the store unconditionally, error and all.
+    setSyncedNonce(resetNonce);
+    setCommitted(incoming);
+    setText(incoming == null ? "" : String(incoming));
+  } else if (incoming !== committed) {
     setCommitted(incoming);
     setText(incoming == null ? "" : String(incoming));
   }
@@ -245,9 +262,16 @@ export function PatientProfilePanel({
   defaultOpen?: boolean;
   className?: string;
 }) {
-  const { profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear, isEmpty } = usePatientProfile();
+  const { profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear, clearGeneration, isEmpty } =
+    usePatientProfile();
   const [open, setOpen] = useState(defaultOpen ?? variant === "full");
-  const [resetNonce, setResetNonce] = useState(0);
+  // The reset nonce used to be `useState(0)` here, bumped only by the Clear
+  // button below — so it could only ever see a clear this very component asked
+  // for. A second mounted copy of the panel, or sign-out, wiped the profile
+  // without it ever changing, and every field on this mount held its refused
+  // draft (#DTAMMK). The shared generation is the same signal at the right
+  // scope: this panel's own Clear bumps it too, through the context.
+  const resetNonce = clearGeneration;
   const allergies = new Set(profile.allergies ?? []);
   const scrUnit = profile.scrUnit ?? "umol/L";
   const scrBounds =
@@ -288,7 +312,6 @@ export function PatientProfilePanel({
       <div className="space-y-3 border-t border-[color:var(--border)] p-3">
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <NumberField
-            key={`age-${resetNonce}`}
             label="Age"
             unit="years"
             value={profile.ageYears}
@@ -296,9 +319,9 @@ export function PatientProfilePanel({
             testId="patient-age"
             min={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.min}
             max={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.max}
+            resetNonce={resetNonce}
           />
           <NumberField
-            key={`egfr-${resetNonce}`}
             label="eGFR"
             unit="mL/min"
             value={profile.egfr}
@@ -306,9 +329,9 @@ export function PatientProfilePanel({
             testId="patient-egfr"
             min={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.min}
             max={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.max}
+            resetNonce={resetNonce}
           />
           <NumberField
-            key={`crcl-${resetNonce}`}
             label="CrCl"
             unit="mL/min"
             value={profile.crcl}
@@ -316,9 +339,9 @@ export function PatientProfilePanel({
             testId="patient-crcl"
             min={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.min}
             max={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.max}
+            resetNonce={resetNonce}
           />
           <NumberField
-            key={`qtc-${resetNonce}`}
             label="QTc"
             unit="ms"
             value={profile.qtc}
@@ -326,16 +349,23 @@ export function PatientProfilePanel({
             testId="patient-qtc"
             min={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.min}
             max={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.max}
+            resetNonce={resetNonce}
           />
           <div className="col-span-2 sm:col-span-1">
             <NumberField
-              key={`scr-${resetNonce}-${scrUnit}`}
+              // Still keyed on the unit, and only on the unit. Switching unit
+              // changes the bounds under a draft the store never accepted (200
+              // is absurd as mg/dL, ordinary as µmol/L), and a fresh mount is
+              // the honest way to drop text whose verdict just changed. The
+              // clear case is handled in place instead — see `resetNonce`.
+              key={`scr-${scrUnit}`}
               label="Serum creatinine"
               value={profile.scr}
               onChange={(value) => updateField("scr", value)}
               testId="patient-scr"
               min={scrBounds.min}
               max={scrBounds.max}
+              resetNonce={resetNonce}
             />
           </div>
           <div className="col-span-2 min-w-0 sm:col-span-1">
@@ -406,10 +436,7 @@ export function PatientProfilePanel({
           </span>
           <button
             type="button"
-            onClick={() => {
-              clear();
-              setResetNonce((nonce) => nonce + 1);
-            }}
+            onClick={clear}
             disabled={isEmpty}
             className="col-span-2 inline-flex min-h-tap items-center justify-self-end gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto"
           >
