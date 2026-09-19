@@ -41,7 +41,7 @@ const configPath = path.join(projectRoot, ".design-sync", "config.json");
 export const DS_SYNC_PACKAGES = Object.freeze({
   esbuild: "0.28.2",
   "ts-morph": null,
-  "@types/react": "19.2.18",
+  "@types/react": "19.3.0",
   "@tailwindcss/cli": "4.3.3",
   geist: null,
 });

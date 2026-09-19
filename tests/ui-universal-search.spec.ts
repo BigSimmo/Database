@@ -239,7 +239,14 @@ test.describe("universal search typeahead", () => {
     const input = await openComposer(page);
     await input.fill("prescribing policy");
 
-    await expect(page.getByRole("option", { name: "Medication", exact: true })).toHaveText("Medication");
+    // The cross-mode chip is named by what it does ("Search … in Medication"),
+    // not by its destination alone, so it is located loosely and asserted
+    // strictly: a document-only hit must add no count, in the visible label or
+    // in the announced one. Anchoring the locator itself on the countless form
+    // would turn a wrong count into "option not found" and lose the diagnosis.
+    const medicationChip = page.getByRole("option", { name: /in Medication(,|$)/ });
+    await expect(medicationChip).toHaveText("Medication");
+    await expect(medicationChip).toHaveAccessibleName('Search "prescribing policy" in Medication');
   });
 
   test("selecting a presentation result navigates to the workflow page", async ({ page }) => {
