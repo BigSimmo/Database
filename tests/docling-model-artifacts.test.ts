@@ -70,7 +70,11 @@ function runMain(modelsDir: string, manifestFile: string) {
 
 afterEach(() => {
   while (temporaryDirectories.length > 0) {
-    rmSync(temporaryDirectories.pop()!, { recursive: true, force: true });
+    // Bounded retries are required of every recursive fixture cleanup here, and
+    // tests/test-runner-safety.test.ts fails the suite without them: an unbounded
+    // recursive remove races antivirus and indexer handles on Windows and turns
+    // teardown into an intermittent red.
+    rmSync(temporaryDirectories.pop()!, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 
