@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "d6489513-36f4-4db6-b484-b61cc5d6df17",
+  "createdOn": "2026-09-19",
+  "action": "cancel",
+  "payload": {
+    "requestId": "6395243c-a3c7-448c-82f1-2f407aec744a",
+    "reason": "Queued against the #GHC4XZ row as it read before PR #2901 landed. That PR verified the headline-position half is moot: answerSupportPriority has zero callers in src/ and the support card was removed from the answer surface on 2026-08-31. My queued text still assumed the card renders. Reissued from the current row."
+  }
+}
