@@ -17,6 +17,8 @@ import {
   FormulationSafetyNote,
   MechanismCaveats,
   MechanismDomainChips,
+  RecordReviewBadge,
+  RecordReviewNote,
   SectionHeading,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -31,6 +33,7 @@ import {
   type FormulationGuideSpan,
   publishedFormulationGuides,
 } from "@/lib/formulation-concepts";
+import { conceptReviewState } from "@/lib/formulation-review-status";
 
 function Prose({ label, body }: { label: string; body: string | null }) {
   if (!body) return null;
@@ -80,6 +83,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
   const isGuide = "blocks" in record;
   const group = isGuide ? undefined : formulationConceptGroup(record.group);
   const siblings = group ? formulationConceptsInGroup(group.id).filter((item) => item.id !== record.id) : [];
+  const reviewState = conceptReviewState(record);
 
   return (
     <>
@@ -116,6 +120,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                 <span className="inline-flex min-h-7 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 text-xs font-bold text-[color:var(--text-muted)]">
                   {record.kind === "clinical_guide_module" ? "Guide module" : record.kind}
                 </span>
+                <RecordReviewBadge state={reviewState} />
                 <MechanismDomainChips values={record.domains} />
               </>
             }
@@ -193,6 +198,7 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
             ) : null}
 
             <MechanismCaveats items={record.warnings} />
+            <RecordReviewNote state={reviewState} />
           </div>
 
           <aside className="grid content-start gap-4 xl:sticky xl:top-20">
