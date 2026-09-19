@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "00db8749-4975-4f29-bee0-2bc27c887717",
+  "createdOn": "2026-09-19",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "The answer support card and its priority function are unreachable, and a clinical decision was escalated on their behaviour",
+    "detail": "answerSupportPriority and AnswerSupportSummaryCard in src/components/clinical-dashboard/evidence-panels.tsx have ZERO callers in src/. The support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail; tests/answer-support-priority.dom.test.tsx pins that removal with expect(surface).not.toContain('<AnswerSupportSummaryCard'). COST ALREADY INCURRED: their behaviour (a safety finding returned ahead of the 'Review source match' caution) was cited on 2026-09-17/18 as the reason #GHC4XZ could not be fixed, and was written into docs/clinical-hazard-controls.json SAFETY-CHIP-VOCABULARY as an open clinical decision needing a clinician. Both were corrected on 2026-09-19 once the dead reachability was verified. DO NOT DELETE ON REACHABILITY ALONE: node scripts/check-dead-code-candidate.mjs --symbol answerSupportPriority --file src/components/clinical-dashboard/evidence-panels.tsx REFUSES, because two committed tests pin it (tests/answer-support-priority.dom.test.tsx, tests/clinical-safety.test.ts) and three documents describe it (docs/answer-page-redesign-handover.md, docs/design-system/ADOPTION.md, docs/outstanding-issues.md), and evidence-panels.tsx exports 18 other live symbols so the file must stay. TO UNBLOCK: decide whether the support card is genuinely retired; if so retire the two symbols and their tests together, and update the three documents in the same change, so the next reader does not mistake a dead display rule for a live clinical one.",
+    "source": "verified 2026-09-19 against main",
+    "issueUlid": "01M2X7YXFT51975RG08GGM9THT"
+  }
+}
