@@ -130,6 +130,22 @@ const clinicalRiskPatterns = [
   /^src\/lib\/differential[^/]*\.ts$/,
   /^src\/components\/differentials\//,
   /^scripts\/build-cross-mode-differentials-index\.mjs$/,
+  // Owner ruling 2026-09-19 (#86E34T), closing an inconsistency inside one family. Three
+  // sibling modules do the same job — each exports `rowGovernance`, which decides whether a
+  // stored clinical record is presented to a clinician as current, review-due or outdated. Two
+  // were already covered and one was not, for reasons that are purely lexical rather than
+  // clinical: `differential-records.ts` matches the differential rule directly above, and
+  // `medication-records.ts` matches the token set via "medication". `registry-records.ts`
+  // carries no token in the set and no other rule reaches it, so a change that (for example)
+  // stopped an outdated service record from being marked outdated could merge with no clinical
+  // governance preflight at all.
+  //
+  // EXACT path, for the reason the dictionary/factsheets/specifiers rule above states at
+  // length: a `src/lib/*records*.ts` sweep would also take `use-registry-records.ts`, a React
+  // data-fetching hook holding no governance decision, and a reflexively ticked preflight
+  // erodes the gate it enforces. Verified against the whole tracked tree: this entry adds
+  // exactly one file to the clinical-risk set.
+  /^src\/lib\/registry-records\.ts$/,
 ];
 
 /**
@@ -1586,6 +1602,17 @@ function selfTest() {
     true,
   );
   assert.equal(classifyPullRequestFiles(["scripts/build-cross-mode-differentials-index.mjs"]).clinicalRisk, true);
+  // Owner ruling 2026-09-19 (#86E34T): all three `rowGovernance` siblings are clinical-risk.
+  // Each decides whether a stored record reaches a clinician labelled current or outdated, and
+  // they reach this verdict by three different rules, so all three are pinned together — the
+  // inconsistency this closes was that `registry-records.ts` alone matched none of them.
+  assert.equal(classifyPullRequestFiles(["src/lib/differential-records.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/medication-records.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/registry-records.ts"]).clinicalRisk, true);
+  // Still narrow: the registry entry is an exact path, so the client-side hook next to it —
+  // which holds no governance decision — is not swept in, and neither is the rest of the family.
+  assert.equal(classifyPullRequestFiles(["src/lib/use-registry-records.ts"]).clinicalRisk, false);
+  assert.equal(classifyPullRequestFiles(["src/lib/registry-client-contract.ts"]).clinicalRisk, false);
   // Near miss: an unrelated UI component is not swept in by the differential patterns.
   assert.equal(classifyPullRequestFiles(["src/components/ui/button.tsx"]).clinicalRisk, false);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
