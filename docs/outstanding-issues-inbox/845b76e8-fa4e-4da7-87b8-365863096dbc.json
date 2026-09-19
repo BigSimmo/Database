@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "845b76e8-fa4e-4da7-87b8-365863096dbc",
+  "createdOn": "2026-09-19",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Phone service-detail scroll-endpoint test can measure the footer after the scroll has drifted back off the endpoint",
+    "detail": "tests/ui-tools.spec.ts 'long mobile service details paint to the viewport edge with no bottom search dock' reads the scroll endpoint and the footer rect in SEPARATE browser round-trips. The endpoint is asserted inside an expect.toPass loop; the footer rect is then read afterwards. A scroll that has converged can drift back between the two, so the footer assertion measures a position the precondition no longer describes. Observed on PR #2903 CI run 35458348083 job 105937635436 (2026-09-19): scrollTop 3044 vs maxScrollTop 3111 = exactly 67px short, footerBottom 838.56 vs viewport 820. The test's own comment above the loop already names that ~67px shortfall, so the convergence race was known; what was not covered is re-divergence AFTER the loop returns. NOT a layout defect: the same shard passed on the identical base commit 4960c6f7fa3b 31 minutes earlier, and the PR that failed contained no executable code. NEXT ACTION: bracket the footer read with an endpoint assertion on both sides inside the same retry, so a drift retries instead of failing. Do NOT quarantine or skip it - the assertion it makes is a real phone-chrome contract.",
+    "source": "Diagnosed while babysitting PR #2903 CI, 2026-09-19. Full evidence in PR comment 5744023406.",
+    "issueUlid": "01M2XE8ZF9G8R8GTVH3N5CPJ1P"
+  }
+}
