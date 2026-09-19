@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7d7f2dbc-b1ef-44d3-be0f-bd25d428f2c7",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#D7K71C",
+    "outcome": "Fixed 2026-09-19 in PR #2920. docs/clinical-hazard-controls.json now carries reviewedPathDigests (sha256 per cited path) and the checker falls back to them when the reviewed commit is unreachable, which is what a squash merge always makes it. The pass condition matches the old one: the commit check asked only whether a cited path EXISTED, so a missing record still fails and a CHANGED file warns rather than failing -- gating on unchanged content would turn every later PR touching a cited control red until someone re-sealed, which buys reflexive re-sealing. Sealed with npm run governance:seal-hazard-controls, idempotent and Prettier-stable. 12 passed.",
+    "baseRowFingerprint": "41f82f985b4f281644d960f743265a70aaf23e20c71c5b384e057f8892024c97"
+  }
+}

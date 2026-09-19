@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3096b3fb-db5d-4e75-ac03-208ed963c115",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#3PW9TY",
+    "outcome": "Fixed 2026-09-19 in PR #2905. universal-search-also-matches.tsx now calls groupIsWorthShowing(group) instead of re-implementing the wrong predicate inline, so a degraded group with no items keeps its card instead of vanishing, and reports the state in four places: the collapsed header, each mode card heading, the empty-state sentence and the role=status announcement. Two things the row did not predict: the tray is collapsed by default at every width, so a notice only inside the panel would have reproduced the bug for anyone who never opens it; and the phone card cap is 3, so anyDegraded is computed from the full set before the cap. Left alone deliberately: universal-search-command-surface.tsx also re-implements the predicate inline, but it filters visibleItems first for the favourites mode, so the helper is not a drop-in there -- worth a follow-up, not currently wrong. Caught in integration: tests/audit-navigation-auth-regressions.test.ts pins the empty message by source text and was repointed at both arms rather than relaxed.",
+    "baseRowFingerprint": "feae246cac4f4d23d2a87ae83baebb377c9ac5486d9bbe05caaa1e26701ba76a"
+  }
+}

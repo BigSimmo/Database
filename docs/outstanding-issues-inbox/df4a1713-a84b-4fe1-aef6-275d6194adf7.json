@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "df4a1713-a84b-4fe1-aef6-275d6194adf7",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#DTAMMK",
+    "outcome": "Fixed 2026-09-19 in PR #2905. A clear-generation counter in patient-profile-storage.ts (bumped by clearPatientProfile on sign-out and by a new resetPatientProfile for the in-session Clear) reaches every mount through the context's existing useSyncExternalStore, so a refused entry can no longer outlive a clear performed by another panel. THE FOCUS COST THE ROW WARNED ABOUT WAS REMOVED RATHER THAN ACCEPTED: the whole-mount remount is gone; NumberField clears its own draft during render on a generation change, the same pattern MedicationPicker already uses, so the input element and the caret survive. Pinned by a case that focuses the field, clears from the other panel, and asserts the same element still holds focus. The creatinine field keeps its unit key deliberately -- a unit switch changes the validity bounds under a draft the store never accepted. 55 passed across four suites; three cases failed before the fix with expected '420' to be ''. STILL A PRODUCT QUESTION, not a defect: typing into a single mounted panel that visibly still shows refused text.",
+    "baseRowFingerprint": "c5959f8fdae75de9fb98038e053c11f4a7d72ca1b1e9dace1f4632a9b9e11966"
+  }
+}

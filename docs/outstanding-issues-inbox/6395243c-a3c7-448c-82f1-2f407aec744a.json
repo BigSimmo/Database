@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "6395243c-a3c7-448c-82f1-2f407aec744a",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#GHC4XZ",
+    "detail": "NEW FINDING 2026-09-19 while fixing #9XRDF7, needs the owner and NOT fixed. The word-boundary defect is still live one severity tier UP, on the danger colour: \\burgent\\b misses 'urgently', so 'Urgently reassess the patient.' produces no finding at all today. The same gap exists for review/reviewed, exclude/excluded, consider/considered, caution/cautious, transfer/transferring and seizure/seizures. urgent and seizure sit in red_flag, so widening them paints passages with the stop tone and danger colour -- beyond the approval given for escalate and monitor. Pinned as an explicitly-labelled unfixed gap in tests/clinical-safety.test.ts so it stops being invisible. ALSO MEASURED, correcting an assumption this row implied: widening a mid-array entry does not only add findings where nothing matched -- safetyPatterns.find returns the first match in severity order, so it TAKES passages from every tier below it. Seven label-to-label movements were measured for escalate/monitor alone.",
+    "baseRowFingerprint": "90193ab6b4d163b6621b3331f69cad4d4136630295745835650c22c67ba78649"
+  }
+}

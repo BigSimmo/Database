@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ba2af586-3ae4-432f-8d7c-5750006f6a55",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#CNSDBJ",
+    "outcome": "Closed 2026-09-19, rescoped. The per-migration content-hash baseline the row asked for already existed: supabase/applied-migration-hashes.json seals all 251 migrations, with migrations:seal (append-only) and migrations:reseal (ALLOW_MIGRATION_RESEAL=true) as the designed escape hatch, covered by tests/migration-immutability.test.ts. The real gap was that check:migration-immutability ran in NO gate -- not verify:full, not CI -- reachable only transitively through that unit test. Wired into verify:full:internal and the static-pr job in PR #2920, beside check:migration-role. Nothing under supabase/ was touched.",
+    "baseRowFingerprint": "618413e52793b9d5033a67ff070e0f2bf1a3af852fd1a257633a0a2279a582a8"
+  }
+}
