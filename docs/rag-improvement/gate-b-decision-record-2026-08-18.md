@@ -35,7 +35,7 @@ Copied verbatim from the run artifact's stamped key.
 `model_version`, `embedding_version`, and `index_version` are programme-wide
 comparability qualifiers not exercised by this extraction benchmark — no model, embedding,
 or database call occurs inside the sandbox. Outside the key: `extractorVersions.legacy`
-(pymupdf==1.28.0 path) and `extractorVersions.docling` (docling==2.120.2) from
+(pymupdf==1.28.2 path) and `extractorVersions.docling` (docling==2.120.2) from
 `eval/docling/report/lab-config.json`; evidence run
 <https://github.com/BigSimmo/Database/actions/runs/32176604314>, artifact
 `docling-lab-report-32176604314`; docling phase environment `TORCHDYNAMO_DISABLE=1`

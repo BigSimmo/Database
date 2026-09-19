@@ -56,6 +56,24 @@ telling them apart is the whole job:
 | `200 { "forwarded": false }`           | authenticated, but no chat destination in server env                | set `SLACK_WEBHOOK_URL` or `DISCORD_WEBHOOK_URL`  |
 | no request reaches the receiver at all | no outgoing webhook configured on the Railway project               | add it in Railway → Project → Settings → Webhooks |
 
+**Owner action, open since 2026-09-16 (#B6JP6F).** The integration is in row 1 right now: the
+production `Database` service logs `Railway webhook rejected: presented secret did not match
+RAILWAY_WEBHOOK_SECRET` with `tokenPresented=true` on every deploy (six rejections in the 40 s after
+the 2026-09-16 12:27 UTC container start). **There is nothing to fix in this repository.** The
+receiver in `src/app/api/webhooks/railway/route.ts` is correct and is behaving correctly by
+rejecting the request; the `?token=` on the configured Railway webhook URL has simply drifted out of
+step with the `RAILWAY_WEBHOOK_SECRET` service variable. No MCP tool covers Railway project
+webhooks, and the fix needs the secret value, so it cannot be done from a coding session at all —
+it is the owner, in the Railway dashboard:
+
+1. Railway → project `Database` → the `Database` service → Variables: set `RAILWAY_WEBHOOK_SECRET`
+   to a fresh value of at least 16 characters.
+2. Railway → project `Database` → Settings → Webhooks: delete the existing webhook and re-add it as
+   `https://psychiatry.tools/api/webhooks/railway?token=<that same value>`.
+3. Confirm on the next deploy that the rejection warning stops. Until it does, **no deploy success
+   or failure notification reaches chat at all** — the same silence that cost three days on
+   2026-09-13.
+
 All four are now reported by the app itself — the first two as `logger.warn`/`logger.error`
 from the route, the third from `postChatNotification` — and warn/error reach Sentry, which
 does not depend on any of the variables above. Before that they were visible only in

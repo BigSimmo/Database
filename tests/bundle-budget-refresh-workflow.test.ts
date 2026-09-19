@@ -204,10 +204,33 @@ describe("bundle-budget refresh report provenance", () => {
     expect(publishStep).toContain("Evidence artifact upload:");
   });
 
+  /**
+   * #QSHHGK's last open point: the workflow measures and publishes, but a person has to apply the
+   * result, and nothing told them how. The apply step cannot be automated — check-github-action-pins
+   * forbids workflow-authored branch mutation, and a baseline moved by a bot is one nobody reviewed
+   * — so the instruction is the deliverable, and it has to be exact enough to paste.
+   */
+  it("tells a human exactly how to apply the refreshed baseline", () => {
+    expect(publishStep).toContain("### How to apply this measurement");
+    expect(publishStep).toContain("gh run download ${context.runId}");
+    expect(publishStep).toContain("--name bundle-budget-refresh --dir .local/bundle-budget-refresh");
+    expect(publishStep).toContain("cp .local/bundle-budget-refresh/bundle-budget.json bundle-budget.json");
+    // Take the artifact, do not re-measure locally: --refresh-baseline stamps the measured commit
+    // as baselineSource, and a baseline measured off-runner pins a SHA nobody can reproduce, which
+    // is how the unattributable 0764fb58 baseline happened.
+    expect(publishStep).toContain("Take the artifact's file rather than re-measuring locally");
+    // Re-datum the ruler; do not lengthen it.
+    expect(publishStep).toContain("leave the tolerances alone");
+  });
+
   it("still refuses to commit, push or open a PR for the refreshed baseline", () => {
     // The report-only contract is the reason this workflow is safe to run on a
-    // schedule; none of the above may weaken it.
+    // schedule; none of the above may weaken it. The apply instructions added for #QSHHGK stop
+    // short of quoting a `git` command for exactly this reason: the guard above matches the words
+    // themselves, and a guard that has to be narrowed to accommodate prose stops being a guard.
     expect(job).not.toMatch(/git (commit|push)|create-pull-request|peter-evans/);
+    // The only GitHub write this workflow performs is the rolling issue.
+    expect(publishStep).not.toMatch(/github\.rest\.(git|repos|pulls|actions)\./);
     expect(workflow).toContain("contents: read");
   });
 });
