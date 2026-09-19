@@ -40,10 +40,25 @@ RUN python3 -m venv /opt/docling-venv \
   && rm /tmp/docling-requirements.txt
 
 # Prefetch docling's models now: the egress-blocked run cannot reach HuggingFace,
-# so a missing model at run time would fail every docling conversion. Model weights
-# are pinned via the exact hash-locked docling==2.120.2 requirement.
+# so a missing model at run time would fail every docling conversion.
+#
+# The model weights are NOT pinned by the hash-locked docling==2.124.0 requirement —
+# that lock pins the Python client only. `docling-tools models download` takes no
+# version argument of any kind (there is no --revision flag), so it fetches whatever
+# the HuggingFace repositories hold on build day. This comment previously claimed the
+# opposite, which mattered: it is exactly the belief that would let an upstream weight
+# change pass unexamined, and it contradicted the accurate note in Dockerfile.worker.
+#
+# What does pin them is the digest check below, in this same layer: it fails the build
+# when the download differs from eval/docling/model-artifacts.json. While that manifest
+# records no digest yet it reports the one the download produced instead of failing.
+COPY eval/docling/verify-model-artifacts.mjs eval/docling/model-artifacts.json /tmp/docling-verify/
 RUN /opt/docling-venv/bin/docling-tools models download --output-dir /opt/docling-models \
-  && chmod -R a+rX /opt/docling-models
+  && node /tmp/docling-verify/verify-model-artifacts.mjs \
+    --models-dir /opt/docling-models \
+    --manifest /tmp/docling-verify/model-artifacts.json \
+  && chmod -R a+rX /opt/docling-models \
+  && rm -rf /tmp/docling-verify
 
 RUN useradd --create-home --shell /usr/sbin/nologin lab
 USER lab

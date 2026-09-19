@@ -130,6 +130,22 @@ const clinicalRiskPatterns = [
   /^src\/lib\/differential[^/]*\.ts$/,
   /^src\/components\/differentials\//,
   /^scripts\/build-cross-mode-differentials-index\.mjs$/,
+  // Owner ruling 2026-09-19 (#86E34T), closing an inconsistency inside one family. Three
+  // sibling modules do the same job — each exports `rowGovernance`, which decides whether a
+  // stored clinical record is presented to a clinician as current, review-due or outdated. Two
+  // were already covered and one was not, for reasons that are purely lexical rather than
+  // clinical: `differential-records.ts` matches the differential rule directly above, and
+  // `medication-records.ts` matches the token set via "medication". `registry-records.ts`
+  // carries no token in the set and no other rule reaches it, so a change that (for example)
+  // stopped an outdated service record from being marked outdated could merge with no clinical
+  // governance preflight at all.
+  //
+  // EXACT path, for the reason the dictionary/factsheets/specifiers rule above states at
+  // length: a `src/lib/*records*.ts` sweep would also take `use-registry-records.ts`, a React
+  // data-fetching hook holding no governance decision, and a reflexively ticked preflight
+  // erodes the gate it enforces. Verified against the whole tracked tree: this entry adds
+  // exactly one file to the clinical-risk set.
+  /^src\/lib\/registry-records\.ts$/,
 ];
 
 /**
@@ -881,9 +897,19 @@ function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, owner
     return { state: "pending", description: commitStatusDescription(OWNER_APPROVAL_CHECKING_DESCRIPTION) };
   }
   if (reasons.length === 0) {
+    // Name the control that actually exists. Until 2026-09-19 this read "no clinical, database
+    // or RAG-ranking change", which the 2026-09-17 narrowing made false: `ownerMergeReasons`
+    // now returns `[]` for every path outside `supabase/`, so a PR rewriting
+    // `src/lib/clinical-safety.ts` or `src/lib/rag/rag.ts` — both `clinicalRisk: true`, and
+    // `rag.ts` `ragRanking: true`, pinned in the self-test below — carried a green badge
+    // asserting it changed no clinical or RAG-ranking code. Those PRs are still governed, by
+    // the preflight, the `RAG impact:` line and the canary pair; they are simply not owner-held.
+    // This status speaks only for the owner hold, so it names only the owner hold's trigger.
     return {
       state: "success",
-      description: commitStatusDescription("Not needed: no clinical, database or RAG-ranking change."),
+      description: commitStatusDescription(
+        "Not needed: no supabase/ change — only those reach the live database on merge.",
+      ),
     };
   }
   const why = reasons.join(", ");
@@ -1576,6 +1602,17 @@ function selfTest() {
     true,
   );
   assert.equal(classifyPullRequestFiles(["scripts/build-cross-mode-differentials-index.mjs"]).clinicalRisk, true);
+  // Owner ruling 2026-09-19 (#86E34T): all three `rowGovernance` siblings are clinical-risk.
+  // Each decides whether a stored record reaches a clinician labelled current or outdated, and
+  // they reach this verdict by three different rules, so all three are pinned together — the
+  // inconsistency this closes was that `registry-records.ts` alone matched none of them.
+  assert.equal(classifyPullRequestFiles(["src/lib/differential-records.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/medication-records.ts"]).clinicalRisk, true);
+  assert.equal(classifyPullRequestFiles(["src/lib/registry-records.ts"]).clinicalRisk, true);
+  // Still narrow: the registry entry is an exact path, so the client-side hook next to it —
+  // which holds no governance decision — is not swept in, and neither is the rest of the family.
+  assert.equal(classifyPullRequestFiles(["src/lib/use-registry-records.ts"]).clinicalRisk, false);
+  assert.equal(classifyPullRequestFiles(["src/lib/registry-client-contract.ts"]).clinicalRisk, false);
   // Near miss: an unrelated UI component is not swept in by the differential patterns.
   assert.equal(classifyPullRequestFiles(["src/components/ui/button.tsx"]).clinicalRisk, false);
   // Mode configuration, search routing, and UI copy modules are recognized as UI (#0HFDWD).
@@ -2259,6 +2296,33 @@ $migration$;
   // Narrowed by the 2026-09-17 owner ruling: clinical content and RAG ranking are no longer
   // reasons on their own, so a PR that touches neither database file nor migration is free.
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), []);
+  // ...and the green badge must say only that, because the PRs it clears routinely DO change
+  // clinical and RAG-ranking code. Nothing pinned this sentence before 2026-09-19 (#9Y6MKN),
+  // which is how it went on asserting the opposite of the truth after the narrowing.
+  const noHoldStatus = ownerApprovalCommitStatus({
+    ownerMergeReasons: [],
+    ownerApproved: false,
+    otherPrsSharingHead: [],
+  });
+  assert.equal(noHoldStatus.state, "success");
+  assert.equal(
+    noHoldStatus.description,
+    "Not needed: no supabase/ change — only those reach the live database on merge.",
+  );
+  assert.doesNotMatch(
+    noHoldStatus.description,
+    /clinical|RAG/i,
+    "the cleared status must not claim the PR changed no clinical or RAG-ranking code; these files do, and are still cleared",
+  );
+  for (const file of [
+    "src/lib/clinical-safety.ts",
+    "src/components/clinical-dashboard/patient-profile-panel.tsx",
+    "src/lib/rag/rag.ts",
+  ]) {
+    assert.equal(classifyPullRequestFiles([file]).clinicalRisk, true, `${file} is clinical-risk`);
+    assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles([file]), [file]), [], `${file} is not owner-held`);
+  }
+  assert.equal(classifyPullRequestFiles(["src/lib/rag/rag.ts"]).ragRanking, true);
   const clinical = {
     title: "fix: adjust clinical search tie-break",
     body: completeBody,

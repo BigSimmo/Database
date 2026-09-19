@@ -12,7 +12,7 @@
 #     pytesseract). The venv's `python` matches the PYTHON_BIN default.
 #   - Packet B4 (docs/rag-improvement/README.md §B4, Gate B PASS 2026-08-18):
 #     a SECOND, isolated Python venv (/opt/docling-venv) built from the Gate B
-#     lab's hashed lock (eval/docling/requirements.txt — docling==2.120.2 by
+#     lab's hashed lock (eval/docling/requirements.txt — docling==2.124.0 by
 #     construction, CPU-only torch) plus docling's models baked at build time
 #     (/opt/docling-models). Consumed only by worker/python/shadow_docling_extract.py
 #     when WORKER_DOCUMENT_EXTRACTOR_MODE=shadow; the OCR venv is untouched
@@ -87,12 +87,24 @@ RUN python3 -m venv /opt/docling-venv \
   && rm /tmp/docling-requirements.txt
 # Prefetch docling's models at build time: HF_HUB_OFFLINE=1 below forbids any run-time
 # fetch, so a missing model fails the shadow run loudly instead of reaching HuggingFace
-# from a production worker. The Python client is hash-locked (docling==2.120.2 in
-# eval/docling/requirements.txt), but the HuggingFace model artifacts themselves are
-# NOT revision/digest-pinned yet (docling-tools has no --revision flag). Tracked as
-# outstanding-issues #XSZ4XV — vendor or verify an explicit artifact digest separately.
+# from a production worker. The Python client is hash-locked (docling==2.124.0 in
+# eval/docling/requirements.txt), but the HuggingFace model artifacts themselves carry
+# no version argument at all — docling-tools has no --revision flag, so the weights are
+# whatever those repositories hold on build day. A bad upstream release would change how
+# clinical PDFs are read with no commit here and nothing in the log to notice.
+#
+# So the download is followed, in this same layer, by a digest check against
+# eval/docling/model-artifacts.json: a mismatch exits non-zero and fails the build. While
+# that manifest records no digest yet it prints the one the download produced (the block
+# to paste in) instead of failing, because the digest can only be learned by building.
+# See the header of verify-model-artifacts.mjs for the whole contract.
+COPY eval/docling/verify-model-artifacts.mjs eval/docling/model-artifacts.json /tmp/docling-verify/
 RUN /opt/docling-venv/bin/docling-tools models download --output-dir /opt/docling-models \
-  && chmod -R a+rX /opt/docling-models
+  && node /tmp/docling-verify/verify-model-artifacts.mjs \
+    --models-dir /opt/docling-models \
+    --manifest /tmp/docling-verify/model-artifacts.json \
+  && chmod -R a+rX /opt/docling-models \
+  && rm -rf /tmp/docling-verify
 ENV WORKER_DOCLING_PYTHON_BIN=/opt/docling-venv/bin/python
 ENV DOCLING_ARTIFACTS_PATH=/opt/docling-models
 ENV TORCHDYNAMO_DISABLE=1

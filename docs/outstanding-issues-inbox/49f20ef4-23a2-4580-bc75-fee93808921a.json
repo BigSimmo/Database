@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "49f20ef4-23a2-4580-bc75-fee93808921a",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#HNJF5X",
+    "detail": "GUARDED 2026-09-19 in PR #2920, naming decision deferred by the owner. tests/differential-identifier-collisions.test.ts lists substance-intoxication, substance-withdrawal and depression as a documented baseline, pins per-family uniqueness, pins the flattened arithmetic (232 total, 229 distinct) so the loss is measured rather than described, and fails on a FOURTH collision with a message saying not to widen the baseline. The real fix stays in scripts/import-differentials-export.ts, which cannot run outside the owner's Windows machine (DEFAULT_ZIP at line 8 is a hardcoded local path). Also established: no surface loses records today -- sign-off-queue.ts is the only consumer that flattens both families and it already namespaces its keys.",
+    "baseRowFingerprint": "4ca6ceafe69ea79e00658e1868527266c7dd3ea6931a01204b6e4635825157d7"
+  }
+}
