@@ -770,7 +770,8 @@ export async function embedTextWithTelemetry(text: string, options?: { signal?: 
 
   const key = queryEmbeddingCacheKey(text);
   let inflight = queryEmbeddingInflight.get(key);
-  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  // Skip a flight already aborted by its last waiter (the `startFlight` pattern in
+  // `site-content/site-content-record-cache.ts`, which is where it now lives).
   if (inflight?.controller.signal.aborted) {
     if (queryEmbeddingInflight.get(key) === inflight) queryEmbeddingInflight.delete(key);
     inflight = undefined;

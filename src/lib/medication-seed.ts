@@ -1,6 +1,5 @@
 import { buildDefaultMedicationRows, defaultMedicationRecords } from "@/lib/medication-fixtures";
 import { type MedicationRecordInsert, type MedicationRecordRow } from "@/lib/medication-records";
-import { invalidateOwnerCatalogueCache } from "@/lib/owner-catalogue-cache";
 import { safeErrorLogDetails } from "@/lib/privacy";
 
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
@@ -29,8 +28,6 @@ export async function ensureMedicationsSeeded(
   if (options.signal) query = query.abortSignal(options.signal);
   const { data, error } = await query;
   if (error) throw new Error(`Medication seed failed: ${error.message}`);
-  invalidateOwnerCatalogueCache({ ownerId, kind: "medication", preserveSignal: options.signal });
-  throwIfAborted(options.signal);
   throwIfAborted(options.signal);
   return (data ?? []) as MedicationRecordRow[];
 }
