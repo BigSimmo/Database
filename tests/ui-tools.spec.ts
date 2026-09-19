@@ -3172,36 +3172,53 @@ test.describe("PsychSift service detail page", () => {
     // mobileComposerIdleReserve is 2rem (32px) with no safe-area inset added,
     // because no composer chrome is visible to consume one.
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeLessThanOrEqual(32);
+    const readClearance = () =>
+      footer.evaluate((element) => {
+        const mainElement = document.querySelector<HTMLElement>("#main-content");
+        const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
+        if (!mainElement) return null;
+        const mainStyle = window.getComputedStyle(mainElement);
+        const pad = mainElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+        return {
+          footerBottom: element.getBoundingClientRect().bottom,
+          viewportHeight: window.innerHeight,
+          reservePx: pad
+            ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
+            : Number.parseFloat(mainStyle.paddingBottom),
+          reserve: mainStyle.getPropertyValue("--mobile-composer-reserve").trim(),
+          serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
+          serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
+        };
+      });
+
     // Document scrolling can change the settled range after the first endpoint
-    // jump (reserve/layout commit). Re-issue scroll-to-end while asserting so
-    // the position converges instead of polling a stale scrollTop (~67px left).
+    // jump (reserve/layout commit), and it can drift back off the endpoint
+    // AFTER the range has once converged. So the rect is read INSIDE this
+    // retry, bracketed by an endpoint assertion on either side: only a rect
+    // taken while the page was genuinely at its endpoint reaches the
+    // assertions below, and a drift retries instead of failing them. Reading
+    // it after the loop is what let a converged scroll regress to the
+    // documented ~67px and fail the footer clearance on a position that
+    // clearance never described (PR #2903, CI run 35458348083, 2026-09-19).
+    let scrollGeometry: Awaited<ReturnType<typeof readPrimaryScrollGeometry>> | null = null;
+    let clearance: Awaited<ReturnType<typeof readClearance>> = null;
     await expect(async () => {
       await scrollPrimarySurface(page, "end");
-      const geometry = await readPrimaryScrollGeometry(page);
-      expect(geometry.owner).toBe("document");
-      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+      const before = await readPrimaryScrollGeometry(page);
+      expect(before.owner).toBe("document");
+      expect(before.maxScrollTop - before.scrollTop).toBeLessThanOrEqual(1);
+
+      const measured = await readClearance();
+
+      const after = await readPrimaryScrollGeometry(page);
+      expect(after.owner).toBe("document");
+      expect(after.maxScrollTop - after.scrollTop).toBeLessThanOrEqual(1);
+
+      clearance = measured;
+      scrollGeometry = after;
     }).toPass({ timeout: 15_000 });
-    const scrollGeometry = await readPrimaryScrollGeometry(page);
 
-    const clearance = await footer.evaluate((element) => {
-      const mainElement = document.querySelector<HTMLElement>("#main-content");
-      const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
-      if (!mainElement) return null;
-      const mainStyle = window.getComputedStyle(mainElement);
-      const pad = mainElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
-      return {
-        footerBottom: element.getBoundingClientRect().bottom,
-        viewportHeight: window.innerHeight,
-        reservePx: pad
-          ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
-          : Number.parseFloat(mainStyle.paddingBottom),
-        reserve: mainStyle.getPropertyValue("--mobile-composer-reserve").trim(),
-        serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
-        serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
-      };
-    });
-
-    expect(scrollGeometry.owner).toBe("document");
+    expect(scrollGeometry!.owner).toBe("document");
     expect(clearance, JSON.stringify({ clearance, scrollGeometry })).not.toBeNull();
     expect(clearance!.reservePx, JSON.stringify({ clearance, scrollGeometry })).toBeLessThanOrEqual(32);
     // Fully on screen, and not floated above the fold by an oversized reserve.
