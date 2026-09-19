@@ -881,9 +881,19 @@ function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, owner
     return { state: "pending", description: commitStatusDescription(OWNER_APPROVAL_CHECKING_DESCRIPTION) };
   }
   if (reasons.length === 0) {
+    // Name the control that actually exists. Until 2026-09-19 this read "no clinical, database
+    // or RAG-ranking change", which the 2026-09-17 narrowing made false: `ownerMergeReasons`
+    // now returns `[]` for every path outside `supabase/`, so a PR rewriting
+    // `src/lib/clinical-safety.ts` or `src/lib/rag/rag.ts` — both `clinicalRisk: true`, and
+    // `rag.ts` `ragRanking: true`, pinned in the self-test below — carried a green badge
+    // asserting it changed no clinical or RAG-ranking code. Those PRs are still governed, by
+    // the preflight, the `RAG impact:` line and the canary pair; they are simply not owner-held.
+    // This status speaks only for the owner hold, so it names only the owner hold's trigger.
     return {
       state: "success",
-      description: commitStatusDescription("Not needed: no clinical, database or RAG-ranking change."),
+      description: commitStatusDescription(
+        "Not needed: no supabase/ change — only those reach the live database on merge.",
+      ),
     };
   }
   const why = reasons.join(", ");
@@ -2259,6 +2269,33 @@ $migration$;
   // Narrowed by the 2026-09-17 owner ruling: clinical content and RAG ranking are no longer
   // reasons on their own, so a PR that touches neither database file nor migration is free.
   assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles(["src/lib/rag/rag.ts"]), ["src/lib/rag/rag.ts"]), []);
+  // ...and the green badge must say only that, because the PRs it clears routinely DO change
+  // clinical and RAG-ranking code. Nothing pinned this sentence before 2026-09-19 (#9Y6MKN),
+  // which is how it went on asserting the opposite of the truth after the narrowing.
+  const noHoldStatus = ownerApprovalCommitStatus({
+    ownerMergeReasons: [],
+    ownerApproved: false,
+    otherPrsSharingHead: [],
+  });
+  assert.equal(noHoldStatus.state, "success");
+  assert.equal(
+    noHoldStatus.description,
+    "Not needed: no supabase/ change — only those reach the live database on merge.",
+  );
+  assert.doesNotMatch(
+    noHoldStatus.description,
+    /clinical|RAG/i,
+    "the cleared status must not claim the PR changed no clinical or RAG-ranking code; these files do, and are still cleared",
+  );
+  for (const file of [
+    "src/lib/clinical-safety.ts",
+    "src/components/clinical-dashboard/patient-profile-panel.tsx",
+    "src/lib/rag/rag.ts",
+  ]) {
+    assert.equal(classifyPullRequestFiles([file]).clinicalRisk, true, `${file} is clinical-risk`);
+    assert.deepEqual(ownerMergeReasons(classifyPullRequestFiles([file]), [file]), [], `${file} is not owner-held`);
+  }
+  assert.equal(classifyPullRequestFiles(["src/lib/rag/rag.ts"]).ragRanking, true);
   const clinical = {
     title: "fix: adjust clinical search tie-break",
     body: completeBody,
