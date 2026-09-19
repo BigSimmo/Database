@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "0e9c88fd-4ac7-45d2-9eec-38a66cebefb5",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#GHC4XZ",
+    "detail": "HEADLINE-POSITION QUESTION IS MOOT, verified 2026-09-19 against main. The reason this issue gave for not fixing the labels — that answerSupportPriority (src/components/clinical-dashboard/evidence-panels.tsx) promotes the most severe finding ahead of everything else as the answer's headline support card, so changing labels changes what a clinician sees first — rests on code the application does not render. answerSupportPriority and AnswerSupportSummaryCard have ZERO callers in src/ (grep across the whole tree); the support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail, which tests/answer-support-priority.dom.test.tsx asserts directly ('the support card was removed on 2026-08-31 ... the rail is therefore the ONLY route to the findings sheet'). The shipped surface renders RetrievalStateBanner (grounding state) at answer-result-surface.tsx:485 and passes clinicalPointsRail into NaturalLanguageAnswer at :555 — two separate elements, both visible, banner first. So no keyword match displaces the 'Review source match' caution, and there is no headline contest to decide. WHAT REMAINS: the vocabulary itself is still a clinical judgement and still unsigned. The ordering half should be closed rather than carried as an open owner decision. docs/clinical-hazard-controls.json SAFETY-CHIP-VOCABULARY carried the same stale premise and was corrected in the same change.",
+    "baseRowFingerprint": "90193ab6b4d163b6621b3331f69cad4d4136630295745835650c22c67ba78649"
+  }
+}
