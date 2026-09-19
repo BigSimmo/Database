@@ -177,6 +177,14 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
 
   const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
+  // Both On Call studies draw the universal top bar inside every 390px artboard,
+  // because the chrome budget above the fold is part of what each board is
+  // arguing about. Shared chrome would read as a second real header over eight
+  // frames that each already have one — and On Call declares no search surface
+  // at all, so a composer above these boards would contradict the very contract
+  // the mode is built on.
+  const isOnCallStudyMockup = pathname === "/mockups/on-call-shift-cover" || pathname === "/mockups/on-call-calendars";
+
   return (
     <GlobalMockupSearchShell
       initialMode={
@@ -232,6 +240,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
+        !isOnCallStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
@@ -269,6 +278,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
+        !isOnCallStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
     >

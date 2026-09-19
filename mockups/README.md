@@ -240,6 +240,18 @@ with a match stepper and a live fit check, and a two-column consult workbench wi
 note builder. Each draws its own desktop and phone frames and carries the real
 `exposure-based-cbt-exposure-therapy` record. Parallel drafts, no recorded winner.
 
+### On Call hub — two studies, read together (2026-09-19)
+
+| Route                 | Status                                                                                                                                                                                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `on-call-shift-cover` | Active study — four boards rebuilding surfaces that already ship: the home with a shift band and an on-cover strip, the Contacts row, the Playbook escalation ladder, and the printed pocket card. Each board names the finding it answers.                      |
+| `on-call-calendars`   | Active study — four boards proposing surfaces the hub does not have: a cover/rota calendar, a teaching term with attendance, a de-identified shift log, and the referrals list asked as a "who covers this?" question. No recorded winner; owner review pending. |
+
+Companion to [`docs/on-call/design/2026-09-19-review-and-proposals.md`](../docs/on-call/design/2026-09-19-review-and-proposals.md),
+which carries the review these boards answer and the wider list of proposals that were not drawn.
+`on-call-calendars` imports its frame scaffold from `on-call-shift-cover` — do not remove the
+latter independently.
+
 ### One-off studies
 
 | Route                        | Status                                                                                                                                                    |
