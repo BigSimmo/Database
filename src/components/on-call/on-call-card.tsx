@@ -25,6 +25,15 @@ const CARD_NUMBER_FIELDS: ReadonlyArray<{ label: string; key: string }> = [
   { label: "Direct", key: "phone" },
   { label: "After hours", key: "afterHoursPhone" },
   { label: "Pager", key: "pager" },
+  // `extension` was missing here until 2026-09-19, and a ward stores its number
+  // in that field and nothing else — so every ward flagged for the card printed
+  // as a title and a subtitle with no number under it. The same omission was
+  // found and fixed in `on-call-contacts-section.tsx` (see its own note on "the
+  // number this row rings"); this copy never got it, and nothing tested paper.
+  // Ordered after `pager` to match `onCallPrimaryNumber`'s own preference
+  // ladder in `home-modules.ts`, so the card cannot lead with a different
+  // number from the one the app dials.
+  { label: "Ext", key: "extension" },
   { label: "Fax", key: "fax" },
 ];
 
