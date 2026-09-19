@@ -58,6 +58,7 @@ const staticHeavyGuards = [
   "check:forms-pdf-manifest",
   "check:design-system-contract",
   "check:migration-role",
+  "check:migration-immutability",
   "check:function-grants",
   "check:owner-scope",
   "check:calculator-content",

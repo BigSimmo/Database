@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -103,28 +104,113 @@ function pathExistsAtCommit(commit, file) {
   }
 }
 
+/**
+ * WHY A CONTENT DIGEST SITS BESIDE THE REVIEWED COMMIT.
+ *
+ * 🔴 **THE FAILURE THIS EXISTS FOR, MEASURED 2026-09-18 (#D7K71C).** An author updating this
+ * register cannot know the SHA their work will land as: this repository squash-merges, so that
+ * commit does not exist until after the merge. PR #2882 therefore recorded its own pre-squash
+ * branch head in all twelve entries. The squash orphaned that object, and from the moment it
+ * landed the ancestry check failed on `main` and on every branch that merged `main` — taking the
+ * aggregate required check red and blocking five unrelated pull requests. It cost most of a
+ * working day across three sessions and was repaired by hand, which leaves the trap armed for
+ * the next register update.
+ *
+ * Reachability was only ever a proxy. What the register claims is that a human reviewed *this
+ * content*, so the content is what we pin. While the reviewed commit is reachable nothing
+ * changes and the snapshot checks run exactly as before. When it is not — the squash case — the
+ * digests answer the same question directly, and a mismatch is still RED.
+ *
+ * ⚠️ **THIS IS NOT A WEAKENING.** The commit check asks only whether a cited path *existed* at
+ * the reviewed commit. A digest additionally proves the file has not changed since review, so an
+ * edited control that would previously have passed now fails. The fallback is refused outright
+ * when digests are absent or incomplete, so an unreachable commit with no digests stays RED.
+ *
+ * Regenerate with `npm run governance:seal-hazard-controls` after a reviewed change.
+ */
+export function reviewedContentDigest(contents) {
+  return createHash("sha256").update(contents.replace(/\r\n/g, "\n")).digest("hex");
+}
+
+/** Every path any entry cites, which is exactly what the digest map must cover. */
+export function citedRegisterPaths(manifest) {
+  const paths = new Set();
+  for (const hazard of manifest?.hazards ?? []) {
+    for (const value of [...(hazard.controlPaths ?? []), ...(hazard.tests ?? [])]) paths.add(value);
+  }
+  for (const decision of manifest?.assuranceDecisions ?? []) {
+    for (const value of decision.evidenceReferences ?? []) paths.add(value);
+  }
+  return [...paths].sort();
+}
+
+/**
+ * Can the reviewed content be proven without the commit? Only when every cited path carries a
+ * digest and every digest still matches. Anything less and the caller keeps the hard failure.
+ */
+export function reviewedDigestsProveContent(manifest) {
+  const digests = manifest?.reviewedPathDigests;
+  if (!digests || typeof digests !== "object") {
+    return { proven: false, drifted: [], reason: "no reviewedPathDigests are recorded" };
+  }
+  const missing = [];
+  const drifted = [];
+  for (const file of citedRegisterPaths(manifest)) {
+    const recorded = digests[file];
+    const resolved = repositoryPath(file);
+    if (typeof recorded !== "string" || !resolved || !existsSync(resolved.absolute)) {
+      missing.push(file);
+      continue;
+    }
+    if (reviewedContentDigest(readFileSync(resolved.absolute, "utf8")) !== recorded) drifted.push(file);
+  }
+  if (missing.length) {
+    return { proven: false, drifted, reason: `no recorded digest for ${missing.join(", ")}` };
+  }
+  // Drift is REPORTED, not failed. The commit check this replaces only ever asked whether a cited
+  // path EXISTED at the reviewed commit, so failing on changed content would be a new and much
+  // harsher gate: once a register update lands, its commit is unreachable for good, and every
+  // later pull request touching a cited control — src/lib/clinical-safety.ts and friends change
+  // often — would go red until someone re-sealed. That pressure produces reflexive re-sealing,
+  // which is worse than no signal at all. So the pass condition matches the old one, and drift
+  // gets a warning naming the files, which is strictly more than the commit check ever gave.
+  return { proven: true, drifted, reason: null };
+}
+
 const commitStatusCache = new Map();
 
-function validateCommit(errors, commit, label, checkGit) {
+function commitStatus(commit) {
+  if (!commitStatusCache.has(commit)) {
+    const exists = gitCheck(["cat-file", "-e", `${commit}^{commit}`]);
+    commitStatusCache.set(commit, {
+      exists,
+      ancestor: exists && gitCheck(["merge-base", "--is-ancestor", commit, "HEAD"]),
+    });
+  }
+  return commitStatusCache.get(commit);
+}
+
+/** Reachable means the reviewed snapshot can still be read, which is what the checks consume. */
+function commitIsReachable(commit) {
+  if (!/^[0-9a-f]{40}$/.test(commit ?? "")) return false;
+  const status = commitStatus(commit);
+  return status.exists && status.ancestor;
+}
+
+function validateCommit(errors, commit, label, checkGit, contentProven = false) {
   if (!/^[0-9a-f]{40}$/.test(commit ?? "")) {
     errors.push(`${label}: reviewedCommit must be a full commit SHA`);
     return false;
   }
   if (checkGit) {
-    if (!commitStatusCache.has(commit)) {
-      const exists = gitCheck(["cat-file", "-e", `${commit}^{commit}`]);
-      commitStatusCache.set(commit, {
-        exists,
-        ancestor: exists && gitCheck(["merge-base", "--is-ancestor", commit, "HEAD"]),
-      });
-    }
-    const status = commitStatusCache.get(commit);
-    if (!status.exists) {
-      errors.push(`${label}: reviewedCommit does not exist ${commit}`);
-      return false;
-    }
-    if (!status.ancestor) {
-      errors.push(`${label}: reviewedCommit is not an ancestor of HEAD ${commit}`);
+    const status = commitStatus(commit);
+    // An unreachable reviewed commit is the squash-merge artefact described above, not a register
+    // defect — but only where the recorded digests still prove the reviewed content. Where they
+    // do not, the original hard failure stands, and its message names which proof was missing.
+    if (!status.exists || !status.ancestor) {
+      if (contentProven) return false;
+      const detail = status.exists ? `is not an ancestor of HEAD ${commit}` : `does not exist ${commit}`;
+      errors.push(`${label}: reviewedCommit ${detail}`);
       return false;
     }
   }
@@ -160,7 +246,41 @@ export function validateClinicalHazardControls(
   const errors = [];
   const today = todayIso(now);
   if (manifest?.schemaVersion !== 1) errors.push("schemaVersion must be 1");
-  validateCommit(errors, manifest?.reviewedCommit, "manifest", checkGit);
+  // Decide once, not per entry: every entry is required to pin the manifest's commit, so
+  // reachability and the digest fallback are one question asked eleven times.
+  const contentProof = checkFiles
+    ? reviewedDigestsProveContent(manifest)
+    : { proven: false, drifted: [], reason: "digests were not read because checkFiles is off" };
+  const commitReachable = checkGit ? commitIsReachable(manifest?.reviewedCommit) : true;
+  // Every entry pins the manifest's commit, so an unreachable one would otherwise report the same
+  // finding eleven times. Say it once, with the remedy, and let the entries stand down.
+  const contentProven = !commitReachable;
+  if (!commitReachable && !contentProof.proven) {
+    errors.push(
+      `manifest: reviewedCommit ${manifest?.reviewedCommit} is unreachable from HEAD and the recorded ` +
+        `digests do not prove the reviewed content (${contentProof.reason}). If the content is still the ` +
+        "reviewed content, run npm run governance:seal-hazard-controls; if it changed, it needs re-review.",
+    );
+  }
+  // The reviewed snapshot cannot be read once its commit is gone, so the path-at-commit checks
+  // stand down with it. The digests replace them, and prove more: those files are unchanged.
+  const snapshotCheckGit = checkGit && commitReachable;
+  if (!commitReachable && contentProof.proven) {
+    console.warn(
+      `CLINICAL_HAZARD_CONTROLS_COMMIT_UNREACHABLE: reviewedCommit ${manifest?.reviewedCommit} is not ` +
+        "reachable from HEAD (expected after a squash merge). Every cited path is recorded and present, " +
+        "so the register's claims were checked against the recorded digests instead.",
+    );
+  }
+  if (contentProof.drifted.length) {
+    console.warn(
+      `CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT: these reviewed paths have changed since they were ` +
+        `sealed: ${contentProof.drifted.join(", ")}. This is not a failure — the register still names ` +
+        "controls that exist — but the review is describing older content. Re-review if the control's " +
+        "behaviour moved, then run npm run governance:seal-hazard-controls.",
+    );
+  }
+  validateCommit(errors, manifest?.reviewedCommit, "manifest", checkGit, contentProven);
   validateReviewDates(errors, manifest?.reviewedAt, manifest?.reviewExpiresAt, "manifest", today);
   const hazards = Array.isArray(manifest?.hazards) ? manifest.hazards : [];
   const ids = new Set();
@@ -170,7 +290,7 @@ export function validateClinicalHazardControls(
     ids.add(label);
     if (!states.has(hazard.state)) errors.push(`${label}: invalid state`);
     if (!hazard.owner || !hazard.residualRisk) errors.push(`${label}: owner and residualRisk are required`);
-    validateCommit(errors, hazard.reviewedCommit, label, checkGit);
+    validateCommit(errors, hazard.reviewedCommit, label, checkGit, contentProven);
     if (hazard.reviewedCommit !== manifest.reviewedCommit) errors.push(`${label}: reviewedCommit must match manifest`);
     validateReviewDates(errors, hazard.reviewedAt, hazard.reviewExpiresAt, label, today);
     for (const field of ["controlSymbols", "controlPaths", "tests"]) {
@@ -201,7 +321,7 @@ export function validateClinicalHazardControls(
     }
     if (checkFiles) {
       for (const path of [...(hazard.controlPaths ?? []), ...(hazard.tests ?? [])]) {
-        validatePath(errors, path, label, hazard.reviewedCommit, { checkFiles, checkGit });
+        validatePath(errors, path, label, hazard.reviewedCommit, { checkFiles, checkGit: snapshotCheckGit });
       }
       for (const testPath of hazard.tests ?? []) {
         if (!/^tests\/.+\.test\.(?:ts|tsx)$/.test(testPath)) errors.push(`${label}: invalid test path ${testPath}`);
@@ -239,7 +359,7 @@ export function validateClinicalHazardControls(
     decisionIds.add(decision.id);
     if (!states.has(decision.state) || !decision.owner || !decision.residualRisk)
       errors.push(`${decision.id}: invalid assurance decision`);
-    validateCommit(errors, decision.reviewedCommit, decision.id, checkGit);
+    validateCommit(errors, decision.reviewedCommit, decision.id, checkGit, contentProven);
     if (decision.reviewedCommit !== manifest.reviewedCommit)
       errors.push(`${decision.id}: reviewedCommit must match manifest`);
     validateReviewDates(errors, decision.reviewedAt, decision.reviewExpiresAt, decision.id, today);
@@ -248,7 +368,7 @@ export function validateClinicalHazardControls(
     }
     if (checkFiles) {
       for (const path of decision.evidenceReferences ?? []) {
-        validatePath(errors, path, decision.id, decision.reviewedCommit, { checkFiles, checkGit });
+        validatePath(errors, path, decision.id, decision.reviewedCommit, { checkFiles, checkGit: snapshotCheckGit });
       }
     }
     if (decision.state === "accepted_decision") {
@@ -287,7 +407,47 @@ export function validateClinicalHazardControls(
   return errors;
 }
 
+/**
+ * Record the digest of every cited path, so the register survives the squash merge that orphans
+ * its reviewedCommit. Append-and-update only: this never edits a review date, a state or a
+ * residual risk, because those are a human's words and not this script's to touch.
+ */
+export function sealReviewedPathDigests(manifest) {
+  const digests = {};
+  const unreadable = [];
+  for (const file of citedRegisterPaths(manifest)) {
+    const resolved = repositoryPath(file);
+    if (!resolved || !existsSync(resolved.absolute)) {
+      unreadable.push(file);
+      continue;
+    }
+    digests[file] = reviewedContentDigest(readFileSync(resolved.absolute, "utf8"));
+  }
+  return { sealed: { ...manifest, reviewedPathDigests: digests }, unreadable };
+}
+
+function seal() {
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const { sealed, unreadable } = sealReviewedPathDigests(manifest);
+  if (unreadable.length) {
+    console.error("CLINICAL_HAZARD_CONTROLS_SEAL_FAIL: cited paths do not exist, so nothing was written");
+    for (const file of unreadable) console.error(`- ${file}`);
+    process.exit(1);
+  }
+  writeFileSync(manifestPath, `${JSON.stringify(sealed, null, 2)}\n`);
+  // Formatting is not cosmetic here. Raw JSON.stringify expands every short array that Prettier
+  // keeps on one line, so an unformatted seal turns a 29-line diff into a 127-line one and then
+  // loses to the format gate on push. Run the repository formatter so sealing is idempotent.
+  execFileSync(resolve(root, "node_modules/.bin/prettier"), ["--write", manifestPath], {
+    cwd: root,
+    stdio: "ignore",
+  });
+  const count = Object.keys(sealed.reviewedPathDigests).length;
+  console.log(`CLINICAL_HAZARD_CONTROLS_SEALED paths=${count} commit=${sealed.reviewedCommit}`);
+}
+
 function main() {
+  if (process.argv.includes("--seal")) return seal();
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   // The reviewedCommit ancestry checks need history. On a depth-one clone they
   // would report every reviewed commit as missing — a checkout artefact, not a

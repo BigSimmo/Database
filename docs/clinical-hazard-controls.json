@@ -141,5 +141,32 @@
       "evidenceReferences": ["src/components/clinical-dashboard/patient-profile-panel.tsx"],
       "residualRisk": "The patient-profile number fields (age, eGFR, serum creatinine, creatinine clearance, QTc) feed dose calculators, so a value displayed must never differ from the value stored. The #WFARS3 defect that broke that invariant was fixed on 2026-09-18. CORRECTION 2026-09-19, verified against main: the standing question as written - 'is it ever acceptable for the number on screen to differ from the number a dose calculation uses' - is already answered NO by the shipped field, and the answer is enforced by committed tests. A partial or out-of-range entry is refused rather than stored, the field shows the range error and sets aria-invalid, and the previously stored number is cleared rather than left behind a contradicting draft (tests/patient-profile-panel.dom.test.tsx, 'treats a partial QTc as unassessed rather than as a number under the floor'). The alternative of preserving the last good value while an entry is in progress was considered and rejected on 2026-09-19: it would reintroduce exactly the display-versus-stored disagreement this decision exists to prevent. The residual risk is narrower than first recorded and is tracked as #DTAMMK: a refused entry still survives a profile clear performed from another mounted panel."
     }
-  ]
+  ],
+  "reviewedPathDigests": {
+    "docs/audit/2026-09-17-external-audit-refutations.md": "c32a15b9c364c35fe7134784d28d4598dbf26f62dc8fdf01aa4a6646b5bd1d82",
+    "docs/clinical-governance.md": "1a87a39f18965ab0ad8b89b69865e323d5101f5f08c592fa6d23620fb501b429",
+    "docs/clinical-hazard-analysis.md": "a45cfc864d86bff7089e2b495df1f2debaddd3931424439bf823ac09a52cc30c",
+    "src/components/clinical-dashboard/patient-profile-panel.tsx": "c81ce6a9d80bdc749f9ebfac6bda7578b97f66acf7daaeb8827b4c7b3e6b0628",
+    "src/data/dictionary-source-dispositions.json": "3d03bd0be2d699f5dc7eb50338b535112a7dea57daf0f210de9ae241c606c2b8",
+    "src/lib/answer-render-policy.ts": "a5e2b36c4bdf6c2081d443d10e87c0ced403abfb129454d6989ad93af737f4a9",
+    "src/lib/answer-verification.ts": "0a340eeec7850282d8cbe50c90dd9a4369bc04bd92057d97005db323321f91ed",
+    "src/lib/clinical-safety.ts": "8fa7b5fca92f2b12b6f241d32feadd9310ee075a38e55e10b5bbce4c26c1173b",
+    "src/lib/rag/rag-answer-support.ts": "4250f30017789f6c5d75e84e7a291f163f08abb95d615fb2368e904956841dd5",
+    "src/lib/rag/rag-claim-support.ts": "7cdcfc84e8b5516588f6ac08163330eb8fbd52d6c6750dc63955110516ab345c",
+    "src/lib/rag/rag-source-block.ts": "984b3f655b468aabbf2d1f489eb6df66273fe7c9e85ea88df63affa986654ad2",
+    "src/lib/source-authority-registry.ts": "e82b2f1aeaf053a321f76576da71a2c54f7fb4db485fbf6c4caf686ac6f2267c",
+    "src/lib/source-governance.ts": "581d8026a0d41362a06c12d1bba7df8bd6c301fa900f7c5ab7c7eaa69e9883c8",
+    "src/lib/source-text-sanitizer.ts": "8d7a2bba424096b6334494a7c5760d4fc74381d8806b117d3d801e6b19e8138f",
+    "tests/answer-render-policy.test.ts": "5e48ea66ca1902ac17a271444db7f6350a37c0100fe2152afd042e4fdb89427d",
+    "tests/answer-verification.test.ts": "6c61453a04d7342b5c80ddb337df76b61f5dfe14e6de363c86348d97e71ccee3",
+    "tests/clinical-safety.test.ts": "053b82e3523a5aa55b40059a558e8992fe5342ebedd8812da10193977cad43f6",
+    "tests/rag-claim-support.test.ts": "105f93e7e91e514d512f2ef47fc07b92370c71b6c893e3c4bd0a09d39f87a360",
+    "tests/rag-content-accuracy.test.ts": "6aaacb7fb9b43711696ba244a56cd31736fb3a884690774cde4f4db6ee206eb4",
+    "tests/rag-injection.test.ts": "9a6fa43c799232d9e38d334b732c99dfaad5a5192ed64a7fcb8d6cb373300931",
+    "tests/rag-retrieval-row-contract.test.ts": "4da5fe01a76dfa5b4e06e02303f136ff3fb0a1a1219cfe09ec158a1eae074fb6",
+    "tests/rag-score.test.ts": "5a298ae040e7110d89fd1f68ad1d52b16994c035845a38b4db72ef9800c2b17f",
+    "tests/rag-trust.test.ts": "416568e19e6ab8e67267ca53183b86a1703193543b4253269162d28736606eae",
+    "tests/source-governance.test.ts": "0e9e126370a5500dbb72c722610fe1268c7e2f32e6b20b0a4f3ea401c54a645d",
+    "tests/ward-output.test.ts": "bb9f417d63c769b8e059f41fe2c9a5c52f772cedd13e6352408b4a7716e00222"
+  }
 }

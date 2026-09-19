@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ed259699-d75d-4495-9510-1c55b7eefd03",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#BDJWAH",
+    "outcome": "Fixed 2026-09-19 in PR #2905. owner-catalogue-cache.ts is retired through the dead-code-deletion protocol (both 2026-09-16 audits read first), along with the two orphaned invalidateOwnerCatalogueCache calls in registry-seed.ts and medication-seed.ts. THE SECOND HALF IS SETTLED AND WRITTEN INTO THE MODULE HEADER: site-content-record-cache.ts needs NO publish-time invalidation, and the reason is the opposite of the expectation -- publish_site_content_record does not change what the cached read returns (it raises head_change_epoch, making the catalogue 'updating' and the read return no rows), so invalidating on publish would replace a complete last-known-good catalogue with an empty read and serve the in-bundle fallback, i.e. OLDER content, for the whole span between publish and activation. A tripwire test fails if anything under src/ starts calling clearSiteContentRecordCache. NEEDS YOUR EYE: diff-integrity.json carries a whole-file-deletion record for tests/owner-catalogue-cache.test.ts (10 -> 0) that deliberately does NOT claim owner approval, unlike its neighbours.",
+    "baseRowFingerprint": "db507094bd62046c639dde2922e2176b928763c7115ec60fb86bdd3e0c41d5f6"
+  }
+}

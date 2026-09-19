@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e76ddf94-9aee-4cc6-9f76-8287180d2481",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#YSKD8J",
+    "outcome": "Closed 2026-09-19 as already fixed, with a correction to the row. ci.yml:1566 reads timeout-minutes: 45, not 70, and release-browser-matrix runs chromium/firefox/webkit as sibling jobs with fail-fast: false -- the shard-do-not-raise answer this row recommended was already applied. The remaining work is the separate #9Z197J row (15 Firefox/WebKit failures), which is now measurable again for the first time since the timeout was hit. Not attempted this session: cdn.playwright.dev returns 403 through the egress proxy, so Playwright cannot be installed at the pinned revision (1194 present, 1243 required) and Firefox/WebKit are absent entirely.",
+    "baseRowFingerprint": "5310321ae2124ed10ded445a3c01add6c72cc4a2f2eee304e0177e5c17f5bd3b"
+  }
+}
