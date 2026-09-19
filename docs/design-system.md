@@ -251,10 +251,17 @@ image"}` — never a possibly-empty variable alone.
   legacy-hex table above).
 - **Brand mark** is the PsychSift S, single-sourced in `src/lib/brand-mark.ts` (geometry + SVG
   builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
-  `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
-  change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
-  `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
-  binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
+  `app/apple-icon`, the PWA maskable icons, `app/opengraph-image`, and the inlined mark in
+  `public/offline.html` all derive from it. To change the mark, edit `brand-mark.ts` then
+  `npm run brand:update`; `brand:check` (in `verify:cheap`) guards `app/icon.svg` and the
+  sentinel-delimited region of `public/offline.html` from drift. That offline page is static and
+  script-free — precached by the service worker, with no bundler and no access to `globals.css` —
+  so it cannot import `BrandMark` and its mark is inlined from `brandBareMarkInner()` instead; its
+  two ink values are mirrored by hand and pinned to `BRAND_LIGHT.ink`/`BRAND_DARK.ink` by
+  `tests/pwa-manifest.test.ts`. Regenerating that page also requires a fresh `CACHE_VERSION` in
+  `public/sw.js` and a new recorded hash in the same test, or installed clients keep the old copy.
+  `app/favicon.ico` is a multi-resolution binary the toolchain can't emit — regenerate it offline
+  from `icon.svg` when the mark changes.
   Do not re-draw the paths by hand: they are the exact output of the construction recorded in
   `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
   are one path plus its point reflection — which is the only reason the cut between them stays
@@ -272,6 +279,13 @@ image"}` — never a possibly-empty variable alone.
   `tests/developer-hub-panels.test.ts` both excludes it from the route-existence check and holds
   the two copies identical by hash — a stale copy would show a retired mark to the one reader most
   likely to trust it. Regenerate the doc, then copy it over the served one.
+- **The brand sheet self-hosts its typefaces, and must keep doing so.** It used to pull Inter and
+  IBM Plex Mono from Google Fonts, which meant the clinical origin told a third party whenever
+  anyone opened `/brand/preview.html` (2026-09-02 audit, L5). The latin-subset WOFF2 files now sit
+  in `public/brand/fonts/` and `docs/brand/fonts/`, declared as `@font-face` inside the sheet's own
+  `<style>`, so both copies render with zero external requests. If you regenerate the sheet from a
+  tool that emits a `fonts.googleapis.com` stylesheet link, strip it and restore the local faces —
+  reintroducing that link silently undoes a privacy fix.
 - **In the app the mark has no tile.** `BrandMark` draws the symbol alone, filled
   `--clinical-accent`, standing directly on the page ground — so on a white page it reads as a
   mark rather than an app-store tile pasted into the chrome. It uses
