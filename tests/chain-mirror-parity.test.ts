@@ -165,6 +165,16 @@ describe("an extension only the migration chain creates is a divergence, not pla
   });
 });
 
+/**
+ * YAML comment lines, removed. The workflow's own comments explain the mode in prose, so a
+ * substring search over the raw block cannot tell a live flag from a described one.
+ */
+const withoutComments = (yaml: string) =>
+  yaml
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("\n");
+
 describe("chain-mirror allowlist is fail-closed", () => {
   const valid: ParityAllowlistEntry = {
     category: "functions",
@@ -304,7 +314,10 @@ describe("CI wiring for the parity gate", () => {
       workflow.indexOf("- name: Capture the migration chain's schema snapshot"),
       workflow.indexOf("- name: Upload regenerated drift manifest"),
     );
-    const strict = parityBlock.includes("--strict");
+    // Detect the mode from the RUN LINES only. A `#` comment that quotes the flag makes a
+    // removed flag undetectable, and this block's comments describe the mode at length --
+    // measured 2026-09-18, when deleting the real flag left every test in this file green.
+    const strict = withoutComments(parityBlock).includes("--strict");
     const tolerated = parityBlock.split("continue-on-error: true").length - 1;
 
     if (strict) {
@@ -318,9 +331,29 @@ describe("CI wiring for the parity gate", () => {
   });
 
   it("says out loud when either parity step produced no evidence", () => {
-    // Both parity steps carry continue-on-error, so a crashing compare step is a
-    // grey mark nobody reads. Without covering its outcome too, "found thirteen
-    // divergences" and "has been crashing for a month" look identical.
+    // A parity step that crashes must never be indistinguishable from a clean run:
+    // "found thirteen divergences" and "has been crashing for a month" look identical
+    // otherwise. HOW that is said depends on the mode, so this checks the mode's own
+    // mechanism rather than one fixed string.
+    const parityBlock = workflow.slice(
+      workflow.indexOf("- name: Capture the migration chain's schema snapshot"),
+      workflow.indexOf("- name: Upload regenerated drift manifest"),
+    );
+
+    if (withoutComments(parityBlock).includes("--strict")) {
+      // Blocking mode: the job itself is the announcement. Nothing tolerates failure,
+      // so a crash is a red check rather than a grey one, and the separate
+      // `::warning::` step would be a guard that can no longer fire.
+      expect(parityBlock).not.toContain("continue-on-error");
+      expect(workflow).not.toContain("- name: Report a chain/mirror parity step that produced no evidence");
+      // The compare step must still be reached whenever the capture succeeded, or a
+      // skipped comparison would pass silently.
+      expect(parityBlock).toContain("if: steps.chain-snapshot.outcome == 'success'");
+      return;
+    }
+
+    // Report-only mode: both steps swallow their own failure, so the warning step is
+    // the ONLY thing that can distinguish a crash from a clean run.
     expect(workflow).toContain("- name: Report a chain/mirror parity step that produced no evidence");
     expect(workflow).toContain(
       "steps.chain-snapshot.outcome != 'success' || steps.chain-mirror-parity.outcome != 'success'",
