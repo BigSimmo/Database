@@ -184,6 +184,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // at all, so a composer above these boards would contradict the very contract
   // the mode is built on.
   const isOnCallStudyMockup = pathname === "/mockups/on-call-shift-cover" || pathname === "/mockups/on-call-calendars";
+  // The compliance study borrows the same artboard scaffold, so it needs the
+  // same treatment for the same reason: its own top bar is inside every frame.
+  const isDoctorComplianceMockup = pathname === "/mockups/doctor-compliance";
 
   return (
     <GlobalMockupSearchShell
@@ -241,6 +244,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
         !isOnCallStudyMockup &&
+        !isDoctorComplianceMockup &&
         !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
@@ -279,6 +283,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
         !isOnCallStudyMockup &&
+        !isDoctorComplianceMockup &&
         !isSpecifierRecordDirectionsMockup
       }
     >

@@ -89,8 +89,21 @@ export function PhoneFrame({
   );
 }
 
-/** The universal top bar, drawn so a board reads at its real vertical budget. */
-export function TopBar({ title }: { title: string }) {
+/**
+ * The universal top bar, drawn so a board reads at its real vertical budget.
+ *
+ * `mode` and `icon` default to this mode so the two On Call studies read
+ * exactly as they did before a third study borrowed the scaffold.
+ */
+export function TopBar({
+  title,
+  mode = "On Call",
+  icon: Icon = MoonStar,
+}: {
+  title: string;
+  mode?: string;
+  icon?: LucideIcon;
+}) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-3 py-2">
       <span aria-hidden="true" className="grid gap-1">
@@ -100,12 +113,12 @@ export function TopBar({ title }: { title: string }) {
       </span>
       <span className="flex items-center gap-2 rounded-pill border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-1 pl-1 pr-3">
         <span className="grid size-7 place-items-center rounded-pill bg-[color:var(--clinical-accent)]">
-          <MoonStar aria-hidden="true" className="size-icon-sm text-[color:var(--clinical-accent-contrast)]" />
+          <Icon aria-hidden="true" className="size-icon-sm text-[color:var(--clinical-accent-contrast)]" />
         </span>
         <span className="grid">
           <span className="text-sm font-bold leading-4 text-[color:var(--text-heading)]">{title}</span>
           <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--clinical-accent)]">
-            On Call
+            {mode}
           </span>
         </span>
       </span>

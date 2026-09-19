@@ -250,7 +250,18 @@ note builder. Each draws its own desktop and phone frames and carries the real
 Companion to [`docs/on-call/design/2026-09-19-review-and-proposals.md`](../docs/on-call/design/2026-09-19-review-and-proposals.md),
 which carries the review these boards answer and the wider list of proposals that were not drawn.
 `on-call-calendars` imports its frame scaffold from `on-call-shift-cover` — do not remove the
-latter independently.
+latter independently, and see the compliance study below, which imports the same scaffold.
+
+### Doctor compliance — a personal requirements tracker (2026-09-19)
+
+| Route               | Status                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `doctor-compliance` | Active study — six boards for tracking one doctor's own work requirements: today sorted by consequence rather than expiry, one requirement opened, CPD by category, the evidence pack export, the renewal year, and a supervisor roll-up that holds no documents. No recorded winner; owner review pending. |
+
+Companion to [`docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md`](../docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md),
+which carries the design rules, the risks, and twenty-two further feature ideas across the app.
+It imports its frame scaffold from `on-call-shift-cover` — do not remove that route
+independently.
 
 ### One-off studies
 
