@@ -251,10 +251,17 @@ image"}` — never a possibly-empty variable alone.
   legacy-hex table above).
 - **Brand mark** is the PsychSift S, single-sourced in `src/lib/brand-mark.ts` (geometry + SVG
   builders). `BrandMark` (`clinical-dashboard/brand.tsx`) renders it token-themed; `app/icon.svg`,
-  `app/apple-icon`, the PWA maskable icons, and `app/opengraph-image` all derive from it. To
-  change the mark, edit `brand-mark.ts` then `npm run brand:update`; `brand:check` (in
-  `verify:cheap`) guards `app/icon.svg` from drift. `app/favicon.ico` is a multi-resolution
-  binary the toolchain can't emit — regenerate it offline from `icon.svg` when the mark changes.
+  `app/apple-icon`, the PWA maskable icons, `app/opengraph-image`, and the inlined mark in
+  `public/offline.html` all derive from it. To change the mark, edit `brand-mark.ts` then
+  `npm run brand:update`; `brand:check` (in `verify:cheap`) guards `app/icon.svg` and the
+  sentinel-delimited region of `public/offline.html` from drift. That offline page is static and
+  script-free — precached by the service worker, with no bundler and no access to `globals.css` —
+  so it cannot import `BrandMark` and its mark is inlined from `brandBareMarkInner()` instead; its
+  two ink values are mirrored by hand and pinned to `BRAND_LIGHT.ink`/`BRAND_DARK.ink` by
+  `tests/pwa-manifest.test.ts`. Regenerating that page also requires a fresh `CACHE_VERSION` in
+  `public/sw.js` and a new recorded hash in the same test, or installed clients keep the old copy.
+  `app/favicon.ico` is a multi-resolution binary the toolchain can't emit — regenerate it offline
+  from `icon.svg` when the mark changes.
   Do not re-draw the paths by hand: they are the exact output of the construction recorded in
   `docs/brand/psychsift-logo.md`, whose master artwork is in `public/brand/`, and the two strokes
   are one path plus its point reflection — which is the only reason the cut between them stays
