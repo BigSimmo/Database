@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e371dae5-3e35-4d14-8f09-91fbb39c7ee3",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#XSZ4XV",
+    "detail": "PARTLY DONE 2026-09-19 in PR #2920: three of the four leftovers landed, and the CACHE_VERSION half was already done before this session (public/sw.js read 2026-09-12-v1, not the 2026-08-28-v1 this row quoted). (1) FONTS: public/brand/preview.html and its docs/ twin now load vendored WOFF2 files instead of calling fonts.googleapis.com at render. Kept byte-identical because tests/developer-hub-panels.test.ts pins them to one SHA-256 so the Developer Hub link cannot show a retired mark. (2) DOCLING: the remedy this row recorded is IMPOSSIBLE -- docling-tools has no --revision flag. Replaced with a recorded artifact digest verified in the same RUN layer as the download, failing the image build on any added/removed/changed file. It warns rather than failing while the manifest is empty, because the digest can only be learned by running the download; the first build prints a block to paste back. Also corrected two false comments: both Dockerfiles claimed docling 2.120.2 while the hashed lock has pinned 2.124.0 since 284f813c9, and eval/docling/Dockerfile claimed the weights were pinned by the hash-locked requirement. (3) OFFLINE MARK: public/offline.html now draws the real BrandMark SVG, generated from src/lib/brand-mark.ts by the existing brand:check generator rather than hand-copied, with CACHE_VERSION bumped to 2026-09-19-v1. STILL OPEN: the calculator governance link (data/calculators/evidence.json:9 points at a private github.com blob a clinician cannot open). Investigated and deliberately stopped: url is required on the source type, no in-app pattern exists to reuse, and the target document is an engineering spec containing lines like 'SAD PERSONS -- Remove from active clinical decision support' that read very differently to a clinician. Needs two owner decisions: in-app or public, and what it should say. ALSO LEFT: stale docling 2.120.2 still in eval/docling/README.md and docs/worker-deploy-runbook.md.",
+    "baseRowFingerprint": "d62578d7451d6e9634bf745a3b67b06092d59476901de2f2db307f243b77855c"
+  }
+}

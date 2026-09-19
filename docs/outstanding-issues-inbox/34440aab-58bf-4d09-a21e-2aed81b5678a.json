@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "34440aab-58bf-4d09-a21e-2aed81b5678a",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#9Y6MKN",
+    "outcome": "Fixed 2026-09-19 in PR #2920. pr-policy.mjs:886 now reads 'Not needed: no supabase/ change -- only those reach the live database on merge.' ownerMergeReasons is untouched; the 2026-09-17 narrowing was a deliberate owner ruling and was never what was wrong. A self-test pins the new string and asserts it does not match /clinical|RAG/i. Mutation-proved: restoring the old sentence trips it.",
+    "baseRowFingerprint": "7a615d42bef9d75dfd3e73dbc0fba08030274832dc894a910fa5bbc12bce48c6"
+  }
+}

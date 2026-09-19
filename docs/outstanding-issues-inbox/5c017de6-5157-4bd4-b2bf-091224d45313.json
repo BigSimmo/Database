@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5c017de6-5157-4bd4-b2bf-091224d45313",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#M8SP5M",
+    "outcome": "Fixed 2026-09-19 in PR #2920. scripts/run-vitest.mjs now honours HEAVY_RUN_WAIT_TIMEOUT_MS and exits 75 with the DATABASE_HEAVY_RUN_ADMISSION_BUSY marker, matching run-heavy.mjs and run-playwright.mjs; an admission refusal is no longer indistinguishable from a failing suite. Two cases added to tests/test-runner-safety.test.ts, which covered only the Playwright runner. Mutation-proved: reverting the fix makes the wait-timeout case hang past 600s on the 15-minute exclusive default. 41 passed.",
+    "baseRowFingerprint": "a3881102add1ce61759f86c35d306e0c82d31c41a19c816e9e5ccfb715ca3b5b"
+  }
+}

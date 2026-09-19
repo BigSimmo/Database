@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../src/app/manifest";
+import { BRAND_COUNTER_TRANSFORM, BRAND_DARK, BRAND_LIGHT, brandBareMarkInner } from "../src/lib/brand-mark";
 
 describe("PWA manifest and public bootstrap resources", () => {
   const appManifest = manifest();
@@ -105,6 +106,46 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(offlineHtml).not.toContain("#060708");
   });
 
+  it("draws the real brand mark, not a lettered tile", () => {
+    // Until 2026-09-19 this was `<div class="mark">PS</div>` — a two-letter text
+    // tile, which is explicitly not the mark: the brand is the PsychSift S, two
+    // counter-turning strokes divided by one straight cut. The offline page is
+    // static and script-free, so it cannot import <BrandMark>; the geometry is
+    // inlined from the single source instead, and `npm run brand:check` keeps
+    // the copy in step. These assertions are the second half of that: they fail
+    // if someone replaces the inlined mark with something hand-drawn.
+    const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+
+    expect(offlineHtml).not.toMatch(/<div class="mark"/);
+    expect(offlineHtml).toMatch(/<svg class="mark"[^>]*aria-hidden="true"/);
+    // The lower stroke IS the upper one under this transform, which is the only
+    // reason the cut between them stays parallel. A redrawn mark would not have it.
+    expect(offlineHtml).toContain(BRAND_COUNTER_TRANSFORM);
+    // Every path, transform and circle the bare mark is built from, present and
+    // unaltered — compared against the source rather than against a literal.
+    for (const fragment of brandBareMarkInner("currentColor").match(/(?:d|transform|cx|cy|r)="[^"]+"/g) ?? []) {
+      expect(offlineHtml, `the inlined mark is missing ${fragment}`).toContain(fragment);
+    }
+  });
+
+  it("mirrors the brand mark's ink from the brand-mark source, per theme", () => {
+    // The page has no access to globals.css, so every colour is mirrored by hand
+    // and annotated with the token it came from. That makes drift silent unless
+    // something checks it, which is what this does: the mark's ink is the one
+    // colour here that is owned by src/lib/brand-mark rather than by the palette.
+    const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+
+    expect(offlineHtml).toContain(
+      `--page-brand-mark: ${BRAND_LIGHT.ink}; /* BRAND_LIGHT.ink in src/lib/brand-mark.ts */`,
+    );
+    expect(offlineHtml).toContain(
+      `--page-brand-mark: ${BRAND_DARK.ink}; /* BRAND_DARK.ink in src/lib/brand-mark.ts */`,
+    );
+    // currentColor is how the two tokens above reach the inlined glyph at all.
+    expect(offlineHtml).toContain("color: var(--page-brand-mark);");
+    expect(offlineHtml).toContain('fill="currentColor"');
+  });
+
   it("binds the precached offline document to the service-worker cache version", () => {
     // The offline document is precached at install time only, so an edit that
     // ships without a CACHE_VERSION bump strands installed clients on the old
@@ -113,8 +154,8 @@ describe("PWA manifest and public bootstrap resources", () => {
     // value (never reuse a previous one, even for rollbacks) and record the
     // new offline.html hash here.
     const expectedPairing = {
-      cacheVersion: "2026-09-12-v1",
-      offlineHtmlSha256: "e54e38093564b43e59f6b69a8e5e7c35c9f81ee6106b9a40230b82275008ab0a",
+      cacheVersion: "2026-09-19-v1",
+      offlineHtmlSha256: "40b46a606bf0a366d623091395097cfe3dad5a8c530434072ef0905f86e083bb",
     };
 
     const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");

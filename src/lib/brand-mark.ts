@@ -12,8 +12,9 @@
 //
 // Pure data + strings (no JSX, no imports) so it is consumable everywhere: the
 // React <BrandMark> renders the exported geometry as JSX; scripts/generate-
-// brand-assets.ts writes app/icon.svg from brandIconSvg(); the next/og image
-// routes embed brandMarkSvg() as a data: URI.
+// brand-assets.ts writes app/icon.svg from brandIconSvg() and the inlined mark
+// in public/offline.html from brandBareMarkInner(); the next/og image routes
+// embed brandMarkSvg() as a data: URI.
 
 /** 512×512 coordinate system shared by every rendering — the master artwork's own. */
 export const BRAND_VIEWBOX = "0 0 512 512";
@@ -152,6 +153,33 @@ export function brandMarkInner({ tile, ink }: BrandColors, small = false): strin
     `<path d="${stroke}" />` +
     `<path d="${stroke}" transform="${BRAND_COUNTER_TRANSFORM}" />` +
     `<circle cx="${p.cx}" cy="${p.cy}" r="${p.r}" />` +
+    `</g>`
+  );
+}
+
+/** The bare glyph — the mark with no tile behind it — as inner SVG markup (no
+ *  `<svg>` wrapper), inked with `fill`.
+ *
+ *  This is the string form of what the React `<BrandMark>` renders, for the
+ *  surfaces that cannot run React: `public/offline.html` is a standalone static
+ *  page precached by the service worker, with no bundler and no stylesheet of
+ *  the app's own, so its mark has to be inlined. `scripts/generate-brand-assets.ts`
+ *  writes it there and `npm run brand:check` (in verify:cheap) fails if the copy
+ *  drifts from this source — the same contract app/icon.svg already has.
+ *
+ *  Pass `fill: "currentColor"` to let the embedding page theme the ink through
+ *  its own `color`; pass an explicit value where there is no cascade to inherit.
+ *
+ *  One call to `brandMarkOptics` so the stroke, the point and the centring
+ *  transform can only be taken as a set — mixing one variant's point with the
+ *  other's placement puts the glyph off-centre in its box. */
+export function brandBareMarkInner(fill: string, variant: "display" | "chrome" = "display"): string {
+  const { transform, stroke, point } = brandMarkOptics(variant);
+  return (
+    `<g transform="${transform}" fill="${fill}">` +
+    `<path d="${stroke}" />` +
+    `<path d="${stroke}" transform="${BRAND_COUNTER_TRANSFORM}" />` +
+    `<circle cx="${point.cx}" cy="${point.cy}" r="${point.r}" />` +
     `</g>`
   );
 }

@@ -431,6 +431,17 @@ jobs:
         if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run check:migration-role
 
+      # Fails if an already-shipped migration's bytes change, a sealed migration
+      # disappears, or a migration was never sealed. The integration applies only
+      # versions it has not seen, so editing an applied migration cannot change the
+      # live database — it changes only what this repository claims about it, and
+      # replay plus the regenerated schema mirror agree with each other either way.
+      # Until now this ran only transitively inside the unit suite, so it was in no
+      # named gate and a scope that skipped coverage skipped it entirely (#CNSDBJ).
+      - name: Applied-migration immutability guard
+        if: needs.changes.outputs.static_heavy_changed == 'true'
+        run: npm run check:migration-immutability
+
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
       - name: Function-grant guard
