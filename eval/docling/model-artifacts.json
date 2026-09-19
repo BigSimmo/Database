@@ -1,0 +1,27 @@
+{
+  "_readme": [
+    "Expected SHA-256 digests of the docling model weights baked into Dockerfile.worker",
+    "and eval/docling/Dockerfile by `docling-tools models download`.",
+    "",
+    "`docling-tools` has no --revision or any other version argument, so the weights it",
+    "pulls from HuggingFace are whatever those repositories hold on build day, even though",
+    "the Python client itself is hash-locked. This file is how that gap is closed:",
+    "eval/docling/verify-model-artifacts.mjs runs in the same RUN layer as the download",
+    "and fails the build when what arrived is not what is recorded here.",
+    "",
+    "treeDigest is null because no build has recorded one yet. In that state the verifier",
+    "prints the digest the download produced and exits 0 rather than failing, because the",
+    "digest can only be learned by running the download — refusing to build until one is",
+    "recorded would make the very build that produces it impossible.",
+    "",
+    "TO PIN IT (one operator action, needs Docker and HuggingFace egress):",
+    "  1. docker build -f Dockerfile.worker -t clinical-kb-worker .",
+    "  2. In the build log, find the block after `[docling-models] Record it by replacing`.",
+    "  3. Replace this file's contents with that block and commit it.",
+    "From that commit on, any change to the upstream weights fails the image build."
+  ],
+  "doclingVersion": "2.124.0",
+  "recordedAt": null,
+  "treeDigest": null,
+  "files": {}
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e0ac855a-5e5b-4ff7-8ffc-b788b8d40067",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#WFARS3",
+    "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. The jsdom half is complete and has been since 2026-09-18 (six cases in tests/patient-profile-panel.dom.test.tsx), and the remainder #DTAMMK is now fixed in PR #2905. What this row still wants -- Playwright digit-by-digit assertions that a value never gains a foreign prefix -- remains UNWRITTEN, and the gap is confirmed real: grep for CrCl/QTc across tests/*.spec.ts returns zero hits, and tests/ui-stress.spec.ts only seeds localStorage without typing. Do not close this row until that browser arm exists.",
+    "baseRowFingerprint": "a4ce9a296d81e8c2826064c0322e25f5e4ac9d9f3ab693d868f9110bbc49a01f"
+  }
+}

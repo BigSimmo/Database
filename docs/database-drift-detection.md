@@ -216,8 +216,11 @@ versions are exactly what it exists to catch.
 
 `supabase/applied-migration-hashes.json` records the sha256 of every migration this repository has
 shipped, newlines normalised. The guard fails when a sealed file's bytes change, when a sealed file
-disappears, and when a migration exists that has never been sealed. It runs inside the offline unit
-suite via `tests/migration-immutability.test.ts`, so it fails in review rather than after merge.
+disappears, and when a migration exists that has never been sealed. It runs as a named gate in
+`verify:full` and in CI's `static-pr` job beside the hosted migration-role guard, and also inside the
+offline unit suite via `tests/migration-immutability.test.ts`, so it fails in review rather than
+after merge. Until 2026-09-19 only the unit-suite route existed (`#CNSDBJ`), which meant the guard
+was in no gate anyone could name or run on its own.
 
 **Why a separate gate was needed.** Migration replay proves the chain is internally consistent with
 itself, and `supabase/schema.sql` is regenerated from the same files, so an edit to an applied

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "94bda1d5-4967-418f-ab04-a9490206010f",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#CHPC5C",
+    "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Owner chose reproduce-then-fix-only-if-the-trace-shows-it, so nothing was guessed. Line drift recorded: the test is tests/ui-tools.spec.ts:2952 today, not :2928. Both arms use a 30s waitForURL with no intermediate settle signal, which matches the unhydrated-link diagnosis. The destination skeleton exists and is referenced by no spec: src/app/(search-app)/differentials/presentations/[slug]/loading.tsx:5 renders role=status aria-label='Loading presentation'. Worth knowing: this same test is one of the 15 Firefox/WebKit failures in #9Z197J, so fixing those may resolve it.",
+    "baseRowFingerprint": "35e167cf0265b38aa059835c2547db749495dc4fd7dd6c99cd2f0c316d7a4c2d"
+  }
+}
