@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8fabefdf-8998-4684-a762-30811039da62",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#2M4PX1",
+    "outcome": "Fixed in PR #2887 (merged 2026-09-18). The one-line rail contract could not be relaxed — tests/ui-overlap.spec.ts pins chipRows === 1 and tests/search-route-ownership.test.ts reads globals.css for flex-wrap: nowrap — so the fix keeps the single line and adds a discoverable affordance instead: edge scroll controls in answer-suggestion-chips.tsx, rendered per direction only on real overflow, absolutely positioned so a 48px target never enters the 32px rail's flow, and a sibling of the chip list rather than a child because ui-overlap counts that list's children. Proven at the reported width by a new 820x1180 describe block in ui-overlap.spec.ts, with the existing 1280/1920 one-line contract still passing.",
+    "baseRowFingerprint": "8230cef3708a1bd8734e12230800ec51bba3e8de341a45b80a75cb0a280491f6"
+  }
+}

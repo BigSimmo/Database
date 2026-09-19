@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "3df80352-246a-4871-b494-26f9976c36b2",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#B6JP6F",
+    "detail": "NOT A CODE DEFECT, and PR #2884 (merged 2026-09-18) records that in the runbook rather than changing anything. The receiver code is correct; the ?token= on the Railway webhook URL has drifted from the RAILWAY_WEBHOOK_SECRET service variable, so every deploy notification is rejected at the door. THE FIX IS AN OWNER ACTION IN THE RAILWAY DASHBOARD: rotate the token so the URL and the service variable match. Nothing in this repository can do it, and no agent should try — Railway mutations fall under the provider confirmation boundary. This row stays open until the owner rotates it and one deploy notification is accepted.",
+    "baseRowFingerprint": "95a0b8ecb1de7704d1b5ac2d991d671e0d6796793bbec508309f2bf05b0e91ef"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a14dbef0-6d26-43c2-bbb7-c2afd9d30b1a",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#F4EXSD",
+    "outcome": "Fixed in PR #2888 (merged 2026-09-18) by copying the split that already existed one module over: formulation-concepts.ts holds the full records for the server while formulation-concept-search.ts holds a trimmed client index, held in step by a drift test. A mechanism index now carries only what a card and a search haystack need, the client components import it instead of the full bundle, ranking is shared through formulation-mechanism-ranking.ts, and an import-graph test pins that no client path reaches back to the full content. The evidence field itself is unchanged and still renders on the server mechanism page, which was always its only consumer.",
+    "baseRowFingerprint": "d577b79238a9c38e43ad9609c1f9081feb04f7d5f8292c868f9ab583e83e3e14"
+  }
+}

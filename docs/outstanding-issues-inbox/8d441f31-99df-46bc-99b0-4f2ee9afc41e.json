@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "8d441f31-99df-46bc-99b0-4f2ee9afc41e",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#T82ND3",
+    "detail": "REPORTING HALF SHIPPED 2026-09-18 (PR #2884, merged). A red CI run on a main push now opens or updates a rolling GitHub issue, copying the find-or-create step eval-canary.yml already had rather than inventing one. It is report-only by construction: check-github-action-pins.mjs bans workflow-authored branch mutation, so it cannot commit, push or self-heal. WHAT THIS ROW STILL CARRIES: the reporting is unconfirmed against a real failure — it was verified by the workflow tests (test:ci-workflows), not by watching it fire. Main is currently red for exactly one known reason (#9Z197J, the Firefox/WebKit release-browser-matrix), so the first issue it opens will most likely be that one; treat that as the mechanism working, not a new fault. Close this row once a real red main has produced an issue that reached a person.",
+    "baseRowFingerprint": "c53ce7aad21f5e733e3def77826527ea0be675356731828bc08b9bb2d50c6ce9"
+  }
+}

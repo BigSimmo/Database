@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e0a890d5-674c-465c-ac53-8394fe256231",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#SFFGYD",
+    "outcome": "Fixed in PR #2887 (merged 2026-09-18), with one correction to the row: the controls measured at 40px are on the SERVICES result card (services-navigator-page.tsx), not the therapy card. The real therapy card (therapy-compass/therapy-card.tsx) was already compliant and is the reference pattern — it varies padding only and lets controlBase own the height. Eight sm:min-h-10 step-downs plus one sm:min-w-10 were removed from the services page, so the 48px floor now holds at every width instead of dropping to 40px from 640px up. min-h-11 was deliberately NOT used: docs/design-system/TOKENS.md records that 44px reintroduces a known ui-smoke flake, and tests/ui-smoke.spec.ts pins 48. A new tests/services-tap-floor.test.ts walks the page AST, scoped to interactive tags so a container's sm:min-h-0 reset is not mistaken for a shrunken button.",
+    "baseRowFingerprint": "1339391478520d7fb1b6a3bdebe4223a43a87c94a828a58802ff2fa6d3d24eff"
+  }
+}

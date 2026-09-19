@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e85e8f5d-f15d-4b56-bf0e-6d1b4c15e9dc",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#RR3N4H",
+    "outcome": "Resolved by PR #2880 (merged 2026-09-18). All six named publishers now resolve to a jurisdiction, so the acquisition gate's 'it can never leave D band' refusal no longer applies to them. Five were registered by that PR — Centre for Clinical Interventions, Phoenix Australia, Monash University, Department of Communities (WA) and City of Vincent — plus COPE's own masthead spelling as an alias on its existing entry. Three the row named were already registered by the 2026-09-16 Dictionary work (Australasian ADHD Professionals Association, Centre of Perinatal Excellence, and the Health Disability and Ageing department under its post-rename alias) and were deliberately left alone; the new test asserts they are not registered a second time under a different key. Every new entry is catalogueIdentityOnly: true, so sourceAuthorityIsRuntimeClassifiable excludes them and retrieval selection is unchanged — the DSM-5-TR precedent, pinned the same way. Registering a publisher admits no source: each still enters as an unreviewed candidate at D band.",
+    "baseRowFingerprint": "b7fc2c0eb0015d1122447b39fdd538947ba517b812dcfc5198c825fadc918325"
+  }
+}
