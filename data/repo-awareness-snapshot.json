@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-18"
+    "committed_at": "2026-09-19"
   },
   "routes": {
     "modes": [
@@ -3467,6 +3467,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/cme/design/cme-design-decisions.md",
+        "section": "cme",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-safety-checklist.md",
         "section": "root",
         "catalogued": false
@@ -6368,6 +6373,9 @@
       },
       {
         "name": "caring-contacts"
+      },
+      {
+        "name": "cme"
       },
       {
         "name": "codex"
