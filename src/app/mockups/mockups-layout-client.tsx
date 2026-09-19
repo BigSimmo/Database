@@ -187,6 +187,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // The compliance study borrows the same artboard scaffold, so it needs the
   // same treatment for the same reason: its own top bar is inside every frame.
   const isDoctorComplianceMockup = pathname === "/mockups/doctor-compliance";
+  // Two desk-width studies on the same scaffold. Both draw the developer hub's
+  // own panel chrome inside every frame, and neither is a search surface.
+  const isGovernanceStudyMockup =
+    pathname === "/mockups/clinical-sign-off-actions" || pathname === "/mockups/coverage-gaps";
 
   return (
     <GlobalMockupSearchShell
@@ -245,6 +249,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPhonePerfectedMockup &&
         !isOnCallStudyMockup &&
         !isDoctorComplianceMockup &&
+        !isGovernanceStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
@@ -284,6 +289,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPhonePerfectedMockup &&
         !isOnCallStudyMockup &&
         !isDoctorComplianceMockup &&
+        !isGovernanceStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
     >

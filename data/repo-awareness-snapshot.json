@@ -210,6 +210,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/coverage-gaps",
+        "file": "src/app/mockups/coverage-gaps/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/document-phone-zero-chrome",
         "file": "src/app/mockups/document-phone-zero-chrome/page.tsx",
         "area": "mockup"
@@ -772,6 +777,11 @@
       {
         "path": "/mockups/tools-split-compact-sheet",
         "file": "src/app/mockups/tools-split-compact-sheet/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/clinical-sign-off-actions",
+        "file": "src/app/mockups/clinical-sign-off-actions/page.tsx",
         "area": "mockup"
       },
       {
@@ -2285,6 +2295,11 @@
         "path": "docs/chunking-ocr-reindex-lever-finding-2026-07-08.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/product/2026-09-19-second-recommendations.md",
+        "section": "product",
+        "catalogued": false
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-brief.md",

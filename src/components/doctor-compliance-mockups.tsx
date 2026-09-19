@@ -353,7 +353,13 @@ function AnswerLine() {
       <p className="mt-1 text-xs leading-5 text-[color:var(--warning-text)]">
         Registration and indemnity both fall due on 30 September, and registration alone wants six weeks.
       </p>
-      <span className="mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-sm bg-[color:var(--warning-text)] px-3 text-xs font-bold text-[color:var(--surface-raised)]">
+      {/* `--command` rather than `--warning-text`. The warning token is a
+          FOREGROUND role scoped for text on canvas, it has no paired
+          contrast token, and it is not in the forced-colours remap block
+          the way `--warning` is — so using it as a solid fill works today
+          by coincidence rather than by contract. Every other solid control
+          in these studies uses the command pair. */}
+      <span className="mt-2 inline-flex min-h-tap items-center gap-1.5 rounded-sm bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)]">
         Start the renewals
         <ChevronRight aria-hidden="true" className="size-icon-xs" />
       </span>
@@ -522,7 +528,9 @@ function BoardRequirement() {
             <span className="block truncate text-sm font-semibold text-[color:var(--text-heading)]">
               Registration certificate 2026.pdf
             </span>
-            <span className="nums block text-3xs text-[color:var(--text-muted)]">Added 2 Aug · private to you</span>
+            <span className="nums block text-3xs text-[color:var(--text-muted)]">
+              Added 2 Aug · private to you · never indexed
+            </span>
           </span>
           <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
         </div>
@@ -603,10 +611,11 @@ function BoardCpd() {
       <Screen>
         <div className="mb-3 rounded-xl border border-[color:var(--warning)] bg-[color:var(--warning-soft)] p-3">
           <p className="text-sm font-bold leading-5 text-[color:var(--warning-text)]">
-            You are five hours short in one category, and it is the slowest one.
+            Against the minimums you entered, one category is five hours short.
           </p>
           <p className="mt-1 text-xs leading-5 text-[color:var(--warning-text)]">
-            Measuring outcomes needs an audit or outcome data — not something you can do in the last fortnight.
+            Measuring outcomes needs an audit or outcome data — not something you can do in the last fortnight. Check
+            the figure against your programme: the app holds the number you typed, not the requirement.
           </p>
         </div>
 
@@ -649,7 +658,7 @@ function BoardCpd() {
                 {short ? (
                   <p className="mt-1 inline-flex items-center gap-1 text-3xs font-bold text-[color:var(--warning-text)]">
                     <AlertTriangle aria-hidden="true" className="size-icon-xs" />
-                    {(category.minimum - category.done).toFixed(1)} hours short of the minimum
+                    {(category.minimum - category.done).toFixed(1)} hours below the minimum you entered
                   </p>
                 ) : null}
               </div>
@@ -660,9 +669,9 @@ function BoardCpd() {
         <ModuleLabel action={<>Add an activity</>}>Recently logged</ModuleLabel>
         <div className="mb-3 grid gap-1.5">
           {[
-            ["Clozapine monitoring in practice", "1.0 h", "From your teaching attendance"],
-            ["Journal club", "1.0 h", "From your teaching attendance"],
-            ["Peer review group", "2.0 h", "You added this"],
+            ["Clozapine monitoring in practice", "1.0 h", "From teaching attendance — not yet counted"],
+            ["Journal club", "1.0 h", "From teaching attendance — not yet counted"],
+            ["Peer review group", "2.0 h", "You added and attested this"],
           ].map(([title, hours, source]) => (
             <div
               key={title}
@@ -678,7 +687,8 @@ function BoardCpd() {
         </div>
 
         <p className="nums mb-2 text-xs text-[color:var(--text-muted)]">
-          {total} hours logged this year, across all categories.
+          {total} hours logged. CPD is your attestation to a regulator, so imported hours stay uncounted until you tick
+          them — an hour the app added on your behalf is not an hour you have claimed.
         </p>
         <p className="flex items-start gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2.5 text-2xs leading-4 text-[color:var(--text-muted)]">
           <Info aria-hidden="true" className="mt-px size-icon-sm shrink-0" />
@@ -769,8 +779,9 @@ function BoardEvidence() {
             The cover sheet will say
           </p>
           <p className="mt-1 text-xs leading-5 text-[color:var(--text)]">
-            Five documents enclosed, current at 19 Sep 2026. <strong className="font-bold">Not enclosed:</strong> fire
-            and emergency eLearning, overdue since 2 September.
+            Five documents enclosed, as recorded by the holder on 19 Sep 2026 and not verified by this app; each carries
+            the date it was last confirmed and with whom. <strong className="font-bold">Not enclosed:</strong> fire and
+            emergency eLearning, overdue since 2 September.
           </p>
         </div>
 
@@ -786,11 +797,11 @@ function BoardEvidence() {
           </p>
           <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1.5">
             {[
-              ["Registration", "current to 30 Sep 2026"],
-              ["Indemnity", "current to 30 Sep 2026"],
-              ["BLS", "current to 18 Oct 2026"],
-              ["WWCC", "current to 2 Dec 2026"],
-            ].map(([label, value]) => (
+              ["Registration", "recorded 30 Sep 2026", "checked with the register 2 Aug"],
+              ["Indemnity", "recorded 30 Sep 2026", "read off the certificate"],
+              ["BLS", "recorded 18 Oct 2026", "read off the certificate"],
+              ["WWCC", "recorded 2 Dec 2026", "read off the certificate"],
+            ].map(([label, value, provenance]) => (
               <span key={label} className="min-w-0">
                 <span className="block text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                   {label}
@@ -798,13 +809,18 @@ function BoardEvidence() {
                 <span className="nums block text-2xs font-semibold leading-4 text-[color:var(--text-heading)]">
                   {value}
                 </span>
+                {/* Provenance travels with the export or the export becomes a
+                    representation to a third party about someone's regulatory
+                    standing. "Current to" was a verdict; "recorded" is not. */}
+                <span className="block text-3xs leading-4 text-[color:var(--text-muted)]">{provenance}</span>
               </span>
             ))}
           </div>
           {/* No registration number, no policy number, no date of birth. A card
               designed to be lost harmlessly is a card you will actually carry. */}
           <p className="mt-2 border-t border-[color:var(--border)] pt-1.5 text-3xs leading-4 text-[color:var(--text-muted)]">
-            Dates only — no registration number, policy number or date of birth, so losing it costs nothing.
+            As recorded by the holder, not verified by this app. Dates only — no registration number, policy number or
+            date of birth, so losing it costs nothing.
           </p>
         </div>
       </Screen>
@@ -973,8 +989,8 @@ function BoardSupervisor() {
   } as const;
   return (
     <PhoneFrame
-      caption="F · Supervisor roll-up — status only, never the documents"
-      note="The narrow question a supervisor actually has, answered with three states and no certificates at all."
+      caption="F · Supervisor roll-up — rejected, and kept to show why"
+      note="Drawn as tightly as it can be drawn — three states, no documents — and still rejected on review. The tightest version of a bad idea is the useful thing to look at."
       heightClass="h-[700px]"
     >
       <TopBar title="My trainees" mode="Compliance" icon={Users} />

@@ -360,7 +360,7 @@ function SessionRow({ session }: { session: Session }) {
           ) : null}
           {past ? (
             <span
-              className={`inline-flex min-h-8 items-center gap-1 rounded-sm border px-2 text-3xs font-bold ${
+              className={`inline-flex min-h-tap items-center gap-1 rounded-sm border px-2 text-3xs font-bold ${
                 session.attended
                   ? "border-[color:var(--success)] bg-[color:var(--success-soft)] text-[color:var(--success-text)]"
                   : "border-[color:var(--border)] text-[color:var(--text-muted)]"
@@ -374,7 +374,7 @@ function SessionRow({ session }: { session: Session }) {
               {session.attended ? "Attended" : "Mark attended"}
             </span>
           ) : (
-            <span className="inline-flex min-h-8 items-center gap-1 rounded-sm border border-[color:var(--border)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]">
+            <span className="inline-flex min-h-tap items-center gap-1 rounded-sm border border-[color:var(--border)] px-2 text-3xs font-bold text-[color:var(--clinical-accent)]">
               <CalendarPlus aria-hidden="true" className="size-icon-xs" />
               Add to calendar
             </span>
@@ -712,11 +712,11 @@ function BoardCoverage() {
                     {service.number} · {service.hours}
                   </span>
                   {service.verdict === "takes" ? (
-                    <span className="inline-flex min-h-8 items-center gap-1 rounded-sm bg-[color:var(--command)] px-2.5 text-2xs font-bold text-[color:var(--command-contrast)]">
+                    <span className="inline-flex min-h-tap items-center gap-1 rounded-sm bg-[color:var(--command)] px-2.5 text-2xs font-bold text-[color:var(--command-contrast)]">
                       Call
                     </span>
                   ) : (
-                    <span className="inline-flex min-h-8 items-center gap-1 rounded-sm border border-[color:var(--border)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                    <span className="inline-flex min-h-tap items-center gap-1 rounded-sm border border-[color:var(--border)] px-2.5 text-2xs font-bold text-[color:var(--text-muted)]">
                       Details
                     </span>
                   )}

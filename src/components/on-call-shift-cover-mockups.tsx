@@ -97,6 +97,61 @@ export function PhoneFrame({
 }
 
 /**
+ * A desk-width artboard, for surfaces that are not corridor surfaces.
+ *
+ * The On Call boards are 390px because they are read one-handed beside a
+ * ringing phone. The sign-off queue and the coverage report are the opposite
+ * kind of work — sat down, with time, on a screen — and drawing them in a
+ * phone frame would argue for a density neither of them should have.
+ *
+ * Same geometry rule as `PhoneFrame`: classes, never an inline style, and a
+ * literal class string for the varying height so Tailwind's source scan emits
+ * it.
+ */
+export function PanelFrame({
+  caption,
+  note,
+  heightClass = "h-[720px]",
+  widthClass = "w-[680px]",
+  children,
+}: {
+  caption: string;
+  note?: string;
+  heightClass?: string;
+  widthClass?: string;
+  children: ReactNode;
+}) {
+  return (
+    <figure className={`m-0 shrink-0 ${widthClass}`}>
+      <figcaption className="mb-2 grid gap-1">
+        <span className="text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">{caption}</span>
+        {note ? <span className="text-xs leading-5 text-[color:var(--text-muted)]">{note}</span> : null}
+      </figcaption>
+      <div
+        className={`relative flex flex-col overflow-hidden rounded-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--e2)] ${heightClass}`}
+      >
+        {children}
+      </div>
+    </figure>
+  );
+}
+
+/** The developer-hub header these desk surfaces sit under. */
+export function PanelBar({ title, crumb }: { title: string; crumb: string }) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4 py-2.5">
+      <span className="grid">
+        <span className="text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">{crumb}</span>
+        <span className="text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
+      </span>
+      <span className="rounded-sm border border-[color:var(--border)] px-2 py-1 text-3xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
+        Administrator only
+      </span>
+    </div>
+  );
+}
+
+/**
  * The universal top bar, drawn so a board reads at its real vertical budget.
  *
  * `mode` and `icon` default to this mode so the two On Call studies read
@@ -157,7 +212,13 @@ export function ModuleLabel({ children, action }: { children: ReactNode; action?
   );
 }
 
-/** A dial control, drawn at the production 48px floor. */
+/**
+ * A dial control, at the production 48px floor.
+ *
+ * `size-12`, not `size-11`: this comment claimed 48px while the code drew 44,
+ * which is the exact half-step the repo removed from production for a
+ * rounding flake. A comment that overstates its own code is worse than none.
+ */
 function DialButton({ label, tone = "command" }: { label: string; tone?: "command" | "quiet" }) {
   return (
     <span
@@ -165,8 +226,8 @@ function DialButton({ label, tone = "command" }: { label: string; tone?: "comman
       aria-label={label}
       className={
         tone === "command"
-          ? "grid size-11 shrink-0 place-items-center rounded-pill bg-[color:var(--command)] text-[color:var(--command-contrast)]"
-          : "grid size-11 shrink-0 place-items-center rounded-pill border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]"
+          ? "grid size-12 shrink-0 place-items-center rounded-pill bg-[color:var(--command)] text-[color:var(--command-contrast)]"
+          : "grid size-12 shrink-0 place-items-center rounded-pill border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]"
       }
     >
       <Phone aria-hidden="true" className="size-icon-md" />
@@ -289,7 +350,14 @@ function CoverStrip() {
                 <span className="block text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">
                   {row.role}
                 </span>
-                <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">{row.person}</span>
+                {/* Not truncated, and the reason is this module's own argument:
+                    when no name is confirmed this line stops being a name and
+                    becomes the INSTRUCTION that replaces it. At 390px the span
+                    has about 226px, which a real fallback sentence ("ring
+                    switchboard and ask for the nurse in charge") does not fit.
+                    Truncating a name is cosmetic; truncating the instruction is
+                    the failure the fallback exists to prevent. */}
+                <span className="block text-sm font-bold leading-5 text-[color:var(--text-heading)]">{row.person}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                   <span className="nums text-xs font-bold text-[color:var(--text)]">{row.number}</span>
                   <span className="text-2xs text-[color:var(--text-muted)]">
@@ -483,7 +551,7 @@ function ContactRowCard({ row }: { row: ContactRow }) {
             <span
               role="img"
               aria-label={`Copy ${row.title}`}
-              className="grid size-11 place-items-center rounded-pill border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+              className="grid size-12 place-items-center rounded-pill border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
             >
               <Copy aria-hidden="true" className="size-icon-sm" />
             </span>
@@ -811,11 +879,16 @@ export function MockupPageShell({
   eyebrow,
   title,
   summary,
+  // The 390px line is true of the On Call and compliance boards and false of
+  // the desk-width governance ones, so it is a prop rather than a constant —
+  // a scratch note that misdescribes its own artboards is worse than none.
+  scratchNote = "Design scratch. Nothing is wired; every name, number and roster here is invented. Drawn at 390px in the app's own tokens so it survives dark mode and forced colours.",
   children,
 }: {
   eyebrow: string;
   title: string;
   summary: string;
+  scratchNote?: string;
   children: ReactNode;
 }) {
   return (
@@ -825,10 +898,7 @@ export function MockupPageShell({
           <p className="text-2xs font-bold uppercase tracking-kicker text-[color:var(--clinical-accent)]">{eyebrow}</p>
           <h1 className="text-2xl-minus font-bold tracking-display text-[color:var(--text-heading)]">{title}</h1>
           <p className="text-sm leading-6 text-[color:var(--text-muted)]">{summary}</p>
-          <p className="text-xs leading-5 text-[color:var(--text-soft)]">
-            Design scratch. Nothing is wired; every name, number and roster here is invented. Drawn at 390px in the
-            app&apos;s own tokens so it survives dark mode and forced colours.
-          </p>
+          <p className="text-xs leading-5 text-[color:var(--text-soft)]">{scratchNote}</p>
         </header>
         {children}
       </div>
