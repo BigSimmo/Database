@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "59e8b2c2-f90e-4225-a45c-f4929b839057",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#TN512M",
+    "detail": "TWO OF THE THREE SYSTEMS NOW REPORT, as of 2026-09-18. (1) LIVE MONITOR: live-domain-monitor.yml had no failure handling at all — a grep for issue, notify or any conditional step returned nothing, which is why a real catalogue outage went unreported for about eighteen hours. PR #2884 (merged) gave it the eval-canary failure-issue step. (2) SENTRY: PR #2890 (merged) fixed log delivery across Next's bundle split, so application logs actually reach Sentry rather than being dropped at the boundary. (3) CI ON MAIN is tracked as #T82ND3 and also shipped in #2884. WHAT REMAINS: none of the three has been confirmed against a real production failure — all were verified by workflow tests, not by watching one fire. Dedupe was reviewed (label-based find-or-create, so a flake cannot spawn an issue per run) but likewise not observed under load. Close once a genuine outage has produced a notification someone acted on.",
+    "baseRowFingerprint": "5ecb1e262d27f0755fd1f3b4329d49405bf115fdc10201eba1677a515ef0566f"
+  }
+}

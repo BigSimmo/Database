@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e48efb11-c16b-4e4b-9fe1-65847d122446",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#QSHHGK",
+    "detail": "UPDATE 2026-09-18 (PR #2884, merged). The remaining gap was that the weekly refresh measured and published a new baseline but told nobody how to apply it, because a workflow in this repo may not open a PR. The exact apply command now rides the issue body the workflow already writes, so the human step is stated where the number is. The trigger, the measurement and the publication were already in place from PR #2527. What would close this row: one weekly cycle where a human read that issue and applied the baseline without having to work out the command.",
+    "baseRowFingerprint": "5b06271dd7d3b72e7bad98199141f4e1d4757fcefdd471c455e7ad3ad70a3f01"
+  }
+}
