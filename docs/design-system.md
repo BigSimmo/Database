@@ -272,6 +272,13 @@ image"}` — never a possibly-empty variable alone.
   `tests/developer-hub-panels.test.ts` both excludes it from the route-existence check and holds
   the two copies identical by hash — a stale copy would show a retired mark to the one reader most
   likely to trust it. Regenerate the doc, then copy it over the served one.
+- **The brand sheet self-hosts its typefaces, and must keep doing so.** It used to pull Inter and
+  IBM Plex Mono from Google Fonts, which meant the clinical origin told a third party whenever
+  anyone opened `/brand/preview.html` (2026-09-02 audit, L5). The latin-subset WOFF2 files now sit
+  in `public/brand/fonts/` and `docs/brand/fonts/`, declared as `@font-face` inside the sheet's own
+  `<style>`, so both copies render with zero external requests. If you regenerate the sheet from a
+  tool that emits a `fonts.googleapis.com` stylesheet link, strip it and restore the local faces —
+  reintroducing that link silently undoes a privacy fix.
 - **In the app the mark has no tile.** `BrandMark` draws the symbol alone, filled
   `--clinical-accent`, standing directly on the page ground — so on a white page it reads as a
   mark rather than an app-store tile pasted into the chrome. It uses
