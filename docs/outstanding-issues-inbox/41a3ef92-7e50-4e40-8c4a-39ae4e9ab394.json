@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "41a3ef92-7e50-4e40-8c4a-39ae4e9ab394",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#YFF9TJ",
+    "outcome": "Fixed in PR #2888 (merged 2026-09-18). The catalogue is now sliced SERVER-side before anything crosses the RSC boundary, following the review-state-page precedent whose own comment records why the obvious alternative failed — client-side slicing after the full array has already crossed does not reduce the transferred payload. Filtering, sorting and facets stay whole-catalogue on the server; only the 50-entry page reaches the client component, and the page resets on a filter or query clear. The route now carries a required serverPages ceiling in bundle-budget.json, so the size cannot silently return; the reviewer confirmed the route-group path resolution for that entry.",
+    "baseRowFingerprint": "351a2c6a0bf578699400e25ba00423d4a0d614dabc69e5eea0a3bcea3be02f18"
+  }
+}

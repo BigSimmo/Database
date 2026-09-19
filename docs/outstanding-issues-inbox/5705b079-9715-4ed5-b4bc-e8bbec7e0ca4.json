@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5705b079-9715-4ed5-b4bc-e8bbec7e0ca4",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#SXPQ0A",
+    "detail": "TRACKING HALF ONLY, shipped 2026-09-18 (PR #2884, merged). The canary's existing failure issue is titled 'evaluation did not complete' and fires on failure(), so a run that COMPLETES but fails the blocking answer-quality threshold was not covered — which is precisely why three cases have failed since 23 August with nothing tracking it. That step now covers the completed-but-failing outcome too. THE THREE FAILING CASES THEMSELVES ARE UNTOUCHED AND STAY DEFERRED: fixing them is answer-generation work on a protected surface, needing a before-and-after provider comparison run (~USD 1-2) with explicit owner approval, and it cannot be verified offline. This row now means 'the three cases are still failing', not 'nobody knows they are failing'.",
+    "baseRowFingerprint": "a8dc89497b87f5b9b890dc6a6a91f2b03dbd571949629545bce0d391bf697389"
+  }
+}

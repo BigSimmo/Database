@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4a131f66-4b1b-45f8-a6bf-50cd039f3713",
+  "createdOn": "2026-09-19",
+  "action": "done",
+  "payload": {
+    "id": "#3CJPX5",
+    "outcome": "Both halves are now fixed, in two separate changes. The search half was already done before this session: commit 0496590aa added the alias coverage, with a regression test at tests/smart-search-intent.test.ts recording 0 hits before and 2 after for 'anxiety screening'; it was verified rather than rebuilt. The page-title half was fixed in PR #2887 (merged 2026-09-18) and was not a metadata bug — /calculators/search declares the correct title. It was a stale document.title written by ClinicalDashboard.tsx whose effect is gated on showSharedHome, so the last title written on the shared home survived navigation away. A new use-shared-home-document-title.ts hook now releases the title on unmount, conditionally on it still being the string it wrote, and a new spec asserts the handover — no test asserted a page title anywhere before this.",
+    "baseRowFingerprint": "d8ce51d73b16e2d67f36b665eb8a60db604f17525e4aa0ed4c6216d629629347"
+  }
+}

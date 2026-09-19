@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "80ffa52c-ede5-401f-8fc4-e9a242f98c12",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#YDENFM",
+    "detail": "BLOCKER REMOVED 2026-09-18 (PR #2880, merged); THE DECISION IS STILL THE OWNER'S, which is why this row stays open. Both publishers the three WA services depend on are now registered in source-authority-registry.ts as named agencies: Department of Communities (WA) and City of Vincent. They are deliberately NOT the 'Government of Western Australia' catch-all an earlier block refused — a catch-all resolves every WA government document to one authority, whereas these two resolve only their own material. Both are catalogueIdentityOnly: true, so they are excluded from runtime retrieval classification and ranking is unchanged. WHAT IS LEFT IS THE OWNER DECISION THIS ROW ASKS FOR: registering a publisher admits no source. Passages Youth Engagement Hub and the two others still enter as unreviewed candidates at D band and cite nothing until signed off. They now appear in the clinical sign-off queue at /mockups/development/clinical-sign-off under Sources, which is where that decision can be worked.",
+    "baseRowFingerprint": "62fdeb505b98b1001619f200880530afac1a2cf9bc0cbac2e387930fc60750d8"
+  }
+}

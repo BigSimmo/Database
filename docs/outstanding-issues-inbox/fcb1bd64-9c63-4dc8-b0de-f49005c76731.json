@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fcb1bd64-9c63-4dc8-b0de-f49005c76731",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#9Z197J",
+    "detail": "NOT FIXED 2026-09-18, and the diagnosis is recorded here so the next session does not re-derive it. QUARANTINING IS THE WRONG ANSWER: tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. These 15 are not flakes. They fail deterministically because Firefox and WebKit compute scroll geometry differently from Chromium, and there is no per-engine expectation mechanism anywhere in playwright.config.ts (the three projects differ only by device preset). The fix is to make those specific assertions engine-tolerant. WHY IT WAS NOT DONE: the 15 failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises.",
+    "baseRowFingerprint": "f4b2e58fe7f15bec439f6f9bcf27bea659d200df716c8cd01af3bc80691c607a"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "5e70c455-5d2f-416e-a4b2-5992ab54b80e",
+  "createdOn": "2026-09-19",
+  "action": "update",
+  "payload": {
+    "id": "#K06J63",
+    "detail": "NO FIX IS POSSIBLE UNTIL IT RECURS, and PR #2884 (merged 2026-09-18) adds the one runbook line that makes the next occurrence readable: unlock the CI log marker FIRST, then read the failing job. The reason this row has no diagnosis is that the failing job was never read — log access was locked at the time, and it still is in this environment (the artifact host and results receiver both return Forbidden through the egress proxy, and check-run annotations carry only 'Process completed with exit code 1'). SEPARATELY WORTH KNOWING, because it explains most sightings of this shape: a PR required failure whose child jobs all read 'cancelled' rather than 'failed' is the cancel-in-progress behaviour working as designed — a newer push superseded the run — not a test result. That was observed repeatedly on 2026-09-18 across five PRs. Check the child job conclusions before treating a PR required failure as real.",
+    "baseRowFingerprint": "d7a427b0609606103a154f299ef68841df065bea202015890ffb778ac3c52eae"
+  }
+}
