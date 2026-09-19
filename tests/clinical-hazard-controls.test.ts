@@ -1,9 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { validateClinicalHazardControls } from "../scripts/check-clinical-hazard-controls.mjs";
+import {
+  citedRegisterPaths,
+  reviewedContentDigest,
+  sealReviewedPathDigests,
+  validateClinicalHazardControls,
+} from "../scripts/check-clinical-hazard-controls.mjs";
 import { resolveReviewedCommitHistory, warnReviewedCommitSkipped } from "./helpers/reviewed-commit-history";
 
 const manifest = JSON.parse(readFileSync(new URL("../docs/clinical-hazard-controls.json", import.meta.url), "utf8"));
+
+/** A SHA that is well-formed and cannot exist, standing in for one a squash merge orphaned. */
+const ORPHANED_COMMIT = "0".repeat(39) + "1";
 
 describe("clinical hazard controls contract", () => {
   it("validates paths, tests, dates, required hazards, and open assurance boundaries", () => {
@@ -14,6 +22,73 @@ describe("clinical hazard controls contract", () => {
     const { checkGit, skipReason } = resolveReviewedCommitHistory(manifest.reviewedCommit);
     if (skipReason) warnReviewedCommitSkipped("clinical hazard controls", skipReason);
     expect(validateClinicalHazardControls(manifest, { checkGit })).toEqual([]);
+  });
+
+  // #D7K71C: this repository squash-merges, so an author cannot know the SHA their register
+  // update will land as. PR #2882 pinned its own pre-squash branch head; the squash orphaned it
+  // and every branch that merged main went red until it was repaired by hand. These four cases
+  // pin the replacement: the reviewed CONTENT is what must still be provable, not the commit.
+  describe("a squash merge that orphans the reviewed commit", () => {
+    function orphaned() {
+      const changed = structuredClone(manifest);
+      const { sealed } = sealReviewedPathDigests(changed);
+      sealed.reviewedCommit = ORPHANED_COMMIT;
+      for (const hazard of sealed.hazards) hazard.reviewedCommit = ORPHANED_COMMIT;
+      for (const decision of sealed.assuranceDecisions) decision.reviewedCommit = ORPHANED_COMMIT;
+      return sealed;
+    }
+
+    it("passes when the recorded digests still prove the reviewed content", () => {
+      expect(validateClinicalHazardControls(orphaned(), { checkGit: true })).toEqual([]);
+    });
+
+    it("fails, naming the remedy, when no digests were recorded", () => {
+      const changed = orphaned();
+      delete changed.reviewedPathDigests;
+      const errors = validateClinicalHazardControls(changed, { checkGit: true });
+      expect(errors.join("\n")).toContain("no reviewedPathDigests are recorded");
+      expect(errors.join("\n")).toContain("npm run governance:seal-hazard-controls");
+    });
+
+    /**
+     * Drift REPORTS, it does not fail — and that is deliberate. The commit check this replaces
+     * only ever asked whether a cited path existed at the reviewed commit. Failing on changed
+     * content would be a far harsher gate: once a register update lands its commit is unreachable
+     * for good, so every later pull request touching a cited control would go red until someone
+     * re-sealed. That pressure buys reflexive re-sealing, which is worse than no signal.
+     */
+    it("warns but does not fail when a reviewed control has changed since it was sealed", () => {
+      const changed = orphaned();
+      const [firstCitedPath] = citedRegisterPaths(changed);
+      changed.reviewedPathDigests[firstCitedPath] = reviewedContentDigest("not what was sealed");
+      const warnings: string[] = [];
+      const restore = console.warn;
+      console.warn = (message: string) => void warnings.push(String(message));
+      try {
+        expect(validateClinicalHazardControls(changed, { checkGit: true })).toEqual([]);
+      } finally {
+        console.warn = restore;
+      }
+      expect(warnings.join("\n")).toContain("CLINICAL_HAZARD_CONTROLS_CONTENT_DRIFT");
+      expect(warnings.join("\n")).toContain(firstCitedPath);
+    });
+
+    it("still fails when a cited path has no recorded digest at all", () => {
+      const changed = orphaned();
+      const [firstCitedPath] = citedRegisterPaths(changed);
+      delete changed.reviewedPathDigests[firstCitedPath];
+      const errors = validateClinicalHazardControls(changed, { checkGit: true });
+      expect(errors.join("\n")).toContain(`no recorded digest for ${firstCitedPath}`);
+    });
+
+    // The point of saying it once: eleven entries pin the same commit, and eleven copies of the
+    // same finding is how a real one gets skimmed past.
+    it("reports the unreachable commit once, not once per entry", () => {
+      const changed = orphaned();
+      delete changed.reviewedPathDigests;
+      const errors = validateClinicalHazardControls(changed, { checkGit: true });
+      expect(errors.filter((error: string) => error.includes(ORPHANED_COMMIT))).toHaveLength(1);
+    });
   });
 
   it("does not allow static evidence to close clinical truth or external risk acceptance", () => {
