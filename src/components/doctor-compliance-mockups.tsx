@@ -418,7 +418,7 @@ function BoardToday() {
     <PhoneFrame
       caption="A · Today — sorted by what happens if it lapses"
       note="Three tiers by consequence, not by date. One answer line at the top, and a horizon strip that shows the September pile-up without reading a word."
-      height={1340}
+      heightClass="h-[1340px]"
     >
       <TopBar title="Requirements" mode="Compliance" icon={ShieldCheck} />
       <Screen>
@@ -460,7 +460,7 @@ function BoardRequirement() {
     <PhoneFrame
       caption="B · One requirement — a record, never a verdict"
       note="Who requires it, what you recorded, when you last checked with the body that actually knows, and where the paper is."
-      height={880}
+      heightClass="h-[880px]"
     >
       <TopBar title="Registration" mode="Compliance" icon={ShieldCheck} />
       <Screen>
@@ -556,12 +556,19 @@ function BoardRequirement() {
 
 /* ═══════════════════════════  board C — CPD  ═══════════════════════════ */
 
-type CpdCategory = { name: string; done: number; minimum: number; note: string };
+/**
+ * `fill` is a literal Tailwind width class rather than a computed percentage,
+ * and that is a repo constraint rather than laziness: an interpolated width is
+ * an inline `style`, and `check:design-drift-ratchet` counts those repo-wide
+ * against a committed ceiling. Fixed scratch data, so a class per row costs
+ * nothing; a real implementation would need a token or a considered exception.
+ */
+type CpdCategory = { name: string; done: number; minimum: number; note: string; fill: string };
 
 const CPD: CpdCategory[] = [
-  { name: "Educational activities", done: 21, minimum: 12.5, note: "Teaching, courses, reading" },
-  { name: "Reviewing performance", done: 4, minimum: 5, note: "Peer review, multi-source feedback" },
-  { name: "Measuring outcomes", done: 0, minimum: 5, note: "Audit, outcome data" },
+  { name: "Educational activities", done: 21, minimum: 12.5, note: "Teaching, courses, reading", fill: "w-full" },
+  { name: "Reviewing performance", done: 4, minimum: 5, note: "Peer review, multi-source feedback", fill: "w-4/5" },
+  { name: "Measuring outcomes", done: 0, minimum: 5, note: "Audit, outcome data", fill: "w-0" },
 ];
 
 /**
@@ -590,7 +597,7 @@ function BoardCpd() {
     <PhoneFrame
       caption="C · CPD — the category you are short of, not the total"
       note="Per-category minimums, because a healthy total hides the small category you fail on. Fed by teaching attendance so nothing is logged twice."
-      height={880}
+      heightClass="h-[880px]"
     >
       <TopBar title="CPD" mode="Compliance" icon={GraduationCap} />
       <Screen>
@@ -607,7 +614,6 @@ function BoardCpd() {
         <div className="mb-3 grid gap-2">
           {CPD.map((category) => {
             const short = category.done < category.minimum;
-            const fraction = Math.min(1, category.done / category.minimum);
             return (
               <div
                 key={category.name}
@@ -635,10 +641,9 @@ function BoardCpd() {
                   className="mt-2 block h-1.5 overflow-hidden rounded-pill bg-[color:var(--surface-inset)]"
                 >
                   <span
-                    className={`block h-full rounded-pill ${
+                    className={`block h-full rounded-pill ${category.fill} ${
                       short ? "bg-[color:var(--warning)]" : "bg-[color:var(--success)]"
                     }`}
-                    style={{ width: `${Math.round(fraction * 100)}%` }}
                   />
                 </span>
                 {short ? (
@@ -710,7 +715,7 @@ function BoardEvidence() {
     <PhoneFrame
       caption="D · Evidence pack — the weekend this saves"
       note="One export for a credentialing application, with a cover sheet that names what is missing rather than quietly leaving it out."
-      height={980}
+      heightClass="h-[980px]"
     >
       <TopBar title="Evidence" mode="Compliance" icon={Paperclip} />
       <Screen>
@@ -845,7 +850,7 @@ function BoardYear() {
     <PhoneFrame
       caption="E · The year — see the pile-up, move one"
       note="The one thing a list cannot do: show three renewals landing in one month, and offer to spread them."
-      height={860}
+      heightClass="h-[860px]"
     >
       <TopBar title="The year" mode="Compliance" icon={CalendarClock} />
       <Screen>
@@ -970,7 +975,7 @@ function BoardSupervisor() {
     <PhoneFrame
       caption="F · Supervisor roll-up — status only, never the documents"
       note="The narrow question a supervisor actually has, answered with three states and no certificates at all."
-      height={700}
+      heightClass="h-[700px]"
     >
       <TopBar title="My trainees" mode="Compliance" icon={Users} />
       <Screen>

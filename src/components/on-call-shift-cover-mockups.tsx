@@ -51,24 +51,32 @@ import type { ReactNode } from "react";
 
 /* ══════════════════════════  scaffold  ══════════════════════════ */
 
-export const PHONE_WIDTH = 390;
-
-/** A 390px artboard — the width every On Call screen is drawn and tested at. */
+/**
+ * A 390px artboard — the width every On Call screen is drawn and tested at.
+ *
+ * Geometry is carried by utility classes rather than an inline `style`, and
+ * that is a repo rule rather than a preference: `check:design-drift-ratchet`
+ * counts inline `style={{ }}` sites against a committed ceiling, and three
+ * mockup frames were enough to push the whole repository past it. The height
+ * varies per board, so it arrives as a LITERAL class string — Tailwind scans
+ * source text, so `h-[900px]` written out in a call site is emitted, while a
+ * height interpolated into a template string would not be.
+ */
 export function PhoneFrame({
   caption,
   note,
-  height = 760,
+  heightClass = "h-[760px]",
   children,
 }: {
   caption: string;
   note?: string;
-  height?: number;
+  heightClass?: string;
   children: ReactNode;
 }) {
   return (
     // The figure is the artboard's width plus its bezel, so a caption never
     // stretches the column and the boards tile predictably however many fit.
-    <figure className="m-0 shrink-0" style={{ width: PHONE_WIDTH + 12 }}>
+    <figure className="m-0 w-[402px] shrink-0">
       <figcaption className="mb-2 grid gap-1">
         <span className="text-2xs font-bold uppercase tracking-kicker text-[color:var(--text-muted)]">{caption}</span>
         {note ? <span className="text-xs leading-5 text-[color:var(--text-muted)]">{note}</span> : null}
@@ -77,10 +85,9 @@ export function PhoneFrame({
           390px, and a grid column narrower than that silently re-wraps every
           row — which would make the study argue about wrapping the real page
           does not do. The page scrolls instead. */}
-      <div style={{ width: PHONE_WIDTH }}>
+      <div className="w-[390px]">
         <div
-          style={{ height, borderRadius: "1.85rem", borderWidth: 6 }}
-          className="relative flex flex-col overflow-hidden border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-elevated)]"
+          className={`relative flex flex-col overflow-hidden rounded-phone-frame border-[6px] border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-elevated)] ${heightClass}`}
         >
           {children}
         </div>
@@ -339,7 +346,7 @@ function BoardShiftCover() {
     <PhoneFrame
       caption="A · Tonight — shift band and cover strip"
       note="Adds the two things the shipped home cannot answer: where you are in the shift, and who is actually on."
-      height={870}
+      heightClass="h-[870px]"
     >
       <TopBar title="Tonight" />
       <Screen>
@@ -495,7 +502,7 @@ function BoardContacts() {
     <PhoneFrame
       caption="B · Contacts — the row, rebuilt"
       note="Name gets the full width; every row ends at the same x; freshness is a rule and a word, not a pill wider than the contact."
-      height={780}
+      heightClass="h-[780px]"
     >
       <TopBar title="Contacts" />
       <div className="flex shrink-0 gap-4 border-b border-[color:var(--border)] bg-[color:var(--surface-chrome)] px-4">
@@ -646,7 +653,7 @@ function BoardLadder() {
     <PhoneFrame
       caption="C · Playbook — the ladder you work down"
       note="Conditions wrap in full, dial affordances appear only where a number exists, and the page keeps the clock so you know when you may escalate."
-      height={860}
+      heightClass="h-[860px]"
     >
       <TopBar title="Playbook" />
       <Screen>
@@ -740,7 +747,7 @@ function BoardCard() {
     <PhoneFrame
       caption="D · Pocket card — one side of one card"
       note="Includes extensions, which the shipped card silently drops; two columns so it prints to one side; a QR back to the live page."
-      height={600}
+      heightClass="h-[600px]"
     >
       <TopBar title="Pocket card" />
       <Screen>

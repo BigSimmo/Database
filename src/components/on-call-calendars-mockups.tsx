@@ -134,7 +134,7 @@ function BoardCoverCalendar() {
     <PhoneFrame
       caption="A · Cover calendar — who is on, which night"
       note="The hub has no time dimension at all today. A month of cover, two roles deep, with the full names one tap away."
-      height={850}
+      heightClass="h-[850px]"
     >
       <TopBar title="Cover" />
       <Screen>
@@ -390,7 +390,7 @@ function BoardTeaching() {
     <PhoneFrame
       caption="B · Teaching — a term, and a record you attended it"
       note="A week rail instead of a date chip that says the same thing twice, an .ics export, and an attendance total nobody currently keeps anywhere but a notebook."
-      height={720}
+      heightClass="h-[720px]"
     >
       <TopBar title="Teaching" />
       <Screen>
@@ -480,7 +480,7 @@ function BoardShiftLog() {
     <PhoneFrame
       caption="C · Shift log — the jobs, never the patients"
       note="The tail every shift generates and this hub throws away. Drawn with no patient field at all, because the mode's clinical boundary forbids one."
-      height={810}
+      heightClass="h-[810px]"
     >
       <TopBar title="Shift log" />
       <Screen>
@@ -656,7 +656,7 @@ function BoardCoverage() {
     <PhoneFrame
       caption="D · Who covers this? — referrals, asked as a question"
       note="The same four stored fields, turned around. Shows its working on every row, and never hides a service it ruled out."
-      height={720}
+      heightClass="h-[720px]"
     >
       <TopBar title="Referrals" />
       <Screen>
