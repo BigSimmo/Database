@@ -144,3 +144,9 @@ would not take a GitHub read without being asked.** ✅ **It is right, and the s
 ✅ **What IS measured, by both of us independently: the branch is on the remote, `ward-patients-seed.ts`
 carries eight named records there, and three commits in its history contain them.** ⚠️ **Whether
 that remote is visible to the world rests on his word alone.**
+
+✅ **MEASURED SINCE, 2026-09-20 — it no longer rests on his word.** A GitHub API read returned
+`private: false`, `visibility: public`. The caution above was correct at the time and is kept for
+that reason; the question it raises is now answered. He was asked again on the same day and ruled
+**"i will leave it public for now"**. Two figures in the paragraph above have also moved: the UMRNs
+are in **12 files** today, not 2, and **4 commits** touch `ward-patients-seed.ts`, not 3.
