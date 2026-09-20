@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b120b321-0df5-4ec9-8b4f-23bf7306073e",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "The sign-off queue hides 52 of the 64 unsigned Formulation records, and a passing test pins the undercount",
+    "detail": "MEASURED 2026-09-20 at HEAD, offline, no provider access. src/lib/developer-area/sign-off-queue.ts formulationFamily() reads ONLY (formulationContent as {mechanisms}).mechanisms and filters on mechanism.reviewStatus. The other 52 unsigned Formulation records - 46 contextual concepts and 6 guide modules, exactly the set ledger #DXJ70P describes - live in src/data/formulation-concepts.json, which formulationFamily() never opens. Verified: all 52 carry clinical_review_required, but under a 'review' key, not 'reviewStatus', so even if the file were read the existing filter would not match. Net effect: loadSignOffQueue() totals 1610 unsigned records across seven families (wa-mha-forms 54, formulation 12, differentials 232, dictionary 429, specifiers 603, therapy 205, sources 75) where the true figure is about 1662. WHY THIS IS P1 AND NOT A COUNTING NIT: the Developer Hub sign-off queue exists to be the one place that shows every clinical record awaiting a clinician's signature, and PR #2883 was titled 'Show every clinical record awaiting sign-off on the Developer Hub'. A clinician working that queue to zero would believe Formulation was done with 12 signatures. The 52 invisible records are the highest-consequence part of that family by #DXJ70P's own reasoning, because the guide modules INSTRUCT rather than define - guide-08 makes a specific claim about NICE NG225 advising against risk stratification for predicting suicide or repeat self-harm, and no clause in any of them has been checked against a primary source. THE GUARD IS INVERTED: tests/sign-off-queue.test.ts:25 asserts formulation: 12, so the test suite currently enforces the undercount and would go red on the fix. Fixing the count without changing that line is not possible, and the line must be changed deliberately rather than by a tool. NEXT ACTION: extend formulationFamily() to read formulation-concepts.json concepts and guides, match on the 'review' field these records actually carry, give each row an href to its page, and update the pinned expectation to 64 in the same change. Not a RAG surface; no retrieval or ranking code is touched. Offline gate: npm run test:focused -- --files tests/sign-off-queue.test.ts.",
+    "source": "Backlog triage session 2026-09-20; verified against src/lib/developer-area/sign-off-queue.ts, src/data/formulation-concepts.json and loadSignOffQueue() output at HEAD",
+    "issueUlid": "01M2ZR7XXD33JDBWXFA2MD6MD7"
+  }
+}
