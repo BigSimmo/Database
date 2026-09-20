@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
@@ -91,6 +91,12 @@ export const prUiSpecProfiles = Object.freeze([
   // Added with the Therapy Pathways mobile picker redesign; measured locally at
   // ~2 tests. Placed on shard 1 to keep post-critical spread within the 10s ceiling.
   { file: "tests/ui-therapy-pathways.spec.ts", shard: 1, fullSeconds: 2.0, criticalSeconds: 0 },
+  // The digit-by-digit patient number-field guard (#WFARS3). Six short keyboard
+  // journeys against one already-loaded page; measured locally at 8.1s for the
+  // file. Zero here follows the convention above — keep it on the lightest
+  // measured shard until hosted evidence exists, and replace at the next
+  // timing refresh.
+  { file: "tests/ui-patient-number-field.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   // The seeded Caring Contacts activation journey (#JZA0XK). It runs in
   // `chromium-caring-contacts-seeded` rather than `chromium`, which is why this entry carries a
   // `project` and the others do not. Placed on shard 1 because it is the shard with the smallest
