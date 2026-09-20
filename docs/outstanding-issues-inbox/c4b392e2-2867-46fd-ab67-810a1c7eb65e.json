@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c4b392e2-2867-46fd-ab67-810a1c7eb65e",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "The Claude review workflow fails on every PR and paints a red check, so the repo still has no working automated reviewer",
+    "detail": "Added in PR #2922 to close the 2026-09-19 gap where CodeRabbit, Codex and Bugbot all declined to review. Its first execution against a real diff (PR #2923, run 35514737554) failed after 1.9s. The result record is decisive: num_turns 1, total_cost_usd 0, modelUsage {} - Claude Code initialised (model claude-sonnet-5) and the single model call was rejected. Wiring, checkout, OAuth secret presence, event trigger and draft gate are all proven working; only the model call fails. LEADING HYPOTHESIS, UNCONFIRMED: the CLAUDE_CODE_OAUTH_TOKEN is expired or not authorised. It had never been exercised before - #2922's own run stopped earlier at the action's workflow-validation check, which refuses to run a reviewer the PR itself modified. The workflow's warn step only tests the secret is non-empty, never that it is valid. WHY IT IS NOT YET DIAGNOSED: the action suppresses the real error ('Running Claude Code via SDK (full output hidden for security)') and names show_full_output: true as the remedy. That remedy is UNSAFE HERE: the repository is public (measured 2026-09-20), Actions logs are world-readable, and the suspected failure is an auth error - the one case where full output could expose the credential. TWO SECONDARY DEFECTS in the same workflow, both observed in that run: (1) continue-on-error: true does NOT prevent a red check - the check run conclusion is 'failure'. The workflow's header comment claims it 'keeps a credential problem from painting a red X that trains readers to ignore red'; that claim is disproven. Job-level continue-on-error stops the workflow failing, not the check reporting failure. (2) The settings input is overridden: the workflow passes '{\"enableAllProjectMcpServers\": false}' and the log reports 'Updated settings with enableAllProjectMcpServers: true', so the stated MCP auto-load guard does not hold.",
+    "source": "PR #2923 investigation, 2026-09-20; job 106088651147",
+    "issueUlid": "01M2ZM3J0MNNAWDTFCR2PZJ4CX"
+  }
+}
