@@ -158,6 +158,40 @@ export function normalizeCode(value: string) {
 }
 
 /**
+ * The four form pages built before the `form-<code>` convention, still served at
+ * their original paths.
+ *
+ * **This is the only copy.** It lived in `form-catalog.ts` with a second,
+ * deliberate copy in `src/lib/on-call/playbook-forms.ts`, whose comment
+ * explained the duplication honestly: importing `form-catalog.ts` drags
+ * `data/forms-catalog.json` (174 KB) and `data/forms-pdf-manifest.json` (17 KB)
+ * into whatever bundle reads it. That reason is exactly why this leaf module
+ * exists, so the table belongs here and the copy is gone.
+ *
+ * The duplication was not harmless while it lasted: `sign-off-queue.ts` knew
+ * about neither copy, built `/forms/form-3a` from the catalogue id, and shipped
+ * four dead links to statutory forms — 3A, 4A, 4B and 4C, the exact four listed
+ * below. Anything that needs a form's route must call `formPageHref` rather than
+ * assemble a path from an id.
+ */
+const legacySlugs: Readonly<Record<string, string>> = {
+  "3A": "detention-examination-movement",
+  "4A": "transport-crisis-form",
+  "4B": "extension-transport-order",
+  "4C": "transfer-order",
+};
+
+/** The route slug for a form code: its legacy slug, or the `form-<code>` convention. */
+export function formSlug(code: string): string {
+  return legacySlugs[code] ?? `form-${normalizeCode(code).replace(/[^a-z0-9]+/g, "-")}`;
+}
+
+/** The in-app page for a form code. `/forms/[slug]` is the route. */
+export function formPageHref(code: string): string {
+  return `/forms/${formSlug(code)}`;
+}
+
+/**
  * The official title for a form code, or `null` when the register does not list that code.
  *
  * `null` is a real answer and callers must render it as such — the bare code, never a

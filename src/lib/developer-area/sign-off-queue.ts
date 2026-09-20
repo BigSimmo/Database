@@ -1,4 +1,5 @@
 import { loadFormCatalogDetails } from "@/lib/form-catalog";
+import { formPageHref } from "@/lib/form-register";
 import formulationContent from "@/data/formulation-content.json";
 import { curatedDifferentials } from "@/lib/differential-curated";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
@@ -96,7 +97,12 @@ function formsFamily(): SignOffFamily {
       statusLabel: "Drafted, no clinician sign-off",
       requires:
         "A named reviewer checks the operational guidance against the Act and the current approved form, then records status, reviewedBy and reviewedAt.",
-      href: `/forms/${details.id}`,
+      // `formPageHref`, never `/forms/${details.id}`. The catalogue id is
+      // `form-<code>` unconditionally; the ROUTE slug is that only for the 50
+      // forms without a legacy slug. Building the path from the id shipped four
+      // dead links to statutory forms — 3A, 4A, 4B and 4C — each landing on
+      // "not in your registry" instead of the Mental Health Act guidance.
+      href: formPageHref(details.form),
     }));
   return {
     id: "wa-mha-forms",
