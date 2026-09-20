@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "52e157cf-6ee1-4131-bc26-c7d6aeaa1fa2",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "a13b357d-695e-434b-9135-ef919af79d1b",
+    "reason": "Refuted, and dangerous if applied. This update asserts \"THE PRODUCT DEFECT IS FIXED AND MUST NOT BE REDONE\" on the strength of publishPhoneOverlayChromeReserveNow being PRESENT on origin/main. Presence is not execution. The publisher refuses to act until the reserve hook has settled once, and React runs layout effects children-first, so on a cold load a portal effect always runs before the shell hook has settled and the publish is suppressed — every time. The trace this very row records is a cold page.goto on /differentials/compare, so that path is unchanged and the CI failure remains live. Reproduced independently and pinned as failing-when-fixed cases in tests/phone-overlay-reserve-portal-wiring.dom.test.tsx (PR #2938). Applying this text would tell a future session not to fix a live clinical tap-target defect, which is worse than the stale row it replaces. Superseded by request 32a06320-365d-49f9-9bc1-70c5e0e72953, which keeps every finding above including the merge verification, and states the scope limit. Nothing in this request is lost: it stays in the audit trail."
+  }
+}
