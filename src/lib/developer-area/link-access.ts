@@ -1,3 +1,10 @@
+// Explicit, not incidental. This module is self-guarding today only because
+// `node:crypto` fails to bundle for the browser — and it now re-exports the
+// client-safe helpers from `link-access-shared.ts`, which makes it an inviting
+// import target for a future Client Component. Make the boundary a stated rule
+// rather than a side effect of what it happens to import.
+import "server-only";
+
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
@@ -32,8 +39,18 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 /** Cookie the proxy issues once the URL secret verifies. */
 export const DEVELOPER_ACCESS_COOKIE = "psychsift_developer_access";
 
-/** Query parameter carrying the secret, e.g. `/mockups/development?devkey=…`. */
-export const DEVELOPER_ACCESS_QUERY_PARAM = "devkey";
+/**
+ * Re-exported, not re-declared. The query-parameter name and the URL shape live
+ * in `link-access-shared.ts` because the gate screen's key field is a Client
+ * Component and this file imports `node:crypto`; see that file for why the split
+ * exists at all. Callers already importing them from here keep working.
+ */
+export {
+  DEVELOPER_ACCESS_ERROR_PARAM,
+  DEVELOPER_ACCESS_QUERY_PARAM,
+  developerKeyUnlockUrl,
+  parseDeveloperGateTarget,
+} from "@/lib/developer-area/link-access-shared";
 
 /**
  * Cookie path. Scoped to `/mockups` rather than `/` so this credential is never
