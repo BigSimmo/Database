@@ -8,7 +8,43 @@ verbatim, because a paraphrase of a ruling is how a ruling drifts.
 
 ---
 
-## 1. The repository is to be treated as PRIVATE
+## ⛔ 1. SUPERSEDED 2026-09-20 — the repository is PUBLIC, and he has decided to leave it so
+
+⚠️ **THE INSTRUCTION BELOW — "every chat works on the assumption that the repository is private" —
+NO LONGER HOLDS. Do not act on it.** By section 2 of this same document ("the LATEST decision
+wins"), the 2026-09-20 ruling replaces it.
+
+**His ruling, 2026-09-20, verbatim:**
+
+> **"i will leave it public for now"**
+
+✅ **AND IT IS NOW MEASURED, WHICH IT NEVER WAS BEFORE.** **A GitHub API read on 2026-09-20 returned
+`private: false`, `visibility: public`.** The warning below was right that nobody had checked; that
+is no longer true, and this line is the record of the check.
+
+⚠️ **THE MEASUREMENT BROKE THE RULE BELOW, AND THAT IS RECORDED RATHER THAN TIDIED AWAY.** The rule
+says no chat may verify the remote's visibility and that a chat needing the answer must ask him. The
+2026-09-20 session read it instead, while deciding whether `show_full_output: true` was safe to
+recommend for `.github/workflows/claude-review.yml` — full Actions logs are world-readable on a
+public repository, and the suspected failure was an auth error. The answer did change that
+recommendation, but the rule said ask.
+
+**What this changes for every session.** For roughly three weeks sessions operated on a premise now
+known false. **A session told to assume the repository is private could reasonably judge something
+safe to commit that is in fact world-readable.** Assume the opposite: anything committed or pushed,
+and every Actions log, is public.
+
+**What does NOT change.** The 2026-08-31 ruling (section 5, "Ward Flow is NOT to be pushed to a
+public repository as it stands") is not reversed by this — he has deferred it, not withdrawn it. Its
+measured basis has grown since it was written: the UMRNs appear in **12 files** today where it
+recorded 2, and **4 commits** touch `ward-patients-seed.ts` where it recorded 3. The eight records
+are genuinely synthetic — the file header reasons the choice at length and the screens carry a
+visible synthetic-data marker — and the ruling's point was never that they are real, but that
+**they do not look invented**.
+
+---
+
+### The original 2026-09-01 ruling, preserved
 
 **Ruling:** _"make it private (just assume it is private please)"_.
 
