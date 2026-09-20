@@ -43,6 +43,33 @@ export function CalculatorSheet({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const Icon = calc.icon;
 
+  // A backdrop click discards the whole assessment, and in the centred-dialog
+  // layout the scroll body's bottom clip boundary IS the panel's bottom edge,
+  // with the backdrop immediately beyond it (36px of it at 1440x900, 32px at
+  // 1024x800). So a 48px option chip left half-clipped at that edge has its
+  // centre as little as 2px inside the backdrop. Measured at 1440x900: a chip
+  // showing 22 of its 48px answered a click at its own centre by discarding a
+  // part-finished PHQ-9 — three entered answers gone, no confirmation, nothing
+  // to undo (#EKB6XR). Phones are immune only because the sheet is `items-end`
+  // and full-bleed, so there is no backdrop below the panel to miss onto.
+  //
+  // The geometry cannot be fixed by resizing: the chips are already at the
+  // repo's 48px tap-target floor and must stay there. Guarding the consequence
+  // is smaller than reserving space, costs no layout, and also covers a stray
+  // backdrop click anywhere rather than only at that one edge.
+  //
+  // Keep the pointer shortcut while nothing has been entered — that is the case
+  // it exists for — and stop it discarding work once there is any. The header
+  // button and Escape remain the two deliberate exits, so focus moves to the
+  // named close rather than leaving the click silently inert.
+  const dismissFromBackdrop = () => {
+    if (derived.started) {
+      closeRef.current?.focus();
+      return;
+    }
+    onClose();
+  };
+
   // Save the opener, move focus into the dialog, and restore on close.
   useEffect(() => {
     previousFocusRef.current = document.activeElement as HTMLElement | null;
@@ -98,7 +125,8 @@ export function CalculatorSheet({
           "Close" lookup or a stray click reached was decided by DOM order alone
           (#EKB6XR). Presentational and aria-hidden now: the header button is the
           dialog's one named close, Escape is the keyboard route, and this stays
-          the pointer shortcut it always was.
+          the pointer shortcut it always was — but only while the sheet is
+          unstarted; see `dismissFromBackdrop` above for why.
 
           Both layers carry an explicit rung from the ladder rather than relying
           on paint order — `--z-overlay` (80) under `--z-modal` (100) — so the
@@ -106,7 +134,7 @@ export function CalculatorSheet({
       <div
         aria-hidden="true"
         data-testid="calculator-sheet-backdrop"
-        onClick={onClose}
+        onClick={dismissFromBackdrop}
         className="absolute inset-0 z-[80] animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
       />
       <div className="relative z-[100] flex max-h-[calc(100dvh-max(0.75rem,var(--safe-area-top)))] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-h-[92dvh] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
