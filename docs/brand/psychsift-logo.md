@@ -1,8 +1,10 @@
 # The PsychSift logo
 
-The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
-circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 863 bytes.
+The files in `public/brand/` are the master artwork. **The mark** is a true vector construction —
+every one of its curves is a circular arc with an exact centre and radius, so it is identical at
+16 px and at billboard size, and the primary file is 863 bytes. The wordmark and the lockups also
+contain outlined type, which is quadratic Bézier curves like any other typeface; that part is not
+reconstructible from radii.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -73,7 +75,7 @@ carry.
 
 ## Construction
 
-Work in **glyph units**: the S is exactly 100 units tall and 55.10 wide, with its top-left corner
+Work in **glyph units**: the S is 100.3813 units tall and 55.10 wide, with its top-left corner
 at the origin.
 
 ### The middle line
@@ -103,14 +105,14 @@ lens; that is what the first two cuts of these files did.
 
 ### The upper stroke
 
-Three arcs and one straight segment, meeting at two tangent points and two sharp cusps:
+Four arcs and one straight segment, meeting at three tangent points and two sharp cusps:
 
 | Segment     | Centre             | Radius   | Role                                             |
 | ----------- | ------------------ | -------- | ------------------------------------------------ |
 | Outer sweep | (29.2009, 29.2009) | 29.2009  | the outer edge, from the head to two-thirds down |
 | Tail hook   | (51.5937, 16.1418) | 55.1234  | the hook that draws the tail to a point          |
 | Throat      | (44.8724, 20.0286) | 17.7232  | the scoop under the head                         |
-| Blend       | (17.3065, 33.5945) | 13.0     | carries the throat onto the cut                  |
+| Blend       | (17.4753, 33.9324) | 13.0     | carries the throat onto the cut                  |
 | Facing edge | —                  | straight | the upper side of the middle line                |
 
 - **Head cusp** at (41.3675, 2.6554) — outer sweep into throat, 36°.
@@ -206,7 +208,8 @@ At 32 px and below two things close up: the 4.2-unit cut between the strokes, an
 crescent around the point. `psychsift-favicon.svg` is a separate optical variant for that range, and
 it changes both.
 
-The cut is widened to **7.2 units** by moving each facing edge 1.5 units away from the other, with
+The cut is widened to **7.2 units** by moving the two facing edges 3.0 units apart — 1.4493 on the
+upper edge and 1.5507 on the lower, since the point reflection fixes how the 3.0 splits — with
 the blends re-solved against the lines they now meet. Because only the facing edges move, the outer
 silhouette is identical to the one in the primary file.
 
@@ -216,7 +219,13 @@ centring transform; the three changes are one set and must not be mixed with the
 placement. Below about 20 px the crescent is under two pixels and the point fuses into the S
 whatever is done — that is the size, not the placement.
 
-Use this variant for favicons, browser tabs, and anything rendered under 32 px.
+Use this variant for favicons, browser tabs, and anything rendered at 32 px and below.
+
+Note one unexplained difference inside that set. `src/app/icon.svg` places the small-size glyph with
+`BRAND_GLYPH_TRANSFORM_SMALL` — 80% of the tile height, matching the primary variant. The shipped
+`psychsift-favicon.svg` instead uses `translate(116.0458 40.96) scale(4.2845)`, which is **84%**.
+Both centre their own ink correctly, so neither is broken, but the two small-size masters differ in
+glyph size by 5% and nothing records which is intended.
 
 ### The maskable icon
 
@@ -241,8 +250,9 @@ the safe circle.
 **Inter Display SemiBold**, tracked −0.02 em. The outlines are embedded as paths, so the lockups
 render identically without Inter installed. Inter is licensed under the SIL Open Font License 1.1.
 
-In the lockups the wordmark cap height is 42% of the mark's height, set one fifth of the mark's
-height to its right, with the cap-height centre aligned to the mark's centre. In the tagline
+In the lockups the wordmark cap height is 42% of the mark's height, set 22% of the mark's height to
+its right (56.32 units against a 256-unit mark), with the cap-height centre aligned to the mark's
+centre. In the tagline
 version the tagline is tracked out to finish flush with the wordmark.
 
 Note that the running application currently sets its interface in **Geist**, not Inter. The
@@ -262,7 +272,7 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
 | `psychsift-glyph-mono.svg`                | glyph alone in `currentColor`                        |
 | `psychsift-lockup-horizontal.svg`         | mark plus wordmark, for light backgrounds            |
 | `psychsift-lockup-horizontal-reverse.svg` | the same for dark backgrounds                        |
-| `psychsift-lockup-horizontal-tagline.svg` | with "CLARITY. EVIDENCE. BETTER CARE."               |
+| `psychsift-lockup-horizontal-tagline.svg` | with the strapline, FROM QUESTION TO SOURCE          |
 | `psychsift-lockup-stacked.svg`            | mark above wordmark, for narrow spaces               |
 | `psychsift-wordmark.svg`                  | wordmark alone                                       |
 | `psychsift-mark-1024.png`                 | raster export, where SVG is not accepted             |
@@ -286,9 +296,63 @@ the owner on 2026-08-28. Fine points thin both strokes, they belong with a curve
 than a straight one, and they are the first thing to disappear at 16 px. Do not revisit this without
 a reason those three do not already answer.
 
-## Two things still open
+## The strapline lockup
 
-- The brand sheet gives two different taglines: "CLARITY. EVIDENCE. BETTER CARE." in the header and
-  "Clinical clarity. Evidence. Better care." in the footer. The lockup uses the first.
-- The sheet specifies Inter throughout; the application uses Geist. That difference should be
-  settled deliberately rather than left to drift.
+`psychsift-lockup-horizontal-tagline.svg` carries the strapline as **FROM QUESTION TO SOURCE**.
+It is outlined letterforms, not live text, so changing the words means re-outlining them.
+`build-tagline-lockup.py` in this directory does that, and rewrites nothing else in the file — the
+tile, the mark and the wordmark are spliced through byte for byte:
+
+```bash
+python3 docs/brand/build-tagline-lockup.py            # rewrite the lockup
+python3 docs/brand/build-tagline-lockup.py --check     # fail if it is stale
+```
+
+How the line is set, measured off the artwork it replaced:
+
+|            |                                                                             |
+| ---------- | --------------------------------------------------------------------------- |
+| Face       | Inter, weight 600, from `fonts/inter-latin.woff2`                           |
+| Cap height | 25.8 units, unchanged                                                       |
+| Baseline   | y 229.3914, unchanged                                                       |
+| Width      | tracked so the ink finishes flush with the wordmark at both ends — 614.4900 |
+| Colour     | `#2563EB`                                                                   |
+
+**Flush is the constraint, and tracking is what absorbs a change of words.** The line it replaced
+was 31 characters and needed no tracking at all to finish flush; the new one is 23 and needs
++0.135 em. Setting it in sentence case instead would need +0.258 em, which opens gaps between
+lowercase letters wide enough to stop the line reading as words — which is why this lockup keeps
+its tracked caps while the in-app strapline stays sentence case at 12 px.
+
+**The font is a substitution, and it is visible if you measure for it.** The original line was set
+in Inter _Display_ SemiBold, which this repository does not ship; the re-outlined one uses the Inter
+text cut that it does. At the same cap height the text cut runs about 1.1% wider and its round
+letters overshoot slightly less. Tracking absorbs the width, and nothing else in the file moved. If
+Inter Display is ever added here, re-run the script against it rather than editing the path.
+
+## The design canvas and the outward handover
+
+Two companion documents exist for work that leaves this repository:
+
+- [`design-handover.md`](design-handover.md) — the self-contained spec to hand a designer, an
+  agency, or a design tool. Every path, transform, radius, colour and rule in one page, with the
+  asset URLs and the open items. It is the page to send outward; this one is the record to keep.
+- [`canvas/`](canvas/README.md) — the generator for the published six-artboard design canvas, kept
+  as source so the canvas can be rebuilt if the published copy is lost or overwritten.
+
+Both carry a **copy** of the geometry, because they are read outside the application and cannot
+import from `src/lib/brand-mark.ts`. Nothing fails a build if a copy goes stale, so both must be
+updated in the same change as the source of truth.
+
+## Still open
+
+- **The brand carries two palettes.** The in-app mark is `#1D6FB8` on light and `#74BDF0` on dark,
+  taken from `--clinical-accent`, with the ground behind it rather than a tile. The standalone
+  artwork in `public/brand/` is still the brand-sheet palette recorded under Colours above — navy
+  `#0D1B2A`, white, `#2563EB`, cool grey `#F2F4F7`. Both are in use and they have not been
+  reconciled.
+- **The brand carries two wordmark faces.** The lockup SVGs embed outlined Inter Display SemiBold;
+  the application sets its wordmark live in Geist. Outlined artwork is unaffected by what the
+  application loads, but the two do not match when they sit near each other.
+- **There is no print or motion specification** — no CMYK or Pantone equivalents, no minimum print
+  size, no one-colour reproduction guidance, and no motion rules.
