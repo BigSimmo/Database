@@ -196,10 +196,41 @@ export function writePatientProfile(profile: PatientProfile): void {
   window.dispatchEvent(new Event(PATIENT_PROFILE_CHANGE_EVENT));
 }
 
-// Account-transition clear (sign-out, session expiry, user change). Dispatches
-// the store's own change event rather than relying on the `storage` event, which
-// browsers only fire in *other* tabs: mounted medication surfaces cache the
-// parsed snapshot by raw string and must re-read an empty profile in this tab.
+// The clear GENERATION: how many times the whole profile has been wiped in this
+// tab. It exists because the stored value cannot carry that news on its own.
+//
+// A field refuses an out-of-range entry by storing `null` (see the bounds
+// comment above — rejected, never clamped). A profile-wide clear also stores
+// `null`. So a mounted input comparing its own last-committed value against the
+// store sees `null === null` either way, and cannot tell "my 420 was refused,
+// keep it on screen for correction" from "the profile this box belongs to was
+// wiped, drop it" — #DTAMMK, where a refused CrCl of 420 survived a clear
+// performed in a second mounted copy of the panel, and the next entry of 95
+// landed after it and read 42095 mL/min.
+//
+// A counter, not a timestamp or a boolean: it only ever has to differ from what
+// a consumer last saw, and two clears in the same millisecond must still read as
+// two. Module-scoped, which is exactly the right scope — `sessionStorage` is
+// per-tab and its `storage` event never fires for the tab that wrote it, so
+// every consumer that needs this news shares this module instance with the
+// writer. It resets to 0 on reload, when every consumer remounts anyway.
+let clearGeneration = 0;
+
+export function getPatientProfileClearGeneration(): number {
+  return clearGeneration;
+}
+
+export function getServerPatientProfileClearGeneration(): number {
+  return 0;
+}
+
+// Both clears below dispatch the store's own change event rather than relying on
+// the `storage` event, which browsers only fire in *other* tabs: mounted
+// medication surfaces cache the parsed snapshot by raw string and must re-read
+// an empty profile in this tab. The generation is bumped BEFORE the dispatch so
+// a subscriber re-reading synchronously sees both halves of the same clear.
+
+/** Account-transition clear (sign-out, session expiry, user change). */
 export function clearPatientProfile(): void {
   if (typeof window === "undefined") return;
   try {
@@ -207,5 +238,26 @@ export function clearPatientProfile(): void {
   } catch {
     // Storage may be unavailable; the snapshot then reads as empty anyway.
   }
+  clearGeneration += 1;
   window.dispatchEvent(new Event(PATIENT_PROFILE_CHANGE_EVENT));
+}
+
+/**
+ * In-session clear — the panel's own Clear button, via the context.
+ *
+ * Writes an empty profile rather than removing the key, which is the difference
+ * from `clearPatientProfile` above: this tab is still the same clinician's
+ * session, so the profile stays present-and-empty (an explicitly emptied field
+ * list) instead of absent. Both bump the same generation, because from a mounted
+ * field's point of view they are the same event: everything you are showing is
+ * gone, whoever asked for it.
+ */
+export function resetPatientProfile(): void {
+  if (typeof window === "undefined") return;
+  // Bumped first so the single write below carries both halves of the clear in
+  // one change event, rather than notifying twice and rendering an in-between
+  // state in which the profile is already empty but the fields do not yet know
+  // a clear is what emptied it.
+  clearGeneration += 1;
+  writePatientProfile({ ...EMPTY_PATIENT_PROFILE, medications: [] });
 }

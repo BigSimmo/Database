@@ -10,6 +10,10 @@
  * domain per search, so one federated search became three uncached round trips for a catalogue
  * that changes only when an operator publishes, and a debounced typeahead multiplied that again.
  * Search went from effectively instant to visibly slow across every catalogue mode at once.
+ * (`owner-catalogue-cache` itself was deleted on 2026-09-19, issue `#BDJWAH`: it had kept its two
+ * `invalidateOwnerCatalogueCache` calls in the seed writers for ten days after losing its last
+ * reader, so publication looked cache-aware when nothing was being invalidated.
+ * `docs/audit/2026-09-16-registry-search-outage.md` is the surviving record of what it did.)
  *
  * This restores the cache half. The wide payload is a property of the SQL function and cannot be
  * narrowed from here without a migration, which reaches the live clinical database on merge.
@@ -28,6 +32,44 @@
  *     never more than the fresh window plus one query behind the database.
  *   * Beyond `siteContentRecordCacheStaleMs` it is discarded and the caller waits for a real
  *     read, so an idle process cannot serve something genuinely old.
+ *
+ * THE TTL IS THE WHOLE CONTRACT. THERE IS DELIBERATELY NO PUBLICATION-TIME INVALIDATION.
+ * Settled 2026-09-19 under issue `#BDJWAH`, which asked the question directly. Four reasons, in
+ * the order that decides it; reopen this only if one of them stops being true.
+ *
+ *   1. A PUBLICATION DOES NOT CHANGE WHAT THIS READ RETURNS. `read_site_content_public_records`
+ *      serves `site_content_sync_state.active_release_id`. `publish_site_content_record` does not
+ *      touch it: it raises a record's `head_change_epoch` above the served epoch, which makes the
+ *      record `outstanding`, which makes every whole-catalogue read (the only reads that opt in
+ *      here) return NO rows with `state = 'updating'`. Rule 1 below already refuses to store that
+ *      and evicts on sight. The served catalogue changes only at `activate_site_content_release`
+ *      or `rollback_site_content_release`.
+ *   2. SO INVALIDATING ON PUBLISH WOULD MAKE THINGS WORSE, NOT STALER. Dropping the entry the
+ *      moment an operator publishes replaces a complete, correct, last-known-good catalogue with
+ *      an `updating` read that returns nothing, and the caller's seed fallback then serves the
+ *      in-bundle copy shipped in the build. Readers would get OLDER content, not newer, for the
+ *      whole span between the publish and the activation.
+ *   3. NOTHING IN THIS PROCESS OBSERVES THE MOMENT THAT DOES MATTER. `activateSiteContentRelease`
+ *      and `rollbackSiteContentRelease` have no caller anywhere in `src/`; the runbook that owns
+ *      them calls them operator-driven and rare (`docs/site-content-sync-runbook.md`). There is no
+ *      in-process event to hang a hook on, and a hook wired to the publication route instead
+ *      would be a hook on the wrong event — which is exactly how the retired
+ *      `invalidateOwnerCatalogueCache` came to be called by writers nothing read.
+ *   4. AND IT WOULD NOT BE A GUARANTEE EVEN THEN. This map is per process. Production runs one
+ *      warm replica today, but `docs/deployment-architecture.md` § 2.1 carries a scale-out plan
+ *      to N, and an in-process clear reaches one cache of N while the other N-1 keep serving the
+ *      same window. A control that silently covers 1/N is the misleading yes `#BDJWAH` was
+ *      raised about.
+ *
+ * What bounds staleness instead: the 15 s fresh window plus one background query under continued
+ * use, a 10 min hard ceiling when idle, and the fact that only the four whole-catalogue LIST
+ * reads opt in at all — detail, publication and reconciliation reads deliberately do not, so an
+ * operator checking their own record still sees their own change immediately.
+ *
+ * IF THIS DOES NEED REVISITING, the right mechanism is not this function. It would be a cheap
+ * cross-process freshness probe — the snapshot already carries `releaseId` and `changeEpoch`, so
+ * a reader could compare a served epoch against the live one without paying the whole canonical
+ * read. `clearSiteContentRecordCache` below cannot do that job and was never going to.
  *
  * CONSERVATIVE BY CONSTRUCTION. Three rules keep a cache from prolonging a degraded or
  * mid-publication state, which on clinical content matters more than the latency it buys:
@@ -280,7 +322,10 @@ export async function readSiteContentRecordsCached(input: {
   }
 }
 
-/** Test seam, and the hook an explicit publication-time invalidation would use. */
+/**
+ * Test seam only. It is NOT a publication hook: see "THE TTL IS THE WHOLE CONTRACT" in the header
+ * for why this module has none, and what to build instead if that ever has to change.
+ */
 export function clearSiteContentRecordCache() {
   entries.clear();
   inflight.clear();

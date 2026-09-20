@@ -783,6 +783,9 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               : "Couldn’t load the forms registry. Try again shortly."
           }
           onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+          // Same contract as the services navigator: a seed-served forms registry is still
+          // shown, and the count line says the list may lag what was published.
+          catalogueDegraded={registry.degraded}
           faultAction={
             registry.status === "unauthorized" ? (
               <Link
