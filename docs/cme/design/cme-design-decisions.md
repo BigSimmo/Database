@@ -293,3 +293,34 @@ in one place and five in another.
 Sections 2 and 10 are the mitigation, not a caveat. The app never asserts a requirement;
 it holds the owner's confirmed numbers, with the date and the document he confirmed them
 against, and shows that provenance on every screen that displays a target.
+
+---
+
+## 15. The demo corpus, and one number the drawings get wrong
+
+The synthetic corpus in `src/lib/cme/demo-year.ts` is what every screen renders before a
+database exists, and what the browser tests and pixel baselines assert against. It is 47
+entries totalling **32.5 hours**, on a frozen instant of 19 September 2026.
+
+**The drawings say educational 15.0. The build says 22.5, and the build is right.** Only
+three categories exist, so the year's total _is_ the sum of the three — that is an identity,
+not a coincidence. `15.0 + 8.0 + 2.0` is 25.0, which cannot coexist with a 32.5-hour total:
+7.5 hours would have nowhere to live. Holding reviewing at 8.0 and measuring at 2.0 — the
+pair the design uses to show one floor met and one not — forces educational to 22.5. Found
+while building the corpus, 2026-09-20.
+
+**Peer review is a count, not hours.** The drawings show "7.0 of 10", which read as hours
+would have to sit in _reviewing performance_ — the same category that is separately shown as
+8.0, and one figure cannot be both. It is modelled instead as attendance at a monthly peer
+group, 7 of 10 sessions from February to November: an `activity-count` requirement. This is
+the more honest shape anyway. A peer review group is a thing you attended or did not, and
+counting it in hours invites the arithmetic the drawings tripped over.
+
+Per this file's own rule, where it and a drawing disagree, this file wins. The boards carry
+the old figure and should be re-exported when they are next touched; nothing in the build
+reads them.
+
+Every other figure in the drawings is exact and is pinned by a test: 47 entries, 32.5 hours,
+three of four practice domains filled with _Ethical practice_ empty, the plan written on
+12 January, the self-evaluation not started, 9 entries with evidence and 3 without, and 14
+not yet transcribed into the college portal.
