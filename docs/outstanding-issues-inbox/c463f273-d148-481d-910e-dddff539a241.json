@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c463f273-d148-481d-910e-dddff539a241",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Railway deploys every main push without waiting for the required checks, so a red commit can be serving psychiatry.tools",
+    "detail": "Configure a Railway deployment gate on the app and worker services so they wait for pr-required to succeed on the main push. Why: the deploy and the post-merge CI run are two independent reactions to the same push, so 'CI passed' and 'what is live is tested' are different claims. Context: repo maturity review 2026-09-19; inferred from docs/deployment-architecture.md §6 (auto-deploy from main, rollback is a manual redeploy after the fact), NOT from a direct read of Railway settings. Owner: user (Railway dashboard, not code). Confidence: medium — the absence of a gate is inferred from docs; verify in the dashboard first. Depends on: nothing.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ6KBHYSWAF428YRDR93K"
+  }
+}

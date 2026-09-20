@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "daf4f46e-b379-4a09-9ee2-485fcbe1909b",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Draft PRs skip twelve CI jobs including Production UI, so agent-opened PRs get almost no real testing until someone marks them ready",
+    "detail": "Decide whether agent-opened PRs should open ready-for-review, or whether the draft skip-list should be narrower. Why: the standing instruction is to open PRs as draft, and .github/workflows/ci.yml gates 12 jobs on github.event.pull_request.draft != true (static-heavy, coverage, build, Production UI, Production UI critical, Ward Flow, Lighthouse and more), so a draft PR's green 'PR required' is far weaker than it looks and the change reaches main having had only the light baseline. Context: PR #2909 sat as a draft with zero browser coverage; npm run plan:browser names this case in its own output ('A draft PR is the case that bites'). Owner: user decision, then assistant. Confidence: high — verified by grep, 12 occurrences of the draft condition. Depends on: nothing.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ6RQ9VQVRT1WE83M8J03"
+  }
+}
