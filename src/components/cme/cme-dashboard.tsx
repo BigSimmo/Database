@@ -1,6 +1,14 @@
 "use client";
 
-import { CalendarClock, CalendarDays, ListChecks, NotebookPen, Settings2, ShieldCheck, type LucideIcon } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  ListChecks,
+  NotebookPen,
+  Settings2,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
