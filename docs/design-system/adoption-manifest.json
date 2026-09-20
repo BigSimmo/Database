@@ -291,6 +291,7 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/cme/cme-dashboard.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-entry-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
@@ -1075,6 +1076,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/clinical-dashboard/image-lightbox.tsx",
+        "src/components/cme/cme-customise-page.tsx",
         "src/components/navigation-back-button.tsx"
       ],
       "productImportFiles": [
@@ -1470,7 +1472,7 @@
       "source": "src/components/ui/progress.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": [],
+      "directImportFiles": ["src/components/cme/cme-dashboard.tsx"],
       "productImportFiles": [],
       "designSync": {
         "listedInSourceMap": true,

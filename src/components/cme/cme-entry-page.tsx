@@ -214,7 +214,7 @@ export function CmeEntryPage({
               : "Not yet copied to your CPD home."}
         </p>
         <p className={cn(textMuted, "mt-1 text-center text-2xs")}>
-          Puts every field on your clipboard in your CPD home's order, then marks this entry transcribed.
+          Puts every field on your clipboard in your CPD home&rsquo;s order, then marks this entry transcribed.
         </p>
       </section>
     </main>
