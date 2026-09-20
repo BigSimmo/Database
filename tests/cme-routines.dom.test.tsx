@@ -58,13 +58,13 @@ describe("Routines", () => {
     renderPage();
     const due = screen.getByTestId("cme-routines-due");
     expect(within(due).getByText("Supervision")).toBeInTheDocument();
-    expect(within(due).getByRole("button", { name: "Log 1.0 h" })).toBeInTheDocument();
+    expect(within(due).getByRole("button", { name: "Log 1.0 h for Supervision" })).toBeInTheDocument();
   });
 
   it("never logs on its own — tapping Log only hands the owner a pre-filled draft to confirm", async () => {
     const user = userEvent.setup();
     const { onLogRoutine } = renderPage();
-    await user.click(screen.getByRole("button", { name: "Log 1.0 h" }));
+    await user.click(screen.getByRole("button", { name: "Log 1.0 h for Supervision" }));
     expect(onLogRoutine).toHaveBeenCalledTimes(1);
     expect(onLogRoutine).toHaveBeenCalledWith({
       routineId: "r1",
@@ -100,6 +100,22 @@ describe("Routines", () => {
       hours: 1.5,
       allocations: [],
     });
+  });
+
+  it("gives two due routines with identical usual hours distinct accessible names", () => {
+    const otherDueRoutine: CmeRoutine = {
+      id: "r4",
+      title: "Peer review group",
+      cadence: "monthly",
+      usualHours: 1,
+      usualAllocations: [],
+      nextDue: "2026-09-28",
+      archivedAt: null,
+    };
+    renderPage({ routines: [dueRoutine, otherDueRoutine] });
+    const due = screen.getByTestId("cme-routines-due");
+    expect(within(due).getByRole("button", { name: "Log 1.0 h for Supervision" })).toBeInTheDocument();
+    expect(within(due).getByRole("button", { name: "Log 1.0 h for Peer review group" })).toBeInTheDocument();
   });
 
   it("never shows an archived routine, due or not", () => {

@@ -211,10 +211,10 @@ describe("One entry", () => {
   });
 
   it("copies the portal text and marks the entry transcribed, never the other way around", async () => {
+    const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);
     const onCopied = vi.fn();
-    const user = userEvent.setup();
     render(<CmeEntryPage entryId="fx-1" entries={fixtureEntries} set={fixtureSet} onCopied={onCopied} />);
 
     expect(screen.getByTestId("cme-entry-transcribed-status")).toHaveTextContent(/not yet copied/i);
@@ -228,9 +228,9 @@ describe("One entry", () => {
   });
 
   it("never puts the entry's cost on the clipboard", async () => {
+    const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);
-    const user = userEvent.setup();
     render(<CmeEntryPage entryId="fx-2" entries={fixtureEntries} set={fixtureSet} />);
 
     await user.click(screen.getByRole("button", { name: /copy for your cpd home/i }));

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
-import { CmeAllocationField, isAllocationBalanced } from "@/components/cme/cme-allocation-field";
+import { CmeAllocationField, isAllocationBalanced, isPlainDecimalText } from "@/components/cme/cme-allocation-field";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { TextField } from "@/components/ui/text-field";
@@ -33,16 +33,23 @@ export type CmeEntryFormProps = {
   onSubmit: (entry: CmeEntryDraft) => Promise<void>;
 };
 
-/** `null` for blank or unparseable text — a cost the owner never actually stated, not a zero cost. */
+/**
+ * `null` for blank or unparseable text — a cost the owner never actually
+ * stated, not a zero cost. Also `null` for anything but a plain decimal —
+ * exponent notation like `"1e10"` would otherwise parse to a real number and
+ * slip through as a cost with no upper bound to catch it.
+ */
 function centsFromDollarText(raw: string): number | null {
   const trimmed = raw.trim();
   if (trimmed === "") return null;
+  if (!isPlainDecimalText(trimmed)) return null;
   const dollars = Number(trimmed);
   if (!Number.isFinite(dollars) || dollars < 0) return null;
   return Math.round(dollars * 100);
 }
 
 function parsePositiveHours(raw: string): number {
+  if (!isPlainDecimalText(raw)) return 0;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }

@@ -32,7 +32,9 @@ import { cmeCategories, cmeCategoryLabels, type CmeEntry, type CmeRequirementSet
  * screen for the same entry.
  */
 export function formatEntryForCpdHome(entry: CmeEntry, set: CmeRequirementSet): string {
-  const hoursByCategory = new Map(entry.allocations.map((allocation) => [allocation.category, allocation.hours] as const));
+  const hoursByCategory = new Map(
+    entry.allocations.map((allocation) => [allocation.category, allocation.hours] as const),
+  );
 
   const lines: string[] = [`Date: ${entry.date}`, `Activity: ${entry.title}`, `Hours: ${totalAllocatedHours([entry])}`];
 

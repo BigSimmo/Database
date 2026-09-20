@@ -27,7 +27,7 @@ const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
  * Whether a split adds up to the hours the owner said the activity took, to
- * a twentieth-of-an-hour (three-minute) precision — enough to absorb ordinary
+ * a hundredth-of-an-hour (36-second) precision — enough to absorb ordinary
  * floating-point noise from summing several typed numbers without ever
  * calling a genuine mismatch "close enough".
  */
@@ -39,7 +39,20 @@ export function totalAllocatedHours(allocations: readonly CmeAllocation[]): numb
   return round2(allocations.reduce((sum, allocation) => sum + allocation.hours, 0));
 }
 
+/**
+ * Whether `raw` is a plain decimal number the way an owner would type one by
+ * hand: digits, then optionally one decimal point followed by more digits.
+ * No exponent notation (`e`/`E`) and no leading sign (`+`/`-`) — `Number()`
+ * on its own accepts both, and exponent notation in particular can turn a
+ * short string like `"1e10"` into a huge value that a simple `max` check
+ * downstream may not be guarding against.
+ */
+export function isPlainDecimalText(raw: string): boolean {
+  return /^\d+(\.\d+)?$/.test(raw.trim());
+}
+
 function parseHours(raw: string): number {
+  if (!isPlainDecimalText(raw)) return 0;
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
 }
@@ -81,10 +94,7 @@ export function CmeAllocationField({ statedHours, onChange, idPrefix = "cme-allo
           const inputId = `${idPrefix}-${category}`;
           return (
             <div key={category}>
-              <label
-                htmlFor={inputId}
-                className="mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]"
-              >
+              <label htmlFor={inputId} className="mb-1.5 block text-sm font-medium leading-5 text-[color:var(--text)]">
                 {cmeCategoryLabels[category]}
               </label>
               <input

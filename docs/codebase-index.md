@@ -167,27 +167,28 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 
 ### API routes (`src/app/api/`)
 
-| Area             | Routes                                                                                                                                      | Entry files                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                       | `account/`                                                      |
-| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                 | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                  | `clinical-ask/stream/route.ts`                                  |
-| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                            | `clinical-quality/route.ts`                                     |
-| Speech           | `/api/speech/transcribe`                                                                                                                    | `speech/transcribe/route.ts`                                    |
-| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                           | `search/`                                                       |
-| Upload           | `/api/upload`                                                                                                                               | `upload/route.ts`                                               |
-| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                         | `documents/`                                                    |
-| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                | `differentials/`                                                |
-| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                               | `medications/`                                                  |
-| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                             | `ingestion/`                                                    |
-| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                     | `registry/records/`                                             |
-| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries) | `on-call/entries/`                                              |
-| Images           | `/api/images/[id]/signed-url`                                                                                                               | `images/[id]/signed-url/route.ts`                               |
-| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                            | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                      | `eval-cases/`, `jobs/`                                          |
-| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                            | `webhooks/`                                                     |
-| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                 | `caring-contacts/`                                              |
-| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                  | `site-content/publications/`                                    |
+| Area             | Routes                                                                                                                                                    | Entry files                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                                     | `account/`                                                      |
+| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                               | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                                | `clinical-ask/stream/route.ts`                                  |
+| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                                          | `clinical-quality/route.ts`                                     |
+| Speech           | `/api/speech/transcribe`                                                                                                                                  | `speech/transcribe/route.ts`                                    |
+| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                                         | `search/`                                                       |
+| Upload           | `/api/upload`                                                                                                                                             | `upload/route.ts`                                               |
+| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                                       | `documents/`                                                    |
+| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                              | `differentials/`                                                |
+| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                                             | `medications/`                                                  |
+| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                           | `ingestion/`                                                    |
+| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                   | `registry/records/`                                             |
+| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries)               | `on-call/entries/`                                              |
+| CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository) | `cme/entries/`, `cme/year/`                                     |
+| Images           | `/api/images/[id]/signed-url`                                                                                                                             | `images/[id]/signed-url/route.ts`                               |
+| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                                          | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                                    | `eval-cases/`, `jobs/`                                          |
+| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                                          | `webhooks/`                                                     |
+| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                               | `caring-contacts/`                                              |
+| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                                | `site-content/publications/`                                    |
 
 ---
 
@@ -455,6 +456,10 @@ ownership model as `on_call_entries`. `cme_requirements.spec` is `jsonb` for the
 timestamp — derived, it would be UTC, and an activity logged after 16:00 UTC on 31 December would
 file itself into the closing year. `src/lib/cme/repository.ts` is the only module that reaches
 them, and it is listed in `SCANNED_LIB_MODULES` so `check:owner-scope` actually reads it.
+
+Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
+`/api/cme/entries`, `[id]` and `/api/cme/year`. Demo-mode branching lives in those routes and
+never in the repository, so production cannot silently fall back to synthetic data.
 
 ---
 

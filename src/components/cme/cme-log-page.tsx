@@ -13,7 +13,13 @@ import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
-import { cmeCategories, cmeCategoryLabels, type CmeCategory, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
+import {
+  cmeCategories,
+  cmeCategoryLabels,
+  type CmeCategory,
+  type CmeEntry,
+  type CmeRequirementSet,
+} from "@/lib/cme/types";
 
 export type CmeLogPageProps = {
   /** Every entry the owner has recorded, any year. Defaults to the demo corpus. */
@@ -94,7 +100,12 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
         <Link
           href={`/cme/log/${entry.id}`}
           data-testid={`cme-log-row-${entry.id}`}
-          className={cn("flex min-h-tap min-w-0 flex-1 flex-col justify-center", stretchedRowLinkClass, focusRing, "rounded-md")}
+          className={cn(
+            "flex min-h-tap min-w-0 flex-1 flex-col justify-center",
+            stretchedRowLinkClass,
+            focusRing,
+            "rounded-md",
+          )}
         >
           <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{entry.title}</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[color:var(--text-muted)]">
@@ -115,17 +126,24 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             ) : null}
           </span>
           {entry.routineId ? (
-            <span className="relative z-10 mt-1.5 inline-flex">
+            <span className="mt-1.5 inline-flex">
               <Chip size="compact" icon={Repeat} appearance={{ kind: "information", tone: "accent" }}>
                 Routine
               </Chip>
             </span>
           ) : null}
         </Link>
-        <span className="relative z-10 shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
+        {/* Decoration beside the anchor above, not inside it, and deliberately
+            NOT given `relative z-10`: card-recipes.ts reserves that lift for a
+            row's OTHER controls, and these two are plain display, not a
+            second target. Left as ordinary static content, they paint under
+            the anchor's stretched `::after` layer, so a tap here still
+            activates the same one link the title does — the whole card is
+            one tap target, not a title-shaped tap target beside a dead strip. */}
+        <span className="shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
           {totalAllocatedHours([entry])}
         </span>
-        <ChevronRight aria-hidden="true" className={cn("relative z-10 size-icon-sm shrink-0", textMuted)} />
+        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
       </div>
     </li>
   );
@@ -210,7 +228,7 @@ export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: 
         </div>
       ) : null}
 
-      <div className="mt-4">
+      <div data-testid="cme-log-search" className="mt-4">
         <SearchField
           label="Search your log"
           placeholder="Search titles and reflections"
@@ -218,7 +236,6 @@ export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: 
           onChange={(event) => setQuery(event.target.value)}
           onClear={() => setQuery("")}
           clearLabel="Clear the log search"
-          data-testid="cme-log-search"
         />
       </div>
 
@@ -250,7 +267,11 @@ export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: 
           />
         ) : (
           groups.map((group) => (
-            <section key={group.key} data-testid={`cme-log-month-${group.key}`} aria-labelledby={`${group.key}-heading`}>
+            <section
+              key={group.key}
+              data-testid={`cme-log-month-${group.key}`}
+              aria-labelledby={`${group.key}-heading`}
+            >
               <h2 id={`${group.key}-heading`} className={cn(eyebrowText, "mb-2 flex items-baseline justify-between")}>
                 <span>{group.label}</span>
                 <span className="tabular-nums">{group.hours} h</span>

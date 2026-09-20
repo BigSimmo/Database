@@ -255,8 +255,8 @@ export function CmeProgrammePage({
             {formatCalendarDate(yearBounds.end)}.
           </p>
           <p className="text-xs leading-relaxed text-[color:var(--text-muted)]">
-            Changing your status next year does not rewrite this one — each year keeps the requirements that applied
-            to it.
+            Changing your status next year does not rewrite this one — each year keeps the requirements that applied to
+            it.
           </p>
         </section>
       </InformationPageShell>

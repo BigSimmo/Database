@@ -22,13 +22,15 @@ export type CmeRoutinesPageProps = {
   readonly now: Date;
   /**
    * Called when the owner taps "Log" on a routine, with everything the entry
-   * form needs to open pre-filled. Defaults to a no-op so this page still
-   * renders sensibly wherever it is not yet wired to a real handler — a
-   * missing handler must never look like a successful log.
+   * form needs to open pre-filled. Required, not defaulted: a caller that
+   * forgets to wire this up must fail to compile rather than render a button
+   * that looks like it logs an activity and silently does nothing when
+   * tapped — in a record someone may have to defend to a regulator, that is
+   * the worst available failure.
    */
-  readonly onLogRoutine?: (prefill: CmeRoutineLogPrefill) => void;
-  /** Called when the owner taps "New routine". Defaults to a no-op for the same reason as `onLogRoutine`. */
-  readonly onNewRoutine?: () => void;
+  readonly onLogRoutine: (prefill: CmeRoutineLogPrefill) => void;
+  /** Called when the owner taps "New routine". Required for the same reason as `onLogRoutine`. */
+  readonly onNewRoutine: () => void;
 };
 
 /**
@@ -50,7 +52,7 @@ export type CmeRoutinesPageProps = {
  * `CmeNavHeader`. See `docs/search-chrome-behaviour.md` for when a page owns
  * that header and when, like this one, it does not need to.
  */
-export function CmeRoutinesPage({ routines = [], now, onLogRoutine = () => {}, onNewRoutine = () => {} }: CmeRoutinesPageProps) {
+export function CmeRoutinesPage({ routines = [], now, onLogRoutine, onNewRoutine }: CmeRoutinesPageProps) {
   const dueRoutines = routinesDueOn(routines, now);
   const activeRoutines = routines
     .filter((routine) => routine.archivedAt === null)
@@ -83,7 +85,11 @@ export function CmeRoutinesPage({ routines = [], now, onLogRoutine = () => {}, o
                   {cmeRoutineCadenceLabels[routine.cadence]} · usually {formatRoutineHours(routine.usualHours)} h
                 </p>
               </div>
-              <Button variant="primary" onClick={() => handleLog(routine)}>
+              <Button
+                variant="primary"
+                aria-label={`Log ${formatRoutineHours(routine.usualHours)} h for ${routine.title}`}
+                onClick={() => handleLog(routine)}
+              >
                 {`Log ${formatRoutineHours(routine.usualHours)} h`}
               </Button>
             </div>
@@ -99,8 +105,8 @@ export function CmeRoutinesPage({ routines = [], now, onLogRoutine = () => {}, o
 
       <div data-testid="cme-routines-confirmation-note" className="mt-6">
         <InlineNotice tone="neutral">
-          A routine only ever suggests. Tapping Log opens a pre-filled entry for you to check —
-          nothing is recorded until you confirm and save it.
+          A routine only ever suggests. Tapping Log opens a pre-filled entry for you to check — nothing is recorded
+          until you confirm and save it.
         </InlineNotice>
       </div>
 

@@ -32,4 +32,19 @@ describe("New entry", () => {
     expect(screen.getByLabelText(/what it cost/i)).toBeInTheDocument();
     expect(screen.getByTestId("cme-cost-optional")).toHaveTextContent(/optional/i);
   });
+
+  it("rejects exponent notation in the cost field instead of parsing it as a number", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.type(screen.getByLabelText(/what it cost/i), "1e10");
+    expect(screen.getByText("Numbers only, like 45 or 45.50.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+  });
+
+  it("rejects exponent notation in an allocation field instead of counting it as hours", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.type(screen.getByLabelText(/reviewing performance/i), "1e10");
+    expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("0.0 of 1.0 allocated");
+  });
 });

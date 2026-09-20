@@ -118,9 +118,7 @@ export function CmeSetupPage({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{step.title}</span>
-                <span className="block text-xs leading-relaxed text-[color:var(--text-muted)]">
-                  {step.description}
-                </span>
+                <span className="block text-xs leading-relaxed text-[color:var(--text-muted)]">{step.description}</span>
               </span>
               <span className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
                 {setupStepStatusLabel[step.status]}
@@ -140,12 +138,10 @@ export function CmeSetupPage({
             <span className="block text-2xs font-black uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
               Optional — not a fifth step
             </span>
-            <span className="mt-1 block text-sm font-bold text-[color:var(--text-heading)]">
-              Set up your routines
-            </span>
+            <span className="mt-1 block text-sm font-bold text-[color:var(--text-heading)]">Set up your routines</span>
             <span className="mt-0.5 block text-xs leading-relaxed text-[color:var(--text-muted)]">
-              Supervision, journal club, peer review group — most of your hours, every month. Set them up once and
-              each is one tap.
+              Supervision, journal club, peer review group — most of your hours, every month. Set them up once and each
+              is one tap.
             </span>
           </span>
           <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
@@ -159,8 +155,8 @@ export function CmeSetupPage({
           <div>
             <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Nothing is being recorded yet</h2>
             <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
-              Automatic capture is off. If you turn it on, it would record document titles and how long they were
-              open — never what you typed in the search box.
+              Automatic capture is off. If you turn it on, it would record document titles and how long they were open —
+              never what you typed in the search box.
             </p>
           </div>
           <div className="flex items-center justify-between gap-3">

@@ -145,10 +145,7 @@ export function CmeEntryPage({
         <h2 className={eyebrowText}>Allocations</h2>
         <ul className="mt-2 flex flex-col gap-2">
           {entry.allocations.map((allocation) => (
-            <li
-              key={allocation.category}
-              className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}
-            >
+            <li key={allocation.category} className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}>
               <Chip appearance={{ kind: "category", tone: "indigo" }}>{cmeCategoryLabels[allocation.category]}</Chip>
               <span className="text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
                 {allocation.hours} h
