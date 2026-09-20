@@ -94,7 +94,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
         <Link
           href={`/cme/log/${entry.id}`}
           data-testid={`cme-log-row-${entry.id}`}
-          className={cn("min-w-0 flex-1", stretchedRowLinkClass, focusRing, "rounded-md")}
+          className={cn("flex min-h-tap min-w-0 flex-1 flex-col justify-center", stretchedRowLinkClass, focusRing, "rounded-md")}
         >
           <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{entry.title}</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[color:var(--text-muted)]">

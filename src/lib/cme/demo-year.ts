@@ -567,8 +567,13 @@ const PEER_REVIEW_MONTHS = [
 
 export const DEMO_CME_YEAR: CmeRequirementSet = {
   year: 2026,
-  confirmedOn: "2026-09-19",
-  confirmedSource: "Medical Board of Australia CPD registration standard",
+  // Deliberately NOT the name of a real regulator's real standard. This string is
+  // rendered verbatim into the provenance block beside "Confirmed by you on …",
+  // so a screenshot of demo mode carrying a genuine standard's title would read
+  // as a real regulatory citation the app had made on its own authority — the one
+  // thing this mode exists to never do.
+  confirmedOn: "2026-01-08",
+  confirmedSource: "Demo CPD standard (synthetic — not a real regulatory source)",
   totalHours: 50,
   requirements: [
     {
