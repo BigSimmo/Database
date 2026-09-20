@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
+  DEVELOPER_ACCESS_ERROR_PARAM,
   developerAccessKeyMatches,
+  developerKeyUnlockUrl,
+  parseDeveloperGateTarget,
   developerAccessTokenValid,
   issueDeveloperAccessToken,
   resolveDeveloperAccessKey,
@@ -111,5 +114,108 @@ describe("developerAccessKeyMatches", () => {
     expect(developerAccessKeyMatches(KEY, {})).toBe(false);
     expect(developerAccessKeyMatches("", {})).toBe(false);
     expect(developerAccessKeyMatches(undefined, configured)).toBe(false);
+  });
+});
+
+// The client-safe half of the credential: the URL shape the gate screen's key
+// field submits, and the verdict it reads back. These run in a Client Component,
+// so they are asserted here against `link-access-shared.ts` directly -- the
+// module `link-access.ts` re-exports rather than re-declares.
+describe("parseDeveloperGateTarget", () => {
+  it("returns the requested path unchanged when no rejection marker is present", () => {
+    expect(parseDeveloperGateTarget("/mockups/ward-flow/network")).toEqual({
+      target: "/mockups/ward-flow/network",
+      keyRejected: false,
+    });
+  });
+
+  it("reports the proxy's rejection and strips the marker from the retry target", () => {
+    expect(parseDeveloperGateTarget(`/mockups/development?${DEVELOPER_ACCESS_ERROR_PARAM}=1`)).toEqual({
+      target: "/mockups/development",
+      keyRejected: true,
+    });
+  });
+
+  it("keeps the page's own query while removing only the marker", () => {
+    expect(parseDeveloperGateTarget(`/mockups/care-plan?tab=risk&${DEVELOPER_ACCESS_ERROR_PARAM}=1`)).toEqual({
+      target: "/mockups/care-plan?tab=risk",
+      keyRejected: true,
+    });
+  });
+
+  it("falls back to the area root for anything outside the gated subtrees", () => {
+    // `next` arrives in a request header, and the target built from it is handed
+    // to location.replace carrying the typed secret. A value that escapes to
+    // another origin does not merely redirect — it posts the key to whoever owns
+    // that origin.
+    const hostile = [
+      "//evil.example/mockups/development",
+      "https://evil.example",
+      "mockups/development",
+      "",
+      // Browsers normalise `\\` to `/` for special schemes and strip tab, CR and
+      // LF before parsing, so every one of these defeated the old
+      // `startsWith("//")` denylist and resolved to https://evil.example/. The
+      // allowlist is what closes them; these four are the regression.
+      String.raw`/\evil.example`,
+      "/\tevil.example",
+      "/\nevil.example",
+      "/\revil.example",
+      // Look-alike prefixes are not members of the allowlist either.
+      "/mockups/care-plan-archive",
+      "/documents",
+      "/mockups",
+    ];
+    for (const value of hostile) {
+      expect(parseDeveloperGateTarget(value).target).toBe("/mockups/development");
+    }
+    expect(parseDeveloperGateTarget(null).target).toBe("/mockups/development");
+  });
+
+  it("refuses to carry a rejected path's query string over to the fallback", () => {
+    // Dropping the path but keeping its query would let a hostile `next` still
+    // steer the page it lands on.
+    expect(parseDeveloperGateTarget("https://evil.example/?tab=risk")).toEqual({
+      target: "/mockups/development",
+      keyRejected: false,
+    });
+  });
+
+  it("admits every gated subtree, and their descendants", () => {
+    for (const allowed of [
+      "/mockups/development",
+      "/mockups/development/ledger",
+      "/mockups/caring-contacts",
+      "/mockups/care-plan/review",
+      "/mockups/ward-flow/network",
+    ]) {
+      expect(parseDeveloperGateTarget(allowed).target).toBe(allowed);
+    }
+  });
+});
+
+describe("developerKeyUnlockUrl", () => {
+  it("attaches the typed key to the page the visitor asked for", () => {
+    const url = developerKeyUnlockUrl("/mockups/ward-flow", KEY);
+    expect(url).toBe(`/mockups/ward-flow?devkey=${encodeURIComponent(KEY)}`);
+  });
+
+  it("preserves the page's own query parameters alongside the key", () => {
+    const url = new URL(developerKeyUnlockUrl("/mockups/care-plan?tab=risk", KEY), "https://psychiatry.tools");
+    expect(url.pathname).toBe("/mockups/care-plan");
+    expect(url.searchParams.get("tab")).toBe("risk");
+    expect(url.searchParams.get("devkey")).toBe(KEY);
+  });
+
+  it("does not carry a previous attempt's rejection marker into the retry", () => {
+    const url = developerKeyUnlockUrl(`/mockups/development?${DEVELOPER_ACCESS_ERROR_PARAM}=1`, KEY);
+    expect(url).not.toContain(DEVELOPER_ACCESS_ERROR_PARAM);
+  });
+
+  it("escapes the key rather than letting it alter the URL's shape", () => {
+    // A mistyped key containing `&` or `#` must stay one parameter value, not
+    // become a second parameter or a fragment that silently truncates it.
+    const url = new URL(developerKeyUnlockUrl("/mockups/development", "a&b=c#d"), "https://psychiatry.tools");
+    expect(url.searchParams.get("devkey")).toBe("a&b=c#d");
   });
 });

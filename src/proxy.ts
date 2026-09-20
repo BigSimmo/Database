@@ -7,15 +7,12 @@ import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/c
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
-import {
-  DEVELOPER_AREA_HEADER,
-  DEVELOPER_AREA_PATH_HEADER,
-  DEVELOPER_GATED_PATH_PREFIXES,
-} from "@/lib/developer-area/headers";
+import { DEVELOPER_AREA_HEADER, DEVELOPER_AREA_PATH_HEADER, isDeveloperGatedPath } from "@/lib/developer-area/headers";
 import {
   DEVELOPER_ACCESS_COOKIE,
   DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
   DEVELOPER_ACCESS_COOKIE_PATH,
+  DEVELOPER_ACCESS_ERROR_PARAM,
   DEVELOPER_ACCESS_QUERY_PARAM,
   developerAccessKeyMatches,
   developerAccessTokenValid,
@@ -24,10 +21,6 @@ import {
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
-
-function isDeveloperGatedPath(pathname: string) {
-  return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
 
 export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
 
@@ -243,8 +236,16 @@ export async function proxy(request: NextRequest) {
     url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
     const redirectTarget = staticRouteRedirects[pathname];
     if (redirectTarget) url.pathname = redirectTarget;
-    const response = withCsp(NextResponse.redirect(url));
     const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
+    // Say so when the secret did not verify. Without this the redirect is
+    // byte-identical to a success the browser has not finished acting on, and a
+    // mistyped key looks exactly like a working one — the gate screen simply
+    // reappears. The marker carries no secret: it is a verdict on a value its
+    // reader has just typed. It is removed on success so a stale rejection from
+    // an earlier attempt cannot ride along into the opened area.
+    url.searchParams.delete(DEVELOPER_ACCESS_ERROR_PARAM);
+    if (!token) url.searchParams.set(DEVELOPER_ACCESS_ERROR_PARAM, "1");
+    const response = withCsp(NextResponse.redirect(url));
     if (token) setDeveloperAccessCookie(response, token, request);
     return response;
   }
