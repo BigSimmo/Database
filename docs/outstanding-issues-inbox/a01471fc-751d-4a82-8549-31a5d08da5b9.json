@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a01471fc-751d-4a82-8549-31a5d08da5b9",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "d5651294-6a70-43fc-b3d9-eeba735419be",
+    "reason": "Superseded, not rejected: its reframing is correct and is carried forward VERBATIM by the replacement request queued alongside this cancellation. The only change is that two figures inside it were wrong. It said the UMRNs are in 12 files where the 2026-08-31 ruling recorded 2, and that 4 commits touch ward-patients-seed.ts where it recorded 3. Measured at HEAD on 2026-09-20: UMRNs in 16 files (git grep -l UM10000), names in 8 (git grep -l 'Talia Halloway'), and 3 commits carrying the records (git log --all -S UM100001). The 12 came from searching UM100001, the first record of eight, so it missed four files carrying only one of the other seven; the 4 counted commits that TOUCH the seed file rather than commits that CARRY the records, so the ruling's own figure of 3 was right all along. Cancelled rather than left to apply because an understated privacy figure is the one error that makes publishing look safer than it is, which is what the ruling this row tracks exists to prevent."
+  }
+}
