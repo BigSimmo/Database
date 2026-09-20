@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "2cc6ea3a-aacc-445d-8ac1-27a268c26f3c",
+  "createdOn": "2026-09-20",
+  "action": "update",
+  "payload": {
+    "id": "#QKW3KN",
+    "detail": "Add it to docs/maturity-backlog-workorders.md section X3 as a fourth tracked monolith and extract the isSourceBound* predicate cluster first. Why: it grew ~30% in under three weeks (4042 lines at the 2026-09-02 audit) while all three tracked monoliths shrank, so the one file getting worse is the one nothing is watching. It also carries 10 narrowly-scoped isSourceBound* query predicates, a pattern that adds a bespoke function per answer-quality bug rather than generalising. Owner: assistant. Confidence: high - line counts verified 2026-09-20. Depends on: nothing. NOTE CORRECTED 2026-09-20 after a Codex review on PR #2930 caught the original wording overstating the contract. RAG-ranking surface, and the two requirements are NOT the same trigger: the flag-it-first rule applies to EVERY edit here, including a rename or a comment (AGENTS.md 'RAG ranking protection' -> 'Flag it'), but the live eval-canary before/after pair is required only when retrieval, ranking or ordering BEHAVIOUR changes ('Canary for behaviour'). The extraction proposed above is behaviour-preserving, so on its own it needs the flag and not the canary. This distinction is load-bearing rather than pedantic: canary dispatches are provider-backed (~USD 1-2) and need the owner's explicit approval each time, so stating the canary as unconditional would either stall this work behind an approval it does not need or spend money to prove nothing moved. If an extraction does turn out to alter ordering, the canary requirement applies in full and the clamped-score and comparator-key contracts still hold.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review; note corrected after Codex review on PR #2930",
+    "baseRowFingerprint": "4f8c129e11f51ef102490cceb23a6cd1eefb087d87d8f1799e3ee649d6acdf58"
+  }
+}
