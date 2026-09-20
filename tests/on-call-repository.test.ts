@@ -9,6 +9,7 @@ import {
   fetchSharedOnCallEntries,
   fetchVisibleOnCallEntries,
   onCallEntryToRow,
+  rowMayBeComplianceRequirement,
   rowToOnCallEntry,
 } from "@/lib/on-call/repository";
 
@@ -272,6 +273,32 @@ describe("fetchSharedOnCallEntries and compliance requirements", () => {
     expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
   });
 
+  it("withholds a logistics row whose details the section schema refuses", async () => {
+    // The shape the marker-key list alone missed, and the reason the docstring
+    // claim "it fails closed" needed a second line to be true: snake_case keys
+    // carry the same content past a case-sensitive `in` check. Nothing
+    // publishable is lost — `rowToOnCallEntry` nulls details that fail this
+    // parse, so the row already rendered empty.
+    const row = logisticsRow("eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", {
+      category: "Registration",
+      expires_on: "2027-03-12",
+      evidence_url: "https://example.org/certificate.pdf",
+    });
+    expect(onCallDetailsSchemaFor("logistics").safeParse(row.details).success).toBe(false);
+    const client = fakeClient([row]);
+    expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
+  it("withholds a marker key that sits on the prototype rather than the row's own keys", async () => {
+    // `in` walks the prototype chain and `hasOwnProperty` does not. The wider
+    // test is the correct one here, and this pins it so the narrowing looks
+    // like the regression it would be.
+    const details = Object.create({ expiresOn: "2027-03-12" }) as Record<string, unknown>;
+    details.category = "Registration";
+    const client = fakeClient([logisticsRow("ffffffff-ffff-4fff-8fff-ffffffffffff", details)]);
+    expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
   it("still publishes an admin row that uses only the ordinary admin fields", async () => {
     // The other half of the guard: widening the predicate must not quietly
     // withhold the section it was made public for.
@@ -383,12 +410,38 @@ describe("onCallEntryToRow and compliance requirements", () => {
     expect(onCallEntryToRow(entryFor({ category: "Access" }, true), "owner-1").is_personal).toBe(true);
   });
 
-  it("agrees with the read filter about a misspelt kind", () => {
-    // Same rule on both sides — any `kind` at all on a logistics row — so a
-    // typo cannot be shared by one half and withheld by the other.
+  it("catches a misspelt kind, which is what the editor could actually produce", () => {
     expect(
       onCallEntryToRow(entryFor({ category: "Registration", kind: "Compliance" }, false), "owner-1").is_personal,
     ).toBe(true);
+  });
+
+  /**
+   * The write stamp is NARROWER than the read filter, and this pins the gap so
+   * nobody closes it for symmetry's sake.
+   *
+   * Withholding on read is free and undoes itself when the row is corrected.
+   * Stamping on write sticks, and `is_personal: entry.isPersonal || isCompliance`
+   * means the owner unticking "Private" is silently overruled — the save
+   * succeeds and the tick springs back with no explanation. That is right for a
+   * real compliance requirement, where the editor hides the tick box so no
+   * control lies about what it does. Applying it to every row the read
+   * withholds would put that silent override behind a tick box the Admin form
+   * still shows.
+   */
+  it("does not overrule the owner's sharing choice on a row that merely looks compliance-shaped", () => {
+    const strayExpiry = { category: "Facilities", expiresOn: "2027-03-12" };
+    // Withheld from strangers...
+    expect(rowMayBeComplianceRequirement({ section: "logistics", details: strayExpiry })).toBe(true);
+    // ...but not rewritten behind the owner's back.
+    expect(onCallEntryToRow(entryFor(strayExpiry, false), "owner-1").is_personal).toBe(false);
+  });
+
+  it("does not stamp a row whose details are missing or unreadable", () => {
+    // The read withholds these; the write must not turn an empty Admin row
+    // private on the strength of a parse failure.
+    expect(onCallEntryToRow(entryFor(undefined, false), "owner-1").is_personal).toBe(false);
+    expect(onCallEntryToRow(entryFor([], false), "owner-1").is_personal).toBe(false);
   });
 });
 

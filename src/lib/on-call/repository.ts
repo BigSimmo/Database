@@ -60,6 +60,20 @@ export function rowToOnCallEntry(row: Record<string, unknown>): OnCallEntry & { 
   return { ...base, details: parsed.success ? parsed.data : null };
 }
 
+/**
+ * Whether these details carry a compliance `kind` at all — the WRITE-side
+ * question, which is narrower than the read's on purpose. See the comment
+ * inside `onCallEntryToRow` for why the two differ.
+ *
+ * Any `kind`, not `kind === "compliance"`: `compliance` is the only value this
+ * section defines, so anything else is a typo of it or something newer than
+ * this function, and both should be stored private rather than shared.
+ */
+function detailsCarryComplianceKind(details: unknown): boolean {
+  if (typeof details !== "object" || details === null || Array.isArray(details)) return false;
+  return "kind" in details;
+}
+
 export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
   // Both write handlers — `POST /api/on-call/entries` and the `PATCH` beside
   // it — funnel through here, which is why the compliance privacy stamp lives
@@ -71,19 +85,25 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
   // about one person by definition, so `is_personal` is not a setting on one —
   // it is a property of what the row is.
   //
-  // Read as `rowMayBeComplianceRequirement` reads it — one definition, so the
-  // write and the read agree about which rows are in scope and a typo cannot
-  // slip between them. That predicate now withholds a `logistics` row carrying
-  // ANY compliance marker key, not just `kind`, which means saving a row that
-  // looks compliance-shaped also stamps it private here.
+  // DELIBERATELY NARROWER than `rowMayBeComplianceRequirement`, which is the
+  // read filter, and the asymmetry is the point rather than an oversight.
   //
-  // That is the intended direction. The only rows affected are ones no editor
-  // in this app produces — the compliance form always writes `kind` — so in
-  // practice this catches an import or a hand-edited row, and stamping one of
-  // those private is the outcome we want. If an ordinary Admin row is ever
-  // caught by it, switching its category to Compliance and back clears the
-  // stray field through the taxonomy sweep, so the owner is not stuck.
-  const isCompliance = rowMayBeComplianceRequirement({ section: entry.section, details: entry.details ?? {} });
+  // Withholding on read costs nothing and undoes itself the moment the row is
+  // corrected. Stamping on write is a stored mutation that sticks, and the
+  // owner cannot take it back: `is_personal: entry.isPersonal || isCompliance`
+  // means unticking "Private" and saving is silently overruled — the request
+  // succeeds, the tick box springs back, and nothing says why. For a genuine
+  // compliance requirement that is right, and the editor hides the tick box
+  // there so no control lies. Widening this stamp to everything the read
+  // withholds would put that silent override behind a tick box the Admin form
+  // still shows, on rows the owner deliberately shared.
+  //
+  // So this asks the narrow question the editor's own taxonomy asks — does the
+  // row carry a `kind` at all — and the read asks the wide one. The rows in
+  // between (a compliance record that lost its `kind`, an import, a hand
+  // edit) are withheld from strangers without being rewritten behind the
+  // owner's back.
+  const isCompliance = detailsCarryComplianceKind(entry.details);
   return {
     owner_id: ownerId,
     section: entry.section,
@@ -201,6 +221,23 @@ export const COMPLIANCE_MARKER_KEYS = [
  * them anyway. That is the belt; this is the braces, and it is the one that
  * also covers a row written before the fix, an import, or a direct database
  * edit.
+ *
+ * **What it cannot see.** It reads `details` and `section`, so a logistics row
+ * that keeps compliance content in its `title`, `subtitle` or `body` while its
+ * details say only `{ category: "Registration" }` is still published. No form
+ * in this app can produce that — the compliance editor always writes `kind`
+ * and always stores the row private — so it needs a direct API call, an
+ * import or a hand edit. The cheapest real closure is that `category` itself:
+ * the two taxonomies share no folder name, so a `logistics` row filed under
+ * Registration, Indemnity, Training, Credentialing, CPD or Clearances is
+ * compliance-shaped whatever else it says. That needs the category lists moved
+ * out of `src/components` first (`tests/lib-layering.test.ts` forbids the
+ * import), so it is filed rather than done here.
+ *
+ * It is also `logistics`-local. `PUBLIC_ON_CALL_SECTIONS` makes a new SECTION
+ * deny-by-default and the field guard makes a new logistics FIELD
+ * deny-by-default, but a second page hiding inside a different section would
+ * be covered by neither.
  */
 export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boolean {
   if (row.section !== "logistics") return false;
@@ -209,6 +246,20 @@ export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boo
   // rather than guessed at. `null` and an array are both named because
   // `typeof` calls each of them "object".
   if (typeof details !== "object" || details === null || Array.isArray(details)) return true;
+  // Details this section's own schema refuses. Without this line the
+  // docstring's "it fails closed" was not true of the commonest malformed
+  // shape: `{ category: "Registration", expires_on: "2027-03-12",
+  // evidence_url: "…/cert.pdf" }` is a plain object with no marker key —
+  // snake_case, or a typo, or a capital — so it slipped through and published
+  // the row's title and body. It costs nothing to withhold: `rowToOnCallEntry`
+  // nulls details that fail this same parse, so such a row already renders on
+  // the public page with nothing in it.
+  if (!onCallDetailsSchemaFor("logistics").safeParse(details).success) return true;
+  // `in`, not `hasOwnProperty`, and not `details[key] !== undefined`. Both of
+  // those are narrower: a marker key on the prototype, or one present with an
+  // explicit `undefined`, would be published. For a predicate whose job is to
+  // fail closed, the widest of the three is the correct one — so this is not
+  // the lint fix it looks like.
   return COMPLIANCE_MARKER_KEYS.some((key) => key in details);
 }
 

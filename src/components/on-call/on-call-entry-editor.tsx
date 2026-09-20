@@ -942,16 +942,26 @@ export function OnCallEntryEditor({
     // `taxonomyChanged` is the whole gate, and it replaced an unconditional
     // sweep that ran on every `logistics` save. That version was described as a
     // repair — opening and saving an already-orphaned row was enough to clean
-    // it — and the description was true, but the price was not worth paying. An
-    // orphaned key is inert: no page renders it and, since `buildInitialDraft`
-    // seeds only the taxonomy in force, no form re-offers it. The "repair" was
-    // a permanent, undoable deletion of data the owner typed, triggered by an
-    // edit to something else entirely, in exactly the case where the warning
-    // beside the tick box provably cannot fire — the draft never held those
-    // keys, so it had nothing to name. Correcting a title must not delete a
-    // registration's expiry date. An orphan now survives until the owner makes
-    // the choice that actually strands it, and that choice is warned about by
-    // name first.
+    // it — and the description was true, but the price was not worth paying.
+    // The "repair" was a permanent, undoable deletion of data the owner typed,
+    // triggered by an edit to something else entirely, in exactly the case
+    // where the warning beside the tick box provably cannot fire — the draft
+    // never held those keys, so it had nothing to name. Correcting a title must
+    // not delete a registration's expiry date. An orphan now survives until the
+    // owner makes the choice that actually strands it, and that choice is
+    // warned about by name first.
+    //
+    // This argument used to open with "an orphaned key is inert: no page
+    // renders it and no form re-offers it". **That is no longer true**, and the
+    // conclusion survives the correction rather than resting on it. Since the
+    // compliance privacy fix, a stranded compliance key on a `logistics` row
+    // decides whether the row is published to anonymous readers at all —
+    // `rowMayBeComplianceRequirement` in src/lib/on-call/repository.ts reads
+    // exactly these keys. So an orphan is now load-bearing, and withholding
+    // such a row is the intended outcome: it looks like a compliance record
+    // and nobody has established that it is not. What has NOT changed is that
+    // deleting the owner's data during an unrelated edit is the wrong repair
+    // for it.
     //
     // Keys the form DID send are skipped, so this can never delete what the
     // owner just typed. `category` and `url` are in both forms and so are not
