@@ -1533,6 +1533,39 @@ jobs:
             exit 1
           fi
 
+          # A draft PR downgrades every heavy job above to "skipped and fine", so this check can
+          # pass having verified almost nothing — and an all-green summary is read as merge
+          # readiness by everyone who did not write the `if:` conditions. That is the trap
+          # AGENTS.md's "Missing CI checks are not a green pass" exists for, and it closed on a
+          # real change: on 2026-09-19 a fix to a Playwright spec sat on a green draft whose
+          # Production UI jobs had never run, caught only because `npm run plan:browser` prints a
+          # warning about exactly this. Name the suppressed jobs instead of leaving a reader to
+          # infer them from silence.
+          #
+          # A warning, not an error. A draft cannot be merged, and undrafting fires
+          # `ready_for_review`, which reruns this workflow in full — so nothing reaches `main`
+          # on the strength of a draft run. The defect was the signal, not the coverage.
+          if [ "$PR_DRAFT" = "true" ]; then
+            draft_suppressed=()
+            if [ "$STATIC_HEAVY_CHANGED" = "true" ]; then draft_suppressed+=("safety"); fi
+            if [ "$COVERAGE_CHANGED" = "true" ]; then draft_suppressed+=("coverage"); fi
+            if [ "$BUILD_CHANGED" = "true" ]; then draft_suppressed+=("build"); fi
+            if [ "$UI_CHANGED" = "true" ]; then
+              draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
+            fi
+            if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
+            if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
+              draft_suppressed+=("caring-contacts-db")
+            fi
+            if [ ${#draft_suppressed[@]} -gt 0 ]; then
+              echo "::warning title=Draft PR - heavy scope did not run::In scope for this diff but" \
+                "NOT run, because the PR is a draft: ${draft_suppressed[*]}. A green 'PR required'" \
+                "here is not a merge-readiness verdict and must not be reported as one. Mark the PR" \
+                "ready for review - which reruns this workflow in full - or run the equivalent gate" \
+                "locally and say which one you ran."
+            fi
+          fi
+
           echo "Required in-scope PR checks passed."
 
   # Firefox/WebKit matrix must not wait on pr-required: a blocking weekly
