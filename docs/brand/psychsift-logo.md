@@ -262,7 +262,7 @@ wordmark is outlined artwork and is unaffected, but a wordmark set live in Geist
 | `psychsift-glyph-mono.svg`                | glyph alone in `currentColor`                        |
 | `psychsift-lockup-horizontal.svg`         | mark plus wordmark, for light backgrounds            |
 | `psychsift-lockup-horizontal-reverse.svg` | the same for dark backgrounds                        |
-| `psychsift-lockup-horizontal-tagline.svg` | with "CLARITY. EVIDENCE. BETTER CARE."               |
+| `psychsift-lockup-horizontal-tagline.svg` | with the strapline, FROM QUESTION TO SOURCE          |
 | `psychsift-lockup-stacked.svg`            | mark above wordmark, for narrow spaces               |
 | `psychsift-wordmark.svg`                  | wordmark alone                                       |
 | `psychsift-mark-1024.png`                 | raster export, where SVG is not accepted             |

@@ -1052,7 +1052,7 @@
           <tr>
             <td><span class="sw" style="background: #ffffff"></span>White</td>
             <td class="n">#FFFFFF</td>
-            <td class="role">The S on navy; and the ground of every app icon</td>
+            <td class="role">The S on navy, in the files on this page</td>
           </tr>
           <tr>
             <td><span class="sw" style="background: #1d6fb8"></span>Accent Blue</td>
@@ -1269,8 +1269,11 @@
       <span class="aside">13 SVG · 2 PNG · public/brand/</span>
     </div>
     <p class="lede">
-      Every file here is generated from the same geometry, so they cannot drift apart. If the mark ever changes, all
-      fifteen are rebuilt together.
+      Every file here was drawn from the same geometry, and as of the last sweep all fifteen still carry it. But only
+      two files in this repository are <em>generated</em> and re-checked on every build &mdash; the browser-tab icon and
+      the offline page. Nothing regenerates <code>public/brand/</code>, and nothing fails a build when one of these
+      fifteen falls behind <code>src/lib/brand-mark.ts</code>. That is not hypothetical: the strapline lockup carried a
+      retired tagline for weeks, and no gate noticed. Change the mark and you must rebuild these by hand.
     </p>
     <div class="spec filelist" style="margin-top: 22px">
       <table>
