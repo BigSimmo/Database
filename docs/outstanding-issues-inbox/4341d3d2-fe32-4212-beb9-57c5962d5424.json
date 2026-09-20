@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "4341d3d2-fe32-4212-beb9-57c5962d5424",
+  "createdOn": "2026-09-20",
+  "action": "update",
+  "payload": {
+    "id": "#458SAC",
+    "detail": "PARTLY FIXED, measured. Migration 20260918120000_evaluate_bootstrap_digest_once_per_health_read (PR #2886, merged; live-drift green 2026-09-19) removed the larger half. read_site_content_health() compared two stored columns to the SAME freshly computed site_content_bootstrap_digest, evaluating it twice. Counted with track_functions=all in the pinned image: one bootstrap digest costs 164,820 site_content_canonical_json invocations, one release digest 10,969, one dynamic-state digest 3, and ONE health read cost 351,594 before and 186,774 after - a 47 percent reduction, with output byte-identical across all 23 fields and the state-machine fixture passing on both. Live pg_stat_statements over 3d05h also shows the catalogue reader's mean falling from 8,656 ms to roughly 410 ms for post-fix calls. STILL OPEN, and small: site_content_release_digest is evaluated once in the private base and again in the public wrapper - 10,969 invocations, about 3 percent. Folding those two is a subtler equivalence argument than the first and is worth doing only if the probe is still gating deploys after this.",
+    "baseRowFingerprint": "4f533061a47f7f6cbd465fc04f4f53940b413e8e87e4897571400a86843409cf"
+  }
+}
