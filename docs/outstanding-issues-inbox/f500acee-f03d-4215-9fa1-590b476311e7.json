@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "f500acee-f03d-4215-9fa1-590b476311e7",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0780b4c4-540b-4eba-8063-feb0f882e6a4",
+    "reason": "Superseded by a combined request. This update was written against the OLD #TDCZJB text and would have undone the Codex-driven reframing that request d5651294 carries (retitling the row away from the resolved assume-private contradiction toward the still-open 2026-08-31 deferral). Its only unique content was the corrected exposure figures, which the replacement carries on top of d5651294's wording."
+  }
+}
