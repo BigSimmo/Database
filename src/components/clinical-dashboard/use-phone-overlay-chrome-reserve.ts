@@ -52,6 +52,18 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
  *
  * Keeps both guards that matter: phone widths only, and never publish a
  * non-positive measurement over the CSS seed.
+ *
+ * SCOPE LIMIT — READ THIS BEFORE CITING THIS FUNCTION AS THE #CHPC5C FIX. The
+ * settle precondition below means this only ever fires on an in-session
+ * navigation. React runs layout effects children-first and the reserve hook
+ * belongs to the shell, so on a cold first load a portal's effect runs before
+ * the hook has settled anything and this returns early, every time. The trace
+ * above IS a cold load, so that path is unchanged and the CI failure #CHPC5C
+ * was filed for can still occur. `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx`
+ * pins it, and docs/search-chrome-behaviour.md records the way out: have the
+ * portal publish its own height as a delta to the reserve in force rather than
+ * re-measuring the stack, which removes the #147 exposure the precondition
+ * exists for and so removes the precondition.
  */
 export function publishPhoneOverlayChromeReserveNow(): void {
   if (typeof window === "undefined") return;

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a7054564-b3c4-4b7f-a8d1-183c56499c82",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "32a06320-365d-49f9-9bc1-70c5e0e72953",
+    "reason": "Stale fingerprint, not stale content. It was queued against the #CHPC5C row as it read before request fbc169da-348c-4303-948c-a840d6251aa0 was applied by another branch's reconciliation, so it now fails the row-changed guard. Reissued verbatim against the current row; no finding is dropped."
+  }
+}

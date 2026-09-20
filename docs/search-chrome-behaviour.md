@@ -747,6 +747,23 @@ renderer load the window widens; at 10x CPU throttle the tap failed 10 times out
 10 once the reserve settled first. The quiet window still owns the case it was built for, a transient
 wide-stack measurement during hydration (#147).
 
+**What that publisher does NOT cover, which includes the incident above.** It refuses to publish until
+the quiet window has settled a reserve at least once, because before that responsive layout can still
+be reporting the wide 200px stack (#147) and publishing that would move content twice. React runs
+layout effects children-first and the reserve hook belongs to the shell, so on a **cold first load the
+portal's effect always runs before the hook has settled anything** and the immediate publish is
+suppressed — the quiet window alone corrects the reserve, exactly as it did before. The fix therefore
+covers in-session navigation while the shell stays mounted and settled, and not the cold `page.goto`
+that #CHPC5C recorded. Unmounting a portal is not covered either: the effect has no cleanup, and a
+cleanup that published directly would measure the row it is about to lose, because React runs
+layout-effect destroys before it detaches portal children. Both gaps are pinned as
+failing-when-fixed cases in `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx` — which is also
+the only place the portals' wiring is covered at all, since the cases in
+`tests/phone-overlay-chrome-reserve.dom.test.ts` call the publisher directly and would all still pass
+if both `useLayoutEffect` blocks were deleted. Closing the gaps properly means the portal publishing
+its own height as a **delta** to the reserve in force rather than re-measuring the whole stack: that
+removes the #147 exposure, and with it the need for the settle precondition.
+
 The settle assertion below is still required, because hydration timing is unchanged. A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
 therefore read premature geometry before the stack settles (for example, reading `main` at `y=72` with
 the mode-nav rail appearing to overlap it, when the settled layout has `main` at `y=121` with zero overlap).
