@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "fadd35f1-88d7-4b27-a921-86ac34ddd186",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "b8abcd96-2d06-4570-858a-566712bd88aa",
+    "reason": "Control experiment on 2026-09-21 disproved the kind-filter / whole-release-scan diagnosis this update still carries (EXPLAIN shows one kind in ~21 ms; warm reads are inside budget; the cold first call is the trigger). Keeping it would leave #PX8N86 open advertising a rejected stored-indexed-kind-column remedy. Closing #PX8N86 with done instead; remaining work is the separate cold-start row."
+  }
+}
