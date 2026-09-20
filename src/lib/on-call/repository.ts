@@ -144,7 +144,8 @@ export const PUBLIC_ON_CALL_SECTIONS = [
  *    with one stray character in `kind` parses into something
  *    `isComplianceEntry` calls an ordinary Admin row. Asking the parsed entry
  *    would publish exactly the rows most likely to be malformed.
- * 2. **It fails closed.** Unreadable details on a `logistics` row are treated
+ * 2. **It fails closed.** Unreadable details on a `logistics` row — null, a
+ *    string, an array, or any object the section schema refuses — are treated
  *    as compliance and withheld. Withholding a broken parking note from the
  *    public page costs nothing; publishing a broken registration record cannot
  *    be undone.
@@ -160,7 +161,17 @@ export const PUBLIC_ON_CALL_SECTIONS = [
 export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boolean {
   if (row.section !== "logistics") return false;
   const details = row.details;
-  if (typeof details !== "object" || details === null) return true;
+  // Arrays are typeof "object" in JS; without this they fall through to the
+  // `"kind" in …` check, which is false on an array, and the shared read then
+  // publishes the row's title and body while `rowToOnCallEntry` merely nulls
+  // details. Fail closed on any non-plain object too.
+  if (typeof details !== "object" || details === null || Array.isArray(details)) return true;
+  // Schema-invalid payloads (stray keys, bad dates, missing category, …) must
+  // be withheld BEFORE the kind check: an object with no `kind` that the
+  // section schema refuses used to return false here and leak title/body to
+  // anonymous callers. Codex P1 on PR #2900.
+  const parsed = onCallDetailsSchemaFor("logistics").safeParse(details);
+  if (!parsed.success) return true;
   return "kind" in (details as Record<string, unknown>);
 }
 

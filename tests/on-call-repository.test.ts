@@ -240,6 +240,35 @@ describe("fetchSharedOnCallEntries and compliance requirements", () => {
     expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
   });
 
+  it("withholds a logistics row whose details are an array, rather than publishing title and body", async () => {
+    // Arrays are typeof "object", so the old `"kind" in details` check returned
+    // false and the shared read published the row while rowToOnCallEntry nulled
+    // details. Fail closed: an array is not a logistics payload.
+    const row = logisticsRow("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", [
+      { category: "Registration", kind: "compliance", expiresOn: "2027-03-12" },
+    ]);
+    const client = fakeClient([ADMIN_ROW, row]);
+    const entries = await fetchSharedOnCallEntries(client as never);
+    expect(entries.map((entry) => entry.id)).toEqual([ADMIN_ROW.id]);
+  });
+
+  it("withholds a schema-invalid logistics object that carries no kind", async () => {
+    // No `kind`, so the old predicate returned false; the section schema still
+    // refuses the payload (bad date / unknown key), and rowToOnCallEntry would
+    // only null details after the title and body had already left the server.
+    const badDate = logisticsRow("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", {
+      category: "Leave",
+      expiresOn: "not-a-date",
+    });
+    const strayKey = logisticsRow("cccccccc-cccc-4ccc-8ccc-cccccccccccc", {
+      category: "Leave",
+      certificateNumber: "secret-registration-id",
+    });
+    const client = fakeClient([ADMIN_ROW, badDate, strayKey]);
+    const entries = await fetchSharedOnCallEntries(client as never);
+    expect(entries.map((entry) => entry.id)).toEqual([ADMIN_ROW.id]);
+  });
+
   it("leaves rows in other sections alone, whatever their details carry", async () => {
     // Who's who rides `details.kind` on contacts and is deliberately public.
     const roleExplainer = {

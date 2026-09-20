@@ -854,6 +854,44 @@ describe("OnCallEntryEditor — creating a requirement from the Compliance page"
   });
 });
 
+describe("OnCallEntryEditor — clearing optional compliance values", () => {
+  // These fields are always on screen for a requirement. Blanking one and
+  // saving used to restore the stored value via mergeOnCallEditorDetails,
+  // so an obsolete expiry / issuer / evidence link could not be removed.
+  // Codex P2 on PR #2900.
+  it("removes expiry, lead time, issuer, evidence link and URL when the owner blanks them", async () => {
+    const user = userEvent.setup();
+    const rich: OnCallEntry = {
+      ...AHPRA_REGISTRATION,
+      details: {
+        ...(AHPRA_REGISTRATION.details as Record<string, unknown>),
+        leadTimeDays: 90,
+        evidenceUrl: "https://example.org/certificate",
+        url: "https://example.org/renew",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: rich }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={rich} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.clear(screen.getByLabelText("Recorded expiry"));
+    await user.clear(screen.getByLabelText("Days of notice you need"));
+    await user.clear(screen.getByLabelText("Issued by"));
+    await user.clear(screen.getByLabelText("Evidence link"));
+    await user.clear(screen.getByLabelText(/^URL$/));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const details = savedDetails(fetchMock);
+    expect(details).toEqual({
+      category: "Registration",
+      kind: COMPLIANCE_KIND,
+      consequence: "stops-work",
+    });
+  });
+});
+
 describe("OnCallEntryEditor — a box the owner emptied is still a stored value", () => {
   // An empty text box means "the form said nothing", so the stored Location
   // survives this save and a switch would still delete it. Reading the draft

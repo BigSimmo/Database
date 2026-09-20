@@ -63,9 +63,18 @@ type DetailFieldSpec = {
    * An empty value on this control is a real choice, so it must beat the stored
    * one (`clearedKeys` in `mergeOnCallEditorDetails`).
    *
-   * Only on selects that name their own empty option. An empty text box stays
-   * "the form said nothing", exactly as it always has: emptying a phone number
-   * cannot be told apart from a control that never rendered.
+   * Used on selects that name their own empty option, and on optional
+   * compliance text/number fields the owner can deliberately blank (expiry,
+   * lead time, issuer, evidence link, URL). Without the flag, `handleSave`
+   * omits the empty value and `mergeOnCallEditorDetails` restores it from
+   * `entry.details` — so clearing a recorded expiry and saving left it in
+   * place. Codex P2 on PR #2900.
+   *
+   * Not the default for every text box: emptying an Admin phone number still
+   * means "the form said nothing", because that control may simply not have
+   * been relevant to the edit. Compliance's optional fields are different —
+   * they are always on screen for a requirement, and blanking one is how the
+   * owner corrects an obsolete value.
    *
    * Never on a REQUIRED control, and the reason is worth stating because the
    * obvious fix for a blank required select is to put it here. A blank
@@ -275,20 +284,29 @@ const COMPLIANCE_DETAIL_FIELDS: DetailFieldSpec[] = [
     label: "Recorded expiry",
     kind: "text",
     type: "date",
+    clearWhenEmpty: true,
     hint: "The date you hold, not one anybody has checked with the issuing body.",
   },
   {
     key: "leadTimeDays",
     label: "Days of notice you need",
     kind: "number",
+    clearWhenEmpty: true,
     hint: "How far ahead this one has to be started. A police clearance takes months; an online module takes days.",
   },
-  { key: "issuingBody", label: "Issued by", kind: "text", hint: 'Who to chase — e.g. "Ahpra", "RANZCP".' },
+  {
+    key: "issuingBody",
+    label: "Issued by",
+    kind: "text",
+    clearWhenEmpty: true,
+    hint: 'Who to chase — e.g. "Ahpra", "RANZCP".',
+  },
   {
     key: "evidenceUrl",
     label: "Evidence link",
     kind: "text",
     type: "url",
+    clearWhenEmpty: true,
     hint: "A link to where you keep the certificate. Do not upload it here: it is identity data, and uploads are indexed into the document corpus.",
   },
   {
@@ -298,7 +316,7 @@ const COMPLIANCE_DETAIL_FIELDS: DetailFieldSpec[] = [
     options: PROVENANCE_OPTIONS,
     clearWhenEmpty: true,
   },
-  { key: "url", label: "URL", kind: "text", type: "url" },
+  { key: "url", label: "URL", kind: "text", type: "url", clearWhenEmpty: true },
 ];
 
 /** Mirrors `onCallDetailsSchemaFor` (src/lib/on-call/entry-model.ts) field for field. The
@@ -436,9 +454,9 @@ function detailStringValue(details: unknown, key: string): string {
   const value = (details as Record<string, unknown>)[key];
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
   // `leadTimeDays` is the one stored number. Without this it would seed as an
-  // empty box, and an empty box saves as "the form said nothing" — so opening
-  // and saving a requirement would quietly keep a lead time the owner could
-  // no longer see.
+  // empty box; with `clearWhenEmpty` that empty box would then delete the
+  // stored lead time on an unrelated save. Seed the digits so the owner sees
+  // what is recorded and can clear it on purpose.
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return typeof value === "string" ? value : "";
 }
@@ -898,8 +916,9 @@ export function OnCallEntryEditor({
         continue;
       }
       if (trimmedValue) formDetails[field.key] = trimmedValue;
-      // "None chosen" on a select that names its own empty option has to beat
-      // the stored value; an empty text box still means the form said nothing.
+      // "None chosen" on a select that names its own empty option, and an
+      // emptied optional compliance text field, both have to beat the stored
+      // value — see `clearWhenEmpty` on `DetailFieldSpec`.
       else if (field.clearWhenEmpty) clearedKeys.push(field.key);
     }
 
