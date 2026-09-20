@@ -67,7 +67,30 @@ type Outcome<T> = {
   degraded: boolean;
 };
 
+/**
+ * The budget for ONE retry of a scope+kind's FIRST read, and only that one. See
+ * `readCatalogueWithSeedFallback` for why the first read is the one that needs it.
+ *
+ * Sized from the warm measurements rather than guessed: every warm read of every kind finished
+ * inside 604 ms (2026-09-21, same PostgREST RPC the app calls — form 996 kB/216 ms,
+ * differential 1.47 MB/264 ms, service 2.64 MB/396 ms, medication 4.66 MB/604 ms). A retry that
+ * has not answered in 1000 ms is therefore not a cold connection, it is a sick one, and waiting
+ * longer only delays the seeds.
+ *
+ * It is capped against the caller's own budget so it can never exceed it, and the search worst
+ * case stays under the 2500 ms per-domain timeout the search budget is chosen against:
+ * 1200 + 1000 = 2200 ms, paid at most once per scope+kind per process.
+ */
+export const catalogueSeedFallbackRetryBudgetMs = 1_000;
+
 const cooldownUntil = new Map<string, number>();
+
+/**
+ * Scope+kinds that have completed a canonical read in this process. Membership is what makes the
+ * retry below cost nothing in steady state: it is offered to a cold path and never again, so a
+ * genuine outage after warm-up falls back at exactly the speed it always did.
+ */
+const warmed = new Set<string>();
 
 /** Cooldowns are per (scope, kind): see the scope constants for why kind alone was wrong. */
 function cooldownKey(scope: string, kind: string) {
@@ -104,6 +127,20 @@ function reportFallback(kind: string, error: unknown, budgetMs: number, cooldown
   });
 }
 
+/**
+ * A cold read that the retry rescued is still a reader waiting over a second, so it is reported.
+ * Silence here would hide the cost this fix absorbs, which is the same mistake as a silent
+ * fallback: the outage that made this module necessary lasted seven days because nothing was said.
+ */
+function reportColdRetry(kind: string, error: unknown, retryBudgetMs: number) {
+  logger.info("Canonical catalogue read succeeded on its cold-start retry", {
+    catalogue_kind: kind,
+    first_attempt: error instanceof Error ? error.name : typeof error,
+    detail: error instanceof Error ? error.message : undefined,
+    retry_budget_ms: retryBudgetMs,
+  });
+}
+
 function reportRecovery(kind: string) {
   logger.info("Canonical catalogue read recovered; search is no longer degraded", {
     catalogue_kind: kind,
@@ -130,6 +167,8 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   read: (signal: AbortSignal) => Promise<T[]>;
   now?: () => number;
   budgetMs?: number;
+  /** Budget for the one retry a cold scope+kind is allowed. Capped at `budgetMs`. */
+  retryBudgetMs?: number;
   cooldownMs?: number;
 }): Promise<Outcome<T>> {
   const now = input.now ?? Date.now;
@@ -149,42 +188,81 @@ export async function readCatalogueWithSeedFallback<T>(input: {
     cooldownUntil.delete(key);
   }
 
-  const budget = new AbortController();
-  const forwardCallerAbort = () => budget.abort(input.signal?.reason);
-  if (input.signal?.aborted) forwardCallerAbort();
-  else input.signal?.addEventListener("abort", forwardCallerAbort, { once: true });
-  const timer = setTimeout(() => {
-    budget.abort(new DOMException(`Canonical ${input.kind} read exceeded ${budgetMs}ms.`, "TimeoutError"));
-  }, budgetMs);
-  (timer as { unref?: () => void }).unref?.();
+  const attempt = async (attemptBudgetMs: number): Promise<T[]> => {
+    const budget = new AbortController();
+    const forwardCallerAbort = () => budget.abort(input.signal?.reason);
+    if (input.signal?.aborted) forwardCallerAbort();
+    else input.signal?.addEventListener("abort", forwardCallerAbort, { once: true });
+    const timer = setTimeout(() => {
+      budget.abort(new DOMException(`Canonical ${input.kind} read exceeded ${attemptBudgetMs}ms.`, "TimeoutError"));
+    }, attemptBudgetMs);
+    (timer as { unref?: () => void }).unref?.();
 
-  // RACE, do not merely signal. Aborting `budget` only asks the read to stop; a read that ignores
-  // the signal, or is wedged below the layer that honours it, would otherwise hold this await open
-  // past the budget and hand the domain the same empty group this helper exists to prevent. The
-  // budget has to be enforced here, by whoever is waiting, or it is not a budget.
-  let rejectOnAbort: ((reason: Error) => void) | undefined;
-  const abandoned = new Promise<never>((_resolve, reject) => {
-    rejectOnAbort = reject;
-  });
-  const onAbort = () => rejectOnAbort?.(abortReason(budget.signal));
-  budget.signal.addEventListener("abort", onAbort, { once: true });
-  if (budget.signal.aborted) onAbort();
+    // RACE, do not merely signal. Aborting `budget` only asks the read to stop; a read that ignores
+    // the signal, or is wedged below the layer that honours it, would otherwise hold this await open
+    // past the budget and hand the domain the same empty group this helper exists to prevent. The
+    // budget has to be enforced here, by whoever is waiting, or it is not a budget.
+    let rejectOnAbort: ((reason: Error) => void) | undefined;
+    const abandoned = new Promise<never>((_resolve, reject) => {
+      rejectOnAbort = reject;
+    });
+    const onAbort = () => rejectOnAbort?.(abortReason(budget.signal));
+    budget.signal.addEventListener("abort", onAbort, { once: true });
+    if (budget.signal.aborted) onAbort();
 
-  try {
-    const records = await Promise.race([input.read(budget.signal), abandoned]);
+    try {
+      return await Promise.race([input.read(budget.signal), abandoned]);
+    } finally {
+      clearTimeout(timer);
+      input.signal?.removeEventListener("abort", forwardCallerAbort);
+      budget.signal.removeEventListener("abort", onAbort);
+    }
+  };
+
+  const succeed = (records: T[]): Outcome<T> => {
     cooldownUntil.delete(key);
+    warmed.add(key);
     if (probing) reportRecovery(input.kind);
     return { records, degraded: false };
+  };
+
+  try {
+    return succeed(await attempt(budgetMs));
   } catch (error) {
     // The caller gave up on the whole search; nothing here is a catalogue-health signal.
     if (input.signal?.aborted) throw abortReason(input.signal);
+
+    // THE COLD FIRST READ, and the only case that gets a second go.
+    //
+    // Measured 2026-09-21 against the live project: the first catalogue read in a fresh process
+    // cost 1781 ms (1599 ms of it before the first byte) and blew this budget on connection setup
+    // alone, while every warm read of every kind finished inside 604 ms. The control was reversing
+    // the order the kinds are read in — the penalty moved with the POSITION, not the kind
+    // (medication first 1268 ms; form, read last, 213 ms). So this is not a slow catalogue, it is
+    // an unwarmed connection, and the very next call is fast.
+    //
+    // That is why the retry is offered ONCE per scope+kind per process rather than on every
+    // failure. A retry-always would add its budget to every request of a genuine outage, which is
+    // the opposite of what this helper is for; gating on `warmed` makes the steady state
+    // byte-for-byte what it was before.
+    const cold = !warmed.has(key) && !(input.signal?.aborted ?? false);
+    if (cold) {
+      const retryBudgetMs = Math.min(budgetMs, input.retryBudgetMs ?? catalogueSeedFallbackRetryBudgetMs);
+      try {
+        const records = await attempt(retryBudgetMs);
+        reportColdRetry(input.kind, error, retryBudgetMs);
+        return succeed(records);
+      } catch (retryError) {
+        if (input.signal?.aborted) throw abortReason(input.signal);
+        cooldownUntil.set(key, now() + cooldownMs);
+        reportFallback(input.kind, retryError, retryBudgetMs, cooldownMs);
+        return { records: [...input.seeds], degraded: true };
+      }
+    }
+
     cooldownUntil.set(key, now() + cooldownMs);
     reportFallback(input.kind, error, budgetMs, cooldownMs);
     return { records: [...input.seeds], degraded: true };
-  } finally {
-    clearTimeout(timer);
-    input.signal?.removeEventListener("abort", forwardCallerAbort);
-    budget.signal.removeEventListener("abort", onAbort);
   }
 }
 
@@ -208,4 +286,5 @@ export function withCatalogueDegradedNotice(heading: string, degraded: boolean |
 /** Test seam, and the hook an operator-triggered "try the database again now" would use. */
 export function clearCatalogueSeedFallbackCooldown() {
   cooldownUntil.clear();
+  warmed.clear();
 }
