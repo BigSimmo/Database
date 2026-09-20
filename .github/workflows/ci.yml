@@ -1352,6 +1352,7 @@ jobs:
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
+          PERF_CHANGED: ${{ needs.changes.outputs.perf_changed }}
           CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
           PR_DRAFT: ${{ github.event.pull_request.draft == true }}
           EVENT_NAME: ${{ github.event_name }}
@@ -1553,6 +1554,7 @@ jobs:
             if [ "$UI_CHANGED" = "true" ]; then
               draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
             fi
+            if [ "$PERF_CHANGED" = "true" ]; then draft_suppressed+=("lighthouse-budget"); fi
             if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
             if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
               draft_suppressed+=("caring-contacts-db")

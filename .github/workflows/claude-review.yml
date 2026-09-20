@@ -28,7 +28,11 @@ name: Claude review
 
 on:
   pull_request:
-    types: [opened, synchronize, ready_for_review]
+    # One automatic pass per undraft/open. `synchronize` is deliberately absent:
+    # AGENTS.md one-pass review throttling forbids burning subscription quota on
+    # every repair push, format commit, or base sync. Re-review: mark ready again
+    # after a draft cycle, or invoke the @claude comment workflow.
+    types: [opened, ready_for_review]
 
 # Least privilege by default; the job widens only what the review needs.
 permissions:
@@ -44,8 +48,8 @@ jobs:
       pull-requests: write # post the review comment
       id-token: write # OIDC used by the action
     concurrency:
-      # A new push supersedes the review of the head it replaced: an in-flight
-      # review describes a diff that no longer exists.
+      # If a ready_for_review re-run overlaps an in-flight review, cancel the
+      # stale one — it describes a draft head that is no longer current.
       group: claude-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     timeout-minutes: 20
@@ -76,7 +80,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # `track_progress` is the action's documented mode for pull_request
-          # events (opened/synchronize/ready_for_review); without it the action
+          # events (opened/ready_for_review); without it the action
           # expects a trigger phrase in a comment, which no PR event carries.
           track_progress: true
           # One comment that updates in place. Without this, every push to a
