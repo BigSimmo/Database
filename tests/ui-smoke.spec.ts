@@ -3,6 +3,7 @@ import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page, type Request } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow, gotoApp } from "./helpers/spec-navigation";
+import { expectMinTouchTarget } from "./helpers/layout-tolerance";
 
 /**
  * Detect Next.js 16 prefetch requests across all prefetch strategies (RSC prefetch,
@@ -744,14 +745,6 @@ async function openScopeControl(page: Page) {
     await actionsMenu.getByRole("button", { name: /^Scope\b/ }).click();
   }
   await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: uiAssertionTimeoutMs });
-}
-
-async function expectMinTouchTarget(locator: Locator, minSize = 44) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  const measurementTolerance = 2;
-  expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
-  expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
 
 async function tapOutsideActiveSurface(page: Page) {

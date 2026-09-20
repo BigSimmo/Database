@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { expectAtLeastCssPx } from "./helpers/layout-tolerance";
 
 async function blockExternalRequests(page: Page) {
   await page.route("**/*", async (route) => {
@@ -106,7 +107,9 @@ test("separates mechanism cards and keeps the primary actions on the card header
     expect(geometry.cardRadius).toBeGreaterThanOrEqual(12);
     expect(geometry.cardShadow).not.toBe("none");
     expect(geometry.accentBackground).not.toBe("rgba(0, 0, 0, 0)");
-    expect(geometry.nextCardGap).toBeGreaterThanOrEqual(16);
+    // A subtraction of two client rects, so it carries the subtraction's own
+    // float error: Firefox reported 15.999969482421875 for this 16px gap.
+    expectAtLeastCssPx(geometry.nextCardGap, 16, "formulation card gap");
     if (viewport.width === 320) {
       expect(geometry.actionGroupWidth).toBeGreaterThanOrEqual(geometry.cardWidth - 40);
     } else {
