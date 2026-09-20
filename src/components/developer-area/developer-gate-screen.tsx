@@ -1,13 +1,14 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
-import { Loader2, LockKeyhole, Mail, ShieldAlert } from "lucide-react";
+import { KeyRound, Loader2, LockKeyhole, Mail, ShieldAlert } from "lucide-react";
 
 import { cn, floatingControl, InlineNotice, primaryControl } from "@/components/ui-primitives";
 import { ProviderBrandMark, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
 import { TextField } from "@/components/ui/text-field";
 import { type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import type { DeveloperAccessState } from "@/lib/developer-area/access";
+import { developerKeyUnlockUrl } from "@/lib/developer-area/link-access-shared";
 
 /** Rendered by `DeveloperAreaGate` instead of the page whenever the visitor is
  *  not a signed-in administrator. `next` is the exact path they asked for
@@ -17,15 +18,74 @@ export function DeveloperGateScreen({
   state,
   next,
   email,
+  keyEntryEnabled = false,
+  keyRejected = false,
 }: {
   state: Exclude<DeveloperAccessState, "authorized">;
   next: string;
   email: string | null;
+  /** Whether this deployment has a `DEVELOPER_AREA_ACCESS_KEY` configured at
+   *  sufficient strength. A boolean, resolved on the server and never the key
+   *  itself. Offering a field that cannot possibly succeed is worse than
+   *  offering none, so an unconfigured deployment shows the sign-in alone. */
+  keyEntryEnabled?: boolean;
+  /** Whether the previous attempt's key was refused, per the marker `src/proxy.ts`
+   *  puts on the redirect. The server owns this verdict because only the server
+   *  holds the key. */
+  keyRejected?: boolean;
 }) {
   const auth = useAuthSession();
   const [formEmail, setFormEmail] = useState("");
+  const [developerKey, setDeveloperKey] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  // The server's verdict stands until the value it judged actually changes.
+  // Leaving it up while the field is being corrected would keep asserting a
+  // failure about a key that is no longer on screen.
+  const [rejectionDismissed, setRejectionDismissed] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
+  // Two separate busy states, and the separation runs BOTH ways.
+  //
+  // `busy` belongs to the Supabase sign-in and includes `auth.status ===
+  // "loading"`, which is where an AuthProvider sits from mount until its
+  // client-side getUser()/getSession() resolves. The developer key must not wait
+  // on that: its whole reason for existing is that it needs no provider round
+  // trip, so sharing the flag would disable the alternate credential exactly
+  // when Supabase is slow, stalled or unreachable — the situation it answers.
+  //
+  // `unlocking` is likewise kept OUT of `busy`. It has no reset path in the
+  // ordinary case because the page navigates away, so folding it into `busy`
+  // meant that an unlock which did not navigate — offline, or a blocked
+  // navigation — left the whole screen dead: key field, email and SSO alike,
+  // until a manual reload. A stuck unlock must not take the sign-in down with
+  // it.
   const busy = auth.status === "loading" || pendingProvider !== null;
+  const keyBusy = unlocking;
+
+  /**
+   * Submits the typed key through the same `?devkey=` exchange a bookmarked link
+   * uses — `src/proxy.ts` verifies it in constant time, sets the signed cookie,
+   * and redirects with the parameter stripped.
+   *
+   * A full document navigation (`location.replace`), not `router.replace`: the
+   * cookie is set by the Proxy on a redirect response, and only a real
+   * navigation is guaranteed to commit that `Set-Cookie` and then re-run the
+   * gate against it. `replace` rather than `assign` so the URL that briefly
+   * carries the secret never becomes a history entry the back button — or a
+   * shared screen — can return to.
+   */
+  function submitDeveloperKey(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const key = developerKey.trim();
+    if (!key || keyBusy) return;
+    setUnlocking(true);
+    try {
+      window.location.replace(developerKeyUnlockUrl(next, key));
+    } catch {
+      // A refused navigation must not leave the button spinning forever with no
+      // way back other than a reload.
+      setUnlocking(false);
+    }
+  }
 
   async function submitEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,9 +125,56 @@ export function DeveloperGateScreen({
         <p className="text-sm leading-6 text-[color:var(--text-muted)]">
           {state === "unauthorized"
             ? `Signed in as ${email ?? "this account"}. Only an authorised developer account can open this page.`
-            : "This page is only reachable to a signed-in developer account."}
+            : keyEntryEnabled
+              ? "Enter the developer key, or sign in with a developer account."
+              : "This page is only reachable to a signed-in developer account."}
         </p>
       </header>
+
+      {/* Offered above the sign-in, and in the `unauthorized` state too: a
+          signed-in account without the administrator claim is exactly the
+          visitor for whom the key is the shorter way in, and hiding it there
+          would leave a "sign out" button as the only thing on the page. */}
+      {keyEntryEnabled ? (
+        <form
+          onSubmit={submitDeveloperKey}
+          data-testid="developer-gate-key-form"
+          className="grid gap-2 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-inset)]"
+        >
+          <TextField
+            label="Developer key"
+            icon={KeyRound}
+            type="password"
+            autoComplete="current-password"
+            enterKeyHint="go"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            required
+            value={developerKey}
+            onChange={(event) => {
+              setDeveloperKey(event.target.value);
+              setRejectionDismissed(true);
+            }}
+            error={keyRejected && !rejectionDismissed ? "That key wasn't accepted. Check it and try again." : undefined}
+            hint="Opens this area on this device and stays signed in for a year."
+            data-testid="developer-gate-key-input"
+          />
+          <button
+            type="submit"
+            disabled={keyBusy || !developerKey.trim()}
+            data-testid="developer-gate-key-submit"
+            className={cn(primaryControl, "w-full")}
+          >
+            {unlocking ? (
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
+            ) : (
+              <KeyRound aria-hidden="true" className="h-4 w-4" />
+            )}
+            Unlock
+          </button>
+        </form>
+      ) : null}
 
       {state === "unauthorized" ? (
         <button
