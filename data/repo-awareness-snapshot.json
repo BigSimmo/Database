@@ -3157,6 +3157,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/brand/design-handover.md",
+        "section": "brand",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/specs/2026-08-21-mode-aware-clinical-ask-design.md",
         "section": "superpowers",
         "catalogued": true
@@ -5789,6 +5794,11 @@
       {
         "path": "docs/caring-contacts/task-seed-timeline-report.md",
         "section": "caring-contacts",
+        "catalogued": true
+      },
+      {
+        "path": "docs/brand/canvas/README.md",
+        "section": "brand",
         "catalogued": true
       },
       {
