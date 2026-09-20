@@ -1,4 +1,14 @@
-import { BookOpen, GraduationCap, ListChecks, MapPinned, MoonStar, Phone, Repeat, Users } from "lucide-react";
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  GraduationCap,
+  ListChecks,
+  MoonStar,
+  Phone,
+  Repeat,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { type OnCallSection } from "@/lib/on-call/entry-model";
@@ -29,7 +39,12 @@ export const ON_CALL_SECTION_TITLES: Record<OnCallSection, string> = {
   referrals: "Referrals",
   orientation: "Orientation",
   education: "Teaching",
-  logistics: "Logistics",
+  // Label only, exactly as `education` → "Teaching" above. The stored section
+  // id, the route segment and the database check constraint all stay
+  // `logistics`; renaming them is a migration for no functional gain. What the
+  // section HOLDS changed with the label — site logistics became the work
+  // admin a doctor does for themselves — but that is content, not schema.
+  logistics: "Admin",
 };
 
 export const ON_CALL_SECTION_ICONS: Record<OnCallSection, LucideIcon> = {
@@ -38,7 +53,7 @@ export const ON_CALL_SECTION_ICONS: Record<OnCallSection, LucideIcon> = {
   referrals: Repeat,
   orientation: BookOpen,
   education: GraduationCap,
-  logistics: MapPinned,
+  logistics: BriefcaseBusiness,
 };
 
 /**
@@ -53,7 +68,7 @@ export const ON_CALL_SECTION_TILE_DESCRIPTIONS: Record<OnCallSection, string> = 
   referrals: "Who takes whom",
   orientation: "Starting and leaving",
   education: "What's on this term",
-  logistics: "Rooms, food, access",
+  logistics: "Leave, forms, rosters",
 };
 
 /**
@@ -80,16 +95,18 @@ export const ON_CALL_SECTION_HREFS: Record<OnCallSection, string> = {
  * a seventh section value, because `section` is a database CHECK constraint. It
  * still needs a page, a title and a glyph, so the view union carries it.
  */
-export type OnCallPageView = OnCallSection | "who-is-who";
+export type OnCallPageView = OnCallSection | "who-is-who" | "compliance";
 
 export const ON_CALL_VIEW_TITLES: Record<OnCallPageView, string> = {
   ...ON_CALL_SECTION_TITLES,
   "who-is-who": "Who's who",
+  compliance: "Compliance",
 };
 
 export const ON_CALL_VIEW_ICONS: Record<OnCallPageView, LucideIcon> = {
   ...ON_CALL_SECTION_ICONS,
   "who-is-who": Users,
+  compliance: ShieldCheck,
 };
 
 /** The glyph for the mode home. Not a section, so it is not in the maps above. */
@@ -101,5 +118,7 @@ export const ON_CALL_HOME_ICON: LucideIcon = MoonStar;
  * role explainer is saved as what it actually is.
  */
 export function onCallViewStorageSection(view: OnCallPageView): OnCallSection {
-  return view === "who-is-who" ? "contacts" : view;
+  if (view === "who-is-who") return "contacts";
+  if (view === "compliance") return "logistics";
+  return view;
 }
