@@ -894,7 +894,7 @@ function FavouritesTable({
               <th scope="col" className={evidenceHeadClass}>
                 Evidence
               </th>
-              <th scope="col" className="w-[6.5rem] px-3">
+              <th scope="col" className="w-[8.5rem] px-3">
                 Last used
               </th>
               <th scope="col" className="w-[7.5rem] px-3 text-right">

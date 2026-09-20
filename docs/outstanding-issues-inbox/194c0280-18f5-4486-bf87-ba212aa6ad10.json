@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "194c0280-18f5-4486-bf87-ba212aa6ad10",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Local and http-served builds emit https:// absolute URLs that cannot connect",
+    "detail": "metadata-base.ts:49 defaults the protocol to https when no x-forwarded-proto header is present, so a local build emits https://localhost:<port>/... links failing with ERR_SSL_PROTOCOL_ERROR. This was the ONLY distinct console error across 509 captures of 78 routes. Production behind Railway sets the header and is unaffected; this is a local-development and reverse-proxy-without-the-header concern.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQPCJNQH33SAW5B3T4TT0"
+  }
+}

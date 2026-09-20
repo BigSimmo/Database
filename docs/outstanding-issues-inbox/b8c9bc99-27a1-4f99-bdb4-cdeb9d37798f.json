@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b8c9bc99-27a1-4f99-bdb4-cdeb9d37798f",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "The WA Mental Health Act forms register reports 0 forms while holding 54",
+    "detail": "Bare /forms/search renders '0 forms', a full column header row with no rows, no empty-state copy, and 'View all forms (0)'. ?q=transport returns 54 including 3A Detention and 4A Transport. forms-search-results-page.tsx:267 and :551 interpolate matches.length, which is 0 for an empty query; every sibling catalogue lists its contents instead. Reproduces at 390 and 1440. Supersedes the tablet-only scope of #6GR6B8, which is NOT closed.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQKAESZA102XK7PHP7JHN"
+  }
+}

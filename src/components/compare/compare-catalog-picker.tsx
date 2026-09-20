@@ -182,6 +182,11 @@ export function CompareCatalogPicker({
       <div
         className="max-h-[24rem] overflow-y-auto rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)]"
         role="listbox"
+        // The options are named; the list they belong to was not, so a screen
+        // reader announced the items without ever saying what was being chosen.
+        // Point at the sr-only heading above rather than inventing a second name.
+        aria-labelledby={title && titleId ? titleId : undefined}
+        aria-label={title && titleId ? undefined : "Catalogue results"}
       >
         {hits.length === 0 ? (
           <p className="px-3 py-6 text-sm text-[color:var(--text-muted)]">{emptyHint ?? "No matching items."}</p>

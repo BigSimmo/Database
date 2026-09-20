@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3c14b751-233d-41d7-8bc2-e7e486cda796",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Forms attachment row collapses on a phone: the form title renders as 'Ext...'",
+    "detail": "/forms/extension-transport-order at 320 and 390: title truncates to three characters, publisher to 'Offic...', and the restriction sentence breaks one word per line while two status badges sit across it. form-detail-page.tsx:844-890 - the phone badge row takes its natural width beside a text column allowed to collapse to ~55px. 'Password required' and 'Editing restricted' decide whether the clinician can fill the form now or must print it, on a Mental Health Act transport order.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQM3T47Y8XH9TCNZ0RSZM"
+  }
+}

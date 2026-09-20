@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "93566dc4-16c5-4de3-8e2a-9d7c03467a65",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "'Strong support' is derived from model confidence, not source governance, and contradicts the same card",
+    "detail": "answer-render-policy.ts:144-162 reaches trust 'high' from answer.confidence plus source-backing and no faithfulness warning; it does not consider whether any cited document's governance status is current or validated. The same card shows 'Status unknown' on every cited row and a limitations dialog saying the sources are not locally validated. The clipboard output states both: 'Render trust: high' and 'Validation: Not locally validated'. In psychiatry 'strong support' is the language of evidence strength. Wording at answer-card.tsx:67-72.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQN61WGMB4Z3YD5Y73N7G"
+  }
+}
