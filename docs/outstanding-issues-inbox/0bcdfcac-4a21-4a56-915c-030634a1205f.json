@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "0bcdfcac-4a21-4a56-915c-030634a1205f",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "5599b77e-0495-49cc-af4d-34f302b25ebe",
+    "reason": "Codex review: the efficiency claim still says render_payload is unused on the read path. That is wrong — universal-search.ts calls readCanonicalSiteContentRecords without mapRecord, which returns row.render_payload as the catalogue record. Replacing with a fresh add that requests a narrowed search projection WITH the required render fields, not a strip."
+  }
+}
