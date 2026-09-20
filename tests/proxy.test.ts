@@ -7,6 +7,7 @@ import { env } from "@/lib/env";
 import { DEVELOPER_GATED_PATH_PREFIXES } from "@/lib/developer-area/headers";
 import {
   DEVELOPER_ACCESS_COOKIE,
+  DEVELOPER_ACCESS_ERROR_PARAM,
   DEVELOPER_ACCESS_QUERY_PARAM,
   developerAccessTokenValid,
   issueDeveloperAccessToken,
@@ -480,6 +481,9 @@ describe("passwordless developer-area access (?devkey)", () => {
       // address bar, the shared history entry, or an onward Referer header.
       expect(location).not.toContain(KEY);
       expect(location).not.toContain(DEVELOPER_ACCESS_QUERY_PARAM);
+      // A success carries no rejection marker, so a stale one from an earlier
+      // wrong guess cannot follow the visitor into the opened area.
+      expect(location).not.toContain(DEVELOPER_ACCESS_ERROR_PARAM);
 
       const cookie = accessCookie(response);
       expect(cookie).toBeTruthy();
@@ -503,6 +507,10 @@ describe("passwordless developer-area access (?devkey)", () => {
       // Stripped anyway, so a failed guess cannot ride the DEVELOPER_AREA_PATH
       // header into the sign-in screen's `next` value.
       expect(response.headers.get("location")).not.toContain("wrong-guess");
+      // But the refusal IS reported, so the gate screen can say the key was
+      // wrong instead of re-rendering an identical form and leaving the owner
+      // unable to tell a rejected key from a slow one.
+      expect(response.headers.get("location")).toContain(`${DEVELOPER_ACCESS_ERROR_PARAM}=1`);
     });
   });
 
@@ -512,6 +520,7 @@ describe("passwordless developer-area access (?devkey)", () => {
     try {
       const response = await proxy(requestFor(`/mockups/development?${DEVELOPER_ACCESS_QUERY_PARAM}=${KEY}`));
       expect(accessCookie(response)).toBeUndefined();
+      expect(response.headers.get("location")).toContain(`${DEVELOPER_ACCESS_ERROR_PARAM}=1`);
     } finally {
       if (previous !== undefined) process.env.DEVELOPER_AREA_ACCESS_KEY = previous;
     }
