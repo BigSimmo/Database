@@ -4,13 +4,13 @@
     "committed_at": "2026-09-19"
   },
   "counts": {
-    "open": 124,
-    "p1": 19,
-    "p2": 82,
-    "p3": 23,
+    "open": 123,
+    "p1": 21,
+    "p2": 78,
+    "p3": 24,
     "queued": 7,
     "pending": 0,
-    "resolved": 591
+    "resolved": 602
   },
   "queue": [
     {
@@ -498,20 +498,11 @@
       "added": "2026-09-04"
     },
     {
-      "id": "#YSKD8J",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Every main CI run concludes cancelled because release-browser-matrix hits its own 70 minute timeout, so main has had no browser coverage at all",
-      "detail": "MECHANISM IDENTIFIED 2026-09-07 by job-level timing, and it is NOT the spending or concurrency cap this row originally hypothesised. That hypothesis is withdrawn, and the per-run concurrency group is not implicated. release-browser-matrix carries timeout-minutes: 70 (.github/workflows/ci.yml). Measured on two consecutive main runs: run 34100540973 (f3ea7cb), job 101675121681, started 08:30:56Z and completed 09:41:19Z = 70m23s, with its 'Full browser UI matrix' step ending in conclusion cancelled. Run 34104496596 (c8cc72f), job 101689976803, started 09:22:47Z and completed 10:33:07Z = 70m20s, identical shape. Both land exactly on the configured timeout. GitHub reports a timed-out job as cancelled, and one cancelled job makes the whole run conclusion cancelled. That is the entire explanation for main's run-level redness, and it also explains the earlier temporal pattern (runs stopped concluding cancelled when the merge queue quietened and the matrix presumably completed inside 70 minutes). In both runs every other job succeeded, PR required included: Change scope, Static PR checks, Unit coverage, Build, Safety and config, Caring Contacts database, Production UI (1)(2)(3), Visual baselines, Lighthouse budget. CONSEQUENCE, and it is worse than the original row implied: the matrix now produces NO result rather than a red one. Main's Firefox and WebKit coverage is currently zero, not failing. The sibling row recording 15 Firefox/WebKit failures describes the last state in which the matrix still finished, at 48.3m on edbd29f. It has since crossed 70 minutes, so those 15 failures are no longer even being reported. NEXT ACTION: find why the matrix went from roughly 48 minutes to over 70. The first candidate is the 15 failing tests themselves, because a failing Playwright test spends its full timeout and then pays for trace and video capture, so failures are disproportionately expensive and a growing failure set is self-accelerating. Fix the failures first and re-measure. Do NOT simply raise timeout-minutes: that buys a longer run without restoring a verdict, and it hides the regression that made the suite slower. If the suite is genuinely too long after the failures are fixed, shard it the way Production UI is already sharded into three jobs rather than extending one 70 minute job. ORIGINAL EVIDENCE, retained: of the 8 completed CI runs on main sampled 2026-09-06, 6 concluded cancelled and 2 failed, none succeeded. Volume context: 132 merge commits to main in 24 hours, 19 in one 3-hour window. The 2026-08-20 queue-eviction mechanism was ruled out and stays ruled out: commit 19ee948 carries group: CI-${{ github.run_id }} for push events plus cancel-in-progress: ${{ github.event_name != 'push' }}, so a main push run has a unique group and cannot be superseded.",
-      "source": "Session 2026-09-07. Original hypothesis from run-level reads on 2026-09-06; corrected the same day by job-level timing on runs 34100540973 and 34104496596, which both show release-browser-matrix ending at its 70 minute timeout. Offline repo read of ci.yml plus GitHub Actions job reads. No provider mutation.",
-      "added": "2026-09-07"
-    },
-    {
       "id": "#XSZ4XV",
       "priority": "P2",
       "type": "task",
       "summary": "Audit remediation leftovers still open after #4BE39H's archival: Docling model pin, preview font/noindex, offline-page branding, calculator governance link",
-      "detail": "Correction to #4BE39H (issue-ulid 01M1PW9PQG4BE39HC59GZ0B8NR), archived 2026-09-06 with outcome 'Completed unblocked audit leftovers L45, L131, and sentry dependency.' That outcome text only covers 3 of the 7 items the row's own prior detail named, and the row was fully archived anyway. The 4 not covered by the outcome are still unresolved at 2026-09-07: (1) L49 Docling model revision pin — Dockerfile.worker:86 (docling-tools models download --output-dir /opt/docling-models) and eval/docling/Dockerfile:44 run the same command with no --revision/pin argument, so the models fetched at build time are unpinned; the fix is in PR #2629's body per the original request. (2) L5 fonts/noindex owner decision — public/brand/preview.html and docs/brand/preview.html are still byte-identical (no change applied), so the decision remains unmade. (3) L126 offline-page branding + CACHE_VERSION bump — public/offline.html brand mark is unchanged and public/sw.js CACHE_VERSION is still 2026-08-28-v1, so no bump has occurred. (4) Calculator governance link — data/calculators/evidence.json:9 still points source:governance.url at the github.com blob URL (https://github.com/BigSimmo/Database/blob/main/docs/superpowers/specs/2026-09-01-calculators-clinical-safety.md), which an end user cannot open, per the original request's exact concern. Flagged by Codex review (discussion_r3946596430) on PR #2701; the archived #4BE39H row cannot itself be amended (see #686WHW), which is why this is a new row rather than an edit.",
+      "detail": "PARTLY DONE 2026-09-19 in PR #2920: three of the four leftovers landed, and the CACHE_VERSION half was already done before this session (public/sw.js read 2026-09-12-v1, not the 2026-08-28-v1 this row quoted). (1) FONTS: public/brand/preview.html and its docs/ twin now load vendored WOFF2 files instead of calling fonts.googleapis.com at render. Kept byte-identical because tests/developer-hub-panels.test.ts pins them to one SHA-256 so the Developer Hub link cannot show a retired mark. (2) DOCLING: the remedy this row recorded is IMPOSSIBLE -- docling-tools has no --revision flag. Replaced with a recorded artifact digest verified in the same RUN layer as the download, failing the image build on any added/removed/changed file. It warns rather than failing while the manifest is empty, because the digest can only be learned by running the download; the first build prints a block to paste back. Also corrected two false comments: both Dockerfiles claimed docling 2.120.2 while the hashed lock has pinned 2.124.0 since 284f813c9, and eval/docling/Dockerfile claimed the weights were pinned by the hash-locked requirement. (3) OFFLINE MARK: public/offline.html now draws the real BrandMark SVG, generated from src/lib/brand-mark.ts by the existing brand:check generator rather than hand-copied, with CACHE_VERSION bumped to 2026-09-19-v1. STILL OPEN: the calculator governance link (data/calculators/evidence.json:9 points at a private github.com blob a clinician cannot open). Investigated and deliberately stopped: url is required on the source type, no in-app pattern exists to reuse, and the target document is an engineering spec containing lines like 'SAD PERSONS -- Remove from active clinical decision support' that read very differently to a clinician. Needs two owner decisions: in-app or public, and what it should say. ALSO LEFT: stale docling 2.120.2 still in eval/docling/README.md and docs/worker-deploy-runbook.md.",
       "source": "Codex review PR #2701 discussion_r3946596430; corrects #4BE39H",
       "added": "2026-09-07"
     },
@@ -519,9 +510,9 @@
       "id": "#9Z197J",
       "priority": "P2",
       "type": "issue",
-      "summary": "release-browser-matrix fails on every main run with 15 Firefox/WebKit failures, and it is not in PR required so it never blocks a merge",
-      "detail": "NOT FIXED 2026-09-18, and the diagnosis is recorded here so the next session does not re-derive it. QUARANTINING IS THE WRONG ANSWER: tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. These 15 are not flakes. They fail deterministically because Firefox and WebKit compute scroll geometry differently from Chromium, and there is no per-engine expectation mechanism anywhere in playwright.config.ts (the three projects differ only by device preset). The fix is to make those specific assertions engine-tolerant. WHY IT WAS NOT DONE: the 15 failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises.",
-      "source": "session 2026-09-06 diagnosis of main CI; runs 34065301954 and 34064564709",
+      "summary": "release-browser-matrix fails on every main run with 13 Firefox/WebKit failures - 5 Firefox tolerance artefacts and 8 WebKit, six of them phone chrome on Safari engine and so likely real iPhone bugs - and it is not in PR required so it never blocks a merge",
+      "detail": "UPDATE 2026-09-20 (read from the GitHub job logs of the latest main release-browser-matrix run; still no local browser run, provisioning fails here as described below). THE COUNT IS 13, NOT 15: Chromium green in ~8 min; Firefox 700 passed / 5 failed in ~28 min; WebKit 696 passed / 8 failed in ~40 min. THE 2026-09-06 CONCLUSION IS HALF WRONG AND THE CORRECTION IS THE POINT OF THIS UPDATE. The Firefox half is tolerance work as recorded — one failure is provably a measurement artefact, Expected >= 12 / Received 11.999954223632812, a sub-pixel rounding difference and nothing more. THE WEBKIT HALF IS NOT. Six of the eight WebKit failures are phone scroll, header, footer and composer behaviour. WebKit is Safari engine, so on an iPhone those are candidate real user-visible bugs, not engine-geometry tolerance, and must be read as a bug report rather than assertion-loosening work. ORDER: fix the five Firefox tolerances first because they are cheap and provably artefacts, then treat the six WebKit phone-chrome failures as a defect investigation, and do that before the tablet row #6GR6B8 because the two are plausibly the same root cause. QUARANTINING IS STILL THE WRONG ANSWER, and more so now: quarantining a phone-chrome failure on Safari engine would hide a defect, not a flake. tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. NOT FIXED 2026-09-18. WHY IT WAS NOT DONE: the failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises. Historical note only: an earlier 2026-09-06 write-up used a 15-failure count and treated the whole set as deterministic geometry differences to loosen; that count and that blanket remedy are superseded by this update and must not be reapplied.",
+      "source": "session 2026-09-20 /ledger sweep - GitHub job logs for the latest main release-browser-matrix run; supersedes the 2026-09-06 count and diagnosis",
       "added": "2026-09-07"
     },
     {
@@ -592,7 +583,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "ui-tools differentials compare queue navigation is intermittently slow enough to time out inside the full Production UI shard 3",
-      "detail": "Observed 2026-09-07 on PR #2721 (branch claude/rag-review-fallback-grounded-flip). tests/ui-tools.spec.ts:2928 'differentials compare queue launches presentation comparison' failed in CI Production UI (3): the compare-open click never navigated, expected /differentials/presentations/acute-confusion-encephalopathy, still on /differentials/compare?ids=wernicke-encephalopathy after the 30s toHaveURL timeout, test duration 33.5s. Measured locally four ways: same branch full shard 3 reproduced it once (1 failed, 206 passed, 8.5m), same branch full shard 3 second run 207 passed (7.7m), the test alone on the branch passed in 6.4s, origin/main 0177bed18 full shard 3 207 passed (7.6m) and the test alone passed in 6.1s. So it is nondeterministic under shard load, not caused by that PR (which changes src/lib/rag only and cannot reach differentials routing), and it is well under the three-reproductions-on-one-SHA bar for tests/flake-ledger.json. Recorded so a second sighting is recognised as a pattern rather than re-diagnosed from scratch. Next: if it recurs, capture the trace from the CI diagnostics artifact and check whether the compare-open handler waits on a client-side data load that has no deterministic settle signal in the test. Do not quarantine on a single reproduction. PARKED 2026-09-18: one reproduction under shard load, well under the three-on-one-SHA bar for the flake ledger, and the diagnosis needs a CI trace artifact captured while it is failing. A speculative wait added to the test now would be a guess at the cause. TO UNBLOCK: on the next sighting, pull the trace from the CI diagnostics artifact and check whether the compare-open navigation is racing an unhydrated link - the destination route has a role=status 'Loading presentation' skeleton that would give the test a deterministic settle signal if that is what it turns out to be.",
+      "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Owner chose reproduce-then-fix-only-if-the-trace-shows-it, so nothing was guessed. Line drift recorded: the test is tests/ui-tools.spec.ts:2952 today, not :2928. Both arms use a 30s waitForURL with no intermediate settle signal, which matches the unhydrated-link diagnosis. The destination skeleton exists and is referenced by no spec: src/app/(search-app)/differentials/presentations/[slug]/loading.tsx:5 renders role=status aria-label='Loading presentation'. Worth knowing: this same test is one of the 15 Firefox/WebKit failures in #9Z197J, so fixing those may resolve it.",
       "source": "PR #2721 CI Production UI (3), reproduced and cleared locally against origin/main",
       "added": "2026-09-07"
     },
@@ -682,7 +673,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Cross-viewport: calculator/modal close and control hit-layer interception",
-      "detail": "Phone, tablet, and desktop: calculator/PHQ-9 modal close or controls can be pointer-intercepted by overlay/content (duplicate close targets; wrapper interception). Visible close often still works. Next: single unambiguous close hit target ≥44px above content; fix PHQ-9 control hit testing. Evidence: DESIGN-SIZING-*; desktop calculator-phq9-modal; DS-03 / LQA-P2-04 / LQA-T-07.",
+      "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Scope re-read while blocked: the duplicate-close half is ALREADY FIXED (calculator-sheet.tsx makes the backdrop aria-hidden and leaves one named Close on size-tap, with 6 jsdom cases in tests/calculator-sheet-close.dom.test.tsx and a Playwright case in tests/ui-overlap.spec.ts). What genuinely remains is the PHQ-9 control hit testing and the >=44px contract, for which there is no elementFromPoint assertion anywhere. Also noted: the sheet is not portalled through OverlayPortal, so it still inherits any transformed ancestor the search page grows.",
       "source": "session 2026-09-13 design sizing all viewports",
       "added": "2026-09-13"
     },
@@ -691,7 +682,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "WATCH: suspected CrCl/QTc NumberField corruption (not reproduced on 2026-09-13 retest)",
-      "detail": "Earlier live desktop pass on psychiatry.tools prescribing mode: CrCl typed as 95 briefly displayed 42095; QTc showed unexpected 420. Suspected race in clinical-dashboard patient-profile NumberField (type=number + render sync) with writePatientProfile on every keystroke. 2026-09-13 re-verification could NOT reproduce (CrCl 95 and QTc 450 displayed correctly under slow type, replace, backspace). SaMD memo discusses broader patient-profile classification but does not evidence this corruption. Keep OPEN as a low-priority watch until Playwright digit-by-digit asserts values never gain foreign prefixes — do NOT treat as confirmed P1 clinical defect without reproduction. Stop: do not close from a single non-repro session alone; do not divert urgent clinical-safety work on suspicion alone. REPRODUCED AND FIXED 2026-09-18. No longer a watch item - the mechanism was found, reproduced in jsdom with digit-by-digit typing, and fixed. The field compared the incoming value against the previous prop and skipped the re-sync entirely while the current text was out of range, so a refused entry stayed on screen forever. Decisive failing assertions before the fix: expected '420' to be '95' (one mounted panel showing a CrCl the profile does not hold, while dosing alerts run on the other value) and expected '1' to be '1.0'. THE SECOND ONE IS WORSE AND WAS NOT PREVIOUSLY KNOWN: the sync re-derived the text from the stored number, so an in-progress '1.0' serum creatinine was rewritten to '1' under the caret and the next keystroke landed as 12 - and 12 mg/dL is in range, so it stored with no warning at all. An order-of-magnitude dosing input error, entered silently by a clinician who typed 1.02. THE FIX compares the incoming value against what the field last committed rather than against the previous prop, which separates the field's own write echoing through the shared store from news arriving elsewhere; an echo leaves the draft alone, news is adopted even over an out-of-range draft. Bounds, persistence and the error text are unchanged, and out-of-range text is still held for correction in place. Six new DOM cases cover CrCl, QTc, the multi-mount desync, the decimal path and a leading zero; three of them fail without the fix. REMAINDER RAISED SEPARATELY: a refused entry still survives a clear performed from another mounted panel (drafted fix held back because it changes when inputs remount), and the single-mount case of typing into a box that visibly still has text, which is a design decision rather than a defect. The standing clinical question - what a number field should do with a partial entry - is the PATIENT-NUMERIC-FIELD-DISPLAY open assurance decision in docs/clinical-hazard-controls.json.",
+      "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. The jsdom half is complete and has been since 2026-09-18 (six cases in tests/patient-profile-panel.dom.test.tsx), and the remainder #DTAMMK is now fixed in PR #2905. What this row still wants -- Playwright digit-by-digit assertions that a value never gains a foreign prefix -- remains UNWRITTEN, and the gap is confirmed real: grep for CrCl/QTc across tests/*.spec.ts returns zero hits, and tests/ui-stress.spec.ts only seeds localStorage without typing. Do not close this row until that browser arm exists.",
       "source": "session 2026-09-13 live QA; Codex review: require evidence before P1",
       "added": "2026-09-13"
     },
@@ -702,15 +693,6 @@
       "summary": "Dictionary handover: 333 sense drafts and 28 definition rewrites await clinical sign-off",
       "detail": "The 2026-09 handover landed as an unpublished editorial draft layer (src/data/dictionary-sense-drafts.json, src/data/dictionary-definition-reviews.json). All 333 senses are clinicalApproval pending and publicationAllowed false, and assertNoDraftIsPublished keeps them that way. All 96 definition-review baselines hash-match the live entries, so the 28 proposed rewrites apply cleanly - none is applied because none is signed off. Evidence coverage is the governing fact: 206 of 1,881 statements carry a source and none of the 292 safety warnings does. Nothing publishes until a named clinician signs records off, and a public route for sense ids does not exist yet. See docs/dictionary-editorial-drafts.md.",
       "source": "Claude session 2026-09-16, handover package PsychSift_Dictionary_Claude_Cloud_2026-09-16",
-      "added": "2026-09-16"
-    },
-    {
-      "id": "#8GB18R",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Registry and medication list responses cannot carry the degraded flag",
-      "detail": "PARTIAL 2026-09-18 (PR #2881, merged). /api/registry/records now emits degraded (only when true), parseRegistryListResponse accepts it in both the full and search allow-lists, and the services/forms document-search surface renders it through withCatalogueDegradedNotice on the results heading and catalogueDegradedNotice on the count band. A latent bug was fixed in the same pass: registryListPayload returns matches for every non-summary view once the request carries q, and matches was in neither allow-list, so a searched list request would have parsed as null and told the reader the registry could not be searched for a response that arrived completely intact. Regression-tested in both views. STILL OPEN, which is why this row is not closed: (1) /api/medications emits the same state as retainedSnapshot: true and no medications surface renders it; (2) services-navigator-page.tsx and forms-search-results-page.tsx read the same registry list, own their own header bands, and show no notice.",
-      "source": "docs/audit/2026-09-16-registry-search-outage.md",
       "added": "2026-09-16"
     },
     {
@@ -777,15 +759,6 @@
       "added": "2026-09-16"
     },
     {
-      "id": "#BDJWAH",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Orphaned owner-catalogue-cache is still invalidated by the seed writers",
-      "detail": "`src/lib/owner-catalogue-cache.ts` lost its only search-path reader on 2026-09-09 (b753ed2b1), which is the commit that caused the seven-day registry-search outage. The module is still in the tree and `invalidateOwnerCatalogueCache` is still called by `src/lib/registry-seed.ts` and `src/lib/medication-seed.ts` after a write. Those calls now clear a cache nothing reads, so anyone checking whether the catalogue cache is invalidated on publish gets a misleading yes. Two things to settle together: retire the dead module through the dead-code-deletion protocol, and decide whether the cache that replaced it (`src/lib/site-content/site-content-record-cache.ts`, 15 s fresh / 10 min stale-while-revalidate) needs an invalidation hook on publish or whether the TTL is the intended contract. Context: docs/audit/2026-09-16-registry-search-outage.md.",
-      "source": "docs/audit/2026-09-16-registry-search-outage.md",
-      "added": "2026-09-16"
-    },
-    {
       "id": "#PX8N86",
       "priority": "P2",
       "type": "issue",
@@ -846,15 +819,6 @@
       "summary": "Do NOT re-index until the worker has deployed the extraction fix, then re-index and run the canary pair around it",
       "detail": "SEQUENCING GUARD, written because the obvious next action is wrong if taken today. The extraction fix merged to main as db7432a9b on 2026-09-16. Production was still serving a708a95093c7922163166b7bafc63afd6852bc69 immediately afterwards, which PREDATES the fix (verified via /api/health deploymentCommitSha, uptime 2754 s). RE-INDEXING BEFORE THE INGESTION WORKER CARRIES THE FIX RE-EXTRACTS WITH THE OLD CODE. That achieves nothing, spends provider budget on embeddings, churns the live clinical corpus and produces a false all-clear, because the re-indexed chunks would still carry interleaved table text. ORDER OF OPERATIONS: (1) confirm the worker service, not just the app service, is running a build that contains db7432a9b; the two are separate Railway services in project Database and both auto-deploy from main, so confirm the worker specifically. (2) Run Step 6 of scripts/operator-clozapine-retrieval-diagnosis.sql to get the per-document re-index worklist; it is read-only and its fingerprints were validated against real production text. (3) Capture an eval canary BASELINE before re-indexing. (4) Re-index the worklist documents. (5) Capture the canary POST run. Per AGENTS.md RAG ranking protection the before/after pair belongs around the RE-INDEX, not around the merge, because the merge cannot change any retrieval result until documents are re-ingested; PR #2810 said so explicitly and must not be treated as canary-cleared. (6) Only then expect the four clozapine eval cases to move, and note they may still not pass if the underlying RKPG document is itself wrong, which is its own P1 row. Re-indexing is provider-backed and mutates the live clinical corpus, so it needs explicit owner approval at the time, not standing approval from this session.",
       "source": "Claude Code session 2026-09-16 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), deployment state verified against production /api/health after merging db7432a9b",
-      "added": "2026-09-16"
-    },
-    {
-      "id": "#CNSDBJ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Nothing makes applied migrations immutable in general, so editing any other one still passes every offline gate",
-      "detail": "The 2026-09-16 incident was an edit to three already-applied migrations. tests/site-content-epoch-zero-freeze.test.ts now pins that identity and both frozen blob hashes, which would have caught it, but the guard is specific to the site-content freeze. An edit to any OTHER applied migration's function body still passes lint, typecheck, the offline unit suite and the migration replay, because the replay only proves the chain is internally consistent and chain-vs-mirror parity in CI is report-only. Only the post-merge live check:drift notices, which is after it has reached production. STRUCTURAL FIX: record a per-version content hash for every migration recorded as applied on live, and fail when a file's hash changes without its version being new. Needs a decision on where the baseline lives (a committed manifest is the obvious place) and on the escape hatch for a legitimate correction to a migration that has NOT yet been applied. Related to the #QCNE6N drift class.",
-      "source": "Session 2026-09-16 epoch-zero freeze repair; raised by the schema-guardian review of the repair",
       "added": "2026-09-16"
     },
     {
@@ -1029,20 +993,11 @@
       "added": "2026-09-17"
     },
     {
-      "id": "#3PW9TY",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A catalogue search can silently serve the in-bundle list: /api/differentials returns degraded but no UI surfaces it",
-      "detail": "PARTIAL 2026-09-18 (PR #2881, merged). useDifferentialSearch now carries the degraded flag in state and in its LRU entry, so a cache hit cannot quietly heal it, and merges the diagnosis and presentation requests with OR because a result card does not say which catalogue it came from; the search results band shows the pinned catalogueDegradedNotice wording. STILL OPEN, which is why this row is not closed: the compact 'Also in...' strip (universal-search-also-matches.tsx) filters to groups with items and shows no notice, unlike the command surface it sits beneath.",
-      "source": "PR #2849 review, session 01XGpedMgoXWK3U3fn2TWTzR, 2026-09-17; grep verification that no differentials UI consumes the flag.",
-      "added": "2026-09-17"
-    },
-    {
       "id": "#E6142T",
       "priority": "P2",
       "type": "issue",
       "summary": "The PWA update notice may overlap page content on non-answer pages, and the services search mode has no mode-noun stop list",
-      "detail": "TWO SMALL THINGS LEFT BEHIND BY PR #2860, both found while fixing something adjacent, both deliberately not fixed there. (1) UPDATE NOTICE OVERLAP (2026-09-17 audit, its L4; the dismissal half of L4 IS fixed in #2860). globals.css moves .pwa-notice-stack out of the bottom-right corner only under body:has(form.answer-footer-search-edge), so on Documents and other modes the notice stays over page content and controls. The audit reports it intercepting clicks. UNVERIFIED AND NOT FIXED: the first attempt keyed on a class name that was assumed rather than checked and does not exist (.master-search-dock), and without a browser the overlap cannot be seen or a fix confirmed. Guessing at clinical-interface CSS is not worth it. NEXT: reproduce at desktop width on /?mode=documents with the notice showing, then widen the selector to whatever really owns a fixed bottom composer - or reserve the corner. Note the rule already moves the stack to the TOP on answer views, so check that does not simply trade one overlap for another over the header. (2) SERVICES MODE HAS NO MODE-NOUN LIST. modeSearchWords in src/lib/smart-search-intent.ts:246-250 has entries for calculators, factsheets and dictionary only. Since #2860 let short plain queries contribute their own subject words, 'service' now survives as a term in services mode and matches most of the catalogue. Harmless but unhelpful; filling that list is a relevance decision about the services mode, which is why it was left. NEXT: decide the services (and any other smart-search mode's) stop list alongside whoever owns services relevance. PART 1 REPRODUCED AND RE-DIAGNOSED 2026-09-18, DELIBERATELY NOT FIXED. Measured in a real browser at 1024x800 on ?mode=tools: the install sheet made FIVE interactive controls unreachable - 'Ask PsychSift Search', 'View example' and three calculator tabs - with document.elementFromPoint returning the notice card for each. So the audit's L4 is real. BUT ITS STATED MECHANISM IS REFUTED, and this row's own earlier text repeated it: the fix is NOT to widen body:has(form.answer-footer-search-edge) to whatever owns a fixed bottom composer, because Documents, Tools and Differentials have NO fixed bottom composer at desktop width at all. Measured overlap between the notice and any fixed bottom composer is 0 on every mode tested (documents, answer, tools, differentials at 1440 and 1024). There was never a composer collision on those pages; the collision is with the page itself. ALSO MEASURED: .pwa-notice-stack already sets pointer-events:none, so the container is click-through - it is the cards inside it that land on content. AND THE OBVIOUS FIX WAS TRIED AND REJECTED ON EVIDENCE: anchoring the stack to the top on every wide view took the blocked count from five to two, i.e. it traded one set of covered controls for another, exactly as this row warned. WHAT IS LEFT is a design decision, not a CSS guess: whether a floating notice may cover page content at all, or whether the corner must be reserved, or the card made smaller. A browser guard was added pinning the one invariant that must hold either way (the container stays pointer-events:none). PART 2 (services mode has no mode-noun stop list) is unchanged and remains a search-relevance decision for whoever owns services relevance; src/lib/smart-search-intent.ts was deliberately not touched.",
+      "detail": "BLOCKED 2026-09-19, and the blocker is network policy rather than code. The egress proxy answers 403 to cdn.playwright.dev, verified directly: npx playwright install chromium chromium-headless-shell firefox webkit failed on every download. /opt/pw-browsers holds chromium-1194 while node_modules/playwright-core/browsers.json pins 1243, so scripts/playwright-browser-preflight.mjs refuses before the build by design, and docs/testing.md forbids working around a revision mismatch. Firefox and WebKit are absent entirely. TO UNBLOCK: run from an environment whose egress allows cdn.playwright.dev, or have an operator pre-seed /opt/pw-browsers with revision 1243 plus firefox and webkit. Nothing about part 1 changed: the row's own 2026-09-18 measurement already refuted the audit's stated mechanism and recorded that anchoring the stack to the top traded five blocked controls for two. What remains is a design decision -- whether a floating notice may cover page content at all, or the corner must be reserved, or the card made smaller -- not a CSS guess, and the pointer-events:none invariant is already guarded by tests/ui-pwa.spec.ts:428. Line drift recorded: the rule the row quotes is now src/app/globals.css:3782-3787, and the pointer-events:none declaration is at :3491. Part 2 (services mode has no mode-noun stop list) is unchanged and untouched.",
       "source": "PR #2860 working notes; code read of src/app/globals.css:3698-3712 and src/lib/smart-search-intent.ts at origin/main 6f0a3d444; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
       "added": "2026-09-17"
     },
@@ -1060,7 +1015,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Safety chips are labelled by broad first-match keywords: an instruction to cease a drug gets no label at all, and 'immediately' does not match the red-flag pattern that matches 'immediate'",
-      "detail": "HEADLINE-POSITION QUESTION IS MOOT, verified 2026-09-19 against main. The reason this issue gave for not fixing the labels — that answerSupportPriority (src/components/clinical-dashboard/evidence-panels.tsx) promotes the most severe finding ahead of everything else as the answer's headline support card, so changing labels changes what a clinician sees first — rests on code the application does not render. answerSupportPriority and AnswerSupportSummaryCard have ZERO callers in src/ (grep across the whole tree); the support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail, which tests/answer-support-priority.dom.test.tsx asserts directly ('the support card was removed on 2026-08-31 ... the rail is therefore the ONLY route to the findings sheet'). The shipped surface renders RetrievalStateBanner (grounding state) at answer-result-surface.tsx:485 and passes clinicalPointsRail into NaturalLanguageAnswer at :555 — two separate elements, both visible, banner first. So no keyword match displaces the 'Review source match' caution, and there is no headline contest to decide. WHAT REMAINS: the vocabulary itself is still a clinical judgement and still unsigned. The ordering half should be closed rather than carried as an open owner decision. docs/clinical-hazard-controls.json SAFETY-CHIP-VOCABULARY carried the same stale premise and was corrected in the same change.",
+      "detail": "NEW FINDING 2026-09-19 while fixing #9XRDF7, needs the owner and NOT fixed. The word-boundary defect is still live one severity tier UP, on the danger colour: \\burgent\\b misses 'urgently', so 'Urgently reassess the patient.' produces no finding at all today. The same gap exists for review/reviewed, exclude/excluded, consider/considered, caution/cautious, transfer/transferring and seizure/seizures. urgent and seizure sit in red_flag, so widening them paints passages with the stop tone and danger colour -- beyond the approval given for escalate and monitor. Pinned as an explicitly-labelled unfixed gap in tests/clinical-safety.test.ts so it stops being invisible. SEPARATELY, correcting an assumption this row implied: widening a mid-array entry does not only add findings where nothing matched. safetyPatterns.find returns the first match in severity order, so it TAKES passages from every tier below it; seven label-to-label movements were measured for escalate/monitor alone (Dose limit, Monitoring, Exclusion and Caveat all lose passages to Escalation; Exclusion and Caveat lose to Monitoring). Recorded because it changes how any future vocabulary widening must be assessed. Read alongside the 2026-09-19 finding above that the headline-position question is moot: with answerSupportPriority unrendered, a label change moves which chip a clinician sees, not what they read first.",
       "source": "tests/clinical-safety.test.ts precision cases added in PR #2860; code read of src/lib/clinical-safety.ts and evidence-panels.tsx at origin/main 6f0a3d444; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
       "added": "2026-09-17"
     },
@@ -1128,66 +1083,12 @@
       "added": "2026-09-16"
     },
     {
-      "id": "#86E34T",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "pr-policy treats the differential data as clinical-risk but not the code that interprets it",
-      "detail": "scripts/pr-policy.mjs classifyPullRequestFiles marks data/differentials-snapshot.json as a clinical-risk surface, but src/lib/differential-records.ts is not matched by clinicalRiskPatterns. That file decides whether a stored 'outdated' record is presented as current or outdated, so the governed data is protected and the code deriving its clinical status is not. Found while fixing the rowGovernance re-verification defect (PR for claude/differential-governance). Not fixed in that PR deliberately: widening clinicalRiskPatterns changes which future PRs are held for governance preflight, which is a governance-surface decision for the owner, not a side effect of a behaviour fix. Options are (a) add the three record-governance modules to clinicalRiskPatterns, (b) add only differential-records.ts, or (c) accept the asymmetry and record why.",
-      "source": "Nine-issue packet review, 2026-09-17",
-      "added": "2026-09-17"
-    },
-    {
-      "id": "#DTAMMK",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A refused patient number still survives a profile clear performed from another mounted panel",
-      "detail": "REMAINDER OF #WFARS3, deliberately not fixed in the 2026-09-18 PR that fixed the main defect. The NumberField sync now adopts a real value arriving from elsewhere, so a panel can no longer display a CrCl the profile does not hold. TWO ROUTES REMAIN OPEN. (1) A CLEAR IS INDISTINGUISHABLE FROM A REJECTION. A refused out-of-range entry stores null, and so does a profile-wide clear, so the field cannot tell 'my entry was refused' from 'the whole profile was wiped by another mounted copy of the panel, or by sign-out'. Reproduced: panel A holds a refused CrCl 420, panel B clears the profile, and A still shows 420. Typing 95 into it then reads 42095 - the originally reported symptom. THE FIX IS KNOWN AND DRAFTED: a clearGeneration counter incremented in clearPatientProfile and a new resetPatientProfile in src/lib/patient-profile-storage.ts, surfaced through patient-profile-context.tsx via useSyncExternalStore, and used as the resetNonce in patient-profile-panel.tsx so every mount remounts its entry fields on any clear. It was held back because it changes when inputs remount - they would now also remount on a sign-out clear, which destroys and rebuilds the input elements and so drops focus if a field happened to be focused at that instant. Clears are deliberate and infrequent, so the exposure looks nil, but it is a behaviour change outside the typing path and wants a deliberate decision. (2) THE SINGLE-MOUNT CASE IS NOT A CODE DEFECT. If a clinician gets a refused 420 into the box and, without clearing it, clicks at the end and types 95, they see 42095 - that is simply typing into a box that already had text, and the field is red throughout. Closing it needs a design decision (clear refused text on blur, or a visible clear-this-field control), not a bug fix. NEXT: decide (2) as a product question, then land (1) with the drafted patch plus the seventh DOM test that was written for it and held back with it.",
-      "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN); reproduced in jsdom against origin/main 28dabe0c3",
-      "added": "2026-09-18"
-    },
-    {
       "id": "#HNJF5X",
       "priority": "P2",
       "type": "issue",
       "summary": "Three differential presentation workflows carry an id identical to a diagnosis slug, so any surface keying both families on one identifier silently drops three records",
-      "detail": "Verified 2026-09-18 against data/differentials-snapshot.json on main (67b86374e): diagnoses are keyed by slug, presentations by id, and three values collide across the two families - substance-intoxication, substance-withdrawal and depression. There are 201 diagnoses and 31 presentations, so a list keyed on that one identifier renders 229 rows under a heading that says 232, and the reader is given no sign that three records are missing. Found while building the clinical sign-off queue (PR #2883), which works around it by giving each row a key distinct from its record id and pinning uniqueness in a test; the collision in the data itself is untouched. Next: decide whether the two families should share an identifier namespace at all, and if so which one yields, then fix the export rather than each consumer.",
+      "detail": "GUARDED 2026-09-19 in PR #2920, naming decision deferred by the owner. tests/differential-identifier-collisions.test.ts lists substance-intoxication, substance-withdrawal and depression as a documented baseline, pins per-family uniqueness, pins the flattened arithmetic (232 total, 229 distinct) so the loss is measured rather than described, and fails on a FOURTH collision with a message saying not to widen the baseline. The real fix stays in scripts/import-differentials-export.ts, which cannot run outside the owner's Windows machine (DEFAULT_ZIP at line 8 is a hardcoded local path). Also established: no surface loses records today -- sign-off-queue.ts is the only consumer that flattens both families and it already namespaces its keys.",
       "source": "Found and independently reproduced during the 2026-09-18 outstanding-issues session; workaround shipped in PR #2883",
-      "added": "2026-09-18"
-    },
-    {
-      "id": "#M8SP5M",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "scripts/run-vitest.mjs ignores HEAVY_RUN_WAIT_TIMEOUT_MS, so the documented remedy for lock contention does not reach the unit step of verify:cheap",
-      "detail": "Verified 2026-09-18 by reading the three runners on main. scripts/run-heavy.mjs:47 and scripts/run-playwright.mjs:110 both read HEAVY_RUN_WAIT_TIMEOUT_MS and pass it to acquireHeavyRunLock as waitTimeoutMs; scripts/run-vitest.mjs:122 calls acquireHeavyRunLock with no waitTimeoutMs and no try/catch at all, so it takes the mode default and an admission refusal surfaces as an unhandled throw. Consequence: with several worktrees active, an operator told to re-run verify:cheap with HEAVY_RUN_WAIT_TIMEOUT_MS set gets lint and typecheck to queue for the machine-wide lock while the unit step still refuses immediately, and the only way through is a manual retry loop. Two agents hit this on 2026-09-18 with six worktrees running. Fails closed rather than open, so this is lost time and not a false pass, which is why it is P3. Next: give run-vitest the same waitTimeoutMs pass-through and the same ADMISSION_BUSY_EXIT 75 handling its two siblings already have, and extend tests/test-runner-safety.test.ts to cover the third runner.",
-      "source": "2026-09-18 session; observed by two parallel agents, then confirmed by reading the three runner scripts",
-      "added": "2026-09-18"
-    },
-    {
-      "id": "#9Y6MKN",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The green 'Owner approval' badge tells reviewers there is no clinical or RAG-ranking change, on PRs that contain one",
-      "detail": "READ FROM THE CODE AND OBSERVED LIVE ON TWO PRs, 2026-09-18. The VERDICT is correct and is not in question: the 2026-09-17 owner ruling narrowed the merge hold to supabase/ only, and ownerMergeReasons (scripts/pr-policy.mjs:800-805) implements exactly that - it returns ['database'] for a supabase/ path and [] for everything else. THE STATED REASON IS THE DEFECT. When reasons.length === 0, ownerApprovalVerdict (pr-policy.mjs:883-887) emits the hardcoded description 'Not needed: no clinical, database or RAG-ranking change.' That sentence is asserted on EVERY PR that does not touch supabase/, whether or not the PR contains a clinical or RAG-ranking change. OBSERVED: PR #2885 changes src/lib/clinical-safety.ts (which pr-policy itself classifies clinical-risk) and src/components/clinical-dashboard/patient-profile-panel.tsx (clinical-risk via the 'patient' token), and alters which safety warning a clinician sees first on an answer plus a field feeding dose calculation. Its Owner approval status reads, verbatim, 'Not needed: no clinical, database or RAG-ranking change.' THE SHARPEST DEMONSTRATION IS IN THE FILE'S OWN SELF-TEST: pr-policy.mjs:2261 asserts ownerMergeReasons for ['src/lib/rag/rag.ts'] equals [], so a PR editing the core RAG module would display 'no RAG-ranking change' on a green badge. WHY THIS MATTERS RATHER THAN BEING COSMETIC: this repository already has a written rule that a status claim is dangerous exactly when it is believed (see the deferred-deploy prohibition in AGENTS.md, which exists because PR #2502 carried a false claim into a merge). A reviewer scanning a green badge that says 'no clinical change' on a clinical PR is being told the opposite of the truth at the moment they decide whether to look closer, and the automated reviewers were unavailable on both PRs that day, so the badge was a larger share of the signal than usual. THE FIX IS ONE LINE: make the description name the control that actually exists, e.g. 'Not needed: no supabase/ change.' Do not widen ownerMergeReasons - the narrowing was a deliberate owner ruling and is not what is wrong here. Update the pinned description in the pr-policy self-tests in the same change.",
-      "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN); code read of scripts/pr-policy.mjs at 8790d8a74, and the live Owner approval status on PRs #2882 and #2885",
-      "added": "2026-09-18"
-    },
-    {
-      "id": "#D7K71C",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The clinical hazard register pins a reviewedCommit that a squash merge orphans, so updating the register turns CI red on main and on every branch that syncs it",
-      "detail": "Happened 2026-09-18 and cost most of a working day across three sessions. scripts/check-clinical-hazard-controls.mjs requires every reviewedCommit in docs/clinical-hazard-controls.json to exist AND be an ancestor of HEAD, and to contain every cited control, test and evidence path. PR #2882 recorded its own pre-squash branch head (ecc217acd) in all twelve entries; the squash merge orphaned that object, so from the moment #2882 landed, Static PR checks failed on main at the Clinical hazard-controls register step and on every branch that merged main - the aggregate PR required check went red with it, blocking five unrelated PRs. It was repaired by hand in #2891 (repointed to ff57ec6d, the #2882 squash commit and the minimal ancestor still carrying docs/audit/2026-09-17-external-audit-refutations.md), with a duplicate attempt in #2892 closed as superseded. The trap is structural, not a one-off: any future register update that names its own branch head will do it again, and the author cannot know the squash SHA before the merge. Next: pick a durable mechanism - a post-merge job that repoints the register to the squash commit, a check that accepts the commit which introduced the file's current content, or a pre-merge guard that refuses a reviewedCommit not already on main.",
-      "source": "2026-09-18 session; incident spans PRs #2882, #2891, #2892",
-      "added": "2026-09-18"
-    },
-    {
-      "id": "#9XRDF7",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The same word-boundary defect that hid 'immediately' also makes 'Escalate' and 'Monitoring' match nothing",
-      "detail": "FOUND AND VERIFIED 2026-09-18 while fixing the adverb half of #GHC4XZ, by running the live regexes. src/lib/clinical-safety.ts wraps each alternation in \\b...\\b, which requires a word boundary IMMEDIATELY after the listed token. Three tokens are therefore shorter than the words they were meant to catch. One was fixed under #GHC4XZ ('immediate' now 'immediate(?:ly)?'). TWO REMAIN, both measured, not inferred: (1) the escalation entry lists 'escalat', so \\b(escalat|...)\\b matches NEITHER 'escalate' NOR 'escalation' - confirmed, 'Escalate to the consultant.' produces no finding at all. The Escalation label fires today only via 'senior review', 'specialist review', 'urgent review', 'higher level' or 'transfer', so the entry's headline token is dead. Note this also contradicts a comment in tests/clinical-safety.test.ts that asserted the escalation entry 'uses a prefix and so is unaffected'; that comment was corrected in the same PR. (2) the monitoring entry lists 'monitor', so 'Monitoring should continue for eighteen weeks.' produces no finding - confirmed. The clozapine demo passages survive only because they also contain fbc/anc/metabolic. WHY NOT FIXED IN THE SAME PR: both are label CHANGES a clinician sees, and the most severe finding is promoted to the headline support card, so they need the same owner sign-off the vocabulary change got. Fixing 'escalat' would move e.g. 'Escalate if symptoms worsen' from Caveat to Escalation; fixing 'monitor' turns silent passages into Monitoring chips. NEXT: decide both alongside the open SAFETY-CHIP-VOCABULARY assurance decision in docs/clinical-hazard-controls.json, then fix with characterisation tests moved, as #GHC4XZ did.",
-      "source": "Claude Code session 2026-09-18 (session_014x15Q1wj7KiUx3jMEERnrN), PR for #GHC4XZ; regexes executed against origin/main 28dabe0c3",
       "added": "2026-09-18"
     },
     {
@@ -1207,6 +1108,96 @@
       "detail": "answerSupportPriority and AnswerSupportSummaryCard in src/components/clinical-dashboard/evidence-panels.tsx have ZERO callers in src/. The support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail; tests/answer-support-priority.dom.test.tsx pins that removal with expect(surface).not.toContain('<AnswerSupportSummaryCard'). COST ALREADY INCURRED: their behaviour (a safety finding returned ahead of the 'Review source match' caution) was cited on 2026-09-17/18 as the reason #GHC4XZ could not be fixed, and was written into docs/clinical-hazard-controls.json SAFETY-CHIP-VOCABULARY as an open clinical decision needing a clinician. Both were corrected on 2026-09-19 once the dead reachability was verified. DO NOT DELETE ON REACHABILITY ALONE: node scripts/check-dead-code-candidate.mjs --symbol answerSupportPriority --file src/components/clinical-dashboard/evidence-panels.tsx REFUSES, because two committed tests pin it (tests/answer-support-priority.dom.test.tsx, tests/clinical-safety.test.ts) and three documents describe it (docs/answer-page-redesign-handover.md, docs/design-system/ADOPTION.md, docs/outstanding-issues.md), and evidence-panels.tsx exports 18 other live symbols so the file must stay. TO UNBLOCK: decide whether the support card is genuinely retired; if so retire the two symbols and their tests together, and update the three documents in the same change, so the next reader does not mistake a dead display rule for a live clinical one.",
       "source": "verified 2026-09-19 against main",
       "added": "2026-09-19"
+    },
+    {
+      "id": "#PG6SGZ",
+      "priority": "P3",
+      "type": "task",
+      "summary": "src/lib/supabase/admin.ts and src/lib/openai.ts construct privileged clients without the server-only import guard",
+      "detail": "Add import \"server-only\"; to both files. Why: no 'use client' file imports either today (verified by grep, so there is no live leak), but without the guard a future accidental client import is caught by discipline rather than by the build failing — and the blast radius is the service-role key and the OpenAI key. src/lib/env.ts already carries the guard, so this is consistency with an existing pattern. Owner: assistant. Confidence: high — verified absent 2026-09-20. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#W4E78P",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Twenty-two Dependabot vulnerabilities on main (2 critical, 11 high) have never been assessed for real exposure",
+      "detail": "Triage the Dependabot list and record, per advisory, whether it is reachable from the live site or confined to build/dev tooling. Why: 2 critical and 11 high are reported on the default branch and nobody has looked; npm audit alone does NOT see them — it found only one dev-only js-yaml advisory, so the earlier 'one low-priority issue' read was wrong. Dependabot also covers the Python worker, container images and Actions. Context: reported on every git push during the 2026-09-19 review. Owner: assistant to triage, user to approve any bump. Confidence: high — the counts come from GitHub's own push message. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#CBEVBS",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "No dedicated tablet Playwright project, so full-suite tablet coverage is missing even though some targeted tablet checks already exist",
+      "detail": "Add one tablet Chromium project (e.g. 820x1180) to the main production-journey matrix, or explicitly expand the existing targeted tablet blocks into the journeys that matter. Why: playwright.config.ts has chromium, chromium-mockups, chromium-caring-contacts-seeded, firefox, webkit, mobile-webkit and mobile-pwa-standalone — and no dedicated tablet project between phone and desktop, so there is no automatic full-suite tablet run. This is NOT 'every tablet defect is found only by hand and none can be pinned': tests/ui-overlap.spec.ts already defines an 820×1180 block specifically because there is no tablet project, and tests/ui-smoke.spec.ts plus other production journeys already exercise explicit tablet viewports. The real gap is lack of automatic full-suite tablet coverage, not total absence of tablet regression hooks. Context: structural gap behind #6GR6B8 and #EKB6XR; verified by grep (zero 'tablet' in playwright.config.ts) plus the existing targeted viewport tests above. Owner: assistant. Confidence: high. Depends on: #6GR6B8, #EKB6XR.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#QVVS6W",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Disaster recovery has never been rehearsed at the data layer — only the schema replay has been tested",
+      "detail": "Run one real restore-to-a-new-project drill and record the wall-clock time and what was lost. Why: docs/disaster-recovery-runbook.md states plainly that only the schema layer was rehearsed (2026-07-07, ~19s local container replay) and that the platform restore plus golden retrieval eval has never been executed — so 'we have backups' is currently an untested claim on the live clinical corpus. Distinct from #1K6T35, which is the accepted ~24h recovery-point decision, not whether a restore works at all. Owner: user + operator (provider-backed). Confidence: high — the runbook says so itself. Depends on: #1K6T35 context.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#G8R8GT",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Phone service-detail scroll-endpoint test can measure the footer after the scroll has drifted back off the endpoint",
+      "detail": "tests/ui-tools.spec.ts 'long mobile service details paint to the viewport edge with no bottom search dock' reads the scroll endpoint and the footer rect in SEPARATE browser round-trips. The endpoint is asserted inside an expect.toPass loop; the footer rect is then read afterwards. A scroll that has converged can drift back between the two, so the footer assertion measures a position the precondition no longer describes. Observed on PR #2903 CI run 35458348083 job 105937635436 (2026-09-19): scrollTop 3044 vs maxScrollTop 3111 = exactly 67px short, footerBottom 838.56 vs viewport 820. The test's own comment above the loop already names that ~67px shortfall, so the convergence race was known; what was not covered is re-divergence AFTER the loop returns. NOT a layout defect: the same shard passed on the identical base commit 4960c6f7fa3b 31 minutes earlier, and the PR that failed contained no executable code. NEXT ACTION: bracket the footer read with an endpoint assertion on both sides inside the same retry, so a drift retries instead of failing. Do NOT quarantine or skip it - the assertion it makes is a real phone-chrome contract.",
+      "source": "Diagnosed while babysitting PR #2903 CI, 2026-09-19. Full evidence in PR comment 5744023406.",
+      "added": "2026-09-19"
+    },
+    {
+      "id": "#HYSWAF",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Railway deploys every main push without waiting for the required checks, so a red commit can be serving psychiatry.tools",
+      "detail": "Configure a Railway deployment gate on the app and worker services so they wait for pr-required to succeed on the main push. Why: the deploy and the post-merge CI run are two independent reactions to the same push, so 'CI passed' and 'what is live is tested' are different claims. Context: repo maturity review 2026-09-19; inferred from docs/deployment-architecture.md §6 (auto-deploy from main, rollback is a manual redeploy after the fact), NOT from a direct read of Railway settings. Owner: user (Railway dashboard, not code). Confidence: medium — the absence of a gate is inferred from docs; verify in the dashboard first. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#QKW3KN",
+      "priority": "P2",
+      "type": "task",
+      "summary": "rag-extractive-answer.ts is now the largest file in the repo at 5268 lines and is not on the monoliths backlog",
+      "detail": "Add it to docs/maturity-backlog-workorders.md §X3 as a fourth tracked monolith and extract the isSourceBound* predicate cluster first. Why: it grew ~30% in under three weeks (4042 lines at the 2026-09-02 audit) while all three tracked monoliths shrank, so the one file getting worse is the one nothing is watching. It also carries 10 narrowly-scoped isSourceBound* query predicates, a pattern that adds a bespoke function per answer-quality bug rather than generalising. Owner: assistant. Confidence: high — line counts verified 2026-09-20. Depends on: nothing. NOTE: RAG-ranking surface — any edit needs the flag-it-first rule and a canary pair.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#9VQVRT",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Draft PRs show a green PR-required gate while twelve heavy CI jobs stay skipped, so draft status is easy to misread as merge-ready",
+      "detail": "Improve draft-status visibility (UI/docs/bot messaging) so a green draft is never treated as a full readiness signal. Why: .github/workflows/ci.yml still skips twelve heavy jobs while github.event.pull_request.draft == true (static-heavy, coverage, build, Production UI, Production UI critical, Ward Flow, Lighthouse and more), so draft 'PR required' is weaker than it looks. This is NOT a merge hole: pull_request triggers include ready_for_review, and undrafting re-runs the full workflow before the change can reach main (see .github/workflows/ci.yml ready_for_review trigger and the comment that undrafting re-runs full CI). Do not change standing draft policy or narrow the skip list to 'close' a nonexistent merge path — fix operator/assistant messaging instead. Context: PR #2909 sat as a draft with zero browser coverage; npm run plan:browser already names the draft case. Owner: assistant (messaging) / user (policy if desired). Confidence: high — draft skip verified by grep; ready_for_review re-run path verified in ci.yml. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#6TBVZ9",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Three knip-confirmed dead files are still in src/ after the maturity review flagged them",
+      "detail": "Confirm each against docs/agents/dead-code-deletion.md, then remove: src/components/care-plan/mockups/index.ts (orphaned barrel, every consumer imports the sub-files), src/components/clinical-dashboard/use-mobile-preview-sheet.ts (zero importers), src/components/dictionary/dictionary-sources-page.tsx (superseded — the route now redirects to /sources/search?usedBy=dictionary). Why: triage only, not a delete list; knip found exactly these three across 1660 source files, which is an unusually clean result worth keeping clean. Owner: assistant. Confidence: high — all three verified still present 2026-09-20. Depends on: nothing.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#383YXX",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Lighthouse budget grades the same commit differently at PR time and post-merge, so a required check can fail on code that already passed it",
+      "detail": "Make the Lighthouse grading deterministic between the PR run and the post-merge run — retry once, or widen the tolerance — so the same SHA cannot get two verdicts. Why: it is a REQUIRED gate, so a non-deterministic answer turns pr-required red on main for changes that were green on the PR, which is part of what trains the team to ignore a red main. Context: two dependency-bump merges (runs 35392321128 and 35384830844) failed pr-required solely on Lighthouse budget post-merge. Owner: assistant. Confidence: medium — the two runs are verified, the determinism mechanism is not yet root-caused. Depends on: #T82ND3.",
+      "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
     }
   ],
   "pending": []
