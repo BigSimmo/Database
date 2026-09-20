@@ -65,22 +65,27 @@ type DetailFieldSpec = {
    *
    * This started as "only on selects that name their own empty option", on the
    * reasoning that emptying a text box could not be told apart from a control
-   * that never rendered. **That reasoning was wrong**, and a review caught it:
-   * the loop in `handleSave` iterates `detailFieldsFor(...)`, which IS the set
-   * of controls on screen, so a control that never rendered never reaches it.
-   * The overlay that protects unrendered keys is a different mechanism and is
-   * applied before `clearedKeys` either way.
+   * that never rendered. **That reasoning was wrong**, and Codex P2 on PR #2900
+   * caught what it cost: the loop in `handleSave` iterates
+   * `detailFieldsFor(...)`, which IS the set of controls on screen, so a
+   * control that never rendered never reaches it. The overlay that protects
+   * unrendered keys is a different mechanism and is applied before
+   * `clearedKeys` either way.
    *
    * What the old default actually did was make a recorded expiry undeletable:
-   * the owner cleared the box, the save reported success, and the date came
-   * back from storage. On a page about regulatory records that is the wrong
-   * way round — a date you can no longer remove outlives the thing it
-   * describes. So every optional control on the Compliance form carries this.
+   * the owner cleared the box, `handleSave` omitted the empty value,
+   * `mergeOnCallEditorDetails` restored it from `entry.details`, and the save
+   * reported success. On a page about regulatory records that is the wrong way
+   * round — a date you can no longer remove outlives the thing it describes.
+   * So every optional control on the Compliance form carries this: expiry,
+   * lead time, issuer, evidence link, URL.
    *
    * The same is true of the other five section forms, whose optional controls
-   * still cannot be cleared. That is older than this page and is filed as
-   * follow-up rather than fixed here, because it changes saving behaviour on
-   * surfaces this change does not otherwise touch.
+   * still cannot be cleared — a decommissioned ward extension can be corrected
+   * but not removed. That is older than this page and is filed as follow-up
+   * rather than fixed here, because it changes saving behaviour on surfaces
+   * this change does not otherwise touch, and because two of the branches in
+   * `handleSave` (`list` and `escalationSteps`) do not read this flag at all.
    *
    * Never on a REQUIRED control, and the reason is worth stating because the
    * obvious fix for a blank required select is to put it here. A blank
@@ -460,9 +465,9 @@ function detailStringValue(details: unknown, key: string): string {
   const value = (details as Record<string, unknown>)[key];
   if (Array.isArray(value)) return value.filter((item) => typeof item === "string").join(", ");
   // `leadTimeDays` is the one stored number. Without this it would seed as an
-  // empty box, and an empty box saves as "the form said nothing" — so opening
-  // and saving a requirement would quietly keep a lead time the owner could
-  // no longer see.
+  // empty box; with `clearWhenEmpty` that empty box would then delete the
+  // stored lead time on an unrelated save. Seed the digits so the owner sees
+  // what is recorded and can clear it on purpose.
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   return typeof value === "string" ? value : "";
 }
@@ -922,8 +927,9 @@ export function OnCallEntryEditor({
         continue;
       }
       if (trimmedValue) formDetails[field.key] = trimmedValue;
-      // "None chosen" on a select that names its own empty option has to beat
-      // the stored value; an empty text box still means the form said nothing.
+      // "None chosen" on a select that names its own empty option, and an
+      // emptied optional compliance text field, both have to beat the stored
+      // value — see `clearWhenEmpty` on `DetailFieldSpec`.
       else if (field.clearWhenEmpty) clearedKeys.push(field.key);
     }
 

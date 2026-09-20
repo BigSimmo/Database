@@ -210,7 +210,8 @@ export const COMPLIANCE_MARKER_KEYS = [
  *    with one stray character in `kind` parses into something
  *    `isComplianceEntry` calls an ordinary Admin row. Asking the parsed entry
  *    would publish exactly the rows most likely to be malformed.
- * 2. **It fails closed.** Unreadable details on a `logistics` row are treated
+ * 2. **It fails closed.** Unreadable details on a `logistics` row — null, a
+ *    string, an array, or any object the section schema refuses — are treated
  *    as compliance and withheld. Withholding a broken parking note from the
  *    public page costs nothing; publishing a broken registration record cannot
  *    be undone.
