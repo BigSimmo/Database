@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8396f1c4-25e9-4a77-8680-701309e7f4ed",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Document search shows a match percentage that measures nothing, and a nearby-only result can never display honestly",
+    "detail": "relevance-score.ts:5-7 returns hard-coded constants per verdict (direct 96, partial 84, nearby 78); document-search-results.tsx:241 gates on 'verdict === partial || percent >= 75', so the nearby constant of 78 always trips the Relevant branch and the honest Related/% nearby branch at :244 is unreachable. Observed: API returned verdict nearby, matchedTerms [], score 0.063, isSourceBacked false; UI rendered 'Best match', 'Relevant', '78% related'. The honest label already exists in relevanceChipLabel(). RAG-ranking presentation: flag and follow the approval path before editing.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQK531M22X5CBN6YQKAFV"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "33db8a31-3715-427e-a21e-7f1aef8dddc1",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "The collapsed sidebar's active indicator points at the 'More modes' menu, not the current mode",
+    "detail": "On 9 of 15 modes the only lit rail item is the generic four-square More modes opener (ClinicalSidebar.tsx:333-349); on /?mode=calculators nothing is lit at all. Default pin set is 6 of 15 (use-sidebar-pins.ts:10-29). Confirmed at 768 and 1440. The rail is the one element surviving every route change, so it is the natural 'where am I' anchor and for most modes it answers with a menu button.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQMJD03ARD652RAD3H6BV"
+  }
+}

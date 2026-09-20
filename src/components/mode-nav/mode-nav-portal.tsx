@@ -62,6 +62,9 @@ export function ModeNavHeaderPortal({ children }: { children: ReactNode }) {
   // another (#CHPC5C). Above the phone breakpoint the publish is a no-op, which
   // is what keeps this safe on the every-width host this portal deliberately
   // uses.
+  //
+  // This closes the in-session case only. On a cold load the publisher returns
+  // early — read its SCOPE LIMIT note before treating #CHPC5C as fixed.
   useLayoutEffect(() => {
     publishPhoneOverlayChromeReserveNow();
   }, [host]);

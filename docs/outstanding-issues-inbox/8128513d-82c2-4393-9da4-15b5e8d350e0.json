@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "8128513d-82c2-4393-9da4-15b5e8d350e0",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "fbc169da-348c-4303-948c-a840d6251aa0",
+    "reason": "Superseded before reconciliation by a corrected version of the same update. The cancelled text asserted that PR #2929 fixes the recorded failure; adversarial review, reproduced in tests/phone-overlay-reserve-portal-wiring.dom.test.tsx, established that it does not fix the cold-load path the trace was taken on. Nothing else in that text changed."
+  }
+}
