@@ -6,7 +6,15 @@ import { cn, primaryControl } from "@/components/ui-primitives";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[color:var(--surface-lux)] px-4 font-sans text-[color:var(--text)]">
+    // The global skip link in `app/layout.tsx` targets `#main-content`, which the
+    // shells supply. This page bypasses them, so without this element the skip
+    // link points at nothing and Enter leaves focus on the link itself — dead
+    // keyboard escape on the one page reached by a mistyped or stale URL.
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-screen flex-col items-center justify-center bg-[color:var(--surface-lux)] px-4 font-sans text-[color:var(--text)]"
+    >
       <div className="w-full max-w-md rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-6 shadow-[var(--shadow-elevated)] text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--info-soft)] text-[color:var(--info)]">
           <FileQuestion aria-hidden="true" className="h-6 w-6" />
@@ -35,6 +43,6 @@ export default function NotFound() {
           </Link>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

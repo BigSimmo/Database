@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f539c8e6-874a-4913-93ae-5ee8ddab5ce0",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Description lists are malformed on three routes, breaking term/definition association",
+    "detail": "axe definition-list plus dlitem (12 nodes each on two routes). Shape is dl > div > div > dt/dd; HTML permits one wrapper, not two. colour-coding-reference-content.tsx:121-138, source-method-reference-content.tsx:89-94, service-detail-page.tsx:391. A screen reader reads paired data as plain prose. The correct single-div shape already exists at source-method-reference-content.tsx:254-262. WCAG 1.3.1.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQNR4Q80S8BVJ98WP59XC"
+  }
+}

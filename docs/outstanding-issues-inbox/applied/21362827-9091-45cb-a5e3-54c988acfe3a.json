@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "21362827-9091-45cb-a5e3-54c988acfe3a",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Copy and naming inconsistencies that undercut the product's own safety vocabulary",
+    "detail": "ui-copy.ts:84 titles the prescribing mode 'Medication Guidance' in a product whose banners read 'not clinical guidance' and 'not validated decision support'; suggest 'Medication Reference'. ui-copy.ts:65 gives Differentials the subtitle 'Match your catalogue to your library.', which says nothing about differential diagnosis. A conservative refusal still advertises 'CITED DOCUMENTS - 3 cited'; suggest 'Documents searched'. A 'DO NOW' card numbers four teaching observations as if they were actions, and 87 of 556 multi-item sections have a summary that is a space-join of their items with no punctuation. All clinical wording - for a human.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQP7DZ9NS6HAPJQ01M8NM"
+  }
+}

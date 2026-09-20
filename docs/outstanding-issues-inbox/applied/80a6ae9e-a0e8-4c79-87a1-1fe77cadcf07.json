@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "80a6ae9e-a0e8-4c79-87a1-1fe77cadcf07",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Sheets do not return focus to their trigger on two of three surfaces",
+    "detail": "Measured at +100/400/1000/2500ms after Escape. /documents/search Filter sheet leaves focus on body though the trigger is still in the DOM. /calculators/search PHQ-9 drops ?calculator=phq9 on close, the list re-renders and the trigger node is destroyed, so restore targets a detached node. The document-actions sheet restores correctly, so ui/sheet.tsx:43-46,108-110,181 is sound - these are call-site failures. After closing PHQ-9, reaching GAD-7 takes ~20 Tab presses from the top. WCAG F85 against SC 2.4.3.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQM8PM3XZV0ZGH1N5JDTN"
+  }
+}
