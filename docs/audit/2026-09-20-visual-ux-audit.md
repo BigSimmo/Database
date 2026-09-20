@@ -125,8 +125,9 @@ from source governance. In psychiatry that phrase is the language of evidence st
 **C3 · Traceability breaks at the last step.** The answer → claim → passage → drawer chain is the best
 designed surface in the app. Its final step — "View original PDF" — landed on a raw JavaScript
 exception, beside an indexed extract that looks exactly like verified source text. The failure did not
-degrade conservatively; it degraded into false reassurance. The message is fixed; the underlying PDF
-dependency question is open (VUX-07).
+degrade conservatively; it degraded into false reassurance. The message is fixed. The canvas failure
+underneath it was this audit's own substituted browser, already resolved as ledger `#279` — see
+VUX-07(b), which is where this report corrects itself.
 
 **C4 · The records with the most dose-specific content have the least provenance.**
 `/medications/[slug]` and `/therapy-compass/[slug]` render **zero links** inside `<main>` on every tab,
@@ -206,16 +207,28 @@ provenance is one prose sentence on the fourth tab, below the fold. Root cause:
 `medication-records.ts:118-126` derives governance from a free-text `src` section with no URL or
 document id. `/dictionary/*` and `/factsheets/*` do this correctly.
 
-**VUX-07 · `/documents/[id]` · all widths · PARTIALLY FIXED**
-Two defects. (a) Both the load and render paths passed the library's `Error.message` straight into the
-visible panel — which also feeds an assertive announcement, so a screen reader spoke
-`this[#re].getOrInsertComputed is not a function`. **Fixed.** (b) The app imports the **modern**
-pdf.js build (`pdf-canvas-viewer.tsx:498-500`, not `pdfjs-dist/legacy/build/…`), and `pdfjs-dist
-6.3.289` calls `Map.prototype.getOrInsertComputed` in three places with no polyfill and no
-`browserslist` key in `package.json`. That method is absent in Chromium 141, which is what this audit
-had to run. **Not fixed, and needs a decision** — see Limitations. (c) The PDF toolbar (page nav,
-zoom, rotate, Fit width, Retry preview) stays fully enabled over the failed preview and does nothing
-observable. Download and "Source PDF" do still work, so the clinician is degraded, not stranded.
+**VUX-07 · `/documents/[id]` · all widths · FIXED (the part that was a defect)**
+(a) Both the load and render paths passed the library's `Error.message` straight into the visible
+panel — which also feeds an assertive announcement, so a screen reader spoke
+`this[#re].getOrInsertComputed is not a function`. **Fixed.** That is the defect: whatever makes the
+canvas fail, printing a library internal at the reader is never the right response.
+
+(b) **The underlying pdf.js failure is NOT a finding, and this report's first draft got that wrong.**
+Ledger `#279` resolved it on 2026-08-09; the correction is recorded here rather than quietly dropped.
+`pdfjs-dist` calls `Map.prototype.getOrInsertComputed`, which ships in Chromium 151; this
+repository's pinned Playwright build is **revision 1243 = 153.0.8010.12**, and CI runs a browser that
+has it. Only a sandboxed container that pre-bakes an older browser and pins lookup to it with
+`PLAYWRIGHT_BROWSERS_PATH` — exactly what this audit ran on, Chromium 141 — hits it.
+`tests/ui-document-canvas.spec.ts` already gates the raster asymmetrically: it skips locally with a
+reason naming the browser version and **fails in CI**, and its header explicitly refutes the three
+remedies an auditor reaches for ("Do not 'fix' a local skip by bumping the pinned Playwright build,
+pinning `pdfjs-dist` down, or running `playwright install` — all three were measured and refuted on
+2026-08-09"). Caught by the Codex review on this PR; the inbox request that would have reopened it
+at P1 was withdrawn.
+
+(c) The PDF toolbar (page nav, zoom, rotate, Fit width, Retry preview) stays fully enabled over the
+failed preview and does nothing observable. Download and "Source PDF" do still work, so the clinician
+is degraded, not stranded. This one is real, and is reported rather than fixed.
 
 **VUX-08 · `/forms/extension-transport-order` · 320 + 390**
 The official-PDF attachment row collapses: the form title renders as **"Ext…"** (three characters),
@@ -371,6 +384,11 @@ Recorded so the next auditor does not chase them.
 
 **Previously open issues, now refuted with evidence:**
 
+- **`#279` (pdf.js cannot raster in this container's Chromium) — already resolved, and this audit
+  briefly re-raised it.** Recorded as a self-correction: the condition reproduced, but it is a
+  container property this repository measured, documented and gated on 2026-08-09. An auditor running
+  a substituted browser will hit it again — read the header of `tests/ui-document-canvas.spec.ts`
+  before filing it.
 - **`#EKB6XR` (calculator/modal close and hit-layer interception) — REFUTED. Recommend closing.** A
   geometric probe did flag the backdrop over the answer buttons at 1.6s, but driving real clicks at 0,
   150, 300, 600 and 1000ms after the sheet opens: the sheet never closed and the answer registered in
@@ -449,10 +467,9 @@ VUX-31), the `/tools` grid composition (VUX-12, VUX-13), the compare-picker's op
    Flag as a RAG-adjacent change first.
 3. **VUX-05** comparison count vs rendered columns, and the transparent sticky column.
 4. **VUX-04** catalogue search token handling and the "Best fit" badge. Ranking surface — canary.
-5. **VUX-07b** decide the pdf.js browser baseline: legacy build, polyfill, or a declared minimum.
-6. **VUX-08, VUX-10, VUX-11, VUX-14, VUX-26** — the phone truncation cluster; all small and local.
-7. **VUX-09** rail active state; **VUX-16** medication not-found; **VUX-18** favourites band.
-8. **VUX-06** structured citations on medication and therapy records — the largest piece, and the one
+5. **VUX-08, VUX-10, VUX-11, VUX-14, VUX-26** — the phone truncation cluster; all small and local.
+6. **VUX-09** rail active state; **VUX-16** medication not-found; **VUX-18** favourites band.
+7. **VUX-06** structured citations on medication and therapy records — the largest piece, and the one
    that most defines whether the product is what it says it is.
 
 ---
@@ -506,11 +523,11 @@ the app displays a number it knows to be wrong. **Start #1 immediately behind it
   directly. This is **not** `verify:ui`, and nothing here should be read as that gate passing. The
   phone-geometry specs pinning `/differentials/diagnoses/*` are unrun against the VUX-01 fix — CI must
   confirm it.
-- **The PDF preview failure is partly an artifact of that older browser.** `pdfjs-dist 6.3.289` calls
-  `Map.prototype.getOrInsertComputed`, which Chromium 141 does not implement. What is _not_ an
-  artifact: the app ships the modern pdf.js build with no legacy fallback, no polyfill and no
-  `browserslist` key, so the same break lands on any browser lacking that very new method. **Whether
-  the owner's own current browser is affected was not tested.**
+- **The PDF preview failure is entirely an artifact of that older browser**, and this report's first
+  draft was wrong to imply otherwise. See VUX-07(b): the pinned browser is 153.0.8010.12, CI runs a
+  browser carrying the method, and `tests/ui-document-canvas.spec.ts` already fails closed in CI. A
+  finding that reproduces only on the audit's own substituted browser is a property of the audit, not
+  of the product.
 - **Everything ran against the synthetic demo corpus** with no OpenAI and no live Supabase.
   Demo-mode success is not proof of the live path where the code forks. VUX-02 in particular was
   proved with a nonsense query; a live `nearby` verdict has not been observed.
@@ -534,7 +551,8 @@ the app displays a number it knows to be wrong. **Start #1 immediately behind it
 
 **FAILING REVIEW.**
 
-Eleven P1 findings were confirmed; three are fixed in this pass and **eight remain open**, four of
+Eleven P1 findings were raised; one was withdrawn on review as already-resolved work (VUX-07(b),
+ledger `#279`), four are fixed in this pass, and **six remain open**, four of
 which involve the interface
 asserting something its own data contradicts, on surfaces a clinician uses to decide whether to stop
 looking: a fabricated match percentage, a "Best fit" badge on a wrong-specialty result, a statutory
@@ -543,7 +561,7 @@ show fewer columns than it renders. None is a crash; all are quiet, and quiet is
 serious.
 
 The minimum to re-review: VUX-02, VUX-03, VUX-04 and VUX-05 closed or explicitly accepted with a
-recorded rationale, and a decision recorded on VUX-07b.
+recorded rationale.
 
 ---
 
