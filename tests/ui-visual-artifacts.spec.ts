@@ -39,8 +39,12 @@ test.describe("PsychSift visual QA artifacts", () => {
    */
   test("captures the CME screens", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
-    await page.clock.install({ time: new Date("2026-09-19T02:00:00Z") });
-    await page.clock.pauseAt(new Date("2026-09-19T02:00:00Z"));
+    // `setFixedTime`, not `install` + `pauseAt`: pausing the clock also
+    // freezes `requestAnimationFrame`, which stalls React 19's rAF-deferred
+    // Suspense cleanup and strands a hidden duplicate copy of the page in
+    // the DOM. `setFixedTime` still pins `new Date()` for these screenshots
+    // without that side effect.
+    await page.clock.setFixedTime(new Date("2026-09-19T02:00:00Z"));
     for (const [name, path] of [
       ["cme-dashboard-mobile", "/cme"],
       ["cme-log-mobile", "/cme/log"],
