@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { Info, Network, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Info, Network, ShieldAlert, ShieldCheck, TriangleAlert } from "lucide-react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { FormulationEvidenceRef } from "@/lib/formulation-concepts";
+import type { FormulationReviewState } from "@/lib/formulation-review-status";
 
 /** Was byte-identical to `specifierCard`; both now name the shared recipe. */
 export const formulationCard = cardSurface;
@@ -40,6 +41,62 @@ export function MechanismBadge({ label = "Formulation mechanism" }: { label?: st
       <Network className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
       {label}
     </span>
+  );
+}
+
+/**
+ * The record's own review state, beside its title.
+ *
+ * Sits in the header badge row so it is read before the clinical content, not
+ * after it. The unreviewed case is the loud one by design: a record nobody has
+ * signed off must not look like a record somebody has.
+ */
+export function RecordReviewBadge({ state }: { state: FormulationReviewState }) {
+  const Icon = state.reviewed ? ShieldCheck : ShieldAlert;
+  return (
+    <span
+      data-testid="formulation-review-badge"
+      data-reviewed={state.reviewed ? "true" : "false"}
+      className={cn(
+        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-bold",
+        state.reviewed
+          ? "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)]"
+          : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
+      )}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {state.label}
+    </span>
+  );
+}
+
+/**
+ * The same review state in full, for the body of the record.
+ *
+ * The badge says what the state is; this says what it means for the reader and
+ * what the record itself recorded about its sources.
+ */
+export function RecordReviewNote({ state }: { state: FormulationReviewState }) {
+  return (
+    <aside
+      data-testid="formulation-review-note"
+      data-reviewed={state.reviewed ? "true" : "false"}
+      className={cn(
+        "flex items-start gap-2.5 rounded-lg border p-4 text-sm leading-5",
+        state.reviewed
+          ? "border-[color:var(--border)] bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]"
+          : "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--text-muted)]",
+      )}
+    >
+      {state.reviewed ? (
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+      ) : (
+        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
+      )}
+      <p>
+        <span className="font-bold text-[color:var(--text-heading)]">{state.label}.</span> {state.detail}
+      </p>
+    </aside>
   );
 }
 
