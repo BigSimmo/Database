@@ -36,23 +36,41 @@ and every Actions log, is public.
 
 **What does NOT change.** The 2026-08-31 ruling (section 5, "Ward Flow is NOT to be pushed to a
 public repository as it stands") is not reversed by this — he has deferred it, not withdrawn it. Its
-measured basis has grown since it was written: the UMRNs appear in **16 files** today where it
-recorded 2, and the names in **8** where it recorded 5. Its commit figure was right and does not
-move: **3 commits** across all refs carry the records. The eight records
-are genuinely synthetic — the file header reasons the choice at length and the screens carry a
-visible synthetic-data marker — and the ruling's point was never that they are real, but that
-**they do not look invented**.
+measured basis is far larger than it was written to be. **Measured at `8d5cea0d1`** — pinned
+deliberately, see the box below — the UMRNs appear in **16 files** where it recorded 2, of which
+**14 carry the data** and 2 only discuss it, and the names in **8** where it recorded 5. And the
+commit figure is not 3: **1,629 published commits carry the records**, 1,335 of them on `main`.
+The eight records are genuinely synthetic — the file header reasons the choice at length and the
+screens carry a visible synthetic-data marker — and the ruling's point was never that they are
+real, but that **they do not look invented**.
 
-⚠️ **THE FIRST VERSION OF THIS PARAGRAPH GOT BOTH FIGURES WRONG, AND THE ERROR IS RECORDED RATHER
-THAN OVERWRITTEN — IT IS THE SAME FAILURE THE RULING ABOVE WARNS ABOUT.** It said 12 files and 4
-commits. **The file count searched for `UM100001` — the first record of eight — so it missed the
-four files carrying one of the other seven UMRNs and not the first.** A privacy figure taken from
-one specimen of eight reads low by construction, and it read low in the direction that makes
-publishing look safer. The commit count was the opposite error, counting commits that TOUCH
-`ward-patients-seed.ts` rather than commits that carry the records; there are 4 of the former and
-3 of the latter, so the 2026-08-31 ruling's own figure never needed correcting. Measured at
-`HEAD` on 2026-09-20: `git grep -l UM10000` → 16, `git grep -l "Talia Halloway"` → 8,
-`git log --all -S UM100001 -- <seed>` → 3.
+⚠️ **THE COMMIT FIGURE WAS WRONG BY THREE ORDERS OF MAGNITUDE, AND IT IS THE FIGURE THE RULING'S
+OWN ARGUMENT RESTS ON.** The ruling says "three past commits", and every later restatement —
+including two earlier versions of this paragraph — repeated 3 or 4. That number came from
+`git log -S`, the pickaxe, which finds commits where the string's **presence changes**, not
+commits whose tree **contains** it. But the ruling's reasoning is "**Publishing a repository
+publishes its history**", and what history publishes is every commit whose tree carries the file.
+There are only **two distinct versions** of `ward-patients-seed.ts` in the whole repository and
+**both contain the eight records**, so every commit holding that file exposes them. Counted on
+2026-09-20: **1,335 commits on `origin/main`, and 1,629 across all `origin` refs.** The remedy the
+ruling already prescribed — a fresh repository with a single initial commit, rather than carrying
+this history across — was correct, and this is the measurement that shows why.
+
+⚠️ **AND THE FILE COUNT IS PINNED TO A SHA BECAUSE IT INFLATES ITSELF.** Every document that
+discusses the exposure — this one, the community ruling, the ledger row, the inbox requests behind
+them — must name `UM10000` or `Talia Halloway` to discuss it at all, and so joins the count. At
+`HEAD` of the change that introduced this paragraph the same commands return 20 and 12 rather than
+16 and 8, purely from audit artefacts. **Quote the pinned figure, never a fresh `HEAD` count**, or
+each retelling makes the exposure look worse while nothing has actually changed. The 14/2 split
+above is the number that matters: 14 files carry the records, and the rest merely talk about them.
+
+⚠️ **TWO EARLIER VERSIONS OF THIS PARAGRAPH UNDERSTATED IT, AND THE PATTERN IS THE POINT.** The
+first said 12 files and 4 commits; the second corrected the files to 16 but wrongly declared the
+commit figure settled at 3. **The 12 came from searching `UM100001` — the first record of eight —
+missing four files carrying only one of the other seven.** Three separate measurements, every one
+of them low, every one of them in the direction that makes publishing look safer. That is not
+coincidence: a privacy count is easy to take against one specimen, one branch, or one kind of
+change, and every such shortcut truncates. **Measure containment, not change, and pin the SHA.**
 
 ---
 
