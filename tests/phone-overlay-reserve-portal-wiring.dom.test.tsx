@@ -32,6 +32,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { ModeNavHeaderPortal } from "@/components/mode-nav/mode-nav-portal";
 import {
   __setPhoneOverlayReserveSettledForTests,
   phoneOverlayReserveGeometryQuietWindowMs,
@@ -152,6 +153,39 @@ describe("portal wiring into the immediate reserve publisher", () => {
           <PhoneHeaderCollapsePortal>
             <nav data-testid="mode-nav-row">nav</nav>
           </PhoneHeaderCollapsePortal>
+        </Shell>,
+      );
+    });
+    expect(slot.childElementCount).toBe(1);
+    expect(reserve()).toBe(`${baseStackPx + addonRowPx}px`);
+
+    act(() => {
+      root.unmount();
+    });
+  });
+
+  it("does the same for ModeNavHeaderPortal, which is the portal #CHPC5C actually goes through", () => {
+    // The two portals call the publisher from separate, independent effects, so
+    // covering one proves nothing about the other. Covering only
+    // PhoneHeaderCollapsePortal was exactly that mistake: the recorded #CHPC5C
+    // failure is on /differentials/compare, whose mode-nav row travels through
+    // ModeNavHeaderPortal, and deleting that call left every case in this file
+    // green. Raised by review on PR #2938.
+    const { slot, container } = mountChrome();
+    const root = createRoot(container);
+
+    act(() => {
+      root.render(<Shell>{null}</Shell>);
+    });
+    flushFrames([0, phoneOverlayReserveGeometryQuietWindowMs + 1]);
+    expect(reserve()).toBe(`${baseStackPx}px`);
+
+    act(() => {
+      root.render(
+        <Shell>
+          <ModeNavHeaderPortal>
+            <nav data-testid="mode-nav-row">nav</nav>
+          </ModeNavHeaderPortal>
         </Shell>,
       );
     });
