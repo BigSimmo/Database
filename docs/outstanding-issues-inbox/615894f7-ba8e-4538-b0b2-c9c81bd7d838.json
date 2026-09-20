@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "615894f7-ba8e-4538-b0b2-c9c81bd7d838",
+  "createdOn": "2026-09-20",
+  "action": "done",
+  "payload": {
+    "id": "#PX8N86",
+    "outcome": "Closed 2026-09-21: the stated diagnosis is disproven. Migration 20260916103000 already pushes the kind filter into the scan (EXPLAIN: one kind in ~21 ms), so the summary 'every catalogue search reads the whole release payload because the kind filter cannot reach the scan' is false and must not stay open as actionable work. The shared symptom (catalogue search tripping the 1,200 ms budget) is tracked on the separate cold-first-read row, which also records that any search-scoped payload shrink must keep the render fields universal-search consumes via readCanonicalSiteContentRecords without mapRecord.",
+    "baseRowFingerprint": "791d28bb38ad75cd52f8e7b8da30cf077d0d4bf9db8843b32d3bd7f42c5a9168"
+  }
+}
