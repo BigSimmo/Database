@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "ab5c975a-18c2-4f5b-aff1-acdf54ddb2f5",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "c36f746d-500d-4d6e-a2c1-3897fe4384d6",
+    "reason": "Superseded within the same PR after a Codex review found two defects in its measurements, both verified and both understating exposure. (1) Its commit figure of 3 came from git log -S, the pickaxe, which finds commits where a string's PRESENCE CHANGES rather than commits whose TREE CONTAINS it. The ruling this row tracks argues from 'publishing a repository publishes its history', which is a containment question. Measured 2026-09-20: only two distinct versions of ward-patients-seed.ts exist in the whole repository and both hold the eight records, so every commit carrying that file exposes them - 1335 commits on origin/main and 1629 across all origin refs, not 3. (2) Its file figure was taken at HEAD, but every document that discusses the exposure must name UM10000 or Talia Halloway to discuss it, so the count inflates itself with each retelling; at the HEAD it cited, the same commands already returned 20 and 12 rather than 16 and 8. The replacement pins the file measurement to 8d5cea0d1, splits it into 14 files that CARRY the data and 2 that only discuss it, and replaces the commit figure with the containment count."
+  }
+}
