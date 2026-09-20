@@ -34,7 +34,7 @@
  * `form-catalog.ts`, whose 190 KB of JSON would land in the client bundle.
  */
 
-import { normalizeCode, officialForms } from "@/lib/form-register";
+import { formPageHref, normalizeCode, officialForms } from "@/lib/form-register";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 
 /** One official form a scenario names, ready to render and to link. */
@@ -53,29 +53,20 @@ export type PlaybookFormReference = {
 export type PlaybookFormSource = Pick<OnCallEntry, "title" | "body" | "tags" | "details">;
 
 /**
- * The four form pages that were built before the `form-<code>` convention and
- * are still served at their original paths. Kept in step with the `legacySlugs`
- * table in `src/lib/form-catalog.ts` by `tests/on-call-playbook-forms.test.ts`,
- * which checks every generated href against the real route table
- * (`formStaticParams()`), so a slug change there fails this module's tests
- * rather than shipping a 404 into an escalation card.
+ * The in-app page for a form code. `/forms/[slug]` is the route.
  *
- * Copied rather than imported: `form-catalog.ts` builds Maps from two large
- * JSON files at import time, which cannot be tree-shaken out of the client
- * bundle this module is used from.
+ * Re-exported, not reimplemented. This module used to carry its own copy of the
+ * legacy-slug table, for a stated and correct reason: importing
+ * `form-catalog.ts` drags two large JSON files into the client bundle this
+ * module is used from. The table now lives in `@/lib/form-register`, the leaf
+ * module that exists precisely to serve that case, so the copy is gone and the
+ * reason for it with it. `tests/on-call-playbook-forms.test.ts` still checks
+ * every generated href against the real route table (`formStaticParams()`).
+ *
+ * Imported above as well as re-exported here: this module calls it itself, and a
+ * bare `export … from` creates no local binding.
  */
-const LEGACY_FORM_SLUGS: Readonly<Record<string, string>> = {
-  "3A": "detention-examination-movement",
-  "4A": "transport-crisis-form",
-  "4B": "extension-transport-order",
-  "4C": "transfer-order",
-};
-
-/** The in-app page for a form code. `/forms/[slug]` is the route. */
-export function formPageHref(code: string): string {
-  const slug = LEGACY_FORM_SLUGS[code] ?? `form-${normalizeCode(code).replace(/[^a-z0-9]+/g, "-")}`;
-  return `/forms/${slug}`;
-}
+export { formPageHref };
 
 /**
  * A `Form`/`F` prefix, then the code.
