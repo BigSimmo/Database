@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "f07e02ca-8dac-4845-89db-f785f73eba30",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Lighthouse budget grades the same commit differently at PR time and post-merge, so a required check can fail on code that already passed it",
+    "detail": "Make the Lighthouse grading deterministic between the PR run and the post-merge run — retry once, or widen the tolerance — so the same SHA cannot get two verdicts. Why: it is a REQUIRED gate, so a non-deterministic answer turns pr-required red on main for changes that were green on the PR, which is part of what trains the team to ignore a red main. Context: two dependency-bump merges (runs 35392321128 and 35384830844) failed pr-required solely on Lighthouse budget post-merge. Owner: assistant. Confidence: medium — the two runs are verified, the determinism mechanism is not yet root-caused. Depends on: #T82ND3.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ7C1383YXXSXHG9PAX0A"
+  }
+}
