@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "73b0ac18-7a28-4fe1-8116-2c60573787bf",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "No dedicated tablet Playwright project, so full-suite tablet coverage is missing even though some targeted tablet checks already exist",
+    "detail": "Add one tablet Chromium project (e.g. 820x1180) to the main production-journey matrix, or explicitly expand the existing targeted tablet blocks into the journeys that matter. Why: playwright.config.ts has chromium, chromium-mockups, chromium-caring-contacts-seeded, firefox, webkit, mobile-webkit and mobile-pwa-standalone \u2014 and no dedicated tablet project between phone and desktop, so there is no automatic full-suite tablet run. This is NOT 'every tablet defect is found only by hand and none can be pinned': tests/ui-overlap.spec.ts already defines an 820\u00d71180 block specifically because there is no tablet project, and tests/ui-smoke.spec.ts plus other production journeys already exercise explicit tablet viewports. The real gap is lack of automatic full-suite tablet coverage, not total absence of tablet regression hooks. Context: structural gap behind #6GR6B8 and #EKB6XR; verified by grep (zero 'tablet' in playwright.config.ts) plus the existing targeted viewport tests above. Owner: assistant. Confidence: high. Depends on: #6GR6B8, #EKB6XR.",
+    "source": "session 2026-09-20 /ledger sweep \u2014 nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ7JBCBEVBSJ7Z960YA3K"
+  }
+}
