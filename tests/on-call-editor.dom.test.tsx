@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { OnCallEntryEditor, OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
+import { COMPLIANCE_KIND } from "@/lib/on-call/compliance";
 import { ON_CALL_RECURRENCE_FREQUENCIES, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
@@ -500,5 +501,378 @@ describe("OnCallEntryEditor — a teaching session that repeats", () => {
 
     expect(await screen.findByText(/needs a next occurrence date/i)).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Admin and Compliance share the `logistics` section, so the tick box in this
+ * editor is the only thing that decides which page a row lands on and which
+ * fields it may keep. Both directions delete stored data, which is why every
+ * test below asserts what survives as well as what goes.
+ */
+const PAYROLL_OFFICE: OnCallEntry = {
+  id: "66666666-6666-4666-8666-666666666666",
+  section: "logistics",
+  slug: "payroll-office",
+  title: "Payroll office",
+  subtitle: null,
+  body: null,
+  details: {
+    category: "Pay",
+    location: "Level 2, Block B",
+    hours: "0800-1600",
+    phone: "x2201",
+    url: "https://example.org/payroll",
+  },
+  linkedDocumentIds: [],
+  tags: [],
+  isPersonal: false,
+  includeOnCard: false,
+  sortOrder: 0,
+  lastVerifiedAt: new Date("2026-06-01T00:00:00.000Z").toISOString(),
+};
+
+const AHPRA_REGISTRATION: OnCallEntry = {
+  id: "77777777-7777-4777-8777-777777777777",
+  section: "logistics",
+  slug: "ahpra-registration",
+  title: "Ahpra registration",
+  subtitle: null,
+  body: null,
+  details: {
+    category: "Registration",
+    kind: COMPLIANCE_KIND,
+    consequence: "stops-work",
+    expiresOn: "2027-03-12",
+    issuingBody: "Ahpra",
+  },
+  linkedDocumentIds: [],
+  tags: [],
+  isPersonal: true,
+  includeOnCard: false,
+  sortOrder: 0,
+  lastVerifiedAt: new Date("2026-06-01T00:00:00.000Z").toISOString(),
+};
+
+function savedDetails(fetchMock: ReturnType<typeof vi.fn>): Record<string, unknown> {
+  const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+  return JSON.parse(init.body as string).details as Record<string, unknown>;
+}
+
+/** The error text actually wired to a control, rather than any error on screen:
+ *  a message the owner cannot see from the field they got wrong is not a
+ *  message. */
+function errorTextFor(control: HTMLElement): string {
+  const ids = (control.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+  return ids
+    .map((id) => document.getElementById(id))
+    .filter((node): node is HTMLElement => node?.dataset.testid === "field-error")
+    .map((node) => node.textContent ?? "")
+    .join(" ");
+}
+
+const complianceTickBox = () => screen.getByRole("checkbox", { name: /compliance requirement/i });
+
+describe("OnCallEntryEditor — the Admin/Compliance tick box", () => {
+  it("swaps the admin fields for the compliance fields", async () => {
+    const user = userEvent.setup();
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.getByLabelText("Location")).toHaveValue("Level 2, Block B");
+    expect(screen.queryByLabelText("Recorded expiry")).toBeNull();
+
+    await user.click(complianceTickBox());
+
+    expect(screen.queryByLabelText("Location")).toBeNull();
+    expect(screen.getByLabelText("Recorded expiry")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^What lapsing costs/)).toBeInTheDocument();
+  });
+
+  it("announces the change of shape for a reader who cannot see it", async () => {
+    const user = userEvent.setup();
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const liveRegion = screen.getByTestId("on-call-entry-editor-form-shape");
+    // Silent on mount: a live region that always carries text announces itself.
+    expect(liveRegion).toHaveTextContent("");
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
+
+    await user.click(complianceTickBox());
+    expect(liveRegion).toHaveTextContent(/compliance requirement fields replaced the admin fields/i);
+
+    await user.click(complianceTickBox());
+    expect(liveRegion).toHaveTextContent(/admin fields replaced the compliance requirement fields/i);
+  });
+
+  it("replaces the privacy tick box with a statement while the row is a requirement", async () => {
+    const user = userEvent.setup();
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("checkbox", { name: /^Private — only you/ })).toBeInTheDocument();
+    expect(screen.queryByTestId("on-call-entry-editor-compliance-privacy")).toBeNull();
+
+    await user.click(complianceTickBox());
+
+    expect(screen.queryByRole("checkbox", { name: /^Private — only you/ })).toBeNull();
+    expect(screen.getByTestId("on-call-entry-editor-compliance-privacy")).toHaveTextContent(/private to you/i);
+    // Nor the printable-card tick, which a requirement can never act on.
+    expect(screen.queryByRole("checkbox", { name: /printable card/i })).toBeNull();
+
+    // Unticking puts the choice back on screen still ticked, rather than
+    // silently returning the row to the page anyone can open.
+    await user.click(complianceTickBox());
+    expect(screen.getByRole("checkbox", { name: /^Private — only you/ })).toBeChecked();
+  });
+});
+
+describe("OnCallEntryEditor — naming the fields a switch deletes", () => {
+  it("names the admin fields BEFORE the box is ticked, not after they are gone", () => {
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    const warning = screen.getByText(/are deleted/i);
+    expect(warning).toHaveTextContent(/Tick it/i);
+    expect(warning).toHaveTextContent(/Location/);
+    expect(warning).toHaveTextContent(/Hours/);
+    expect(warning).toHaveTextContent(/Phone/);
+  });
+
+  it("keeps naming them once the box is ticked, and says how to keep them", async () => {
+    const user = userEvent.setup();
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.click(complianceTickBox());
+
+    const warning = screen.getByText(/Saving now deletes/i);
+    expect(warning).toHaveTextContent(/Location/);
+    expect(warning).toHaveTextContent(/Hours/);
+    expect(warning).toHaveTextContent(/Phone/);
+    expect(warning).toHaveTextContent(/Untick/i);
+  });
+
+  it("names the compliance fields an untick would delete, in the mirror direction", async () => {
+    const user = userEvent.setup();
+    render(
+      <OnCallEntryEditor open section="logistics" entry={AHPRA_REGISTRATION} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    expect(screen.getByText(/are deleted/i)).toHaveTextContent(/Untick it/i);
+
+    await user.click(complianceTickBox());
+
+    const warning = screen.getByText(/Saving now deletes/i);
+    expect(warning).toHaveTextContent(/Recorded expiry/);
+    expect(warning).toHaveTextContent(/Issued by/);
+    expect(warning).toHaveTextContent(/What lapsing costs/);
+  });
+
+  // `/deleted/`, not `/are deleted/`: an empty at-risk list would render
+  // "Tick it and is deleted", which the narrower pattern lets through — found
+  // by mutating the guard away and watching this test stay green.
+  it("says nothing when the row holds none of the other taxonomy's fields", () => {
+    const bare: OnCallEntry = { ...PAYROLL_OFFICE, details: { category: "Pay" } };
+    render(<OnCallEntryEditor open section="logistics" entry={bare} onSaved={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.queryByText(/deleted/i)).toBeNull();
+  });
+});
+
+describe("OnCallEntryEditor — an unrelated edit is not a licence to delete", () => {
+  it("keeps compliance fields stranded on an admin row when the owner edits the subtitle", async () => {
+    const user = userEvent.setup();
+    const stranded: OnCallEntry = {
+      ...PAYROLL_OFFICE,
+      details: {
+        category: "Pay",
+        location: "Level 2, Block B",
+        // Left behind by an earlier reclassification: no Admin page renders
+        // these, and no box in this form shows them.
+        consequence: "stops-work",
+        expiresOn: "2027-03-12",
+        issuingBody: "Ahpra",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: stranded }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={stranded} onSaved={vi.fn()} onClose={vi.fn()} />);
+    await user.type(screen.getByLabelText("Subtitle"), "Ask at the window");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const details = savedDetails(fetchMock);
+    expect(details.expiresOn).toBe("2027-03-12");
+    expect(details.consequence).toBe("stops-work");
+    expect(details.issuingBody).toBe("Ahpra");
+    // The edit the owner actually made still lands.
+    expect(details.location).toBe("Level 2, Block B");
+  });
+
+  it("keeps admin fields stranded on a requirement when the owner edits the subtitle", async () => {
+    const user = userEvent.setup();
+    const stranded: OnCallEntry = {
+      ...AHPRA_REGISTRATION,
+      details: { ...(AHPRA_REGISTRATION.details as Record<string, unknown>), location: "Level 2, Block B" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: stranded }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={stranded} onSaved={vi.fn()} onClose={vi.fn()} />);
+    await user.type(screen.getByLabelText("Subtitle"), "Renewal opens in January");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const details = savedDetails(fetchMock);
+    expect(details.location).toBe("Level 2, Block B");
+    expect(details.expiresOn).toBe("2027-03-12");
+    expect(details.kind).toBe(COMPLIANCE_KIND);
+  });
+
+  it("still clears the departing taxonomy when the owner actually switches", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: AHPRA_REGISTRATION }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor open section="logistics" entry={AHPRA_REGISTRATION} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await user.click(complianceTickBox());
+    await user.selectOptions(screen.getByLabelText(/^Category/), "Forms");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const details = savedDetails(fetchMock);
+    expect(details).toEqual({ category: "Forms" });
+  });
+
+  it("clears the admin fields when a note becomes a requirement, keeping category and url", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: PAYROLL_OFFICE }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.click(complianceTickBox());
+    await user.selectOptions(screen.getByLabelText(/^Category/), "Registration");
+    // Typed on the way through, on the side of the split the sweep is also
+    // walking: it must never delete what the owner just entered.
+    await user.type(screen.getByLabelText("Recorded expiry"), "2027-03-12");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const details = savedDetails(fetchMock);
+    expect(details).toEqual({
+      category: "Registration",
+      kind: COMPLIANCE_KIND,
+      expiresOn: "2027-03-12",
+      url: "https://example.org/payroll",
+    });
+  });
+});
+
+describe("OnCallEntryEditor — a required category is required", () => {
+  it("refuses to save a blanked category rather than filing the row under the other taxonomy's folder", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor open section="logistics" entry={AHPRA_REGISTRATION} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await user.click(complianceTickBox());
+    // "Registration" is not an Admin folder, so the select is emptied and the
+    // owner has to choose again.
+    expect(screen.getByLabelText(/^Category/)).toHaveValue("");
+
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    const category = screen.getByLabelText(/^Category/);
+    expect(category).toHaveAttribute("aria-invalid", "true");
+    expect(errorTextFor(category)).toMatch(/required/i);
+  });
+
+  it("refuses the mirror direction too", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.click(complianceTickBox());
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(errorTextFor(screen.getByLabelText(/^Category/))).toMatch(/required/i);
+  });
+
+  it("refuses a required text field emptied on an edit, instead of silently keeping the stored one", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="contacts" entry={ED_REGISTRAR} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.clear(screen.getByLabelText(/^Role/));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(errorTextFor(screen.getByLabelText(/^Role/))).toMatch(/required/i);
+  });
+});
+
+describe("OnCallEntryEditor — creating a requirement from the Compliance page", () => {
+  it("posts the compliance discriminator and forces the row private", async () => {
+    const user = userEvent.setup();
+    const created: OnCallEntry = { ...AHPRA_REGISTRATION, id: "88888888-8888-4888-8888-888888888888" };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: created }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor
+        open
+        section="logistics"
+        entry={null}
+        createAsCompliance
+        onSaved={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(complianceTickBox()).toBeChecked();
+    await user.type(screen.getByLabelText(/^Title/), "Ahpra registration");
+    await user.selectOptions(screen.getByLabelText(/^Category/), "Registration");
+    await user.type(screen.getByLabelText("Recorded expiry"), "2027-03-12");
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.details).toEqual({ category: "Registration", kind: COMPLIANCE_KIND, expiresOn: "2027-03-12" });
+    expect(body.isPersonal).toBe(true);
+    expect(body.includeOnCard).toBe(false);
+  });
+});
+
+describe("OnCallEntryEditor — a box the owner emptied is still a stored value", () => {
+  // An empty text box means "the form said nothing", so the stored Location
+  // survives this save and a switch would still delete it. Reading the draft
+  // alone would drop it out of the warning at exactly the moment the owner
+  // stopped being able to see it.
+  it("keeps naming a field whose box has been emptied but whose stored value remains", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: PAYROLL_OFFICE }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={PAYROLL_OFFICE} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.clear(screen.getByLabelText("Location"));
+    expect(screen.getByText(/are deleted/i)).toHaveTextContent(/Location/);
+
+    // And the stored value really is still there to be deleted: saving without
+    // switching sends it back untouched.
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock).location).toBe("Level 2, Block B");
   });
 });

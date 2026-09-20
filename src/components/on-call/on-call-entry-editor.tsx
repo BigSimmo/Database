@@ -66,6 +66,13 @@ type DetailFieldSpec = {
    * Only on selects that name their own empty option. An empty text box stays
    * "the form said nothing", exactly as it always has: emptying a phone number
    * cannot be told apart from a control that never rendered.
+   *
+   * Never on a REQUIRED control, and the reason is worth stating because the
+   * obvious fix for a blank required select is to put it here. A blank
+   * required field is refused by `handleSave` before the merge runs, so the
+   * flag would never be read; an unreadable flag reads as a protection that is
+   * in force when it is not. The protection is the `field.required` check and
+   * the tests pinning it.
    */
   clearWhenEmpty?: boolean;
 };
@@ -235,6 +242,10 @@ const PROVENANCE_OPTIONS: SelectOption[] = [
 
 /** Admin: a note about a process, a place or a form. */
 const ADMIN_DETAIL_FIELDS: DetailFieldSpec[] = [
+  // Required, and `handleSave` enforces it. Left blank, the key is not sent,
+  // the overlay restores the stored value, and the row saves under a folder
+  // from the OTHER taxonomy that the owner never chose — an Admin note filed
+  // under "Registration". See the `field.required` check in `handleSave`.
   { key: "category", label: "Category", kind: "select", required: true, options: ADMIN_CATEGORY_OPTIONS },
   { key: "location", label: "Location", kind: "text" },
   { key: "hours", label: "Hours", kind: "text" },
@@ -384,8 +395,10 @@ function detailFieldsFor(section: OnCallSection, isCompliance: boolean): DetailF
  * `category` is re-asked by `setCompliance` on every switch.
  *
  * They exist for the save-time sweep in `handleSave`, which enforces one
- * invariant: a stored `logistics` row carries the taxonomy-specific fields of
- * the taxonomy it is actually in, and none of the other one's.
+ * invariant AT THE MOMENT THE OWNER SWITCHES the row from one taxonomy to the
+ * other: a `logistics` row keeps the taxonomy-specific fields of the taxonomy
+ * it is moving into, and none of the one it is leaving. A save that does not
+ * change the taxonomy sweeps nothing — see the gate in `handleSave`.
  *
  * Without that invariant, unticking "Compliance requirement" left the expiry,
  * the consequence and the issuing body sitting in the row. `handleSave` only
@@ -705,33 +718,72 @@ export function OnCallEntryEditor({
   const complianceForcesPrivate = section === "logistics" && draft.isCompliance;
 
   /**
-   * What unticking "Compliance requirement" would actually delete, named by
-   * the boxes the owner is looking at.
+   * Which taxonomy the STORED row is in — `null` while creating, where there is
+   * nothing stored to lose. This, not the tick box, is what says whether a save
+   * would move the row.
+   */
+  const storedIsCompliance = entry && section === "logistics" ? isComplianceEntry(entry) : null;
+
+  /**
+   * Whether the tick box now disagrees with the stored row. The save-time sweep
+   * runs on this and nothing else: deleting the departing taxonomy's fields is
+   * a consequence of a choice the owner made in this sheet, never of an
+   * unrelated edit to a row that happens to be carrying them.
+   */
+  const taxonomyChanged = storedIsCompliance !== null && draft.isCompliance !== storedIsCompliance;
+
+  /** Whether this key still holds something the sweep would delete. The stored
+   *  row as well as the draft: an emptied text box means "the form said
+   *  nothing", so the stored value is still there and still goes. */
+  function detailStillHolds(key: string): boolean {
+    return (draft.details[key] ?? "").trim().length > 0 || detailStringValue(entry?.details, key).trim().length > 0;
+  }
+
+  /**
+   * What changing this row's taxonomy would delete, named by the boxes those
+   * values sit in.
    *
-   * Deleting them is the honest outcome — the Admin page renders none of these
-   * fields, so a row that quietly kept them would be holding an expiry date
-   * that exists in the database and on no screen — but it has to be said
+   * Deleting them is the honest outcome — the page the row moves to renders
+   * none of them, so a row that quietly kept them would be holding an expiry
+   * date that exists in the database and on no screen — but it has to be said
    * before it happens rather than discovered a year later. One mis-tap is
    * enough, and nothing else on this form warns about it.
    *
-   * Read off the draft rather than the stored entry so the sentence is true in
-   * both directions: while the box is still ticked it says what unticking
-   * costs, and after an untick it says what saving will cost and that putting
-   * the tick back keeps them.
+   * Read off the STORED taxonomy, so it is true in both directions. Reading the
+   * compliance fields only left the commoner tap unwarned: ticking the box on
+   * an admin note deletes its Location, Hours and Phone, and said nothing,
+   * because the compliance-only keys it looked at are empty by construction —
+   * `buildInitialDraft` seeds only the taxonomy in force.
+   *
+   * Only the keys the destination form has no box for. The keys it DOES render
+   * are on screen, blank, and what the owner sees there is what the save
+   * stores; a warning about a box they are looking at would be noise.
    */
-  const complianceFieldsAtRisk =
-    section === "logistics"
-      ? COMPLIANCE_DETAIL_FIELDS.filter(
-          (field) =>
-            COMPLIANCE_ONLY_DETAIL_KEYS.includes(field.key) && (draft.details[field.key] ?? "").trim().length > 0,
-        ).map((field) => `\u201c${field.label}\u201d`)
-      : [];
-  const complianceLossWarning =
-    complianceFieldsAtRisk.length === 0
+  const fieldsAtRisk =
+    storedIsCompliance === null
+      ? []
+      : (storedIsCompliance ? COMPLIANCE_DETAIL_FIELDS : ADMIN_DETAIL_FIELDS)
+          .filter(
+            (field) =>
+              (storedIsCompliance ? COMPLIANCE_ONLY_DETAIL_KEYS : ADMIN_ONLY_DETAIL_KEYS).includes(field.key) &&
+              detailStillHolds(field.key),
+          )
+          .map((field) => `\u201c${field.label}\u201d`);
+
+  // The destination is always the taxonomy the stored row is NOT in, whether
+  // the owner has flipped the box yet or not.
+  const destination = storedIsCompliance ? "an Admin entry" : "a compliance requirement";
+  const them = fieldsAtRisk.length > 1 ? "them" : "it";
+  const switchLossWarning =
+    fieldsAtRisk.length === 0
       ? null
-      : draft.isCompliance
-        ? ` Untick it and ${listPhrase(complianceFieldsAtRisk)} are deleted — an Admin entry has nowhere to keep them.`
-        : ` Saving now deletes ${listPhrase(complianceFieldsAtRisk)} — an Admin entry has nowhere to keep them. Tick the box again to keep them.`;
+      : taxonomyChanged
+        ? ` Saving now deletes ${listPhrase(fieldsAtRisk)} — ${destination} has nowhere to keep ${them}. ${
+            storedIsCompliance ? "Tick" : "Untick"
+          } the box again to keep ${them}.`
+        : ` ${storedIsCompliance ? "Untick" : "Tick"} it and ${listPhrase(fieldsAtRisk)} ${
+            fieldsAtRisk.length > 1 ? "are" : "is"
+          } deleted — ${destination} has nowhere to keep ${them}.`;
 
   function setDetailValue(key: string, value: string) {
     setDraft((current) => ({ ...current, details: { ...current.details, [key]: value } }));
@@ -788,6 +840,18 @@ export function OnCallEntryEditor({
     const clearedKeys: string[] = [];
     for (const field of fieldSpecs) {
       const raw = draft.details[field.key] ?? "";
+      // "Required" was decoration until this line: nothing in the save path
+      // read `field.required`. An emptied required control sends nothing, the
+      // overlay in `mergeOnCallEditorDetails` restores the stored value, and
+      // the row saves under a value the owner can no longer see — which is how
+      // unticking "Compliance requirement" filed an Admin note under the
+      // Compliance folder "Registration". The field's own error is the right
+      // place to say so: `FormField` renders it under the control the owner is
+      // looking at, and points `aria-describedby` at it.
+      if (field.required && !raw.trim()) {
+        nextErrors[field.key] = `${field.label} is required.`;
+        continue;
+      }
       if (field.key === RECURRENCE_RULE_KEY) {
         const frequency = raw.trim();
         if (!frequency) {
@@ -839,25 +903,36 @@ export function OnCallEntryEditor({
       else if (field.clearWhenEmpty) clearedKeys.push(field.key);
     }
 
-    // The Admin/Compliance invariant: a stored `logistics` row keeps the
-    // taxonomy-specific fields of the taxonomy it is in, and none of the other
-    // one's. The loop above speaks only for the fields on screen, so without
-    // this the ones belonging to the taxonomy being left are neither written
-    // nor cleared, and the overlay in `mergeOnCallEditorDetails` keeps them
-    // from the stored row — invisible on the page they land on, and re-offered
-    // pre-filled the next time the box is ticked. See
-    // `TAXONOMY_EXCLUSIVE_DETAIL_KEYS`.
+    // The Admin/Compliance invariant, applied where the owner creates the need
+    // for it: when this save MOVES the row from one taxonomy to the other, it
+    // keeps the taxonomy-specific fields of the one it is moving into and none
+    // of the one it is leaving. The loop above speaks only for the fields on
+    // screen, so without this the departing taxonomy's fields are neither
+    // written nor cleared, and the overlay in `mergeOnCallEditorDetails` keeps
+    // them from the stored row — invisible on the page they land on, and
+    // re-offered pre-filled the next time the box is ticked. The arriving
+    // taxonomy's fields are swept on the same pass when the form left them
+    // blank, which is what stops a date nobody entered appearing on the
+    // Compliance page as though they had. See `TAXONOMY_EXCLUSIVE_DETAIL_KEYS`.
     //
-    // Stated as an invariant rather than as a reaction to the tick changing,
-    // for two reasons. It holds however many times the box is toggled, in this
-    // sheet or a later one. And it repairs a row already carrying orphans:
-    // opening and saving it is enough, which is the only repair path an owner
-    // has for data no page shows them.
+    // `taxonomyChanged` is the whole gate, and it replaced an unconditional
+    // sweep that ran on every `logistics` save. That version was described as a
+    // repair — opening and saving an already-orphaned row was enough to clean
+    // it — and the description was true, but the price was not worth paying. An
+    // orphaned key is inert: no page renders it and, since `buildInitialDraft`
+    // seeds only the taxonomy in force, no form re-offers it. The "repair" was
+    // a permanent, undoable deletion of data the owner typed, triggered by an
+    // edit to something else entirely, in exactly the case where the warning
+    // beside the tick box provably cannot fire — the draft never held those
+    // keys, so it had nothing to name. Correcting a title must not delete a
+    // registration's expiry date. An orphan now survives until the owner makes
+    // the choice that actually strands it, and that choice is warned about by
+    // name first.
     //
     // Keys the form DID send are skipped, so this can never delete what the
     // owner just typed. `category` and `url` are in both forms and so are not
     // swept at all: a URL means the same thing on either kind of row.
-    if (section === "logistics") {
+    if (taxonomyChanged) {
       for (const key of TAXONOMY_EXCLUSIVE_DETAIL_KEYS) {
         if (!(key in formDetails)) clearedKeys.push(key);
       }
@@ -1033,8 +1108,8 @@ export function OnCallEntryEditor({
                   <>
                     Something that expires — registration, indemnity, a mandatory module. It moves to Compliance, it
                     asks what lapsing costs, and it is kept private to you.
-                    {complianceLossWarning ? (
-                      <strong className="font-semibold text-[color:var(--warning)]">{complianceLossWarning}</strong>
+                    {switchLossWarning ? (
+                      <strong className="font-semibold text-[color:var(--warning)]">{switchLossWarning}</strong>
                     ) : null}
                   </>
                 }
@@ -1091,6 +1166,15 @@ export function OnCallEntryEditor({
             onChange={(value) => setDraft((current) => ({ ...current, body: value }))}
           />
 
+          {/* Both privacy sentences below used to end "and out of any export".
+              On Call has no export — no route, no button, no serialiser — so
+              that clause was a privacy guarantee about a feature that does not
+              exist, on the one form in this app where the reader is deciding
+              what happens to their own registration and clearance records. It
+              names the two surfaces that are real: the shared read
+              (`isPersonal`) and the printable card (`selectCardEntries`). If an
+              export is ever built, excluding private rows is the work, and this
+              wording can then say so truthfully. */}
           <div className="grid gap-1">
             {section === "contacts" ? (
               <Checkbox
@@ -1110,12 +1194,12 @@ export function OnCallEntryEditor({
                 className={cn("px-1 py-1.5 text-xs leading-5", textMuted)}
               >
                 Private to you. A compliance requirement is your own record, so this entry is never shared: it stays off
-                the page anyone can open without signing in, off the printable card, and out of any export.
+                the page anyone can open without signing in, and off the printable card.
               </p>
             ) : (
               <Checkbox
                 label="Private — only you"
-                description="An entry that is not private can be read by anyone who opens On Call, without signing in. A private one stays off that page, off the printable card, and out of any export."
+                description="An entry that is not private can be read by anyone who opens On Call, without signing in. A private one stays off that page and off the printable card."
                 checked={draft.isPersonal}
                 onChange={(event) => setDraft((current) => ({ ...current, isPersonal: event.target.checked }))}
               />

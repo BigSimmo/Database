@@ -14,13 +14,41 @@ import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
  * what lapsing costs, the issuing body, the evidence link and the provenance —
  * gone because the owner opened the row and corrected its title. One stray
  * character in any stored value, or one unrecognised extra key (every section
- * schema is `.strict()`), is enough to start it. The row still renders, because
- * `rowToOnCallEntry` nulls details it cannot read and returns the row anyway,
- * so nothing warns anybody first.
+ * schema is `.strict()`), is enough to start it.
  *
  * So a failed parse falls back to a key-by-key salvage: every stored key the
  * schema knows AND whose own value the schema accepts is kept, and only the
  * keys it actually rejects are dropped.
+ *
+ * ## This key-by-key branch cannot be reached from the app as it stands
+ *
+ * Read this before trusting it as a live protection, because today it is not
+ * one. Every path that hands this editor a stored entry goes through
+ * `rowToOnCallEntry` (`src/lib/on-call/repository.ts`), which parses `details`
+ * against this same section schema and sets it to `null` when that parse
+ * fails. `null` returns `{}` from the guard above the branch, so the branch
+ * itself never runs: the editor receives details that are already
+ * schema-valid, or none at all. The wipe described above therefore has a
+ * different shape in production — the details arrive as `null`, and the merge
+ * starts from `{}` whatever this function does.
+ *
+ * It is kept, and must not be removed as dead code, because two ordinary
+ * changes make it reachable and neither would think to write it again:
+ *
+ *  - **Tightening a section schema.** The on-device cache
+ *    (`cacheOnCallEntries`, `src/lib/on-call/entry-store.ts`) stores whole
+ *    entries and re-reads them through `onCallEntrySchema`, where `details` is
+ *    `z.unknown()` — so a cached row's details are never re-checked against
+ *    the section schema. A row written under a looser schema and read back by
+ *    a build carrying a stricter one reaches this editor with details the new
+ *    schema refuses, and this branch is then the only thing between that row
+ *    and the wipe.
+ *  - **An entry that never passed through `rowToOnCallEntry`** — the demo
+ *    fixtures, an import, a seed, or any future read that assembles entries
+ *    directly.
+ *
+ * Until one of those happens it is exercised only by its tests. The reasoning
+ * below is why it behaves as it does when something finally does reach it.
  *
  * Keeping the rejected values too would be worse, not better, and this is the
  * reason it is not done. The API validates `details` against this same strict

@@ -537,6 +537,13 @@ const COMPLIANCE_SURFACES = [
   /** The compliance form's labels, hints and privacy sentence — and
    *  `OnCallVerifyButton`, which this page renders on every row. */
   "src/components/on-call/on-call-entry-editor.tsx",
+  /** The search result summary. `onCallSearchSummary` renders "Recorded as
+   *  expiring 12 Mar 2027" under a compliance hit — the same sentence as the
+   *  page, in a second file. Its own comment quotes the rule and says the
+   *  phrase is the page's "word for word", which is exactly the kind of
+   *  promise that needs a machine behind it: without this line, changing it
+   *  to "Valid to" or "Expires" goes green. */
+  "src/lib/on-call/entry-search.ts",
   /** "Checked 14/08/2026", "Never checked" — the status words painted on every
    *  row of this page. The freshness stamp is about the RECORD, and the day one
    *  of these becomes "Up to date" it is a verdict on a requirement instead. */
@@ -600,6 +607,18 @@ const FORBIDDEN_VERDICTS: readonly { pattern: RegExp; why: string }[] = [
   { pattern: /\blapsed\b/i, why: "a state claim; they may have renewed last week and not edited the row" },
   { pattern: /\bup[- ]to[- ]date\b/i, why: "a verdict, in four words instead of one" },
   { pattern: /\bin good standing\b/i, why: "a verdict, in the register's own language" },
+  // A status pill is the rejected design in one word, and the governed-verb
+  // patterns below cannot see it: "Current" alone has no verb to govern and no
+  // preposition to follow. Anchored to the start of a string so it catches the
+  // pill and the "Current · 12 Mar 2027" chip while leaving every sentence
+  // that merely contains the word — "what you keep current" — alone.
+  //
+  // This one entry is also the honest limit of the whole list. "Cleared",
+  // "In force", "All requirements met", "No action needed" are each one
+  // synonym away and none is caught. Enumeration will always be a step behind,
+  // so this gate is a tripwire and the review is the control; do not read a
+  // green run as a page that has been checked.
+  { pattern: /^\s*current\b/i, why: "a bare status word is the verdict in one word" },
   // "Current" only where it is a predicate about the reader. "The requirements
   // you keep current" describes the obligation and is allowed; "your
   // registration is current" and "current to 12 Mar 2027" are the rejected
@@ -767,6 +786,11 @@ describe("the compliance surfaces render no verdict", () => {
       "Everything is up to date.",
       "Up-to-date",
       "In good standing",
+      // The bare pill, and the chip that is the same claim with a date bolted
+      // on. Both passed until 2026-09-20 — found by re-running the list rather
+      // than by reading it.
+      "Current",
+      "Current · 12 Mar 2027",
     ];
 
     for (const text of verdicts) {
