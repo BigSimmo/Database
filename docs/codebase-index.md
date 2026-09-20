@@ -418,6 +418,37 @@ application-layer ownership model as `clinical_registry_records`.
 
 ---
 
+### Continuing education (CME/CPD)
+
+`src/lib/cme/` is the eighteenth mode's domain layer: an owner's own record of the continuing
+professional development he has done, and of the targets he has confirmed for the year.
+
+**The app never asserts a regulatory requirement.** Every target is the owner's confirmed data,
+carrying the date he confirmed it and the document it came from; the mode computes progress
+against those numbers and never supplies one of its own. Nothing here may reduce a target for a
+working pattern — part-time work does not lower the requirement, and a tracker that quietly
+lowered it would be the most dangerous thing in the design.
+
+| Module     | Role                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `cpd-year` | Every date question asked in `Australia/Perth`; year membership, elapsed/remaining days, and the pace projection |
+| `types`    | The four requirement shapes, the category set, and the entry/allocation/requirement-set records                  |
+| `evaluate` | Requirement status and year status from entries; two arguments only, so no working pattern can reach it          |
+| `schemas`  | Zod validation for entry creation and the list query, at the API boundary                                        |
+
+**Why Perth, specifically.** Perth is UTC+8 with no daylight saving. Asked in UTC, an activity
+logged in the first eight hours of 1 January is filed against the year that just closed — silently,
+in the one record its owner cannot afford to have wrong. `paceProjection` returns `null` below 28
+elapsed days, because a confident wrong number in January is worse than saying nothing.
+
+**Why four requirement shapes.** Three of them — a count scoped to a container, a panel judgement,
+a one-off task — cannot be expressed as hours in a category, and a tracker modelling only the first
+quietly misses them. The shape is held as JSON rather than in columns of its own, so adding a shape
+this design does not yet draw is a code change rather than a migration against the live clinical
+database.
+
+---
+
 ## Supabase
 
 ### Config and schema

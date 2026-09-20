@@ -957,10 +957,18 @@ size, colour or left edge. **Open defects → PR.** print behaviour → PR 11.
 
 **Contract.** Determinate progress is `transform: scaleX()` with `transform-origin:
 left` — never `width` · indeterminate must use tokened duration; reduced motion shows a
-static state · the track/fill pair follows the edge rule. **Landed.** Determinate fill uses
-`scaleX()` and tokened transition duration; indeterminate now uses the `animate-shimmer`
-`@theme` token rather than a hardcoded `1.4s` literal. **Open defects → PR.** none
-remaining on this component.
+static state · the track/fill pair follows the edge rule · an optional `mark` prop
+(`{ value: number; label: string }`) draws a reference point on the same 0–100 scale as
+`value` — e.g. "where you would need to be today" — as a 2px notch inside the track; it is
+a sibling of the fill, never a second fill, and never changes the track's height. Its
+position clamps to 0–100 independently of `value`, its colour is `var(--text)` (never a
+status colour — it is a neutral reference point, not a status), and it carries its own
+`role="img"`/`aria-label` while staying out of `aria-valuenow`, which keeps reporting the
+real `value`: a screen reader that announced the target as the progress would state the
+opposite of the truth. Omitting `mark` renders exactly as before. **Landed.** Determinate
+fill uses `scaleX()` and tokened transition duration; indeterminate now uses the
+`animate-shimmer` `@theme` token rather than a hardcoded `1.4s` literal; the optional
+target `mark` notch. **Open defects → PR.** none remaining on this component.
 
 ### 9.27 `StageList`
 

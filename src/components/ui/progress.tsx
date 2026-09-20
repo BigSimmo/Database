@@ -10,6 +10,14 @@ export type ProgressProps = {
   label: string;
   /** Right-aligned detail, e.g. "42 of 118 chunks". Tabular so it stops jittering. */
   detail?: ReactNode;
+  /**
+   * An optional reference point on the same scale as `value` — "where you would
+   * need to be today". Drawn as a notch, not a second fill, and kept out of
+   * `aria-valuenow`, which still reports the real value: a screen reader that
+   * announced the target as the progress would be stating the opposite of the
+   * truth.
+   */
+  mark?: { value: number; label: string };
   className?: string;
 };
 
@@ -21,9 +29,10 @@ export type ProgressProps = {
  * `role="progressbar"` with real `aria-valuenow/min/max`, so the percentage is
  * announced rather than inferred from a coloured rectangle.
  */
-export function Progress({ value, label, detail, className }: ProgressProps) {
+export function Progress({ value, label, detail, mark, className }: ProgressProps) {
   const determinate = typeof value === "number";
   const clamped = determinate ? Math.max(0, Math.min(100, value)) : undefined;
+  const markPercent = mark ? Math.max(0, Math.min(100, mark.value)) : undefined;
 
   return (
     <div className={cn("w-full", className)}>
@@ -38,7 +47,14 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
         aria-valuemin={determinate ? 0 : undefined}
         aria-valuemax={determinate ? 100 : undefined}
         data-testid="progress"
-        className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
+        className={cn(
+          "h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]",
+          // Only a positioning context when there is a mark to position — an
+          // unconditional `relative` here would be harmless too (no visible
+          // effect without an absolute child) but this keeps the no-mark
+          // markup byte-identical to before this prop existed.
+          mark && "relative",
+        )}
       >
         <div
           data-testid="progress-fill"
@@ -55,6 +71,18 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
           )}
           style={determinate ? { transform: `scaleX(${(clamped ?? 0) / 100})`, transformOrigin: "left" } : undefined}
         />
+        {mark ? (
+          <span
+            data-testid="progress-mark"
+            role="img"
+            aria-label={mark.label}
+            // A notch, not a second fill: 2px wide, spans the track's own height
+            // rather than setting one, and centred on its percentage rather than
+            // left-edge-aligned so it reads as a point, not a tick starting there.
+            className="absolute top-0 h-full w-0.5 -translate-x-1/2 bg-[color:var(--text)] forced-colors:bg-[CanvasText]"
+            style={{ left: `${markPercent}%` }}
+          />
+        ) : null}
       </div>
     </div>
   );
