@@ -4,7 +4,14 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallSectionPage } from "@/components/on-call/on-call-section-page";
-import { onCallPageSections } from "@/components/on-call/on-call-page-sections";
+import {
+  ON_CALL_ORIENTATION_UNFILED_LABEL,
+  onCallOrientationCategoryFacet,
+  onCallPageSections,
+} from "@/components/on-call/on-call-page-sections";
+import type { OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
+import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { ON_CALL_SECTIONS, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
 import { universalHeaderTrailingSlotId } from "@/lib/mode-home-composer";
 
@@ -270,6 +277,181 @@ describe("the second header row is about THIS page", () => {
         container.querySelector(`#${section.id}`),
         `${section.label} declares #${section.id}, which is absent`,
       ).not.toBeNull();
+    }
+  });
+});
+
+/**
+ * Every group a page DECLARES, asserted against the anchors it RENDERS.
+ *
+ * The same loop the two cases above write out, factored once because three
+ * more pages need it. The direction is the whole point and it only runs one
+ * way: a declared anchor that is not on the page is a jump list row that
+ * silently does nothing, while an extra rendered heading is merely a heading
+ * the bar does not offer. Declared ⊆ rendered is therefore the assertion, and
+ * the count is checked first so a page that declares nothing cannot pass by
+ * looping zero times.
+ */
+function expectDeclaredAnchorsRendered(
+  view: OnCallPageView,
+  entries: readonly OnCallEntry[],
+  container: HTMLElement,
+): void {
+  const declared = onCallPageSections({ view, entries });
+  expect(declared.length, `${view} declared no groups at all, so this case proves nothing`).toBeGreaterThan(0);
+  for (const section of declared) {
+    expect(
+      container.querySelector(`#${section.id}`),
+      `${section.label} declares #${section.id}, which is absent`,
+    ).not.toBeNull();
+  }
+}
+
+describe("the three pages whose grouping key is quieter than a tag", () => {
+  // Contacts and Who's who file by a tag the reader typed and can see on the
+  // row. Admin files by `details.category`, Compliance by a consequence band,
+  // and Orientation by a folder that is optional on the section — keys that
+  // are invisible on the page, and that live in a different file from the
+  // declaration that navigates to them. A fallback heading reading "Other" in
+  // one and "General" in the other is not a visible bug; it is a jump list row
+  // that goes nowhere, and exactly that mismatch has already shipped once on
+  // Admin and been fixed.
+  //
+  // These run against the real demo corpus rather than a fixture written here,
+  // for two reasons. It is what a visitor actually sees, so a break is a break
+  // in the shipped product; and it is built to exercise every Admin folder,
+  // every compliance band and the unfiled orientation fallback, which a
+  // hand-rolled fixture would stop doing the first time somebody adds a band.
+  //
+  // Nothing below names a category, a folder or a band. Every expectation is
+  // read from the declaration helpers or from the corpus itself, so renaming
+  // a label — which the one-word convention keeps inviting — moves both sides
+  // at once and these cases stay true.
+
+  it("declares only anchors the Admin page actually renders", () => {
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="logistics" />);
+    expectDeclaredAnchorsRendered("logistics", entries, container);
+  });
+
+  it("declares only anchors the Compliance page actually renders", () => {
+    // The band that carries two strings is the one at risk here: the bar gets
+    // `barLabel` ("Blocking") and the page renders `heading` ("Stops you
+    // working"), and the slug must come from the heading on BOTH sides. Slug
+    // the short word on either side and every anchor on this page moves.
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="compliance" />);
+    expectDeclaredAnchorsRendered("compliance", entries, container);
+  });
+
+  it("declares only anchors the Orientation page actually renders", () => {
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="orientation" />);
+    expectDeclaredAnchorsRendered("orientation", entries, container);
+  });
+
+  it("keeps a manual with no folder on the shelf, under the trailing fallback", () => {
+    // `details.category` is optional on this section — orientation rows
+    // existed before folders did — so the interesting row is the one nobody
+    // has filed. Dropping it would be the mode's own worst failure: a manual
+    // withheld because of a missing field. It lands under the trailing
+    // fallback group instead, which is the last thing `onCallEntryGroups`
+    // appends and therefore the last group declared.
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    const unfiled = entries.filter(
+      (entry) => entry.section === "orientation" && onCallOrientationCategoryFacet(entry).length === 0,
+    );
+    expect(unfiled.length, "the demo corpus files every manual, so the fallback is unexercised").toBeGreaterThan(0);
+
+    storeState.entries = entries;
+    const { container } = render(<OnCallSectionPage view="orientation" />);
+
+    const declared = onCallPageSections({ view: "orientation", entries });
+    const trailing = declared[declared.length - 1];
+    expect(trailing?.label).toBe(ON_CALL_ORIENTATION_UNFILED_LABEL);
+    const fallbackGroup = container.querySelector(`#${trailing?.id}`);
+    expect(fallbackGroup).not.toBeNull();
+
+    for (const entry of unfiled) {
+      const card = container.querySelector(`[data-testid="on-call-orientation-card-${entry.slug}"]`);
+      expect(card, `${entry.title} has no folder and vanished from the shelf`).not.toBeNull();
+      expect(
+        fallbackGroup?.contains(card),
+        `${entry.title} renders outside the ${trailing?.label} group it was declared under`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("Admin and Compliance are one stored section, and neither may show the other's rows", () => {
+  // `section` is a database CHECK constraint and a seventh value costs a
+  // migration that reaches the live clinical database within seconds, so these
+  // two pages are one stored section split on `details.kind`. The documented
+  // cost of that choice is exactly one hazard, written down in
+  // `src/lib/on-call/compliance.ts`: a requirement whose lapse can stop
+  // somebody working, filed among the parking notes and the pay claims, where
+  // nothing is expected to expire and so nobody looks for a date.
+  //
+  // `partitionLogisticsEntries` is the single place the split is made, so both
+  // cases below ask it which rows belong where rather than restating the rule
+  // — a test that re-derived the split would keep passing if the split itself
+  // were wrong.
+
+  it("keeps compliance requirements out of the Admin list", () => {
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    const { admin, compliance } = partitionLogisticsEntries(entries);
+    expect(compliance.length, "the demo corpus carries no compliance rows to keep out").toBeGreaterThan(0);
+    expect(admin.length, "the demo corpus carries no admin rows to show").toBeGreaterThan(0);
+
+    storeState.entries = entries;
+    render(<OnCallSectionPage view="logistics" />);
+
+    for (const entry of admin) {
+      expect(
+        screen.queryByTestId(`on-call-logistics-row-${entry.slug}`),
+        `${entry.title} is an Admin row and is missing from Admin`,
+      ).not.toBeNull();
+    }
+    for (const entry of compliance) {
+      expect(
+        screen.queryByTestId(`on-call-logistics-row-${entry.slug}`),
+        `${entry.title} expires, and is filed here among the forms`,
+      ).toBeNull();
+      // The title too, not only the row: a requirement reaching this page by
+      // some other route — a future summary line, a recents strip — is the
+      // same hazard wearing different markup.
+      expect(screen.queryAllByText(entry.title), `${entry.title} is named on the Admin page`).toHaveLength(0);
+    }
+  });
+
+  it("keeps ordinary Admin rows off the Compliance page", () => {
+    // The mirror, and not redundant: the two lists filter with the same helper
+    // but in opposite directions, and only one of them was ever the documented
+    // hazard. An Admin row appearing here is the milder half — a parking note
+    // shown under "Stops you working" is wrong in a way a reader would spot —
+    // but it would also be counted into a band, and this page's bands are
+    // ordered by what lapsing costs.
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    const { admin, compliance } = partitionLogisticsEntries(entries);
+
+    storeState.entries = entries;
+    render(<OnCallSectionPage view="compliance" />);
+
+    for (const entry of compliance) {
+      expect(
+        screen.queryByTestId(`on-call-compliance-row-${entry.slug}`),
+        `${entry.title} is a requirement and is missing from Compliance`,
+      ).not.toBeNull();
+    }
+    for (const entry of admin) {
+      expect(
+        screen.queryByTestId(`on-call-compliance-row-${entry.slug}`),
+        `${entry.title} is ordinary admin and is filed here as a requirement`,
+      ).toBeNull();
+      expect(screen.queryAllByText(entry.title), `${entry.title} is named on the Compliance page`).toHaveLength(0);
     }
   });
 });

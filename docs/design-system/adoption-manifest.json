@@ -356,6 +356,7 @@
         "tests/design-sync-visual-exports.test.ts",
         "tests/design-system-adoption.test.ts",
         "tests/design-system-contract-utils.test.ts",
+        "tests/on-call-compliance.test.ts",
         "tests/therapy-compass-responsive-contract.test.ts",
         "tests/ui-v2-components.dom.test.tsx"
       ],
@@ -841,6 +842,7 @@
         "tests/design-system-adoption.test.ts",
         "tests/design-system-target-evidence.test.ts",
         "tests/dsm-search-empty-state.dom.test.tsx",
+        "tests/on-call-compliance.test.ts",
         "tests/on-call-sections.dom.test.tsx",
         "tests/rsc-boundary.test.ts",
         "tests/therapy-compass-ui.dom.test.tsx",
@@ -930,12 +932,14 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
         "src/components/on-call/on-call-referrals-section.tsx",
         "src/components/on-call/on-call-teaching-strip.tsx"
       ],
       "productImportFiles": [
+        "src/components/on-call/on-call-compliance-section.tsx",
         "src/components/on-call/on-call-education-section.tsx",
         "src/components/on-call/on-call-logistics-section.tsx",
         "src/components/on-call/on-call-referrals-section.tsx",
@@ -2514,6 +2518,7 @@
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
+        "src/app/(search-app)/on-call/compliance/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -2782,6 +2787,16 @@
         },
         {
           "file": "src/app/(search-app)/on-call/card/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/on-call/compliance/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4212,6 +4227,7 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/compliance/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -4306,6 +4322,7 @@
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
+      "src/app/(search-app)/on-call/compliance/page.tsx",
       "src/app/(search-app)/on-call/contacts/page.tsx",
       "src/app/(search-app)/on-call/education/page.tsx",
       "src/app/(search-app)/on-call/logistics/page.tsx",
@@ -4361,7 +4378,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 99,
+    "inheritedCkbV2RootCount": 100,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4370,8 +4387,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 44,
-    "rootCount": 100,
-    "productionRouteCount": 92,
-    "nextUiEntryCount": 155
+    "rootCount": 101,
+    "productionRouteCount": 93,
+    "nextUiEntryCount": 156
   }
 }
