@@ -1554,7 +1554,7 @@ jobs:
             if [ "$UI_CHANGED" = "true" ]; then
               draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
             fi
-            if [ "$PERF_CHANGED" = "true" ]; then draft_suppressed+=("lighthouse-budget"); fi
+            if [ "${PERF_CHANGED:-false}" = "true" ]; then draft_suppressed+=("lighthouse-budget"); fi
             if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
             if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
               draft_suppressed+=("caring-contacts-db")
