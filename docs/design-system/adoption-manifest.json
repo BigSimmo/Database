@@ -291,6 +291,8 @@
         "src/components/AccessibleTable.tsx",
         "src/components/clinical-dashboard/ClinicalSidebar.tsx",
         "src/components/clinical-dashboard/signed-image.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-routines-page.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/on-call/on-call-contacts-section.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
@@ -417,6 +419,7 @@
       "directImportFiles": [
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/favourites-command-library-page.tsx",
+        "src/components/cme/cme-log-page.tsx",
         "src/components/sources/sources-catalogue-client.tsx",
         "src/components/sources/sources-pages.tsx",
         "src/components/therapy-compass/screens/pathways-screen.tsx",
@@ -809,6 +812,8 @@
         "src/components/clinical-dashboard/medication-prescribing-workspace.tsx",
         "src/components/clinical-dashboard/medication-record-page.tsx",
         "src/components/clinical-dashboard/visual-evidence.tsx",
+        "src/components/cme/cme-log-page.tsx",
+        "src/components/cme/cme-routines-page.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
         "src/components/dsm/dsm-search-page.tsx",
         "src/components/mode-home-template.tsx"
@@ -1024,6 +1029,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/cme/cme-entry-form.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/select.tsx",
         "src/components/ui/text-field.tsx"
@@ -1111,6 +1117,8 @@
         "src/components/clinical-dashboard/auth-panel.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-routines-page.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
@@ -1641,7 +1649,7 @@
       "source": "src/components/ui/text-field.tsx",
       "sourceExported": true,
       "entryExported": true,
-      "directImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
+      "directImportFiles": ["src/components/cme/cme-log-page.tsx", "src/components/on-call/on-call-search-box.tsx"],
       "productImportFiles": ["src/components/on-call/on-call-search-box.tsx"],
       "designSync": {
         "listedInSourceMap": true,
@@ -1674,6 +1682,7 @@
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/result-filter-control.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-log-page.tsx",
         "src/components/dictionary/dictionary-catalogue-pages.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/factsheets/factsheets-search-page.tsx",
@@ -2134,6 +2143,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/cme/cme-log-page.tsx",
         "src/components/therapy-compass/screens/brief-screen.tsx",
         "src/components/therapy-compass/screens/compare-screen.tsx"
       ],
@@ -2178,6 +2188,7 @@
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
+        "src/components/cme/cme-entry-form.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"

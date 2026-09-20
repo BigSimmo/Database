@@ -74,4 +74,23 @@ describe("pace", () => {
     ).toBeNull();
     expect(CPD_PACE_MINIMUM_ELAPSED_DAYS).toBe(28);
   });
+
+  it("says nothing about a year the instant is not inside", () => {
+    // Opening last year's record in September does not make last year 531 days
+    // long. Without this guard the elapsed-day count runs past the end of the
+    // year and the projection reads as a confident, wrong number of hours.
+    const instant = new Date("2026-09-19T02:00:00Z");
+    expect(paceProjection({ hoursSoFar: 32.5, targetHours: 50, instant, year: 2025 })).toBeNull();
+    expect(paceProjection({ hoursSoFar: 0, targetHours: 50, instant, year: 2027 })).toBeNull();
+  });
+
+  it("reports hours to two decimals, because the screen reads them as hours", () => {
+    const projection = paceProjection({
+      hoursSoFar: 32.5,
+      targetHours: 50,
+      instant: new Date("2026-09-19T02:00:00Z"),
+      year: 2026,
+    });
+    expect(projection).toEqual({ projectedHours: 45.28, shortfallHours: 4.72 });
+  });
 });

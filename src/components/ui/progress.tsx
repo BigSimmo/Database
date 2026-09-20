@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Loader2, TriangleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 
 export type ProgressProps = {
@@ -15,7 +15,8 @@ export type ProgressProps = {
    * need to be today". Drawn as a notch, not a second fill, and kept out of
    * `aria-valuenow`, which still reports the real value: a screen reader that
    * announced the target as the progress would be stating the opposite of the
-   * truth.
+   * truth. `label` reaches assistive technology as the bar's description, from
+   * a sibling node — see the note on the notch below.
    */
   mark?: { value: number; label: string };
   className?: string;
@@ -33,6 +34,7 @@ export function Progress({ value, label, detail, mark, className }: ProgressProp
   const determinate = typeof value === "number";
   const clamped = determinate ? Math.max(0, Math.min(100, value)) : undefined;
   const markPercent = mark ? Math.max(0, Math.min(100, mark.value)) : undefined;
+  const markDescriptionId = useId();
 
   return (
     <div className={cn("w-full", className)}>
@@ -43,6 +45,7 @@ export function Progress({ value, label, detail, mark, className }: ProgressProp
       <div
         role="progressbar"
         aria-label={label}
+        aria-describedby={mark ? markDescriptionId : undefined}
         aria-valuenow={clamped}
         aria-valuemin={determinate ? 0 : undefined}
         aria-valuemax={determinate ? 100 : undefined}
@@ -74,8 +77,15 @@ export function Progress({ value, label, detail, mark, className }: ProgressProp
         {mark ? (
           <span
             data-testid="progress-mark"
-            role="img"
-            aria-label={mark.label}
+            // Hidden from assistive technology ON PURPOSE, and the description
+            // below is why. `progressbar` is one of the roles WAI-ARIA 1.2
+            // §5.2.3 gives "Presentational Children: True", so a conforming
+            // browser may strip the role and name of everything inside the
+            // track. A `role="img"` + `aria-label` notch nested here therefore
+            // risks being announced not twice but ZERO times — and no jsdom
+            // test can catch that, because `toHaveAccessibleName` computes the
+            // name on the node directly and never models the flattening.
+            aria-hidden="true"
             // A notch, not a second fill: 2px wide, spans the track's own height
             // rather than setting one, and centred on its percentage rather than
             // left-edge-aligned so it reads as a point, not a tick starting there.
@@ -84,6 +94,15 @@ export function Progress({ value, label, detail, mark, className }: ProgressProp
           />
         ) : null}
       </div>
+      {/* Sibling of the track, never a child — the same reason StageList's
+          status node is a sibling of its list. `aria-describedby` points at it
+          from the progressbar, so the description is computed from outside the
+          presentational subtree and survives. */}
+      {mark ? (
+        <span id={markDescriptionId} data-testid="progress-mark-description" className="sr-only">
+          {mark.label}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -962,10 +962,14 @@ static state · the track/fill pair follows the edge rule · an optional `mark` 
 `value` — e.g. "where you would need to be today" — as a 2px notch inside the track; it is
 a sibling of the fill, never a second fill, and never changes the track's height. Its
 position clamps to 0–100 independently of `value`, its colour is `var(--text)` (never a
-status colour — it is a neutral reference point, not a status), and it carries its own
-`role="img"`/`aria-label` while staying out of `aria-valuenow`, which keeps reporting the
-real `value`: a screen reader that announced the target as the progress would state the
-opposite of the truth. Omitting `mark` renders exactly as before. **Landed.** Determinate
+status colour — it is a neutral reference point, not a status), and it repaints as
+`CanvasText` under forced colours so it survives Windows high-contrast rather than
+vanishing. The notch itself is `aria-hidden`; `mark.label` reaches assistive technology as
+the bar's `aria-describedby`, pointing at an `sr-only` **sibling of the track** — a name on
+the notch would sit inside `role="progressbar"`, which WAI-ARIA gives presentational
+children, so a conforming browser may strip it and announce it zero times. The mark stays
+out of `aria-valuenow`, which keeps reporting the real `value`: a screen reader that
+announced the target as the progress would state the opposite of the truth. Omitting `mark` renders exactly as before. **Landed.** Determinate
 fill uses `scaleX()` and tokened transition duration; indeterminate now uses the
 `animate-shimmer` `@theme` token rather than a hardcoded `1.4s` literal; the optional
 target `mark` notch. **Open defects → PR.** none remaining on this component.

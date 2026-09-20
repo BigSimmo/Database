@@ -72,6 +72,10 @@ export const SCANNED_LIB_MODULES = [
   // hands it `(table) => adminSupabase.from(table)`, so its `documents` query is the real
   // owner filter for that path and was previously scanned by nothing (Codex review).
   "src/lib/document-naming.ts",
+  // The CME mode's only data-access module. Every `/api/cme/**` route delegates its reads
+  // and writes here, so without this line the scan would run green over a mode whose owner
+  // filter it had never looked at — which is how it stood when the module first landed.
+  "src/lib/cme/repository.ts",
 ];
 
 export const API_DIR_SEGMENTS = ["src", "app", "api"];

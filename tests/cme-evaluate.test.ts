@@ -153,6 +153,13 @@ describe("the target is the owner's number, always", () => {
     // profile — the evaluator cannot reduce a target because there is nothing
     // to reduce it with, and `evaluateRequirement.length` proves it.
     expect(evaluateRequirement.length).toBe(2);
+    // `.length` alone is a weaker guard than it looks: a parameter with a
+    // default value, and a rest parameter, are both excluded from it. A future
+    // `scaleFactor = 1` would slip past while doing exactly the thing this test
+    // exists to forbid. Pin the parameter list itself.
+    const source = evaluateRequirement.toString();
+    const parameterList = source.slice(source.indexOf("(") + 1, source.indexOf(")"));
+    expect(parameterList.split(",").map((name) => name.trim())).toEqual(["requirement", "entries"]);
     expect(evaluateRequirement(requirement, []).progress).toEqual({ value: 0, target: 12.5 });
   });
 });

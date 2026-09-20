@@ -58,14 +58,24 @@ export function daysRemainingInCpdYear(instant: Date, year: number): number {
   return daysInCpdYear(year) - daysElapsedInCpdYear(instant, year);
 }
 
+/** Hours are read as hours. Two decimals, so no float artefact reaches a screen. */
+function roundHours(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function paceProjection(args: {
   hoursSoFar: number;
   targetHours: number;
   instant: Date;
   year: number;
 }): { projectedHours: number; shortfallHours: number } | null {
+  // A rate is only meaningful inside the year it was measured in. Asked about a
+  // closed year, or one that has not started, `daysElapsedInCpdYear` returns a
+  // number outside 1..365 and the projection built on it is confidently wrong —
+  // the exact failure this module exists to prevent. Say nothing instead.
+  if (cpdYearOf(args.instant) !== args.year) return null;
   const elapsed = daysElapsedInCpdYear(args.instant, args.year);
   if (elapsed < CPD_PACE_MINIMUM_ELAPSED_DAYS) return null;
-  const projectedHours = (args.hoursSoFar / elapsed) * daysInCpdYear(args.year);
-  return { projectedHours, shortfallHours: Math.max(0, args.targetHours - projectedHours) };
+  const projectedHours = roundHours((args.hoursSoFar / elapsed) * daysInCpdYear(args.year));
+  return { projectedHours, shortfallHours: roundHours(Math.max(0, args.targetHours - projectedHours)) };
 }

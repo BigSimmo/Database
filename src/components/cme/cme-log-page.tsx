@@ -1,0 +1,276 @@
+"use client";
+
+import { Check, ChevronRight, Paperclip, Plus, Repeat } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useState } from "react";
+
+import { cardInteractive, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
+import { buttonFaceClass } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
+import { Tabs } from "@/components/ui/tabs";
+import { SearchField } from "@/components/ui/text-field";
+import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { totalAllocatedHours } from "@/lib/cme/evaluate";
+import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
+import { cmeCategories, cmeCategoryLabels, type CmeCategory, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
+
+export type CmeLogPageProps = {
+  /** Every entry the owner has recorded, any year. Defaults to the demo corpus. */
+  readonly entries?: readonly CmeEntry[];
+  /** The confirmed programme — only its `year` and provenance-free `id`s are read here. */
+  readonly set?: CmeRequirementSet;
+};
+
+type CategoryFilter = "all" | CmeCategory;
+
+type MonthGroup = {
+  readonly key: string;
+  readonly label: string;
+  readonly hours: number;
+  readonly entries: readonly CmeEntry[];
+};
+
+/** `"2026-09-16"` -> `"16 Sep"`. Year is already fixed by the tab above the list. */
+function formatShortDate(dateOnly: string): string {
+  const [year, month, day] = dateOnly.split("-").map(Number);
+  if (!year || !month || !day) return dateOnly;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short", timeZone: "UTC" }).format(date);
+}
+
+/** `"2026-09"` -> `"September 2026"`. */
+function formatMonthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  if (!year || !month) return monthKey;
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  return new Intl.DateTimeFormat("en-AU", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** The distinct category labels an entry's allocations touch, in canonical order. */
+function categoryNames(entry: CmeEntry): string {
+  const present = new Set(entry.allocations.map((allocation) => allocation.category));
+  return cmeCategories
+    .filter((category) => present.has(category))
+    .map((category) => cmeCategoryLabels[category])
+    .join(" + ");
+}
+
+/**
+ * Most-recent-month-first groups over an already-filtered, already-sorted
+ * list. Grouping — never a chip that hides the other months — is the same
+ * choice `onCallEntryGroups` documents for On Call: a reader wants to GET to
+ * August, not have July and September removed from the screen while they
+ * look at it. The category chip row above filters across these groups
+ * instead of duplicating them, which is why the two coexist here without the
+ * problem that got the On Call chip row removed.
+ */
+function groupByMonth(entries: readonly CmeEntry[]): MonthGroup[] {
+  const byMonth = new Map<string, CmeEntry[]>();
+  for (const entry of entries) {
+    const key = entry.date.slice(0, 7);
+    const existing = byMonth.get(key);
+    if (existing) existing.push(entry);
+    else byMonth.set(key, [entry]);
+  }
+  return [...byMonth.entries()]
+    .sort(([a], [b]) => b.localeCompare(a))
+    .map(([key, monthEntries]) => ({
+      key,
+      label: formatMonthLabel(key),
+      hours: round2(totalAllocatedHours(monthEntries)),
+      entries: monthEntries,
+    }));
+}
+
+function EntryRow({ entry }: { entry: CmeEntry }) {
+  return (
+    <li className="relative">
+      <div className={cn(cardInteractive, "flex items-center gap-3 p-3")}>
+        <Link
+          href={`/cme/log/${entry.id}`}
+          data-testid={`cme-log-row-${entry.id}`}
+          className={cn("min-w-0 flex-1", stretchedRowLinkClass, focusRing, "rounded-md")}
+        >
+          <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{entry.title}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[color:var(--text-muted)]">
+            <span>{formatShortDate(entry.date)}</span>
+            <span aria-hidden="true">·</span>
+            <span>{categoryNames(entry)}</span>
+            {entry.documentId ? (
+              <span className="inline-flex items-center gap-0.5">
+                <Paperclip aria-hidden="true" className="size-icon-xs" />
+                Evidence
+              </span>
+            ) : null}
+            {entry.transcribed ? (
+              <span className="inline-flex items-center gap-0.5">
+                <Check aria-hidden="true" className="size-icon-xs" />
+                Copied
+              </span>
+            ) : null}
+          </span>
+          {entry.routineId ? (
+            <span className="relative z-10 mt-1.5 inline-flex">
+              <Chip size="compact" icon={Repeat} appearance={{ kind: "information", tone: "accent" }}>
+                Routine
+              </Chip>
+            </span>
+          ) : null}
+        </Link>
+        <span className="relative z-10 shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
+          {totalAllocatedHours([entry])}
+        </span>
+        <ChevronRight aria-hidden="true" className={cn("relative z-10 size-icon-sm shrink-0", textMuted)} />
+      </div>
+    </li>
+  );
+}
+
+/**
+ * LOG — every activity the owner has recorded, by year.
+ *
+ * Year tabs (`Tabs`, real view-switching semantics — a different year is a
+ * different panel of data, not a sort order) sit above a search field over
+ * titles and reflections and a category filter row (`SegmentedControl`,
+ * per COMPONENTS.md §9.18 — a filter over an already-visible list is a
+ * one-of-many choice, never `Tabs`). Entries below are grouped by month,
+ * most recent first; each row is a single link to its own entry screen
+ * (`/cme/log/[id]`), because that screen carries the control this mode's
+ * owner presses most.
+ *
+ * **No colour carries status here.** Design decision §12 bans red, amber and
+ * green from this mode outright — including for "not transcribed yet" — so
+ * the evidence and portal ticks are plain neutral text-plus-icon, shown only
+ * when true, exactly like `docs/cme/design/prototypes/cme-screens.html`'s
+ * "two small ticks per row" and never recoloured for their absent state.
+ *
+ * The closing "New entry" action is the same call to action every board in
+ * the design study carries as its primary control — kept here as the
+ * standing way to add to the log, not only something reached from the
+ * dashboard.
+ */
+export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: CmeLogPageProps) {
+  const availableYears = useMemo(() => {
+    const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
+    years.add(set.year);
+    return [...years].sort((a, b) => b - a);
+  }, [entries, set.year]);
+
+  const [selectedYear, setSelectedYear] = useState<number>(() =>
+    availableYears.includes(set.year) ? set.year : (availableYears[0] ?? set.year),
+  );
+  const [query, setQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+
+  const yearEntries = useMemo(
+    () => entries.filter((entry) => entry.date.startsWith(`${selectedYear}-`)),
+    [entries, selectedYear],
+  );
+
+  const trimmedQuery = query.trim().toLowerCase();
+  const searched = useMemo(() => {
+    if (trimmedQuery.length === 0) return yearEntries;
+    return yearEntries.filter(
+      (entry) =>
+        entry.title.toLowerCase().includes(trimmedQuery) || entry.reflection.toLowerCase().includes(trimmedQuery),
+    );
+  }, [yearEntries, trimmedQuery]);
+
+  const filtered = useMemo(() => {
+    if (categoryFilter === "all") return searched;
+    return searched.filter((entry) => entry.allocations.some((allocation) => allocation.category === categoryFilter));
+  }, [searched, categoryFilter]);
+
+  const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered]);
+  const groups = useMemo(() => groupByMonth(sorted), [sorted]);
+
+  const categoryOptions: SegmentedControlOption<CategoryFilter>[] = [
+    { value: "all", label: "All" },
+    ...cmeCategories.map((category) => ({ value: category, label: cmeCategoryLabels[category] })),
+  ];
+
+  return (
+    <main id="main-content" data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
+      <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
+
+      {availableYears.length > 1 ? (
+        <div data-testid="cme-log-year-tabs" className="mt-4">
+          <Tabs
+            label="Select year"
+            items={availableYears.map((year) => ({ id: String(year), label: String(year) }))}
+            value={String(selectedYear)}
+            onChange={(id) => setSelectedYear(Number(id))}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <SearchField
+          label="Search your log"
+          placeholder="Search titles and reflections"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onClear={() => setQuery("")}
+          clearLabel="Clear the log search"
+          data-testid="cme-log-search"
+        />
+      </div>
+
+      {yearEntries.length > 0 ? (
+        <div data-testid="cme-log-filter" className="mt-3">
+          <SegmentedControl
+            label="Filter by category"
+            options={categoryOptions}
+            value={categoryFilter}
+            onChange={setCategoryFilter}
+          />
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-col gap-5">
+        {groups.length === 0 ? (
+          <EmptyState
+            testId="cme-log-empty"
+            title={
+              yearEntries.length === 0
+                ? `Nothing logged for ${selectedYear} yet.`
+                : "Nothing matched your search and filter."
+            }
+            body={
+              yearEntries.length === 0
+                ? "Log your first activity for this year to see it here."
+                : "Try a shorter word, or clear the category filter."
+            }
+          />
+        ) : (
+          groups.map((group) => (
+            <section key={group.key} data-testid={`cme-log-month-${group.key}`} aria-labelledby={`${group.key}-heading`}>
+              <h2 id={`${group.key}-heading`} className={cn(eyebrowText, "mb-2 flex items-baseline justify-between")}>
+                <span>{group.label}</span>
+                <span className="tabular-nums">{group.hours} h</span>
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {group.entries.map((entry) => (
+                  <EntryRow key={entry.id} entry={entry} />
+                ))}
+              </ul>
+            </section>
+          ))
+        )}
+      </div>
+
+      <div className="mt-6 flex justify-center">
+        <Link href="/cme/new" data-testid="cme-log-new-entry" className={cn(buttonFaceClass({ variant: "primary" }))}>
+          <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+          <span>New entry</span>
+        </Link>
+      </div>
+    </main>
+  );
+}
