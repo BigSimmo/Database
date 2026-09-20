@@ -113,8 +113,12 @@ const orientationDetails = z
   .object({
     pinnedSummaryIsOwnerNote: z.literal(true),
     /**
-     * The folder this manual files under — "Induction", "Ward manuals",
-     * "Before you leave".
+     * The folder this manual files under — "Induction", "Manuals",
+     * "Departure".
+     *
+     * One word each, deliberately: a folder name is both a heading on the page
+     * and a slot in a 48px bar of bare words, where a long label measured
+     * 165px against a 288px phone.
      *
      * Optional, unlike the Admin section's required `category`: orientation
      * rows already exist without one and a required field would invalidate

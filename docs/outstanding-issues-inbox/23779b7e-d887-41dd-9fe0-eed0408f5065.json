@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "23779b7e-d887-41dd-9fe0-eed0408f5065",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A compliance row whose stored details fail their schema is filed under On Call Admin, unlabelled",
+    "detail": "rowToOnCallEntry (src/lib/on-call/repository.ts) sets details to null when stored details fail the section schema. isComplianceEntry (src/lib/on-call/compliance.ts) then reads entry.details, answers false, and partitionLogisticsEntries puts the row in the Admin list with nothing to say it is a compliance requirement. THE TWO DANGEROUS CONSEQUENCES ARE ALREADY CLOSED and must not be re-reported: the row is not published, because fetchSharedOnCallEntries filters on the RAW row via rowMayBeComplianceRequirement, which fails closed on unreadable details; and a later save no longer destroys the stored details, because of salvageExistingDetails in src/lib/on-call/editor-details.ts. What remains is the misfiling. Closing it means either carrying the raw details alongside the parsed ones on OnCallEntry, or giving isComplianceEntry the raw-row reading that rowMayBeComplianceRequirement already has. Either way a type that every consumer in the mode reads changes, and it changes for a row no editor in this app can produce, because the API validates against the same strict schema on write -- reachable only by a direct database edit, an import, or a row written before the current write path. Deferred on that cost against that benefit. NEXT ACTION: decide whether OnCallEntry should carry raw details at all; if the On Call view refactor lands first, make the decision there rather than as a separate type change.",
+    "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+    "issueUlid": "01M2ZP1H3PRHGAYPTGWD9YJZAW"
+  }
+}

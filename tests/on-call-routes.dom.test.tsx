@@ -39,6 +39,7 @@ vi.mock("@/lib/on-call/linked-documents", () => ({
   useOnCallLinkedDocuments: () => ({}),
 }));
 
+import OnCallComplianceRoute from "@/app/(search-app)/on-call/compliance/page";
 import OnCallContactsRoute from "@/app/(search-app)/on-call/contacts/page";
 import OnCallEducationRoute from "@/app/(search-app)/on-call/education/page";
 import OnCallLogisticsRoute from "@/app/(search-app)/on-call/logistics/page";
@@ -64,8 +65,16 @@ const routes: RouteCase[] = [
   // Titled "Teaching" everywhere a reader sees it, even though the section id
   // (route segment, database check constraint) stays "education".
   { view: "education", title: "Teaching", Route: OnCallEducationRoute },
-  { view: "logistics", title: "Logistics", Route: OnCallLogisticsRoute },
+  // Titled "Admin" on the same terms as "Teaching" above: the section id, the
+  // route segment and the database check constraint all stay "logistics",
+  // because renaming them is a migration for no functional gain.
+  { view: "logistics", title: "Admin", Route: OnCallLogisticsRoute },
   { view: "who-is-who", title: "Who's who", Route: OnCallWhoIsWhoRoute },
+  // Compliance is a view over `logistics` split on `details.kind`, exactly as
+  // Who's who is a view over `contacts`. It sits in this table rather than in a
+  // suite of its own so the newest page is held to every check the seven older
+  // routes are held to, from the day it lands.
+  { view: "compliance", title: "Compliance", Route: OnCallComplianceRoute },
 ];
 
 // A contact verified today, so it sorts into an area group rather than the
@@ -105,12 +114,20 @@ afterEach(() => {
 });
 
 describe("on-call section routes", () => {
-  it("covers every declared on-call section, in order, plus Who's who", () => {
+  it("covers every declared on-call page, in order — the six sections, then the two views over one", () => {
     // Fails loudly if a section is added to the data model without a route case
-    // here, rather than leaving the new section silently unguarded. Who's who is
-    // not a stored section — it is `contacts` rows behind `details.kind` — so it
-    // is named separately rather than folded into the model's list.
-    expect(routes.map((route) => route.view)).toEqual([...ON_CALL_SECTIONS, "who-is-who"]);
+    // here, rather than leaving the new section silently unguarded. Who's who and
+    // Compliance are not stored sections — they are `contacts` and `logistics`
+    // rows behind `details.kind` — so they are named separately rather than
+    // folded into the model's list.
+    expect(routes.map((route) => route.view)).toEqual([...ON_CALL_SECTIONS, "who-is-who", "compliance"]);
+
+    // The same guard for the half of this mode the model's list cannot see. A
+    // view over an existing section costs no migration, which is exactly why one
+    // can be built and shipped without anything here noticing: Compliance was.
+    // Every page the identity map names must appear above, section or not.
+    const declaredViews: string[] = Object.keys(ON_CALL_VIEW_TITLES);
+    expect(routes.map((route) => route.view as string).sort()).toEqual(declaredViews.sort());
   });
 
   it("titles every route from the shared identity map, so no page invents its own name", () => {
@@ -150,10 +167,11 @@ describe("on-call section routes", () => {
       accountState.isAuthenticated = true;
       render(<route.Route />);
 
-      // These five once shared a placeholder "search the hub" empty state,
-      // because only Contacts was wired to the store — so the pages could not
-      // show entries and offered no way to create one. Each now renders its
-      // own section component and its own add control.
+      // The five stored sections here once shared a placeholder "search the
+      // hub" empty state, because only Contacts was wired to the store — so the
+      // pages could not show entries and offered no way to create one. Each now
+      // renders its own section component and its own add control, and the two
+      // views over a section (Who's who, Compliance) are held to the same bar.
       expect(screen.getByTestId(`on-call-${route.view}-empty`)).toBeTruthy();
       expect(screen.getByTestId(`on-call-${route.view}-add`)).toBeTruthy();
       expect(screen.queryByTestId(`on-call-${route.view}-signed-out`)).toBeNull();

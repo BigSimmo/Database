@@ -27,6 +27,11 @@ import { expect, test, type Locator, type Page } from "playwright/test";
  * Data comes from the demo corpus (`src/lib/on-call/demo-entries.ts`), which
  * exists so that every drawn module has something to draw. A module with no
  * data renders nothing, and an assertion against an empty page proves nothing.
+ *
+ * One block at the end covers a page the drawing does not contain. Compliance
+ * was cut out of Admin after the boards were drawn, and a page with no
+ * artboard is exactly the page that would otherwise have no browser proof at
+ * all — the ledger's gate only asks for a block per drawn board.
  */
 
 /** The width every artboard was drawn at. */
@@ -49,6 +54,13 @@ const ROUTES = {
   orientation: "/on-call/orientation",
   teaching: "/on-call/education",
   logistics: "/on-call/logistics",
+  // A route of its own over rows that are not a section of their own.
+  // Compliance is the `logistics` rows carrying `details.kind: "compliance"`,
+  // split out because `section` is a database CHECK constraint and a seventh
+  // value costs a migration against the live clinical database. It belongs in
+  // this list all the same: the chrome loop at the foot of the file opens
+  // every entry here, and a page left out of it is a page nothing checks.
+  compliance: "/on-call/compliance",
   whoIsWho: "/on-call/who-is-who",
 } as const;
 
@@ -60,6 +72,7 @@ const SECTION_LIST_TEST_IDS: Record<string, string> = {
   [ROUTES.orientation]: "on-call-orientation-section",
   [ROUTES.teaching]: "on-call-education-section",
   [ROUTES.logistics]: "on-call-logistics-section",
+  [ROUTES.compliance]: "on-call-compliance-section",
   [ROUTES.whoIsWho]: "on-call-who-is-who-section",
 };
 
@@ -153,6 +166,23 @@ async function expectNoHorizontalOverflow(page: Page, label: string) {
   ).toBeNull();
 }
 
+/**
+ * The number a home tile is currently showing.
+ *
+ * Read off the tile rather than out of the demo corpus, because the corpus is
+ * the one thing a wrong count agrees with. The figure is the only one in a
+ * tile and sits in its own `.nums` span beside the glyph; a tile drawn without
+ * a count (Who's who) has no such span at all, so this fails by name instead
+ * of quietly returning NaN for it.
+ */
+async function tileCount(page: Page, key: string) {
+  const badge = page.getByTestId(`on-call-home-tile-${key}`).locator("span.nums");
+  await expect(badge, `the ${key} tile carries no count`).toHaveCount(1);
+  const text = ((await badge.textContent()) ?? "").trim();
+  expect(text, `the ${key} tile's count reads "${text}", which is not a number`).toMatch(/^\d+$/);
+  return Number(text);
+}
+
 /** Measures the rendered box, not the class name. */
 async function expectTapFloor(target: Locator, label: string) {
   const box = await target.boundingBox();
@@ -229,10 +259,90 @@ test.describe("01 Home", () => {
   test("gives every section a tile, and gives Who's who no count", async ({ page }) => {
     await openBoard(page, ROUTES.home);
     const tiles = page.getByTestId("on-call-home-sections").locator('[data-testid^="on-call-home-tile-"]');
-    await expect(tiles).toHaveCount(7);
+    // Eight, and the list underneath is the reason rather than the number.
+    // The grid draws the six STORED sections, then Compliance, then Who's who.
+    // Compliance earned its place by being wired: a tile pointing at
+    // `/on-call/compliance` and carrying a live count of the rows that page
+    // draws. It had neither for a while — it is a view over `logistics`, so
+    // the mode had the page before it had an honest number to put beside it,
+    // and the pill was the only way in.
+    //
+    // THE NUMBER IS NOT THE ASSERTION, and that is the whole point of this
+    // block. Raising a count to match a page nobody wired up is the failure
+    // guarded here, and a bare `toHaveCount` cannot tell that apart from real
+    // work — so the order below names every tile, and a new page has to earn a
+    // name here before the count moves. Adding a name for a route that does
+    // not exist fails the chrome loop at the foot of this file instead.
+    await expect(tiles).toHaveCount(8);
+    expect(
+      await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-testid"))),
+      "the tile grid is not the pages it should be, in the order it should draw them",
+    ).toEqual([
+      "on-call-home-tile-contacts",
+      "on-call-home-tile-playbook",
+      "on-call-home-tile-referrals",
+      "on-call-home-tile-orientation",
+      "on-call-home-tile-education",
+      "on-call-home-tile-logistics",
+      // After the stored sections and before Who's who, which is where it
+      // belongs: like the six above it these are things to go and deal with,
+      // and unlike the one below it they are a list rather than an
+      // explanation.
+      "on-call-home-tile-compliance",
+      "on-call-home-tile-who-is-who",
+    ]);
+
+    // Real rather than merely counted: it goes somewhere, it is named, and it
+    // carries a figure. `href` against the route table, so a tile pointing at
+    // a page this file does not know about fails here.
+    const compliance = page.getByTestId("on-call-home-tile-compliance");
+    await expect(compliance).toHaveAttribute("href", ROUTES.compliance);
+    await expect(compliance).toContainText("Compliance");
+    await expect(compliance.locator("span.nums")).toHaveText(/^\d+$/);
+    await expectTapFloor(compliance, "compliance tile");
+
     // Board 01 draws this one differently and without a number: the others
     // count things to read, this one explains the ladder.
     await expect(page.getByTestId("on-call-home-tile-who-is-who")).not.toContainText(/\d/);
+  });
+
+  test("counts Admin and Compliance from the rows each page draws, never from the stored section", async ({ page }) => {
+    // The bug the Compliance tile was worth adding for. Admin and Compliance
+    // are ONE stored section, told apart by `details.kind`, so a count taken
+    // BY SECTION reports the pair's total under `logistics`: an Admin tile
+    // promising rows that live on another page, and no figure at all for the
+    // page they are actually on.
+    //
+    // Both numbers are therefore read off the pages themselves. Literals here
+    // — 18 and 8 in today's demo corpus — would pass again the first time the
+    // two are reconfused, because the same mistake moves the rows and the
+    // tile together. Comparing the tile to what its page renders cannot.
+    await openBoard(page, ROUTES.home);
+    const adminTile = await tileCount(page, "logistics");
+    const complianceTile = await tileCount(page, "compliance");
+
+    await openBoard(page, ROUTES.logistics);
+    const adminRows = await page.locator('[data-testid^="on-call-logistics-row-"]').count();
+    await openBoard(page, ROUTES.compliance);
+    const complianceRows = await page.locator('[data-testid^="on-call-compliance-row-"]').count();
+
+    // An empty page would make every comparison below 0 = 0, which is the one
+    // way this test could pass while proving nothing.
+    expect(adminRows, "the demo corpus draws no Admin rows, so the counts below prove nothing").toBeGreaterThan(0);
+    expect(
+      complianceRows,
+      "the demo corpus draws no Compliance rows, so the counts below prove nothing",
+    ).toBeGreaterThan(0);
+
+    expect(adminTile, "the Admin tile promises a number of rows the Admin page does not draw").toBe(adminRows);
+    expect(complianceTile, "the Compliance tile promises a number of rows the Compliance page does not draw").toBe(
+      complianceRows,
+    );
+    // Stated separately because it is the exact shape of the old defect: the
+    // Admin tile carrying the whole stored section, compliance rows included.
+    expect(adminTile, "the Admin tile is counting the whole `logistics` section again").not.toBe(
+      adminRows + complianceRows,
+    );
   });
 
   test("puts the page menu in the universal header, and offers no chat there", async ({ page }) => {
@@ -274,10 +384,11 @@ test.describe("02 More, 03 All modes — the pill owns page switching", () => {
   });
 
   test("carries no second bar repeating those same destinations", async ({ page }) => {
-    // The whole point of the change. The pill above already opens the nine
-    // pages; a rail underneath listing the same nine was two controls doing
-    // one job, and it hid five of them behind "More" while doing it.
-    for (const route of [ROUTES.home, ROUTES.contacts, ROUTES.playbook, ROUTES.logistics]) {
+    // The whole point of the change. The pill above already opens the mode's
+    // pages — nine when this was written, ten since Compliance; a rail
+    // underneath listing the same ten was two controls doing one job, and it
+    // hid five of them behind "More" while doing it.
+    for (const route of [ROUTES.home, ROUTES.contacts, ROUTES.playbook, ROUTES.logistics, ROUTES.compliance]) {
       await openBoard(page, route);
       await expect(page.getByTestId("mode-nav")).toHaveCount(0);
       await expect(page.getByRole("navigation", { name: "On Call pages" })).toHaveCount(0);
@@ -369,18 +480,47 @@ test.describe("02 More — the second row is about the page you are on", () => {
     // The failure this profile exists to prevent, and the one a screenshot
     // catches only if someone looks: "Servi…" in a 48px bar. Measured on the
     // rendered label box rather than inferred from the band.
-    for (const width of [NARROW, BOARD_WIDTH]) {
-      await openBoard(page, ROUTES.contacts, width);
-      const clipped = await (
-        await sectionBar(page)
-      ).evaluate((nav) =>
-        Array.from(nav.querySelectorAll("li"))
-          .filter((slot) => getComputedStyle(slot).display !== "none")
-          .flatMap((slot) => Array.from(slot.querySelectorAll("span")))
-          .filter((span) => span.scrollWidth > span.clientWidth + 1)
-          .map((span) => span.textContent ?? ""),
-      );
-      expect(clipped, `a label is truncated at ${width}px`).toEqual([]);
+    //
+    // Four routes, not one. The one-word convention this mode is built on came
+    // from a measurement recorded at board 11 below — a drawn phrase came to
+    // 165px in this row against a 288px phone, and three such slots needed
+    // 372px — and the three pages RE-CUT because of it were the three this
+    // guard did not follow: Admin (Leave / Rosters / Pay / Forms / Access /
+    // Facilities), Orientation (Induction / Manuals / Policies / Departure /
+    // Unfiled) and Compliance (Blocking / Partial / Chased / Unrecorded).
+    // Until this list grew, no test in the suite had measured a single one of
+    // those words; four source files cite the measurement and nothing proved
+    // the pages still obeyed it.
+    //
+    // Compliance is also the one page where the bar word and the page heading
+    // differ on purpose — "Blocking" in the bar over a group headed "Stops you
+    // working". The bar word is what has to fit, and the bar is what this
+    // measures, so the two stay independent.
+    //
+    // What this reaches, and what it does not. Only the slots the band
+    // actually renders can be measured: the tail of a longer list is
+    // `display: none` behind More at these widths and is filtered out above.
+    // So Admin contributes Access and Facilities at 320px and Forms as well at
+    // 390px — Leave first appears at the five-slot band and Pay and Rosters
+    // never reach the bar at all — and Orientation's Departure and Unfiled
+    // likewise wait for that band. That is the right boundary rather than a
+    // hole: a word folded into the sheet is not in the 48px row and cannot be
+    // clipped by it, and the bands that do reveal it are wider ones, with more
+    // room per slot rather than less. Compliance shows all four at 390px.
+    for (const route of [ROUTES.contacts, ROUTES.logistics, ROUTES.orientation, ROUTES.compliance]) {
+      for (const width of [NARROW, BOARD_WIDTH]) {
+        await openBoard(page, route, width);
+        const clipped = await (
+          await sectionBar(page)
+        ).evaluate((nav) =>
+          Array.from(nav.querySelectorAll("li"))
+            .filter((slot) => getComputedStyle(slot).display !== "none")
+            .flatMap((slot) => Array.from(slot.querySelectorAll("span")))
+            .filter((span) => span.scrollWidth > span.clientWidth + 1)
+            .map((span) => span.textContent ?? ""),
+        );
+        expect(clipped, `a label is truncated on ${route} at ${width}px`).toEqual([]);
+      }
     }
   });
 
@@ -456,6 +596,12 @@ test.describe("02 More — the second row is about the page you are on", () => {
   });
 
   test("declares no anchor the page does not render", async ({ page }) => {
+    // Admin, and deliberately only Admin. This re-derives the slug from the
+    // word in the bar, which holds wherever the bar's label and the page's
+    // heading are the same string — every page in the mode except Compliance,
+    // whose bar says "Blocking" over a group anchored at
+    // `stops-you-working`. Pointing this loop at that page would fail on the
+    // one design decision it is meant to protect.
     await openBoard(page, ROUTES.logistics);
     for (const label of await barWords(page)) {
       const slug = label
@@ -641,22 +787,136 @@ test.describe("10 Orientation", () => {
   });
 });
 
-test.describe("11 Logistics", () => {
+/**
+ * Board 11 is drawn as "Logistics" and the drawing keeps that name. Only the
+ * label moved: the page is Admin now, and what it holds moved with the word —
+ * leave, rosters, pay, forms and access, with Facilities keeping the parking,
+ * food and call-room notes the page was first built for. The section id, the
+ * route segment and the database CHECK constraint all still read `logistics`,
+ * which is why every testid below does too; renaming them would be a
+ * migration against the live clinical database for no functional gain.
+ */
+test.describe("11 Admin", () => {
   test("explains a wholly private group inside the card", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
     const note = page.getByTestId("on-call-logistics-private-note");
+    // Exactly one, because the rule is narrower than "somewhere on Admin": a
+    // note on a MIXED group would claim the visible rows beside it are
+    // withheld too, so only a folder with nothing visible in it gets one.
+    await expect(note).toHaveCount(1);
     await expect(note).toBeVisible();
     await expect(note).toContainText(/Only you can see this group/i);
+
+    // And Access is that folder — after-hours entry, locked wards, logins,
+    // every row of it personal. Located through the group rather than trusted
+    // to be the only note on the page, so a note that ends up over the wrong
+    // folder fails here instead of passing on a count of one.
+    const access = page.locator('section:has([data-testid="on-call-logistics-group-access"])');
+    await expect(access.getByTestId("on-call-logistics-private-note")).toBeVisible();
   });
 
-  test("groups the plain rows and keeps the authorise group", async ({ page }) => {
+  test("groups the plain rows under their folder headings", async ({ page }) => {
     await openBoard(page, ROUTES.logistics);
-    await expect(page.getByTestId("on-call-logistics-group-where")).toBeVisible();
-    // "Authorise", not "What you can authorise": `category` is both the page's
-    // heading and a slot in a 48px bar of bare words, and the long form
-    // measured 165px against a 288px phone. The demo corpus models the
-    // convention the bar is calibrated for — one word per category.
-    await expect(page.getByTestId("on-call-logistics-group-authorise")).toBeVisible();
+    // ONE WORD PER CATEGORY, and this block is the record of the measurement
+    // that decided it. `category` is both the page's heading and a slot in a
+    // 48px bar of bare words that truncate rather than fold: "What you can
+    // authorise" measured 165px in that row against a 288px phone and was cut
+    // to "Authorise".
+    //
+    // The folders were then re-cut when Logistics became Admin, and the
+    // measurement is what survived — "Rosters and hours" is Rosters, "Pay and
+    // claims" is Pay, "IT and access" is Access, so "Authorise" itself is no
+    // longer one of them. A phrase reads fine in review and truncates on the
+    // phone this mode is opened on at 3am; if a folder seems to need one, the
+    // answer is a better word, not a wider bar.
+    for (const folder of ["leave", "rosters", "pay", "forms", "access", "facilities"]) {
+      await expect(
+        page.getByTestId(`on-call-logistics-group-${folder}`),
+        `the ${folder} folder has rows in the demo corpus but no heading on the page`,
+      ).toBeVisible();
+    }
+  });
+});
+
+/**
+ * Compliance — a page the eleven boards never drew.
+ *
+ * It was cut out of Admin after the drawing: the same stored `logistics` rows,
+ * told apart by `details.kind`, filed by what happens when one lapses rather
+ * than by which folder it lives in. A registration whose expiry can stop
+ * someone working had no business sitting among forms and rosters, where
+ * nothing is expected to run out.
+ *
+ * With no artboard to check it against, this block checks it against the two
+ * things its own source says it must be: bands in worst-first order, and no
+ * verdict anywhere on the page.
+ */
+test.describe("Compliance — the view the boards never drew", () => {
+  test("files the requirements under consequence bands, worst first", async ({ page }) => {
+    await openBoard(page, ROUTES.compliance);
+
+    // Slugs from the rendered HEADING, never from the short word the bar
+    // carries: both sides derive them from `heading`, so shortening a bar slot
+    // can never move an anchor. The last one is a band in its own right and
+    // never folded upwards — no recorded consequence is unknown, not
+    // harmless, and guessing it a band would be the app forming exactly the
+    // judgement this page refuses to form.
+    const bands = [
+      "on-call-compliance-group-stops-you-working",
+      "on-call-compliance-group-stops-part-of-your-work",
+      "on-call-compliance-group-someone-chases-you",
+      "on-call-compliance-group-no-consequence-recorded",
+    ];
+    for (const id of bands) {
+      await expect(page.getByTestId(id), `${id} has rows in the demo corpus but does not render`).toBeVisible();
+    }
+
+    // The order is the page's whole argument, so presence alone would pass
+    // with the bands reversed. Every compliance tracker ever built sorts by
+    // date, which puts a lapsed fire-safety module level with a lapsed
+    // registration when only one of them stops you working.
+    const tops = await Promise.all(
+      bands.map(async (id) => (await page.getByTestId(id).boundingBox())?.y ?? Number.NaN),
+    );
+    for (let index = 1; index < tops.length; index += 1) {
+      expect(tops[index], `${bands[index]} is above ${bands[index - 1]}`).toBeGreaterThan(tops[index - 1]!);
+    }
+  });
+
+  test("says on the page that nothing here is checked with the issuing body", async ({ page }) => {
+    await openBoard(page, ROUTES.compliance);
+    const note = page.getByTestId("on-call-compliance-scope-note");
+    await expect(note).toBeVisible();
+    await expect(note).toContainText(/Nothing here is checked with the issuing body/i);
+
+    // Above the first band, not at the foot of the list. A reader who meets
+    // this sentence after scrolling past their own registration has already
+    // read every date on the way down and believed them. A clinical-governance
+    // review rejected an earlier design for implying the app had checked these
+    // dates, and this sentence in this position is the control that keeps it
+    // rejected — a source-only test cannot tell it from a footnote.
+    const [noteBox, firstBand] = [
+      await note.boundingBox(),
+      await page.getByTestId("on-call-compliance-group-stops-you-working").boundingBox(),
+    ];
+    expect(noteBox!.y, "the scope note has slipped below the first band").toBeLessThan(firstBand!.y);
+  });
+
+  test("gives the bar one word per band while the page keeps the phrase", async ({ page }) => {
+    await openBoard(page, ROUTES.compliance);
+    // Four bands and no More at 390px: the bar's four-slot band fires from
+    // 22rem and this container is 358px here. The words are the short bar
+    // labels, cut to one each by the same 165px-against-288px measurement that
+    // cut the Admin folders (board 11 above).
+    expect(await barWords(page)).toEqual(["Blocking", "Partial", "Chased", "Unrecorded"]);
+
+    // What the bar may not do is drop the sentence. "Blocking" over a
+    // registration renewal does not say what is blocked, so the heading keeps
+    // the phrase and only the navigation slot is shortened — and the anchor
+    // stays with the phrase, which is why the two can differ safely.
+    await expect(page.getByRole("heading", { name: "Stops you working" })).toBeVisible();
+    await expect(page.locator("#on-call-group-stops-you-working")).toHaveCount(1);
+    await expect(page.locator("#on-call-group-blocking")).toHaveCount(0);
   });
 });
 

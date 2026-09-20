@@ -196,6 +196,12 @@ const routeDescriptions: Record<string, string> = {
   "/on-call":
     "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
+  // The second On Call page that is a view rather than a stored section, and
+  // the second to need a line here for that reason: both are `details.kind`
+  // discriminators over an existing section, so neither has a section title
+  // for the generator to fall back on.
+  "/on-call/compliance":
+    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs. Recorded dates only — never a check with the issuing body.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
   // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated

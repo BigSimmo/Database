@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronRight, Phone, Printer, Shield, Trash2, Users } from "lucide-react";
+import { CalendarDays, ChevronRight, Phone, Printer, Shield, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -16,9 +16,15 @@ import {
   ON_CALL_SECTION_ICONS,
   ON_CALL_SECTION_TILE_DESCRIPTIONS,
   ON_CALL_SECTION_TITLES,
+  ON_CALL_VIEW_HREFS,
+  ON_CALL_VIEW_ICONS,
+  ON_CALL_VIEW_TITLES,
+  onCallViewForEntry,
 } from "@/components/on-call/on-call-section-identity";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -27,7 +33,6 @@ import {
   countOnCallEntriesBySection,
   onCallAvailability,
   msUntilOnCallHoursBoundary,
-  onCallLocalDateKey,
   onCallPrimaryNumber,
   onCallTelHref,
   selectCallFirstContacts,
@@ -320,6 +325,16 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
     [recent, entriesById],
   );
 
+  // Admin and Compliance are one stored section split by `details.kind`, so
+  // `counts` — which counts by section — reports the pair's total under
+  // `logistics` and knows nothing about Compliance at all. Taking both numbers
+  // from the same partition the two pages render from is what stops the Admin
+  // tile promising eight rows that are not on the Admin page.
+  const { admin: adminEntries, compliance: complianceEntries } = useMemo(
+    () => partitionLogisticsEntries(entries),
+    [entries],
+  );
+
   const tiles = [
     ...(["contacts", "playbook", "referrals", "orientation", "education", "logistics"] as const).map((section) => ({
       key: section,
@@ -327,14 +342,30 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
       title: ON_CALL_SECTION_TITLES[section],
       description: ON_CALL_SECTION_TILE_DESCRIPTIONS[section],
       icon: ON_CALL_SECTION_ICONS[section],
-      count: counts.get(section) ?? 0,
+      count: section === "logistics" ? adminEntries.length : (counts.get(section) ?? 0),
     })),
     {
+      key: "compliance" as const,
+      // From the view maps rather than literals: the route, the name and the
+      // glyph here are the same three facts the rail, the page header and the
+      // search results read, and a tile is the last place they should be
+      // written out a second time.
+      href: ON_CALL_VIEW_HREFS.compliance,
+      title: ON_CALL_VIEW_TITLES.compliance,
+      description: "What has to stay current",
+      icon: ON_CALL_VIEW_ICONS.compliance,
+      // Counted, unlike Who's who below: these ARE a list of things to go and
+      // deal with, and the number is the one fact worth carrying to the home.
+      // It counts what is recorded and nothing else — a zero here means nobody
+      // has entered anything, never that nothing is outstanding.
+      count: complianceEntries.length,
+    },
+    {
       key: "who-is-who" as const,
-      href: "/on-call/who-is-who",
-      title: "Who's who",
+      href: ON_CALL_VIEW_HREFS["who-is-who"],
+      title: ON_CALL_VIEW_TITLES["who-is-who"],
       description: "Roles, and who to ask",
-      icon: Users,
+      icon: ON_CALL_VIEW_ICONS["who-is-who"],
       // Drawn without a count, and correctly so: the other tiles count things
       // you might go and read, while these are an explanation of the ladder.
       // A number on it invites the reader to treat it as a list.
@@ -345,8 +376,9 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   return (
     <>
       {/* No section rail here either. This page IS the section list — its tile
-          grid names all nine with their counts — and the mode pill above opens
-          the same nine. A bar between them would be the third copy. */}
+          grid names every page of the mode with its count — and the mode pill
+          above opens the same list. A bar between them would be the third
+          copy. */}
       <OnCallPageMenu view="home" />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
@@ -431,9 +463,16 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 // not print on the home, even if the row itself is still named.
                 const number = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
                 const href = onCallTelHref(number?.value);
-                const target = href ?? ON_CALL_SECTION_HREFS[entry.section];
+                // By view, not by `entry.section`. Compliance and Who's who are
+                // views over `logistics` and `contacts`, so a section lookup
+                // sent a compliance requirement to the Admin page — a page that
+                // does not list it — wearing the Admin name and glyph on the
+                // way. Recent's whole job is getting back to something you just
+                // had.
+                const view = onCallViewForEntry(entry);
+                const target = href ?? ON_CALL_VIEW_HREFS[view];
                 const at = timeLabel(item.at);
-                const RecentIcon = ON_CALL_SECTION_ICONS[entry.section];
+                const RecentIcon = ON_CALL_VIEW_ICONS[view];
                 return (
                   <a
                     key={item.id}
@@ -447,9 +486,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                       focusRing,
                     )}
                   >
-                    {/* The section's own glyph, so a row is recognisable as a
-                        contact, a service or a scenario before the title is
-                        read — the drawing's leading icon. */}
+                    {/* The glyph of the page the row lives on, so it is
+                        recognisable as a contact, a service or a scenario
+                        before the title is read — the drawing's leading
+                        icon. */}
                     <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
                       <RecentIcon aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
                     </span>

@@ -72,6 +72,14 @@ export const SCANNED_LIB_MODULES = [
   // hands it `(table) => adminSupabase.from(table)`, so its `documents` query is the real
   // owner filter for that path and was previously scanned by nothing (Codex review).
   "src/lib/document-naming.ts",
+  // The On Call read path, added after a 2026-09-20 security review found the
+  // gate could not see it. `tests/on-call-api-contract.test.ts` forbids the
+  // route from querying `on_call_entries` directly — good design, and its
+  // effect was to move every On Call query out of `src/app/api`, the only
+  // directory phase 1 reads. So the repository's correctness rule and its
+  // tenancy gate pointed in opposite directions and nothing noticed, which is
+  // how a compliance requirement reached a world-readable read unexamined.
+  "src/lib/on-call/repository.ts",
 ];
 
 export const API_DIR_SEGMENTS = ["src", "app", "api"];
@@ -1071,6 +1079,8 @@ export const PROOF_KINDS = {
 
 const CLINICAL_QUALITY_REASON =
   "Administrator-gated cross-tenant governance aggregate. GET and PATCH call authorizeAndLimit before these helpers run and the response carries governance metadata only — never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the oversight purpose (tenancy review §6).";
+const ON_CALL_SHARED_READ_REASON =
+  "Deliberately unscoped: On Call is a shared reference surface by owner decision (2026-09-04), so this read answers anonymous callers with no owner to filter by. Its tenancy control is not an owner predicate but two allow-lists that fail closed — PUBLIC_ON_CALL_SECTIONS (a seventh section is withheld until it is named on purpose) and rowMayBeComplianceRequirement (any `kind` on a `logistics` row, read from the raw row before parsing, so a malformed compliance requirement is withheld rather than published). Added 2026-09-20 after a security review found this file sat outside the scanner: tests/on-call-api-contract.test.ts forbids the route from querying the table directly, which moved every On Call query out of src/app/api — the only directory phase 1 reads. Pinned by tests/on-call-repository.test.ts.";
 const SETUP_STATUS_REASON =
   "Local-origin-gated setup/health existence probe. It returns status booleans and counts only, never owner rows, so a fresh deployment can diagnose missing setup before any corpus exists (tenancy review §3 / TEN-N1).";
 
@@ -1079,6 +1089,14 @@ const SETUP_STATUS_REASON =
  * query chain. Every entry names its proof; the mechanical kinds are re-checked in the AST.
  */
 export const SCOPE_EXEMPTIONS = [
+  {
+    file: "src/lib/on-call/repository.ts",
+    table: "on_call_entries",
+    fn: "fetchSharedOnCallEntries",
+    queries: 1,
+    proof: PROOF_KINDS.REVIEWED_INDIRECT,
+    reason: ON_CALL_SHARED_READ_REASON,
+  },
   {
     file: "src/app/api/clinical-quality/route.ts",
     table: "rag_answer_feedback",

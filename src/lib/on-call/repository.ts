@@ -61,6 +61,20 @@ export function rowToOnCallEntry(row: Record<string, unknown>): OnCallEntry & { 
 }
 
 export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
+  // Both write handlers — `POST /api/on-call/entries` and the `PATCH` beside
+  // it — funnel through here, which is why the compliance privacy stamp lives
+  // in this function rather than twice in two routes that could drift apart.
+  //
+  // The client editor already stores these rows private. This does not trust
+  // it: the request body is the client's word, and an authenticated caller can
+  // send whatever they like straight to the API. A compliance requirement is
+  // about one person by definition, so `is_personal` is not a setting on one —
+  // it is a property of what the row is.
+  //
+  // Read as `rowMayBeComplianceRequirement` reads it (any `kind` at all on a
+  // `logistics` row), so the write and the read agree about which rows are in
+  // scope and a typo cannot slip between the two definitions.
+  const isCompliance = rowMayBeComplianceRequirement({ section: entry.section, details: entry.details ?? {} });
   return {
     owner_id: ownerId,
     section: entry.section,
@@ -71,11 +85,83 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
     details: entry.details ?? {},
     linked_document_ids: entry.linkedDocumentIds,
     tags: entry.tags,
-    is_personal: entry.isPersonal,
+    is_personal: entry.isPersonal || isCompliance,
     include_on_card: entry.includeOnCard,
     sort_order: entry.sortOrder,
     last_verified_at: entry.lastVerifiedAt,
   };
+}
+
+/**
+ * The sections this read may publish to a stranger — an allow-list, so the
+ * default for anything new is withheld.
+ *
+ * This is the control the compliance leak got past, and the reason it is worth
+ * having is that the leak was not a coding mistake. `section` was already an
+ * exhaustive union; the shared read already filtered on `is_personal`; every
+ * line of it was correct. What happened was that a page storing a doctor's
+ * registration and police clearance was added to a section that had been made
+ * public a fortnight earlier for ward phone numbers, and nothing anywhere
+ * required anyone to re-decide.
+ *
+ * Restating the six values here looks redundant against `ON_CALL_SECTIONS` and
+ * is deliberately not: that constant answers "what may be stored", and this one
+ * answers "what may be published", which is a different question with a
+ * different reviewer. Adding a seventh section to the union does not add it
+ * here, so a new section is withheld from anonymous readers until somebody
+ * writes its name in this list on purpose — and `tests/on-call-repository.test.ts`
+ * fails until they do.
+ *
+ * `logistics` is on the list and carries the Compliance page's rows, which is
+ * why the row-level predicate below exists as well. A section allow-list alone
+ * cannot see a page hiding inside a section.
+ */
+export const PUBLIC_ON_CALL_SECTIONS = [
+  "contacts",
+  "playbook",
+  "referrals",
+  "orientation",
+  "education",
+  "logistics",
+] as const satisfies readonly OnCallSection[];
+
+/**
+ * Whether a raw row is — or might be — a compliance requirement, and therefore
+ * must never leave this server to an anonymous caller.
+ *
+ * The 2026-09-04 decision that made this surface world-readable was about ward
+ * phone numbers and escalation ladders. The Compliance page stores something
+ * else entirely: one named doctor's registration, indemnity, credentialing,
+ * Working with Children Check and police clearance, and often a link to the
+ * certificate. Nobody decided to publish that, and there is no case for
+ * sharing it — a compliance requirement is by definition about one person.
+ *
+ * Three properties matter, and each is why this is here rather than only in
+ * the editor:
+ *
+ * 1. **It reads the RAW row, not a parsed entry.** `rowToOnCallEntry` sets
+ *    `details: null` when the details fail their schema, so a compliance row
+ *    with one stray character in `kind` parses into something
+ *    `isComplianceEntry` calls an ordinary Admin row. Asking the parsed entry
+ *    would publish exactly the rows most likely to be malformed.
+ * 2. **It fails closed.** Unreadable details on a `logistics` row are treated
+ *    as compliance and withheld. Withholding a broken parking note from the
+ *    public page costs nothing; publishing a broken registration record cannot
+ *    be undone.
+ * 3. **`kind` at all, not `kind === "compliance"`.** `compliance` is the only
+ *    `kind` this section defines, so any other value is either a typo of it or
+ *    something newer than this function. Both should wait for a human.
+ *
+ * The write path stores these rows `is_personal: true`, which would exclude
+ * them anyway. That is the belt; this is the braces, and it is the one that
+ * also covers a row written before the fix, an import, or a direct database
+ * edit.
+ */
+export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boolean {
+  if (row.section !== "logistics") return false;
+  const details = row.details;
+  if (typeof details !== "object" || details === null) return true;
+  return "kind" in (details as Record<string, unknown>);
 }
 
 /**
@@ -86,19 +172,29 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
  * The app has no login wall, so "public" here means readable by anyone who reaches the site,
  * not "readable by signed-in colleagues". There is no cohort tier to fall back on.
  *
- * ONE thing is never published: an entry flagged `is_personal`. The editor labels that checkbox
- * "Personal number — excluded from the printable card and any export", and a world-readable
- * fetch is an export. A personal number therefore stays with the account that wrote it, and is
- * returned only to that owner by `fetchOwnerOnCallEntries`.
+ * TWO things are never published, and both stay with the account that wrote them, returned only
+ * to that owner by `fetchOwnerOnCallEntries`:
+ *
+ * - An entry flagged `is_personal`. The editor offers that as a choice, and a world-readable
+ *   fetch is an export.
+ * - A compliance requirement, whatever its flags say. That is not a choice — see
+ *   `rowMayBeComplianceRequirement` below for why it is decided here, on the raw row, and why
+ *   it fails closed.
  *
  * Writes are unchanged: creating or editing still requires an account and still stamps owner_id.
  */
 export async function fetchSharedOnCallEntries(supabase: AdminClient, options: { section?: OnCallSection } = {}) {
-  let query = supabase.from("on_call_entries").select(ROW_COLUMNS).eq("is_personal", false);
+  let query = supabase
+    .from("on_call_entries")
+    .select(ROW_COLUMNS)
+    .eq("is_personal", false)
+    .in("section", [...PUBLIC_ON_CALL_SECTIONS]);
   if (options.section) query = query.eq("section", options.section);
   const { data, error } = await query.order("sort_order").limit(ON_CALL_MAX_ENTRIES);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => rowToOnCallEntry(row as Record<string, unknown>));
+  return (data ?? [])
+    .filter((row) => !rowMayBeComplianceRequirement(row as Record<string, unknown>))
+    .map((row) => rowToOnCallEntry(row as Record<string, unknown>));
 }
 
 /**

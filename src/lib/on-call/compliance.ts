@@ -3,6 +3,7 @@ import {
   type OnCallComplianceConsequence,
   type OnCallEntry,
 } from "@/lib/on-call/entry-model";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 
 /**
  * Compliance — the requirements a doctor has to keep current for themselves:
@@ -102,6 +103,27 @@ export function complianceExpiresOn(entry: OnCallEntry): string | undefined {
   if (typeof details !== "object" || details === null) return undefined;
   const value = (details as { expiresOn?: unknown }).expiresOn;
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+/**
+ * Whether the date the holder RECORDED is now in the past.
+ *
+ * Named for the record, not the person, and that is the whole care taken here.
+ * `recordedExpiryHasPassed` is arithmetic on a stored string; a function called
+ * `isLapsed` or `isExpired` would be a claim about the reader's standing, which
+ * this module may never make — they may well have renewed last week and not
+ * come back to update the row. A surface using this must phrase it the same
+ * way: "that date has passed", never "expired".
+ *
+ * Compared as `YYYY-MM-DD` strings against the viewer's own local day, which is
+ * how every other date in this mode is compared. Parsing either side into a
+ * `Date` would put a requirement recorded as expiring today on the wrong side
+ * of the line for anybody east of UTC — which is everybody using this.
+ */
+export function recordedExpiryHasPassed(entry: OnCallEntry, now: Date): boolean {
+  const expiresOn = complianceExpiresOn(entry);
+  if (!expiresOn) return false;
+  return expiresOn < onCallLocalDateKey(now);
 }
 
 /**

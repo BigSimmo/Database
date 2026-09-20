@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import {
-  ON_CALL_SECTION_HREFS,
-  ON_CALL_SECTION_ICONS,
-  ON_CALL_SECTION_TITLES,
+  ON_CALL_VIEW_HREFS,
+  ON_CALL_VIEW_ICONS,
+  ON_CALL_VIEW_TITLES,
+  onCallViewForEntry,
+  type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { SearchField } from "@/components/ui/text-field";
@@ -19,7 +21,7 @@ import {
   searchOnCallEntries,
   type OnCallSearchResult,
 } from "@/lib/on-call/entry-search";
-import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import { onCallPrimaryNumber, onCallTelHref } from "@/lib/on-call/home-modules";
 
 /**
@@ -27,9 +29,12 @@ import { onCallPrimaryNumber, onCallTelHref } from "@/lib/on-call/home-modules";
  *
  * The mode is seven pages of the owner's own reference material, and until now
  * the only way to reach a number was to know which page held it. This is the
- * shortcut: type, and every section answers at once, each result still wearing
- * its section's glyph so the reader can see WHERE the answer came from before
- * they tap it.
+ * shortcut: type, and every page answers at once, each result still wearing the
+ * glyph of the page it is on so the reader can see WHERE the answer came from
+ * before they tap it. "The page it is on" is not always "the section it is
+ * stored in" — Compliance and Who's who are views over `logistics` and
+ * `contacts` — so every destination, heading and glyph in here goes through
+ * `onCallViewForEntry`.
  *
  * Deliberately quiet when idle. An empty box renders no list, no placeholder
  * rows and no "start typing" card — the home this sits on is a dashboard for
@@ -52,12 +57,18 @@ function SearchResultRow({ result }: { result: OnCallSearchResult }) {
   const number = entry.isPersonal ? null : onCallPrimaryNumber(entry);
   const telHref = onCallTelHref(number?.value);
   const summary = onCallSearchSummary(entry);
+  // The page this row is RENDERED on, which is not always the section it is
+  // stored in: Compliance and Who's who are views over `logistics` and
+  // `contacts`. `ON_CALL_SECTION_HREFS[entry.section]` sent a compliance
+  // requirement to the Admin page, where it is not in the list — a search that
+  // finds the thing and then navigates away from it.
+  const view = onCallViewForEntry(entry);
 
   return (
     <OnCallEntryRow
       title={entry.title}
       subtitle={summary ?? undefined}
-      href={telHref ?? ON_CALL_SECTION_HREFS[entry.section]}
+      href={telHref ?? ON_CALL_VIEW_HREFS[view]}
       testId={`on-call-search-row-${entry.slug}`}
       trailing={
         telHref && number ? (
@@ -83,18 +94,26 @@ function SearchResultRow({ result }: { result: OnCallSearchResult }) {
   );
 }
 
-/** Results for one section, under that section's own name and glyph. */
-function SearchResultGroup({ section, results }: { section: OnCallSection; results: readonly OnCallSearchResult[] }) {
-  const Icon = ON_CALL_SECTION_ICONS[section];
+/**
+ * Results for one page, under that page's own name and glyph.
+ *
+ * Keyed by view rather than by section so a compliance requirement is announced
+ * as Compliance and a role explainer as Who's who. Grouping by section labelled
+ * both of them with the name of a page they are not on, which is worse than no
+ * grouping at all: the heading is the reader's evidence of WHERE the answer
+ * came from before they tap it.
+ */
+function SearchResultGroup({ view, results }: { view: OnCallPageView; results: readonly OnCallSearchResult[] }) {
+  const Icon = ON_CALL_VIEW_ICONS[view];
   return (
     <section
-      aria-label={ON_CALL_SECTION_TITLES[section]}
-      data-testid={`on-call-search-group-${section}`}
+      aria-label={ON_CALL_VIEW_TITLES[view]}
+      data-testid={`on-call-search-group-${view}`}
       className="grid grid-cols-[minmax(0,1fr)] gap-2"
     >
       <h3 className={cn(eyebrowText, "flex items-center gap-1.5")}>
         <Icon aria-hidden="true" className="size-icon-xs" />
-        {ON_CALL_SECTION_TITLES[section]}
+        {ON_CALL_VIEW_TITLES[view]}
       </h3>
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         {results.map((result) => (
@@ -105,13 +124,21 @@ function SearchResultGroup({ section, results }: { section: OnCallSection; resul
   );
 }
 
-/** Group in result order, so the best-matching section leads. */
-function groupBySection(results: readonly OnCallSearchResult[]): Array<[OnCallSection, OnCallSearchResult[]]> {
-  const groups = new Map<OnCallSection, OnCallSearchResult[]>();
+/**
+ * Group in result order, so the best-matching page leads.
+ *
+ * `result.section` is deliberately not the key. It is the stored section, and
+ * two of this mode's pages are views over one — grouping by it files a
+ * compliance requirement under Admin. `onCallViewForEntry` is the one place
+ * that mapping lives.
+ */
+function groupByView(results: readonly OnCallSearchResult[]): Array<[OnCallPageView, OnCallSearchResult[]]> {
+  const groups = new Map<OnCallPageView, OnCallSearchResult[]>();
   for (const result of results) {
-    const existing = groups.get(result.section);
+    const view = onCallViewForEntry(result.entry);
+    const existing = groups.get(view);
     if (existing) existing.push(result);
-    else groups.set(result.section, [result]);
+    else groups.set(view, [result]);
   }
   return [...groups.entries()];
 }
@@ -120,7 +147,7 @@ export function OnCallSearchBox({ entries }: { entries: readonly OnCallEntry[] }
   const [query, setQuery] = useState("");
   const trimmed = query.trim();
   const results = useMemo(() => searchOnCallEntries(entries, query), [entries, query]);
-  const groups = useMemo(() => groupBySection(results), [results]);
+  const groups = useMemo(() => groupByView(results), [results]);
 
   // The count goes to assistive technology only. Putting `aria-live` on the
   // visible list would re-read every row on every keystroke, which is the
@@ -162,8 +189,8 @@ export function OnCallSearchBox({ entries }: { entries: readonly OnCallEntry[] }
 
       {results.length > 0 ? (
         <div className="grid grid-cols-[minmax(0,1fr)] gap-4" data-testid="on-call-search-results">
-          {groups.map(([section, sectionResults]) => (
-            <SearchResultGroup key={section} section={section} results={sectionResults} />
+          {groups.map(([view, viewResults]) => (
+            <SearchResultGroup key={view} view={view} results={viewResults} />
           ))}
           {/* Honest about the cap rather than quietly showing a partial list as
               though it were the whole answer. */}
