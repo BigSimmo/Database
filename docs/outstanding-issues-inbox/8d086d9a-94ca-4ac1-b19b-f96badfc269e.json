@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8d086d9a-94ca-4ac1-b19b-f96badfc269e",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Tools truncation regressed: PR #2317 reintroduced clamps the 2026-07-17 audit removed",
+    "detail": "Two distinct instances. (a) tools-search-results-page.tsx:141 line-clamp-2 on tool descriptions, added by PR #2317 on 2026-08-23, five weeks after the July audit removed exactly that clamp; bites at 320/390. (b) applications-launcher-page.tsx:287 xl:grid-cols-6 packs six category tiles into a ~780px column at 1440/1920, truncating titles ('Ask evi...', 'Prescri...') and breaking descriptions mid-word ('prescribin/g'); clean at 768. Dropping the xl step fixes (b).",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQNAG8FXXVEVGBS63T9DY"
+  }
+}

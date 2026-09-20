@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e4ef18fc-ce08-4aa0-81f8-b0388b47fd97",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "pdfjs-dist 6.3.289 hard-depends on Map.prototype.getOrInsertComputed with no legacy build, polyfill or browserslist",
+    "detail": "pdf-canvas-viewer.tsx:498-500 imports the modern build, not pdfjs-dist/legacy/build. pdf.mjs calls Map.prototype.getOrInsertComputed at three sites. Chromium 141 lacks it and the preview died completely there. Whether a browser actually in use is affected was NOT tested - that is the decision needed. The raw-exception rendering was fixed in PR #2939; this is the dependency question underneath it. Also: the PDF toolbar stays fully enabled over a failed preview and does nothing.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQKYVY4DGEN9R49JCKB2Z"
+  }
+}

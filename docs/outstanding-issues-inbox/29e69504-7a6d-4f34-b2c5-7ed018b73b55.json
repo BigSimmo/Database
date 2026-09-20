@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "29e69504-7a6d-4f34-b2c5-7ed018b73b55",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Differentials presentation comparison claims 4 of 7 columns while rendering 7 and hiding two EMERGENCY rows",
+    "detail": "On /differentials/presentations/acute-confusion-encephalopathy the banner reads '4 of 7 diagnoses compared' and the rail '+3 not selected', but all seven columns render identically styled. .polished-scroll measures scrollWidth 1344 vs clientWidth 902 at 1440 - 442px hidden with no scrollbar, edge fade or cue - concealing the Must-not-miss cells for Wernicke encephalopathy and hepatic encephalopathy, both tagged EMERGENCY, on the presentation where Wernicke is the classic miss. Secondary: the sticky CRITERIA column is transparent, so scrolled text bleeds through the red-flag row labels.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQKMP0FT00ENYG7MTH8CV"
+  }
+}

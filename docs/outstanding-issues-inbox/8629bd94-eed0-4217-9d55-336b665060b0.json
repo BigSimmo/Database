@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8629bd94-eed0-4217-9d55-336b665060b0",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Catalogue search ORs query tokens, so services search returns the wrong specialty badged 'Best fit'",
+    "detail": "'panic disorder' returns eating-disorder services in positions 1-5, top two badged 'Best fit'. Counts: services empty 244, nonsense 0, 'panic disorder criteria' 206 of 244, 'lithium' 0. Therapy Compass: empty 205, 'panic disorder criteria' 105. The badge is the part that lies; an unranked list would be honest. Ranking surface: flag and canary before editing.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQKF1CNCAFVYYZZV1XQ29"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "2358c0e9-a633-4682-8337-91eefac2ba35",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Fixed-width and fixed-character-count elements truncate clinical text at every viewport",
+    "detail": "Three instances sharing one cause. on-call-home.tsx:211 ward chips are a hard w-32 at every viewport, truncating 'Demo Emergenc...' at 320 through 1920 where ~1180px of the row is empty. services-navigator-page.tsx:160-166 applies a 150-character cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement. /on-call/contacts squeezes the name column to two words at 390. Also /medications/acamprosate clamps dose strings (dose, frequency and daily total) to two lines.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQNFN8RWKA0QHH0NN9R2E"
+  }
+}

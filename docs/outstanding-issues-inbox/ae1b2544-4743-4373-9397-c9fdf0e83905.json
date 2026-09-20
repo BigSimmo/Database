@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ae1b2544-4743-4373-9397-c9fdf0e83905",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "rec",
+    "summary": "Toast host is never mounted, so 35 files hand-roll their own 'Copied' confirmation",
+    "detail": "grep -rn 'ui/toast' src returns nothing; on-call-copy-number.tsx:36-37 states it in a comment. 35 in-scope files implement their own copy confirmation against 2 using ui/copy-button.tsx, with four different wordings. The 2026-07-07 fix for single-slot notifications overwriting each other exists as a primitive but nothing mounts it. Copying a dose or citation is high-frequency here and the confirmation differs by mode.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQMQ2HWYCPFAD3JDZJY0J"
+  }
+}
