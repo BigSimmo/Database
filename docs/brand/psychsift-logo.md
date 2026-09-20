@@ -286,9 +286,32 @@ the owner on 2026-08-28. Fine points thin both strokes, they belong with a curve
 than a straight one, and they are the first thing to disappear at 16 px. Do not revisit this without
 a reason those three do not already answer.
 
-## Two things still open
+## The design canvas and the outward handover
 
-- The brand sheet gives two different taglines: "CLARITY. EVIDENCE. BETTER CARE." in the header and
-  "Clinical clarity. Evidence. Better care." in the footer. The lockup uses the first.
-- The sheet specifies Inter throughout; the application uses Geist. That difference should be
-  settled deliberately rather than left to drift.
+Two companion documents exist for work that leaves this repository:
+
+- [`design-handover.md`](design-handover.md) — the self-contained spec to hand a designer, an
+  agency, or a design tool. Every path, transform, radius, colour and rule in one page, with the
+  asset URLs and the open items. It is the page to send outward; this one is the record to keep.
+- [`canvas/`](canvas/README.md) — the generator for the published six-artboard design canvas, kept
+  as source so the canvas can be rebuilt if the published copy is lost or overwritten.
+
+Both carry a **copy** of the geometry, because they are read outside the application and cannot
+import from `src/lib/brand-mark.ts`. Nothing fails a build if a copy goes stale, so both must be
+updated in the same change as the source of truth.
+
+## Still open
+
+- **The brand carries two palettes.** The in-app mark is `#1D6FB8` on light and `#74BDF0` on dark,
+  taken from `--clinical-accent`, with the ground behind it rather than a tile. The standalone
+  artwork in `public/brand/` is still the brand-sheet palette recorded under Colours above — navy
+  `#0D1B2A`, white, `#2563EB`, cool grey `#F2F4F7`. Both are in use and they have not been
+  reconciled.
+- **The brand carries two wordmark faces.** The lockup SVGs embed outlined Inter Display SemiBold;
+  the application sets its wordmark live in Geist. Outlined artwork is unaffected by what the
+  application loads, but the two do not match when they sit near each other.
+- **The tagline lockup is stale.** The strapline settled as "From question to source", and the
+  header lockup in the application uses it, but `psychsift-lockup-horizontal-tagline.svg` still
+  carries the retired brand-sheet line "CLARITY. EVIDENCE. BETTER CARE."
+- **There is no print or motion specification** — no CMYK or Pantone equivalents, no minimum print
+  size, no one-colour reproduction guidance, and no motion rules.
