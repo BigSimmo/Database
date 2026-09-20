@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
+import { expectMinTouchTarget } from "./helpers/layout-tolerance";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
@@ -369,14 +370,6 @@ async function expectMapLabelsContained(canvas: Locator) {
       }),
     )
     .toBe(true);
-}
-
-async function expectMinTouchTarget(locator: Locator, minSize = 44) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  const measurementTolerance = 2;
-  expect(box!.height + measurementTolerance).toBeGreaterThanOrEqual(minSize);
-  expect(box!.width + measurementTolerance).toBeGreaterThanOrEqual(minSize);
 }
 
 function visibleGlobalSearchInput(page: Page) {
