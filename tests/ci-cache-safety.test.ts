@@ -450,6 +450,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     UI_CHANGED: "false",
     DB_CHANGED: "false",
     BUILD_CHANGED: "false",
+    PERF_CHANGED: "false",
     CONTAINER_CHANGED: "false",
     PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
@@ -548,6 +549,19 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
       }).status,
     ).toBe(0);
     expect(runAggregate({ DB_CHANGED: "true", PR_DRAFT: "true", DB_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("names lighthouse-budget among draft-suppressed jobs when perf scope is in play", () => {
+    // The draft warning must list Lighthouse when PERF_CHANGED is true; previously the
+    // warning never received PERF_CHANGED and silently omitted that required job.
+    const draftPerf = runAggregate({
+      PERF_CHANGED: "true",
+      PR_DRAFT: "true",
+      LIGHTHOUSE_RESULT: "skipped",
+    });
+    expect(draftPerf.status).toBe(0);
+    expect(draftPerf.output).toMatch(/lighthouse-budget/);
+    expect(draftPerf.output).toMatch(/Draft PR/);
   });
 
   it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
