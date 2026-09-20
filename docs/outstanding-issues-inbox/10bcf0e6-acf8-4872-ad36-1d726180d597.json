@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "10bcf0e6-acf8-4872-ad36-1d726180d597",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Assess src/lib/on-call/entry-chips.ts as a dead-code candidate under the deletion protocol",
+    "detail": "onCallEntryDetailChips appears to have no production caller left: the only import is its own test (tests/on-call-entry-chips.test.ts), plus a module-path string in tests/on-call-root-bundle-isolation.test.ts. Its docblock still describes consumers that no longer exist -- a Recent row and a section tile. It also holds a loaded copy of the section-keyed bug class, switching on entry.section to choose chip labels, so while it sits there it is a template a future consumer could copy. THIS IS A CANDIDATE, NOT A DELETE INSTRUCTION. This repository has a strict protocol for removing code believed dead: follow docs/agents/dead-code-deletion.md in full, including check:dead-code-candidate and its refusal list, before removing anything. NEXT ACTION: run that check and decide keep-or-delete. If the answer is keep, it needs a real consumer and its section switch must be re-keyed to the view alongside the On Call view refactor. Do not delete on the strength of this row alone.",
+    "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+    "issueUlid": "01M2ZP1H78T3ZQGKQ5TWNTCWCT"
+  }
+}

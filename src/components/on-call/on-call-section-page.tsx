@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallComplianceSection } from "@/components/on-call/on-call-compliance-section";
 import { OnCallContactsSection, type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { OnCallEducationSection } from "@/components/on-call/on-call-education-section";
 import { OnCallLogisticsSection } from "@/components/on-call/on-call-logistics-section";
@@ -18,9 +19,9 @@ import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import {
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
-  onCallViewStorageSection,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
+import { onCallViewStorageSection } from "@/components/on-call/on-call-entry-view";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
@@ -32,7 +33,8 @@ import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store"
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
-import { isRoleExplainerEntry, partitionContactsEntries } from "@/lib/on-call/who-is-who";
+import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
+import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 /**
  * Generic, non-owner-specific framing for each view. Shown to every reader,
@@ -45,12 +47,59 @@ const ON_CALL_VIEW_DESCRIPTIONS: Record<OnCallPageView, string> = {
     "The escalation ladder as plain administrative fact. Clinical guidance appears only as a link to one of your own uploaded documents.",
   referrals:
     "Your own referral list: who a service accepts, exclusions, catchment, hours, how to refer, and the number to ring.",
-  orientation: "Manuals held as documents in your corpus, each optionally carrying your own pinned summary above it.",
+  orientation:
+    "Manuals held as documents in your corpus, filed into folders, each optionally carrying your own pinned summary above it.",
   education: "The teaching calendar — what, when, who is presenting, and a link to the recording once one exists.",
-  logistics: "Parking, after-hours food, call rooms, IT, rostering, payroll and leave.",
+  // Leads with the work admin, because that is what this section now holds.
+  // Facilities is kept and named last rather than dropped: the rooms-and-food
+  // entries that were the whole of the old Logistics section are still here,
+  // and a summary that stopped mentioning them would read as if they had gone.
+  logistics:
+    "The work admin you do for yourself — leave, rosters, pay, forms and access — and the facilities detail worth writing down.",
   "who-is-who":
     "What each role actually does, and when it is reasonable to call them. The ladder in words, and the acronyms this service uses.",
+  // Says what the page is and what it is not, in one breath. Nothing here is
+  // checked with an issuing body, so the summary may not imply it is — the
+  // same rule the page body and `src/lib/on-call/compliance.ts` both carry.
+  compliance:
+    "What you keep current — registration, indemnity, credentialing, training — grouped by what happens if it lapses. Your own recorded dates, never a check with the issuing body.",
 };
+
+/**
+ * The entries a view actually puts on screen.
+ *
+ * Four of the nine views are half a stored section, not a whole one. `section`
+ * is a database CHECK constraint, so a new value costs a migration that reaches
+ * the live clinical database within seconds; two pairs of views therefore share
+ * one section and split it on `details.kind` instead — Contacts with Who's who
+ * over `contacts`, and Admin with Compliance over `logistics`.
+ *
+ * A plain `entry.section === view` test is wrong for all four. On the counts it
+ * merely inflates a number. On `staleEntries` it is worse than that: it would
+ * let "mark all as still correct" on the Admin page stamp today onto compliance
+ * requirements the reader cannot see from there — a bulk write over rows that
+ * are not on the screen, and on precisely the rows where a date nobody has
+ * looked at is the hazard the Compliance page exists to surface.
+ *
+ * The two partition helpers are the single place each split is made, so this
+ * defers to them rather than re-deriving either rule.
+ */
+function onCallVisibleEntries(view: OnCallPageView, entries: readonly OnCallEntry[]): OnCallEntry[] {
+  switch (view) {
+    case "contacts":
+      return partitionContactsEntries(entries).contacts;
+    case "who-is-who":
+      return partitionContactsEntries(entries).roleExplainers;
+    case "logistics":
+      return partitionLogisticsEntries(entries).admin;
+    case "compliance":
+      return partitionLogisticsEntries(entries).compliance;
+    // Playbook, Referrals, Orientation and Teaching each own a whole section,
+    // so for them the view id IS the section id.
+    default:
+      return entries.filter((entry) => entry.section === view);
+  }
+}
 
 /** What one entry in each view is called, for the add control's label. */
 const ON_CALL_ADD_NOUN: Record<OnCallPageView, string> = {
@@ -59,8 +108,40 @@ const ON_CALL_ADD_NOUN: Record<OnCallPageView, string> = {
   referrals: "service",
   orientation: "manual",
   education: "session",
-  logistics: "note",
+  // "entry", not "note": this section stopped being a shelf of jotted site
+  // detail when it became Admin. A leave application or a pay query is a thing
+  // you file, and "Add note" invited the wrong kind of content into it.
+  logistics: "entry",
   "who-is-who": "role",
+  compliance: "requirement",
+};
+
+/**
+ * The line under the add control, per view — and absent on the views that have
+ * nothing of their own to say there.
+ *
+ * "Role first, name only if you must." used to render under EVERY add control
+ * in the mode, because the menu hard-coded it. On Compliance the sheet
+ * therefore read "Add requirement / Role first, name only if you must." —
+ * advice about how to name other people, on the page holding your own
+ * registration and indemnity. It was no better on Orientation or Teaching; it
+ * was simply least obviously wrong there.
+ *
+ * So the hint is per view and the map is deliberately partial: a view earns a
+ * line by having one worth reading, and a view with nothing to add renders no
+ * second line rather than a padded one. `Partial` rather than a full record
+ * with empty strings, so "no hint" is a missing key and cannot be mistaken for
+ * a string somebody forgot to write.
+ *
+ * Compliance's line names the three fields that decide how its row reads and
+ * where it sorts. It describes what the editor will ask for and nothing else:
+ * "the expiry date you have" is the date the holder is about to type, never a
+ * claim that the app knows it — the same rule
+ * `src/lib/on-call/compliance.ts` states for every string on that page.
+ */
+const ON_CALL_ADD_HINT: Partial<Record<OnCallPageView, string>> = {
+  contacts: "Role first, name only if you must.",
+  compliance: "The expiry date you have, who issues it, and what lapsing would cost.",
 };
 
 /**
@@ -118,26 +199,46 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
     () => onCallPageSections({ view, entries, linkedDocumentIds: new Set(Object.keys(linkedDocuments)) }),
     [view, entries, linkedDocuments],
   );
-  // What this page is showing, for the menu's one-line summary. Each list
-  // component narrows `entries` itself, and Who's who splits the contacts
-  // section in two, so the count is derived the same way rather than guessed
-  // from the whole set.
-  const visibleCount =
-    view === "who-is-who"
-      ? partitionContactsEntries(entries).roleExplainers.length
-      : view === "contacts"
-        ? partitionContactsEntries(entries).contacts.length
-        : entries.filter((entry) => entry.section === view).length;
+  // What this page is actually showing — the menu's one-line summary counts
+  // it, and "mark all as still correct" writes to it.
+  const visibleEntries = onCallVisibleEntries(view, entries);
+  const visibleCount = visibleEntries.length;
 
   // Overdue entries in THIS view, which is what "mark all as still correct"
-  // may stamp. Never the whole hub: a bulk write is only defensible when the
-  // reader can see everything it touches.
-  const staleEntries = entries.filter(
-    (entry) =>
-      entry.section === onCallViewStorageSection(view) &&
-      (view !== "who-is-who" ? !isRoleExplainerEntry(entry) : isRoleExplainerEntry(entry)) &&
-      onCallEntryFreshness(entry).state === "stale",
-  );
+  // may stamp. Never the whole hub, and never the other half of a split
+  // section: a bulk write is only defensible when the reader can see
+  // everything it touches, which is exactly what `onCallVisibleEntries`
+  // returns.
+  const staleEntries = visibleEntries.filter((entry) => onCallEntryFreshness(entry).state === "stale");
+
+  /**
+   * Whether this view offers the bulk "mark all as still correct" control at
+   * all. Compliance does not, and that is a governance decision rather than a
+   * layout one.
+   *
+   * Everywhere else in On Call the freshness stamp and the content are the
+   * same thing: "is this ward number still right?" is a question the person
+   * tapping can actually answer from where they are sitting, so stamping the
+   * handful of overdue rows at once costs nothing but taps.
+   *
+   * On Compliance the two come apart. The stamp is about the RECORD — when a
+   * human last looked at the row — while the question the reader actually has
+   * is about the REQUIREMENT, and nothing on that page has been checked with
+   * the body that issues it. One tap, with no confirmation, would clear the
+   * "Never checked" warning off every unrecorded requirement on the page for
+   * twelve months, without the reader having read any of them. That is a bulk
+   * assertion about a doctor's registration, indemnity and clearances, and no
+   * saved tap is worth it.
+   *
+   * The per-row control stays: it is the same act, made one row at a time,
+   * with the row's own subject in front of the person doing it.
+   *
+   * Gated here rather than inside the menu because every other view-by-view
+   * decision in this mode is made here too — `onCallVisibleEntries`, the add
+   * noun, the add hint — and the menu stays a renderer of the rows it is
+   * handed.
+   */
+  const offersBulkVerify = view !== "compliance";
 
   /**
    * Stamp today on every overdue entry in this view.
@@ -248,6 +349,8 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         return <OnCallLogisticsSection {...listProps} />;
       case "who-is-who":
         return <OnCallWhoIsWhoSection {...listProps} />;
+      case "compliance":
+        return <OnCallComplianceSection {...listProps} />;
     }
   }
 
@@ -269,8 +372,12 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         onOrderChange={view === "contacts" ? setContactsOrder : undefined}
         onAdd={isAuthenticated ? () => setEditorState({ open: true, entry: null }) : undefined}
         addLabel={`Add ${ON_CALL_ADD_NOUN[view]}`}
-        onVerifyAll={isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
-        staleCount={staleEntries.length}
+        addHint={ON_CALL_ADD_HINT[view]}
+        onVerifyAll={offersBulkVerify && isAuthenticated && !verifyAllState.running ? verifyAllStale : undefined}
+        // Zero rather than the real count on a view that offers no bulk
+        // control, so the number and the button it describes can never be
+        // wired to different conditions.
+        staleCount={offersBulkVerify ? staleEntries.length : 0}
       />
       <OnCallSectionNavHeader title={title} sections={pageSections} />
       <InformationPageShell testId={`on-call-${view}-main`}>
@@ -351,6 +458,12 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
         onSaved={upsertCachedEntry}
         onDeleted={removeCachedEntry}
         createAsRoleExplainer={view === "who-is-who"}
+        // The `logistics` mirror of the line above, and not optional polish:
+        // both views that share a section save through that section, so
+        // without this seed "Add requirement" on the Compliance page would
+        // write an ordinary Admin row — one that disappears from the page it
+        // was added on and reappears among the parking notes.
+        createAsCompliance={view === "compliance"}
       />
     </>
   );
