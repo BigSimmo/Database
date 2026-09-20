@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "6b80ab63-7106-4d47-802a-f4b9d1eca84d",
+  "createdOn": "2026-09-20",
+  "action": "cancel",
+  "payload": {
+    "requestId": "615894f7-ba8e-4538-b0b2-c9c81bd7d838",
+    "reason": "Stale baseRowFingerprint 791d28bb… — ledger #PX8N86 changed after this done was queued (current fingerprint is b0e86828… after applied update b8abcd96). Reissuing done from the latest ledger row."
+  }
+}
