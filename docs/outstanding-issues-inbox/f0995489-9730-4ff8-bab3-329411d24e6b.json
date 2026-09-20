@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f0995489-9730-4ff8-bab3-329411d24e6b",
+  "createdOn": "2026-09-20",
+  "action": "update",
+  "payload": {
+    "id": "#QCNE6N",
+    "detail": "MIRROR HALF CLOSED 2026-09-19 by PR #2889. check:chain-mirror-parity now runs with --strict in the Migration replay job and neither parity step carries continue-on-error, so a migration whose result diverges from supabase/schema.sql fails the job before merge instead of printing a warning nobody acts on. Report-only ended ahead of its 2026-12-01 expiry because the divergence set was finally measured rather than predicted: the whole 250-migration chain was replayed and compared, giving ZERO divergence across tables, views, functions, indexes, policies, constraints, triggers and storage buckets, with one reviewed allowlist entry (pg_net, an emulator-image extension). CI's own first blocking run agreed. The runbook's claim that pg_cron was a live mirror gap was stale - e15534b830 (2026-09-12) added the identical create-extension statement to schema.sql:15 - and both that note and the allowlist status were corrected. Remaining scope for this row is whatever is left beyond chain-vs-mirror parity; if nothing is, close it.",
+    "baseRowFingerprint": "0d52b2b99a69c7876f06fadb0993bfd5098a151160038c05e3c277dcd4117d13"
+  }
+}
