@@ -451,6 +451,25 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     DB_CHANGED: "false",
     BUILD_CHANGED: "false",
     PERF_CHANGED: "false",
+    /*
+     * Read only by the draft report at the end of the script, which decides whether
+     * `lighthouse-budget` belongs in the list of jobs a draft did not run. Same rule as the
+     * Ward Flow entry below: added to `ci.yml` and to this fixture in one commit, because the
+     * script runs under `set -u` and an unbound variable exits 1.
+     *
+     * When that red appears, fix it HERE, by binding the new variable in this fixture - not in
+     * `ci.yml` by defaulting the read to `${VAR:-false}`. In the real workflow these variables
+     * are always bound, by the step `env:` block, so `set -u` firing means that binding is
+     * genuinely missing and the step should stop loudly. A default turns that into silence: the
+     * warning would simply stop naming `lighthouse-budget`, with nothing red to say so - which
+     * is the same "absence read as coverage" defect this draft report was added to close.
+     * `runAggregate` spreads `allGreen` before any override, so every case in this block
+     * inherits these bindings and no test can construct an env without them.
+     *
+     * `"false"` is faithful to this fixture: a light, non-draft scope carrying no labels.
+     */
+    LIGHTHOUSE_LABEL: "false",
+    SKIP_LIGHTHOUSE_LABEL: "false",
     CONTAINER_CHANGED: "false",
     PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
@@ -562,6 +581,38 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(draftPerf.status).toBe(0);
     expect(draftPerf.output).toMatch(/lighthouse-budget/);
     expect(draftPerf.output).toMatch(/Draft PR/);
+  });
+
+  it("does not name lighthouse-budget when a label ran it, or skipped it for another reason", () => {
+    // The other half of the same defect, pointing the opposite way. Naming a job that actually
+    // ran is a false alarm, and a warning that is sometimes wrong stops being read at all -
+    // which costs exactly what the warning was added to buy. `lighthouse-budget`'s own `if:` is
+    // decided by labels as well as scope, so the report has to read them too.
+    const labelled = runAggregate({
+      PR_DRAFT: "true",
+      PERF_CHANGED: "true",
+      LIGHTHOUSE_LABEL: "true",
+      // The label runs the job on a draft anyway, so it reports success - not the fixture
+      // default of `skipped`, which would describe a state this case cannot be in.
+      LIGHTHOUSE_RESULT: "success",
+    });
+    expect(labelled.status).toBe(0);
+    expect(labelled.output).not.toContain("lighthouse-budget");
+
+    // `skip-lighthouse-budget` skips it for a reason that is not the draft.
+    const skipped = runAggregate({
+      PR_DRAFT: "true",
+      PERF_CHANGED: "true",
+      SKIP_LIGHTHOUSE_LABEL: "true",
+      LIGHTHOUSE_RESULT: "skipped",
+    });
+    expect(skipped.status).toBe(0);
+    expect(skipped.output).not.toContain("lighthouse-budget");
+
+    // A draft with nothing heavy in scope stays silent, and does not exit under `set -u`.
+    const lightDraft = runAggregate({ PR_DRAFT: "true" });
+    expect(lightDraft.status).toBe(0);
+    expect(lightDraft.output).not.toContain("heavy scope did not run");
   });
 
   it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
