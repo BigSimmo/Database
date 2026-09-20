@@ -113,6 +113,19 @@ perform these steps, by design. **They are the owner's, signed in, in the app.**
 
 ### 2.5 The order, and why it is an order
 
+> 🔴 **RUN AGAINST LIVE 2026-09-21, AND STEP 3 CANNOT COMPLETE.** The order below is correct for an
+> _adoption_ — bringing already-public records under control-plane management. This corpus is not
+> in that state. `site_content_publications` has **0** rows, `site_content_public_records` has **0**
+> rows, and all 222 service rows and 54 form rows in `clinical_registry_records` carry a non-null
+> `owner_id`. A group is only comparable when its canonical candidate is published, rendered,
+> explicitly reconciled **and** unowned, so no trusted snapshot can be built, and the planner now
+> refuses with `PLAN NOT WRITTEN — and this is NOT a finding about the catalogue's content`.
+>
+> Step 1 works and is worth running; steps 2 and 3 will tell you the same thing. **This is a first
+> publication, not an adoption**, and which mechanism applies is an open owner decision. Do **not**
+> unblock it by loosening `reconcileCanonicalPublicSiteContent` — that marks owner-scoped rows
+> canonical for a clinical publication, which is the judgement the planner exists to refuse.
+
 1. **Operator export** — run `operator-export-site-content-population.sql`, save the JSON.
 2. **Size it** — `report-site-content-reconciliation.ts`. Settle the policy question in §2.2.
 3. **Build the plan** — `build-site-content-reconciliation-plan.ts --population export.json`.
