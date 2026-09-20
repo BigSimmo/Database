@@ -29,7 +29,7 @@ PLACE_BARE = "translate(114.8907 0) scale(5.1006)"
 PLACE_BARE_S = "translate(89.3877 0) scale(5.1006)"
 
 GROUND="#F7F9FB"; PLATE="#FFFFFF"; INK="#0B1016"; MUTED="#5A6675"
-RULE="#DDE4EC"; ACCENT="#1D6FB8"; SOFT="#EAF2FA"; DARK="#171B1E"; DARKINK="#74BDF0"
+RULE="#DDE4EC"; ACCENT="#1D6FB8"; SOFT="#EAF2FA"; DARK="#1C2126"; DARKINK="#74BDF0"
 SANS="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 MONO="ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace"
 
@@ -153,7 +153,7 @@ facts = rows([
   ("Outer ring", num("R 29.2009 at (29.2009, 29.2009)")),
   ("Throat arc", num("R 17.7232 at (44.8724, 20.0286)")),
   ("Transition", num("R 13.0000 at (17.4753, 33.9324)")),
-  ("Inner sweep", num("R 55.1234 at (51.5936, 16.1417)")),
+  ("Tail hook", num("R 55.1234 at (51.5936, 16.1417)")),
   ("Straight cut", num("22.4625 long, 4.2000 wide")),
   ("Turn centre", num("(26.6198, 48.4934)")),
   ("The point", num("r 10.4586 at (44.8724, 20.0286)")),
@@ -271,7 +271,7 @@ stack = ('<div style="display:flex;flex-direction:column;align-items:center;gap:
          '<div style="font:800 22px/1 %s;letter-spacing:-0.02em;color:%s">PsychSift</div></div>'
          % (mark(44), SANS, INK))
 rev   = ('<div style="display:flex;align-items:center;gap:14px">%s%s</div>'
-         % (mark(46, DARKINK), wordmark(28, "#FBFCFD", "From question to source", "#A4ADB7")))
+         % (mark(46, DARKINK), wordmark(28, "#FBFCFD", "From question to source", "#A8B2BD")))
 
 safe = ('<svg width="104" height="104" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" '
   'role="img" aria-label="Maskable icon with the Android safe circle marked">'

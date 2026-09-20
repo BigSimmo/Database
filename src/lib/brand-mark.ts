@@ -129,7 +129,7 @@ export const BRAND_POINT_SMALL = { cx: 54.8724, cy: 20.0286, r: 10.4586 } as con
  *  These cannot read the tokens (the favicon and the generated PNG icon routes
  *  render outside any stylesheet), so they must be re-derived by hand whenever
  *  the accent moves — then `npm run brand:update` regenerates app/icon.svg,
- *  which `npm run brand:check` verifies in verify:cheap, and the design-token
+ *  which `npm run brand:check` verifies in verify:full, and the design-token
  *  contract test fails if they ever disagree with the token. */
 export const BRAND_LIGHT = { tile: "#fcfdfe", ink: "#1d6fb8" } as const;
 export const BRAND_DARK = { tile: "#1c2126", ink: "#74bdf0" } as const;
@@ -164,7 +164,7 @@ export function brandMarkInner({ tile, ink }: BrandColors, small = false): strin
  *  surfaces that cannot run React: `public/offline.html` is a standalone static
  *  page precached by the service worker, with no bundler and no stylesheet of
  *  the app's own, so its mark has to be inlined. `scripts/generate-brand-assets.ts`
- *  writes it there and `npm run brand:check` (in verify:cheap) fails if the copy
+ *  writes it there and `npm run brand:check` (in verify:full) fails if the copy
  *  drifts from this source — the same contract app/icon.svg already has.
  *
  *  Pass `fill: "currentColor"` to let the embedding page theme the ink through
@@ -193,7 +193,7 @@ export function brandMarkSvg(colors: BrandColors = BRAND_LIGHT): string {
 /** Themed standalone SVG for the browser-tab icon (app/icon.svg): a
  *  prefers-color-scheme swap that a raster app-icon cannot do. Uses the
  *  small-size cut, because this is the file that renders at 16–32 px. Written to
- *  app/icon.svg by scripts/generate-brand-assets.ts (verified in verify:cheap). */
+ *  app/icon.svg by scripts/generate-brand-assets.ts (verified in verify:full). */
 export function brandIconSvg(): string {
   const t = BRAND_TILE;
   const p = BRAND_POINT_SMALL;

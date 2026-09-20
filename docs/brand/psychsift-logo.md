@@ -1,8 +1,10 @@
 # The PsychSift logo
 
-The files in `public/brand/` are the master artwork. They are true vectors — every curve is a
-circular arc with an exact centre and radius, so the mark is identical at 16 px and at billboard
-size, and the primary file is 863 bytes.
+The files in `public/brand/` are the master artwork. **The mark** is a true vector construction —
+every one of its curves is a circular arc with an exact centre and radius, so it is identical at
+16 px and at billboard size, and the primary file is 863 bytes. The wordmark and the lockups also
+contain outlined type, which is quadratic Bézier curves like any other typeface; that part is not
+reconstructible from radii.
 
 This page records **how the mark is built**, so it can be rebuilt or extended without guessing.
 
@@ -73,7 +75,7 @@ carry.
 
 ## Construction
 
-Work in **glyph units**: the S is exactly 100 units tall and 55.10 wide, with its top-left corner
+Work in **glyph units**: the S is 100.3813 units tall and 55.10 wide, with its top-left corner
 at the origin.
 
 ### The middle line
@@ -103,14 +105,14 @@ lens; that is what the first two cuts of these files did.
 
 ### The upper stroke
 
-Three arcs and one straight segment, meeting at two tangent points and two sharp cusps:
+Four arcs and one straight segment, meeting at three tangent points and two sharp cusps:
 
 | Segment     | Centre             | Radius   | Role                                             |
 | ----------- | ------------------ | -------- | ------------------------------------------------ |
 | Outer sweep | (29.2009, 29.2009) | 29.2009  | the outer edge, from the head to two-thirds down |
 | Tail hook   | (51.5937, 16.1418) | 55.1234  | the hook that draws the tail to a point          |
 | Throat      | (44.8724, 20.0286) | 17.7232  | the scoop under the head                         |
-| Blend       | (17.3065, 33.5945) | 13.0     | carries the throat onto the cut                  |
+| Blend       | (17.4753, 33.9324) | 13.0     | carries the throat onto the cut                  |
 | Facing edge | —                  | straight | the upper side of the middle line                |
 
 - **Head cusp** at (41.3675, 2.6554) — outer sweep into throat, 36°.
@@ -206,7 +208,8 @@ At 32 px and below two things close up: the 4.2-unit cut between the strokes, an
 crescent around the point. `psychsift-favicon.svg` is a separate optical variant for that range, and
 it changes both.
 
-The cut is widened to **7.2 units** by moving each facing edge 1.5 units away from the other, with
+The cut is widened to **7.2 units** by moving the two facing edges 3.0 units apart — 1.4493 on the
+upper edge and 1.5507 on the lower, since the point reflection fixes how the 3.0 splits — with
 the blends re-solved against the lines they now meet. Because only the facing edges move, the outer
 silhouette is identical to the one in the primary file.
 
@@ -216,7 +219,13 @@ centring transform; the three changes are one set and must not be mixed with the
 placement. Below about 20 px the crescent is under two pixels and the point fuses into the S
 whatever is done — that is the size, not the placement.
 
-Use this variant for favicons, browser tabs, and anything rendered under 32 px.
+Use this variant for favicons, browser tabs, and anything rendered at 32 px and below.
+
+Note one unexplained difference inside that set. `src/app/icon.svg` places the small-size glyph with
+`BRAND_GLYPH_TRANSFORM_SMALL` — 80% of the tile height, matching the primary variant. The shipped
+`psychsift-favicon.svg` instead uses `translate(116.0458 40.96) scale(4.2845)`, which is **84%**.
+Both centre their own ink correctly, so neither is broken, but the two small-size masters differ in
+glyph size by 5% and nothing records which is intended.
 
 ### The maskable icon
 
@@ -241,8 +250,9 @@ the safe circle.
 **Inter Display SemiBold**, tracked −0.02 em. The outlines are embedded as paths, so the lockups
 render identically without Inter installed. Inter is licensed under the SIL Open Font License 1.1.
 
-In the lockups the wordmark cap height is 42% of the mark's height, set one fifth of the mark's
-height to its right, with the cap-height centre aligned to the mark's centre. In the tagline
+In the lockups the wordmark cap height is 42% of the mark's height, set 22% of the mark's height to
+its right (56.32 units against a 256-unit mark), with the cap-height centre aligned to the mark's
+centre. In the tagline
 version the tagline is tracked out to finish flush with the wordmark.
 
 Note that the running application currently sets its interface in **Geist**, not Inter. The
