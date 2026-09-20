@@ -1,10 +1,12 @@
 /** @vitest-environment jsdom */
 
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   phoneOverlayReserveGeometryQuietWindowMs,
+  __setPhoneOverlayReserveSettledForTests,
+  publishPhoneOverlayChromeReserveNow,
   readPhoneOverlayChromeReservePx,
   usePhoneOverlayChromeReserve,
 } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
@@ -297,6 +299,139 @@ describe("readPhoneOverlayChromeReservePx", () => {
     act(() => flushFrame(0));
     act(() => flushFrame(phoneOverlayReserveGeometryQuietWindowMs));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
+
+    // Having settled through the REAL path, a portal transition may now adjust
+    // the reserve immediately. This is the half the test seam cannot prove: if
+    // the production code never marked the reserve settled, the publisher would
+    // be permanently inert and every seam-driven case would still pass, leaving
+    // the #CHPC5C fix silently dead. Overwriting with a sentinel first is what
+    // makes the re-publish distinguishable from doing nothing.
+    document.documentElement.style.setProperty("--phone-overlay-chrome-h", "999px");
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
+
     unmount();
+  });
+});
+
+/**
+ * #CHPC5C — the reserve has to grow in the same commit that takes the addon row
+ * out of page flow, not 110ms later.
+ *
+ * Measured on `/differentials/compare` at 390x844: the page paints with the 49px
+ * mode-nav row in flow over the 72px CSS seed; the row portals into the fixed
+ * header at ~315ms and every element rises 49px; the reserve only republishes
+ * 121px at ~423ms. Under renderer load that window widens, and a tap inside it
+ * pressed "Open comparison" and released on "Edit selection" where the link had
+ * just been. The browser retargets such a click to the two controls' common
+ * ancestor, so the link never activates — no error, no navigation, and the
+ * Playwright hit-target check cannot see it because press and release were each
+ * individually on a real element.
+ *
+ * The quiet window still guards what it was built for (a transient wide-stack
+ * measurement during hydration, #147); it just no longer gates a discrete portal
+ * mount whose geometry is already correct.
+ */
+describe("publishPhoneOverlayChromeReserveNow", () => {
+  beforeEach(() => {
+    // Every case below states its own precondition; none inherits a settled
+    // reserve from an earlier one.
+    __setPhoneOverlayReserveSettledForTests(false);
+  });
+
+  afterEach(() => {
+    __setPhoneOverlayReserveSettledForTests(false);
+    document.body.innerHTML = "";
+    document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function mountStack({ stackHeight, matches }: { stackHeight: number; matches: boolean }) {
+    document.body.innerHTML = `
+      <div class="phone-sticky-header-stack">
+        <div data-testid="universal-header-collapse"></div>
+      </div>
+    `;
+    const stack = document.querySelector(".phone-sticky-header-stack");
+    const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
+    stubOffsetHeight(stack!, stackHeight);
+    stubOffsetHeight(collapse!, stackHeight);
+    vi.stubGlobal("matchMedia", () => ({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  }
+
+  /**
+   * Stand in for the quiet window having already committed a value. These cases
+   * are about what the publisher does once a settled reserve exists, not about
+   * how it came to exist — the last case in this block covers that for real.
+   */
+  function settleReserve() {
+    __setPhoneOverlayReserveSettledForTests(true);
+  }
+
+  it("publishes the measured height with no frames and no quiet window", () => {
+    mountStack({ stackHeight: 121, matches: true });
+    settleReserve();
+    publishPhoneOverlayChromeReserveNow();
+    // No requestAnimationFrame is stubbed: if this needed a frame to land, the
+    // assertion below could not pass at all.
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
+  });
+
+  it("is a no-op above the phone breakpoint, where the stack stays in flow", () => {
+    mountStack({ stackHeight: 121, matches: false });
+    settleReserve();
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+  });
+
+  it("refuses to publish a non-positive measurement over the CSS seed", () => {
+    // Same protection as the observer path: a mid-unmount or `display:contents`
+    // read of 0 must leave the seed alone rather than collapse the reserve
+    // (#146 / PR #1562).
+    mountStack({ stackHeight: 0, matches: true });
+    settleReserve();
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+  });
+
+  it("stays silent before the quiet window has settled anything, even with a stack to measure", () => {
+    // The defect this guard exists for (review, PR #2929): on a cold phone load
+    // the portal's layout effect can run while responsive layout still reports
+    // the WIDE stack — observed as 200px for 15-60ms (#147). Publishing that over
+    // the CSS seed and letting the observer correct it afterwards moves content a
+    // second time, which is the tap-target swap this change removes, relocated to
+    // first paint. Before settle the hook's own path owns the reserve.
+    mountStack({ stackHeight: 200, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+  });
+
+  it("adjusts once settled, so the transient is suppressed without losing the fix", () => {
+    mountStack({ stackHeight: 200, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+    // The quiet window settles the real phone stack, and only then does a portal
+    // transition get to move it.
+    settleReserve();
+    mountStack({ stackHeight: 121, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
+  });
+
+  it("republishes a shrunk stack when the row returns to page flow", () => {
+    // The mirror of the defect: leaving the larger reserve in place after the
+    // portal releases the row would hold content 49px too low instead.
+    mountStack({ stackHeight: 121, matches: true });
+    settleReserve();
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
+    mountStack({ stackHeight: 72, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
   });
 });

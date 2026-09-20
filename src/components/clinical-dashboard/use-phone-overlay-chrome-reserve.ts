@@ -32,6 +32,66 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
 }
 
 /**
+ * Publishes the measured reserve immediately, without waiting out the geometry
+ * quiet window below.
+ *
+ * The quiet window exists to filter a *transient mis-measurement* — responsive
+ * layout briefly reporting the wide 200px stack during hydration (#147). A
+ * portal that moves a `header-collapse-addon` row out of page flow is not that:
+ * it is a discrete DOM change whose resulting geometry is correct in the very
+ * commit that causes it. Making that case wait cost 110ms of wrong layout.
+ *
+ * What that cost, measured on `/differentials/compare` at 390x844 (#CHPC5C):
+ * the page paints with the 49px mode-nav row in flow over a 72px seed, the row
+ * portals into the fixed header at ~315ms and every element rises 49px, and the
+ * reserve only republishes 121px at ~423ms. A tap landing in that window pressed
+ * "Open comparison" and released on "Edit selection" where it had just been; the
+ * browser retargeted the click to their common ancestor and the link never
+ * activated. No error, no navigation — for a clinician, a button that does
+ * nothing.
+ *
+ * Keeps both guards that matter: phone widths only, and never publish a
+ * non-positive measurement over the CSS seed.
+ */
+export function publishPhoneOverlayChromeReserveNow(): void {
+  if (typeof window === "undefined") return;
+  // Only ever ADJUSTS a reserve the quiet window has already settled; it never
+  // establishes the first one. Without this the immediate path would run during
+  // initial portal mounting on a cold load, when responsive layout can still
+  // report the wide 200px stack for 15-60ms (#147). Publishing that over the CSS
+  // seed, then having the observer correct it, moves content a second time — the
+  // same tap-target swap this whole change exists to remove, just relocated to
+  // first paint. Raised by review on PR #2929 and reproduced in
+  // tests/phone-overlay-chrome-reserve.dom.test.ts.
+  //
+  // Suppressing it before settle costs nothing: the hook's own path still owns
+  // that window exactly as it did before this change.
+  if (!hasSettledPhoneOverlayReserve) return;
+  if (!window.matchMedia(phoneMediaQuery).matches) return;
+  const measured = readPhoneOverlayChromeReservePx();
+  if (measured <= 0) return;
+  document.documentElement.style.setProperty(reserveProperty, `${measured}px`);
+}
+
+/**
+ * Whether the quiet window has committed a phone reserve that the immediate
+ * publisher may adjust. Module scope because one shell owns the hook while the
+ * portals that call the publisher are elsewhere in the tree.
+ */
+let hasSettledPhoneOverlayReserve = false;
+
+/**
+ * Exported for tests only: the publisher's precondition is otherwise invisible,
+ * and a helper that cannot actually set it would let these cases pass while
+ * proving nothing. `tests/phone-overlay-chrome-reserve.dom.test.ts` also drives
+ * the real hook once, so the production path that sets this is covered too
+ * rather than only the seam.
+ */
+export function __setPhoneOverlayReserveSettledForTests(settled: boolean): void {
+  hasSettledPhoneOverlayReserve = settled;
+}
+
+/**
  * Publishes the phone overlay header's stable height as `--phone-overlay-chrome-h`
  * so content can reserve a *constant* top clearance beneath it.
  *
@@ -124,10 +184,17 @@ export function usePhoneOverlayChromeReserve(): void {
       const stableHeight = confirmed;
       invalidatePendingConfirmation();
       root.style.setProperty(reserveProperty, `${stableHeight}px`);
+      // From here a portal may adjust this value immediately. Before it, the
+      // quiet window alone owns the reserve — see
+      // `publishPhoneOverlayChromeReserveNow`.
+      hasSettledPhoneOverlayReserve = true;
     }
 
     const syncBreakpoint = () => {
       invalidatePendingConfirmation();
+      // Either direction abandons the settled phone value: entering phone hands
+      // back to the CSS seed, leaving it hands over to the desktop `0px`.
+      hasSettledPhoneOverlayReserve = false;
       if (media.matches) {
         // A previous desktop match owns an inline `0px`. Remove it when
         // entering phone layout so the CSS seed remains authoritative until
@@ -201,6 +268,7 @@ export function usePhoneOverlayChromeReserve(): void {
       mutationObserver.disconnect();
       resizeObserver?.disconnect();
       media.removeEventListener("change", syncBreakpoint);
+      hasSettledPhoneOverlayReserve = false;
       root.style.removeProperty(reserveProperty);
     };
   }, []);

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "fb4e67fc-4076-4bc2-b466-2628b4cb506a",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A Playwright run whose own web server fails to start silently reuses another server and reports green",
+    "detail": "Observed 2026-09-20 while writing tests/ui-patient-number-field.spec.ts. The agent running scripts/run-playwright.mjs had its own webServer fail to start because a concurrent session already held the port; the runner did not stop. It proceeded against THAT other server and reported a green pass. The run was re-done cleanly afterwards and the reported result is sound, but the hazard is not the individual run — it is that a browser gate can report success without ever exercising the tree it claims to test. This is the same class of failure as a gate piped into tail (exit code masked) and as CLINICAL_HAZARD_CONTROLS_PASS printing while a named proof file had been emptied: a signal that cannot fail is worse than no signal, because it is trusted. It matters more here than in most repos because verification evidence is quoted verbatim into PR bodies and the ledger, so a contaminated run propagates as fact. NEXT: make Playwright webServer startup failure fatal rather than falling back to an already-listening port — either set reuseExistingServer:false for CI/agent runs, or have run-playwright.mjs confirm the server it connects to is the one it started (the repo already has /api/local-project-id for exactly this identity question, used by npm run ensure). Add a contract test that a failed server start exits non-zero. Note npm run ensure already solves the adjacent problem correctly and is the pattern to copy.",
+    "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); reported by the agent that wrote the #WFARS3 browser guard",
+    "issueUlid": "01M2ZNXXABJMX32ASS4ANN0W5P"
+  }
+}
