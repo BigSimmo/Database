@@ -34,11 +34,19 @@ export type FormulationReviewState = {
 /**
  * Statuses that mean a named clinician has signed the record off.
  *
- * Deliberately a closed list. Today every record in the corpus is
- * `clinical_review_required`, so nothing matches — that is the correct
- * starting state, not a gap.
+ * `"reviewed"` is the repository's established value, not a new one: the
+ * developer-area sign-off queue drops a mechanism from the pending list on
+ * exactly that string. This module originally invented its own vocabulary,
+ * which meant a mechanism signed off the normal way would vanish from the
+ * queue while its own page still read "Awaiting clinical review" — the two
+ * surfaces disagreeing about the same record. `sign-off-queue` now imports the
+ * predicate below rather than comparing the literal itself, so there is one
+ * definition and the pair cannot drift apart again.
+ *
+ * Today every record in the corpus is `clinical_review_required`, so nothing
+ * matches — that is the correct starting state, not a gap.
  */
-const REVIEWED_STATUSES = new Set(["clinically_reviewed", "clinical_review_complete"]);
+const REVIEWED_STATUSES = new Set(["reviewed"]);
 
 const AWAITING_LABEL = "Awaiting clinical review";
 const REVIEWED_LABEL = "Clinically reviewed";
@@ -47,7 +55,13 @@ function trimmed(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function isReviewedStatus(status: string | null | undefined): boolean {
+/**
+ * Whether a formulation record's own status string means "signed off".
+ *
+ * Exported so the sign-off queue and the clinician-facing pages share one
+ * answer; see `REVIEWED_STATUSES` for why that matters.
+ */
+export function isFormulationSignedOffStatus(status: string | null | undefined): boolean {
   return REVIEWED_STATUSES.has(trimmed(status).toLowerCase());
 }
 
@@ -72,7 +86,7 @@ export function mechanismReviewState(mechanism: {
   sourceStatus?: string | null;
   sourceConfidence?: string | null;
 }): FormulationReviewState {
-  if (isReviewedStatus(mechanism.reviewStatus)) {
+  if (isFormulationSignedOffStatus(mechanism.reviewStatus)) {
     return {
       reviewed: true,
       label: REVIEWED_LABEL,
@@ -104,7 +118,7 @@ export function conceptReviewState(record: {
   const review = record.review ?? {};
   const reviewer = trimmed(review.reviewer);
 
-  if (isReviewedStatus(review.status) && reviewer) {
+  if (isFormulationSignedOffStatus(review.status) && reviewer) {
     return {
       reviewed: true,
       label: REVIEWED_LABEL,

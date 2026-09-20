@@ -210,7 +210,10 @@ export function FormulationConceptPage({ record }: { record: FormulationConcept 
                 {[
                   ["Record type", record.kind === "clinical_guide_module" ? "Clinical guide module" : record.kind],
                   ["Population", record.population],
-                  ["Review", "Clinical review required. No named reviewer has signed this record off."],
+                  // Was a hardcoded sentence, so it would have kept asserting
+                  // "no named reviewer" on a record that had one. It reads the
+                  // same review state as the badge and the note now.
+                  ["Review", reviewState.label],
                 ]
                   .filter((row): row is [string, string] => Boolean(row[1]))
                   .map(([label, body]) => (

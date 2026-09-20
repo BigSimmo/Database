@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import formulationConcepts from "@/data/formulation-concepts.json";
 import formulationContent from "@/data/formulation-content.json";
+import { loadSignOffQueue } from "@/lib/developer-area/sign-off-queue";
 import { conceptReviewState, mechanismReviewState } from "@/lib/formulation-review-status";
 
 /**
@@ -46,8 +47,8 @@ describe("mechanismReviewState", () => {
     expect(state.detail).toContain("claims ungraded pending clinical review");
   });
 
-  it("recognises a signed-off status", () => {
-    const state = mechanismReviewState({ reviewStatus: "clinically_reviewed" });
+  it("recognises the repository's own signed-off value", () => {
+    const state = mechanismReviewState({ reviewStatus: "reviewed" });
     expect(state.reviewed).toBe(true);
     expect(state.label).toBe(REVIEWED);
   });
@@ -59,8 +60,8 @@ describe("mechanismReviewState", () => {
       "",
       "   ",
       "approved",
-      "reviewed",
       "sign-off complete",
+      "reviewed-ish",
       "clinical_review_required",
       "CLINICALLY_REVIEWED_PENDING",
     ];
@@ -83,7 +84,7 @@ describe("conceptReviewState", () => {
 
   it("names the reviewer once a record is signed off", () => {
     const state = conceptReviewState({
-      review: { status: "clinically_reviewed", reviewer: "Dr A. Example", preparedAt: "2026-09-14" },
+      review: { status: "reviewed", reviewer: "Dr A. Example", preparedAt: "2026-09-14" },
     });
     expect(state.reviewed).toBe(true);
     expect(state.detail).toContain("Dr A. Example");
@@ -91,7 +92,7 @@ describe("conceptReviewState", () => {
 
   it("does not honour a sign-off with no reviewer named", () => {
     for (const reviewer of [undefined, null, "", "  "]) {
-      const state = conceptReviewState({ review: { status: "clinically_reviewed", reviewer } });
+      const state = conceptReviewState({ review: { status: "reviewed", reviewer } });
       expect(state.reviewed).toBe(false);
       expect(state.label).toBe(AWAITING);
     }
@@ -100,6 +101,29 @@ describe("conceptReviewState", () => {
   it("survives a record with no review block at all", () => {
     expect(conceptReviewState({}).reviewed).toBe(false);
     expect(conceptReviewState({ review: null }).reviewed).toBe(false);
+  });
+});
+
+/**
+ * The divergence this pins was real, not hypothetical: the module first
+ * invented its own vocabulary while the sign-off queue keyed on `"reviewed"`,
+ * so a mechanism signed off the established way would have dropped off the
+ * pending queue while its own page still read "Awaiting clinical review".
+ * Both sides now call one predicate; this proves they still agree.
+ */
+describe("the sign-off queue and the clinician-facing page agree", () => {
+  it("lists exactly the mechanisms whose page says they await review", () => {
+    const family = loadSignOffQueue().families.find((entry) => entry.id === "formulation");
+    expect(family).toBeDefined();
+    const pending = new Set(family!.rows.map((row) => row.id));
+
+    for (const mechanism of formulationContent.mechanisms) {
+      const awaiting = !mechanismReviewState(mechanism).reviewed;
+      expect(
+        pending.has(mechanism.id),
+        `${mechanism.id}: queue says pending=${pending.has(mechanism.id)}, page says awaiting=${awaiting}`,
+      ).toBe(awaiting);
+    }
   });
 });
 
@@ -116,5 +140,9 @@ describe("the review state reaches both reading surfaces", () => {
     expect(source).toContain("conceptReviewState(record)");
     expect(source).toContain("<RecordReviewBadge state={reviewState} />");
     expect(source).toContain("<RecordReviewNote state={reviewState} />");
+    // The status rail used to assert "no named reviewer" as a literal string,
+    // which would have contradicted the badge on a signed-off record.
+    expect(source).toContain('["Review", reviewState.label]');
+    expect(source).not.toContain("No named reviewer has signed this record off");
   });
 });
