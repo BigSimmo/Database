@@ -1353,6 +1353,11 @@ jobs:
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
           PERF_CHANGED: ${{ needs.changes.outputs.perf_changed }}
+          # lighthouse-budget is the one draft-suppressed job whose own `if:` is decided by
+          # labels as well as scope, so the draft report needs both to avoid naming a job
+          # that actually ran.
+          LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') }}
+          SKIP_LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') }}
           CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
           PR_DRAFT: ${{ github.event.pull_request.draft == true }}
           EVENT_NAME: ${{ github.event_name }}
@@ -1554,7 +1559,22 @@ jobs:
             if [ "$UI_CHANGED" = "true" ]; then
               draft_suppressed+=("production-ui-critical" "production-ui" "ward-flow-journeys")
             fi
-            if [ "${PERF_CHANGED:-false}" = "true" ]; then draft_suppressed+=("lighthouse-budget"); fi
+            # Mirrors lighthouse-budget's own `if:`. Its schedule/workflow_dispatch arms cannot
+            # fire on a pull_request, and its push+lockfile arm needs `event_name == push`, so on
+            # a PR the job is draft-suppressed exactly when perf scope changed, the PR does not
+            # carry the `lighthouse-budget` label that runs it on drafts anyway, and it does not
+            # carry `skip-lighthouse-budget`, which skips it for a reason that is not the draft.
+            #
+            # Read bare, not as `${PERF_CHANGED:-false}`: these are always bound by the step's
+            # `env:` block above, so `set -u` firing means a binding is genuinely missing and this
+            # step should stop loudly. A default turns that into silence - the warning simply stops
+            # naming lighthouse-budget, with nothing red to say so, which is the same "absence read
+            # as coverage" defect this whole report exists to close.
+            if [ "$SKIP_LIGHTHOUSE_LABEL" != "true" ] &&
+               [ "$LIGHTHOUSE_LABEL" != "true" ] &&
+               [ "$PERF_CHANGED" = "true" ]; then
+              draft_suppressed+=("lighthouse-budget")
+            fi
             if [ "$DB_CHANGED" = "true" ]; then draft_suppressed+=("db-reset-verify"); fi
             if [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; then
               draft_suppressed+=("caring-contacts-db")
