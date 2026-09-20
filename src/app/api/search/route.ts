@@ -131,7 +131,8 @@ async function coalesceScopedSearch<T extends Record<string, unknown>>(
 ) {
   signal.throwIfAborted();
   let entry = scopedSearchInflight.get(key);
-  // Skip a flight already aborted by its last waiter (owner-catalogue pattern).
+  // Skip a flight already aborted by its last waiter (the `startFlight` pattern in
+  // `site-content/site-content-record-cache.ts`, which is where it now lives).
   if (entry?.controller.signal.aborted) {
     if (scopedSearchInflight.get(key) === entry) scopedSearchInflight.delete(key);
     entry = undefined;

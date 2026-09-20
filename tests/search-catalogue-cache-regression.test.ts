@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
  * REGRESSION GUARD for the 2026-09-09 search slowdown.
  *
  * Until that day the registry domains of universal search read their catalogue through
- * `owner-catalogue-cache` (5 s TTL, single flight, LRU). Commit b753ed2b1 replaced it with
- * `readCanonicalSiteContentRecords`, which is the right source of truth, but the cache was not
- * carried across and nothing failed. Every registry search paid a full round trip from then on,
+ * `owner-catalogue-cache` (5 s TTL, single flight, LRU; the module was deleted on 2026-09-19
+ * under issue `#BDJWAH` once its last reader had been gone for ten days — see
+ * `src/lib/site-content/site-content-record-cache.ts` for the cache that replaced it). Commit
+ * b753ed2b1 replaced it with `readCanonicalSiteContentRecords`, which is the right source of
+ * truth, but the cache was not carried across and nothing failed. Every registry search paid a full round trip from then on,
  * three per federated search and one per debounced keystroke, and catalogue search went from
  * effectively instant to visibly slow across every mode at once. It was found by reading git
  * history a week later, not by a test.

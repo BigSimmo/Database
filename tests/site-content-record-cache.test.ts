@@ -1,3 +1,6 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -467,5 +470,40 @@ describe("readSiteContentRecordsCached", () => {
       readSiteContentRecordsCached({ kind: "form", slug: null, signal: aborted, read, now: time.now }),
     ).rejects.toThrow();
     expect(read).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Tripwire on the decision recorded in the module header under "THE TTL IS THE WHOLE CONTRACT":
+ * this cache has NO publication-time invalidation, on purpose, and `clearSiteContentRecordCache`
+ * is a test seam rather than the hook for one. Issue `#BDJWAH` settled that on 2026-09-19, after
+ * the cache this one replaced spent ten days being "invalidated" by two writers whose reader had
+ * already been deleted — a control that looked like a guarantee and was not.
+ *
+ * This is not a prohibition. If a publication-time invalidation is genuinely wanted, read the
+ * four reasons in that header first — in particular that a publish makes the read report
+ * `updating` rather than changing what it serves, so clearing on publish hands readers the
+ * in-bundle seeds instead of the last good catalogue — then update the header and this test
+ * together, so the next reader inherits the reasoning rather than a bare call site.
+ */
+describe("publication-time invalidation", () => {
+  function sourceFiles(directory: string): string[] {
+    return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) return sourceFiles(path);
+      return /\.(ts|tsx)$/.test(entry.name) ? [path] : [];
+    });
+  }
+
+  it("is not wired up anywhere in src/, and the header says why", () => {
+    const root = resolve(process.cwd(), "src");
+    const owner = resolve(root, "lib/site-content/site-content-record-cache.ts");
+    const callers = sourceFiles(root)
+      .filter((path) => resolve(path) !== owner)
+      .filter((path) => readFileSync(path, "utf8").includes("clearSiteContentRecordCache"))
+      .map((path) => relative(process.cwd(), path));
+
+    expect(callers).toEqual([]);
+    expect(readFileSync(owner, "utf8")).toContain("THERE IS DELIBERATELY NO PUBLICATION-TIME INVALIDATION");
   });
 });

@@ -2,6 +2,7 @@ import { CircleAlert, DatabaseBackup, RefreshCw, Square, WifiOff } from "lucide-
 import { UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { cn, EmptyState, primaryControl } from "@/components/ui-primitives";
+import { catalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 
 export function SystemNotice({
   demoMode,
@@ -66,7 +67,12 @@ export function RetainedSnapshotNotice({ className }: { className?: string }) {
     <UtilityDrawer
       icon={DatabaseBackup}
       title="Retained copy"
-      summary="The live catalogue did not answer. Showing the copy stored with this app."
+      // One phrase, not two. The count band above this notice says
+      // `catalogueDegradedNotice` and so does every other surface that reports a
+      // seed-served list; a second phrasing here would let the same fact read as
+      // two different problems. The drawer keeps the part the band cannot carry —
+      // what to do about it — rather than restating the fault in its own words.
+      summary={`The live catalogue did not answer, so this list ${catalogueDegradedNotice}.`}
       mobileSummary="Retained copy"
       className={className}
     >

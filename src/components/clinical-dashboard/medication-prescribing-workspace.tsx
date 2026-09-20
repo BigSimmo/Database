@@ -656,6 +656,10 @@ function MedicationResults({
           catalog.error ? "error" : initialCatalogLoading ? "loading" : catalogRefetching ? "refetching" : "ready"
         }
         faultBody={catalog.error ?? undefined}
+        // `/api/medications` reports a seed-served catalogue as `retainedSnapshot`, and until
+        // now only the drawer below said so — a reader scanning the pinned count line was given
+        // a confident number with nothing to say the list behind it may lag what was published.
+        catalogueDegraded={Boolean(catalog.data?.retainedSnapshot)}
         filterLabel="Filter medication results"
         // A compact badged trigger, so it shares the count line.
         mobileControlsPlacement="inline"

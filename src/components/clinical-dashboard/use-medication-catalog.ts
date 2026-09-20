@@ -57,7 +57,131 @@ type AsyncState<T> = {
 /** Match universal typeahead debounce so prescribing keystrokes coalesce. */
 const catalogDebounceMs = 250;
 
-async function fetchJson<T>(url: string, headers: HeadersInit | undefined, signal: AbortSignal): Promise<T> {
+type JsonRecord = Record<string, unknown>;
+
+function jsonObject(value: unknown): JsonRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
+}
+
+function optionalBoolean(value: unknown) {
+  return value === undefined || typeof value === "boolean";
+}
+
+function optionalString(value: unknown) {
+  return value === undefined || typeof value === "string";
+}
+
+/**
+ * Envelope keys `/api/medications` can send. The allow-list is the load-bearing half of this
+ * parser: a key the route renames or stops sending is what made the 2026-09-16 outage silent,
+ * because a blind cast reports a response that no longer carries `retainedSnapshot` as a
+ * perfectly healthy catalogue. Rejecting the unknown key instead surfaces as a visible fault.
+ */
+const catalogResponseKeys = [
+  "records",
+  "matches",
+  "interpretation",
+  "total",
+  "governance",
+  "demoMode",
+  "publicAccess",
+  "retainedSnapshot",
+] as const;
+
+const interpretationKeys = ["correctedQuery", "corrections", "appliedExpansions"] as const;
+
+function hasOnlyKnownKeys(value: JsonRecord, keys: readonly string[]) {
+  return Object.keys(value).every((key) => keys.includes(key));
+}
+
+/**
+ * Records and matches are checked at identity depth only, never key-exhaustively.
+ * `records` on the canonical path is the database's own `render_payload`, so a published record
+ * may legitimately carry fields this client has never heard of; rejecting those would blank the
+ * mode over a harmless publication. What must hold is that each entry is an object the UI can
+ * key and label.
+ */
+function medicationRecordShape(value: unknown) {
+  const candidate = jsonObject(value);
+  return Boolean(candidate && typeof candidate.slug === "string" && typeof candidate.name === "string");
+}
+
+function medicationMatchShape(value: unknown) {
+  const candidate = jsonObject(value);
+  return Boolean(
+    candidate &&
+    medicationRecordShape(candidate.medication) &&
+    jsonObject(candidate.result) &&
+    typeof candidate.score === "number" &&
+    Array.isArray(candidate.reasons),
+  );
+}
+
+function governanceShape(value: unknown) {
+  const candidate = jsonObject(value);
+  if (!candidate) return false;
+  return Object.values(candidate).every((entry) => {
+    const governance = jsonObject(entry);
+    return Boolean(
+      governance && typeof governance.sourceStatus === "string" && typeof governance.validationStatus === "string",
+    );
+  });
+}
+
+function interpretationShape(value: unknown) {
+  const candidate = jsonObject(value);
+  if (!candidate || !hasOnlyKnownKeys(candidate, interpretationKeys)) return false;
+  return (
+    optionalString(candidate.correctedQuery) &&
+    (candidate.corrections === undefined || Array.isArray(candidate.corrections)) &&
+    (candidate.appliedExpansions === undefined ||
+      (Array.isArray(candidate.appliedExpansions) &&
+        candidate.appliedExpansions.every((entry) => typeof entry === "string")))
+  );
+}
+
+/**
+ * Fail-closed response boundary for `/api/medications`, in the spirit of
+ * `parseRegistryListResponse`: an exact envelope rather than Zod, which the search shell must
+ * not carry. Returns null for anything that does not match, and the caller turns that into a
+ * visible error — the one outcome the old `as T` cast could never produce.
+ */
+export function parseMedicationCatalogResponse(value: unknown): MedicationCatalogResponse | null {
+  const candidate = jsonObject(value);
+  if (!candidate || !hasOnlyKnownKeys(candidate, catalogResponseKeys)) return null;
+  if (!Array.isArray(candidate.records) || !candidate.records.every(medicationRecordShape)) return null;
+  if (typeof candidate.total !== "number" || !Number.isFinite(candidate.total) || candidate.total < 0) return null;
+  if (
+    candidate.matches !== undefined &&
+    (!Array.isArray(candidate.matches) || !candidate.matches.every(medicationMatchShape))
+  )
+    return null;
+  if (candidate.interpretation !== undefined && !interpretationShape(candidate.interpretation)) return null;
+  if (candidate.governance !== undefined && !governanceShape(candidate.governance)) return null;
+  if (!optionalBoolean(candidate.demoMode) || !optionalBoolean(candidate.publicAccess)) return null;
+  if (!optionalBoolean(candidate.retainedSnapshot)) return null;
+  return candidate as unknown as MedicationCatalogResponse;
+}
+
+function parseMedicationDetailResponse(value: unknown): MedicationDetailResponse | null {
+  const candidate = jsonObject(value);
+  if (!candidate || !hasOnlyKnownKeys(candidate, ["record", "governance", "demoMode", "publicAccess"])) return null;
+  if (!medicationRecordShape(candidate.record)) return null;
+  if (candidate.governance !== undefined) {
+    const governance = jsonObject(candidate.governance);
+    if (!governance || typeof governance.sourceStatus !== "string" || typeof governance.validationStatus !== "string") {
+      return null;
+    }
+  }
+  return optionalBoolean(candidate.demoMode) ? (candidate as unknown as MedicationDetailResponse) : null;
+}
+
+async function fetchJson<T>(
+  url: string,
+  headers: HeadersInit | undefined,
+  signal: AbortSignal,
+  parse: (value: unknown) => T | null,
+): Promise<T> {
   // Use the default cache mode (not `no-store`) so public responses honor the
   // API's `public, max-age=300, s-maxage=3600, stale-while-revalidate` headers.
   // Owner responses are served `private, no-store` with `Vary: Authorization`,
@@ -67,7 +191,9 @@ async function fetchJson<T>(url: string, headers: HeadersInit | undefined, signa
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`);
   }
-  return (await response.json()) as T;
+  const parsed = parse(await response.json());
+  if (!parsed) throw new Error("The medication catalogue returned an unexpected response.");
+  return parsed;
 }
 
 export function useMedicationCatalog(
@@ -124,7 +250,7 @@ export function useMedicationCatalog(
     const url = suffix ? `/api/medications?${suffix}` : "/api/medications";
 
     const timer = window.setTimeout(() => {
-      fetchJson<MedicationCatalogResponse>(url, authorizationHeader, controller.signal)
+      fetchJson(url, authorizationHeader, controller.signal, parseMedicationCatalogResponse)
         .then((data) => {
           if (!controller.signal.aborted && isCurrentRequest()) setState({ data, loading: false, error: null });
         })
@@ -177,10 +303,11 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
       return;
     }
     const controller = new AbortController();
-    fetchJson<MedicationDetailResponse>(
+    fetchJson(
       `/api/medications/${encodeURIComponent(normalized)}`,
       authorizationHeader,
       controller.signal,
+      parseMedicationDetailResponse,
     )
       .then((data) => {
         if (!controller.signal.aborted) setState({ data, loading: false, error: null });

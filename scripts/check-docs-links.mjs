@@ -278,7 +278,14 @@ const SCOPED_ALLOWLIST = new Map([
     // Row #138/#160, RESOLVED 2026-07-31: "CI Triage ships inert pending a repo variable" /
     // "ci-triage.yml enables by default". The workflow existed and was enabled at close time;
     // it was deleted 2026-09-17 as part of the automations-removal sweep. Frozen historical row.
-    new Set([".github/workflows/ci-triage.yml"]),
+    //
+    // Row #BDJWAH names `src/lib/owner-catalogue-cache.ts` as the module whose only search-path
+    // reader was removed on 2026-09-09 — the commit behind the seven-day registry-search outage.
+    // The module was retired under that row on 2026-09-19, which is the row doing its job, not a
+    // stale reference: its whole subject is a file that should not exist. Rewriting the row to a
+    // path that resolves would delete the sentence's subject, and the ledger write-discipline
+    // guard forbids editing the row at all.
+    new Set([".github/workflows/ci-triage.yml", "src/lib/owner-catalogue-cache.ts"]),
   ],
   [
     "docs/plans/tooling-activation-implementation-plan.md",
