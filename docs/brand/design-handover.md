@@ -38,23 +38,23 @@ rebuilt if the published copy is ever lost.
 
 Served from `public/brand/`, so each file's public address is its path under `/brand/`.
 
-| File                                      | What it is                                          |
-| ----------------------------------------- | --------------------------------------------------- |
-| `psychsift-mark.svg`                      | The mark, theme-aware                               |
-| `psychsift-mark-blue.svg`                 | The mark, flat brand blue                           |
-| `psychsift-mark-light.svg`                | The mark for dark grounds                           |
-| `psychsift-glyph-navy.svg`                | Bare symbol, no tile — navy                         |
-| `psychsift-glyph-white.svg`               | Bare symbol, no tile — white                        |
-| `psychsift-glyph-mono.svg`                | Bare symbol, single colour                          |
-| `psychsift-wordmark.svg`                  | Wordmark alone                                      |
-| `psychsift-lockup-horizontal.svg`         | Mark + name, horizontal                             |
-| `psychsift-lockup-horizontal-tagline.svg` | Horizontal with tagline — **stale, see Open items** |
-| `psychsift-lockup-horizontal-reverse.svg` | Horizontal for dark grounds                         |
-| `psychsift-lockup-stacked.svg`            | Mark above name                                     |
-| `psychsift-favicon.svg`                   | Small-size cut, browser tab                         |
-| `psychsift-mark-maskable.svg`             | Android maskable icon                               |
-| `psychsift-mark-1024.png`                 | Raster, 1024 px                                     |
-| `psychsift-mark-maskable-1024.png`        | Raster maskable, 1024 px                            |
+| File                                      | What it is                                             |
+| ----------------------------------------- | ------------------------------------------------------ |
+| `psychsift-mark.svg`                      | The mark, theme-aware                                  |
+| `psychsift-mark-blue.svg`                 | The mark, flat brand blue                              |
+| `psychsift-mark-light.svg`                | The mark for dark grounds                              |
+| `psychsift-glyph-navy.svg`                | Bare symbol, no tile — navy                            |
+| `psychsift-glyph-white.svg`               | Bare symbol, no tile — white                           |
+| `psychsift-glyph-mono.svg`                | Bare symbol, single colour                             |
+| `psychsift-wordmark.svg`                  | Wordmark alone                                         |
+| `psychsift-lockup-horizontal.svg`         | Mark + name, horizontal                                |
+| `psychsift-lockup-horizontal-tagline.svg` | Horizontal with the strapline, FROM QUESTION TO SOURCE |
+| `psychsift-lockup-horizontal-reverse.svg` | Horizontal for dark grounds                            |
+| `psychsift-lockup-stacked.svg`            | Mark above name                                        |
+| `psychsift-favicon.svg`                   | Small-size cut, browser tab                            |
+| `psychsift-mark-maskable.svg`             | Android maskable icon                                  |
+| `psychsift-mark-1024.png`                 | Raster, 1024 px                                        |
+| `psychsift-mark-maskable-1024.png`        | Raster maskable, 1024 px                               |
 
 ## The geometry — authoritative, do not redraw by hand
 
@@ -194,6 +194,9 @@ not match it.
 
 - Clear space on every side is at least **a quarter of the mark's height** — of type, of image
   edges, of other marks.
+- The strapline lockup sets the line as **FROM QUESTION TO SOURCE**, tracked so it finishes flush
+  with the wordmark at both ends. It is outlined artwork — regenerate it with
+  `docs/brand/build-tagline-lockup.py` rather than editing the path by hand.
 - The symbol is the primary asset and stands alone wherever the name is already present.
 - Where the name is needed, the mark leads and the strapline sits under it — never beside it.
 - Do not re-draw the arcs, re-space the cut, or move the point off the throat centre.
@@ -230,8 +233,6 @@ ever disagree with the CSS tokens.
    cool grey `#F2F4F7`. Both are in use and they have not been reconciled.
 2. **Two wordmark faces.** The SVG lockups carry outlined Inter Display SemiBold; the application
    sets its wordmark live in Geist.
-3. **`psychsift-lockup-horizontal-tagline.svg` is stale.** It still carries the retired line
-   "CLARITY. EVIDENCE. BETTER CARE." rather than "From question to source".
-4. **No print specification.** No CMYK or Pantone equivalents, no minimum print size, no one-colour
+3. **No print specification.** No CMYK or Pantone equivalents, no minimum print size, no one-colour
    reproduction guidance.
-5. **No motion specification.**
+4. **No motion specification.**

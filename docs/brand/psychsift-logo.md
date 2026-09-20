@@ -286,6 +286,40 @@ the owner on 2026-08-28. Fine points thin both strokes, they belong with a curve
 than a straight one, and they are the first thing to disappear at 16 px. Do not revisit this without
 a reason those three do not already answer.
 
+## The strapline lockup
+
+`psychsift-lockup-horizontal-tagline.svg` carries the strapline as **FROM QUESTION TO SOURCE**.
+It is outlined letterforms, not live text, so changing the words means re-outlining them.
+`build-tagline-lockup.py` in this directory does that, and rewrites nothing else in the file — the
+tile, the mark and the wordmark are spliced through byte for byte:
+
+```bash
+python3 docs/brand/build-tagline-lockup.py            # rewrite the lockup
+python3 docs/brand/build-tagline-lockup.py --check     # fail if it is stale
+```
+
+How the line is set, measured off the artwork it replaced:
+
+|            |                                                                             |
+| ---------- | --------------------------------------------------------------------------- |
+| Face       | Inter, weight 600, from `fonts/inter-latin.woff2`                           |
+| Cap height | 25.8 units, unchanged                                                       |
+| Baseline   | y 229.3914, unchanged                                                       |
+| Width      | tracked so the ink finishes flush with the wordmark at both ends — 614.4900 |
+| Colour     | `#2563EB`                                                                   |
+
+**Flush is the constraint, and tracking is what absorbs a change of words.** The line it replaced
+was 31 characters and needed no tracking at all to finish flush; the new one is 23 and needs
++0.135 em. Setting it in sentence case instead would need +0.258 em, which opens gaps between
+lowercase letters wide enough to stop the line reading as words — which is why this lockup keeps
+its tracked caps while the in-app strapline stays sentence case at 12 px.
+
+**The font is a substitution, and it is visible if you measure for it.** The original line was set
+in Inter _Display_ SemiBold, which this repository does not ship; the re-outlined one uses the Inter
+text cut that it does. At the same cap height the text cut runs about 1.1% wider and its round
+letters overshoot slightly less. Tracking absorbs the width, and nothing else in the file moved. If
+Inter Display is ever added here, re-run the script against it rather than editing the path.
+
 ## The design canvas and the outward handover
 
 Two companion documents exist for work that leaves this repository:
@@ -310,8 +344,5 @@ updated in the same change as the source of truth.
 - **The brand carries two wordmark faces.** The lockup SVGs embed outlined Inter Display SemiBold;
   the application sets its wordmark live in Geist. Outlined artwork is unaffected by what the
   application loads, but the two do not match when they sit near each other.
-- **The tagline lockup is stale.** The strapline settled as "From question to source", and the
-  header lockup in the application uses it, but `psychsift-lockup-horizontal-tagline.svg` still
-  carries the retired brand-sheet line "CLARITY. EVIDENCE. BETTER CARE."
 - **There is no print or motion specification** — no CMYK or Pantone equivalents, no minimum print
   size, no one-colour reproduction guidance, and no motion rules.
