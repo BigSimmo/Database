@@ -47,9 +47,7 @@ describe("Customise", () => {
     const firstAfterDown = within(screen.getByTestId("cme-module-order")).getAllByRole("listitem")[0]?.textContent;
     expect(firstAfterDown).toContain(cmeDashboardModuleLabels["routines-due"]);
 
-    await user.click(
-      screen.getByRole("button", { name: `Move ${cmeDashboardModuleLabels.requirements} up` }),
-    );
+    await user.click(screen.getByRole("button", { name: `Move ${cmeDashboardModuleLabels.requirements} up` }));
 
     const firstAfterUp = within(screen.getByTestId("cme-module-order")).getAllByRole("listitem")[0]?.textContent;
     expect(firstAfterUp).toContain(cmeDashboardModuleLabels.requirements);

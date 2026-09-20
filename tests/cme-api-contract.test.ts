@@ -68,7 +68,10 @@ describe("the CME API", () => {
       }
       for (const match of source.matchAll(/^export\s*\{([^}]+)\}/gm)) {
         for (const entry of match[1]!.split(",")) {
-          const name = entry.trim().split(/\s+as\s+/)[0]?.trim();
+          const name = entry
+            .trim()
+            .split(/\s+as\s+/)[0]
+            ?.trim();
           if (name) exportedNames.add(name);
         }
       }
@@ -187,9 +190,10 @@ describe("CME entry PATCH schema (cmeEntryUpdateSchema)", () => {
       const result = cmeEntryUpdateSchema.safeParse(partial);
       expect(result.success, `omitting ${field} should be rejected`).toBe(false);
       if (!result.success) {
-        expect(result.error.issues.some((issue) => issue.path.join(".") === field), `${field} should be the failing path`).toBe(
-          true,
-        );
+        expect(
+          result.error.issues.some((issue) => issue.path.join(".") === field),
+          `${field} should be the failing path`,
+        ).toBe(true);
       }
     }
   });
@@ -248,9 +252,9 @@ describe("CME entry POST/PATCH shared schema (cmeEntryCreateSchema)", () => {
   });
 
   it("rejects non-positive allocation hours and an unknown category", () => {
-    expect(cmeEntryCreateSchema.safeParse({ ...minimal, allocations: [{ category: "reviewing", hours: 0 }] }).success).toBe(
-      false,
-    );
+    expect(
+      cmeEntryCreateSchema.safeParse({ ...minimal, allocations: [{ category: "reviewing", hours: 0 }] }).success,
+    ).toBe(false);
     expect(
       cmeEntryCreateSchema.safeParse({ ...minimal, allocations: [{ category: "unknown", hours: 1 }] }).success,
     ).toBe(false);
@@ -311,7 +315,9 @@ describe("CME year route PUT schema (cmeYearConfirmSchema, local to the route)",
   it("fidelity: the route's actual source still declares these same constraints", () => {
     expect(year).toMatch(/year:\s*z\.number\(\)\.int\(\)\.min\(2000\)\.max\(2100\)/);
     expect(year).toMatch(/totalHours:\s*z\.number\(\)\.positive\(\)\.max\(500\)/);
-    expect(year).toMatch(/confirmedOn:\s*z\.string\(\)\.regex\(\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/, "Use a YYYY-MM-DD date\."\)/);
+    expect(year).toMatch(
+      /confirmedOn:\s*z\.string\(\)\.regex\(\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/, "Use a YYYY-MM-DD date\."\)/,
+    );
     expect(year).toMatch(/confirmedSource:\s*z\.string\(\)\.trim\(\)\.min\(1\)\.max\(200\)/);
   });
 

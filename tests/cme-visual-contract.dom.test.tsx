@@ -124,16 +124,12 @@ function cmeScreens() {
     {
       name: "dashboard — early January, no pace",
       render: () =>
-        render(
-          <CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={new Date("2026-01-06T02:00:00Z")} />,
-        ),
+        render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={new Date("2026-01-06T02:00:00Z")} />),
     },
     {
       name: "dashboard — closing fortnight",
       render: () =>
-        render(
-          <CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={new Date("2026-12-28T02:00:00Z")} />,
-        ),
+        render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={new Date("2026-12-28T02:00:00Z")} />),
     },
     {
       name: "log — populated",
@@ -173,11 +169,13 @@ function cmeScreens() {
     },
     {
       name: "routines — none added yet",
-      render: () => render(<CmeRoutinesPage routines={[]} now={DEMO_CME_INSTANT} onLogRoutine={vi.fn()} onNewRoutine={vi.fn()} />),
+      render: () =>
+        render(<CmeRoutinesPage routines={[]} now={DEMO_CME_INSTANT} onLogRoutine={vi.fn()} onNewRoutine={vi.fn()} />),
     },
     {
       name: "programme",
-      render: () => render(<CmeProgrammePage set={DEMO_CME_YEAR} onReconfirm={vi.fn()} onAddCollegeRequirement={vi.fn()} />),
+      render: () =>
+        render(<CmeProgrammePage set={DEMO_CME_YEAR} onReconfirm={vi.fn()} onAddCollegeRequirement={vi.fn()} />),
     },
     {
       name: "setup — targets not yet confirmed",

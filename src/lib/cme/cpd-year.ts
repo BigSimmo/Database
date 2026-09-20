@@ -78,20 +78,7 @@ const FULL_MONTH_NAMES = [
   "December",
 ] as const;
 
-const SHORT_MONTH_NAMES = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
+const SHORT_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 /**
  * Renders a Perth calendar date (`YYYY-MM-DD`) as "19 September 2026".

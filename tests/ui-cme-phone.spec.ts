@@ -83,15 +83,17 @@ test.describe("CME on a phone", () => {
       await page.goto(route);
       const shortControls = await page.evaluate(() => {
         const nodes = [...document.querySelectorAll<HTMLElement>("button, a[href], [role='button']")];
-        return nodes
-          .map((node) => ({ node, rect: node.getBoundingClientRect() }))
-          // A zero-size box is not rendered (e.g. sits inside a closed
-          // disclosure) rather than an undersized tap target.
-          .filter(({ rect }) => rect.height > 0 && rect.height < 48)
-          .map(({ node, rect }) => ({
-            label: node.textContent?.trim() || node.getAttribute("aria-label") || node.tagName,
-            height: Math.round(rect.height),
-          }));
+        return (
+          nodes
+            .map((node) => ({ node, rect: node.getBoundingClientRect() }))
+            // A zero-size box is not rendered (e.g. sits inside a closed
+            // disclosure) rather than an undersized tap target.
+            .filter(({ rect }) => rect.height > 0 && rect.height < 48)
+            .map(({ node, rect }) => ({
+              label: node.textContent?.trim() || node.getAttribute("aria-label") || node.tagName,
+              height: Math.round(rect.height),
+            }))
+        );
       });
       expect(shortControls, `${route} has a control under 48px tall`).toEqual([]);
     }

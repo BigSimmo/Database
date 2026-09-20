@@ -27,8 +27,8 @@ export function CmePlanPage() {
     <main id="main-content" className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Development plan</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
-        Required every year, and worth hours in its own right — you write it once, near the start of the year, and
-        check it as you go.
+        Required every year, and worth hours in its own right — you write it once, near the start of the year, and check
+        it as you go.
       </p>
 
       <div className="mt-6">
