@@ -319,7 +319,7 @@ export function CmeDashboard({
   };
 
   return (
-    <main id="main-content" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-xl font-semibold text-[color:var(--text)]">CME</h1>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>

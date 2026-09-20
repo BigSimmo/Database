@@ -27,7 +27,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
  * navigation cannot flip the shell into dock reserve mid-transition.
  */
 export const standaloneModeHomePaths = [
-  // The two modes that still own a home of their own. Every other mode uses the
+  // The four modes that still own a home of their own. Every other mode uses the
   // shared home at `/?mode=<id>`, whose composer the dashboard owns; their bare
   // paths redirect and render nothing to reserve geometry for
   // (`consolidatedModeHomePaths`, plus `/medications` through its own bespoke
@@ -41,7 +41,7 @@ export const standaloneModeHomePaths = [
   "/favourites",
   "/tools",
   // On Call's dashboard, which replaced its redirect stub. It qualifies on the
-  // same test as the two above and the one the comment below states: its path
+  // same test as the two above: its path
   // renders a body. It matters more here than for either of them, because this
   // mode declares no search surface — without it the mode pill would retarget a
   // composer On Call has nowhere to send.

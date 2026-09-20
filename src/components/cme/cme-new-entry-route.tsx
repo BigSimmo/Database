@@ -54,7 +54,7 @@ export function CmeNewEntryRoute() {
   }
 
   return (
-    <main id="main-content" className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log an activity</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         What it was, when, how long it ran for, and how those hours split across categories. Nothing is recorded until

@@ -66,7 +66,7 @@ export function CmeRoutinesPage({ routines = [], now, onLogRoutine, onNewRoutine
   }
 
   return (
-    <main id="main-content" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Routines</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         The things you do every month or term. Log one whenever it happens.

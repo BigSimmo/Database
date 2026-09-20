@@ -198,7 +198,7 @@ export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: 
   ];
 
   return (
-    <main id="main-content" data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
 

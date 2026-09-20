@@ -69,7 +69,7 @@ export function CmeEntryPage({
 
   if (!entry) {
     return (
-      <main id="main-content" data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+      <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
         <EmptyState
           testId="cme-entry-not-found"
           icon={FileQuestion}
@@ -109,7 +109,7 @@ export function CmeEntryPage({
   const totalHours = totalAllocatedHours([entry]);
 
   return (
-    <main id="main-content" data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <Link
         href="/cme/log"
         className="inline-flex min-h-tap items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]"

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test } from "playwright/test";
 
 /**
  * 19 September 2026, 10:00 Perth. Every figure the CME screens derive from
@@ -26,39 +26,6 @@ const FROZEN = new Date("2026-09-19T02:00:00Z");
  */
 export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/programme"] as const;
 
-/**
- * `/cme/programme` and `/cme/setup` render through `InformationPageShell`,
- * which adds no `id="main-content"` of its own — the standalone app shell's
- * own wrapper is the only source of that id on those two routes, so it
- * appears exactly once. Every other CME route ALSO renders its own inner
- * `<main id="main-content">` inside that same shell wrapper, which duplicates
- * the id (confirmed against the live dev server, 2026-09-20 — a real,
- * pre-existing gap in the routes this task does not own and cannot edit).
- * `.first()` is what keeps every use of this locator here, and in
- * `tests/ui-visual-artifacts.spec.ts`'s `attachViewportScreenshot`, safe
- * against a Playwright strict-mode failure rather than a workaround for a
- * defect this file introduces.
- *
- * The same duplication reaches every `data-testid` inside the page, not only
- * `#main-content` — confirmed against the isolated production build this
- * suite itself runs against, 2026-09-20: `cme-total-hours` and
- * `cme-module-order` each resolved to two elements at runtime even though the
- * server-rendered HTML (`curl`) carries only one. It is a client-side
- * hydration artefact, not a server-render defect, and it is outside this
- * task's boundary (the shared standalone shell in
- * `src/components/clinical-dashboard/global-search-shell.tsx` is not a CME
- * file). Every testid lookup in this file goes through `.first()` for the
- * same reason `#main-content` already does.
- */
-function mainContent(page: Page) {
-  return page.locator("#main-content").first();
-}
-
-/** See the note on `mainContent` above: every testid in this mode can resolve twice at runtime. */
-function byTestId(page: Page, testId: string) {
-  return page.getByTestId(testId).first();
-}
-
 const CLINICAL_STATUS_CLASS =
   /\b(?:bg|text|border|ring|fill|stroke)-(?:red|amber|green|orange|rose|emerald|yellow)-[0-9]/;
 
@@ -66,27 +33,31 @@ test.describe("CME on a phone", () => {
   test.use({ viewport: { width: 390, height: 820 } });
 
   test.beforeEach(async ({ page }) => {
-    await page.clock.install({ time: FROZEN });
-    await page.clock.pauseAt(FROZEN);
+    // `setFixedTime` pins `new Date()` to FROZEN without touching
+    // `requestAnimationFrame`. `page.clock.install()` + `pauseAt()` also
+    // freezes rAF, which stalls React 19's rAF-deferred Suspense cleanup and
+    // strands a hidden duplicate copy of the page in the DOM — do not go
+    // back to that combination.
+    await page.clock.setFixedTime(FROZEN);
   });
 
   test("the dashboard leads with position, pace and one action", async ({ page }) => {
     await page.goto("/cme");
-    await expect(mainContent(page)).toBeVisible();
+    await expect(page.locator("#main-content")).toBeVisible();
     // `toContainText`, not `toHaveText`: the testid sits on the wrapping <p>,
     // whose full text is "32.5of 50 hours logged" — the figure plus its own
     // muted "of N hours logged" sibling span, with no space between them in
     // markup. An exact-text match would pin that whole sentence instead of
     // the one figure this assertion is actually about.
-    await expect(byTestId(page, "cme-total-hours")).toContainText("32.5");
-    await expect(byTestId(page, "cme-pace-sentence")).toContainText("by 31 December");
-    await expect(byTestId(page, "cme-next-action")).toBeVisible();
+    await expect(page.getByTestId("cme-total-hours")).toContainText("32.5");
+    await expect(page.getByTestId("cme-pace-sentence")).toContainText("by 31 December");
+    await expect(page.getByTestId("cme-next-action")).toBeVisible();
   });
 
   test("every baseline route renders its main region at 390px with no sideways scroll", async ({ page }) => {
     for (const route of CME_BASELINE_ROUTES) {
       await page.goto(route);
-      await expect(mainContent(page)).toBeVisible();
+      await expect(page.locator("#main-content")).toBeVisible();
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow, `${route} scrolls sideways at 390px`).toBeLessThanOrEqual(0);
     }
@@ -137,7 +108,7 @@ test.describe("CME on a phone", () => {
 
   test("the customise screen's reorder controls are real buttons a keyboard can reach and use", async ({ page }) => {
     await page.goto("/cme/customise");
-    const list = byTestId(page, "cme-module-order");
+    const list = page.getByTestId("cme-module-order");
     await expect(list).toBeVisible();
 
     const firstItemLabel = list.getByRole("listitem").first();

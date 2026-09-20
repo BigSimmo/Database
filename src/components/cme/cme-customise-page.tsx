@@ -28,7 +28,7 @@ export function CmeCustomisePage() {
   const hiddenModuleIds = cmeDashboardModuleIds.filter((moduleId) => !moduleIds.includes(moduleId));
 
   return (
-    <main id="main-content" className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Customise your dashboard</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         Choose what shows below your hours, your pace and your next action, and put it in the order you want.
