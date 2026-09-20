@@ -7,6 +7,9 @@ import {
   daysElapsedInCpdYear,
   daysInCpdYear,
   daysRemainingInCpdYear,
+  formatCalendarDateLong,
+  formatCalendarDateShort,
+  formatCalendarMonthLabel,
   paceProjection,
   perthCalendarDate,
 } from "@/lib/cme/cpd-year";
@@ -92,5 +95,34 @@ describe("pace", () => {
       year: 2026,
     });
     expect(projection).toEqual({ projectedHours: 45.28, shortfallHours: 4.72 });
+  });
+});
+
+/**
+ * All three formatters below are plain string arithmetic on an already-known
+ * Perth calendar date — never `Date.UTC` plus `Intl.DateTimeFormat` — for the
+ * same reason `formatRoutineDueDate` in `routines.ts` gives: the value is
+ * already the correct Perth calendar day, so routing it through an instant
+ * and re-projecting it through a time zone is a needless round trip a
+ * runtime whose local zone sits behind UTC could roll onto the wrong day.
+ * These three tests would not catch a `Date.UTC` regression by running slow
+ * or flaky — they would catch it by being logically incapable of drifting
+ * with the reader's local clock, since there is no clock involved at all.
+ */
+describe("calendar date formatting stays plain string arithmetic", () => {
+  it("formats a long calendar date with the full month name and year", () => {
+    expect(formatCalendarDateLong("2026-09-19")).toBe("19 September 2026");
+    expect(formatCalendarDateLong("2026-01-01")).toBe("1 January 2026");
+    expect(formatCalendarDateLong("2026-12-31")).toBe("31 December 2026");
+  });
+
+  it("formats a short calendar date with the abbreviated month and no year", () => {
+    expect(formatCalendarDateShort("2026-09-16")).toBe("16 Sep");
+    expect(formatCalendarDateShort("2026-01-01")).toBe("1 Jan");
+  });
+
+  it("formats a YYYY-MM month key as a month name and year", () => {
+    expect(formatCalendarMonthLabel("2026-09")).toBe("September 2026");
+    expect(formatCalendarMonthLabel("2025-12")).toBe("December 2025");
   });
 });

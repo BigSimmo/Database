@@ -46,6 +46,10 @@ export const standaloneModeHomePaths = [
   // mode declares no search surface — without it the mode pill would retarget a
   // composer On Call has nowhere to send.
   "/on-call",
+  // CME's dashboard, for exactly the reason On Call's is here: its path renders
+  // a body, and the mode declares no search surface, so without it the mode pill
+  // would retarget a composer CME has nowhere to send.
+  "/cme",
 ] as const;
 
 /**
@@ -92,6 +96,11 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // land the reader on a page that ignores it.
     case "on-call":
       return "/on-call";
+    // The dashboard at `/cme`, on the same reasoning as On Call above: no
+    // results surface, so a retargeted composer would accept a query and land
+    // the reader on a page that ignores it.
+    case "cme":
+      return "/cme";
     default:
       return null;
   }
@@ -155,6 +164,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/calculators",
   "/tools",
   "/on-call",
+  "/cme",
 ] as const;
 
 /**

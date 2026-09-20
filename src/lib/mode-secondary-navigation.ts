@@ -142,6 +142,26 @@ export const modeSecondaryNavigationRegistry = {
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
   ],
+  // CME's destinations. Like On Call's, they are registered here so the mode
+  // pill's section level can open them, but CME is deliberately absent from
+  // `MODE_NAV_ADOPTED_MODES` below: no page mounts the shared bar, because the
+  // pill already opens exactly these and a rail repeating them would be two
+  // controls doing one job.
+  //
+  // "This year" leads because the dashboard is the page the mode is judged by.
+  // "Set up" is last and is the only entry not named in the mode's plan: it is
+  // here because `/cme/setup` is a real screen with no other inbound link, and
+  // an unreachable route is an orphan (`tests/route-reachability.test.ts`).
+  // `/cme/customise` is NOT here — it is reached from the dashboard's own
+  // "Customise" control, which is where the owner is when they want it.
+  cme: [
+    { id: "year", label: "This year", href: "/cme" },
+    { id: "log", label: "Log", href: "/cme/log" },
+    { id: "routines", label: "Routines", href: "/cme/routines" },
+    { id: "plan", label: "Plan", href: "/cme/plan" },
+    { id: "programme", label: "Programme", href: "/cme/programme" },
+    { id: "setup", label: "Set up", href: "/cme/setup" },
+  ],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];
@@ -285,6 +305,17 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     // stub, and a prefix test here would mark Tonight current on every section
     // route as well as its own.
     if (pathname === "/on-call") return "tonight";
+    return null;
+  }
+  if (modeId === "cme") {
+    if (pathname === "/cme/log") return "log";
+    if (pathname === "/cme/routines") return "routines";
+    if (pathname === "/cme/plan") return "plan";
+    if (pathname === "/cme/programme") return "programme";
+    if (pathname === "/cme/setup") return "setup";
+    // Exact match only, for the same reason On Call's home is: a prefix test
+    // here would mark This year current on every CME route as well as its own.
+    if (pathname === "/cme") return "year";
     return null;
   }
   // Every mode with destinations has a branch above; the rest register none, so

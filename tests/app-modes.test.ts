@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(17);
+    expect(appModeIds).toHaveLength(18);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -470,6 +470,11 @@ describe("app mode search contract", () => {
       // app submits one. The dashboard ignores `q`, which is the honest
       // behaviour for a mode with nothing to search.
       "on-call": "/on-call?q=clozapine&run=1",
+      // CME, for exactly On Call's reason: no search route, no composer,
+      // `resultsSurface` is "none", and `standaloneModeHomeHref` navigates the
+      // mode pill to `/cme` before a query against this mode can be typed. The
+      // dashboard ignores `q`.
+      cme: "/cme?q=clozapine&run=1",
     });
   });
 

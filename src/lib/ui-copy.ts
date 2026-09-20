@@ -124,6 +124,11 @@ export const sharedHomePresentation = {
     subtitle: "Your service's numbers, escalation, orientation and teaching.",
     suggestions: ["after-hours registrar", "acute behavioural disturbance", "ward 4B number"],
   },
+  cme: {
+    title: "CME",
+    subtitle: "What you have done this year, and what is still short.",
+    suggestions: ["peer review group", "journal club", "audit"],
+  },
 } as const satisfies Record<AppModeId, SharedHomePresentation>;
 
 /** Browser/assistive-technology title for the mode selected on the shared home. */

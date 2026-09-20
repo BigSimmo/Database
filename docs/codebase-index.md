@@ -454,8 +454,13 @@ database.
 ownership model as `on_call_entries`. `cme_requirements.spec` is `jsonb` for the reason above.
 `cme_entries.activity_date` is a `date` the application sets in Perth and never derives from a
 timestamp — derived, it would be UTC, and an activity logged after 16:00 UTC on 31 December would
-file itself into the closing year. `src/lib/cme/repository.ts` is the only module that reaches
-them, and it is listed in `SCANNED_LIB_MODULES` so `check:owner-scope` actually reads it.
+file itself into the closing year. `src/lib/cme/repository.ts` serves the reads and the entry
+insert, and is listed in `SCANNED_LIB_MODULES` so `check:owner-scope` actually reads it. It is not
+the mode's only owner-scoped query: `src/app/api/cme/entries/[id]/route.ts` holds the update and
+delete, and `src/app/api/cme/year/route.ts` holds the year write, each following
+`on-call/entries/[id]/route.ts`. Those stay in the route files on purpose — phase 1 of the same
+scanner walks every file under `src/app/api`, so a scoped query there is more proven than one in a
+lib module, which is reached only by being named in that list.
 
 Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
 `/api/cme/entries`, `[id]` and `/api/cme/year`. Demo-mode branching lives in those routes and

@@ -7,7 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { cmeEntryToRow, fetchOwnerCmeYear, rowToCmeEntry } from "@/lib/cme/repository";
-import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
+import { cmeEntryUpdateSchema } from "@/lib/cme/schemas";
 import type { CmeAllocation, CmeCategory, CmeEntry } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError, publicErrorResponse } from "@/lib/http";
@@ -100,12 +100,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return rateLimitJsonResponse("CME requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    const body = await parseJsonBody(request, cmeEntryCreateSchema, "Invalid CME entry.");
+    // PATCH is a full replace, not a true partial update: `cmeEntryUpdateSchema` requires every
+    // field `cmeEntryCreateSchema` would otherwise default, so a body that omits one (e.g. sends
+    // only a corrected title) is rejected with a 400 instead of silently resetting the omitted
+    // fields — the reflection text, recorded cost, routine/document link and buckets — to their
+    // defaults. See the schema's own doc comment in `@/lib/cme/schemas.ts`.
+    const body = await parseJsonBody(request, cmeEntryUpdateSchema, "Invalid CME entry.");
 
-    // A PATCH body is a full replacement of every field the create schema knows about — there
-    // is no separate update schema (only `cmeEntryCreateSchema` exists) — but `transcribed`
-    // has no field in that schema at all, so it must be read off the existing row and carried
-    // forward. Without this, editing an entry's title or cost would silently un-transcribe it.
+    // `transcribed` has no field in the schema at all — it is not part of a full replace — so
+    // it must be read off the existing row and carried forward. Without this, editing an
+    // entry's title or cost would silently un-transcribe it.
     const { data: existingRow, error: existingError } = await supabase
       .from("cme_entries")
       .select("transcribed_at")
@@ -131,6 +135,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       reflection: body.reflection,
       costCents: body.costCents,
       transcribed: (existingRow as Record<string, unknown>).transcribed_at != null,
+      // NOT CHECKED: that `routineId`/`documentId` belong to this owner. The foreign keys
+      // (`cme_entries.routine_id` -> `cme_routines.id`, `cme_entries.document_id` ->
+      // `documents.id`) only prove the row exists somewhere, not who owns it — unlike On
+      // Call, which validates ownership before writing via `assertValidLinkedDocumentIds`.
+      // Safe today only because nothing ever resolves these ids back to another owner's
+      // data: the UI reads them purely as a boolean "attached" flag and never fetches or
+      // displays the linked routine's title or the linked document's title/link. It stops
+      // being safe the moment any screen resolves either id to show that title or a link —
+      // at that point an owner could probe another owner's routine/document ids (e.g. by
+      // brute-forcing UUIDs, or ones observed elsewhere) and learn whether they exist from
+      // what comes back, a cross-tenant existence oracle. Add an ownership check
+      // (`.eq("owner_id", user.id)` alongside the id lookup, mirroring On Call's helper)
+      // before any such screen ships.
       routineId: body.routineId,
       documentId: body.documentId,
       buckets: body.buckets,

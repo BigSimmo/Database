@@ -2,6 +2,7 @@ import {
   BookOpen,
   BookOpenText,
   BookMarked,
+  CalendarDays,
   ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
@@ -12,6 +13,7 @@ import {
   MapPinned,
   MoonStar,
   Network,
+  NotebookPen,
   Phone,
   Printer,
   Repeat,
@@ -19,6 +21,7 @@ import {
   Sparkles,
   Stethoscope,
   Scale,
+  Target,
   Users,
   Waypoints,
   type LucideIcon,
@@ -65,6 +68,16 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   logistics: MapPinned,
   whoswho: Users,
   card: Printer,
+  // CME. Matched to the glyphs the mode already uses for the same ideas
+  // (`cmeSections` in `cme/cme-nav-header.tsx`, and the dashboard's own module
+  // icons), so a destination wears one mark in the mode sheet and inside the
+  // page it opens.
+  year: CalendarDays,
+  log: NotebookPen,
+  routines: Repeat,
+  plan: Target,
+  programme: ClipboardList,
+  setup: ListChecks,
 };
 
 /**

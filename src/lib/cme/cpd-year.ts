@@ -63,6 +63,74 @@ function roundHours(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+const FULL_MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+const SHORT_MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/**
+ * Renders a Perth calendar date (`YYYY-MM-DD`) as "19 September 2026".
+ *
+ * Deliberately plain string arithmetic, not `Date` + `Intl.DateTimeFormat` —
+ * the same approach `formatRoutineDueDate` in `routines.ts` documents and
+ * this mode's whole date discipline requires: the value is already the
+ * correct Perth calendar day, so parsing it back into an instant via
+ * `Date.UTC` and re-projecting it through a time zone is a needless round
+ * trip, one a runtime whose local zone sits behind UTC could roll onto the
+ * wrong day. Splitting the string cannot.
+ */
+export function formatCalendarDateLong(dateOnly: string): string {
+  const [year, month, day] = dateOnly.split("-");
+  const monthIndex = Number.parseInt(month, 10) - 1;
+  return `${Number.parseInt(day, 10)} ${FULL_MONTH_NAMES[monthIndex]} ${year}`;
+}
+
+/**
+ * Renders a Perth calendar date (`YYYY-MM-DD`) as "16 Sep" — no year, for a
+ * list already grouped or tabbed by year. Same plain-string approach as
+ * `formatCalendarDateLong` above, for the same reason.
+ */
+export function formatCalendarDateShort(dateOnly: string): string {
+  const [, month, day] = dateOnly.split("-");
+  const monthIndex = Number.parseInt(month, 10) - 1;
+  return `${Number.parseInt(day, 10)} ${SHORT_MONTH_NAMES[monthIndex]}`;
+}
+
+/**
+ * Renders a `YYYY-MM` month key as "September 2026". Same plain-string
+ * approach as `formatCalendarDateLong` above, for the same reason.
+ */
+export function formatCalendarMonthLabel(monthKey: string): string {
+  const [year, month] = monthKey.split("-");
+  const monthIndex = Number.parseInt(month, 10) - 1;
+  return `${FULL_MONTH_NAMES[monthIndex]} ${year}`;
+}
+
 export function paceProjection(args: {
   hoursSoFar: number;
   targetHours: number;

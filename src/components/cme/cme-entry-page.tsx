@@ -10,6 +10,7 @@ import { Chip } from "@/components/ui/chip";
 import { MissingValue } from "@/components/ui/missing-value";
 import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
+import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
@@ -33,16 +34,6 @@ export type CmeEntryPageProps = {
 };
 
 function noop() {}
-
-/** `"2026-09-04"` -> `"4 September 2026"`. A plain calendar date, so this is formatting, not a timezone conversion. */
-function formatLongDate(dateOnly: string): string {
-  const [year, month, day] = dateOnly.split("-").map(Number);
-  if (!year || !month || !day) return dateOnly;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(
-    date,
-  );
-}
 
 /** `15000` -> `"$150.00"`. */
 function formatCostCents(cents: number): string {
@@ -130,7 +121,7 @@ export function CmeEntryPage({
       <div className={cn(cardSurface, "mt-4 flex flex-col gap-1 p-4")}>
         <h1 className="text-lg font-semibold leading-snug text-[color:var(--text-heading)]">{entry.title}</h1>
         <p className={cn(textMuted, "text-sm")}>
-          {formatLongDate(entry.date)} · {totalHours} hour{totalHours === 1 ? "" : "s"}
+          {formatCalendarDateLong(entry.date)} · {totalHours} hour{totalHours === 1 ? "" : "s"}
         </p>
         {entry.routineId ? (
           <span className="mt-1 inline-flex">

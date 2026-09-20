@@ -132,7 +132,12 @@ export function CmeSetupPage({
         <Link
           href="/cme/routines"
           id="cme-setup-routines"
-          className={cn(inPageAnchor, cardInteractive, "flex items-center gap-3 p-4")}
+          // `min-h-tap` (48px) on the Link itself, because here the Link IS the
+          // whole row — unlike `EntryRow` in cme-log-page.tsx, where the card is
+          // a wrapper and the inner Link carries the floor. Production tap
+          // targets are 48px; never drop this to `min-h-11` for a generic WCAG
+          // rule, which reintroduces a known ui-smoke flake.
+          className={cn(inPageAnchor, cardInteractive, "flex min-h-tap items-center gap-3 p-4")}
         >
           <span className="min-w-0 flex-1">
             <span className="block text-2xs font-black uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">

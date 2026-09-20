@@ -469,6 +469,7 @@ function renderModeRoutes() {
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
     sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
+    cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {

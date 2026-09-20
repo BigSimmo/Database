@@ -23,3 +23,19 @@ export const cmeEntryCreateSchema = z.object({
 export const cmeListQuerySchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100).optional(),
 });
+
+/**
+ * PATCH bodies must be COMPLETE (a full replace, not a true partial update).
+ *
+ * `.required()` strips every `.default(...)` `cmeEntryCreateSchema` declares (`reflection`,
+ * `costCents`, `routineId`, `documentId`, `buckets`) and makes each mandatory. Defaults are
+ * correct on create — a new entry that omits `reflection` genuinely has none — but dangerous on
+ * update: without this, `cmeEntryCreateSchema` would accept a PATCH body that only corrected
+ * `title`, and silently reset every other field to its default. That would discard the owner's
+ * reflection text, the cost he recorded, and the routine/document he attached, with a 200
+ * response — in a CPD record he may one day have to defend to a regulator. A partial body is
+ * rejected with a 400 instead, and the caller must resend the whole entry to change any part of
+ * it. Same pattern, same reasoning, as `updateOnCallEntrySchema` in
+ * `src/lib/on-call/api-schemas.ts`.
+ */
+export const cmeEntryUpdateSchema = cmeEntryCreateSchema.required();

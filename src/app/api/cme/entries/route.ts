@@ -116,6 +116,19 @@ export async function POST(request: Request) {
       // A freshly logged entry has not yet been copied to the owner's CPD home — that only
       // happens through the explicit "Copy for your CPD home" action, never on create.
       transcribed: false,
+      // NOT CHECKED: that `routineId`/`documentId` belong to this owner. The foreign keys
+      // (`cme_entries.routine_id` -> `cme_routines.id`, `cme_entries.document_id` ->
+      // `documents.id`) only prove the row exists somewhere, not who owns it — unlike On
+      // Call, which validates ownership before writing via `assertValidLinkedDocumentIds`.
+      // Safe today only because nothing ever resolves these ids back to another owner's
+      // data: the UI reads them purely as a boolean "attached" flag and never fetches or
+      // displays the linked routine's title or the linked document's title/link. It stops
+      // being safe the moment any screen resolves either id to show that title or a link —
+      // at that point an owner could probe another owner's routine/document ids (e.g. by
+      // brute-forcing UUIDs, or ones observed elsewhere) and learn whether they exist from
+      // what comes back, a cross-tenant existence oracle. Add an ownership check
+      // (`.eq("owner_id", user.id)` alongside the id lookup, mirroring On Call's helper)
+      // before any such screen ships.
       routineId: body.routineId,
       documentId: body.documentId,
       buckets: body.buckets,

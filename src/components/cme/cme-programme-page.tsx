@@ -7,7 +7,7 @@ import { cardSurface } from "@/components/card-recipes";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, floatingControl } from "@/components/ui-primitives";
-import { cpdYearBounds } from "@/lib/cme/cpd-year";
+import { cpdYearBounds, formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import {
   cmeCategoryLabels,
   type CmeCategory,
@@ -25,24 +25,6 @@ function round2(value: number): number {
 
 function formatHours(value: number): string {
   return String(round2(value));
-}
-
-/**
- * "2026-09-19" -> "19 September 2026".
- *
- * Every date this type carries (`confirmedOn`, and the CPD year bounds below)
- * is a plain calendar date with no time component, so this is formatting, not
- * a timezone conversion — the `Date.UTC` construction plus a UTC-pinned
- * formatter exists only to stop a reader's local timezone shifting which
- * calendar day gets displayed.
- */
-function formatCalendarDate(dateOnly: string): string {
-  const [year, month, day] = dateOnly.split("-").map(Number);
-  if (!year || !month || !day) return dateOnly;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(
-    date,
-  );
 }
 
 function describeCategories(categories: readonly CmeCategory[]): string {
@@ -239,7 +221,7 @@ export function CmeProgrammePage({
         >
           <p className="text-sm font-extrabold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
           <p className="text-sm leading-relaxed text-[color:var(--text)]">
-            Confirmed by you on {formatCalendarDate(set.confirmedOn)}, against {set.confirmedSource}.
+            Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against {set.confirmedSource}.
           </p>
           <p data-testid="cme-no-lookup" className="text-xs leading-relaxed text-[color:var(--text-muted)]">
             The app never looks up a requirement on its own, and it never changes one without you.
@@ -251,8 +233,8 @@ export function CmeProgrammePage({
 
         <section id="cme-year-shape" data-testid="cme-year-shape" className={cn(inPageAnchor, "flex flex-col gap-1.5")}>
           <p className="text-xs leading-relaxed text-[color:var(--text-muted)]">
-            Your {set.year} CPD year, as this app tracks it, runs from {formatCalendarDate(yearBounds.start)} to{" "}
-            {formatCalendarDate(yearBounds.end)}.
+            Your {set.year} CPD year, as this app tracks it, runs from {formatCalendarDateLong(yearBounds.start)} to{" "}
+            {formatCalendarDateLong(yearBounds.end)}.
           </p>
           <p className="text-xs leading-relaxed text-[color:var(--text-muted)]">
             Changing your status next year does not rewrite this one — each year keeps the requirements that applied to

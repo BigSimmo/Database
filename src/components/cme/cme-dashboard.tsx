@@ -36,7 +36,7 @@ import {
   type CmeRoutine,
   type CmeRoutineLogPrefill,
 } from "@/lib/cme/routines";
-import type { CmeEntry, CmeRequirementSet, CmeRequirementStatus } from "@/lib/cme/types";
+import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from "@/lib/cme/types";
 
 /**
  * THE DASHBOARD — the screen the whole mode is judged by.
@@ -125,6 +125,61 @@ export type CmeDashboardProps = {
   readonly onOpenCustomise?: () => void;
 };
 
+/**
+ * How far short of met one unmet requirement is, on a scale that can be
+ * compared ONLY against other requirements in the same tier — see
+ * `furthestFromMet` below for why the tiers themselves are not comparable.
+ */
+type ShortfallTier = 0 | 1 | 2;
+
+function shortfallTier(shape: CmeRequirementSpec["shape"]): ShortfallTier {
+  if (shape === "hours-in-category" || shape === "hours-across-categories") return 0;
+  if (shape === "activity-count") return 1;
+  return 2; // "task"
+}
+
+/**
+ * Picks whichever unmet requirement is furthest from being met — never
+ * simply the first unmet requirement in `set.requirements` order, which is
+ * an authoring order, not a distance-from-met order, and can put the
+ * requirement that is barely short ahead of one still almost untouched.
+ *
+ * The four requirement shapes are not on one comparable scale — "3 hours
+ * short" and "2 activities still have nothing against them" are different
+ * units, and a `task` has no magnitude at all, only done-or-not — so this
+ * orders by tier first, then by size of gap within a tier:
+ *
+ *   1. Hours requirements (`hours-in-category`, `hours-across-categories`),
+ *      by hours remaining (`progress.target - progress.value`), largest
+ *      first. Hours accrue gradually across the whole year, so a large
+ *      hours gap needs the most lead time to close and is the most
+ *      consequential thing to surface.
+ *   2. `activity-count` requirements, by buckets still empty
+ *      (`progress.target - progress.value`), most empty first. These are
+ *      usually closable in a single sitting once the owner notices them.
+ *   3. Not-started `task` requirements last — `progress` is null, so there
+ *      is no gap to compare; ties within this tier keep list order.
+ *
+ * The sort is stable, so two requirements tied on tier and gap keep their
+ * `set.requirements` order — this is what makes the fix degrade to the old
+ * "first unmet in list order" behaviour exactly when every unmet
+ * requirement in the winning tier is equally far short, rather than
+ * changing an answer that was already right.
+ */
+function furthestFromMet(
+  set: CmeRequirementSet,
+  unmet: readonly CmeRequirementStatus[],
+): CmeRequirementStatus | undefined {
+  const ranked = unmet.map((status, index) => {
+    const shape = set.requirements.find((requirement) => requirement.id === status.requirementId)?.spec.shape;
+    const tier = shape ? shortfallTier(shape) : 2;
+    const gap = status.progress ? status.progress.target - status.progress.value : 0;
+    return { status, index, tier, gap };
+  });
+  ranked.sort((a, b) => a.tier - b.tier || b.gap - a.gap || a.index - b.index);
+  return ranked[0]?.status;
+}
+
 function computeNextAction(args: {
   set: CmeRequirementSet;
   unmet: readonly CmeRequirementStatus[];
@@ -144,7 +199,7 @@ function computeNextAction(args: {
   if (unmet.length === 0) {
     return "Every requirement is met for this year. Keep logging activities as you go.";
   }
-  const next = unmet[0]!;
+  const next = furthestFromMet(set, unmet)!;
   const label =
     set.requirements.find((requirement) => requirement.id === next.requirementId)?.label ?? "Next requirement";
   return `Next: ${label} — ${next.summary}`;

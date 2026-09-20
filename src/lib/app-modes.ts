@@ -21,6 +21,7 @@ export const appModeIds = [
   "dictionary",
   "sources",
   "on-call",
+  "cme",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -523,6 +524,36 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "cme",
+    label: "CME",
+    description: "Your continuing education: what you have done, and what is still short",
+    href: "/cme",
+    search: {
+      // CME reads the owner's own entries, already in the browser — a local
+      // catalogue, like On Call — so it borrows the benign "tools" command kind
+      // rather than adding a search kind that would have to be threaded through
+      // universal search.
+      kind: "tools",
+      placeholder: "Search your log — a meeting, an audit, a course...",
+      inputAriaLabel: "Search your continuing education log",
+      submitIdleLabel: "CME",
+      submitBusyLabel: "CME",
+      submitAriaLabel: "Search your continuing education log",
+      emptyTitle: "Search your continuing education log",
+      readyTitle: "Find an activity, a certificate or a reflection",
+      progressLabel: "Searching your log.",
+      resultKind: "tools",
+      resultHeading: "CME",
+      // No results page. `/cme` is a dashboard and there is no `/cme/search`:
+      // a retargeted composer would accept a query and land the reader on a
+      // page that ignores it.
+      resultsSurface: "none",
+      statusLabel: "CME",
+      nextStep: "Open an entry",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -562,6 +593,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "tools",
   "calculators",
   "on-call",
+  "cme",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

@@ -1113,6 +1113,44 @@ body {
   }
 }
 
+/* CME: indigo. The design record's identity colour, already sanctioned in
+   ckb-v2-tokens.css. Sits beside On Call's teal without inventing a new hue.
+   Light 7.6:1 and dark 7.8:1 against their own contrast token, and 7.4:1 /
+   7.7:1 as text on the page surface — both values cleared as a FILL as well as
+   as text, which is why the contrast partner is declared rather than assumed
+   white. Same delivery mechanism as On Call above: the local `--clinical-accent`
+   remap, scoped to the elements carrying the attribute. */
+[data-mode-identity="cme"] {
+  --mode-identity: #43508f;
+  --mode-identity-soft: #eef1f9;
+  --mode-identity-border: #d2d9e8;
+  --mode-identity-contrast: #ffffff;
+
+  --clinical-accent: var(--mode-identity);
+  --clinical-accent-soft: var(--mode-identity-soft);
+  --clinical-accent-border: var(--mode-identity-border);
+  --clinical-accent-contrast: var(--mode-identity-contrast);
+}
+
+.dark [data-mode-identity="cme"] {
+  --mode-identity: #97a3df;
+  --mode-identity-soft: #1b2340;
+  --mode-identity-border: #333c52;
+  --mode-identity-contrast: #0b1019;
+}
+
+@media (forced-colors: active) {
+  /* Declared as its own rule rather than grouped with On Call's selector above:
+     `tests/design-token-contract.test.ts` reads that block by its exact selector
+     text, and a grouped selector would stop matching it. */
+  [data-mode-identity="cme"] {
+    --mode-identity: LinkText;
+    --mode-identity-soft: Canvas;
+    --mode-identity-border: ButtonBorder;
+    --mode-identity-contrast: ButtonText;
+  }
+}
+
 @layer base {
   /* Interactive element defaults */
   button,

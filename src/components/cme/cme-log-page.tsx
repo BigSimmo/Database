@@ -11,6 +11,7 @@ import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/s
 import { Tabs } from "@/components/ui/tabs";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { formatCalendarDateShort, formatCalendarMonthLabel } from "@/lib/cme/cpd-year";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import {
@@ -36,22 +37,6 @@ type MonthGroup = {
   readonly hours: number;
   readonly entries: readonly CmeEntry[];
 };
-
-/** `"2026-09-16"` -> `"16 Sep"`. Year is already fixed by the tab above the list. */
-function formatShortDate(dateOnly: string): string {
-  const [year, month, day] = dateOnly.split("-").map(Number);
-  if (!year || !month || !day) return dateOnly;
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return new Intl.DateTimeFormat("en-AU", { day: "numeric", month: "short", timeZone: "UTC" }).format(date);
-}
-
-/** `"2026-09"` -> `"September 2026"`. */
-function formatMonthLabel(monthKey: string): string {
-  const [year, month] = monthKey.split("-").map(Number);
-  if (!year || !month) return monthKey;
-  const date = new Date(Date.UTC(year, month - 1, 1));
-  return new Intl.DateTimeFormat("en-AU", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
-}
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
@@ -87,7 +72,7 @@ function groupByMonth(entries: readonly CmeEntry[]): MonthGroup[] {
     .sort(([a], [b]) => b.localeCompare(a))
     .map(([key, monthEntries]) => ({
       key,
-      label: formatMonthLabel(key),
+      label: formatCalendarMonthLabel(key),
       hours: round2(totalAllocatedHours(monthEntries)),
       entries: monthEntries,
     }));
@@ -109,7 +94,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
         >
           <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{entry.title}</span>
           <span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[color:var(--text-muted)]">
-            <span>{formatShortDate(entry.date)}</span>
+            <span>{formatCalendarDateShort(entry.date)}</span>
             <span aria-hidden="true">·</span>
             <span>{categoryNames(entry)}</span>
             {entry.documentId ? (
