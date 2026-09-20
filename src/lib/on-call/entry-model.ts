@@ -8,6 +8,24 @@ export type OnCallSection = (typeof ON_CALL_SECTIONS)[number];
  *  never needs a migration or a backfill. */
 export const ON_CALL_REVIEW_INTERVAL_MONTHS = 12;
 
+/**
+ * What lapsing costs, worst first. The Compliance page sorts on this rather
+ * than on the expiry date — see `logisticsDetails.consequence`.
+ *
+ * Order is load-bearing: `ON_CALL_COMPLIANCE_CONSEQUENCES.indexOf` is the sort
+ * key, so a value added in the middle re-orders the page.
+ */
+export const ON_CALL_COMPLIANCE_CONSEQUENCES = ["stops-work", "stops-part", "chased"] as const;
+export type OnCallComplianceConsequence = (typeof ON_CALL_COMPLIANCE_CONSEQUENCES)[number];
+
+/**
+ * How a recorded date came to be believed. Never a verdict — nothing in this
+ * app is checked with an issuing body, so no surface may render any of these
+ * as "compliant", "valid" or "current to".
+ */
+export const ON_CALL_COMPLIANCE_PROVENANCE = ["confirmed", "typed", "read-from-certificate"] as const;
+export type OnCallComplianceProvenance = (typeof ON_CALL_COMPLIANCE_PROVENANCE)[number];
+
 export type OnCallFreshness =
   | { state: "fresh"; lastVerifiedAt: string }
   | { state: "stale"; reason: "never-verified"; lastVerifiedAt: null }
@@ -94,6 +112,20 @@ const referralsDetails = z
 const orientationDetails = z
   .object({
     pinnedSummaryIsOwnerNote: z.literal(true),
+    /**
+     * The folder this manual files under — "Induction", "Manuals",
+     * "Departure".
+     *
+     * One word each, deliberately: a folder name is both a heading on the page
+     * and a slot in a 48px bar of bare words, where a long label measured
+     * 165px against a 288px phone.
+     *
+     * Optional, unlike the Admin section's required `category`: orientation
+     * rows already exist without one and a required field would invalidate
+     * every one of them on read. Rows with no folder render under a single
+     * fallback heading rather than disappearing.
+     */
+    category: trimmed.optional(),
     /**
      * A checklist for this manual — the drawing's "your first fifteen minutes"
      * and "before you leave".
@@ -195,13 +227,80 @@ const educationDetails = z
   })
   .strict();
 
+/**
+ * Admin — and Compliance, which rides the same stored section.
+ *
+ * The section id stays `logistics` (route segment, database CHECK constraint);
+ * only the label is "Admin", the same decision `education` → "Teaching" already
+ * took. Renaming the id would be a migration for no functional gain.
+ *
+ * What the section holds DID change: it was site logistics (rooms, food,
+ * access) and is now the work admin a doctor does for themselves — leave, pay,
+ * rosters, forms — with facilities kept as one category so nothing already
+ * stored is orphaned.
+ *
+ * Compliance is not a seventh section, for the same reason Who's who is not:
+ * `section` is a database CHECK constraint, so a new value costs a migration
+ * that reaches the live clinical database on merge. The discriminator lives in
+ * `details.kind`, which is JSONB and therefore free. See
+ * `src/lib/on-call/compliance.ts`, which owns the split.
+ */
 const logisticsDetails = z
   .object({
+    /** The folder this row files under, on either page. Required, so no row
+     *  lands in an "Other" bucket by accident. */
     category: trimmed,
     location: trimmed.optional(),
     hours: trimmed.optional(),
     phone: trimmed.optional(),
     url: z.string().url().optional(),
+    /**
+     * Marks this row as a compliance requirement rather than an admin entry.
+     *
+     * An enum, not a free string: an unrecognised value must fail validation
+     * rather than fall back to "ordinary admin row", which would hide a
+     * requirement whose expiry stops someone working.
+     */
+    kind: z.literal("compliance").optional(),
+    /**
+     * What happens when this requirement lapses — the field the Compliance page
+     * SORTS BY, in place of the expiry date.
+     *
+     * Date order answers "what expires soonest", which is not the question. A
+     * registration that lapses next month stops you working; a training module
+     * three weeks overdue gets you an email. Ordering by consequence puts those
+     * in the order a person actually needs to act on them.
+     */
+    consequence: z.enum(ON_CALL_COMPLIANCE_CONSEQUENCES).optional(),
+    /** `YYYY-MM-DD`, matched rather than parsed, as `nextOccurrenceDate` is. */
+    expiresOn: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
+      .optional(),
+    /** How far ahead this one needs starting — a police check is not a form you
+     *  submit the week it expires. Per requirement, because the lead times
+     *  genuinely differ by months. */
+    leadTimeDays: z.number().int().min(0).optional(),
+    /** Who issues it (Ahpra, the college, the health service). Never contacted
+     *  by this app — recorded so the holder knows who to chase. */
+    issuingBody: trimmed.optional(),
+    /**
+     * Where the evidence sits, as a link the holder owns.
+     *
+     * Deliberately a URL and not an upload: the default upload path indexes a
+     * document and sends it to a provider, and a registration certificate is
+     * identity data that has no business in the clinical corpus.
+     */
+    evidenceUrl: z.string().url().optional(),
+    /**
+     * How the app came to believe the date above — never a verdict on whether
+     * the person is compliant.
+     *
+     * Nothing here is checked with the issuing body, so no surface built on
+     * this field may say "compliant", "valid" or "current to". It says what was
+     * recorded and who recorded it, and leaves the judgement to the reader.
+     */
+    provenance: z.enum(ON_CALL_COMPLIANCE_PROVENANCE).optional(),
   })
   .strict();
 

@@ -240,6 +240,40 @@ with a match stepper and a live fit check, and a two-column consult workbench wi
 note builder. Each draws its own desktop and phone frames and carries the real
 `exposure-based-cbt-exposure-therapy` record. Parallel drafts, no recorded winner.
 
+### On Call hub — two studies, read together (2026-09-19)
+
+| Route                 | Status                                                                                                                                                                                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `on-call-shift-cover` | Active study — four boards rebuilding surfaces that already ship: the home with a shift band and an on-cover strip, the Contacts row, the Playbook escalation ladder, and the printed pocket card. Each board names the finding it answers.                      |
+| `on-call-calendars`   | Active study — four boards proposing surfaces the hub does not have: a cover/rota calendar, a teaching term with attendance, a de-identified shift log, and the referrals list asked as a "who covers this?" question. No recorded winner; owner review pending. |
+
+Companion to [`docs/on-call/design/2026-09-19-review-and-proposals.md`](../docs/on-call/design/2026-09-19-review-and-proposals.md),
+which carries the review these boards answer and the wider list of proposals that were not drawn.
+`on-call-calendars` imports its frame scaffold from `on-call-shift-cover` — do not remove the
+latter independently, and see the compliance study below, which imports the same scaffold.
+
+### Doctor compliance — a personal requirements tracker (2026-09-19)
+
+| Route               | Status                                                                                                                                                                                                                                                                                                      |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `doctor-compliance` | Active study — six boards for tracking one doctor's own work requirements: today sorted by consequence rather than expiry, one requirement opened, CPD by category, the evidence pack export, the renewal year, and a supervisor roll-up that holds no documents. No recorded winner; owner review pending. |
+
+Companion to [`docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md`](../docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md),
+which carries the design rules, the risks, and twenty-two further feature ideas across the app.
+It imports its frame scaffold from `on-call-shift-cover` — do not remove that route
+independently.
+
+### Clinical governance and corpus health (2026-09-19)
+
+| Route                       | Status                                                                                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `clinical-sign-off-actions` | Active study — four boards proposing the ACTION the shipped read-only sign-off queue does not have: one record attested, a batch/sampling rule, seven vocabularies under one action, and what signing unlocks. Companion to the live queue at `development/clinical-sign-off`. |
+| `coverage-gaps`             | Active study — four boards for a corpus-coverage report over the existing redacted query-miss telemetry: topics rather than questions, the WA-first source ladder, the abstain blind spot, and closing the loop into an eval case.                                             |
+
+Companion to [`docs/product/2026-09-19-second-recommendations.md`](../docs/product/2026-09-19-second-recommendations.md).
+Both import their frame scaffold from `on-call-shift-cover` — do not remove that route
+independently.
+
 ### One-off studies
 
 | Route                        | Status                                                                                                                                                    |

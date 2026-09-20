@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
-import { onCallLocalDateKey } from "@/lib/on-call/home-modules";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { onCallTeachingDate, onCallTeachingDateLabel } from "@/lib/on-call/teaching-schedule";
 
 export interface OnCallEducationSectionProps {

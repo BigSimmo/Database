@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "6fb1172f-ff20-4566-b885-0406498d38ac",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call compliance content in a row's title or body is still published to anonymous readers",
+    "detail": "rowMayBeComplianceRequirement (src/lib/on-call/repository.ts) reads section and details only. A logistics row whose details say just { category: 'Registration' } but whose title or body carries the compliance content -- 'Ahpra registration, Dr X, MED000123456 ... certificate at https://...' -- is published in full to any anonymous caller of GET /api/on-call/entries, along with subtitle, tags, slug and linkedDocumentIds. NOT REACHABLE FROM THE APP: the compliance form always writes details.kind and always stores the row is_personal, so producing this needs a direct authenticated API call, an import, or a hand edit to the database -- the same threat model the predicate's own docstring claims to cover, which is why this is filed rather than dismissed. THE CHEAPEST REAL CLOSURE is category itself: the two taxonomies deliberately share no folder name (Admin is Leave/Rosters/Pay/Forms/Access/Facilities; Compliance is Registration/Indemnity/Training/Credentialing/CPD/Clearances), so a logistics row filed under any of the six Compliance folders is compliance-shaped whatever else it says. BLOCKED ON A REFACTOR: those lists currently live in src/components/on-call/on-call-entry-editor.tsx and tests/lib-layering.test.ts forbids src/lib importing from src/components, so they must move into src/lib/on-call/compliance.ts first. That move is worth doing anyway -- it is the same src/lib-cannot-see-the-view problem recorded in the On Call view refactor follow-up from this session. Related and also open: the predicate is logistics-local, so PUBLIC_ON_CALL_SECTIONS covers a new section and the field guard covers a new logistics field, but a compliance-like page hiding in a different section is covered by neither.",
+    "source": "Adversarial privacy review of commit bd642d46f, PR #2900, 2026-09-20",
+    "issueUlid": "01M2ZTZEJMWE7CHW1PNDP8QFZ7"
+  }
+}

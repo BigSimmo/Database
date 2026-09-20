@@ -1445,7 +1445,13 @@ describe("design-system adoption manifest", () => {
     // route the same way it always excluded theirs. Redirect stubs keep legacy deep links
     // resolving and still count as declared routes. This is a census, so a route nobody
     // intended to add still fails the contract.
-    expect(manifest.routeCoverage.discovered).toHaveLength(92);
+    //
+    // 92 -> 93 on 2026-09-20: `/on-call/compliance`, the second On Call page that is a view
+    // over a stored section rather than a section of its own. It is a real production route
+    // with its own `page.tsx`, so it is declared in `adoption-contract.json` beside its six
+    // sibling On Call pages. Bumped deliberately, with the route named, because a bump with
+    // no name is how this census stops being one.
+    expect(manifest.routeCoverage.discovered).toHaveLength(93);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

@@ -11,7 +11,8 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-import { ON_CALL_SECTION_HREFS, ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_VIEW_HREFS, ON_CALL_VIEW_TITLES } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { summariseOnCallFreshness, type OnCallFreshnessSummary } from "@/lib/on-call/freshness-summary";
 import { ON_CALL_REVIEW_INTERVAL_MONTHS, onCallEntrySchema } from "@/lib/on-call/entry-model";
 
@@ -145,8 +146,21 @@ export function OnCallFreshnessPanel() {
       ) : null}
 
       {signedOut ? (
+        // Two things are missing from a signed-out read, not one, and the
+        // second is the one a maintainer would never guess. Personal entries
+        // are withheld because somebody flagged them; compliance requirements
+        // are withheld whatever their flags say, by a rule on the raw row
+        // (`rowMayBeComplianceRequirement` in `src/lib/on-call/repository.ts`)
+        // that fails closed on any `logistics` row carrying a `kind` it cannot
+        // read. That rule is right — a registration record belongs to one
+        // person and nobody decided to publish it — but it means "3 overdue"
+        // here is silently missing the rows whose lapse actually stops someone
+        // working. Naming only the flag would leave a reader believing the
+        // count was complete apart from a handful of private numbers.
         <p data-testid="developer-on-call-freshness-partial" className={META_CLASS}>
-          Read without an account, so entries flagged personal are not included. Sign in for the whole hub.
+          Read without an account, so the counts below are a floor. Entries flagged personal are left out, and so is
+          every compliance requirement — those are withheld from the shared read whatever their flags say, because a
+          registration or indemnity record belongs to one person. Sign in for the whole hub.
         </p>
       ) : null}
 
@@ -175,14 +189,21 @@ export function OnCallFreshnessPanel() {
           </p>
           <ul className="grid gap-2">
             {summary.stale.map(({ entry }) => (
+              // By VIEW, not by stored section. Two of this mode's pages are
+              // views over a section behind `details.kind` — Compliance over
+              // `logistics`, Who's who over `contacts` — so naming the section
+              // here labelled a registration "Admin" and linked to
+              // `/on-call/logistics`, where the Admin page correctly refuses to
+              // render it. That is a dead end on the single row this panel
+              // exists to send you to: the one nobody has confirmed.
               <li key={entry.id} data-testid={`developer-on-call-freshness-row-${entry.id}`} className={ROW_CLASS}>
                 <Link
-                  href={ON_CALL_SECTION_HREFS[entry.section]}
+                  href={ON_CALL_VIEW_HREFS[onCallViewForEntry(entry)]}
                   className="text-sm font-bold text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                 >
                   {entry.title}
                 </Link>
-                <span className={META_CLASS}>{ON_CALL_SECTION_TITLES[entry.section]}</span>
+                <span className={META_CLASS}>{ON_CALL_VIEW_TITLES[onCallViewForEntry(entry)]}</span>
                 <span className={MONO_CLASS}>{lastConfirmedLabel(entry.lastVerifiedAt, now)}</span>
               </li>
             ))}

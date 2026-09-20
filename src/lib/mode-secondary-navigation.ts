@@ -138,7 +138,13 @@ export const modeSecondaryNavigationRegistry = {
     // check constraint all stay `education`; renaming them is a migration for no
     // functional gain (`ON_CALL_SECTION_TITLES` carries the same decision).
     { id: "teaching", label: "Teaching", href: "/on-call/education" },
-    { id: "logistics", label: "Logistics", href: "/on-call/logistics" },
+    // Label only, as Teaching above: the stored section id, the route segment
+    // and the database check constraint all stay `logistics`.
+    { id: "logistics", label: "Admin", href: "/on-call/logistics" },
+    // Compliance is a VIEW over the `logistics` section, discriminated by
+    // `details.kind` — not a seventh section, which would cost a migration
+    // against the live clinical database. See src/lib/on-call/compliance.ts.
+    { id: "compliance", label: "Compliance", href: "/on-call/compliance" },
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
   ],
@@ -279,6 +285,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/orientation") return "orientation";
     if (pathname === "/on-call/education") return "teaching";
     if (pathname === "/on-call/logistics") return "logistics";
+    if (pathname === "/on-call/compliance") return "compliance";
     if (pathname === "/on-call/who-is-who") return "whoswho";
     if (pathname === "/on-call/card") return "card";
     // Exact match only. `/on-call` is the mode home now rather than a redirect

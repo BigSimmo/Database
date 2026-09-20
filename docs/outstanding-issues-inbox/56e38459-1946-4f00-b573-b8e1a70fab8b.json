@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "56e38459-1946-4f00-b573-b8e1a70fab8b",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "On Call entries, including compliance rows, are cached in localStorage in plaintext with no TTL",
+    "detail": "src/lib/on-call/entry-store.ts caches the fetched On Call entry list in window.localStorage under one key, in plaintext, and clears it only on sign-out or account switch (clearOnCallEntryCache). There is no time-to-live, so the cache survives an abandoned session indefinitely. Since 2026-09-20 that payload includes compliance rows: one named doctor registration, indemnity, credentialing, mandatory training, CPD, Working with Children Check and police clearance dates, often with a link to the certificate. DEVICE SCOPE ONLY -- not reachable over the network, not a server-side exposure, and the same browser profile is the only way in. It still matters because the realistic device here is a shared or hospital workstation where the next user inherits that profile. NEXT ACTION: pick one, cheapest first. (a) Exclude compliance rows from the persisted cache and hold them in memory only -- the smallest change that removes the sensitive part of the payload while keeping the offline behaviour the cache exists for. (b) Give the cache a time-to-live and drop it on load when stale. (c) Move it to sessionStorage, which costs the offline-reopen behaviour entirely. Whichever is chosen, update the On Call row in docs/privacy-impact-assessment.md, which already names this cache.",
+    "source": "Session 2026-09-20, On Call Compliance page security audit",
+    "issueUlid": "01M2ZP1HKTKJF5J7WMK47FAYJ6"
+  }
+}
