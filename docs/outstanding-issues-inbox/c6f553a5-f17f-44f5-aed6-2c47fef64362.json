@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c6f553a5-f17f-44f5-aed6-2c47fef64362",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "rag-extractive-answer.ts is now the largest file in the repo at 5268 lines and is not on the monoliths backlog",
+    "detail": "Add it to docs/maturity-backlog-workorders.md §X3 as a fourth tracked monolith and extract the isSourceBound* predicate cluster first. Why: it grew ~30% in under three weeks (4042 lines at the 2026-09-02 audit) while all three tracked monoliths shrank, so the one file getting worse is the one nothing is watching. It also carries 10 narrowly-scoped isSourceBound* query predicates, a pattern that adds a bespoke function per answer-quality bug rather than generalising. Owner: assistant. Confidence: high — line counts verified 2026-09-20. Depends on: nothing. NOTE: RAG-ranking surface — any edit needs the flag-it-first rule and a canary pair.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ7RQQKW3KNEYCT602EXN"
+  }
+}
