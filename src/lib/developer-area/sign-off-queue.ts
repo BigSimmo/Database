@@ -8,6 +8,7 @@ import { dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { specifierCatalogItems, loadSpecifiersContent } from "@/lib/specifiers-content";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
+import { isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
 
 /**
  * Every clinical record in this repository that is waiting for a person to sign
@@ -113,7 +114,7 @@ type FormulationMechanism = { id: string; name: string; reviewStatus: string };
 function formulationFamily(): SignOffFamily {
   const mechanisms = (formulationContent as { mechanisms: FormulationMechanism[] }).mechanisms;
   const rows = mechanisms
-    .filter((mechanism) => mechanism.reviewStatus !== "reviewed")
+    .filter((mechanism) => !isFormulationSignedOffStatus(mechanism.reviewStatus))
     .map<SignOffRow>((mechanism) => ({
       family: "formulation",
       key: `formulation:${mechanism.id}`,
