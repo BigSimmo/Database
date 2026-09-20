@@ -7,6 +7,7 @@ import {
   developerLinkAccessGranted,
   resolveDeveloperAccessState,
 } from "@/lib/developer-area/access";
+import { parseDeveloperGateTarget, resolveDeveloperAccessKey } from "@/lib/developer-area/link-access";
 
 import { DeveloperAreaRouteGuard } from "./developer-area-route-guard";
 import { DeveloperGateScreen } from "./developer-gate-screen";
@@ -59,6 +60,18 @@ export async function DeveloperAreaGate({ children }: { children: ReactNode }) {
     return <DeveloperAreaRouteGuard>{children}</DeveloperAreaRouteGuard>;
   }
 
-  const next = (await headers()).get(DEVELOPER_AREA_PATH_HEADER) || "/mockups/development";
-  return <DeveloperGateScreen state={state} next={next} email={email} />;
+  // `target` is the page they actually asked for, with the proxy's rejection
+  // marker taken back off, so a retry and the eventual success both land on a
+  // clean URL. `keyEntryEnabled` is a boolean derived from the key, never the
+  // key: the screen is a Client Component, and the secret must not cross.
+  const { target, keyRejected } = parseDeveloperGateTarget((await headers()).get(DEVELOPER_AREA_PATH_HEADER));
+  return (
+    <DeveloperGateScreen
+      state={state}
+      next={target}
+      email={email}
+      keyEntryEnabled={resolveDeveloperAccessKey() !== null}
+      keyRejected={keyRejected}
+    />
+  );
 }
