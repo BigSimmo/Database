@@ -6,7 +6,8 @@ import { Phone } from "lucide-react";
 
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
-import { ON_CALL_SECTION_TITLES, onCallViewForEntry } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { PrintOutput, PrintSection } from "@/components/ui/print-output";

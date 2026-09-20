@@ -19,9 +19,9 @@ import { OnCallEntryEditor } from "@/components/on-call/on-call-entry-editor";
 import {
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
-  onCallViewStorageSection,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
+import { onCallViewStorageSection } from "@/components/on-call/on-call-entry-view";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";

@@ -11,11 +11,8 @@ import {
   ROW_CLASS,
   SECTION_HEADING_CLASS,
 } from "@/components/developer-area/hub/panel-primitives";
-import {
-  ON_CALL_VIEW_HREFS,
-  ON_CALL_VIEW_TITLES,
-  onCallViewForEntry,
-} from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_VIEW_HREFS, ON_CALL_VIEW_TITLES } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { summariseOnCallFreshness, type OnCallFreshnessSummary } from "@/lib/on-call/freshness-summary";
 import { ON_CALL_REVIEW_INTERVAL_MONTHS, onCallEntrySchema } from "@/lib/on-call/entry-model";
 

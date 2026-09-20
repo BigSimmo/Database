@@ -19,8 +19,8 @@ import {
   ON_CALL_VIEW_HREFS,
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
-  onCallViewForEntry,
 } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";

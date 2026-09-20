@@ -9,9 +9,9 @@ import {
   ON_CALL_VIEW_HREFS,
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
-  onCallViewForEntry,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";

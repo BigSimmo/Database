@@ -73,6 +73,106 @@ describe("the On Call domain model stays out of every page's bundle", () => {
     expect(imports, `${modulePath} must import nothing — it is in every page's bundle`).toEqual([]);
   });
 
+  /**
+   * The SECOND door into every page's bundle, found on PR #2900 and missed by
+   * every test above — they all watch `src/lib/supabase/client.tsx`, and this
+   * leak did not go through it.
+   *
+   * `MasterSearchHeader` is the shared search chrome on `/` and
+   * `/documents/search`, the two routes CI's Lighthouse budget measures. It
+   * imports `mode-nav-icons.ts` for the per-mode glyphs, and that file was
+   * given an import of `on-call-section-identity.ts` so On Call's sections
+   * could carry their own icons. Harmless in itself — the identity module is
+   * titles, hrefs and glyphs — except that it also held the one pair of
+   * functions needing the domain model at runtime, so the home page started
+   * downloading six Zod schemas to draw a moon icon.
+   *
+   * The fix was to move that pair into `on-call-entry-view.ts`. This is the
+   * guard, and it is written as a REACHABILITY walk rather than a check on one
+   * file, because the last two versions of this leak each came through a door
+   * the previous guard was not watching.
+   */
+  it("cannot reach the On Call domain model from the shared search header", () => {
+    const DOMAIN_MODULES = [
+      "@/lib/on-call/entry-model",
+      "@/lib/on-call/compliance",
+      "@/lib/on-call/who-is-who",
+      "@/lib/on-call/entry-store",
+      "@/lib/on-call/repository",
+    ];
+    // Type-only imports erase at build time and cost nothing, so only value
+    // imports count. `import type {...}` and `import { type X }` are both fine.
+    const valueImportsOf = (relative: string): string[] => {
+      const source = read(relative);
+      const specifiers: string[] = [];
+      const importRe = /import\s+(type\s+)?(?:([\w*{][^"']*?)\s+from\s+)?["']([^"']+)["']/g;
+      for (const match of source.matchAll(importRe)) {
+        const [, typeKeyword, clause, specifier] = match;
+        if (typeKeyword) continue;
+        // A clause whose every named binding is `type X` is also erased.
+        const named = clause?.match(/\{([^}]*)\}/)?.[1];
+        if (named !== undefined && clause && !clause.trim().startsWith("{")) {
+          // default or namespace import alongside names: keep it
+        } else if (named !== undefined) {
+          const bindings = named
+            .split(",")
+            .map((binding) => binding.trim())
+            .filter(Boolean);
+          if (bindings.length > 0 && bindings.every((binding) => binding.startsWith("type "))) continue;
+        }
+        specifiers.push(specifier);
+      }
+      return specifiers;
+    };
+    const toPath = (specifier: string): string | null => {
+      if (!specifier.startsWith("@/")) return null;
+      const base = `src/${specifier.slice(2)}`;
+      for (const extension of [".ts", ".tsx"]) {
+        try {
+          read(base + extension);
+          return base + extension;
+        } catch {
+          // try the next extension
+        }
+      }
+      return null;
+    };
+
+    const seen = new Set<string>();
+    const trail = new Map<string, string>();
+    const queue = ["src/components/clinical-dashboard/master-search-header.tsx"];
+    while (queue.length > 0) {
+      const current = queue.shift() as string;
+      if (seen.has(current)) continue;
+      seen.add(current);
+      for (const specifier of valueImportsOf(current)) {
+        if (DOMAIN_MODULES.includes(specifier)) {
+          const chain: string[] = [current];
+          let step = trail.get(current);
+          while (step) {
+            chain.push(step);
+            step = trail.get(step);
+          }
+          throw new Error(
+            `MasterSearchHeader can reach ${specifier} at runtime, which puts the On Call ` +
+              `domain model in the bundle for / and /documents/search. Import chain (nearest first):\n  ` +
+              chain.join("\n  ") +
+              `\nMake the import type-only, or move the value into a module the header does not reach ` +
+              `(see src/components/on-call/on-call-entry-view.ts).`,
+          );
+        }
+        const next = toPath(specifier);
+        if (next && !seen.has(next)) {
+          trail.set(next, current);
+          queue.push(next);
+        }
+      }
+    }
+    // The walk is only meaningful if it actually traversed the graph.
+    expect(seen.size).toBeGreaterThan(5);
+    expect(seen).toContain("src/components/mode-nav/mode-nav-icons.ts");
+  });
+
   it("still exposes the storage key and clear function from the store, for existing callers", () => {
     const store = read("src/lib/on-call/entry-store.ts");
     expect(store).toContain("export { clearOnCallEntryCache");

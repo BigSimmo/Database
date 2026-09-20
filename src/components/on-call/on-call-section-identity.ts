@@ -11,9 +11,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { isComplianceEntry } from "@/lib/on-call/compliance";
-import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
-import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
+import { type OnCallSection } from "@/lib/on-call/entry-model";
 
 /**
  * What each On Call surface is called and which glyph it wears, in one place.
@@ -26,6 +24,17 @@ import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
  *
  * No JSX and no client directive: this is imported by both server and client
  * modules.
+ *
+ * **Type-only imports from the domain model, and that is load-bearing.** This
+ * module is reached from `mode-nav-icons.ts`, which the shared
+ * `MasterSearchHeader` imports, which renders on `/` and `/documents/search`.
+ * A VALUE import of `@/lib/on-call/compliance`, `who-is-who` or `entry-model`
+ * here therefore ships the whole On Call domain model — six Zod schemas — to
+ * someone who only opened the home page. That is not hypothetical: it is the
+ * regression recorded in `tests/on-call-root-bundle-isolation.test.ts`, which
+ * measured `/` at 265.3 KiB gzip against 244.0 KiB and desktop LCP 940 ms
+ * against 772 ms. The pair of functions that needs the model lives in
+ * `on-call-entry-view.ts` for exactly this reason.
  */
 
 /**
@@ -155,36 +164,3 @@ export const ON_CALL_VIEW_HREFS: Record<OnCallPageView, string> = {
 
 /** The glyph for the mode home. Not a section, so it is not in the maps above. */
 export const ON_CALL_HOME_ICON: LucideIcon = MoonStar;
-
-/**
- * Which stored section a view writes to. Who's who writes `contacts` rows; every
- * other view writes its own. The editor takes this rather than the view, so a
- * role explainer is saved as what it actually is.
- */
-export function onCallViewStorageSection(view: OnCallPageView): OnCallSection {
-  if (view === "who-is-who") return "contacts";
-  if (view === "compliance") return "logistics";
-  return view;
-}
-
-/**
- * Which view an entry BELONGS TO — the exact inverse of
- * `onCallViewStorageSection`, and next to it so the pair cannot drift.
- *
- * Anything that turns an entry into a destination, a heading or a glyph must go
- * through this rather than reading `entry.section`, because two of this mode's
- * pages are views over a stored section rather than sections themselves. A
- * compliance requirement is stored as `logistics`; keying off the section sends
- * it to the Admin page, under the Admin name and the Admin glyph, and the row
- * is not on that page — a search result that navigates to a page not containing
- * the thing it found. Who's who is the same shape over `contacts`.
- *
- * If a third view is ever added, adding it here and to
- * `onCallViewStorageSection` is the whole change; that is the point of them
- * sitting together.
- */
-export function onCallViewForEntry(entry: OnCallEntry): OnCallPageView {
-  if (isComplianceEntry(entry)) return "compliance";
-  if (isRoleExplainerEntry(entry)) return "who-is-who";
-  return entry.section;
-}

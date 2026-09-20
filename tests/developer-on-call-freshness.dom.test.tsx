@@ -9,9 +9,9 @@ import {
   ON_CALL_SECTION_TITLES,
   ON_CALL_VIEW_HREFS,
   ON_CALL_VIEW_TITLES,
-  onCallViewForEntry,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
