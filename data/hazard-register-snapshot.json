@@ -1,6 +1,6 @@
 {
   "version": "hazard-register-snapshot-v1",
-  "generatedAt": "2026-09-19",
+  "generatedAt": "2026-09-20",
   "counts": {
     "registers": 3,
     "registersMissing": 1,
@@ -602,6 +602,11 @@
           "id": "#FJW91M",
           "priority": "P1",
           "summary": "Ward Flow: the Command mockup and the shipped reducer give opposite answers on a prior decline"
+        },
+        {
+          "id": "#TDCZJB",
+          "priority": "P1",
+          "summary": "Ward Flow's synthetic patient records are in 1629 published commits under a 2026-08-31 ruling the owner has deferred, not withdrawn"
         }
       ],
       "openAssuranceDecisions": []
