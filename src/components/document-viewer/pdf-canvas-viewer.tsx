@@ -530,7 +530,12 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       } catch (loadError) {
         if (active) {
           if (isLikelyExpiredUrl(loadError)) reportUrlExpired();
-          setError(loadError instanceof Error ? loadError.message : "Could not load PDF preview.");
+          // A library's own message ("...getOrInsertComputed is not a function") tells
+          // the reader nothing about whether the document is missing, the link expired,
+          // or the browser is too old — and `error` is also announced assertively, so a
+          // minified internal would be read aloud. Keep the detail in the console.
+          console.error("[pdf-canvas-viewer] PDF load failed", loadError);
+          setError("Could not load PDF preview.");
         }
       } finally {
         if (active) setLoading(false);
@@ -865,7 +870,11 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
       // A neighbour rendered ahead is invisible; blanking a perfectly good page
       // because a prefetch failed would be a worse outcome than the prefetch
       // simply not arriving.
-      if (pageNumber === pageRef.current) setError(renderError.message);
+      if (pageNumber === pageRef.current) {
+        // Same reason as the load path above: never surface the library's own message.
+        console.error("[pdf-canvas-viewer] PDF page render failed", renderError);
+        setError("Could not display this page of the PDF.");
+      }
     },
     [reportUrlExpired],
   );
