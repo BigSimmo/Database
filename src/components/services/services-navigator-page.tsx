@@ -838,6 +838,10 @@ export function ServicesNavigatorPage() {
                 : "The services registry could not be loaded. Try again shortly."
             }
             onRetry={registry.status === "unauthorized" ? undefined : registry.refetch}
+            // The registry answered from the in-bundle catalogue because the published one could
+            // not be read. The rows are real, so they stay; what the band has to add is that the
+            // list itself may lag a recent publication.
+            catalogueDegraded={registry.degraded}
             faultAction={
               registry.status === "unauthorized" ? (
                 <Link

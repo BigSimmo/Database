@@ -56,7 +56,28 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   {
     kind: "escalation",
     label: "Escalation",
-    pattern: /\b(escalat|senior review|specialist review|urgent review|higher level|transfer)\b/i,
+    // `escalat(?:e|es|ed|ing|ion|ions)`: the same trailing-`\b` defect that
+    // `immediate(?:ly)?` fixed one tier up (#GHC4XZ, #9XRDF7). Every token here
+    // is wrapped in `\b...\b`, so the bare stem `escalat` demanded a word
+    // boundary straight after those seven letters and therefore matched NEITHER
+    // "escalate" NOR "escalation". The entry fired only through "senior review",
+    // "specialist review", "urgent review", "higher level" or "transfer", so a
+    // passage reading "Escalate to the consultant." produced no chip at all --
+    // the silent-miss direction, not a wrong label.
+    //
+    // Written as an explicit suffix group rather than `escalat\w*` because `\w*`
+    // also swallows "escalator" and "escalators": ordinary hospital-estate prose
+    // ("the patient fell on the escalator") that carries no clinical instruction
+    // and would arrive painted with the `act` tone.
+    //
+    // Widening a mid-array entry is not purely additive. `safetyPatterns.find`
+    // takes the FIRST match in severity order, so this entry now also claims
+    // passages that read Dose limit, Monitoring, Exclusion or Caveat today --
+    // everything below it in the array. Passages already reaching
+    // Contraindication or Red flag are untouched. Every measured movement is
+    // pinned in tests/clinical-safety.test.ts.
+    pattern:
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer)\b/i,
   },
   {
     kind: "dose_limit",
@@ -66,7 +87,21 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
   {
     kind: "monitoring",
     label: "Monitoring",
-    pattern: /\b(monitor|baseline|repeat|review|blood test|level|fbc|anc|renal|thyroid|metabolic)\b/i,
+    // `monitor(?:s|ed|ing)?`: the trailing-`\b` defect again (#9XRDF7). Bare
+    // `monitor` matched the imperative ("Monitor the full blood count weekly")
+    // but missed "monitoring", "monitored" and "monitors", so "Monitoring
+    // should continue for eighteen weeks." produced no finding. The `i` flag
+    // was never the issue; the word boundary was.
+    //
+    // An explicit suffix group rather than `monitor\w*`, for the same reason as
+    // the escalation entry above: keep the token to the verb and its
+    // inflections instead of anything that merely begins with those letters.
+    //
+    // This entry sits fifth of seven, so widening it takes passages from the
+    // two tiers BELOW it (Exclusion, Caveat) as well as labelling passages that
+    // had no finding at all. Anything already matching a higher tier keeps its
+    // label. Measured movements are pinned in tests/clinical-safety.test.ts.
+    pattern: /\b(monitor(?:s|ed|ing)?|baseline|repeat|review|blood test|level|fbc|anc|renal|thyroid|metabolic)\b/i,
   },
   {
     kind: "exclusion",

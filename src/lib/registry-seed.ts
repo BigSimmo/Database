@@ -1,5 +1,4 @@
 import { formRecords } from "@/lib/forms";
-import { invalidateOwnerCatalogueCache } from "@/lib/owner-catalogue-cache";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
 import {
   deriveGovernanceColumns,
@@ -181,8 +180,6 @@ export async function ensureRegistrySeeded(
   if (options.signal) query = query.abortSignal(options.signal);
   const { data, error } = await query;
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
-  invalidateOwnerCatalogueCache({ ownerId, kind, preserveSignal: options.signal });
-  throwIfAborted(options.signal);
   throwIfAborted(options.signal);
   return (data ?? []) as RegistryRecordRow[];
 }
