@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { PublicApiError } from "@/lib/http";
-import { ON_CALL_SECTIONS } from "@/lib/on-call/entry-model";
+import { ON_CALL_SECTIONS, onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import {
+  COMPLIANCE_MARKER_KEYS,
   PUBLIC_ON_CALL_SECTIONS,
   assertValidLinkedDocumentIds,
   fetchOwnerOnCallEntries,
@@ -238,6 +239,68 @@ describe("fetchSharedOnCallEntries and compliance requirements", () => {
   it("withholds a logistics row whose details cannot be read at all", async () => {
     const client = fakeClient([logisticsRow("66666666-6666-4666-8666-666666666666", null)]);
     expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
+  it("withholds a logistics row whose details are an array", async () => {
+    // `typeof [] === "object"` and an array has no `kind`, so the first version
+    // of this predicate called an array an ordinary Admin row and published it.
+    const client = fakeClient([logisticsRow("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", [])]);
+    expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
+  it("withholds a requirement that carries compliance fields but has lost its kind", async () => {
+    // The case that made `kind` alone insufficient, and the reason this file
+    // has a guard below. `kind` is optional in `logisticsDetails`, so this row
+    // is SCHEMA-VALID: it parses, its details survive `rowToOnCallEntry`
+    // intact, and the old predicate published the expiry, the issuing body and
+    // the link to the certificate to anyone who called the endpoint.
+    const row = logisticsRow("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", {
+      category: "Registration",
+      consequence: "stops-work",
+      expiresOn: "2027-03-12",
+      issuingBody: "Ahpra",
+      evidenceUrl: "https://example.org/certificate.pdf",
+    });
+    expect(onCallDetailsSchemaFor("logistics").safeParse(row.details).success).toBe(true);
+    const client = fakeClient([row]);
+    expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
+  it.each(COMPLIANCE_MARKER_KEYS)("withholds a logistics row carrying %s on its own", async (key) => {
+    const row = logisticsRow("cccccccc-cccc-4ccc-8ccc-cccccccccccc", { category: "Leave", [key]: "anything" });
+    const client = fakeClient([row]);
+    expect(await fetchSharedOnCallEntries(client as never)).toEqual([]);
+  });
+
+  it("still publishes an admin row that uses only the ordinary admin fields", async () => {
+    // The other half of the guard: widening the predicate must not quietly
+    // withhold the section it was made public for.
+    const row = logisticsRow("dddddddd-dddd-4ddd-8ddd-dddddddddddd", {
+      category: "Facilities",
+      location: "Level 3",
+      hours: "0800-1630",
+      phone: "1234",
+      url: "https://example.org/parking",
+    });
+    const client = fakeClient([row]);
+    expect((await fetchSharedOnCallEntries(client as never)).map((entry) => entry.id)).toEqual([row.id]);
+  });
+
+  /**
+   * Deny by default for FIELDS, the same discipline `PUBLIC_ON_CALL_SECTIONS`
+   * applies to sections.
+   *
+   * Adding a field to `logisticsDetails` is how the leak above happened: the
+   * compliance fields were added to a section that had been made public a
+   * fortnight earlier, and nothing required anyone to re-decide. This fails
+   * until the new key is sorted into one list or the other on purpose.
+   */
+  it("classifies every logistics detail field as either a compliance marker or admin-safe", () => {
+    const ADMIN_SAFE_KEYS = ["category", "location", "hours", "phone", "url"];
+    const schema = onCallDetailsSchemaFor("logistics") as unknown as { shape: Record<string, unknown> };
+    const declared = Object.keys(schema.shape).sort();
+    const classified = [...COMPLIANCE_MARKER_KEYS, ...ADMIN_SAFE_KEYS].sort();
+    expect(declared).toEqual(classified);
   });
 
   it("leaves rows in other sections alone, whatever their details carry", async () => {

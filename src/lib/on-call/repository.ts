@@ -71,9 +71,18 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
   // about one person by definition, so `is_personal` is not a setting on one —
   // it is a property of what the row is.
   //
-  // Read as `rowMayBeComplianceRequirement` reads it (any `kind` at all on a
-  // `logistics` row), so the write and the read agree about which rows are in
-  // scope and a typo cannot slip between the two definitions.
+  // Read as `rowMayBeComplianceRequirement` reads it — one definition, so the
+  // write and the read agree about which rows are in scope and a typo cannot
+  // slip between them. That predicate now withholds a `logistics` row carrying
+  // ANY compliance marker key, not just `kind`, which means saving a row that
+  // looks compliance-shaped also stamps it private here.
+  //
+  // That is the intended direction. The only rows affected are ones no editor
+  // in this app produces — the compliance form always writes `kind` — so in
+  // practice this catches an import or a hand-edited row, and stamping one of
+  // those private is the outcome we want. If an ordinary Admin row is ever
+  // caught by it, switching its category to Compliance and back clears the
+  // stray field through the taxonomy sweep, so the owner is not stuck.
   const isCompliance = rowMayBeComplianceRequirement({ section: entry.section, details: entry.details ?? {} });
   return {
     owner_id: ownerId,
@@ -126,6 +135,43 @@ export const PUBLIC_ON_CALL_SECTIONS = [
 ] as const satisfies readonly OnCallSection[];
 
 /**
+ * The `logistics` detail keys that only a compliance requirement carries.
+ *
+ * `kind` alone was the original test and it was not enough, which a review
+ * caught before this branch merged. `kind` is optional in `logisticsDetails`,
+ * so `{ category: "Registration", expiresOn: "2027-03-12", issuingBody:
+ * "Ahpra", evidenceUrl: "…/certificate.pdf" }` is a VALID logistics row with no
+ * `kind` at all. It parses cleanly, `isComplianceEntry` calls it ordinary
+ * admin, and the old predicate published it to anonymous callers with its
+ * details intact — the expiry, the issuer and the link to the certificate. A
+ * compliance requirement that merely lost one key was the worst case, and it
+ * was the case the old test suite did not have.
+ *
+ * So the question this asks is no longer "is it labelled compliance" but "does
+ * it look like a compliance record", and the answer is deliberately generous.
+ * The cost of a false positive is one Admin row about, say, a parking permit
+ * with an expiry date being withheld from anonymous readers while its owner
+ * still sees it. The cost of a false negative is publishing a named doctor's
+ * registration. Those are not comparable, so this errs in the cheap direction.
+ *
+ * The complement — `category`, `location`, `hours`, `phone`, `url` — is what an
+ * ordinary Admin row uses, and `tests/on-call-repository.test.ts` fails if a
+ * new key is added to `logisticsDetails` without being sorted into one list or
+ * the other. That is the same deny-by-default discipline as
+ * `PUBLIC_ON_CALL_SECTIONS` above: a new field is withheld until somebody
+ * decides on purpose that it may be published.
+ */
+export const COMPLIANCE_MARKER_KEYS = [
+  "kind",
+  "consequence",
+  "expiresOn",
+  "leadTimeDays",
+  "issuingBody",
+  "evidenceUrl",
+  "provenance",
+] as const;
+
+/**
  * Whether a raw row is — or might be — a compliance requirement, and therefore
  * must never leave this server to an anonymous caller.
  *
@@ -148,9 +194,8 @@ export const PUBLIC_ON_CALL_SECTIONS = [
  *    as compliance and withheld. Withholding a broken parking note from the
  *    public page costs nothing; publishing a broken registration record cannot
  *    be undone.
- * 3. **`kind` at all, not `kind === "compliance"`.** `compliance` is the only
- *    `kind` this section defines, so any other value is either a typo of it or
- *    something newer than this function. Both should wait for a human.
+ * 3. **Any marker key, not `kind === "compliance"`.** See
+ *    `COMPLIANCE_MARKER_KEYS` below for why `kind` alone was not enough.
  *
  * The write path stores these rows `is_personal: true`, which would exclude
  * them anyway. That is the belt; this is the braces, and it is the one that
@@ -160,8 +205,11 @@ export const PUBLIC_ON_CALL_SECTIONS = [
 export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boolean {
   if (row.section !== "logistics") return false;
   const details = row.details;
-  if (typeof details !== "object" || details === null) return true;
-  return "kind" in (details as Record<string, unknown>);
+  // Not a plain object, so it cannot be read as an Admin row and is withheld
+  // rather than guessed at. `null` and an array are both named because
+  // `typeof` calls each of them "object".
+  if (typeof details !== "object" || details === null || Array.isArray(details)) return true;
+  return COMPLIANCE_MARKER_KEYS.some((key) => key in details);
 }
 
 /**
