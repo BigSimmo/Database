@@ -148,5 +148,13 @@ that remote is visible to the world rests on his word alone.**
 ✅ **MEASURED SINCE, 2026-09-20 — it no longer rests on his word.** A GitHub API read returned
 `private: false`, `visibility: public`. The caution above was correct at the time and is kept for
 that reason; the question it raises is now answered. He was asked again on the same day and ruled
-**"i will leave it public for now"**. Two figures in the paragraph above have also moved: the UMRNs
-are in **12 files** today, not 2, and **4 commits** touch `ward-patients-seed.ts`, not 3.
+**"i will leave it public for now"**. One figure in the ruling above has moved and one has not: the
+UMRNs are in **16 files** today, not 2, and the names in **8**, not 5 — but the **3 past commits**
+it recorded is still exactly right.
+
+⚠️ **THIS LINE FIRST SAID 12 FILES AND 4 COMMITS. BOTH WERE WRONG, IN OPPOSITE DIRECTIONS.** The 12
+came from searching for `UM100001`, the first record of eight, which misses four files carrying only
+the other seven; the 4 came from counting commits that touch `ward-patients-seed.ts` rather than
+commits that carry the records. **A privacy count taken from one specimen of eight understates
+exposure, and understating it is the direction that makes publishing look safer** — which is the
+error this whole section exists to guard against.

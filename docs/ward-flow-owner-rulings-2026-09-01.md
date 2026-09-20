@@ -36,11 +36,23 @@ and every Actions log, is public.
 
 **What does NOT change.** The 2026-08-31 ruling (section 5, "Ward Flow is NOT to be pushed to a
 public repository as it stands") is not reversed by this — he has deferred it, not withdrawn it. Its
-measured basis has grown since it was written: the UMRNs appear in **12 files** today where it
-recorded 2, and **4 commits** touch `ward-patients-seed.ts` where it recorded 3. The eight records
+measured basis has grown since it was written: the UMRNs appear in **16 files** today where it
+recorded 2, and the names in **8** where it recorded 5. Its commit figure was right and does not
+move: **3 commits** across all refs carry the records. The eight records
 are genuinely synthetic — the file header reasons the choice at length and the screens carry a
 visible synthetic-data marker — and the ruling's point was never that they are real, but that
 **they do not look invented**.
+
+⚠️ **THE FIRST VERSION OF THIS PARAGRAPH GOT BOTH FIGURES WRONG, AND THE ERROR IS RECORDED RATHER
+THAN OVERWRITTEN — IT IS THE SAME FAILURE THE RULING ABOVE WARNS ABOUT.** It said 12 files and 4
+commits. **The file count searched for `UM100001` — the first record of eight — so it missed the
+four files carrying one of the other seven UMRNs and not the first.** A privacy figure taken from
+one specimen of eight reads low by construction, and it read low in the direction that makes
+publishing look safer. The commit count was the opposite error, counting commits that TOUCH
+`ward-patients-seed.ts` rather than commits that carry the records; there are 4 of the former and
+3 of the latter, so the 2026-08-31 ruling's own figure never needed correcting. Measured at
+`HEAD` on 2026-09-20: `git grep -l UM10000` → 16, `git grep -l "Talia Halloway"` → 8,
+`git log --all -S UM100001 -- <seed>` → 3.
 
 ---
 
