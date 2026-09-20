@@ -7,7 +7,7 @@ Writes six `.dc.html` artboards plus `canvas.json`. See README.md in this
 directory for what to do with them. Pure standard library, no dependencies.
 
 Every geometry value below is copied from `src/lib/brand-mark.ts` and every
-colour from the `@theme` tokens in `src/app/globals.css`. When either moves,
+colour from the effective `.ckb-v2` tokens in `src/app/ckb-v2-tokens.css`. When either moves,
 update this file too: nothing enforces the copy, because the canvas is a
 published artifact rather than a build output.
 """
@@ -26,6 +26,7 @@ COUNTER = "translate(55.1029 100.3813) scale(-1.07)"
 PLACE      = "translate(143.1125 51.2) scale(4.0804)"
 PLACE_S    = "translate(122.7103 51.2) scale(4.0804)"
 PLACE_BARE = "translate(114.8907 0) scale(5.1006)"
+PLACE_BARE_S = "translate(89.3877 0) scale(5.1006)"
 
 GROUND="#F7F9FB"; PLATE="#FFFFFF"; INK="#0B1016"; MUTED="#5A6675"
 RULE="#DDE4EC"; ACCENT="#1D6FB8"; SOFT="#EAF2FA"; DARK="#171B1E"; DARKINK="#74BDF0"
@@ -36,7 +37,10 @@ def glyph(ink, small=False, bare=True):
     """The three shapes, no tile. bare=True uses the edge-to-edge placement."""
     st = STROKE_S if small else STROKE
     cx = 54.8724 if small else 44.8724
-    pl = PLACE_BARE if bare else (PLACE_S if small else PLACE)
+    if bare:
+        pl = PLACE_BARE_S if small else PLACE_BARE
+    else:
+        pl = PLACE_S if small else PLACE
     return ('<g transform="%s" fill="%s"><path d="%s"/><path d="%s" transform="%s"/>'
             '<circle cx="%s" cy="20.0286" r="10.4586"/></g>' % (pl, ink, st, st, COUNTER, cx))
 
@@ -189,22 +193,22 @@ def size_cell(px, small, note):
       % (mark(px, ACCENT, small), MONO, INK, px, SANS, MUTED, note))
 
 row_a = "".join(size_cell(p, False, n) for p,n in
-    [(96,""),(64,""),(48,"handover to<br>the small set"),(32,"crescent<br>closes"),(16,"")])
+    [(96,""),(64,""),(48,""),(32,"handover to<br>the small set"),(16,"crescent<br>closes")])
 row_b = "".join(size_cell(p, True, n) for p,n in
-    [(96,""),(64,""),(48,"cut opened<br>4.2 &rarr; 7.2"),(32,"point slid<br>10 units out"),(16,"merges &mdash; the<br>size, not the<br>placement")])
+    [(96,""),(64,""),(48,""),(32,"cut opened<br>4.2 &rarr; 7.2<br>point slid<br>10 units out"),(16,"merges &mdash; the<br>size, not the<br>placement")])
 
 inner = ('<div style="padding:34px 44px;display:flex;flex-direction:column;gap:22px;height:617px;box-sizing:border-box">'
-  + head("Sizes", "Two cuts of one silhouette. Below 48&nbsp;px the 4.2-unit gap closes up and the point fuses "
+  + head("Sizes", "Two cuts of one silhouette. At 32&nbsp;px and below the 4.2-unit gap closes up and the point fuses "
          "into the S, so the small set widens the cut and slides the point out of the cradle &mdash; three changes "
          "that only ever travel together.")
   + '<div style="display:flex;gap:34px;align-items:flex-start">'
     '<div style="flex:0 0 118px;padding-top:24px;display:flex;flex-direction:column;gap:6px">%s'
-    '<div style="font:400 11px/1.4 %s;color:%s">Master artwork.<br>48&nbsp;px and up.</div></div>'
+    '<div style="font:400 11px/1.4 %s;color:%s">Master artwork.<br>Above 32&nbsp;px.</div></div>'
     '<div style="display:flex;gap:8px">%s</div></div>' % (eyebrow("Standard set"), SANS, MUTED, row_a)
   + '<div style="height:1px;background:%s"></div>' % RULE
   + '<div style="display:flex;gap:34px;align-items:flex-start">'
     '<div style="flex:0 0 118px;padding-top:24px;display:flex;flex-direction:column;gap:6px">%s'
-    '<div style="font:400 11px/1.4 %s;color:%s">Browser tab, favicon.<br>Below 48&nbsp;px.</div></div>'
+    '<div style="font:400 11px/1.4 %s;color:%s">Browser tab, favicon.<br>32&nbsp;px and below.</div></div>'
     '<div style="display:flex;gap:8px">%s</div></div>' % (eyebrow("Small set"), SANS, MUTED, row_b)
   + '</div>')
 W("Sizes.dc.html", plate(1000, 620, inner))
@@ -223,18 +227,18 @@ def swatch(hexv, token, use, on_dark=False):
 light = "".join(swatch(*a) for a in [
   ("#1d6fb8","--clinical-accent","The mark, links, focus"),
   ("#185c99","--clinical-accent-strong","Pressed and hover"),
-  ("#eff5fc","--clinical-accent-soft","Quiet accent grounds"),
-  ("#ffffff","--surface-raised","Page ground behind the mark"),
-  ("#080b0f","--text-heading","Wordmark"),
-  ("#475467","--text-muted","Strapline"),
+  ("#f2f8fe","--clinical-accent-soft","Quiet accent grounds"),
+  ("#fcfdfe","--surface-raised","Page ground behind the mark"),
+  ("#0a1220","--text-heading","Wordmark"),
+  ("#55627a","--text-muted","Strapline"),
 ])
 dark = "".join(swatch(a,b,c,True) for a,b,c in [
   ("#74bdf0","--clinical-accent","The mark, links, focus"),
   ("#a9d8f8","--clinical-accent-strong","Pressed and hover"),
   ("#123556","--clinical-accent-soft","Quiet accent grounds"),
-  ("#171b1e","--surface-raised","Page ground behind the mark"),
+  ("#1c2126","--surface-raised","Page ground behind the mark"),
   ("#fbfcfd","--text-heading","Wordmark"),
-  ("#a4adb7","--text-muted","Strapline"),
+  ("#a8b2bd","--text-muted","Strapline"),
 ])
 
 inner = ('<div style="padding:34px 44px;display:flex;flex-direction:column;gap:20px;height:617px;box-sizing:border-box">'
@@ -273,10 +277,10 @@ safe = ('<svg width="104" height="104" viewBox="0 0 512 512" xmlns="http://www.w
   'role="img" aria-label="Maskable icon with the Android safe circle marked">'
   '<rect width="512" height="512" fill="#1d6fb8"/>'
   '<g transform="%s" fill="#ffffff"><path d="%s"/><path d="%s" transform="%s"/>'
-  '<circle cx="54.8724" cy="20.0286" r="10.4586"/></g>'
+  '<circle cx="44.8724" cy="20.0286" r="10.4586"/></g>'
   '<circle cx="256" cy="256" r="170.8" fill="none" stroke="rgba(255,255,255,.55)" stroke-width="4" '
   'stroke-dasharray="10 10"/></svg>') % (
-   "translate(152.6800 97.28) scale(3.1626)", STROKE_S, STROKE_S, COUNTER)
+   "translate(168.5122 97.28) scale(3.1623)", STROKE, STROKE, COUNTER)
 
 H=70.0; Wk=round(H*55.331/100.3813,3); CS=round(H/4,3)
 BX=round((176-(Wk+2*CS))/2,3); BY=round((124-(H+2*CS))/2,3)

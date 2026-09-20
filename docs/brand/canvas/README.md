@@ -40,11 +40,11 @@ supplies the payload and the seeding helper; this repository holds only the desi
 
 The generator carries a **copy** of the geometry and colour values, because the canvas is published
 outside the application and cannot import from it. Nothing fails if the copy goes stale, so when
-`src/lib/brand-mark.ts` or the `@theme` tokens in `src/app/globals.css` change, update this file in
+`src/lib/brand-mark.ts` or the effective `.ckb-v2` tokens in `src/app/ckb-v2-tokens.css` change, update this file in
 the same change and republish.
 
 The values that must agree:
 
 - every path, transform, radius and centre, against `src/lib/brand-mark.ts`
-- `#1D6FB8` / `#74BDF0` and the rest of the swatches, against `src/app/globals.css`
+- `#1D6FB8` / `#74BDF0` and the rest of the swatches, against effective `.ckb-v2` values in `src/app/ckb-v2-tokens.css`
 - the clear-space rule and the maskable 62%, against [`../psychsift-logo.md`](../psychsift-logo.md)

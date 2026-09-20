@@ -38,23 +38,23 @@ rebuilt if the published copy is ever lost.
 
 Served from `public/brand/`, so each file's public address is its path under `/brand/`.
 
-| File                                      | What it is                                          |
-| ----------------------------------------- | --------------------------------------------------- |
-| `psychsift-mark.svg`                      | The mark, theme-aware                               |
-| `psychsift-mark-blue.svg`                 | The mark, flat brand blue                           |
-| `psychsift-mark-light.svg`                | The mark for dark grounds                           |
-| `psychsift-glyph-navy.svg`                | Bare symbol, no tile — navy                         |
-| `psychsift-glyph-white.svg`               | Bare symbol, no tile — white                        |
-| `psychsift-glyph-mono.svg`                | Bare symbol, single colour                          |
-| `psychsift-wordmark.svg`                  | Wordmark alone                                      |
-| `psychsift-lockup-horizontal.svg`         | Mark + name, horizontal                             |
-| `psychsift-lockup-horizontal-tagline.svg` | Horizontal with tagline — **stale, see Open items** |
-| `psychsift-lockup-horizontal-reverse.svg` | Horizontal for dark grounds                         |
-| `psychsift-lockup-stacked.svg`            | Mark above name                                     |
-| `psychsift-favicon.svg`                   | Small-size cut, browser tab                         |
-| `psychsift-mark-maskable.svg`             | Android maskable icon                               |
-| `psychsift-mark-1024.png`                 | Raster, 1024 px                                     |
-| `psychsift-mark-maskable-1024.png`        | Raster maskable, 1024 px                            |
+| File                                      | What it is                                                                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `psychsift-mark.svg`                      | Fixed navy master (hardcoded `#0D1B2A` tile + white glyph — not theme-aware; theme-aware consumers use generated `app/icon.svg`) |
+| `psychsift-mark-blue.svg`                 | The mark, flat brand blue                                                                                                        |
+| `psychsift-mark-light.svg`                | The mark for dark grounds                                                                                                        |
+| `psychsift-glyph-navy.svg`                | Bare symbol, no tile — navy                                                                                                      |
+| `psychsift-glyph-white.svg`               | Bare symbol, no tile — white                                                                                                     |
+| `psychsift-glyph-mono.svg`                | Bare symbol, single colour                                                                                                       |
+| `psychsift-wordmark.svg`                  | Wordmark alone                                                                                                                   |
+| `psychsift-lockup-horizontal.svg`         | Mark + name, horizontal                                                                                                          |
+| `psychsift-lockup-horizontal-tagline.svg` | Horizontal with tagline — **stale, see Open items**                                                                              |
+| `psychsift-lockup-horizontal-reverse.svg` | Horizontal for dark grounds                                                                                                      |
+| `psychsift-lockup-stacked.svg`            | Mark above name                                                                                                                  |
+| `psychsift-favicon.svg`                   | Small-size cut, browser tab                                                                                                      |
+| `psychsift-mark-maskable.svg`             | Android maskable icon                                                                                                            |
+| `psychsift-mark-1024.png`                 | Raster, 1024 px                                                                                                                  |
+| `psychsift-mark-maskable-1024.png`        | Raster maskable, 1024 px                                                                                                         |
 
 ## The geometry — authoritative, do not redraw by hand
 
@@ -99,6 +99,7 @@ crescent tapers. This is the single most important constraint in the mark.
 | On a tile — glyph at 80% of tile height         | `translate(143.1125 51.2) scale(4.0804)` |
 | Bare, no tile — ink fills the box top to bottom | `translate(114.8907 0) scale(5.1006)`    |
 | Small-size set, on a tile                       | `translate(122.7103 51.2) scale(4.0804)` |
+| Small-size set, bare                            | `translate(89.3877 0) scale(5.1006)`     |
 
 Tile: 512 × 512, corner radius 96 — 3/16 of the side. Maskable safe circle: r 170.8 at (256, 256),
 which is 66.7% of the icon width; the maskable glyph is scaled to 62% of the height, putting its
@@ -106,8 +107,8 @@ furthest ink 159 px out against the 171 px allowed. Do not raise that 62%.
 
 ## The small-size set — three changes that only ever travel together
 
-Below 48 px the 4.2-unit gap closes up and the point fuses into the S. There is a second cut of the
-same silhouette for that range. Never mix one variant's cut with the other's point placement or
+At 32 px and below the 4.2-unit gap closes up and the point fuses into the S. There is a second cut of the
+same silhouette for that range (matching `chrome` in `src/lib/brand-mark.ts` and `docs/brand/psychsift-logo.md`). Never mix one variant's cut with the other's point placement or
 centring — the glyph goes off-centre in the tile.
 
 ```
@@ -125,8 +126,11 @@ That is the size, not the placement.
 
 ## Colour
 
-These are the **in-app tokens**, resolved from `src/app/globals.css`. The standalone artwork in
-`public/brand/` still carries an older palette — see Open items.
+These are the **effective in-app tokens** under `.ckb-v2` (source of truth:
+`src/app/ckb-v2-tokens.css`). Accent and accent-strong still resolve from the compatibility layer
+in `globals.css`; the surface, text, and soft-accent swatches below are the v2 overrides a designer
+will actually see. The standalone artwork in `public/brand/` still carries an older palette — see
+Open items.
 
 **Light**
 
@@ -134,10 +138,10 @@ These are the **in-app tokens**, resolved from `src/app/globals.css`. The standa
 | --------- | -------------------------- | --------------------------- |
 | `#1D6FB8` | `--clinical-accent`        | The mark, links, focus      |
 | `#185C99` | `--clinical-accent-strong` | Pressed and hover           |
-| `#EFF5FC` | `--clinical-accent-soft`   | Quiet accent grounds        |
-| `#FFFFFF` | `--surface-raised`         | Page ground behind the mark |
-| `#080B0F` | `--text-heading`           | Wordmark                    |
-| `#475467` | `--text-muted`             | Strapline                   |
+| `#F2F8FE` | `--clinical-accent-soft`   | Quiet accent grounds        |
+| `#FCFDFE` | `--surface-raised`         | Page ground behind the mark |
+| `#0A1220` | `--text-heading`           | Wordmark                    |
+| `#55627A` | `--text-muted`             | Strapline                   |
 
 **Dark**
 
@@ -146,9 +150,9 @@ These are the **in-app tokens**, resolved from `src/app/globals.css`. The standa
 | `#74BDF0` | `--clinical-accent`        | The mark, links, focus      |
 | `#A9D8F8` | `--clinical-accent-strong` | Pressed and hover           |
 | `#123556` | `--clinical-accent-soft`   | Quiet accent grounds        |
-| `#171B1E` | `--surface-raised`         | Page ground behind the mark |
+| `#1C2126` | `--surface-raised`         | Page ground behind the mark |
 | `#FBFCFD` | `--text-heading`           | Wordmark                    |
-| `#A4ADB7` | `--text-muted`             | Strapline                   |
+| `#A8B2BD` | `--text-muted`             | Strapline                   |
 
 The mark carries the colour and the ground stays out of its way. Ink is always the accent token; the
 tile is always the page ground. That is why on white the mark reads as the bare symbol with no box
