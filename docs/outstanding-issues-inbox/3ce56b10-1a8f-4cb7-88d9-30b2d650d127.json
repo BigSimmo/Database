@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3ce56b10-1a8f-4cb7-88d9-30b2d650d127",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "src/lib/supabase/admin.ts and src/lib/openai.ts construct privileged clients without the server-only import guard",
+    "detail": "Add import \"server-only\"; to both files. Why: no 'use client' file imports either today (verified by grep, so there is no live leak), but without the guard a future accidental client import is caught by discipline rather than by the build failing — and the blast radius is the service-role key and the OpenAI key. src/lib/env.ts already carries the guard, so this is consistency with an existing pattern. Owner: assistant. Confidence: high — verified absent 2026-09-20. Depends on: nothing.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ82WPG6SGZQSWZHESA7Q"
+  }
+}

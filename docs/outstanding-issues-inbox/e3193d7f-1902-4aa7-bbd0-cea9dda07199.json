@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e3193d7f-1902-4aa7-bbd0-cea9dda07199",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "Three knip-confirmed dead files are still in src/ after the maturity review flagged them",
+    "detail": "Confirm each against docs/agents/dead-code-deletion.md, then remove: src/components/care-plan/mockups/index.ts (orphaned barrel, every consumer imports the sub-files), src/components/clinical-dashboard/use-mobile-preview-sheet.ts (zero importers), src/components/dictionary/dictionary-sources-page.tsx (superseded — the route now redirects to /sources/search?usedBy=dictionary). Why: triage only, not a delete list; knip found exactly these three across 1660 source files, which is an unusually clean result worth keeping clean. Owner: assistant. Confidence: high — all three verified still present 2026-09-20. Depends on: nothing.",
+    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "issueUlid": "01M2ZHJ7XX6TBVZ9KY4WPQ6SR2"
+  }
+}
