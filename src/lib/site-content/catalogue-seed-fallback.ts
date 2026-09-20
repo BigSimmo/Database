@@ -247,6 +247,10 @@ export async function readCatalogueWithSeedFallback<T>(input: {
     // byte-for-byte what it was before.
     const cold = !warmed.has(key) && !(input.signal?.aborted ?? false);
     if (cold) {
+      // Consume the one-shot retry before attempting it. If both attempts fail, cooldown
+      // still opens below; without this, expiry would make `cold` true again and re-offer
+      // the retry budget on a genuine outage (and concurrent cold callers could each claim one).
+      warmed.add(key);
       const retryBudgetMs = Math.min(budgetMs, input.retryBudgetMs ?? catalogueSeedFallbackRetryBudgetMs);
       try {
         const records = await attempt(retryBudgetMs);
