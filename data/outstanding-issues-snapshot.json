@@ -1,12 +1,12 @@
 {
   "version": "outstanding-issues-snapshot-v2",
   "ledger_revision": {
-    "committed_at": "2026-09-19"
+    "committed_at": "2026-09-20"
   },
   "counts": {
-    "open": 123,
-    "p1": 21,
-    "p2": 78,
+    "open": 126,
+    "p1": 23,
+    "p2": 79,
     "p3": 24,
     "queued": 7,
     "pending": 0,
@@ -1146,6 +1146,15 @@
       "added": "2026-09-20"
     },
     {
+      "id": "#TDCZJB",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Repository visibility is measured PUBLIC, contradicting the 2026-09-01 ruling that every session assume it is private",
+      "detail": "MEASURED 2026-09-20 via the GitHub API: private=false, visibility=public. This is the first actual measurement. docs/ward-flow-owner-rulings-2026-09-01.md section 1 rules 'make it private (just assume it is private please)' and states in bold that NOBODY HAS VERIFIED OR CHANGED THE REMOTE'S ACTUAL VISIBILITY AND NO CHAT MAY, adding that the assumption 'must never be written down later as though somebody checked' and 'If it matters to a decision, ask him'. I measured it rather than asking, while deciding whether show_full_output was safe to recommend for the Claude review workflow; the answer did change that recommendation, but the rule says ask. OWNER DECISION 2026-09-20, in his words: 'i will leave it public for now'. By the same document's section 2 ('the LATEST decision wins') this supersedes the assume-private instruction. WHY IT MATTERS: for roughly three weeks every session has operated on a premise now known false. A session told to assume the repository is private could reasonably judge something safe to commit that is in fact world-readable. The related 2026-08-31 ruling (section 5) remains on file - Ward Flow is not to be pushed to a public repository as it stands, because eight synthetic patients carry a full name, UMRN and date of birth and 'they do not look invented'. That ruling's exposure has grown since it was written: UMRNs measured in 12 files today (it recorded 2) and 4 commits touch ward-patients-seed.ts (it recorded 3). The records themselves are genuinely synthetic - verified in the file header, which reasons the choice at length, and the screens carry a visible synthetic-data marker.",
+      "source": "Owner decision 2026-09-20; GitHub API read; docs/ward-flow-owner-rulings-2026-09-01.md, -2026-08-31.md",
+      "added": "2026-09-20"
+    },
+    {
       "id": "#G8R8GT",
       "priority": "P2",
       "type": "issue",
@@ -1164,12 +1173,30 @@
       "added": "2026-09-20"
     },
     {
+      "id": "#NNAWDT",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "The Claude review workflow fails on every PR and paints a red check, so the repo still has no working automated reviewer",
+      "detail": "Added in PR #2922 to close the 2026-09-19 gap where CodeRabbit, Codex and Bugbot all declined to review. Its first execution against a real diff (PR #2923, run 35514737554) failed after 1.9s. The result record is decisive: num_turns 1, total_cost_usd 0, modelUsage {} - Claude Code initialised (model claude-sonnet-5) and the single model call was rejected. Wiring, checkout, OAuth secret presence, event trigger and draft gate are all proven working; only the model call fails. LEADING HYPOTHESIS, UNCONFIRMED: the CLAUDE_CODE_OAUTH_TOKEN is expired or not authorised. It had never been exercised before - #2922's own run stopped earlier at the action's workflow-validation check, which refuses to run a reviewer the PR itself modified. The workflow's warn step only tests the secret is non-empty, never that it is valid. WHY IT IS NOT YET DIAGNOSED: the action suppresses the real error ('Running Claude Code via SDK (full output hidden for security)') and names show_full_output: true as the remedy. That remedy is UNSAFE HERE: the repository is public (measured 2026-09-20), Actions logs are world-readable, and the suspected failure is an auth error - the one case where full output could expose the credential. TWO SECONDARY DEFECTS in the same workflow, both observed in that run: (1) continue-on-error: true does NOT prevent a red check - the check run conclusion is 'failure'. The workflow's header comment claims it 'keeps a credential problem from painting a red X that trains readers to ignore red'; that claim is disproven. Job-level continue-on-error stops the workflow failing, not the check reporting failure. (2) The settings input is overridden: the workflow passes '{\"enableAllProjectMcpServers\": false}' and the log reports 'Updated settings with enableAllProjectMcpServers: true', so the stated MCP auto-load guard does not hold.",
+      "source": "PR #2923 investigation, 2026-09-20; job 106088651147",
+      "added": "2026-09-20"
+    },
+    {
       "id": "#QKW3KN",
       "priority": "P2",
       "type": "task",
       "summary": "rag-extractive-answer.ts is now the largest file in the repo at 5268 lines and is not on the monoliths backlog",
       "detail": "Add it to docs/maturity-backlog-workorders.md §X3 as a fourth tracked monolith and extract the isSourceBound* predicate cluster first. Why: it grew ~30% in under three weeks (4042 lines at the 2026-09-02 audit) while all three tracked monoliths shrank, so the one file getting worse is the one nothing is watching. It also carries 10 narrowly-scoped isSourceBound* query predicates, a pattern that adds a bespoke function per answer-quality bug rather than generalising. Owner: assistant. Confidence: high — line counts verified 2026-09-20. Depends on: nothing. NOTE: RAG-ranking surface — any edit needs the flag-it-first rule and a canary pair.",
       "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#JQ3KY7",
+      "priority": "P2",
+      "type": "task",
+      "summary": "The #CCZ4HB automated-review decision fired its own re-open trigger on 2026-09-19 and AGENTS.md still records only the old decision",
+      "detail": "The owner decision of 2026-08-22 (#CCZ4HB, AGENTS.md 'Automated review coverage', full text in docs/agents/pull-request-workflow.md) accepted intermittent bot review on a stated condition: 'Re-open only if the Codex connector also stops reviewing, or if the owner revisits the billing decision.' On 2026-09-19 that condition fired - all three reviewers declined on the same day: CodeRabbit on a categorical under-10-stars eligibility gate (not fixable by a cap raise), Codex on 'reached your Codex usage limits for code reviews', Bugbot on 'usage limit reached'. Three PRs merged that day with no automated review: #2901 (a clinical governance record), #2903, #2921. PR #2922 was the re-opened answer and added .github/workflows/claude-review.yml, but deliberately left AGENTS.md alone on the grounds that rewriting a recorded owner decision is the owner's to make, not a side effect of a workflow change; its Notes section promised this ledger request instead. NOTE the coupling: that workflow does not currently work (separate P1 issue, same date), so the re-opened answer is not yet actually providing coverage. Codex's quota reset overnight and it reviewed both #2922 and #2923, finding nothing on the latter - so 2026-09-19 was three outages coinciding rather than a permanent state, which is the argument for redundancy rather than against it.",
+      "source": "PR #2922 Notes; AGENTS.md 'Automated review coverage'; 2026-09-19 reviewer outage",
       "added": "2026-09-20"
     },
     {
