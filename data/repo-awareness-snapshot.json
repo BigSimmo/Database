@@ -1425,6 +1425,10 @@
         "file": "src/app/api/eval-cases/route.ts"
       },
       {
+        "path": "/api/cme/entries/[id]",
+        "file": "src/app/api/cme/entries/[id]/route.ts"
+      },
+      {
         "path": "/api/documents/bulk/reindex",
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
@@ -1609,6 +1613,10 @@
         "file": "src/app/api/caring-contacts/notification-preferences/route.ts"
       },
       {
+        "path": "/api/cme/year",
+        "file": "src/app/api/cme/year/route.ts"
+      },
+      {
         "path": "/api/documents/[id]/labels",
         "file": "src/app/api/documents/[id]/labels/route.ts"
       },
@@ -1639,6 +1647,10 @@
       {
         "path": "/api/documents/images/batch",
         "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
+        "path": "/api/cme/entries",
+        "file": "src/app/api/cme/entries/route.ts"
       },
       {
         "path": "/api/documents/[id]/signed-url",
