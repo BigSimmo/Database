@@ -23,6 +23,8 @@ import {
   MechanismBadge,
   MechanismCaveats,
   MechanismDomainChips,
+  RecordReviewBadge,
+  RecordReviewNote,
   SectionHeading,
   formulationCard,
 } from "@/components/formulation/formulation-ui";
@@ -32,6 +34,7 @@ import { inPageActionRowClass, inPageAnchor } from "@/components/in-page-nav/in-
 import { InformationPageHeader } from "@/components/information-page-shell";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { formulationSourceLibrary, relatedFormulationMechanisms, type FormulationMechanism } from "@/lib/formulation";
+import { mechanismReviewState } from "@/lib/formulation-review-status";
 
 function FactorColumn({ title, items }: { title: string; items: string[] }) {
   return (
@@ -52,6 +55,7 @@ function FactorColumn({ title, items }: { title: string; items: string[] }) {
 export function FormulationMechanismPage({ mechanism }: { mechanism: FormulationMechanism }) {
   const related = relatedFormulationMechanisms(mechanism);
   const primaryRelated = related[0];
+  const reviewState = mechanismReviewState(mechanism);
   const sources = mechanism.sources
     .map((sourceId) => formulationSourceLibrary[sourceId])
     .filter((source): source is NonNullable<typeof source> => Boolean(source));
@@ -89,6 +93,7 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
             badges={
               <>
                 <MechanismBadge />
+                <RecordReviewBadge state={reviewState} />
                 <MechanismDomainChips values={mechanism.domains} />
               </>
             }
@@ -209,8 +214,12 @@ export function FormulationMechanismPage({ mechanism }: { mechanism: Formulation
 
             {/* The record's own caveats were held in the data and rendered
                 nowhere: every mechanism showed the same generic footer note
-                instead of the limits that belong to it. */}
+                instead of the limits that belong to it. The record's review
+                state was held and dropped the same way — the caveats say what
+                the mechanism cannot tell you, this says whether anyone has
+                checked what it does. */}
             <MechanismCaveats items={mechanism.caveats} />
+            <RecordReviewNote state={reviewState} />
           </div>
 
           <aside className="grid content-start gap-4 xl:sticky xl:top-20">
