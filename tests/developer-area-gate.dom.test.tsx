@@ -25,11 +25,12 @@ const mocks = vi.hoisted(() => ({
   },
   linkAccessGranted: false,
   pathname: "/mockups/development",
+  developerAreaPath: null as string | null,
   routerRefresh: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
-  headers: vi.fn(async () => ({ get: () => null })),
+  headers: vi.fn(async () => ({ get: () => mocks.developerAreaPath })),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -44,7 +45,26 @@ vi.mock("@/lib/developer-area/access", () => ({
 }));
 
 vi.mock("@/components/developer-area/developer-gate-screen", () => ({
-  DeveloperGateScreen: ({ state }: { state: string }) => <div data-testid="gate-screen">{state}</div>,
+  DeveloperGateScreen: ({
+    state,
+    next,
+    keyEntryEnabled,
+    keyRejected,
+  }: {
+    state: string;
+    next: string;
+    keyEntryEnabled?: boolean;
+    keyRejected?: boolean;
+  }) => (
+    <div
+      data-testid="gate-screen"
+      data-next={next}
+      data-key-entry={String(Boolean(keyEntryEnabled))}
+      data-key-rejected={String(Boolean(keyRejected))}
+    >
+      {state}
+    </div>
+  ),
 }));
 
 afterEach(() => {
@@ -54,6 +74,8 @@ afterEach(() => {
   mocks.linkAccessGranted = false;
   mocks.accessResult = { state: "authorized", email: null };
   mocks.pathname = "/mockups/development";
+  mocks.developerAreaPath = null;
+  delete process.env.DEVELOPER_AREA_ACCESS_KEY;
   mocks.routerRefresh.mockClear();
 });
 
@@ -147,5 +169,46 @@ describe("DeveloperAreaGate passwordless link access", () => {
 
     expect(screen.queryByTestId("protected")).not.toBeInTheDocument();
     expect(screen.getByTestId("gate-screen")).toHaveTextContent("unauthorized");
+  });
+});
+
+describe("DeveloperAreaGate developer-key field wiring", () => {
+  // The gate decides whether the key field is offered at all, because only the
+  // server can see DEVELOPER_AREA_ACCESS_KEY. What crosses to the Client
+  // Component must be that decision, never the key.
+  it("offers the key field only when a key of sufficient strength is configured", async () => {
+    mocks.accessResult = { state: "unauthenticated", email: null };
+    const { DeveloperAreaGate } = await import("@/components/developer-area/developer-area-gate");
+
+    render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+    expect(screen.getByTestId("gate-screen")).toHaveAttribute("data-key-entry", "false");
+    cleanup();
+
+    // One character short of the floor is still "unconfigured", so the field
+    // stays hidden rather than promising an unlock that can never happen.
+    process.env.DEVELOPER_AREA_ACCESS_KEY = "developer-area-test-key".padEnd(31, "-");
+    render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+    expect(screen.getByTestId("gate-screen")).toHaveAttribute("data-key-entry", "false");
+    cleanup();
+
+    process.env.DEVELOPER_AREA_ACCESS_KEY = "developer-area-test-key".padEnd(32, "-");
+    render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+    const gateScreen = screen.getByTestId("gate-screen");
+    expect(gateScreen).toHaveAttribute("data-key-entry", "true");
+    // The secret itself must not appear anywhere in what is sent to the browser.
+    expect(document.body.innerHTML).not.toContain("developer-area-test-key");
+  });
+
+  it("passes the proxy's rejection through and hands back a target without the marker", async () => {
+    mocks.accessResult = { state: "unauthenticated", email: null };
+    mocks.developerAreaPath = "/mockups/care-plan?tab=risk&devkeyerror=1";
+    const { DeveloperAreaGate } = await import("@/components/developer-area/developer-area-gate");
+
+    render(await DeveloperAreaGate({ children: <p data-testid="protected">secret</p> }));
+
+    const gateScreen = screen.getByTestId("gate-screen");
+    expect(gateScreen).toHaveAttribute("data-key-rejected", "true");
+    // The retry, and the eventual success, land on a clean URL.
+    expect(gateScreen).toHaveAttribute("data-next", "/mockups/care-plan?tab=risk");
   });
 });

@@ -16,8 +16,9 @@ admits a request holding **either**:
 1. **A signed-in administrator** — a Supabase session whose
    `app_metadata.site_role` is `administrator`, the same claim that gates
    document and corpus management. Signing in is a magic link sent to an email
-   address, or Apple/Google/Microsoft. There has never been a password.
-2. **A valid passwordless access cookie** — the `?devkey=` link described below.
+   address, or Apple/Google/Microsoft — this route has no password of its own.
+2. **A valid developer-key cookie** — obtained by typing the key on the gate
+   screen or by opening the `?devkey=` link, both described below.
 
 The cookie is checked first, because it is the expected case on the owner's own
 devices and it needs no provider round trip to answer.
@@ -27,7 +28,13 @@ route. In production it bypasses only under the exact double-flag pairing the
 isolated Playwright production build uses; `NEXT_PUBLIC_MOCKUPS_ENABLED=true`
 alone must never open it, which was incident `#L30`.
 
-## The passwordless link
+## The developer key
+
+One secret, presented either of two ways: typed into the field on the gate
+screen, or carried once in a bookmarked link. Both hand the value to the same
+`?devkey=` exchange in `src/proxy.ts`, which verifies it in constant time, sets
+the signed cookie and redirects the secret back out of the URL. There is no
+second verification path, deliberately — two would be two things to get wrong.
 
 **Setup, once per deployment.** Generate a secret and set it as the server-only
 Railway variable `DEVELOPER_AREA_ACCESS_KEY` on the `Database` service:
@@ -43,16 +50,42 @@ browser history and in any screen share. Never name it `NEXT_PUBLIC_…`: Next.j
 inlines those into the client bundle, and `check:production-readiness` fails the
 release if it finds that name.
 
-**Setup, once per device.** Visit any gated path with the secret attached:
+**Setup, once per device — by typing it.** Open
+`https://psychiatry.tools/mockups/development`, put the secret in the
+**Developer key** field and press Unlock. The field is shown only when the
+deployment actually has a key configured at sufficient strength, and only a
+boolean crosses to the browser, never the key. A refused key says so, because
+`src/proxy.ts` marks the redirect with `devkeyerror=1`; without that the screen
+would simply reappear and a wrong key would be indistinguishable from a slow
+one.
+
+**Setup, once per device — by link.** Equivalent, and the better option when
+sending yourself access from another machine:
 
 ```
 https://psychiatry.tools/mockups/development?devkey=<the secret>
 ```
 
-`src/proxy.ts` verifies it, sets a signed cookie, and redirects to the same URL
-without the parameter — so the secret does not stay in the address bar, in the
-history entry that gets shared, or in a `Referer` header sent onward. From then
-on that browser opens the developer area with no sign-in at all.
+Either way `src/proxy.ts` verifies the secret, sets a signed cookie, and
+redirects to the same URL without the parameter — so it does not stay in the
+address bar, in the history entry that gets shared, or in a `Referer` header
+sent onward. The field submits with `location.replace`, so the URL that briefly
+carries the secret is not left as a history entry either. From then on that
+browser opens the developer area with no sign-in at all.
+
+**The key travels in a URL either way, so rotate it after exporting logs.**
+Typed or bookmarked, the secret is presented as `?devkey=…` on one request. The
+proxy redirects it straight back out, so it does not persist in the address bar
+and — because the field submits with `location.replace` — it is not left as a
+history entry the back button returns to. Two places do still see it: the
+browser's own profile history records redirect _sources_, and the platform HTTP
+access log records the request line. Neither is reachable by a visitor, but both
+mean the same thing operationally: if you ever export or share request logs, or
+hand over a browser profile, rotate `DEVELOPER_AREA_ACCESS_KEY` afterwards.
+
+A POST to a dedicated route would avoid this. It is deliberately not done,
+because it would be a second place the same secret is verified — see "The
+developer key" above.
 
 **It does not expire in practice.** The cookie is stamped for one year —
 deliberately inside the ~400-day ceiling browsers clamp `Set-Cookie` lifetimes
@@ -95,8 +128,12 @@ the server enforces the expiry rather than trusting the browser to drop it.
 Every unset, under-strength, malformed, or wrongly-keyed case resolves to "not
 granted" and falls through to the sign-in screen.
 
-Implementation: `src/lib/developer-area/link-access.ts`. Tests:
+Implementation: `src/lib/developer-area/link-access.ts` (minting and
+verification, server-only) and `src/lib/developer-area/link-access-shared.ts`
+(the query-parameter names and URL shape, which the Client Component gate screen
+needs and which therefore cannot live beside `node:crypto`). Tests:
 `tests/developer-area-link-access.test.ts` (the credential),
 `tests/proxy.test.ts` (the exchange and the renewal),
 `tests/developer-area-access.test.ts` and
-`tests/developer-area-gate.dom.test.tsx` (the gate).
+`tests/developer-area-gate.dom.test.tsx` (the gate),
+`tests/developer-gate-screen.dom.test.tsx` (the key field).
