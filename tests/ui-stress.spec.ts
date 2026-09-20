@@ -2,6 +2,7 @@ import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { expectNoPageHorizontalOverflow } from "./helpers/spec-navigation";
+import { expectAtLeastCssPx } from "./helpers/layout-tolerance";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { toClientAnswerPayload } from "../src/lib/answer-client-payload";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
@@ -621,7 +622,9 @@ test.describe("Medication responsive stress coverage", () => {
           );
         expect(columnMetrics.every(Boolean)).toBe(true);
         for (const metrics of columnMetrics) {
-          expect(metrics?.columnGap ?? 0).toBeGreaterThanOrEqual(12);
+          // `actionRect.left - ceilingRect.right`, so the float error of the
+          // subtraction rides along: Firefox reported 11.999954223632812 here.
+          expectAtLeastCssPx(metrics?.columnGap ?? 0, 12, "medication column gap");
           expect(metrics?.ceilingOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
           expect(metrics?.rightEdgeOverflow ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(1);
         }

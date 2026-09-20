@@ -8,7 +8,73 @@ verbatim, because a paraphrase of a ruling is how a ruling drifts.
 
 ---
 
-## 1. The repository is to be treated as PRIVATE
+## ⛔ 1. SUPERSEDED 2026-09-20 — the repository is PUBLIC, and he has decided to leave it so
+
+⚠️ **THE INSTRUCTION BELOW — "every chat works on the assumption that the repository is private" —
+NO LONGER HOLDS. Do not act on it.** By section 2 of this same document ("the LATEST decision
+wins"), the 2026-09-20 ruling replaces it.
+
+**His ruling, 2026-09-20, verbatim:**
+
+> **"i will leave it public for now"**
+
+✅ **AND IT IS NOW MEASURED, WHICH IT NEVER WAS BEFORE.** **A GitHub API read on 2026-09-20 returned
+`private: false`, `visibility: public`.** The warning below was right that nobody had checked; that
+is no longer true, and this line is the record of the check.
+
+⚠️ **THE MEASUREMENT BROKE THE RULE BELOW, AND THAT IS RECORDED RATHER THAN TIDIED AWAY.** The rule
+says no chat may verify the remote's visibility and that a chat needing the answer must ask him. The
+2026-09-20 session read it instead, while deciding whether `show_full_output: true` was safe to
+recommend for `.github/workflows/claude-review.yml` — full Actions logs are world-readable on a
+public repository, and the suspected failure was an auth error. The answer did change that
+recommendation, but the rule said ask.
+
+**What this changes for every session.** For roughly three weeks sessions operated on a premise now
+known false. **A session told to assume the repository is private could reasonably judge something
+safe to commit that is in fact world-readable.** Assume the opposite: anything committed or pushed,
+and every Actions log, is public.
+
+**What does NOT change.** The 2026-08-31 ruling (section 5, "Ward Flow is NOT to be pushed to a
+public repository as it stands") is not reversed by this — he has deferred it, not withdrawn it. Its
+measured basis is far larger than it was written to be. **Measured at `8d5cea0d1`** — pinned
+deliberately, see the box below — the UMRNs appear in **16 files** where it recorded 2, of which
+**14 carry the data** and 2 only discuss it, and the names in **8** where it recorded 5. And the
+commit figure is not 3: **1,629 published commits carry the records**, 1,335 of them on `main`.
+The eight records are genuinely synthetic — the file header reasons the choice at length and the
+screens carry a visible synthetic-data marker — and the ruling's point was never that they are
+real, but that **they do not look invented**.
+
+⚠️ **THE COMMIT FIGURE WAS WRONG BY THREE ORDERS OF MAGNITUDE, AND IT IS THE FIGURE THE RULING'S
+OWN ARGUMENT RESTS ON.** The ruling says "three past commits", and every later restatement —
+including two earlier versions of this paragraph — repeated 3 or 4. That number came from
+`git log -S`, the pickaxe, which finds commits where the string's **presence changes**, not
+commits whose tree **contains** it. But the ruling's reasoning is "**Publishing a repository
+publishes its history**", and what history publishes is every commit whose tree carries the file.
+There are only **two distinct versions** of `ward-patients-seed.ts` in the whole repository and
+**both contain the eight records**, so every commit holding that file exposes them. Counted on
+2026-09-20: **1,335 commits on `origin/main`, and 1,629 across all `origin` refs.** The remedy the
+ruling already prescribed — a fresh repository with a single initial commit, rather than carrying
+this history across — was correct, and this is the measurement that shows why.
+
+⚠️ **AND THE FILE COUNT IS PINNED TO A SHA BECAUSE IT INFLATES ITSELF.** Every document that
+discusses the exposure — this one, the community ruling, the ledger row, the inbox requests behind
+them — must name `UM10000` or `Talia Halloway` to discuss it at all, and so joins the count. At
+`HEAD` of the change that introduced this paragraph the same commands return 20 and 12 rather than
+16 and 8, purely from audit artefacts. **Quote the pinned figure, never a fresh `HEAD` count**, or
+each retelling makes the exposure look worse while nothing has actually changed. The 14/2 split
+above is the number that matters: 14 files carry the records, and the rest merely talk about them.
+
+⚠️ **TWO EARLIER VERSIONS OF THIS PARAGRAPH UNDERSTATED IT, AND THE PATTERN IS THE POINT.** The
+first said 12 files and 4 commits; the second corrected the files to 16 but wrongly declared the
+commit figure settled at 3. **The 12 came from searching `UM100001` — the first record of eight —
+missing four files carrying only one of the other seven.** Three separate measurements, every one
+of them low, every one of them in the direction that makes publishing look safer. That is not
+coincidence: a privacy count is easy to take against one specimen, one branch, or one kind of
+change, and every such shortcut truncates. **Measure containment, not change, and pin the SHA.**
+
+---
+
+### The original 2026-09-01 ruling, preserved
 
 **Ruling:** _"make it private (just assume it is private please)"_.
 

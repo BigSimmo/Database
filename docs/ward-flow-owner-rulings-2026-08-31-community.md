@@ -144,3 +144,29 @@ would not take a GitHub read without being asked.** ✅ **It is right, and the s
 ✅ **What IS measured, by both of us independently: the branch is on the remote, `ward-patients-seed.ts`
 carries eight named records there, and three commits in its history contain them.** ⚠️ **Whether
 that remote is visible to the world rests on his word alone.**
+
+✅ **MEASURED SINCE, 2026-09-20 — it no longer rests on his word.** A GitHub API read returned
+`private: false`, `visibility: public`. The caution above was correct at the time and is kept for
+that reason; the question it raises is now answered. He was asked again on the same day and ruled
+**"i will leave it public for now"**. Both figures in the ruling above have moved, and the second
+one enormously. Measured at the pinned commit `8d5cea0d1`: the UMRNs are in **16 files**, not 2 (of
+which **14 carry the data**, the rest only discuss it), and the names in **8**, not 5. And the
+"three past commits" is not three — **1,629 published commits carry the records**, 1,335 of them on
+`main`.
+
+⚠️ **THE COMMIT FIGURE IS THE ONE THAT MATTERS HERE, BECAUSE IT IS WHAT "PUBLISHING A REPOSITORY
+PUBLISHES ITS HISTORY" MEANS.** Every count before 2026-09-20 used `git log -S`, which finds commits
+where the string's **presence changes** — not commits whose tree **contains** it. There are only two
+distinct versions of `ward-patients-seed.ts` in the entire repository and **both hold the eight
+records**, so every commit carrying that file exposes them. The fix the ruling already named — a
+fresh repository with one initial commit rather than this history — is the right one, and this is
+the measurement that shows why.
+
+⚠️ **THREE SUCCESSIVE MEASUREMENTS RAN LOW, ALL IN THE SAME DIRECTION.** This line first said 12
+files and 4 commits, then 16 files and 3 commits, before this. The 12 came from searching
+`UM100001`, the first record of eight, missing four files carrying only the other seven; the commit
+figures came from counting change rather than containment. **A privacy count is easy to take
+against one specimen, one branch, or one kind of change, and every such shortcut understates** — in
+the direction that makes publishing look safer, which is the error this whole section exists to
+guard against. The file figure is pinned to a SHA on purpose: documents that discuss the exposure
+must name the strings to discuss them, so an unpinned count grows with each retelling.
