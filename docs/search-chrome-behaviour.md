@@ -735,7 +735,19 @@ mounts collapsed; the page reserve `max-sm:pt-[var(--phone-overlay-chrome-h)]` r
 height only after mount and across the evidence-calibrated 80ms geometry quiet window
 (`phoneOverlayReserveGeometryQuietWindowMs` in `use-phone-overlay-chrome-reserve.ts`).
 
-A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
+**A portal that moves a `header-collapse-addon` row out of page flow must publish the reserve in the
+same commit** — `publishPhoneOverlayChromeReserveNow`, called by `ModeNavHeaderPortal` and
+`PhoneHeaderCollapsePortal`. It is not enough to let the quiet window catch up. Taking the row out of
+flow shortens the page by its height immediately, so until the reserve grows every element sits that
+much too high. Measured on `/differentials/compare` at 390x844 (#CHPC5C): the row portalled at ~315ms
+and the reserve only republished at ~423ms, and a tap inside that window pressed "Open comparison"
+and released on "Edit selection" where the link had just been — the browser retargets such a click to
+the two controls' common ancestor, so the link never activates and nothing at all happens. Under
+renderer load the window widens; at 10x CPU throttle the tap failed 10 times out of 10, and 0 out of
+10 once the reserve settled first. The quiet window still owns the case it was built for, a transient
+wide-stack measurement during hydration (#147).
+
+The settle assertion below is still required, because hydration timing is unchanged. A Playwright screenshot or `page.evaluate()` DOM measurement run immediately at `networkidle` can
 therefore read premature geometry before the stack settles (for example, reading `main` at `y=72` with
 the mode-nav rail appearing to overlap it, when the settled layout has `main` at `y=121` with zero overlap).
 Measured on `/dictionary/browse` (#XPY409): unsettled `h1` `y=88` (appeared obscured behind the rail),
