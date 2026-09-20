@@ -29,6 +29,25 @@ function clock(startedAt = 1_000_000) {
   };
 }
 
+/**
+ * A scope+kind that has already completed one canonical read — the steady state.
+ *
+ * `readCatalogueWithSeedFallback` gives the FIRST read of a scope+kind one retry, because the
+ * measured failure is connection setup on a cold path (see the module header). Every case below
+ * that asserts what happens when a read fails is describing the warm path, so it warms first and
+ * keeps asserting exactly what it always did. The cold path has its own cases.
+ */
+async function warm(kind: string, scope?: string) {
+  const outcome = await readCatalogueWithSeedFallback({
+    kind,
+    scope,
+    seeds,
+    read: async () => canonical,
+    now: () => 0,
+  });
+  expect(outcome.degraded).toBe(false);
+}
+
 beforeEach(() => {
   clearCatalogueSeedFallbackCooldown();
 });
@@ -65,6 +84,7 @@ describe("readCatalogueWithSeedFallback", () => {
   });
 
   it("serves seeds when the read outruns its budget, and does not wait for it", async () => {
+    await warm("form");
     vi.useFakeTimers();
     const time = clock();
     const read = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
@@ -76,6 +96,7 @@ describe("readCatalogueWithSeedFallback", () => {
   });
 
   it("aborts the read it gave up on rather than leaving it running", async () => {
+    await warm("form");
     vi.useFakeTimers();
     const time = clock();
     let readSignal: AbortSignal | undefined;
@@ -94,6 +115,7 @@ describe("readCatalogueWithSeedFallback", () => {
 
   // Without this, every keystroke pays the budget before falling back, which is still slow search.
   it("skips the read entirely while cooling down after a failure", async () => {
+    await warm("form");
     const time = clock();
     const read = vi.fn(async () => {
       throw new Error("boom");
@@ -111,6 +133,7 @@ describe("readCatalogueWithSeedFallback", () => {
 
   // Self-healing: the moment the database is repaired this recovers with no deploy.
   it("probes again once the cooldown elapses, and recovers on success", async () => {
+    await warm("form");
     const time = clock();
     const read = vi
       .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
@@ -204,6 +227,7 @@ describe("readCatalogueWithSeedFallback reports the degradation it absorbs", () 
   });
 
   it("logs the recovery so a resolved outage is visible too", async () => {
+    await warm("form");
     const time = clock();
     const recovered = vi.spyOn(logger, "info").mockImplementation(() => {});
     vi.spyOn(logger, "error").mockImplementation(() => {});
@@ -333,6 +357,8 @@ describe("cooldowns are scoped to the caller's budget", () => {
   });
 
   it("still cools down within a scope, and the other scope is unaffected", async () => {
+    await warm("form", catalogueListScope);
+    await warm("form", catalogueSearchScope);
     const time = clock();
     const failing = vi.fn(async () => {
       throw new Error("boom");
@@ -383,5 +409,167 @@ describe("cooldowns are scoped to the caller's budget", () => {
 
     expect(explicit.degraded).toBe(true);
     expect(healthy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The cold first read.
+ *
+ * Measured 2026-09-21 against the live project: the first catalogue read in a fresh process cost
+ * 1781 ms (1599 ms of it before the first byte) and blew the 1200 ms budget on connection setup,
+ * while every warm read of every kind finished inside 604 ms. The control was reversing the order
+ * the kinds are read in — the penalty moved with the POSITION, not the kind (medication first
+ * 1268 ms; form, read last, 213 ms). These cases pin the narrowness of the remedy: one retry, for
+ * a cold scope+kind only, so the steady state is byte-for-byte what it was.
+ */
+describe("the one retry a cold read gets", () => {
+  it("retries the first read of a scope+kind and serves canonical records when the retry succeeds", async () => {
+    const time = clock();
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold connection"))
+      .mockResolvedValue(canonical);
+
+    const outcome = await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({ records: canonical, degraded: false });
+  });
+
+  it("does not open a cooldown when the retry rescues the read", async () => {
+    const time = clock();
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold connection"))
+      .mockResolvedValue(canonical);
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    // A cooldown here would send the NEXT reader to seeds for 30 s over a failure that was absorbed.
+    const next = await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+
+    expect(next.degraded).toBe(false);
+  });
+
+  it("offers the retry once per scope+kind, never again once warm", async () => {
+    const time = clock();
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold connection"))
+      .mockResolvedValueOnce(canonical)
+      .mockRejectedValue(new Error("boom"));
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(read).toHaveBeenCalledTimes(2);
+
+    // Warm now. A retry-always would add its budget to every request of a real outage.
+    const outcome = await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(outcome).toEqual({ records: seeds, degraded: true });
+  });
+
+  it("retries at most once, then falls back and cools down", async () => {
+    const time = clock();
+    const read = vi.fn(async () => {
+      throw new Error("boom");
+    });
+
+    const outcome = await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(outcome).toEqual({ records: seeds, degraded: true });
+
+    // Cooling down, so the next reader pays nothing at all.
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps each scope+kind's warmth separate, as the cooldown already is", async () => {
+    const time = clock();
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold"))
+      .mockResolvedValue(canonical);
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+    expect(read).toHaveBeenCalledTimes(2);
+
+    // A different kind is its own cold path and gets its own single retry.
+    const other = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold"))
+      .mockResolvedValue(canonical);
+    await readCatalogueWithSeedFallback({ kind: "service", seeds, read: other, now: time.now });
+    expect(other).toHaveBeenCalledTimes(2);
+  });
+
+  it("caps the retry budget at the caller's own budget rather than exceeding it", async () => {
+    vi.useFakeTimers();
+    const time = clock();
+    const read = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
+
+    const pending = readCatalogueWithSeedFallback({
+      kind: "form",
+      seeds,
+      read,
+      now: time.now,
+      budgetMs: 200,
+      retryBudgetMs: 5_000,
+    });
+    // 200 for the first attempt and 200 for the retry: the cap, not the 5000 that was asked for.
+    await vi.advanceTimersByTimeAsync(400);
+
+    await expect(pending).resolves.toEqual({ records: seeds, degraded: true });
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("propagates a caller abort raised during the retry instead of serving seeds", async () => {
+    const time = clock();
+    const caller = new AbortController();
+    const read = vi.fn(async () => {
+      if (read.mock.calls.length === 1) throw new Error("cold");
+      caller.abort(new Error("caller gave up"));
+      throw new Error("aborted below");
+    });
+
+    await expect(
+      readCatalogueWithSeedFallback({ kind: "form", seeds, read, signal: caller.signal, now: time.now }),
+    ).rejects.toThrow("caller gave up");
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("says out loud that a cold retry rescued the read, so the cost is not hidden", async () => {
+    const time = clock();
+    const info = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const error = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold connection"))
+      .mockResolvedValue(canonical);
+
+    await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+
+    // Absorbed, so it is NOT a fallback — but a reader still waited, so it is not silent either.
+    expect(error).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledTimes(1);
+    const [message, context] = info.mock.calls[0]!;
+    expect(message).toContain("cold-start retry");
+    expect(context).toMatchObject({ catalogue_kind: "form", first_attempt: "Error" });
+  });
+
+  it("is not vacuous: without the retry the same cold read would degrade", async () => {
+    // Every case above would also pass against a helper that simply never failed. This one fails
+    // if the retry stops being offered, and it is the mirror of the first case rather than a
+    // restatement of it: same mock, warmed first, opposite outcome.
+    const time = clock();
+    await warm("form");
+    const read = vi
+      .fn<(signal: AbortSignal) => Promise<CatalogueRecord[]>>()
+      .mockRejectedValueOnce(new Error("cold connection"))
+      .mockResolvedValue(canonical);
+
+    const outcome = await readCatalogueWithSeedFallback({ kind: "form", seeds, read, now: time.now });
+
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({ records: seeds, degraded: true });
   });
 });
