@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b9b82156-21db-4aeb-bbf1-1f126c56293b",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "tests/ui-ward-roles.spec.ts uses the clock pattern that strands the server's HTML in a hidden orphan",
+    "detail": "page.clock.install() + page.clock.pauseAt() freezes requestAnimationFrame, and React 19.3 defers splicing a completed Suspense boundary into a rAF callback. With rAF frozen the server's streamed HTML is never spliced in and stays in a hidden orphan div, so every test id on the page resolves twice. Proven on /cme by a four-way A/B — no clock, install alone, setFixedTime, and install+pauseAt — and reproduced identically on /on-call, /favourites and /tools, so it is neither CME-specific nor a shell bug. It never reaches a user: the orphan is display:none, unfocusable and outside the accessibility tree. page.clock.setFixedTime() pins the instant just as well and produces no orphan. PR #2902 switched tests/ui-cme-phone.spec.ts and tests/ui-visual-artifacts.spec.ts to setFixedTime. tests/ui-ward-roles.spec.ts:78-79 still uses install+pauseAt (mockups project, advisory) and will show the same false duplication to anyone who looks. Also worth knowing: Playwright's clock installs at BROWSER CONTEXT level, so a clock.install() in one test leaks into other pages of the same context.",
+    "source": "PR #2902 hydration investigation, 2026-09-20; react-dom 19.3.0 $RB/$RV chunk; measured against the project dev server",
+    "issueUlid": "01M2ZVTEGMKPV4KVH1VCQZM096"
+  }
+}
