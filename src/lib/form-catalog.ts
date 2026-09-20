@@ -5,13 +5,13 @@ import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 import { actSectionsForCue, sectionCueForForm } from "@/lib/mha-act-sections";
 // The register itself lives in a leaf module so client bundles can read a form title without
 // pulling this file's JSON imports. Re-exported below: one register, two entry points.
-import { normalizeCode, officialForms, type OfficialForm } from "@/lib/form-register";
+import { formSlug, normalizeCode, officialForms, type OfficialForm } from "@/lib/form-register";
 
 import type { FormActSection, FormCatalogDetails, FormPriorityFactCard } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceRecord, ServiceSummaryCard } from "@/lib/services";
 
 export { formCatalogDetails } from "@/lib/form-ranker";
-export { formTitleForCode } from "@/lib/form-register";
+export { formPageHref, formSlug, formTitleForCode } from "@/lib/form-register";
 export type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
 export type FormRecord = ServiceRecord;
 
@@ -22,22 +22,6 @@ export const officialFormsRegisterUrl =
 // "Revocation of expiry" is a typo this repository does not copy. Evidence:
 // docs/evidence/forms-pdf-publisher-comparison-2026-09-16.md.
 export const officialFormsReviewedDate = "16 September 2026";
-
-const legacySlugs: Record<string, string> = {
-  "3A": "detention-examination-movement",
-  "4A": "transport-crisis-form",
-  "4B": "extension-transport-order",
-  "4C": "transfer-order",
-};
-
-function formSlug(code: string) {
-  return (
-    legacySlugs[code] ??
-    `form-${normalizeCode(code)
-      .replace(/attachment/g, "attachment")
-      .replace(/[^a-z0-9]+/g, "-")}`
-  );
-}
 
 function stringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];

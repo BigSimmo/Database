@@ -27,6 +27,7 @@ export function OnCallPageMenuActions({
   onOrderChange,
   onAdd,
   addLabel,
+  addHint,
   onVerifyAll,
   staleCount = 0,
   onNavigate,
@@ -35,6 +36,8 @@ export function OnCallPageMenuActions({
   onOrderChange?: (next: OnCallContactsOrder) => void;
   onAdd?: () => void;
   addLabel?: string;
+  /** The line under `addLabel`. Omitted on a page with nothing useful to say. */
+  addHint?: string;
   onVerifyAll?: () => void;
   staleCount?: number;
   /** Closes whichever surface is hosting these rows. */
@@ -76,11 +79,23 @@ export function OnCallPageMenuActions({
           <Plus aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="grid gap-0.5">
             <span>{addLabel ?? "Add an entry"}</span>
-            <span className={cn(textMuted, "text-xs font-normal")}>Role first, name only if you must.</span>
+            {/* Per page, and absent where a page has nothing of its own to
+                say. "Role first, name only if you must." was rendered under
+                every add control in the mode, so the Compliance sheet read
+                "Add requirement / Role first, name only if you must." —
+                advice about naming other people, on the page holding your own
+                registration. The page owns these strings (`ON_CALL_ADD_HINT`
+                in `on-call-section-page.tsx`), next to the noun they sit
+                under, so the two halves of one label cannot drift apart. */}
+            {addHint ? <span className={cn(textMuted, "text-xs font-normal")}>{addHint}</span> : null}
           </span>
         </button>
       ) : null}
 
+      {/* Offered only where the host passes `onVerifyAll`. Compliance
+          deliberately does not — see the note on `offersBulkVerify` in
+          `on-call-section-page.tsx`, which is where every view-by-view
+          decision in this mode is made. */}
       {onVerifyAll && staleCount > 0 ? (
         <button
           type="button"
@@ -170,6 +185,7 @@ export function OnCallPageMenu({
   onOrderChange,
   onAdd,
   addLabel,
+  addHint,
   onVerifyAll,
   staleCount = 0,
   summary,
@@ -192,7 +208,13 @@ export function OnCallPageMenu({
   onAdd?: () => void;
   /** What one entry in this view is called, e.g. "Add a contact". */
   addLabel?: string;
-  /** Stamps today on every overdue entry in this view. Omitted when nothing is overdue. */
+  /** This view's own line under `addLabel`. Omitted where a view has none. */
+  addHint?: string;
+  /**
+   * Stamps today on every overdue entry in this view. Omitted when nothing is
+   * overdue, when the viewer cannot write, and on Compliance, where a bulk
+   * freshness stamp is not a defensible action at all.
+   */
   onVerifyAll?: () => void;
   staleCount?: number;
 }) {
@@ -242,6 +264,7 @@ export function OnCallPageMenu({
           onOrderChange={onOrderChange}
           onAdd={onAdd}
           addLabel={addLabel}
+          addHint={addHint}
           onVerifyAll={onVerifyAll}
           staleCount={staleCount}
           onNavigate={() => setOpen(false)}

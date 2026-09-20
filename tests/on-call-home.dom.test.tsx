@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -286,5 +287,51 @@ describe("On Call home layout", () => {
     expect(cards.length).toBeGreaterThan(0);
     // A date a reader can check against a roster, never a countdown.
     expect(cards[0]).toHaveTextContent(/Mon|Tue|Wed|Thu|Fri|Sat|Sun/);
+  });
+});
+
+describe("On Call home tiles for Admin and Compliance", () => {
+  // Admin and Compliance are ONE stored section (`logistics`) split on
+  // `details.kind`, because `section` is a database CHECK constraint and a
+  // seventh value costs a migration that reaches the live clinical database
+  // within seconds. `countOnCallEntriesBySection` counts by the stored section
+  // and so knows nothing about that split: the Admin tile used to promise
+  // every logistics row, including the requirements that are not on the Admin
+  // page, and there was no Compliance tile at all.
+  //
+  // Both cases below ask `partitionLogisticsEntries` how many rows each page
+  // holds rather than writing the numbers down — a test that restated them
+  // would keep passing if the split itself were wrong, and would go red every
+  // time the demo corpus gained a row.
+
+  it("counts the Admin tile from the rows the Admin page actually renders", () => {
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    const { admin, compliance } = partitionLogisticsEntries(entries);
+    const stored = entries.filter((entry) => entry.section === "logistics").length;
+    // Without a compliance row in the corpus the two numbers are the same and
+    // this test could not tell the fix from the bug.
+    expect(compliance.length, "the demo corpus has no compliance rows to leave out").toBeGreaterThan(0);
+
+    storeState.entries = entries;
+    render(<OnCallHome />);
+
+    const tile = screen.getByTestId("on-call-home-tile-logistics");
+    expect(within(tile).getByText(String(admin.length))).toBeInTheDocument();
+    // The stored-section total is the wrong number, and it is the number the
+    // tile used to show.
+    expect(within(tile).queryByText(String(stored)), "the Admin tile is counting compliance rows again").toBeNull();
+  });
+
+  it("gives Compliance its own tile, counted the same way", () => {
+    const entries = [...DEMO_ON_CALL_ENTRIES];
+    const { compliance } = partitionLogisticsEntries(entries);
+
+    storeState.entries = entries;
+    render(<OnCallHome />);
+
+    const tile = screen.getByTestId("on-call-home-tile-compliance");
+    expect(tile).toHaveAttribute("href", "/on-call/compliance");
+    expect(tile).toHaveTextContent("Compliance");
+    expect(within(tile).getByText(String(compliance.length))).toBeInTheDocument();
   });
 });

@@ -10,9 +10,13 @@ import type { OnCallLinkedDocument } from "@/components/on-call/on-call-playbook
 import { OnCallChecklist, type OnCallChecklistItem } from "@/components/on-call/on-call-checklist";
 import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
 import { OnCallGroupSection } from "@/components/on-call/on-call-group-section";
+import {
+  ON_CALL_ORIENTATION_UNFILED_LABEL,
+  onCallOrientationCategoryFacet,
+  sortOnCallEntries,
+} from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallTagFacet } from "@/lib/on-call/entry-filters";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
@@ -150,17 +154,25 @@ export function OnCallOrientationSection({
       <EmptyState
         icon={BookOpen}
         title="No orientation manuals yet"
-        body="Manuals you add will appear here as a shelf, each optionally carrying your own pinned summary above it."
+        body="Manuals you add will appear here as a shelf, filed into folders you name, each optionally carrying your own pinned summary above it."
         testId="on-call-orientation-empty"
       />
     );
   }
 
-  const sorted = [...allOrientation].sort((a, b) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title));
-  // "Starting", "Finishing", "This rotation" are tags the owner puts on a
-  // manual. They were a chip row; they are headings now, so the header's jump
-  // list can move between them without the chips hiding the rest of the shelf.
-  const groups = onCallEntryGroups(sorted, onCallTagFacet, "Other material");
+  const sorted = sortOnCallEntries(allOrientation);
+  // The shelf files into FOLDERS the owner names on the manual itself —
+  // "Induction", "Manuals", "Departure" — rather than into its
+  // tags, which are how they go looking for it later. Both the comparator above
+  // and the facet below come from `on-call-page-sections.ts`, which declares
+  // this page's jump list: same order in, same slugs out, so every row the
+  // header offers is a heading that exists here.
+  //
+  // `category` is optional on this section, so a manual without one keeps its
+  // place on the shelf under the trailing fallback heading. Fewer than two
+  // folders in play and `onCallEntryGroups` reports none at all, which is what
+  // leaves a short shelf as the flat list it should be.
+  const groups = onCallEntryGroups(sorted, onCallOrientationCategoryFacet, ON_CALL_ORIENTATION_UNFILED_LABEL);
 
   const cardFor = (entry: OnCallEntry) => (
     <OrientationCard

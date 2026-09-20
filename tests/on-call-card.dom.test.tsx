@@ -113,6 +113,34 @@ describe("the printed essentials card", () => {
     expect(output.textContent).toContain("Printed");
   });
 
+  /**
+   * Regression, 2026-09-19. `CARD_NUMBER_FIELDS` read `phone`,
+   * `afterHoursPhone`, `pager` and `fax` — and not `extension`. A ward stores
+   * its number in `extension` and nothing else, so all three demo wards, every
+   * one of them flagged `includeOnCard`, printed as a title and a subtitle with
+   * no number anywhere on the card.
+   *
+   * It is the same omission `on-call-contacts-section.tsx` already fixed and
+   * left a comment about; the card never got the fix, and no test looked. Which
+   * matters most here of anywhere: the card is the one artefact that leaves the
+   * app, and a phone list with the numbers missing is not a degraded card, it
+   * is a blank sheet of paper with headings on it.
+   */
+  it("prints a ward extension, which is the only number a ward row has", () => {
+    renderCard([
+      entry({
+        id: "a",
+        slug: "ward-one",
+        title: "Ward One",
+        subtitle: "Nurses' station",
+        details: { role: "Ward nurses' station", extension: "0001" },
+      }),
+    ]);
+    const row = screen.getByTestId("on-call-card-entry-ward-one");
+    expect(row.textContent).toContain("0001");
+    expect(row.textContent).toContain("Ext");
+  });
+
   it("shows a playbook step's body instead of claiming no number is on file", () => {
     renderCard([
       entry({
