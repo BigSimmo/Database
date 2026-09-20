@@ -1,0 +1,120 @@
+name: Claude review
+
+# Automatic, advisory code review on pull requests.
+#
+# Why this exists. Until 2026-09-19 this repository had three automated
+# reviewers and, on that day, none of them ran on any PR:
+#   - CodeRabbit  — categorical eligibility gate, "fewer than 10 stars" (the
+#                   repo has 0). Not a budget symptom; a cap raise cannot fix it.
+#   - ChatGPT Codex connector — "reached your Codex usage limits for code reviews".
+#   - Cursor Bugbot           — "usage limit reached".
+# The owner decision of 2026-08-22 (`#CCZ4HB`, AGENTS.md "Automated review
+# coverage") accepted intermittent bot review on the explicit condition that it
+# be re-opened "if the Codex connector also stops reviewing". It has. This job
+# is the re-opened answer: coverage that depends on a subscription the repo
+# already holds rather than on a per-review spend cap.
+#
+# Deliberately NOT a gate. Branch protection requires only the `pr-required`
+# aggregate in ci.yml, and this workflow is absent from its `needs:`, so it can
+# never block a merge. `continue-on-error` keeps a credential problem from
+# painting a red X that trains readers to ignore red. That is the standing rule
+# in AGENTS.md — never weaken a required check to compensate for review
+# coverage — read the other way round: adding review must not add a gate either.
+#
+# Drafts are skipped, matching every heavy job in ci.yml. A draft cannot be
+# merged, undrafting fires `ready_for_review` which re-runs this, and a review
+# of a work-in-progress diff spends subscription quota on findings its author
+# already intends to change.
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+# Least privilege by default; the job widens only what the review needs.
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: Claude review
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # read the diff; this job never pushes
+      pull-requests: write # post the review comment
+      id-token: write # OIDC used by the action
+    concurrency:
+      # A new push supersedes the review of the head it replaced: an in-flight
+      # review describes a diff that no longer exists.
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    timeout-minutes: 20
+    # Advisory: a failure here is never this PR's problem to fix.
+    continue-on-error: true
+    env:
+      # Assigned to job env so a step-level `if` can detect an unconfigured
+      # secret and skip gracefully instead of hard-failing. Authenticates
+      # against a Claude subscription rather than pay-per-use API billing, which
+      # is the whole point — no per-review spend cap to exhaust. Mint it with
+      # `claude setup-token` and store it as the CLAUDE_CODE_OAUTH_TOKEN secret.
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - name: Warn when the OAuth token is not configured
+        if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN == '' }}
+        run: echo "::warning title=Claude review::CLAUDE_CODE_OAUTH_TOKEN secret is not configured; skipping. Generate it with 'claude setup-token' and add it as a repository secret. Until then this PR has no automated review at all — CodeRabbit, Codex and Bugbot were each unavailable when this workflow was added."
+
+      - name: Checkout repository
+        if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Review the pull request
+        if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        uses: anthropics/claude-code-action@9cdae7f0d995e3ba7c33f226087fdf82a59cd520 # v1.0.223
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # `track_progress` is the action's documented mode for pull_request
+          # events (opened/synchronize/ready_for_review); without it the action
+          # expects a trigger phrase in a comment, which no PR event carries.
+          track_progress: true
+          # One comment that updates in place. Without this, every push to a
+          # long-lived PR leaves another full review on the thread.
+          use_sticky_comment: true
+          # A CI runner has no session for this repo's .mcp.json servers (the
+          # `railway` entry has no auth in Actions), so auto-load stays off —
+          # same reasoning as the @claude workflow beside this one.
+          settings: '{"enableAllProjectMcpServers": false}'
+          prompt: |
+            Review this pull request's diff. You are the only automated reviewer
+            on it, so be useful rather than exhaustive: a reviewer who lists
+            everything is read as noise and ignored.
+
+            This is PsychSift, a clinical guideline knowledge base used by a
+            psychiatrist. Read AGENTS.md before reviewing — it is the repository's
+            own rule set and it outranks your general habits. Weight findings by
+            what this repository can actually lose:
+
+            1. Clinical correctness and governance. A wrong dose, threshold,
+               interval or safety label is the worst outcome here. So is an
+               answer that cites a source which does not support it. Failure
+               must degrade conservatively rather than guess.
+            2. Anything touching `supabase/migrations/**`. Merging one reaches
+               the live clinical database within seconds, with no deploy step in
+               between and no undo.
+            3. Retrieval and ranking surfaces (`src/lib/rag/**`, the text and
+               structured-evidence producers named in AGENTS.md "RAG ranking
+               protection"). Ordering changes here are live-validated and are
+               easy to make by accident during a refactor.
+            4. Privacy and owner scoping: any path where one owner's documents
+               could reach another's results.
+            5. Tests that were weakened rather than fixed — a skip, a
+               quarantine, a loosened assertion, a deleted case.
+
+            Report what you can point at in the diff. For each finding give the
+            file and line, what breaks, and the input or state that breaks it.
+            If you are inferring rather than reading, say so in that finding.
+            Do not restate what the PR description already says, do not praise,
+            and do not raise style where the repository's own linters are
+            silent. If the diff is sound, say that in one line and stop.
