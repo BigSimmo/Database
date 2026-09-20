@@ -1,4 +1,5 @@
 import { onCallDetailsSchemaFor, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { isComplianceEntry } from "@/lib/on-call/compliance";
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 
 /**
@@ -307,24 +308,37 @@ export function selectUpcomingSessions(
     .slice(0, limit);
 }
 
-/** `YYYY-MM-DD` for a date, in the viewer's own zone rather than UTC. */
-export function onCallLocalDateKey(now: Date): string {
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-/** How many entries each section holds, for the home's tile grid. */
+/**
+ * How many entries each PAGE holds — which is not the same as how many each
+ * stored section holds, and the difference is the whole point of this function.
+ *
+ * Two of this mode's pages are views over a section rather than sections of
+ * their own, because `section` is a database CHECK constraint and a new value
+ * costs a migration that reaches the live clinical database within seconds.
+ * Who's who is `contacts` rows carrying `details.kind: "role-explainer"`;
+ * Compliance is `logistics` rows carrying `details.kind: "compliance"`. Counting
+ * by `entry.section` therefore over-counts the two host sections by exactly the
+ * rows their own pages do not render.
+ *
+ * Both are subtracted here and returned beside the map. Role explainers were
+ * already handled this way; compliance was not, and the asymmetry showed as an
+ * Admin tile promising eight rows the Admin page refuses to show. A caller that
+ * wants a page's number can now take it from one place.
+ */
 export function countOnCallEntriesBySection(entries: readonly OnCallEntry[]) {
   const counts = new Map<string, number>();
   let roleExplainers = 0;
+  let compliance = 0;
   for (const entry of entries) {
     if (isRoleExplainerEntry(entry)) {
       roleExplainers += 1;
       continue;
     }
+    if (isComplianceEntry(entry)) {
+      compliance += 1;
+      continue;
+    }
     counts.set(entry.section, (counts.get(entry.section) ?? 0) + 1);
   }
-  return { counts, roleExplainers };
+  return { counts, roleExplainers, compliance };
 }

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { selectCardEntries } from "@/lib/on-call/card-selection";
-import { type OnCallEntry } from "@/lib/on-call/entry-model";
+import { partitionLogisticsEntries, recordedExpiryHasPassed } from "@/lib/on-call/compliance";
+import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 
 const NOW = new Date("2026-09-04T00:00:00.000Z");
 const FRESH_VERIFIED_AT = new Date("2026-06-01T00:00:00.000Z").toISOString();
@@ -76,5 +77,75 @@ describe("selectCardEntries", () => {
       includeOnCard: false,
     });
     expect(selectCardEntries([unflagged], NOW)).toEqual([]);
+  });
+});
+
+/**
+ * A compliance requirement must never reach the printed card, and the exclusion
+ * has to be the NAMED one in `selectCardEntries` rather than a side effect of
+ * the privacy rule.
+ *
+ * The hazard is specific. `stale` is computed from `lastVerifiedAt` — when
+ * somebody last said the record was right — and not from `expiresOn`, so a
+ * registration that ran out last month, on a row confirmed last week, is
+ * "fresh" by that test. Flagged for the card and not personal, it satisfied
+ * every condition the selector had before the fix and printed: under the
+ * heading "Admin", as a bare title, with no expiry, no consequence band, no
+ * issuing body, no provenance, and without the Compliance page's own note that
+ * nothing here is checked with an issuing body. A reader is entitled to take
+ * that as a statement that the registration is in order.
+ */
+describe("selectCardEntries — compliance requirements", () => {
+  const EXPIRED_LAST_MONTH = "2026-08-01";
+
+  const REGISTRATION = entry({
+    id: "66666666-6666-6666-6666-666666666666",
+    slug: "medical-registration",
+    title: "Medical registration",
+    section: "logistics",
+    details: {
+      category: "Registration",
+      kind: "compliance",
+      consequence: "stops-work",
+      expiresOn: EXPIRED_LAST_MONTH,
+      issuingBody: "Ahpra",
+      provenance: "typed",
+    },
+    includeOnCard: true,
+    // Explicitly NOT personal. Compliance rows are stored personal now, which
+    // would exclude them through the privacy test above — but that decision was
+    // taken about who can read a screen, and whoever revisits it will not be
+    // thinking about what a printed card leaves off. Setting it false here is
+    // what makes this a test of the card rule rather than of the privacy rule.
+    isPersonal: false,
+    lastVerifiedAt: FRESH_VERIFIED_AT,
+  });
+
+  const LEAVE_FORM = entry({
+    id: "77777777-7777-7777-7777-777777777777",
+    slug: "study-leave-form",
+    title: "Study leave form",
+    section: "logistics",
+    details: { category: "Leave" },
+    includeOnCard: true,
+  });
+
+  it("is built from a row that would have passed every other condition", () => {
+    // Without this the exclusion could be coming from somewhere else and the
+    // test below would prove nothing.
+    expect(REGISTRATION.includeOnCard).toBe(true);
+    expect(REGISTRATION.isPersonal).toBe(false);
+    expect(onCallEntryFreshness(REGISTRATION, NOW).state).toBe("fresh");
+    // And yet the requirement itself ran out well before `now`: the exact gap
+    // between "the record was checked" and "the thing has not lapsed".
+    expect(recordedExpiryHasPassed(REGISTRATION, NOW)).toBe(true);
+    // Asked of the module that owns the split rather than read off `details`.
+    const { compliance, admin } = partitionLogisticsEntries([REGISTRATION, LEAVE_FORM]);
+    expect(compliance).toEqual([REGISTRATION]);
+    expect(admin).toEqual([LEAVE_FORM]);
+  });
+
+  it("excludes it while still printing the ordinary Admin row beside it", () => {
+    expect(selectCardEntries([REGISTRATION, LEAVE_FORM], NOW)).toEqual([LEAVE_FORM]);
   });
 });
