@@ -103,6 +103,30 @@ describe("the other three shapes", () => {
     expect(status.summary).toBe("Ethical practice has nothing against it yet");
   });
 
+  it("names the count, not the buckets, once more than one is empty", () => {
+    const requirement: CmeRequirement = {
+      id: "domains",
+      label: "Practice domains",
+      source: "national",
+      completedOn: null,
+      spec: {
+        shape: "activity-count",
+        buckets: ["Culturally safe practice", "Health inequities", "Professionalism", "Ethical practice"],
+        minimumPerBucket: 1,
+      },
+    };
+    const entries = [
+      entry("2026-02-01", [{ category: "educational", hours: 1 }], ["Culturally safe practice"]),
+      entry("2026-03-01", [{ category: "educational", hours: 1 }], ["Health inequities"]),
+    ];
+    const status = evaluateRequirement(requirement, entries);
+    expect(status.met).toBe(false);
+    expect(status.progress).toEqual({ value: 2, target: 4 });
+    // Naming four missing domains in one line reads as a scolding list; the
+    // count says the same thing and the screen shows which ones.
+    expect(status.summary).toBe("2 of 4 have nothing against them yet");
+  });
+
   it("treats a task as done only when the owner marked it done", () => {
     const base: CmeRequirement = {
       id: "plan",
