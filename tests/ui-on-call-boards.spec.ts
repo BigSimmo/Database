@@ -683,11 +683,39 @@ test.describe("The mode's own chrome, across the site's widths", () => {
   });
 
   test("re-resolves the hub in dark rather than leaking a light value", async ({ page }) => {
+    // Switch schemes BETWEEN navigations, never before the first one.
+    //
+    // This test failed on Firefox in every release-browser-matrix run, reading
+    // rgb(255, 255, 255) where it wanted a dark value, and the cause is the
+    // ordering rather than the app: it set the override while the page was
+    // still on about:blank, and Playwright's Firefox build does not carry that
+    // into the very first navigation. The theme is resolved once, pre-paint, by
+    // the inline bootstrap in `src/lib/theme.ts` reading
+    // `matchMedia("(prefers-color-scheme: dark)")` — so a preference that
+    // arrives late has already been missed, and the page stays light forever.
+    //
+    // Firefox itself resolves dark correctly on this app: the twelve dark
+    // assertions in `ui-caring-contacts-workspace.spec.ts` pass on Firefox in
+    // the same runs where this one fails, and every one of them navigates
+    // first and switches afterwards. That is the pattern copied here, in
+    // preference to `test.use({ colorScheme })`, which nothing in this
+    // repository has yet proved against Firefox.
+    const hubBackground = async () => {
+      await openBoard(page, ROUTES.home);
+      return page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    };
+
+    await page.emulateMedia({ colorScheme: "light" });
+    const light = await hubBackground();
+
     await page.emulateMedia({ colorScheme: "dark" });
-    await openBoard(page, ROUTES.home);
-    const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    const [r, g, b] = background.match(/\d+/g)!.map(Number);
-    expect(r + g + b, `body background ${background} is not a dark value`).toBeLessThan(360);
+    const dark = await hubBackground();
+
+    const [r, g, b] = dark.match(/\d+/g)!.map(Number);
+    expect(r + g + b, `body background ${dark} is not a dark value`).toBeLessThan(360);
+    // The title's actual claim. A hardcoded light background would satisfy
+    // neither this nor the threshold above, but only this one names the defect.
+    expect(dark, `the hub painted ${dark} in both schemes`).not.toBe(light);
   });
 
   test("keeps the private marker legible once forced colours drop every tint", async ({ page }) => {
