@@ -2541,7 +2541,7 @@ export function MasterSearchHeader({
               <span className="min-w-0">
                 {/* The name leads and the strapline supports, which is a weight and a
                     colour apart, not just a size. The wordmark takes the display
-                    tracking the rest of the interface's headings use — at 18px/800 the
+                    tracking the rest of the interface's headings use — at 20px/800 the
                     untracked default reads loose. The strapline drops from 600 to 500:
                     at 600 it sat almost level with the name and the two lines competed.
                     The colour stays --text-muted and the size stays 12px, both measured
