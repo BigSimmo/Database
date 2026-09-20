@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { loadSignOffQueue, type SignOffFamilyId } from "@/lib/developer-area/sign-off-queue";
+import { formSlug as catalogueFormSlug } from "@/lib/form-catalog";
+import { formPageHref } from "@/lib/form-register";
+import { formStaticParams } from "@/lib/forms";
 import { assertNoDraftIsPublished, dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { dictionaryDefinitionReviews } from "@/lib/dictionary-editorial/definition-reviews";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
@@ -152,6 +155,44 @@ describe("clinical sign-off queue", () => {
         expect(row.statusLabel.trim(), `${family.id}/${row.id} has no display label`).not.toBe("");
         if (row.href !== null) expect(row.href.startsWith("/"), `${family.id}/${row.id} -> ${row.href}`).toBe(true);
       }
+    }
+  });
+
+  it("points every WA Mental Health Act row at a form page that actually exists", () => {
+    // "Starts with a slash" is not a route. It passed for months while Forms 3A,
+    // 4A, 4B and 4C linked to `/forms/form-3a` and friends — paths with no
+    // record behind them, so each one landed on "not in your registry" instead
+    // of the guidance for a statutory instrument. The catalogue id is
+    // `form-<code>` unconditionally; the route slug is that only for the 50
+    // forms without a legacy slug, and the href was built from the id.
+    //
+    // So this resolves each href the way the route does, against the real route
+    // table. A future legacy slug added to the register cannot reintroduce the
+    // same gap without failing here.
+    const routable = new Set(formStaticParams().map((entry) => entry.slug));
+    const forms = queue.families.find((family) => family.id === "wa-mha-forms");
+    expect(forms, "wa-mha-forms family is missing").toBeDefined();
+    expect(forms!.rows.length, "the WA MHA family lost its rows").toBeGreaterThan(50);
+
+    const dead = forms!.rows
+      .filter((row) => row.href !== null)
+      .filter((row) => !routable.has(row.href!.replace(/^\/forms\//, "")));
+    expect(dead.map((row) => `${row.title} -> ${row.href}`)).toEqual([]);
+  });
+
+  it("keeps exactly one legacy-slug table, so a form route cannot drift from the register", () => {
+    // The four legacy slugs were duplicated in `form-catalog.ts` and
+    // `on-call/playbook-forms.ts`, and a third caller knew about neither. Both
+    // copies now come from `@/lib/form-register`; this asserts the two entry
+    // points agree rather than merely that each is self-consistent.
+    for (const code of ["3A", "4A", "4B", "4C", "1A", "10G"]) {
+      expect(formPageHref(code), `${code} href disagrees with the route table`).toBe(
+        `/forms/${catalogueFormSlug(code)}`,
+      );
+      expect(
+        formStaticParams().some((entry) => entry.slug === catalogueFormSlug(code)),
+        `${code} resolves to no route`,
+      ).toBe(true);
     }
   });
 
