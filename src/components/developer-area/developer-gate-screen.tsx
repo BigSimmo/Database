@@ -43,7 +43,15 @@ export function DeveloperGateScreen({
   // failure about a key that is no longer on screen.
   const [rejectionDismissed, setRejectionDismissed] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
+  // Two separate busy states, deliberately. `busy` belongs to the Supabase
+  // sign-in and includes `auth.status === "loading"`, which is where an
+  // AuthProvider sits from mount until its client-side getUser()/getSession()
+  // resolves. The developer key must NOT wait on that: its whole reason for
+  // existing is that it needs no provider round trip, so sharing the flag would
+  // disable the alternate credential exactly when Supabase is slow, stalled or
+  // unreachable — the situation it is the answer to.
   const busy = auth.status === "loading" || pendingProvider !== null || unlocking;
+  const keyBusy = unlocking;
 
   /**
    * Submits the typed key through the same `?devkey=` exchange a bookmarked link
@@ -60,7 +68,7 @@ export function DeveloperGateScreen({
   function submitDeveloperKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const key = developerKey.trim();
-    if (!key || busy) return;
+    if (!key || keyBusy) return;
     setUnlocking(true);
     window.location.replace(developerKeyUnlockUrl(next, key));
   }
@@ -140,7 +148,7 @@ export function DeveloperGateScreen({
           />
           <button
             type="submit"
-            disabled={busy || !developerKey.trim()}
+            disabled={keyBusy || !developerKey.trim()}
             data-testid="developer-gate-key-submit"
             className={cn(primaryControl, "w-full")}
           >

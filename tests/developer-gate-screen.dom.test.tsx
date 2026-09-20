@@ -18,6 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
+  authStatus: "idle" as "idle" | "loading",
   signInWithEmail: vi.fn(async () => undefined),
   signInWithOAuth: vi.fn(async () => undefined),
   signOut: vi.fn(async () => undefined),
@@ -25,7 +26,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
-    status: "idle",
+    status: mocks.authStatus,
     isConfigured: true,
     notice: null,
     error: null,
@@ -49,6 +50,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  mocks.authStatus = "idle";
   vi.clearAllMocks();
 });
 
@@ -123,5 +125,26 @@ describe("DeveloperGateScreen key field", () => {
 
     expect(screen.getByTestId("developer-gate-key-form")).toBeInTheDocument();
     expect(screen.getByTestId("developer-gate-sign-out")).toBeInTheDocument();
+  });
+
+  it("stays usable while the Supabase session is still loading", () => {
+    // `AuthProvider` sits at status "loading" from mount until its client-side
+    // getUser()/getSession() resolves (src/lib/supabase/client.tsx), and on a
+    // slow, stalled or unreachable Supabase that is a long time. Sharing the
+    // sign-in's busy flag would disable the key field exactly then — disabling
+    // the one credential that needs no provider round trip, in the situation it
+    // exists to answer.
+    mocks.authStatus = "loading";
+    renderScreen();
+
+    const submit = screen.getByTestId("developer-gate-key-submit");
+    fireEvent.change(screen.getByTestId("developer-gate-key-input"), { target: { value: KEY } });
+    expect(submit).not.toBeDisabled();
+
+    fireEvent.click(submit);
+
+    expect(mocks.replace).toHaveBeenCalledTimes(1);
+    const target = new URL(mocks.replace.mock.calls[0][0] as string, "https://psychiatry.tools");
+    expect(target.searchParams.get("devkey")).toBe(KEY);
   });
 });
