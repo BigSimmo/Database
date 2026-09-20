@@ -4,11 +4,11 @@
   "createdOn": "2026-09-20",
   "action": "add",
   "payload": {
-    "pri": "P1",
+    "pri": "P2",
     "type": "issue",
-    "summary": "Draft PRs skip twelve CI jobs including Production UI, so agent-opened PRs get almost no real testing until someone marks them ready",
-    "detail": "Decide whether agent-opened PRs should open ready-for-review, or whether the draft skip-list should be narrower. Why: the standing instruction is to open PRs as draft, and .github/workflows/ci.yml gates 12 jobs on github.event.pull_request.draft != true (static-heavy, coverage, build, Production UI, Production UI critical, Ward Flow, Lighthouse and more), so a draft PR's green 'PR required' is far weaker than it looks and the change reaches main having had only the light baseline. Context: PR #2909 sat as a draft with zero browser coverage; npm run plan:browser names this case in its own output ('A draft PR is the case that bites'). Owner: user decision, then assistant. Confidence: high — verified by grep, 12 occurrences of the draft condition. Depends on: nothing.",
-    "source": "session 2026-09-20 /ledger sweep — nine-agent repo maturity review",
+    "summary": "Draft PRs show a green PR-required gate while twelve heavy CI jobs stay skipped, so draft status is easy to misread as merge-ready",
+    "detail": "Improve draft-status visibility (UI/docs/bot messaging) so a green draft is never treated as a full readiness signal. Why: .github/workflows/ci.yml still skips twelve heavy jobs while github.event.pull_request.draft == true (static-heavy, coverage, build, Production UI, Production UI critical, Ward Flow, Lighthouse and more), so draft 'PR required' is weaker than it looks. This is NOT a merge hole: pull_request triggers include ready_for_review, and undrafting re-runs the full workflow before the change can reach main (see .github/workflows/ci.yml ready_for_review trigger and the comment that undrafting re-runs full CI). Do not change standing draft policy or narrow the skip list to 'close' a nonexistent merge path \u2014 fix operator/assistant messaging instead. Context: PR #2909 sat as a draft with zero browser coverage; npm run plan:browser already names the draft case. Owner: assistant (messaging) / user (policy if desired). Confidence: high \u2014 draft skip verified by grep; ready_for_review re-run path verified in ci.yml. Depends on: nothing.",
+    "source": "session 2026-09-20 /ledger sweep \u2014 nine-agent repo maturity review",
     "issueUlid": "01M2ZHJ6RQ9VQVRT1WE83M8J03"
   }
 }
