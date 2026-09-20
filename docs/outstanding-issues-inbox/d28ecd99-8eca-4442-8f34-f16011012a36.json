@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d28ecd99-8eca-4442-8f34-f16011012a36",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "The #CCZ4HB automated-review decision fired its own re-open trigger on 2026-09-19 and AGENTS.md still records only the old decision",
+    "detail": "The owner decision of 2026-08-22 (#CCZ4HB, AGENTS.md 'Automated review coverage', full text in docs/agents/pull-request-workflow.md) accepted intermittent bot review on a stated condition: 'Re-open only if the Codex connector also stops reviewing, or if the owner revisits the billing decision.' On 2026-09-19 that condition fired - all three reviewers declined on the same day: CodeRabbit on a categorical under-10-stars eligibility gate (not fixable by a cap raise), Codex on 'reached your Codex usage limits for code reviews', Bugbot on 'usage limit reached'. Three PRs merged that day with no automated review: #2901 (a clinical governance record), #2903, #2921. PR #2922 was the re-opened answer and added .github/workflows/claude-review.yml, but deliberately left AGENTS.md alone on the grounds that rewriting a recorded owner decision is the owner's to make, not a side effect of a workflow change; its Notes section promised this ledger request instead. NOTE the coupling: that workflow does not currently work (separate P1 issue, same date), so the re-opened answer is not yet actually providing coverage. Codex's quota reset overnight and it reviewed both #2922 and #2923, finding nothing on the latter - so 2026-09-19 was three outages coinciding rather than a permanent state, which is the argument for redundancy rather than against it.",
+    "source": "PR #2922 Notes; AGENTS.md 'Automated review coverage'; 2026-09-19 reviewer outage",
+    "issueUlid": "01M2ZM46TYJQ3KY7TBS6AHW7RX"
+  }
+}
