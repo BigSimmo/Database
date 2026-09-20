@@ -15,6 +15,13 @@ const list = routes[0]!.source;
 const detail = routes[1]!.source;
 const year = routes[2]!.source;
 
+/** Drop one key, without a destructured binding the linter then calls unused. */
+function without<T extends object, K extends keyof T>(value: T, key: K): Omit<T, K> {
+  const copy = { ...value };
+  delete copy[key];
+  return copy;
+}
+
 describe("the CME API", () => {
   for (const { path, source } of routes) {
     it(`${path} takes the owner from the session, never the request`, () => {
@@ -225,10 +232,8 @@ describe("CME entry POST/PATCH shared schema (cmeEntryCreateSchema)", () => {
   });
 
   it("rejects a body missing a required field", () => {
-    const { title: _title, ...withoutTitle } = minimal;
-    expect(cmeEntryCreateSchema.safeParse(withoutTitle).success).toBe(false);
-    const { date: _date, ...withoutDate } = minimal;
-    expect(cmeEntryCreateSchema.safeParse(withoutDate).success).toBe(false);
+    expect(cmeEntryCreateSchema.safeParse(without(minimal, "title")).success).toBe(false);
+    expect(cmeEntryCreateSchema.safeParse(without(minimal, "date")).success).toBe(false);
   });
 
   it("rejects a date that is not a Perth calendar date", () => {
