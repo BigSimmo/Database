@@ -69,6 +69,8 @@ repository gate. The generated inventories remain governed by their own contract
 - [design-system/TOKENS.md](design-system/TOKENS.md) — reconciled token inventory: every role, winning name, owner, and what it replaces
 - [design-system/COMPONENTS.md](design-system/COMPONENTS.md) — the eight safety-component specifications plus the maturity matrix
 - [brand/psychsift-logo.md](brand/psychsift-logo.md) — the PsychSift mark: arc-by-arc construction, colours, file set, and usage rules
+- [brand/design-handover.md](brand/design-handover.md) — the outward-facing brand spec: geometry, colour, type, rules, asset URLs, and open items in one self-contained page
+- [brand/canvas/README.md](brand/canvas/README.md) — the generator behind the published six-artboard design canvas, and what must be kept in step with it
 - [design-system/DECISIONS.md](design-system/DECISIONS.md) — conflicts C1–C5 resolved, clinical Q&A record, assumptions, blocked items
 - [design-system/GATES.md](design-system/GATES.md) — every design-system rule paired with its enforcement status
 - [design-system/FIX-GUIDE.md](design-system/FIX-GUIDE.md) — Hazard 1–2 sweep dispositions (Fixed / Documented / Deferred / Out-of-scope)
