@@ -854,6 +854,129 @@ describe("OnCallEntryEditor — creating a requirement from the Compliance page"
   });
 });
 
+/**
+ * Codex P2 on PR #2900: an obsolete value on a regulatory record could not be
+ * removed. The owner cleared the box, the save reported success, and the merge
+ * overlay handed the stored value straight back.
+ *
+ * A recorded expiry is the sharp case — a date nobody can delete outlives the
+ * registration it describes, and this page may not assert anything about the
+ * holder's standing, so a stale date it refuses to drop is the one claim it
+ * accidentally does make.
+ */
+describe("OnCallEntryEditor — clearing an optional compliance field removes it", () => {
+  it("deletes a recorded expiry the owner has emptied", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: AHPRA_REGISTRATION }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor open section="logistics" entry={AHPRA_REGISTRATION} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await user.clear(screen.getByLabelText("Recorded expiry"));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock)).not.toHaveProperty("expiresOn");
+    // The rest of the record is untouched: this clears one box, not the row.
+    expect(savedDetails(fetchMock).issuingBody).toBe("Ahpra");
+    expect(savedDetails(fetchMock).consequence).toBe("stops-work");
+  });
+
+  it("deletes an emptied issuing body", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: AHPRA_REGISTRATION }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <OnCallEntryEditor open section="logistics" entry={AHPRA_REGISTRATION} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+
+    await user.clear(screen.getByLabelText("Issued by"));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock)).not.toHaveProperty("issuingBody");
+    expect(savedDetails(fetchMock).expiresOn).toBe("2027-03-12");
+  });
+
+  it("deletes an emptied lead time, which is a number and takes a different branch", async () => {
+    const user = userEvent.setup();
+    const entry: OnCallEntry = {
+      ...AHPRA_REGISTRATION,
+      details: { ...(AHPRA_REGISTRATION.details as Record<string, unknown>), leadTimeDays: 90 },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={entry} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.clear(screen.getByLabelText("Days of notice you need"));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock)).not.toHaveProperty("leadTimeDays");
+  });
+
+  it("deletes an emptied evidence link, so a moved certificate is not left pointing nowhere", async () => {
+    const user = userEvent.setup();
+    const entry: OnCallEntry = {
+      ...AHPRA_REGISTRATION,
+      details: {
+        ...(AHPRA_REGISTRATION.details as Record<string, unknown>),
+        evidenceUrl: "https://example.org/old-certificate.pdf",
+      },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={entry} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    await user.clear(screen.getByLabelText("Evidence link"));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock)).not.toHaveProperty("evidenceUrl");
+  });
+
+  /**
+   * The guard on the fix, and the reason it is safe.
+   *
+   * An earlier P1 on this branch was the opposite failure: editing only a title
+   * wiped every other stored field. The protection for that is the salvage and
+   * overlay in `mergeOnCallEditorDetails`, which is about keys the form has NO
+   * control for. Clearing is about keys it does. Those two sets are disjoint —
+   * `handleSave` iterates the rendered specs — and this pins it, because the
+   * obvious wrong fix is to make the merge itself drop absent keys.
+   */
+  it("still carries through a stored key the compliance form does not render", async () => {
+    const user = userEvent.setup();
+    const entry: OnCallEntry = {
+      ...AHPRA_REGISTRATION,
+      // `location` is an Admin field. The compliance form has no box for it, so
+      // it is exactly the shape the salvage and overlay exist to protect.
+      details: { ...(AHPRA_REGISTRATION.details as Record<string, unknown>), location: "Level 2, Block B" },
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnCallEntryEditor open section="logistics" entry={entry} onSaved={vi.fn()} onClose={vi.fn()} />);
+
+    expect(screen.queryByLabelText("Location")).toBeNull();
+
+    // Clear one rendered box and save. Everything else must survive.
+    await user.clear(screen.getByLabelText("Recorded expiry"));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(savedDetails(fetchMock)).not.toHaveProperty("expiresOn");
+    expect(savedDetails(fetchMock).location).toBe("Level 2, Block B");
+    expect(savedDetails(fetchMock).category).toBe("Registration");
+    expect(savedDetails(fetchMock).kind).toBe(COMPLIANCE_KIND);
+  });
+});
+
 describe("OnCallEntryEditor — a box the owner emptied is still a stored value", () => {
   // An empty text box means "the form said nothing", so the stored Location
   // survives this save and a switch would still delete it. Reading the draft

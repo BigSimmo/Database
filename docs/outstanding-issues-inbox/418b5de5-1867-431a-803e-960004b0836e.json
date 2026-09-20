@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "418b5de5-1867-431a-803e-960004b0836e",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Optional On Call editor fields cannot be cleared on five of the six section forms",
+    "detail": "An optional value stored on an On Call entry cannot be removed through the editor: the owner empties the box, the save reports success, and mergeOnCallEditorDetails hands the stored value straight back. handleSave only records an emptied control as a deletion when its spec carries clearWhenEmpty, and it is set on just eight controls. FIXED ON PR #2900 for the Compliance form only (expiresOn, leadTimeDays, issuingBody, evidenceUrl, url), because a recorded expiry nobody can delete outlives the registration it describes and this page may not assert anything about the holder's standing. STILL BROKEN, 21 controls: Admin location/hours/phone/url; Contacts contactName/phone/afterHoursPhone/pager/extension/availability; Playbook escalationSteps; Referrals accepts/exclusions/catchment/hours/howToRefer/phone/fax/referralFormUrl; Teaching recurrence/nextOccurrence/nextOccurrenceDate/presenter/location/recordingUrl/topics. A wrong phone number on a ward contact is the one that matters clinically -- it can be corrected but not removed, so a decommissioned extension stays on the page and on the printed pocket card. THE FIX IS NOT SIMPLY 'flag them all': the list branch (kind list) and the escalationSteps branch in handleSave do not read clearWhenEmpty at all, so those need their own else-clause. The premise in the old clearWhenEmpty docstring -- that an empty text box cannot be told apart from a control that never rendered -- is false: handleSave iterates detailFieldsFor(), which IS the rendered set, so unrendered keys never reach it and the salvage/overlay protection for them is untouched. Deliberately not done on #2900: it changes saving behaviour on five forms that change does not otherwise touch, and it wants browser proof per form. tests/on-call-editor.dom.test.tsx has one test pinning the old behaviour for Admin 'Location' that must be updated when this is fixed.",
+    "source": "Codex review P2 on PR #2900, 2026-09-20; verified by agent trace of handleSave and mergeOnCallEditorDetails at 56b883ec5",
+    "issueUlid": "01M2ZTNBZC94A62CWJ00K32PKT"
+  }
+}

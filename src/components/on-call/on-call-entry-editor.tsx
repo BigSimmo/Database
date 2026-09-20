@@ -63,9 +63,24 @@ type DetailFieldSpec = {
    * An empty value on this control is a real choice, so it must beat the stored
    * one (`clearedKeys` in `mergeOnCallEditorDetails`).
    *
-   * Only on selects that name their own empty option. An empty text box stays
-   * "the form said nothing", exactly as it always has: emptying a phone number
-   * cannot be told apart from a control that never rendered.
+   * This started as "only on selects that name their own empty option", on the
+   * reasoning that emptying a text box could not be told apart from a control
+   * that never rendered. **That reasoning was wrong**, and a review caught it:
+   * the loop in `handleSave` iterates `detailFieldsFor(...)`, which IS the set
+   * of controls on screen, so a control that never rendered never reaches it.
+   * The overlay that protects unrendered keys is a different mechanism and is
+   * applied before `clearedKeys` either way.
+   *
+   * What the old default actually did was make a recorded expiry undeletable:
+   * the owner cleared the box, the save reported success, and the date came
+   * back from storage. On a page about regulatory records that is the wrong
+   * way round — a date you can no longer remove outlives the thing it
+   * describes. So every optional control on the Compliance form carries this.
+   *
+   * The same is true of the other five section forms, whose optional controls
+   * still cannot be cleared. That is older than this page and is filed as
+   * follow-up rather than fixed here, because it changes saving behaviour on
+   * surfaces this change does not otherwise touch.
    *
    * Never on a REQUIRED control, and the reason is worth stating because the
    * obvious fix for a blank required select is to put it here. A blank
@@ -275,20 +290,29 @@ const COMPLIANCE_DETAIL_FIELDS: DetailFieldSpec[] = [
     label: "Recorded expiry",
     kind: "text",
     type: "date",
+    clearWhenEmpty: true,
     hint: "The date you hold, not one anybody has checked with the issuing body.",
   },
   {
     key: "leadTimeDays",
     label: "Days of notice you need",
     kind: "number",
+    clearWhenEmpty: true,
     hint: "How far ahead this one has to be started. A police clearance takes months; an online module takes days.",
   },
-  { key: "issuingBody", label: "Issued by", kind: "text", hint: 'Who to chase — e.g. "Ahpra", "RANZCP".' },
+  {
+    key: "issuingBody",
+    label: "Issued by",
+    kind: "text",
+    clearWhenEmpty: true,
+    hint: 'Who to chase — e.g. "Ahpra", "RANZCP".',
+  },
   {
     key: "evidenceUrl",
     label: "Evidence link",
     kind: "text",
     type: "url",
+    clearWhenEmpty: true,
     hint: "A link to where you keep the certificate. Do not upload it here: it is identity data, and uploads are indexed into the document corpus.",
   },
   {
@@ -298,7 +322,7 @@ const COMPLIANCE_DETAIL_FIELDS: DetailFieldSpec[] = [
     options: PROVENANCE_OPTIONS,
     clearWhenEmpty: true,
   },
-  { key: "url", label: "URL", kind: "text", type: "url" },
+  { key: "url", label: "URL", kind: "text", type: "url", clearWhenEmpty: true },
 ];
 
 /** Mirrors `onCallDetailsSchemaFor` (src/lib/on-call/entry-model.ts) field for field. The
