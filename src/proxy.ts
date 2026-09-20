@@ -16,6 +16,7 @@ import {
   DEVELOPER_ACCESS_COOKIE,
   DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
   DEVELOPER_ACCESS_COOKIE_PATH,
+  DEVELOPER_ACCESS_ERROR_PARAM,
   DEVELOPER_ACCESS_QUERY_PARAM,
   developerAccessKeyMatches,
   developerAccessTokenValid,
@@ -243,8 +244,16 @@ export async function proxy(request: NextRequest) {
     url.searchParams.delete(DEVELOPER_ACCESS_QUERY_PARAM);
     const redirectTarget = staticRouteRedirects[pathname];
     if (redirectTarget) url.pathname = redirectTarget;
-    const response = withCsp(NextResponse.redirect(url));
     const token = developerAccessKeyMatches(presented) ? issueDeveloperAccessToken() : null;
+    // Say so when the secret did not verify. Without this the redirect is
+    // byte-identical to a success the browser has not finished acting on, and a
+    // mistyped key looks exactly like a working one — the gate screen simply
+    // reappears. The marker carries no secret: it is a verdict on a value its
+    // reader has just typed. It is removed on success so a stale rejection from
+    // an earlier attempt cannot ride along into the opened area.
+    url.searchParams.delete(DEVELOPER_ACCESS_ERROR_PARAM);
+    if (!token) url.searchParams.set(DEVELOPER_ACCESS_ERROR_PARAM, "1");
+    const response = withCsp(NextResponse.redirect(url));
     if (token) setDeveloperAccessCookie(response, token, request);
     return response;
   }
