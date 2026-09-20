@@ -1,16 +1,16 @@
 {
   "version": "outstanding-issues-snapshot-v2",
   "ledger_revision": {
-    "committed_at": "2026-09-20"
+    "committed_at": "2026-09-21"
   },
   "counts": {
-    "open": 128,
-    "p1": 25,
-    "p2": 79,
-    "p3": 24,
+    "open": 165,
+    "p1": 33,
+    "p2": 101,
+    "p3": 31,
     "queued": 7,
     "pending": 0,
-    "resolved": 602
+    "resolved": 603
   },
   "queue": [
     {
@@ -259,7 +259,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Schema drift is gated against schema.sql only; the migration chain's semantics are never diffed against the mirror",
-      "detail": "generate-drift-manifest.ts replays supabase/schema.sql and embeds ITS sha256; CI's db-reset-verify runs supabase migration up --local, proving the chain APPLIES but never diffing the result against schema.sql. A migration whose function or policy body diverges from the mirror passes every gate. Object-NAME parity does hold today (all create targets across 211 migrations resolve into schema.sql) but it is enforced by hand-written per-object tests, not systematically. FIX: after migration up --local, replay schema.sql into a second scratch database and diff schema_drift_snapshot() between the two. Fully offline and containerised, no provider access. DEMONSTRATED 2026-09-01, no longer theoretical: live-drift run 33484535655 (red on main at d3074946a) reported its sole unexpected finding as public.correct_clinical_query_terms(text,real) def_hash manifest e2356565 vs live 2ebaf978. Cause was exactly this gap - migration 20260831100000 (PR #2477) redefined that function with a duplicated 'and length(canonical) between 4 and 40' predicate and supabase/schema.sql was never updated to match, so the manifest disagreed with live while every pre-merge gate stayed green. The db-reset-verify assertion that did run is committed.schema_sha256 === generated.schema_sha256 (.github/workflows/ci.yml ~L1082-1095), which only catches an unrefreshed manifest, not a chain/mirror divergence. Behaviour impact of that instance was nil (the duplicate predicate is a boolean no-op) but it cost a red daily alarm and a remediation PR, and it is the second occurrence of this failure class after the #316 root cause (SET work_mem absent from schema.sql). Strengthens the case for scheduling the containerised two-database diff above.",
+      "detail": "MIRROR HALF CLOSED 2026-09-19 by PR #2889. check:chain-mirror-parity now runs with --strict in the Migration replay job and neither parity step carries continue-on-error, so a migration whose result diverges from supabase/schema.sql fails the job before merge instead of printing a warning nobody acts on. Report-only ended ahead of its 2026-12-01 expiry because the divergence set was finally measured rather than predicted: the whole 250-migration chain was replayed and compared, giving ZERO divergence across tables, views, functions, indexes, policies, constraints, triggers and storage buckets, with one reviewed allowlist entry (pg_net, an emulator-image extension). CI's own first blocking run agreed. The runbook's claim that pg_cron was a live mirror gap was stale - e15534b830 (2026-09-12) added the identical create-extension statement to schema.sql:15 - and both that note and the allowlist status were corrected. Remaining scope for this row is whatever is left beyond chain-vs-mirror parity; if nothing is, close it.",
       "source": "repo-wide audit at 3ed1932 (six domain reviewers), re-verified against main 1bb362f; demonstrated by live-drift run 33484535655, classified by the database coordination chat 2026-09-01",
       "added": "2026-08-23"
     },
@@ -510,9 +510,9 @@
       "id": "#9Z197J",
       "priority": "P2",
       "type": "issue",
-      "summary": "release-browser-matrix fails on every main run with 13 Firefox/WebKit failures - 5 Firefox tolerance artefacts and 8 WebKit, six of them phone chrome on Safari engine and so likely real iPhone bugs - and it is not in PR required so it never blocks a merge",
-      "detail": "UPDATE 2026-09-20 (read from the GitHub job logs of the latest main release-browser-matrix run; still no local browser run, provisioning fails here as described below). THE COUNT IS 13, NOT 15: Chromium green in ~8 min; Firefox 700 passed / 5 failed in ~28 min; WebKit 696 passed / 8 failed in ~40 min. THE 2026-09-06 CONCLUSION IS HALF WRONG AND THE CORRECTION IS THE POINT OF THIS UPDATE. The Firefox half is tolerance work as recorded — one failure is provably a measurement artefact, Expected >= 12 / Received 11.999954223632812, a sub-pixel rounding difference and nothing more. THE WEBKIT HALF IS NOT. Six of the eight WebKit failures are phone scroll, header, footer and composer behaviour. WebKit is Safari engine, so on an iPhone those are candidate real user-visible bugs, not engine-geometry tolerance, and must be read as a bug report rather than assertion-loosening work. ORDER: fix the five Firefox tolerances first because they are cheap and provably artefacts, then treat the six WebKit phone-chrome failures as a defect investigation, and do that before the tablet row #6GR6B8 because the two are plausibly the same root cause. QUARANTINING IS STILL THE WRONG ANSWER, and more so now: quarantining a phone-chrome failure on Safari engine would hide a defect, not a flake. tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. NOT FIXED 2026-09-18. WHY IT WAS NOT DONE: the failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises. Historical note only: an earlier 2026-09-06 write-up used a 15-failure count and treated the whole set as deterministic geometry differences to loosen; that count and that blanket remedy are superseded by this update and must not be reapplied.",
-      "source": "session 2026-09-20 /ledger sweep - GitHub job logs for the latest main release-browser-matrix run; supersedes the 2026-09-06 count and diagnosis",
+      "summary": "release-browser-matrix Firefox/WebKit failures: four of six Firefox ones fixed (three sub-pixel artefacts merged, dark-mode test ordering awaiting merge), two Firefox and all eight WebKit still open, and the job is not in PR required so it never blocks a merge",
+      "detail": "UPDATE 2026-09-20 (six Firefox failures read from the job log of main run 35503893104; four now addressed, two open; no Firefox was run - see the egress row). THE COUNT AND THE CLASSIFICATION IN THIS ROW WERE BOTH WRONG. Firefox failed SIX, not five, and only THREE were tolerance, not five. FIXED AND MERGED (PR #2932): three sub-pixel artefacts - a 16px card gap measured 15.999969482421875, a 12px column gap measured 11.999954223632812, and a 48px tap target measured 47.98333740234375 against its existing 2px allowance. The first two are float error from subtracting two client rects; the third is Firefox storing layout in app units of 1/60 CSS px, so 47.98333740234375 is exactly 2879/60 - one app unit short, the smallest miss the engine can express. tests/helpers/layout-tolerance.ts holds one 0.05px tolerance, mutation-tested from both sides. No floor lowered, nothing skipped or quarantined. FIXED, AWAITING MERGE (PR #2933): the fourth, ui-on-call-boards dark mode, was TEST ORDERING and not an app bug. It set the colour-scheme override while the page was still on about:blank, and Playwright Firefox does not carry that into the first navigation; the theme is resolved once pre-paint by the bootstrap in src/lib/theme.ts, so a late preference is already missed. PROOF IT IS NOT THE APP: the twelve dark assertions in ui-caring-contacts-workspace.spec.ts PASS on Firefox in this same run (tests 48, 53, 59, 65, 72, 79, 85, 100, 138, 152, 159, 169) and every one navigates first and switches scheme after. An earlier reading blamed color-scheme: light on :root and concluded dark mode was broken for every Firefox and Safari user; those twelve passes refute it. Do not reopen the design-system dark contract on this evidence. STILL OPEN: the remaining two Firefox failures are tracked separately - see the row for the document-viewer hit counter and the tools Forms panel. The eight WebKit failures are UNCHANGED and still unexamined; the six phone-chrome ones remain the likely-real-iPhone-bug reading recorded above. UPDATE 2026-09-20 (read from the GitHub job logs of the latest main release-browser-matrix run; still no local browser run, provisioning fails here as described below). THE COUNT IS 13, NOT 15: Chromium green in ~8 min; Firefox 700 passed / 5 failed in ~28 min; WebKit 696 passed / 8 failed in ~40 min. THE 2026-09-06 CONCLUSION IS HALF WRONG AND THE CORRECTION IS THE POINT OF THIS UPDATE. The Firefox half is tolerance work as recorded — one failure is provably a measurement artefact, Expected >= 12 / Received 11.999954223632812, a sub-pixel rounding difference and nothing more. THE WEBKIT HALF IS NOT. Six of the eight WebKit failures are phone scroll, header, footer and composer behaviour. WebKit is Safari engine, so on an iPhone those are candidate real user-visible bugs, not engine-geometry tolerance, and must be read as a bug report rather than assertion-loosening work. ORDER: fix the five Firefox tolerances first because they are cheap and provably artefacts, then treat the six WebKit phone-chrome failures as a defect investigation, and do that before the tablet row #6GR6B8 because the two are plausibly the same root cause. QUARANTINING IS STILL THE WRONG ANSWER, and more so now: quarantining a phone-chrome failure on Safari engine would hide a defect, not a flake. tests/flake-ledger.json is for REPRODUCED flakes, requires @quarantine in the test title, and expires every entry within 31 days — and it is currently empty by design. NOT FIXED 2026-09-18. WHY IT WAS NOT DONE: the failures are only visible by running Firefox and WebKit, and browser provisioning fails in this environment — scripts/setup-claude-cloud.sh browsers returns 403, no allowlist entry for cdn.playwright.dev. A substitute Chromium exists at /opt/pw-browsers and playwright.config.ts honours PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, so Chromium work is possible here; the other two engines are not. Sizing this needs a machine that can run all three. Note also that this is the one thing keeping main red, so it will be the first failure the new red-main reporting (#T82ND3) raises. Historical note only: an earlier 2026-09-06 write-up used a 15-failure count and treated the whole set as deterministic geometry differences to loosen; that count and that blanket remedy are superseded by this update and must not be reapplied.",
+      "source": "session 2026-09-20 Firefox failure triage; job log of main run 35503893104; PRs #2932 and #2933",
       "added": "2026-09-07"
     },
     {
@@ -583,8 +583,8 @@
       "priority": "P3",
       "type": "issue",
       "summary": "ui-tools differentials compare queue navigation is intermittently slow enough to time out inside the full Production UI shard 3",
-      "detail": "CAUSE FOUND AND PROVEN 2026-09-20; NO LONGER PARKED. This is not a flaky test — it catches a real phone defect that also hits clinicians. The Differentials mode-nav row (49px) paints IN page flow, then ModeNavHeaderPortal moves it into the fixed phone header at ~315ms; content loses that height and every element rises 49px. usePhoneOverlayChromeReserve only republishes the measured 121px at ~423ms, so for ~110ms the whole page sits 49px too high. A press that straddles that correction lands on one control and releases on another: recorded trace shows pointerdown on the compare-open link at y 492-540, pointerup at the identical y hitting \"Edit selection\" because the link had moved to 443-491, and the browser retargeting the click to their common ancestor. The link never activates — no error, no navigation. scrollY is 0 throughout, so this is layout, not scrolling, and Playwright hit-target checks cannot see it because press and release were each individually on a real element. EVIDENCE: 0/41 reproductions through the repo runner (10x alone, 10x under 4 busy loops, 20x under 12, plus a full shard) — shard load is not the right kind of slowness. Under Chrome DevTools renderer throttling: 0/10 at 4x, 10/10 at 10x, 9/10 at 20x, and 0/10 at 10x when the phone chrome is allowed to settle first. That last row is the control. TWO CORRECTIONS TO THIS ROW. (1) It is the PHONE click that fails, not the desktop one. tests/ui-tools.spec.ts:2928 is the test declaration; the test contains two compare-open clicks, and the URL CI recorded has no q=Pain, which matches the 390x844 phone block. Above the phone breakpoint the reserve publishes 0px and no addon row mounts, so desktop is not exposed. (2) The TO-UNBLOCK suggestion in this row does not work and is refuted: the destination \"Loading presentation\" role=status skeleton cannot be the settle signal, because it lives inside the destination route and only renders AFTER the URL commits. Proven by holding the destination response 20s — urlChangedAfterMs 20130, loadingSkeletonSeenAfterMs null. The \"racing an unhydrated link\" hypothesis is the right family but the wrong mechanism: the link is a plain next/link anchor from a Server Component, so a pre-hydration click would still navigate natively. The race is hydration-driven LAYOUT, not handlers. PRODUCT FIX OPENED as PR #2929 (publishPhoneOverlayChromeReserveNow — the portals now publish the reserve in the same commit that removes the row from flow). A test-side settle assertion per docs/search-chrome-behaviour.md is still worth adding afterwards so the test is robust independently, but was deliberately NOT bundled with the product fix, because landing both together would hide whether the product fix works.",
-      "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); measured against origin/main with standalone Chromium 141",
+      "detail": "CAUSE FOUND AND PROVEN 2026-09-20; NO LONGER PARKED. This is not a flaky test — it catches a real phone defect that also hits clinicians. The Differentials mode-nav row (49px) paints IN page flow, then ModeNavHeaderPortal moves it into the fixed phone header at ~315ms; content loses that height and every element rises 49px. usePhoneOverlayChromeReserve only republishes the measured 121px at ~423ms, so for ~110ms the whole page sits 49px too high. A press that straddles that correction lands on one control and releases on another: recorded trace shows pointerdown on the compare-open link at y 492-540, pointerup at the identical y hitting \"Edit selection\" because the link had moved to 443-491, and the browser retargeting the click to their common ancestor. The link never activates — no error, no navigation. scrollY is 0 throughout, so this is layout, not scrolling, and Playwright hit-target checks cannot see it because press and release were each individually on a real element. EVIDENCE: 0/41 reproductions through the repo runner (10x alone, 10x under 4 busy loops, 20x under 12, plus a full shard) — shard load is not the right kind of slowness. Under Chrome DevTools renderer throttling: 0/10 at 4x, 10/10 at 10x, 9/10 at 20x, and 0/10 at 10x when the phone chrome is allowed to settle first. That last row is the control. TWO CORRECTIONS TO THIS ROW. (1) It is the PHONE click that fails, not the desktop one. tests/ui-tools.spec.ts:2928 is the test declaration; the test contains two compare-open clicks, and the URL CI recorded has no q=Pain, which matches the 390x844 phone block. Above the phone breakpoint the reserve publishes 0px and no addon row mounts, so desktop is not exposed. (2) The TO-UNBLOCK suggestion in this row does not work and is refuted: the destination \"Loading presentation\" role=status skeleton cannot be the settle signal, because it lives inside the destination route and only renders AFTER the URL commits. Proven by holding the destination response 20s — urlChangedAfterMs 20130, loadingSkeletonSeenAfterMs null. The \"racing an unhydrated link\" hypothesis is the right family but the wrong mechanism: the link is a plain next/link anchor from a Server Component, so a pre-hydration click would still navigate natively. The race is hydration-driven LAYOUT, not handlers. STILL OPEN AFTER PR #2929 — READ THIS BEFORE CLOSING THE ROW. PR #2929 (publishPhoneOverlayChromeReserveNow, called from both portals) closes this only for IN-SESSION navigation, and NOT for the cold page.goto the trace above was taken on, which is the path CI fails on. The publisher refuses to act until the reserve hook has settled a value at least once — it must, because before that responsive layout can still report the wide 200px stack (#147) and publishing that would move content twice. React runs layout effects children-first and the hook belongs to the shell, so on a cold load a portal effect ALWAYS runs before the hook has settled and the immediate publish is suppressed, every time. Established by adversarial review of #2929 and independently reproduced; pinned as failing-when-fixed cases in tests/phone-overlay-reserve-portal-wiring.dom.test.tsx, which is also the only coverage of the portals wiring at all — every case in tests/phone-overlay-chrome-reserve.dom.test.ts calls the publisher directly and would pass with both useLayoutEffect blocks deleted. A second gap: unmounting a portal does not shrink the reserve, so content sits 49px too LOW instead; a cleanup cannot simply publish, because React runs layout-effect destroys before it detaches portal children. THE WAY OUT, not yet built or verified: have the portal publish its OWN height as a delta to the reserve currently in force instead of re-measuring the whole stack. That removes the #147 exposure, and with it the settle precondition, and it gives the shrink direction naturally via the effect cleanup. It is a real change to shared phone chrome on every route and needs its own browser evidence — verify:phone-chrome plus the Playwright settle assertion docs/search-chrome-behaviour.md mandates, which was not added and is still required. OWNER DECISION PENDING on whether to do that work. MERGE VERIFICATION, carried over from the refuted request a13b357d so it is not lost: #2929 merged 2026-09-20 as commit 80cf3df6c69a, and publishPhoneOverlayChromeReserveNow is present on origin/main in globals.css, phone-header-collapse-portal.tsx and use-phone-overlay-chrome-reserve.ts. That request read presence as proof the defect was fixed and told future sessions it MUST NOT BE REDONE; presence is not execution, and the scope limit above is why. It was cancelled with that reasoning recorded.",
+      "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); reissued against the current row after fbc169da applied; scope limit reproduced in tests/phone-overlay-reserve-portal-wiring.dom.test.tsx (PR #2938)",
       "added": "2026-09-07"
     },
     {
@@ -628,7 +628,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "read_site_content_health() costs ~7s and will drift back over any deploy-gate threshold",
-      "detail": "Measured 2026-09-14 against the live production container: /api/health/ready with the site-content audit took 6.9-7.9s while the shallow /api/health took 0.8s on the same container, so essentially all of it is the read_site_content_health() RPC. That audit is a multi-CTE whole-corpus integrity walk (record counts, digest comparisons, tombstone reconciliation, publication cross-checks) and it grows with content. PR #2785 materialized part of it on 2026-09-13 and bought a few hours of passing deploys before the margin closed again, which is evidence the cost is data-proportional rather than fixed. The immediate outage is closed by taking it off the deploy gate, but the function itself has never been profiled and has no index or cost budget. Needs an EXPLAIN (ANALYZE, BUFFERS) baseline on the live database and, if warranted, indexes plus a documented latency budget with a test that pins it. Live-database access is provider-backed and needs owner approval.",
+      "detail": "PARTLY FIXED, measured. Migration 20260918120000_evaluate_bootstrap_digest_once_per_health_read (PR #2886, merged; live-drift green 2026-09-19) removed the larger half. read_site_content_health() compared two stored columns to the SAME freshly computed site_content_bootstrap_digest, evaluating it twice. Counted with track_functions=all in the pinned image: one bootstrap digest costs 164,820 site_content_canonical_json invocations, one release digest 10,969, one dynamic-state digest 3, and ONE health read cost 351,594 before and 186,774 after - a 47 percent reduction, with output byte-identical across all 23 fields and the state-machine fixture passing on both. Live pg_stat_statements over 3d05h also shows the catalogue reader's mean falling from 8,656 ms to roughly 410 ms for post-fix calls. STILL OPEN, and small: site_content_release_digest is evaluated once in the private base and again in the public wrapper - 10,969 invocations, about 3 percent. Folding those two is a subtler equivalence argument than the first and is worth doing only if the probe is still gating deploys after this.",
       "source": "docs/deployment-architecture.md (Readiness section); src/lib/health-response.ts; supabase/migrations/20260913072413_materialize_site_content_health_operational_base.sql",
       "added": "2026-09-14"
     },
@@ -756,15 +756,6 @@
       "summary": "GOVERNED_SOURCE_HOSTS: 19 dictionary sources blocked, including AIHW's METEOR registry",
       "detail": "Nineteen sources from the 2026-09 dictionary handover are held because their canonical URL host is not in GOVERNED_SOURCE_HOSTS in src/lib/sources/source-url-policy.ts. Among them are three National Outcomes and Casemix Collection metadata records on meteor.aihw.gov.au, which is AIHW's own metadata registry and carries stable content identifiers. The owner declined to widen host policy when asked on 2026-09-16, so this is recorded rather than actioned. Widening the list also requires updating the pinned host count. PARKED 2026-09-18: the owner declined to widen GOVERNED_SOURCE_HOSTS when asked on 2026-09-16, so this is a decision already made, not outstanding work. It is kept only so the nineteen held sources, including the three AIHW METEOR records, stay visible. TO UNBLOCK: an owner decision to add the specific hosts, which also requires updating the pinned host count.",
       "source": "Claude session 2026-09-16",
-      "added": "2026-09-16"
-    },
-    {
-      "id": "#PX8N86",
-      "priority": "P1",
-      "type": "issue",
-      "summary": "Every catalogue search reads the whole release payload because the kind filter cannot reach the scan",
-      "detail": "MEASURED 2026-09-17 against live psychiatry.tools (read-only HTTP, no provider access): this row's mechanism now has numbers. GET /api/search/universal?q=lithium returns Server-Timing 'documents;dur=751, medications;dur=530, services;dur=530, forms;dur=530, dsm;dur=530, differentials;dur=491, presentations;dur=437, specifiers;dur=432, formulation;dur=431, therapies;dur=431, dictionary;dur=395, tools;dur=394, total;dur=751'. The five catalogue kinds landing on the SAME ~530 ms, in parallel, is the signature this row predicts: each domain pays the whole-release scan rather than its own kind's cost, so the durations converge on the scan rather than spreading by catalogue size. Total search wall time is gated by the documents leg at 751 ms, with every catalogue leg inside it. Application-side CPU is NOT the bottleneck and is now smaller: catalogue ranking for a real query measured 21.8 ms before and 18.5 ms after the query-tokenisation fix on branch claude/psychsift-latency-review-lg2eko, i.e. roughly 3 percent of one 530 ms leg. That branch does not touch this SQL. First-call figures were 2.35 s total / 1448 ms medications, so a cold container roughly triples it. STILL OPEN and the gate is unchanged: the fix is a stored indexed kind column shipped as a migration inside an approved window, and Step 3 of scripts/operator-explain-site-content-public-records.sql must settle the push-down question first. RAISED P2->P1 ON 2026-09-20: this defect is now continuously degrading the live site, which the row did not state. Measured from public CI history only (no provider access, no live probe): live-domain-monitor failed 16 of its last 17 scheduled runs since 2026-09-16T18:34Z, the single green run being 2026-09-19T12:36Z. Every failure is the same probe and the same three lines - 'forms/services/medications: answering from the in-bundle catalogue because the published one could not be read' (run 35511141016, job 106079146903, 2026-09-20T12:37Z). Every OTHER probe passes in every one of those runs: root shell, /api/health live mode, key routes, www/TLS, deployment freshness. So the site is UP and serving current code; what is broken is that Forms, Services and Medications search answers from the in-bundle seed catalogue instead of the published one. LIKELY MECHANISM, INFERRED NOT MEASURED: catalogueSeedFallbackBudgetMs (src/lib/site-content/catalogue-seed-fallback.ts) is 1200 ms, and the post-fix latencies ledger #GCB0DV records from the 2026-09-17T18:36 run are forms 1132 ms and medications 1217 ms - straddling the budget. A read sitting on the line loses most of the time and occasionally wins, which is exactly the 16-of-17 pattern. Consistent with the evidence, but not a direct measurement; confirming it needs a live timing read, which is provider-backed and needs owner approval. COMPOUNDING: catalogueSeedFallbackCooldownMs is 30000, so one missed read sends every search to seeds for the next 30 s without retrying. WHAT IS NOT BROKEN, and it matters: the degradation is honest. catalogueDegraded threads through forms-search-results-page, services-navigator-page, medication-prescribing-workspace, differentials-home and universal-search-also-matches, and the reader sees the shared catalogueDegradedNotice 'may be out of date' beside the results heading. Nobody is shown a stale list presented as current. DO NOT 'FIX' THIS BY RAISING THE BUDGET: that makes every reader wait longer and hides the condition from the monitor rather than repairing it. The fix remains this row's stored indexed kind column, which is a migration and needs an approved merge window. OFTEN CONFLATED WITH THIS, AND SEPARATE: #HTZPQ8 is that the curated records were never published into the database at all, so a fast read would still not show them.",
-      "source": "Live latency review session 2026-09-17 (branch claude/psychsift-latency-review-lg2eko); live-site impact measured 2026-09-20 from live-domain-monitor runs 35443356322-35511141016",
       "added": "2026-09-16"
     },
     {
@@ -1242,6 +1233,348 @@
       "summary": "A Playwright run whose own web server fails to start silently reuses another server and reports green",
       "detail": "Observed 2026-09-20 while writing tests/ui-patient-number-field.spec.ts. The agent running scripts/run-playwright.mjs had its own webServer fail to start because a concurrent session already held the port; the runner did not stop. It proceeded against THAT other server and reported a green pass. The run was re-done cleanly afterwards and the reported result is sound, but the hazard is not the individual run — it is that a browser gate can report success without ever exercising the tree it claims to test. This is the same class of failure as a gate piped into tail (exit code masked) and as CLINICAL_HAZARD_CONTROLS_PASS printing while a named proof file had been emptied: a signal that cannot fail is worse than no signal, because it is trusted. It matters more here than in most repos because verification evidence is quoted verbatim into PR bodies and the ledger, so a contaminated run propagates as fact. NEXT: make Playwright webServer startup failure fatal rather than falling back to an already-listening port — either set reuseExistingServer:false for CI/agent runs, or have run-playwright.mjs confirm the server it connects to is the one it started (the repo already has /api/local-project-id for exactly this identity question, used by npm run ensure). Add a contract test that a failed server start exits non-zero. Note npm run ensure already solves the adjacent problem correctly and is the pattern to copy.",
       "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); reported by the agent that wrote the #WFARS3 browser guard",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#WFSMMT",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Catalogue search trips its 1,200 ms budget on the FIRST read after an idle period; warm reads are well inside it, and any payload shrink must keep the render fields search needs",
+      "detail": "MEASURED 2026-09-21, and this row exists because two earlier diagnoses of the same symptom were both wrong. THE SYMPTOM. The 6-hourly Live domain monitor failed 7 of its last 8 runs from 2026-09-18. Every other probe is green; only catalogue search fails, for forms, services and medications, and it flips between probes minutes apart. The app's own Railway log gives the mechanism: 'Canonical catalogue read failed; search is serving in-bundle seeds', catalogue_kind=form, failure=TimeoutError, detail='Canonical form read exceeded 1200ms.', budget_ms=1200, cooldown_ms=30000, with the recovery line 29 s later. NOT THE QUERY, which disproves the mechanism #PX8N86 states and that b8abcd96 carries forward. EXPLAIN (ANALYZE) on production: read_site_content_public_records returns 227 service rows in 21.4 ms and 330 medication rows in 22.2 ms - that kind's rows only, not all 843. The kind filter reaches the scan; migration 20260916103000 did that. A stored indexed kind column would not help, because there is nothing left for it to fix. NOT THE PAYLOAD SIZE EITHER, which disproves this row's own first draft. Calling the same PostgREST RPC the app calls, warm: form 996 kB in 216 ms, differential 1.47 MB in 264 ms, service 2.64 MB in 396 ms, medication 4.66 MB in 604 ms. Cost does scale with bytes at roughly 13-20 ms per 100 kB, but every warm read finishes far inside 1,200 ms even at 4.66 MB. IT IS THE FIRST CALL. The first read in a fresh process cost 1,781 ms (TTFB 1,599 ms) - over budget on its own. CONTROL: re-running with the order reversed moved the penalty with the position, not the kind - medication first cost 1,268 ms while form, now last, cost 213 ms. So whichever kind is read first after an idle period pays roughly 1.3-1.8 s of connection setup and blows the budget; the 30 s cooldown then holds that kind degraded. The monitor runs 6-hourly against an app that is otherwise idle, which is why it sees a failure most runs while interactive probing finds the site healthy. WHAT THIS MEANS FOR THE BYTES. render_payload is still 56-64 percent of every read (medications 1,028 kB record vs 1,419 kB render_payload; services 428 vs 552; differentials 336 vs 426; forms 146 vs 257), and shrinking the wire is still worth doing as efficiency - it shrinks a term already inside budget and leaves the cold first call untouched. But do NOT claim the payload is unused on the read path, and do NOT strip it outright. universal-search.ts calls readCanonicalSiteContentRecords without mapRecord; that helper returns row.render_payload as the catalogue record in that case (site-content-publication.ts: finalRenderPayload = row.render_payload ?? canonicalRecord). If a search-scoped RPC simply stops returning render_payload, the helper falls back to the generic canonical SiteContentRecord, which lacks the medication/service/form fields the catalogue rankers expect and can break live search results. The right efficiency ask is a narrowed search projection that still carries those required render fields. SUGGESTED FIX for THIS row's trigger, in order: keep the connection warm or pre-warm on boot so no user-facing read is ever the first; or retry once before falling back, since the second call is warm; or raise the budget for the first call only. Any of those is app-side and needs no migration. Do not simply raise budget_ms globally - that greens the monitor and deletes the only signal that says a cold read takes 1.8 s. EVIDENCE NOTE. Sentry carries these events (JAVASCRIPT-NEXTJS-2Z, 20 occurrences, mechanism auto.db.supabase.postgres, last seen at exactly the failing monitor's timestamp) but records only 'Unhandled server request error' with no Postgres detail. Sentry alone cannot diagnose this; the Railway deployment log line is the one that can.",
+      "source": "live measurement 2026-09-20/21 - Railway production deployment logs, Sentry, pg_stat_statements, EXPLAIN (ANALYZE) against the live database, a warm/cold PostgREST probe with an order-reversed control, and Codex review of the universal-search/render_payload consumer path",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#T3ZQGK",
+      "priority": "P3",
+      "type": "task",
+      "summary": "Assess src/lib/on-call/entry-chips.ts as a dead-code candidate under the deletion protocol",
+      "detail": "onCallEntryDetailChips appears to have no production caller left: the only import is its own test (tests/on-call-entry-chips.test.ts), plus a module-path string in tests/on-call-root-bundle-isolation.test.ts. Its docblock still describes consumers that no longer exist -- a Recent row and a section tile. It also holds a loaded copy of the section-keyed bug class, switching on entry.section to choose chip labels, so while it sits there it is a template a future consumer could copy. THIS IS A CANDIDATE, NOT A DELETE INSTRUCTION. This repository has a strict protocol for removing code believed dead: follow docs/agents/dead-code-deletion.md in full, including check:dead-code-candidate and its refusal list, before removing anything. NEXT ACTION: run that check and decide keep-or-delete. If the answer is keep, it needs a real consumer and its section switch must be re-keyed to the view alongside the On Call view refactor. Do not delete on the strength of this row alone.",
+      "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#33346A",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Two Firefox failures survive the 2026-09-20 triage: the document-viewer hit counter and the tools Forms panel, both a click whose state change never lands",
+      "detail": "Read the Playwright trace from the failing run BEFORE proposing any fix; playwright.config.ts sets trace: retain-on-failure so it exists, and its After-DOM snapshot of the click answers this in minutes. THE TWO: (1) ui-smoke.spec.ts \"search regressions avoid fetch errors and open viewer hits @critical\" - after clicking Next document search hit, \"Hit 2 of 2\" never appears (element NOT FOUND, not hidden); (2) ui-tools.spec.ts \"tool links point to the expected in-app modes\" - the Forms complementary panel resolves to zero elements, on the 4th of 6 loop passes, while Services with an identical /?mode=<id> href passes. SAME SHAPE, so probably one shared Firefox cause. RULED OUT by two independent agent reads, do not re-derive: text split across elements (Playwright elementText flattens descendants and JSX/SSR comment separators); a collapsed <details> or any CSS cause (a hidden node still matches, and would report hidden not not-found - no stylesheet removes a node from the DOM); scrollIntoView/smooth scroll (suite-wide reducedMotion: reduce makes resolveScrollBehavior return auto); keyboard/focus; a click intercepted by the fixed composer (Playwright's hit-target interceptor blocks and retries, failing AT the click); Forms-specific data or markup (tools-catalog.ts Forms and Services are the same shape, and DetailActions renders the href link unconditionally). LEADING CANDIDATES: for (1), the handler firing zero times or twice - with exactly 2 hits, (i+d+2)%2 returns to 0 either way - with the exclusive-accordion open-attribute fight at source-panels.tsx:1063 as a plausible Gecko-specific trigger; for (2), the panel's hardcoded aria-labelledby id resolving against a hidden duplicate page root (the #093 failure mode visibleByTestId exists for), or the bare focus() at tools-search-results-page.tsx:470 scrolling late. NEITHER IS PROVEN. Why: Why it matters - if the click genuinely no-ops, a Firefox user cannot page through document search hits at all, which is a clinical reading path; if it double-fires it is a harness artefact and the test should assert the active chunk id rather than a modulo-2 counter. Context: Six Firefox failures in main run 35503893104; four fixed in PRs #2932 and #2933, these two left. Parent row #9Z197J. Owner: unknown - depends on what the trace shows. Confidence: high that the cause is shared and not CSS/text-matching; low on any single mechanism. Depends on: the egress row - the trace could not be downloaded from the cloud container.",
+      "source": "session 2026-09-20 Firefox failure triage; two parallel agent investigations; main run 35503893104",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#P00HDB",
+      "priority": "P1",
+      "type": "task",
+      "summary": "Verify Caring Contacts is disabled in the live Railway production environment -- unverified, one operator read",
+      "detail": "UNVERIFIED: this is a check to run, not a known fault, and it must not be reported as one. Caring Contacts pages and API routes are gated by isCaringContactsWorkspaceEnabled (src/lib/caring-contacts-server/session.ts) and return 404 in production by default. The 2026-09-20 security audit could not read the live Railway variables without a provider call, so the production state was never confirmed either way. Why it is worth a P1 despite being unverified: if that workspace is open in production, the actor is resolved from a role cookie the module documents as forgeable in its own comments -- a caller can forge a role-only cookie outside a browser, so httpOnly is not an authorization boundary -- and a missing or invalid cookie defaults to the coordinator role, over a patient-data subsystem. The priority is for the cost of the check against the cost of being wrong, not for a suspected fault. PRECISION WORTH CARRYING, because it narrows the check: in production the demo path requires BOTH CARING_CONTACTS_DEMO_ENABLED=true AND a non-empty CARING_CONTACTS_SESSION_HMAC_SECRET, so a stray flag on its own opens nothing; the live path requires CARING_CONTACTS_DEMO_ENABLED=false plus that secret plus CARING_CONTACTS_DATABASE_URL. NEXT ACTION: with explicit user approval, since this is provider-backed under the API and provider confirmation boundary, read the variables on Railway project Database (5deaad0b-675a-4c13-978e-5ca2b5b877f9), production environment, services Database and worker. Confirm CARING_CONTACTS_DEMO_ENABLED is unset or false, and that CARING_CONTACTS_SESSION_HMAC_SECRET and CARING_CONTACTS_DATABASE_URL are absent unless live mode is deliberately intended. Record the result here either way; a clean result closes this row in one line.",
+      "source": "Session 2026-09-20, On Call Compliance page security audit",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#NQH33S",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "Local and http-served builds emit https:// absolute URLs that cannot connect",
+      "detail": "metadata-base.ts:49 defaults the protocol to https when no x-forwarded-proto header is present, so a local build emits https://localhost:<port>/... links failing with ERR_SSL_PROTOCOL_ERROR. This was the ONLY distinct console error across 509 captures of 78 routes. Production behind Railway sets the header and is unaffected; this is a local-development and reverse-proxy-without-the-header concern.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#Z9NS6H",
+      "priority": "P3",
+      "type": "rec",
+      "summary": "Copy and naming inconsistencies that undercut the product's own safety vocabulary",
+      "detail": "ui-copy.ts:84 titles the prescribing mode 'Medication Guidance' in a product whose banners read 'not clinical guidance' and 'not validated decision support'; suggest 'Medication Reference'. ui-copy.ts:65 gives Differentials the subtitle 'Match your catalogue to your library.', which says nothing about differential diagnosis. A conservative refusal still advertises 'CITED DOCUMENTS - 3 cited'; suggest 'Documents searched'. A 'DO NOW' card numbers four teaching observations as if they were actions, and 87 of 556 multi-item sections have a summary that is a space-join of their items with no punctuation. All clinical wording - for a human.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#8RWKA0",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Fixed-width and fixed-character-count elements truncate clinical text at every viewport",
+      "detail": "Three instances sharing one cause. on-call-home.tsx:211 ward chips are a hard w-32 at every viewport, truncating 'Demo Emergenc...' at 320 through 1920 where ~1180px of the row is empty. services-navigator-page.tsx:160-166 applies a 150-character cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement. /on-call/contacts squeezes the name column to two words at 390. Also /medications/acamprosate clamps dose strings (dose, frequency and daily total) to two lines.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#RHGAYP",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "A compliance row whose stored details fail their schema is filed under On Call Admin, unlabelled",
+      "detail": "rowToOnCallEntry (src/lib/on-call/repository.ts) sets details to null when stored details fail the section schema. isComplianceEntry (src/lib/on-call/compliance.ts) then reads entry.details, answers false, and partitionLogisticsEntries puts the row in the Admin list with nothing to say it is a compliance requirement. THE TWO DANGEROUS CONSEQUENCES ARE ALREADY CLOSED and must not be re-reported: the row is not published, because fetchSharedOnCallEntries filters on the RAW row via rowMayBeComplianceRequirement, which fails closed on unreadable details; and a later save no longer destroys the stored details, because of salvageExistingDetails in src/lib/on-call/editor-details.ts. What remains is the misfiling. Closing it means either carrying the raw details alongside the parsed ones on OnCallEntry, or giving isComplianceEntry the raw-row reading that rowMayBeComplianceRequirement already has. Either way a type that every consumer in the mode reads changes, and it changes for a row no editor in this app can produce, because the API validates against the same strict schema on write -- reachable only by a direct database edit, an import, or a row written before the current write path. Deferred on that cost against that benefit. NEXT ACTION: decide whether OnCallEntry should carry raw details at all; if the On Call view refactor lands first, make the decision there rather than as a separate type change.",
+      "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#0FT00E",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Differentials presentation comparison claims 4 of 7 columns while rendering 7 and hiding two EMERGENCY rows",
+      "detail": "On /differentials/presentations/acute-confusion-encephalopathy the banner reads '4 of 7 diagnoses compared' and the rail '+3 not selected', but all seven columns render identically styled. .polished-scroll measures scrollWidth 1344 vs clientWidth 902 at 1440 - 442px hidden with no scrollbar, edge fade or cue - concealing the Must-not-miss cells for Wernicke encephalopathy and hepatic encephalopathy, both tagged EMERGENCY, on the presentation where Wernicke is the classic miss. Secondary: the sticky CRITERIA column is transparent, so scrolled text bleeds through the red-flag row labels.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#03ARD6",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "The collapsed sidebar's active indicator points at the 'More modes' menu, not the current mode",
+      "detail": "On 9 of 15 modes the only lit rail item is the generic four-square More modes opener (ClinicalSidebar.tsx:333-349); on /?mode=calculators nothing is lit at all. Default pin set is 6 of 15 (use-sidebar-pins.ts:10-29). Confirmed at 768 and 1440. The rail is the one element surviving every route change, so it is the natural 'where am I' anchor and for most modes it answers with a menu button.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#47Y8XH",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Forms attachment row collapses on a phone: the form title renders as 'Ext...'",
+      "detail": "/forms/extension-transport-order at 320 and 390: title truncates to three characters, publisher to 'Offic...', and the restriction sentence breaks one word per line while two status badges sit across it. form-detail-page.tsx:844-890 - the phone badge row takes its natural width beside a text column allowed to collapse to ~55px. 'Password required' and 'Editing restricted' decide whether the clinician can fill the form now or must print it, on a Mental Health Act transport order.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#5Z3CDC",
+      "priority": "P2",
+      "type": "task",
+      "summary": "The privacy impact assessment omits five subsystems, including Caring Contacts -- the only patient-data subsystem in the product",
+      "detail": "docs/privacy-impact-assessment.md gained an On Call compliance entry (PIA-9) on 2026-09-20, but still does not mention, at all: (1) CARING CONTACTS, a whole patient-data subsystem with its own database (src/lib/caring-contacts/**, src/lib/caring-contacts-server/**, CARING_CONTACTS_DATABASE_URL) -- by far the largest gap and the only patient data in the product; (2) the PRINTED POCKET CARD, the only artefact that physically leaves the app; (3) the SERVICE WORKER caching policy (public/sw.js) and what it retains on the device; (4) the DEVELOPER HUB (src/components/developer-area/**) and what operational data it surfaces; (5) the PUBLIC CATALOGUE surface and its one anon-callable database function, public.read_site_content_public_records, granted to the anon role. Verified absent by grep on 2026-09-20: zero mentions of caring, pocket, service worker, developer hub or site_content anywhere in the document. This is governance documentation rather than an engineering defect -- nothing is leaking -- but the assessment is the artefact an external adviser reads, and as written it understates the data footprint of the product. NEXT ACTION: add one section-2 data-category row per subsystem and, where a residual risk exists, a numbered PIA entry; do Caring Contacts first and do not let the other four hold it up. Escalate the Caring Contacts part to P1 if the production-configuration check finds that workspace enabled in production.",
+      "source": "Session 2026-09-20, On Call Compliance page security audit",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#PM71Z1",
+      "priority": "P2",
+      "type": "task",
+      "summary": "Three blocked hostnames stop any cloud session running Firefox/WebKit or reading a CI trace, so browser failures can only be reasoned about from logs",
+      "detail": "Add cdn.playwright.dev, playwright.download.prss.microsoft.com and *.blob.core.windows.net to the Claude Cloud environment's egress allowlist; owner action in the environment settings, no repo change. THE THREE, each verified by a real request, not inferred: the first two are the ONLY mirrors in playwright-core 1.63.0's PLAYWRIGHT_CDN_MIRRORS (the old *.azureedge.net entries were removed in this version, so allowlisting those achieves nothing) and both return 403 request blocked; the third serves GitHub Actions artifacts, and an artifact download redirects there and returns CONNECT tunnel failed 403, which is why a retained Playwright trace cannot be fetched. ALSO CHECKED AND DEAD: ftp/archive/download.mozilla.org, snapcraft, flathub, the mozillateam PPA, codeload, and the npm @playwright/browser-firefox package (a 15KB stub that downloads from the same blocked CDN). A stock apt/tarball Firefox is NOT a substitute at any version - Playwright launches with -juggler-pipe and waits for \"Juggler listening to the pipe\", which only its own patched build emits - and there is no channel: firefox and no PLAYWRIGHT_FIREFOX_EXECUTABLE_PATH; the repo's PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is its own invention and Chromium-only. Why: This is the constraint that shaped the whole 2026-09-20 triage. Four Firefox failures were fixed without a single Firefox run, and the dark-mode one was nearly written up as a broken app for every Firefox and Safari user before a cross-check refuted it; the two that remain are stuck precisely because the trace that would settle them is behind the third hostname. Context: Also worth knowing separately - the preinstalled Chromium is 141 (revision 1194) where playwright-core 1.63.0 pins revision 1243 / Chrome 153, so even local Chromium proof is twelve majors behind CI. Owner: Josh - environment settings. Confidence: high; every claim above was checked by running the request or reading node_modules/playwright-core. Depends on: nothing.",
+      "source": "session 2026-09-20; agent investigation of browser provisioning; proxy README /root/.ccr/README.md",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#94A62C",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Optional On Call editor fields cannot be cleared on five of the six section forms",
+      "detail": "An optional value stored on an On Call entry cannot be removed through the editor: the owner empties the box, the save reports success, and mergeOnCallEditorDetails hands the stored value straight back. handleSave only records an emptied control as a deletion when its spec carries clearWhenEmpty, and it is set on just eight controls. FIXED ON PR #2900 for the Compliance form only (expiresOn, leadTimeDays, issuingBody, evidenceUrl, url), because a recorded expiry nobody can delete outlives the registration it describes and this page may not assert anything about the holder's standing. STILL BROKEN, 21 controls: Admin location/hours/phone/url; Contacts contactName/phone/afterHoursPhone/pager/extension/availability; Playbook escalationSteps; Referrals accepts/exclusions/catchment/hours/howToRefer/phone/fax/referralFormUrl; Teaching recurrence/nextOccurrence/nextOccurrenceDate/presenter/location/recordingUrl/topics. A wrong phone number on a ward contact is the one that matters clinically -- it can be corrected but not removed, so a decommissioned extension stays on the page and on the printed pocket card. THE FIX IS NOT SIMPLY 'flag them all': the list branch (kind list) and the escalationSteps branch in handleSave do not read clearWhenEmpty at all, so those need their own else-clause. The premise in the old clearWhenEmpty docstring -- that an empty text box cannot be told apart from a control that never rendered -- is false: handleSave iterates detailFieldsFor(), which IS the rendered set, so unrendered keys never reach it and the salvage/overlay protection for them is untouched. Deliberately not done on #2900: it changes saving behaviour on five forms that change does not otherwise touch, and it wants browser proof per form. tests/on-call-editor.dom.test.tsx has one test pinning the old behaviour for Admin 'Location' that must be updated when this is fixed.",
+      "source": "Codex review P2 on PR #2900, 2026-09-20; verified by agent trace of handleSave and mergeOnCallEditorDetails at 56b883ec5",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#358YM0",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Favourites presents hard-coded prototype fixtures as the clinician's own saved items and activity",
+      "detail": "favourites-prototype-data.ts is imported by the production favourites-hub.tsx:31 and favourites-command-library-page.tsx:46, not only by mockups. The page asserts '5 favourites' and 'last opened Today 08:44' with no demo label. 'Last opened' is a factual claim about the clinician's own behaviour. Needs one line of owner confirmation on whether this is an accepted prototype surface.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#N8REV9",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "summariseOnCallFreshness counts staleness by stored section, so compliance is not merely miscounted but inexpressible",
+      "detail": "src/lib/on-call/freshness-summary.ts keys its per-section stale counts off entry.section, so a compliance requirement is counted under Admin (logistics). DORMANT TODAY: the only consumer, src/components/developer-area/hub/on-call-freshness-panel.tsx, reads staleCount, neverVerifiedCount and stale, and never touches bySection or sections. It is still worth a row because bySection is typed ReadonlyMap<OnCallSection, number> and sections is readonly OnCallSection[] -- compliance is not a value either type can hold, so a future caller cannot repair the count at the call site and would have to change this module anyway. BLOCKED ON the On Call view refactor (moving onCallViewForEntry into src/lib/on-call/view.ts): this module is section-keyed only because tests/lib-layering.test.ts stops src/lib importing the helper from src/components. Close it inside that refactor by re-keying bySection and sections to OnCallPageView. NEXT ACTION: none until the view refactor lands; do not patch it in isolation.",
+      "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#KJF5J7",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "On Call entries, including compliance rows, are cached in localStorage in plaintext with no TTL",
+      "detail": "src/lib/on-call/entry-store.ts caches the fetched On Call entry list in window.localStorage under one key, in plaintext, and clears it only on sign-out or account switch (clearOnCallEntryCache). There is no time-to-live, so the cache survives an abandoned session indefinitely. Since 2026-09-20 that payload includes compliance rows: one named doctor registration, indemnity, credentialing, mandatory training, CPD, Working with Children Check and police clearance dates, often with a link to the certificate. DEVICE SCOPE ONLY -- not reachable over the network, not a server-side exposure, and the same browser profile is the only way in. It still matters because the realistic device here is a shared or hospital workstation where the next user inherits that profile. NEXT ACTION: pick one, cheapest first. (a) Exclude compliance rows from the persisted cache and hold them in memory only -- the smallest change that removes the sensitive part of the payload while keeping the offline behaviour the cache exists for. (b) Give the cache a time-to-live and drop it on load when stale. (c) Move it to sessionStorage, which costs the offline-reopen behaviour entirely. Whichever is chosen, update the On Call row in docs/privacy-impact-assessment.md, which already names this cache.",
+      "source": "Session 2026-09-20, On Call Compliance page security audit",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#HXC4D4",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "A silent HTTP 400 on long or single-character queries, and a unit-less creatinine range message",
+      "detail": "(a) api/search/universal/route.ts:36 is z.string().trim().min(2).max(200); a 614-char query 400s with no message anywhere on screen, and a single character 400s the same way. (b) The Serum creatinine field rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one. Carried forward from the refutation of #WFARS3.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#WE7CHW",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "On Call compliance content in a row's title or body is still published to anonymous readers",
+      "detail": "rowMayBeComplianceRequirement (src/lib/on-call/repository.ts) reads section and details only. A logistics row whose details say just { category: 'Registration' } but whose title or body carries the compliance content -- 'Ahpra registration, Dr X, MED000123456 ... certificate at https://...' -- is published in full to any anonymous caller of GET /api/on-call/entries, along with subtitle, tags, slug and linkedDocumentIds. NOT REACHABLE FROM THE APP: the compliance form always writes details.kind and always stores the row is_personal, so producing this needs a direct authenticated API call, an import, or a hand edit to the database -- the same threat model the predicate's own docstring claims to cover, which is why this is filed rather than dismissed. THE CHEAPEST REAL CLOSURE is category itself: the two taxonomies deliberately share no folder name (Admin is Leave/Rosters/Pay/Forms/Access/Facilities; Compliance is Registration/Indemnity/Training/Credentialing/CPD/Clearances), so a logistics row filed under any of the six Compliance folders is compliance-shaped whatever else it says. BLOCKED ON A REFACTOR: those lists currently live in src/components/on-call/on-call-entry-editor.tsx and tests/lib-layering.test.ts forbids src/lib importing from src/components, so they must move into src/lib/on-call/compliance.ts first. That move is worth doing anyway -- it is the same src/lib-cannot-see-the-view problem recorded in the On Call view refactor follow-up from this session. Related and also open: the predicate is logistics-local, so PUBLIC_ON_CALL_SECTIONS covers a new section and the field guard covers a new logistics field, but a compliance-like page hiding in a different section is covered by neither.",
+      "source": "Adversarial privacy review of commit bd642d46f, PR #2900, 2026-09-20",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#M3XZV0",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Sheets do not return focus to their trigger on two of three surfaces",
+      "detail": "Measured at +100/400/1000/2500ms after Escape. /documents/search Filter sheet leaves focus on body though the trigger is still in the DOM. /calculators/search PHQ-9 drops ?calculator=phq9 on close, the list re-renders and the trigger node is destroyed, so restore targets a detached node. The document-actions sheet restores correctly, so ui/sheet.tsx:43-46,108-110,181 is sound - these are call-site failures. After closing PHQ-9, reaching GAD-7 takes ~20 Tab presses from the top. WCAG F85 against SC 2.4.3.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#1M22X5",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Document search shows a match percentage that measures nothing, and a nearby-only result can never display honestly",
+      "detail": "relevance-score.ts:5-7 returns hard-coded constants per verdict (direct 96, partial 84, nearby 78); document-search-results.tsx:241 gates on 'verdict === partial || percent >= 75', so the nearby constant of 78 always trips the Relevant branch and the honest Related/% nearby branch at :244 is unreachable. Observed: API returned verdict nearby, matchedTerms [], score 0.063, isSourceBacked false; UI rendered 'Best match', 'Relevant', '78% related'. The honest label already exists in relevanceChipLabel(). RAG-ranking presentation: flag and follow the approval path before editing.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#05WXHX",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Medication and therapy records carry zero source links while their footers tell the clinician to check the linked source",
+      "detail": "/medications/[slug] has 0 anchors in <main> on all four tabs; /therapy-compass/[slug] the same. Footer on every tab: 'verify every dose and interaction against the linked source'. acamprosate states Max 1998 mg/day, a serum creatinine >120 micromol/L contraindication, Half-life 13-28.4 h and an unattributed EFFICACY: MODERATE tile; the only provenance is one prose sentence on tab 4 below the fold. Root cause: medication-records.ts:118-126 derives governance from a free-text src section with no URL or document id. /dictionary and /factsheets do this correctly. Fixing properly is a database migration plus clinical governance.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#CNCAFV",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "Catalogue search ORs query tokens, so services search returns the wrong specialty badged 'Best fit'",
+      "detail": "'panic disorder' returns eating-disorder services in positions 1-5, top two badged 'Best fit'. Counts: services empty 244, nonsense 0, 'panic disorder criteria' 206 of 244, 'lithium' 0. Therapy Compass: empty 205, 'panic disorder criteria' 105. The badge is the part that lies; an unranked list would be honest. Ranking surface: flag and canary before editing.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#8FXXVE",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Tools truncation regressed: PR #2317 reintroduced clamps the 2026-07-17 audit removed",
+      "detail": "Two distinct instances. (a) tools-search-results-page.tsx:141 line-clamp-2 on tool descriptions, added by PR #2317 on 2026-08-23, five weeks after the July audit removed exactly that clamp; bites at 320/390. (b) applications-launcher-page.tsx:287 xl:grid-cols-6 packs six category tiles into a ~780px column at 1440/1920, truncating titles ('Ask evi...', 'Prescri...') and breaking descriptions mid-word ('prescribin/g'); clean at 768. Dropping the xl step fixes (b).",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#ASVM8H",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "A focused control on phone document search is completely covered by the composer dock",
+      "detail": "/documents/search?q=lithium&run=1 at 390x844: tabbing to the third result's action row puts focus on a button at box [13, 790, 121, 48] in an 844px viewport with scrollY 0, entirely behind the fixed composer; elementsFromPoint at its centre returns the composer input. The page does not scroll to clear it. Three occluded tab stops. This is SPEC 9.4's 'sticky elements not covering focused content', previously never checked against a rendered page. Fix candidate: scroll-padding-bottom equal to the composer reserve.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#WGMB4Z",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "'Strong support' is derived from model confidence, not source governance, and contradicts the same card",
+      "detail": "answer-render-policy.ts:144-162 reaches trust 'high' from answer.confidence plus source-backing and no faithfulness warning; it does not consider whether any cited document's governance status is current or validated. The same card shows 'Status unknown' on every cited row and a limitations dialog saying the sources are not locally validated. The clipboard output states both: 'Render trust: high' and 'Validation: Not locally validated'. In psychiatry 'strong support' is the language of evidence strength. Wording at answer-card.tsx:67-72.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#1RWC0H",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Caller IP addresses are stored as unsalted truncated SHA-256 with no retention limit in api_rate_limit_subjects",
+      "detail": "anonymousApiSubjectKey (src/lib/public-api-access.ts) derives the rate-limit subject as the prefix anon: plus the first 32 hex characters of an unsalted SHA-256 of the trusted proxy IP, and stores it in api_rate_limit_subjects.subject_key. The IPv4 address space is small enough that an unsalted hash of it is brute-forced in seconds, so these rows are PSEUDONYMISED, not anonymised, and should be classified as personal information rather than treated as opaque. Separately, and unlike rag_queries, the table has no purge function and no retention window, so rows persist indefinitely (supabase/migrations/20260704000000_api_rate_limit_subjects.sql enables row level security and grants select/insert/update/delete to service_role only). NOT AN EXPOSURE: RLS is on and only service_role reaches it, so a stranger cannot read it. This is a retention and classification matter, which is why it was deferred rather than fixed on the day. NEXT ACTION: two separable decisions. (a) Replace the bare hash with a keyed HMAC using an environment secret, so the key stops being a reversible IP -- note that rotating that secret resets every live rate-limit window, so it needs a deliberate moment. (b) Ship a retention purge mirroring the rag_queries retention migration (supabase/migrations/20260629060603_rag_queries_retention.sql is the pattern). Both are Supabase migrations, so both are owner-merged and reach the live clinical database within seconds of merge.",
+      "source": "Session 2026-09-20, On Call Compliance page security audit",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#HWYCPF",
+      "priority": "P2",
+      "type": "rec",
+      "summary": "Toast host is never mounted, so 35 files hand-roll their own 'Copied' confirmation",
+      "detail": "grep -rn 'ui/toast' src returns nothing; on-call-copy-number.tsx:36-37 states it in a comment. 35 in-scope files implement their own copy confirmation against 2 using ui/copy-button.tsx, with four different wordings. The 2026-07-07 fix for single-slot notifications overwriting each other exists as a primitive but nothing mounts it. Copying a dose or citation is high-frequency here and the confirmation differs by mode.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#SZA102",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "The WA Mental Health Act forms register reports 0 forms while holding 54",
+      "detail": "Bare /forms/search renders '0 forms', a full column header row with no rows, no empty-state copy, and 'View all forms (0)'. ?q=transport returns 54 including 3A Detention and 4A Transport. forms-search-results-page.tsx:267 and :551 interpolate matches.length, which is 0 for an empty query; every sibling catalogue lists its contents instead. Reproduces at 390 and 1440. Supersedes the tablet-only scope of #6GR6B8, which is NOT closed.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#ZPHK2F",
+      "priority": "P1",
+      "type": "issue",
+      "summary": "The catalogue publication cannot run as tooled: no candidate can ever be canonical while every registry row is owner-scoped and nothing has been published, so the reconciliation planner refuses for a reason that is not the one it reports",
+      "detail": "WHAT HAPPENS. scripts/build-site-content-reconciliation-plan.ts, run against a fresh operator export (843 records, activeReleaseId e4a1dd29, initialized=false, expected=actual=843), reports: owner rows 222, logical groups 222, published groups 843, groups not published 3, TRIAGE SNAPSHOTS 0, needs owner review 222, adoptable 0, identical duplicates 0. It then refuses, telling the operator that 222 groups diverge from the published snapshot and that choosing between them is a clinical judgement. WHY THAT MESSAGE IS MISLEADING. Nothing diverged. buildRegistryReconciliationReport can only mark a group adoptable when canonicalCandidate returns a candidate, and canonicalCandidate delegates to reconcileCanonicalPublicSiteContent, which requires ALL FOUR of publicationState='published', renderedByPublicSite=true, explicitlyReconciled=true and rowOwnerId=null. Measured on live: clinical_registry_records has 222 service rows and 54 form rows, ALL with a non-null owner_id; site_content_publications has 0 rows; site_content_public_records has 0 rows. So no candidate can satisfy those conditions in this state, no triage snapshot is ever built, and every group falls through to divergent_requires_administrator_review by construction. The count 222-of-222 is an artefact of the state, not a measurement of drift. WHY IT MATTERS. The handover (docs/site-content-publication-handover.md) tells the owner the order is export, then reconciliation plan, then the administrator records it. Step 2 cannot produce output, so the owner would follow the documented order and hit a refusal that blames the corpus. Worse, the refusal is the kind that invites someone to 'fix' it by relaxing the triage, which would mark owner-scoped rows canonical for a clinical publication - exactly the judgement the script exists to refuse. WHAT IS ACTUALLY NEEDED, and it is a design decision rather than a bug fix. The reconciliation/adoption path is built for rows that are ALREADY public and whose identity is settled; it adopts them into the control plane. This corpus has never published anything through the control plane at all - the epoch-zero freeze lives only in site_content_release_records. So the question to settle before any more tooling is whether initial adoption is the right mechanism here, or whether these 222 owner-scoped service rows need a first-publication path that makes them public and unowned through the administrator flow. Do NOT resolve it by loosening reconcileCanonicalPublicSiteContent. SMALLER, SEPARATE: the planner should say what it actually found. A refusal that reports 'triage snapshots 0' alongside 'needs owner review 222' should state that the two together mean nothing was comparable, not that 222 things disagreed.",
+      "source": "live read 2026-09-21 of clinical_registry_records, site_content_publications and site_content_public_records, plus a run of scripts/build-site-content-reconciliation-plan.ts against the real export",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#TWS2GD",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "WebKit renders the differentials compare page body twice, producing two <main> elements with the same test id",
+      "detail": "Found 2026-09-20 while reading the release-browser-matrix logs for the #2925 merge commit 7936c3f9e (run 35519242943, job 106102164822). tests/ui-tools.spec.ts:2953 \"differentials compare queue launches presentation comparison\" fails in WebKit, and NOT with the tap-target race that #CHPC5C is about. It fails with: strict mode violation: getByTestId(\"differential-compare-queue\") resolved to 2 elements. Both are <main data-testid=\"differential-compare-queue\" class=\"min-h-[calc(100dvh-var(--shell-header-h))] ...\">, byte-identical in class; Playwright disambiguates them as getByTestId(\"mobile-composer-reserve-pad\").getByTestId(\"differential-compare-queue\") and getByTestId(\"differential-compare-queue\").nth(1). So one copy is inside the shell reserve pad (src/components/clinical-dashboard/global-search-shell.tsx:1116) and one is outside it. WHY THIS IS A REAL DEFECT AND NOT A TEST PROBLEM: only ONE source location emits that test id — src/components/differentials/differential-compare-queue-page.tsx:85 — so the page body component is being RENDERED TWICE at runtime. Two <main> landmarks on one document is also an accessibility defect in its own right and is the class of thing expectDomIntegrity exists to catch, so it is worth checking whether that helper covers landmark duplication. NOT ESTABLISHED: whether the double render is WebKit-specific in cause or merely WebKit-specific in exposure — the likelier reading is that a shell branch renders children twice under some condition and only WebKit timing surfaces it, which would mean Chromium and Firefox are one timing change away from the same fault. Also not established: whether this predates the #2925 merge; the failure was read on that merge commit only. Chromium passes this test, including in the required Production UI shards. TO INVESTIGATE: render /differentials/compare at 390x844 and count <main> elements; if reproducible off WebKit, this is a shell composition bug rather than an engine one. The diagnostics bundle is artifact 10608281397 on run 35519242943, readable from a machine whose egress allows GitHub blob storage (this sandbox gets 403).",
+      "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); read from CI logs via the GitHub API, not reproduced locally — WebKit cannot be installed in this environment",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#7J47R1",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Two contrast failures on live controls: document section-nav subtitle and the shared Show-all chip",
+      "detail": "axe color-contrast. (a) section-nav.tsx:183-185 'Long sections collapsed' computes 3.13:1 at 10px (fg #5291ca on bg #f2f8fe) in BOTH themes; it is a live control, so the inert-control exemption does not apply. (b) show-all-chip.tsx:39-40 computes 4.23:1 at 13px (fg #1d6fb8 on bg #dde9f4) in LIGHT ONLY, passing in dark. Light theme carries three axe violations to dark's one.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#KZDNNX",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Differentials badges dress reference-bullet counts as clinical assessment states",
+      "detail": "differential-detail.ts:110-124 maps section tone to a suffix (fit->present, warning->possible, question->positive, action->pending) and appends it to the item count, rendering green '2 present' with a tick, '8 possible', '1 positive', '5 pending'. Nothing patient-specific has been entered. The DSM sibling gets this right ('0 of 5 recorded'). Clinical wording - report for a human, do not reword unilaterally.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#WR6FAW",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "verify:phone-chrome and verify:ui cannot go green in a cloud sandbox: three failures are the unpinned Chromium, not the code",
+      "detail": "Established 2026-09-20 by running the three failures against a clean origin/main worktree (aef181f55) with the same environment, and reading the saved failure snapshots. They reproduce identically on main, so they are a property of the sandbox, not of any branch. ROOT CAUSE, found rather than guessed: the only installable browser here is /opt/pw-browsers/chromium = chromium-1194 = Chromium 141.0.7390.37, because cdn.playwright.dev is 403 under the egress policy and the revision Playwright 1.63.0 pins is 1243 / Chromium 153. (1) tests/ui-smoke.spec.ts \"document frame stretches the canvas owner at phone and desktop\" and \"document viewer puts the PDF preview first with pinned evidence after it on mobile\" both fail with getByTestId(pdf-canvas-scroll).locator(canvas) \"element(s) not found\". The error-context snapshot shows the viewer in its error state with the text \"this[#re].getOrInsertComputed is not a function\" and a Retry preview button. pdfjs-dist@6.3.289 calls Map.prototype.getOrInsertComputed, a V8 addition Chromium 141 does not have, so pdf.js throws during load and no canvas is ever created. The demo PDFs and cover images are all present; nothing is missing from the fixture. (2) tests/ui-pwa.spec.ts \"has a browser-valid manifest, installable icons, and a root worker\" fails with installability error \"in-incognito\" — Chromium refusing because every Playwright BrowserContext is off-the-record. Every other assertion in that test (manifest URL, manifest contents, all icon probes, service-worker scope/state/controller) passes first. CONSEQUENCE FOR AGENTS: three failures out of ~798 passing is the FLOOR for a chromium browser gate in this environment, on any branch. Do not read it as a branch signal, and do not \"fix\" a test to make it pass here. CI runs the pinned browser and the Production UI chromium shards are green on recent main (7936c3f9, cfb5ed90, and shard 3 on aef181f55). NOT ESTABLISHED: per-test CI granularity, because gh run view --log is Forbidden here (results-receiver.actions.githubusercontent.com); only job-level green was read. That Chromium 153 stops reporting in-incognito is an inference from CI being green, not a direct observation. TO UNBLOCK: either allowlist cdn.playwright.dev so the pinned revision installs, or teach the browser gate to recognise this known trio and report them as environment-floor rather than failures.",
+      "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); reproduced on a clean origin/main worktree with the same runner and environment",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#W0T66R",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "/medications/<unknown-slug> renders a bare 'Request failed (404)' instead of a not-found",
+      "detail": "use-medication-catalog.ts:192 throws 'Request failed (status)' and the record page renders that message. The breadcrumb still reads 'Medications / ZZZ' and the tab title 'Medication | PsychSift', implying the slug is a real drug record. Every other catalogue gives a named not-found with a route back. A stale bookmark reads as 'the system is broken' rather than 'that drug is not here'.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#NB4SHF",
+      "priority": "P1",
+      "type": "rec",
+      "summary": "On Call keeps deciding labels, glyphs, destinations and counts from entry.section, so every view over a section is misrendered -- move the view concept into src/lib",
+      "detail": "The Compliance page is a VIEW over the stored logistics section discriminated by details.kind, not a seventh section: section is a database CHECK constraint and merging a migration reaches the live clinical database within seconds. Any code that reads entry.section to choose a label, icon, destination or count therefore answers Admin for a compliance row. A 2026-09-20 sweep found and fixed seven such sites, then found seven more; all fourteen are fixed, but the cause is not, and this bug class will keep recurring as the mode grows. Two structural reasons, and both are the point of this row. (a) The type system endorses it: ON_CALL_SECTION_HREFS[entry.section] compiles and is wrong, and there is no lint rule against it. (b) The correct helper onCallViewForEntry lives in src/components/on-call/on-call-section-identity.ts, and tests/lib-layering.test.ts forbids src/lib from importing src/components -- so src/lib/on-call/freshness-summary.ts, src/lib/on-call/entry-search.ts and src/lib/on-call/entry-chips.ts are section-keyed because they CANNOT call it, not because anyone chose that. NEXT ACTION, in order of leverage: (1) move the view concept (OnCallPageView, ON_CALL_VIEW_TITLES/ICONS/HREFS, onCallViewForEntry, onCallViewStorageSection) out of src/components/on-call/on-call-section-identity.ts into a new src/lib/on-call/view.ts, which dissolves the layering block that created half the defects; (2) derive a non-stored view field on the entry at the one read boundary, rowToOnCallEntry in src/lib/on-call/repository.ts, so consumers read entry.view and the fix costs no migration and no database change; (3) stop exporting the section-keyed maps (ON_CALL_SECTION_TITLES, ON_CALL_SECTION_ICONS, ON_CALL_SECTION_TILE_DESCRIPTIONS, ON_CALL_SECTION_HREFS) so the wrong answer stops compiling. Deferred on 2026-09-20 because it changes every consumer in the mode and the fourteen live symptoms were already fixed. Unblocks the summariseOnCallFreshness row. Scope check before starting: grep entry.section and .section] across src/lib/on-call and src/components/on-call.",
+      "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#MFV1Z2",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "next dev is OOM-killed after compiling roughly 55-60 routes in sequence",
+      "detail": "Reproduced three times at ~13.6 GB RSS in a 16 GB container, each time around the same point in a sequential route sweep; a --max-old-space-size cap did not help. The visual audit had to build and serve production instead. Not a product defect, but it costs anyone doing sustained local work across many routes, and a whole sweep going blank looks like an app failure (the 2026-08-06 audit recorded exactly that misreading).",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+      "added": "2026-09-20"
+    },
+    {
+      "id": "#Q80S8B",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Description lists are malformed on three routes, breaking term/definition association",
+      "detail": "axe definition-list plus dlitem (12 nodes each on two routes). Shape is dl > div > div > dt/dd; HTML permits one wrapper, not two. colour-coding-reference-content.tsx:121-138, source-method-reference-content.tsx:89-94, service-detail-page.tsx:391. A screen reader reads paired data as plain prose. The correct single-div shape already exists at source-method-reference-content.tsx:254-262. WCAG 1.3.1.",
+      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     }
   ],

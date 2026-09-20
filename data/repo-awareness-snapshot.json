@@ -5977,6 +5977,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/audit/2026-09-20-visual-ux-audit.md",
+        "section": "audit",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-3-workspace/task-3-brief.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": true

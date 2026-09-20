@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "549f771f-0e1b-46e6-ad09-ea28989711b4",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Favourites presents hard-coded prototype fixtures as the clinician's own saved items and activity",
+    "detail": "favourites-prototype-data.ts is imported by the production favourites-hub.tsx:31 and favourites-command-library-page.tsx:46, not only by mockups. The page asserts '5 favourites' and 'last opened Today 08:44' with no demo label. 'Last opened' is a factual claim about the clinician's own behaviour. Needs one line of owner confirmation on whether this is an accepted prototype surface.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQMW0358YM03MMYCMCJBX"
+  }
+}

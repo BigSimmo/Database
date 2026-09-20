@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "84751cf3-3554-4b61-9521-4f59e7afc61f",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Medication and therapy records carry zero source links while their footers tell the clinician to check the linked source",
+    "detail": "/medications/[slug] has 0 anchors in <main> on all four tabs; /therapy-compass/[slug] the same. Footer on every tab: 'verify every dose and interaction against the linked source'. acamprosate states Max 1998 mg/day, a serum creatinine >120 micromol/L contraindication, Half-life 13-28.4 h and an unattributed EFFICACY: MODERATE tile; the only provenance is one prose sentence on tab 4 below the fold. Root cause: medication-records.ts:118-126 derives governance from a free-text src section with no URL or document id. /dictionary and /factsheets do this correctly. Fixing properly is a database migration plus clinical governance.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQKSX05WXHXF414N0ZZ8V"
+  }
+}

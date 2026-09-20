@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9266b7a7-280e-4a89-9be7-b987d91c205d",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "A focused control on phone document search is completely covered by the composer dock",
+    "detail": "/documents/search?q=lithium&run=1 at 390x844: tabbing to the third result's action row puts focus on a button at box [13, 790, 121, 48] in an 844px viewport with scrollY 0, entirely behind the fixed composer; elementsFromPoint at its centre returns the composer input. The page does not scroll to clear it. Three occluded tab stops. This is SPEC 9.4's 'sticky elements not covering focused content', previously never checked against a rendered page. Fix candidate: scroll-padding-bottom equal to the composer reserve.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQMDRASVM8HKQS3RQZY04"
+  }
+}

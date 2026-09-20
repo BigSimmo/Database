@@ -1446,7 +1446,15 @@ export function DifferentialDetailPage({
             // already settled and its geometry is pinned by the Chromium spec;
             // the rail is desktop breathing room, not a fourth phone summary.
             <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-5">
-              <div className="grid min-w-0 gap-4">
+              {/* `grid-cols-1` is load-bearing, not decoration: an implicit `auto` track
+                  sizes to its widest item's min-content, which the Safety snapshot's
+                  horizontally scrollable "Watch for" row drives to 493px. Below `sm`
+                  that overflowed the 366px column and `#main-content`'s `overflow-x: clip`
+                  swallowed the remainder — truncating EMERGENT safety text mid-word with
+                  no ellipsis, scrollbar or any other cue that content was missing.
+                  `repeat(1, minmax(0, 1fr))` caps the track at the column; measured
+                  identical at 639px and above. */}
+              <div className="grid min-w-0 grid-cols-1 gap-4">
                 <ContentNote curated={curated} />
                 <SafetySnapshot record={record} termLinks={detailContext.termLinks ?? {}} curated={curated} />
                 <ClinicalHinge record={record} />

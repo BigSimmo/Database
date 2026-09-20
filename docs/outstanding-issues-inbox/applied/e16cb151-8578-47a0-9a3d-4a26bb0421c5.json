@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "e16cb151-8578-47a0-9a3d-4a26bb0421c5",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "/medications/<unknown-slug> renders a bare 'Request failed (404)' instead of a not-found",
+    "detail": "use-medication-catalog.ts:192 throws 'Request failed (status)' and the record page renders that message. The breadcrumb still reads 'Medications / ZZZ' and the tab title 'Medication | PsychSift', implying the slug is a real drug record. Every other catalogue gives a named not-found with a route back. A stale bookmark reads as 'the system is broken' rather than 'that drug is not here'.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQNKNW0T66RM3ZXAN6BBA"
+  }
+}
