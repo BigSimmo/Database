@@ -38,9 +38,25 @@ export const CME_BASELINE_ROUTES = ["/cme", "/cme/log", "/cme/new", "/cme/progra
  * `tests/ui-visual-artifacts.spec.ts`'s `attachViewportScreenshot`, safe
  * against a Playwright strict-mode failure rather than a workaround for a
  * defect this file introduces.
+ *
+ * The same duplication reaches every `data-testid` inside the page, not only
+ * `#main-content` — confirmed against the isolated production build this
+ * suite itself runs against, 2026-09-20: `cme-total-hours` and
+ * `cme-module-order` each resolved to two elements at runtime even though the
+ * server-rendered HTML (`curl`) carries only one. It is a client-side
+ * hydration artefact, not a server-render defect, and it is outside this
+ * task's boundary (the shared standalone shell in
+ * `src/components/clinical-dashboard/global-search-shell.tsx` is not a CME
+ * file). Every testid lookup in this file goes through `.first()` for the
+ * same reason `#main-content` already does.
  */
 function mainContent(page: Page) {
   return page.locator("#main-content").first();
+}
+
+/** See the note on `mainContent` above: every testid in this mode can resolve twice at runtime. */
+function byTestId(page: Page, testId: string) {
+  return page.getByTestId(testId).first();
 }
 
 const CLINICAL_STATUS_CLASS =
@@ -57,9 +73,14 @@ test.describe("CME on a phone", () => {
   test("the dashboard leads with position, pace and one action", async ({ page }) => {
     await page.goto("/cme");
     await expect(mainContent(page)).toBeVisible();
-    await expect(page.getByTestId("cme-total-hours")).toHaveText("32.5");
-    await expect(page.getByTestId("cme-pace-sentence")).toContainText("by 31 December");
-    await expect(page.getByTestId("cme-next-action")).toBeVisible();
+    // `toContainText`, not `toHaveText`: the testid sits on the wrapping <p>,
+    // whose full text is "32.5of 50 hours logged" — the figure plus its own
+    // muted "of N hours logged" sibling span, with no space between them in
+    // markup. An exact-text match would pin that whole sentence instead of
+    // the one figure this assertion is actually about.
+    await expect(byTestId(page, "cme-total-hours")).toContainText("32.5");
+    await expect(byTestId(page, "cme-pace-sentence")).toContainText("by 31 December");
+    await expect(byTestId(page, "cme-next-action")).toBeVisible();
   });
 
   test("every baseline route renders its main region at 390px with no sideways scroll", async ({ page }) => {
@@ -86,9 +107,13 @@ test.describe("CME on a phone", () => {
         return (
           nodes
             .map((node) => ({ node, rect: node.getBoundingClientRect() }))
-            // A zero-size box is not rendered (e.g. sits inside a closed
-            // disclosure) rather than an undersized tap target.
-            .filter(({ rect }) => rect.height > 0 && rect.height < 48)
+            // Excludes two shapes that are not an undersized tap target: a
+            // zero-size box (not rendered — e.g. inside a closed disclosure),
+            // and the root layout's global "Skip to main content" link,
+            // which is `sr-only` (a real, correctly-implemented 1x1px
+            // visually-hidden-until-focus pattern every page in the app
+            // carries, not a CME control at all) until it is focused.
+            .filter(({ rect }) => rect.height > 0 && rect.height < 48 && rect.width > 4)
             .map(({ node, rect }) => ({
               label: node.textContent?.trim() || node.getAttribute("aria-label") || node.tagName,
               height: Math.round(rect.height),
@@ -112,7 +137,7 @@ test.describe("CME on a phone", () => {
 
   test("the customise screen's reorder controls are real buttons a keyboard can reach and use", async ({ page }) => {
     await page.goto("/cme/customise");
-    const list = page.getByTestId("cme-module-order");
+    const list = byTestId(page, "cme-module-order");
     await expect(list).toBeVisible();
 
     const firstItemLabel = list.getByRole("listitem").first();
