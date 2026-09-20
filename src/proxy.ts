@@ -7,11 +7,7 @@ import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/c
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
-import {
-  DEVELOPER_AREA_HEADER,
-  DEVELOPER_AREA_PATH_HEADER,
-  DEVELOPER_GATED_PATH_PREFIXES,
-} from "@/lib/developer-area/headers";
+import { DEVELOPER_AREA_HEADER, DEVELOPER_AREA_PATH_HEADER, isDeveloperGatedPath } from "@/lib/developer-area/headers";
 import {
   DEVELOPER_ACCESS_COOKIE,
   DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
@@ -25,10 +21,6 @@ import {
 import { readSearchNavigationContext } from "@/lib/search-navigation-context";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 import { signProxyAuthPayload } from "@/lib/supabase/proxy-auth-crypto";
-
-function isDeveloperGatedPath(pathname: string) {
-  return DEVELOPER_GATED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
 
 export const PROXY_AUTH_USER_HEADER = "x-proxy-auth-user";
 

@@ -73,6 +73,20 @@ sent onward. The field submits with `location.replace`, so the URL that briefly
 carries the secret is not left as a history entry either. From then on that
 browser opens the developer area with no sign-in at all.
 
+**The key travels in a URL either way, so rotate it after exporting logs.**
+Typed or bookmarked, the secret is presented as `?devkey=…` on one request. The
+proxy redirects it straight back out, so it does not persist in the address bar
+and — because the field submits with `location.replace` — it is not left as a
+history entry the back button returns to. Two places do still see it: the
+browser's own profile history records redirect _sources_, and the platform HTTP
+access log records the request line. Neither is reachable by a visitor, but both
+mean the same thing operationally: if you ever export or share request logs, or
+hand over a browser profile, rotate `DEVELOPER_AREA_ACCESS_KEY` afterwards.
+
+A POST to a dedicated route would avoid this. It is deliberately not done,
+because it would be a second place the same secret is verified — see "The
+developer key" above.
+
 **It does not expire in practice.** The cookie is stamped for one year —
 deliberately inside the ~400-day ceiling browsers clamp `Set-Cookie` lifetimes
 to, so the stated expiry is the real one — and `src/proxy.ts` re-issues it on

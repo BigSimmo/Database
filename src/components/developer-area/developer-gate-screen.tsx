@@ -43,14 +43,22 @@ export function DeveloperGateScreen({
   // failure about a key that is no longer on screen.
   const [rejectionDismissed, setRejectionDismissed] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
-  // Two separate busy states, deliberately. `busy` belongs to the Supabase
-  // sign-in and includes `auth.status === "loading"`, which is where an
-  // AuthProvider sits from mount until its client-side getUser()/getSession()
-  // resolves. The developer key must NOT wait on that: its whole reason for
-  // existing is that it needs no provider round trip, so sharing the flag would
-  // disable the alternate credential exactly when Supabase is slow, stalled or
-  // unreachable — the situation it is the answer to.
-  const busy = auth.status === "loading" || pendingProvider !== null || unlocking;
+  // Two separate busy states, and the separation runs BOTH ways.
+  //
+  // `busy` belongs to the Supabase sign-in and includes `auth.status ===
+  // "loading"`, which is where an AuthProvider sits from mount until its
+  // client-side getUser()/getSession() resolves. The developer key must not wait
+  // on that: its whole reason for existing is that it needs no provider round
+  // trip, so sharing the flag would disable the alternate credential exactly
+  // when Supabase is slow, stalled or unreachable — the situation it answers.
+  //
+  // `unlocking` is likewise kept OUT of `busy`. It has no reset path in the
+  // ordinary case because the page navigates away, so folding it into `busy`
+  // meant that an unlock which did not navigate — offline, or a blocked
+  // navigation — left the whole screen dead: key field, email and SSO alike,
+  // until a manual reload. A stuck unlock must not take the sign-in down with
+  // it.
+  const busy = auth.status === "loading" || pendingProvider !== null;
   const keyBusy = unlocking;
 
   /**
@@ -70,7 +78,13 @@ export function DeveloperGateScreen({
     const key = developerKey.trim();
     if (!key || keyBusy) return;
     setUnlocking(true);
-    window.location.replace(developerKeyUnlockUrl(next, key));
+    try {
+      window.location.replace(developerKeyUnlockUrl(next, key));
+    } catch {
+      // A refused navigation must not leave the button spinning forever with no
+      // way back other than a reload.
+      setUnlocking(false);
+    }
   }
 
   async function submitEmail(event: FormEvent<HTMLFormElement>) {

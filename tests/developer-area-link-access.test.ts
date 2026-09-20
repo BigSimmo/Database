@@ -143,13 +143,54 @@ describe("parseDeveloperGateTarget", () => {
     });
   });
 
-  it("falls back to the area root for anything that is not a plain internal path", () => {
-    // `next` arrives in a request header. A protocol-relative value is another
-    // origin, and must never become a redirect target.
-    for (const hostile of ["//evil.example/mockups/development", "https://evil.example", "mockups/development", ""]) {
-      expect(parseDeveloperGateTarget(hostile).target).toBe("/mockups/development");
+  it("falls back to the area root for anything outside the gated subtrees", () => {
+    // `next` arrives in a request header, and the target built from it is handed
+    // to location.replace carrying the typed secret. A value that escapes to
+    // another origin does not merely redirect — it posts the key to whoever owns
+    // that origin.
+    const hostile = [
+      "//evil.example/mockups/development",
+      "https://evil.example",
+      "mockups/development",
+      "",
+      // Browsers normalise `\\` to `/` for special schemes and strip tab, CR and
+      // LF before parsing, so every one of these defeated the old
+      // `startsWith("//")` denylist and resolved to https://evil.example/. The
+      // allowlist is what closes them; these four are the regression.
+      String.raw`/\evil.example`,
+      "/\tevil.example",
+      "/\nevil.example",
+      "/\revil.example",
+      // Look-alike prefixes are not members of the allowlist either.
+      "/mockups/care-plan-archive",
+      "/documents",
+      "/mockups",
+    ];
+    for (const value of hostile) {
+      expect(parseDeveloperGateTarget(value).target).toBe("/mockups/development");
     }
     expect(parseDeveloperGateTarget(null).target).toBe("/mockups/development");
+  });
+
+  it("refuses to carry a rejected path's query string over to the fallback", () => {
+    // Dropping the path but keeping its query would let a hostile `next` still
+    // steer the page it lands on.
+    expect(parseDeveloperGateTarget("https://evil.example/?tab=risk")).toEqual({
+      target: "/mockups/development",
+      keyRejected: false,
+    });
+  });
+
+  it("admits every gated subtree, and their descendants", () => {
+    for (const allowed of [
+      "/mockups/development",
+      "/mockups/development/ledger",
+      "/mockups/caring-contacts",
+      "/mockups/care-plan/review",
+      "/mockups/ward-flow/network",
+    ]) {
+      expect(parseDeveloperGateTarget(allowed).target).toBe(allowed);
+    }
   });
 });
 

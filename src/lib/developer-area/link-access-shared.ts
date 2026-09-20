@@ -1,3 +1,5 @@
+import { isDeveloperGatedPath } from "@/lib/developer-area/headers";
+
 /**
  * The parts of the passwordless developer-area credential that must be readable
  * on BOTH sides of the network boundary.
@@ -37,20 +39,26 @@ export const DEVELOPER_ACCESS_ERROR_PARAM = "devkeyerror";
 const DEVELOPER_AREA_DEFAULT_PATH = "/mockups/development";
 
 /**
- * Same-origin path only. `next` reaches the gate through a request header, and a
- * header is exactly the input that must never be trusted to stay a relative
- * path: `//evil.example` is a protocol-relative URL that a browser treats as
- * another origin. Anything that is not a plain single-slash path falls back to
- * the area root rather than being repaired.
- */
-function safeInternalPath(next: string | null | undefined): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return DEVELOPER_AREA_DEFAULT_PATH;
-  return next;
-}
-
-/**
  * Splits the gate's `next` into the path it should return the visitor to and
  * whether the previous attempt's key was rejected.
+ *
+ * **The path is allowlisted, not denylisted.** `next` reaches the gate through a
+ * request header, and the value built from it is handed to
+ * `window.location.replace` carrying the secret the owner just typed — so a path
+ * that escapes to another origin does not merely redirect, it posts the key to
+ * whoever owns that origin.
+ *
+ * An earlier version of this guard rejected a leading `//` and accepted
+ * everything else. That is one denylist entry short: a browser normalises `\` to
+ * `/` for special schemes and strips tab, CR and LF before parsing, so
+ * `/\evil.example`, `/<TAB>/evil.example`, `/<LF>/evil.example` and
+ * `/<CR>/evil.example` all pass a `startsWith("//")` test and all resolve to
+ * `https://evil.example/?devkey=…`. Measured against WHATWG `URL`, not assumed.
+ *
+ * So the test is now membership of `DEVELOPER_GATED_PATH_PREFIXES` — the only
+ * paths this screen is ever reached from — via the same `isDeveloperGatedPath`
+ * the proxy uses. Anything else falls back to the area root, query and all,
+ * rather than being repaired into something that merely looks safe.
  *
  * The error marker is stripped from the returned target, so a retry — and the
  * eventual successful redirect — does not carry a stale verdict from an attempt
@@ -60,9 +68,11 @@ export function parseDeveloperGateTarget(next: string | null | undefined): {
   target: string;
   keyRejected: boolean;
 } {
-  const [withoutHash = ""] = safeInternalPath(next).split("#");
-  const [pathname = DEVELOPER_AREA_DEFAULT_PATH, search = ""] = withoutHash.split("?");
-  const params = new URLSearchParams(search);
+  const [withoutHash = ""] = (next ?? "").split("#");
+  const [requestedPathname = "", search = ""] = withoutHash.split("?");
+  const allowed = isDeveloperGatedPath(requestedPathname);
+  const pathname = allowed ? requestedPathname : DEVELOPER_AREA_DEFAULT_PATH;
+  const params = new URLSearchParams(allowed ? search : "");
   const keyRejected = params.get(DEVELOPER_ACCESS_ERROR_PARAM) === "1";
   params.delete(DEVELOPER_ACCESS_ERROR_PARAM);
   const remaining = params.toString();

@@ -1,3 +1,10 @@
+// Explicit, not incidental. This module is self-guarding today only because
+// `node:crypto` fails to bundle for the browser — and it now re-exports the
+// client-safe helpers from `link-access-shared.ts`, which makes it an inviting
+// import target for a future Client Component. Make the boundary a stated rule
+// rather than a side effect of what it happens to import.
+import "server-only";
+
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
