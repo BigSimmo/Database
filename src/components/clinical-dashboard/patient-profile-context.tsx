@@ -5,9 +5,11 @@ import { createContext, useCallback, useContext, useMemo, useSyncExternalStore }
 import { isProfileEmpty, type AllergyClass, type PatientProfile, type ScrUnit } from "@/lib/medication-patient-alerts";
 import {
   convertScrValue,
-  EMPTY_PATIENT_PROFILE,
+  getPatientProfileClearGeneration,
   getPatientProfileSnapshot,
+  getServerPatientProfileClearGeneration,
   getServerPatientProfileSnapshot,
+  resetPatientProfile,
   sanitizeMedicationSlugs,
   subscribePatientProfile,
   writePatientProfile,
@@ -20,6 +22,14 @@ export type PatientProfileContextValue = {
   toggleAllergy: (allergy: AllergyClass) => void;
   toggleMedication: (slug: string) => void;
   clear: () => void;
+  /**
+   * How many times the whole profile has been cleared in this tab — by any
+   * panel's Clear button or by an account transition. A consumer holding draft
+   * text of its own watches this to know a clear happened; the profile alone
+   * cannot tell it, because a refused entry and a cleared one are both `null`
+   * (#DTAMMK). Only its CHANGE is meaningful; the number itself is not.
+   */
+  clearGeneration: number;
   isEmpty: boolean;
 };
 
@@ -32,6 +42,15 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
     subscribePatientProfile,
     getPatientProfileSnapshot,
     getServerPatientProfileSnapshot,
+  );
+
+  // The same subscription, second reading: the clear generation travels with the
+  // profile because a clear is the one change that alters both, and a consumer
+  // must see them together to act on either.
+  const clearGeneration = useSyncExternalStore(
+    subscribePatientProfile,
+    getPatientProfileClearGeneration,
+    getServerPatientProfileClearGeneration,
   );
 
   const updateField = useCallback<PatientProfileContextValue["updateField"]>((key, value) => {
@@ -63,8 +82,11 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
     writePatientProfile({ ...current, medications: sanitizeMedicationSlugs(next) });
   }, []);
 
+  // Through the store, not by writing an empty profile here, so the clear bumps
+  // the shared generation and every mounted field learns of it — including the
+  // ones in a second copy of the panel, which this component never sees.
   const clear = useCallback(() => {
-    writePatientProfile({ ...EMPTY_PATIENT_PROFILE, medications: [] });
+    resetPatientProfile();
   }, []);
 
   const value = useMemo<PatientProfileContextValue>(
@@ -75,9 +97,10 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
       toggleAllergy,
       toggleMedication,
       clear,
+      clearGeneration,
       isEmpty: isProfileEmpty(profile),
     }),
-    [profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear],
+    [profile, updateField, setScrUnit, toggleAllergy, toggleMedication, clear, clearGeneration],
   );
 
   return <PatientProfileContext.Provider value={value}>{children}</PatientProfileContext.Provider>;

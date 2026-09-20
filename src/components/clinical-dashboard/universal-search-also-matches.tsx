@@ -7,9 +7,10 @@ import { useEffect, useId, useState } from "react";
 import { CategoryIconTile } from "@/components/category-icon-tile";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { shouldRunUniversalAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches-state";
-import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
+import { groupIsWorthShowing, useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { focusRing } from "@/components/card-recipes";
 import { cn, eyebrowText } from "@/components/ui-primitives";
+import { catalogueDegradedNotice, withCatalogueDegradedNotice } from "@/lib/site-content/catalogue-seed-fallback";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { APP_MODE_ACCENT, APP_MODE_ICON } from "@/lib/category-identity";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
@@ -121,23 +122,28 @@ export function UniversalSearchAlsoMatches({
     limitPerDomain: 2,
   });
   const preferred = new Set(universal.preferredDomains ?? []);
-  const groups = (() => {
+  const { modeGroups, anyDegraded } = (() => {
     const groupByDomain = new Map(universal.groups.map((group) => [group.kind, group]));
+    // `groupIsWorthShowing` rather than `items.length > 0`, which is the predicate this strip
+    // used to re-implement inline. The difference is the whole point: a degraded group that
+    // matched nothing is not an absence, it is an unanswered question, and dropping it here
+    // showed a confident "No additional matches" for a catalogue that was never read.
     const orderedGroups = (universal.domainOrder ?? universal.groups.map((group) => group.kind))
       .map((domain) => groupByDomain.get(domain))
       .filter((group): group is NonNullable<typeof group> =>
-        Boolean(group && !preferred.has(group.kind) && group.items.length > 0),
+        Boolean(group && !preferred.has(group.kind) && groupIsWorthShowing(group)),
       );
     const byMode = new Map<
       AppModeId,
-      { modeId: AppModeId; items: Array<(typeof universal.groups)[number]["items"][number]> }
+      { modeId: AppModeId; degraded: boolean; items: Array<(typeof universal.groups)[number]["items"][number]> }
     >();
 
     for (const group of orderedGroups) {
       const targetModeId = universalSearchModeForDomain(group.kind);
       if (targetModeId === modeId) continue;
       if (targetModeId === "favourites" && !favouritesAccessible) continue;
-      const modeGroup = byMode.get(targetModeId) ?? { modeId: targetModeId, items: [] };
+      const modeGroup = byMode.get(targetModeId) ?? { modeId: targetModeId, degraded: false, items: [] };
+      modeGroup.degraded = modeGroup.degraded || group.degraded === true;
       for (const item of group.items) {
         if (!favouritesAccessible && isFavouritesHref(item.href)) continue;
         if (modeGroup.items.length >= 2) break;
@@ -146,24 +152,36 @@ export function UniversalSearchAlsoMatches({
       byMode.set(targetModeId, modeGroup);
     }
 
-    // Four mode cards is 4 x 155px plus the header — about 670px, four fifths of
-    // an 844px phone. Three keeps the opened tray near half the screen and still
-    // leaves the results the search asked for in view. Measured on a 390px
-    // viewport, so the cap is a phone cap, not a taste call.
-    return [...byMode.values()].filter((group) => group.items.length > 0).slice(0, isWide ? 4 : 3);
+    const visible = [...byMode.values()].filter((group) => group.items.length > 0 || group.degraded);
+    return {
+      // Four mode cards is 4 x 155px plus the header — about 670px, four fifths of
+      // an 844px phone. Three keeps the opened tray near half the screen and still
+      // leaves the results the search asked for in view. Measured on a 390px
+      // viewport, so the cap is a phone cap, not a taste call.
+      modeGroups: visible.slice(0, isWide ? 4 : 3),
+      // Read from the whole set, not the capped slice: a degraded catalogue that the phone cap
+      // pushed off the tray still makes this cross-mode answer incomplete, and the header is
+      // where a reader who never opens the tray would learn that.
+      anyDegraded: visible.some((group) => group.degraded),
+    };
   })();
 
-  const currentGroups = universal.query === trimmedQuery ? groups : [];
+  const currentGroups = universal.query === trimmedQuery ? modeGroups : [];
+  const catalogueDegraded = universal.query === trimmedQuery && anyDegraded;
   const searchPending = searchActive && (universal.loading || universal.query !== trimmedQuery);
-  const matchCount = currentGroups.length;
-  const emptyMessage = "No additional matches in other modes.";
+  // Only modes that actually produced something are counted. A degraded mode with nothing in it
+  // earns a card, so the reader can see the question was not answered, but it is not a match.
+  const matchCount = currentGroups.filter((group) => group.items.length > 0).length;
+  const emptyMessage = catalogueDegraded
+    ? withCatalogueDegradedNotice("No additional matches in other modes", true)
+    : "No additional matches in other modes.";
   // What the announcer says must be what the panel is showing. Rendering one
   // fixed "searching / nothing found" string unconditionally would announce
   // "No additional matches" over a grid of four populated mode cards.
   const panelStatus = searchPending
     ? "Searching other modes"
     : matchCount > 0
-      ? `${matchCountLabel(matchCount)} also match this search.`
+      ? `${withCatalogueDegradedNotice(`${matchCountLabel(matchCount)} also match this search`, catalogueDegraded)}.`
       : emptyMessage;
   const headerMeta = searchPending ? "Searching…" : matchCount > 0 ? matchCountLabel(matchCount) : "No other matches";
 
@@ -226,6 +244,18 @@ export function UniversalSearchAlsoMatches({
           Also matches
           <span className="sr-only"> in other modes</span>
         </span>
+        {/* On the closed header, not only inside the tray. This disclosure is shut by default at
+            every width, so a notice that lived only in the panel would be invisible to the reader
+            who never opens it — the same silent staleness one layer down. `min-w-0 truncate` keeps
+            it from pushing the count off the line at 320px. */}
+        {catalogueDegraded ? (
+          <span
+            className="min-w-0 truncate text-2xs font-medium text-[color:var(--warning)]"
+            title="Some of these lists were served from the built-in catalogue because the published one could not be read"
+          >
+            {catalogueDegradedNotice}
+          </span>
+        ) : null}
         {/* Label, rule, count — the editorial section-header device. The rule is
             what lets the count sit at the far edge at every width without a
             second line, and it replaces the phone's old stacked subtitle plus a
@@ -317,7 +347,7 @@ export function UniversalSearchAlsoMatches({
                 <CategoryIconTile icon={APP_MODE_ICON[targetModeId]} accent={accent} size="sm" />
                 <span className="min-w-0 flex-1 truncate text-2xs font-semibold uppercase tracking-label text-[color:var(--text-heading)]">
                   <span className="sr-only">View all in </span>
-                  {targetMode.label}
+                  {withCatalogueDegradedNotice(targetMode.label, group.degraded)}
                 </span>
                 {/* Short code beside the full mode name it abbreviates — decorative
                     in the accessible name, which already says the name in full. */}
@@ -339,25 +369,34 @@ export function UniversalSearchAlsoMatches({
                   aria-hidden
                 />
               </Link>
-              <ul className="flex min-w-0 flex-col border-t border-[color:var(--border)] px-1 py-1">
-                {group.items.map((item) => (
-                  <li key={item.href} className="min-w-0">
-                    <Link
-                      href={item.href}
-                      className={cn(
-                        "flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-xs font-medium leading-snug text-[color:var(--text)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-0 sm:py-1",
-                        focusRing,
-                      )}
-                    >
-                      <span className="line-clamp-2 min-w-0 flex-1">{item.title}</span>
-                      <ChevronRight
-                        className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-opacity sm:opacity-0 sm:group-hover/card:opacity-100"
-                        aria-hidden
-                      />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {/* A degraded mode with nothing in it still gets its card, and the card has to say
+                  what it found rather than showing an empty box: the built-in list held no match,
+                  and the published list was never read. */}
+              {group.items.length === 0 ? (
+                <p className="border-t border-[color:var(--border)] px-2 py-2 text-xs font-medium text-[color:var(--text-muted)]">
+                  No matches in the retained copy.
+                </p>
+              ) : (
+                <ul className="flex min-w-0 flex-col border-t border-[color:var(--border)] px-1 py-1">
+                  {group.items.map((item) => (
+                    <li key={item.href} className="min-w-0">
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-xs font-medium leading-snug text-[color:var(--text)] transition-colors hover:bg-[color:var(--cat-soft)] hover:text-[color:var(--cat-accent)] sm:min-h-0 sm:py-1",
+                          focusRing,
+                        )}
+                      >
+                        <span className="line-clamp-2 min-w-0 flex-1">{item.title}</span>
+                        <ChevronRight
+                          className="size-icon-sm shrink-0 text-[color:var(--decoration-soft)] transition-opacity sm:opacity-0 sm:group-hover/card:opacity-100"
+                          aria-hidden
+                        />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           );
         })}

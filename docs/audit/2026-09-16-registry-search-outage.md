@@ -36,8 +36,13 @@ That split is the diagnosis on its own: **only the three domains that read
    `readCanonicalSiteContentRecords()` in `src/lib/universal-search.ts`. Moving to the canonical
    published record is correct. Three properties were dropped in the same move and none was
    replaced:
-   - the **cache** (`owner-catalogue-cache`: 5 s TTL, single flight, LRU). That module is still in
-     the tree, wired to nothing.
+   - the **cache** (`owner-catalogue-cache`: 5 s TTL, single flight, LRU). That module stayed in
+     the tree, wired to nothing, for ten more days. **Deleted 2026-09-19** under issue `#BDJWAH`,
+     together with the two `invalidateOwnerCatalogueCache` calls the seed writers had gone on
+     making into it — calls that made publication look cache-aware while clearing a cache no
+     reader had. The cache that replaced it is
+     `src/lib/site-content/site-content-record-cache.ts`, whose header now also records why it
+     deliberately has no publication-time invalidation of its own.
    - the **column projection**. The old read asked for roughly twenty named ranking columns. The
      RPC returns the whole `record` and `render_payload` JSON for every row.
    - the **owner condition**. The database was previously reached only for a signed-in owner.

@@ -591,7 +591,14 @@ describe("clinical point tones", () => {
  *      flag by the word `immediate` rather than by `cease`, which no pattern knows at all.
  *
  * When the owner decides the vocabulary, these expectations should change and the reasoning above
- * should move with them. A green run here is not evidence the labels are clinically right.
+ * should move with them. A green run here is not evidence the labels are clinically right. It is
+ * evidence that they are STABLE -- that nobody has moved a label without meaning to. Those are
+ * different claims, and only the second one a test can make.
+ *
+ * Two such decisions have been taken so far, and both are recorded in the cases below rather than
+ * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`) and #9XRDF7 (`escalat` and
+ * `monitor`, owner-approved 2026-09-19). Each moved labels a clinician sees, which is why each
+ * needed the owner and not a reviewer.
  */
 describe("safety finding precision (characterisation)", () => {
   /**
@@ -662,11 +669,23 @@ describe("safety finding precision (characterisation)", () => {
     // label. Fixed by `immediate(?:ly)?`; the pair is pinned here because the pair IS the defect,
     // and the probes below carry no other safety token, so only the adverb fix can satisfy them.
     //
-    // Correcting an earlier note on this line: the escalation entry is NOT unaffected. `escalat`
-    // is not a prefix match -- `\b(escalat|...)\b` demands a word boundary straight after
-    // "escalat", so it matches neither "escalate" nor "escalation", and that entry fires today only
-    // via "senior review" / "specialist review" / "urgent review" / "transfer". Deliberately left
-    // alone: fixing it moves labels of its own and is a separate owner decision (see #GHC4XZ).
+    // The escalation and monitoring entries carried the SAME defect, and both were fixed the same
+    // way on 2026-09-19 (#9XRDF7, owner-approved). An earlier note on this line recorded the
+    // escalation half and said it had been deliberately left alone pending an owner decision; that
+    // decision has now been made, so the note is replaced rather than deleted -- the reasoning is
+    // what made it worth recording:
+    //
+    //   `escalat` was never a prefix match. `\b(escalat|...)\b` demands a word boundary straight
+    //   after those seven letters, so the entry matched neither "escalate" nor "escalation" and
+    //   fired only via "senior review" / "specialist review" / "urgent review" / "higher level" /
+    //   "transfer". `\bmonitor\b` matched the imperative ("Monitor the full blood count") and
+    //   missed "monitoring", "monitored" and "monitors". Both were SILENT MISSES -- no chip at all
+    //   on a passage whose whole content is the instruction -- which is the dangerous direction.
+    //
+    // It needed an owner decision rather than a passing edit because widening an entry that sits
+    // mid-array moves labels the clinician already sees: `safetyPatterns.find` returns the first
+    // match in severity order, so a widened entry claims passages from every tier BELOW it, not
+    // only passages that had no finding. Those movements are measured and pinned below.
     expect(labelFor("Seek help immediately.")).toBe("Red flag");
     expect(labelFor("Discontinue with immediate effect.")).toBe("Red flag");
   });
@@ -696,6 +715,96 @@ describe("safety finding precision (characterisation)", () => {
     // later "simplification" of this alternation.
     expect(labelFor("Hold the next dose and arrange a haematology opinion.")).toBe("Red flag");
     expect(labelFor("Hold the view that a depot would suit this patient better.")).toBeUndefined();
+  });
+
+  it("matches every inflection of escalate and escalation, not just the review phrases (#9XRDF7)", () => {
+    // THE DEFECT. `\b(escalat|...)\b` demanded a word boundary straight after "escalat", so the
+    // entry matched neither of the two words it was named for. Every probe below carries no other
+    // safety token, so only the inflection fix can satisfy it -- revert the pattern and all six go
+    // red. Measured before the fix: all six returned no finding at all.
+    expect(labelFor("Escalate to the consultant.")).toBe("Escalation");
+    expect(labelFor("Escalation to the on-call registrar is required.")).toBe("Escalation");
+    expect(labelFor("Escalated care overnight after the fall.")).toBe("Escalation");
+    expect(labelFor("Escalating agitation on the ward.")).toBe("Escalation");
+    expect(labelFor("Escalates rapidly in the elderly.")).toBe("Escalation");
+    expect(labelFor("Escalations of this kind are documented in the ward policy.")).toBe("Escalation");
+  });
+
+  it("matches every inflection of monitor (#9XRDF7)", () => {
+    // Same defect, one tier down. The imperative matched and the gerund did not, which is backwards
+    // -- guideline prose says "monitoring should continue", not "monitor". Case was never the
+    // issue: the pattern carries `/i`. The trailing `\b` was.
+    expect(labelFor("Monitoring should continue for eighteen weeks.")).toBe("Monitoring");
+    expect(labelFor("Monitored weekly for the first eighteen weeks.")).toBe("Monitoring");
+    expect(labelFor("Monitoring of mood and sleep is documented each shift.")).toBe("Monitoring");
+    expect(labelFor("Monitor the full blood count weekly.")).toBe("Monitoring");
+  });
+
+  it("keeps the escalation entry off `escalator`, which is why it is not `escalat\\w*` (#9XRDF7)", () => {
+    // The guard on the narrower spelling. `escalat\w*` would have been one character shorter and
+    // would paint hospital-estate prose with the `act` tone; "the patient fell on the escalator" is
+    // a fall note, not an instruction to escalate care. This negative case is what stops a later
+    // "simplification" back to a bare stem.
+    expect(labelFor("The patient fell on the escalator.")).toBeUndefined();
+    expect(labelFor("Two escalators were out of service in the outpatient building.")).toBeUndefined();
+  });
+
+  it("widening a mid-array entry takes passages from every tier below it (#9XRDF7)", () => {
+    // NOT a purely additive change, and the assumption that it was is the thing this case exists to
+    // refute. `safetyPatterns.find` returns the FIRST match in severity order, so a widened entry
+    // claims passages that already carried a LOWER-severity label, not only passages that carried
+    // none. Every line below is a measured before -> after movement:
+    //
+    //   Dose limit -> Escalation   "Escalate to 600 mg/day if tolerated."
+    //   Monitoring -> Escalation   "Escalate and repeat the blood test."
+    //   Exclusion  -> Escalation   "Escalate unless the patient declines."
+    //   Caveat     -> Escalation   "Consider escalation if symptoms persist."
+    //   Exclusion  -> Monitoring   "Monitoring of the exclusion criteria is not applicable."
+    //   Caveat     -> Monitoring   "Consider closer monitoring in the elderly."
+    //
+    // The four that land on Escalation also change TONE, from `know` (no status colour) to `act`
+    // (amber). The two that land on Monitoring stay `know`. Tone is what the clinician sees before
+    // reading a word, so the four are the ones worth arguing about.
+    expect(labelFor("Escalate to 600 mg/day if tolerated.")).toBe("Escalation");
+    expect(labelFor("Escalate and repeat the blood test.")).toBe("Escalation");
+    expect(labelFor("Escalate unless the patient declines.")).toBe("Escalation");
+    expect(labelFor("Consider escalation if symptoms persist.")).toBe("Escalation");
+    expect(labelFor("Monitoring of the exclusion criteria is not applicable.")).toBe("Monitoring");
+    expect(labelFor("Consider closer monitoring in the elderly.")).toBe("Monitoring");
+  });
+
+  it("leaves a passage that already reached a higher tier exactly where it was (#9XRDF7)", () => {
+    // The other half of the measurement, and the half that keeps the blast radius honest: nothing
+    // above the widened entry moves. These four all contain "escalate" or "monitoring" and none of
+    // them changed label, because a more severe entry matched first.
+    expect(labelFor("Escalate immediately if the patient deteriorates.")).toBe("Red flag");
+    expect(labelFor("Monitoring is required if severe symptoms appear.")).toBe("Red flag");
+    expect(labelFor("Cardiac monitoring in the emergency department.")).toBe("Red flag");
+    expect(labelFor("Monitoring at the maximum dose is essential.")).toBe("Dose limit");
+  });
+
+  it("over-calls equipment prose as Monitoring, the accepted cost of the monitor fix (#9XRDF7)", () => {
+    // NOT a passing behaviour -- a known false positive, pinned so it is deliberate rather than
+    // discovered later, exactly as the `ceased` case below is. A blood-pressure monitor is a
+    // device; calibrating one is an estate task, not patient monitoring. It is accepted because
+    // `monitor(?:s|ed|ing)?` is what makes "monitoring should continue for eighteen weeks" produce
+    // a chip at all, and because Monitoring carries the `know` tone -- no status colour, the
+    // cheapest label in the array to be wrong about.
+    expect(labelFor("Blood pressure monitors must be calibrated annually.")).toBe("Monitoring");
+  });
+
+  it("still misses `urgently`: the same defect one tier up, NOT fixed here (#9XRDF7)", () => {
+    // Found while measuring #9XRDF7, outside its owner approval, and left alone on purpose.
+    // `\burgent\b` misses "urgently" for exactly the reason `\bescalat\b` missed "escalate", and
+    // it sits in `red_flag` -- the tier where a silent miss costs most. "Urgently reassess the
+    // patient." produces no chip at all today. `review`, `exclude`, `consider`, `caution` and
+    // `transfer` have the same gap on their inflected forms.
+    //
+    // Pinned as a gap, not fixed, because widening a red-flag token moves passages onto the danger
+    // colour and that is the owner's call. When it is made, this expectation flips and this comment
+    // moves with it.
+    expect(labelFor("Urgently reassess the patient.")).toBeUndefined();
+    expect(labelFor("Transferring the patient to the medical ward.")).toBeUndefined();
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {

@@ -303,7 +303,16 @@ describe("audit navigation and auth regressions", () => {
     // because one fixed string announced "No additional matches" over a grid of
     // populated mode cards. The pending arm is the one this contract is about.
     expect(universalAlsoMatchesSource).toMatch(/const panelStatus = searchPending\s*\n?\s*\? "Searching other modes"/);
-    expect(universalAlsoMatchesSource).toContain('const emptyMessage = "No additional matches in other modes.";');
+    // Since #3PW9TY the empty message has two arms, and the contract is about which one
+    // speaks. "No additional matches" is a claim about the catalogue's contents; a catalogue
+    // that could not be read has no contents to report, and saying there are none is the
+    // silent-absence failure the 2026-09-16 outage was. The fixed sentence survives as the
+    // honest-empty arm only.
+    expect(universalAlsoMatchesSource).toContain("const emptyMessage = catalogueDegraded");
+    expect(universalAlsoMatchesSource).toContain(
+      'withCatalogueDegradedNotice("No additional matches in other modes", true)',
+    );
+    expect(universalAlsoMatchesSource).toContain(': "No additional matches in other modes.";');
   });
 
   it("mounts Answer-mode also-matches only after generation completes", () => {
