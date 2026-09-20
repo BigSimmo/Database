@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   phoneOverlayReserveGeometryQuietWindowMs,
+  publishPhoneOverlayChromeReserveNow,
   readPhoneOverlayChromeReservePx,
   usePhoneOverlayChromeReserve,
 } from "@/components/clinical-dashboard/use-phone-overlay-chrome-reserve";
@@ -298,5 +299,83 @@ describe("readPhoneOverlayChromeReservePx", () => {
     act(() => flushFrame(phoneOverlayReserveGeometryQuietWindowMs));
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
     unmount();
+  });
+});
+
+/**
+ * #CHPC5C — the reserve has to grow in the same commit that takes the addon row
+ * out of page flow, not 110ms later.
+ *
+ * Measured on `/differentials/compare` at 390x844: the page paints with the 49px
+ * mode-nav row in flow over the 72px CSS seed; the row portals into the fixed
+ * header at ~315ms and every element rises 49px; the reserve only republishes
+ * 121px at ~423ms. Under renderer load that window widens, and a tap inside it
+ * pressed "Open comparison" and released on "Edit selection" where the link had
+ * just been. The browser retargets such a click to the two controls' common
+ * ancestor, so the link never activates — no error, no navigation, and the
+ * Playwright hit-target check cannot see it because press and release were each
+ * individually on a real element.
+ *
+ * The quiet window still guards what it was built for (a transient wide-stack
+ * measurement during hydration, #147); it just no longer gates a discrete portal
+ * mount whose geometry is already correct.
+ */
+describe("publishPhoneOverlayChromeReserveNow", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    document.documentElement.style.removeProperty("--phone-overlay-chrome-h");
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  function mountStack({ stackHeight, matches }: { stackHeight: number; matches: boolean }) {
+    document.body.innerHTML = `
+      <div class="phone-sticky-header-stack">
+        <div data-testid="universal-header-collapse"></div>
+      </div>
+    `;
+    const stack = document.querySelector(".phone-sticky-header-stack");
+    const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
+    stubOffsetHeight(stack!, stackHeight);
+    stubOffsetHeight(collapse!, stackHeight);
+    vi.stubGlobal("matchMedia", () => ({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+  }
+
+  it("publishes the measured height with no frames and no quiet window", () => {
+    mountStack({ stackHeight: 121, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    // No requestAnimationFrame is stubbed: if this needed a frame to land, the
+    // assertion below could not pass at all.
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
+  });
+
+  it("is a no-op above the phone breakpoint, where the stack stays in flow", () => {
+    mountStack({ stackHeight: 121, matches: false });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+  });
+
+  it("refuses to publish a non-positive measurement over the CSS seed", () => {
+    // Same protection as the observer path: a mid-unmount or `display:contents`
+    // read of 0 must leave the seed alone rather than collapse the reserve
+    // (#146 / PR #1562).
+    mountStack({ stackHeight: 0, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("");
+  });
+
+  it("republishes a shrunk stack when the row returns to page flow", () => {
+    // The mirror of the defect: leaving the larger reserve in place after the
+    // portal releases the row would hold content 49px too low instead.
+    mountStack({ stackHeight: 121, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
+    mountStack({ stackHeight: 72, matches: true });
+    publishPhoneOverlayChromeReserveNow();
+    expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("72px");
   });
 });

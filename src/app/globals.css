@@ -665,7 +665,12 @@
      after paint. That is the same cold-load shift in miniature.
 
      Exact for routes without a `header-collapse-addon` row; addon routes
-     refine by that row's height. */
+     refine by that row's height. That refinement is published synchronously by
+     the portal that claims the row (`publishPhoneOverlayChromeReserveNow`), in
+     the same commit that takes it out of page flow. It must stay synchronous:
+     letting the reserve hook's 80ms quiet window own that transition left every
+     element on the page 49px too high for ~110ms, long enough for a tap to
+     press one control and release on another (#CHPC5C). */
   --phone-overlay-chrome-h: calc(max(0.5rem, var(--safe-area-top)) + var(--shell-header-h));
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --keyboard-height: 0px;

@@ -32,6 +32,36 @@ export function readPhoneOverlayChromeReservePx(root: ParentNode = document): nu
 }
 
 /**
+ * Publishes the measured reserve immediately, without waiting out the geometry
+ * quiet window below.
+ *
+ * The quiet window exists to filter a *transient mis-measurement* — responsive
+ * layout briefly reporting the wide 200px stack during hydration (#147). A
+ * portal that moves a `header-collapse-addon` row out of page flow is not that:
+ * it is a discrete DOM change whose resulting geometry is correct in the very
+ * commit that causes it. Making that case wait cost 110ms of wrong layout.
+ *
+ * What that cost, measured on `/differentials/compare` at 390x844 (#CHPC5C):
+ * the page paints with the 49px mode-nav row in flow over a 72px seed, the row
+ * portals into the fixed header at ~315ms and every element rises 49px, and the
+ * reserve only republishes 121px at ~423ms. A tap landing in that window pressed
+ * "Open comparison" and released on "Edit selection" where it had just been; the
+ * browser retargeted the click to their common ancestor and the link never
+ * activated. No error, no navigation — for a clinician, a button that does
+ * nothing.
+ *
+ * Keeps both guards that matter: phone widths only, and never publish a
+ * non-positive measurement over the CSS seed.
+ */
+export function publishPhoneOverlayChromeReserveNow(): void {
+  if (typeof window === "undefined") return;
+  if (!window.matchMedia(phoneMediaQuery).matches) return;
+  const measured = readPhoneOverlayChromeReservePx();
+  if (measured <= 0) return;
+  document.documentElement.style.setProperty(reserveProperty, `${measured}px`);
+}
+
+/**
  * Publishes the phone overlay header's stable height as `--phone-overlay-chrome-h`
  * so content can reserve a *constant* top clearance beneath it.
  *
