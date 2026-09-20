@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "aa032d89-e26d-4d9b-bea8-97669e10f24b",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Caller IP addresses are stored as unsalted truncated SHA-256 with no retention limit in api_rate_limit_subjects",
+    "detail": "anonymousApiSubjectKey (src/lib/public-api-access.ts) derives the rate-limit subject as the prefix anon: plus the first 32 hex characters of an unsalted SHA-256 of the trusted proxy IP, and stores it in api_rate_limit_subjects.subject_key. The IPv4 address space is small enough that an unsalted hash of it is brute-forced in seconds, so these rows are PSEUDONYMISED, not anonymised, and should be classified as personal information rather than treated as opaque. Separately, and unlike rag_queries, the table has no purge function and no retention window, so rows persist indefinitely (supabase/migrations/20260704000000_api_rate_limit_subjects.sql enables row level security and grants select/insert/update/delete to service_role only). NOT AN EXPOSURE: RLS is on and only service_role reaches it, so a stranger cannot read it. This is a retention and classification matter, which is why it was deferred rather than fixed on the day. NEXT ACTION: two separable decisions. (a) Replace the bare hash with a keyed HMAC using an environment secret, so the key stops being a reversible IP -- note that rotating that secret resets every live rate-limit window, so it needs a deliberate moment. (b) Ship a retention purge mirroring the rag_queries retention migration (supabase/migrations/20260629060603_rag_queries_retention.sql is the pattern). Both are Supabase migrations, so both are owner-merged and reach the live clinical database within seconds of merge.",
+    "source": "Session 2026-09-20, On Call Compliance page security audit",
+    "issueUlid": "01M2ZP1HGA1RWC0H65TK64BMP7"
+  }
+}

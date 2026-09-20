@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5515a0a6-2637-4f19-9826-e837d50b9f4e",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "summariseOnCallFreshness counts staleness by stored section, so compliance is not merely miscounted but inexpressible",
+    "detail": "src/lib/on-call/freshness-summary.ts keys its per-section stale counts off entry.section, so a compliance requirement is counted under Admin (logistics). DORMANT TODAY: the only consumer, src/components/developer-area/hub/on-call-freshness-panel.tsx, reads staleCount, neverVerifiedCount and stale, and never touches bySection or sections. It is still worth a row because bySection is typed ReadonlyMap<OnCallSection, number> and sections is readonly OnCallSection[] -- compliance is not a value either type can hold, so a future caller cannot repair the count at the call site and would have to change this module anyway. BLOCKED ON the On Call view refactor (moving onCallViewForEntry into src/lib/on-call/view.ts): this module is section-keyed only because tests/lib-layering.test.ts stops src/lib importing the helper from src/components. Close it inside that refactor by re-keying bySection and sections to OnCallPageView. NEXT ACTION: none until the view refactor lands; do not patch it in isolation.",
+    "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
+    "issueUlid": "01M2ZP1H5MN8REV9Q25P0D63HC"
+  }
+}

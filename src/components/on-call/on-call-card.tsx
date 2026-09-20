@@ -7,6 +7,7 @@ import { Phone } from "lucide-react";
 import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
 import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { PrintOutput, PrintSection } from "@/components/ui/print-output";
@@ -25,6 +26,15 @@ const CARD_NUMBER_FIELDS: ReadonlyArray<{ label: string; key: string }> = [
   { label: "Direct", key: "phone" },
   { label: "After hours", key: "afterHoursPhone" },
   { label: "Pager", key: "pager" },
+  // `extension` was missing here until 2026-09-19, and a ward stores its number
+  // in that field and nothing else — so every ward flagged for the card printed
+  // as a title and a subtitle with no number under it. The same omission was
+  // found and fixed in `on-call-contacts-section.tsx` (see its own note on "the
+  // number this row rings"); this copy never got it, and nothing tested paper.
+  // Ordered after `pager` to match `onCallPrimaryNumber`'s own preference
+  // ladder in `home-modules.ts`, so the card cannot lead with a different
+  // number from the one the app dials.
+  { label: "Ext", key: "extension" },
   { label: "Fax", key: "fax" },
 ];
 
@@ -70,9 +80,10 @@ function formatPrintedAt(now: Date): string {
  * The printable essentials card (Task 13): a one-page, print-styled summary
  * of whichever entries an owner has explicitly flagged `includeOnCard` —
  * "the thing a junior doctor actually carries in a lanyard pocket." Selection
- * runs through `selectCardEntries`, so a personal number or a number nobody
- * has confirmed in over a year can never reach the page regardless of the
- * flag (`src/lib/on-call/card-selection.ts`).
+ * runs through `selectCardEntries`, so a personal number, a number nobody has
+ * confirmed in over a year, a compliance requirement and a Who's who role
+ * explainer can none of them reach the page regardless of the flag
+ * (`src/lib/on-call/card-selection.ts`, which carries the reasoning for each).
  *
  * The card needs no account, matching the six sections it summarises: the
  * shared read already serves these entries to any visitor, and a card walled
@@ -94,9 +105,22 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
   const now = nowProp ?? mountedAt;
 
   const cardEntries = selectCardEntries(entries, now);
+  // Grouped by the PAGE an entry is on, not the section it is stored in. Two of
+  // this mode's pages are views over a stored section behind `details.kind` —
+  // Compliance over `logistics`, Who's who over `contacts` — and
+  // `ON_CALL_SECTION_TITLES` is keyed by section, so `entry.section` here
+  // printed a role explainer under the heading "Contacts", among rows that are
+  // numbers you ring.
+  //
+  // `selectCardEntries` already refuses both view kinds by name, so nothing
+  // reaching this line is a view row today. This is the second net, and it is
+  // the one that cannot be undone by a change somewhere else: a view row has no
+  // matching `OnCallSection`, so it falls into no group and is left off the
+  // paper entirely rather than printed under a heading that misnames it. A
+  // third view added without a matching exclusion fails the same safe way.
   const groups = ON_CALL_SECTIONS.map((section) => ({
     section,
-    entries: sortCardEntries(cardEntries.filter((entry) => entry.section === section)),
+    entries: sortCardEntries(cardEntries.filter((entry) => onCallViewForEntry(entry) === section)),
   })).filter((group) => group.entries.length > 0);
 
   return (
@@ -106,7 +130,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
         <InformationPageHeader
           eyebrow="On Call"
           title="Essentials card"
-          subtitle="Only entries flagged for the card, with personal numbers and anything overdue for checking left off. Confirm against the live On Call sections before relying on a printed copy."
+          subtitle="Only entries flagged for the card. Personal numbers, compliance requirements, Who's who explainers and anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a printed copy."
         />
 
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
@@ -125,7 +149,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
           <EmptyState
             icon={Phone}
             title="Nothing is flagged for the card yet"
-            body="Open a contact, playbook step, referral, or logistics entry and flag it for the card to have it appear here. Personal numbers and anything overdue for checking are never included."
+            body="Open an entry in Contacts, Playbook, Referrals, Orientation, Teaching or Admin and flag it for the card to have it appear here. Compliance requirements and Who's who explainers can never appear on the card, and nor can personal numbers or anything overdue for checking."
             actions={
               <Link
                 href="/on-call/contacts"

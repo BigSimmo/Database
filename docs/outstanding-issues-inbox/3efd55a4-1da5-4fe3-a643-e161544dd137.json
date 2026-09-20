@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "3efd55a4-1da5-4fe3-a643-e161544dd137",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "task",
+    "summary": "The privacy impact assessment omits five subsystems, including Caring Contacts -- the only patient-data subsystem in the product",
+    "detail": "docs/privacy-impact-assessment.md gained an On Call compliance entry (PIA-9) on 2026-09-20, but still does not mention, at all: (1) CARING CONTACTS, a whole patient-data subsystem with its own database (src/lib/caring-contacts/**, src/lib/caring-contacts-server/**, CARING_CONTACTS_DATABASE_URL) -- by far the largest gap and the only patient data in the product; (2) the PRINTED POCKET CARD, the only artefact that physically leaves the app; (3) the SERVICE WORKER caching policy (public/sw.js) and what it retains on the device; (4) the DEVELOPER HUB (src/components/developer-area/**) and what operational data it surfaces; (5) the PUBLIC CATALOGUE surface and its one anon-callable database function, public.read_site_content_public_records, granted to the anon role. Verified absent by grep on 2026-09-20: zero mentions of caring, pocket, service worker, developer hub or site_content anywhere in the document. This is governance documentation rather than an engineering defect -- nothing is leaking -- but the assessment is the artefact an external adviser reads, and as written it understates the data footprint of the product. NEXT ACTION: add one section-2 data-category row per subsystem and, where a residual risk exists, a numbered PIA entry; do Caring Contacts first and do not let the other four hold it up. Escalate the Caring Contacts part to P1 if the production-configuration check finds that workspace enabled in production.",
+    "source": "Session 2026-09-20, On Call Compliance page security audit",
+    "issueUlid": "01M2ZP1HCZ5Z3CDCFWRYBV7DBV"
+  }
+}

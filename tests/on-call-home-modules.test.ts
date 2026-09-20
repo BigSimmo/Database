@@ -7,7 +7,6 @@ import {
   countOnCallEntriesBySection,
   isOnCallOutOfHours,
   msUntilOnCallHoursBoundary,
-  onCallLocalDateKey,
   onCallPrimaryNumber,
   onCallTelHref,
   selectCallFirstContacts,
@@ -16,6 +15,8 @@ import {
   selectUpcomingSessions,
   selectWardContacts,
 } from "@/lib/on-call/home-modules";
+import { COMPLIANCE_KIND } from "@/lib/on-call/compliance";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { ROLE_EXPLAINER_KIND } from "@/lib/on-call/who-is-who";
 
 /**
@@ -356,6 +357,34 @@ describe("countOnCallEntriesBySection", () => {
     // Otherwise the Contacts tile promises a number that is not in the list.
     const { counts } = countOnCallEntriesBySection([contact({ details: { role: "R", kind: ROLE_EXPLAINER_KIND } })]);
     expect(counts.get("contacts")).toBeUndefined();
+  });
+
+  it("does not count a compliance requirement as an admin row", () => {
+    // The exact mirror of the case above, and it was missing: compliance rows
+    // are stored in `logistics` behind `details.kind`, so counting by section
+    // made the Admin tile promise eight rows the Admin page refuses to render.
+    const { counts, compliance } = countOnCallEntriesBySection([
+      entry({ section: "logistics", details: { category: "Leave" } }),
+      entry({ section: "logistics", details: { category: "Registration", kind: COMPLIANCE_KIND } }),
+    ]);
+    expect(counts.get("logistics")).toBe(1);
+    expect(compliance).toBe(1);
+  });
+
+  it("subtracts both views, so no section count includes a page's worth of hidden rows", () => {
+    // Asserted together rather than in two tests, because the bug was the
+    // ASYMMETRY: one view was subtracted and the other was not, and each half
+    // looked correct on its own.
+    const { counts, roleExplainers, compliance } = countOnCallEntriesBySection([
+      contact({}),
+      contact({ details: { role: "R", kind: ROLE_EXPLAINER_KIND } }),
+      entry({ section: "logistics", details: { category: "Leave" } }),
+      entry({ section: "logistics", details: { category: "Registration", kind: COMPLIANCE_KIND } }),
+    ]);
+    expect(counts.get("contacts")).toBe(1);
+    expect(counts.get("logistics")).toBe(1);
+    expect(roleExplainers).toBe(1);
+    expect(compliance).toBe(1);
   });
 });
 

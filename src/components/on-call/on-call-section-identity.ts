@@ -1,4 +1,14 @@
-import { BookOpen, GraduationCap, ListChecks, MapPinned, MoonStar, Phone, Repeat, Users } from "lucide-react";
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  CalendarClock,
+  GraduationCap,
+  ListChecks,
+  MoonStar,
+  Phone,
+  Repeat,
+  Users,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { type OnCallSection } from "@/lib/on-call/entry-model";
@@ -14,6 +24,17 @@ import { type OnCallSection } from "@/lib/on-call/entry-model";
  *
  * No JSX and no client directive: this is imported by both server and client
  * modules.
+ *
+ * **Type-only imports from the domain model, and that is load-bearing.** This
+ * module is reached from `mode-nav-icons.ts`, which the shared
+ * `MasterSearchHeader` imports, which renders on `/` and `/documents/search`.
+ * A VALUE import of `@/lib/on-call/compliance`, `who-is-who` or `entry-model`
+ * here therefore ships the whole On Call domain model — six Zod schemas — to
+ * someone who only opened the home page. That is not hypothetical: it is the
+ * regression recorded in `tests/on-call-root-bundle-isolation.test.ts`, which
+ * measured `/` at 265.3 KiB gzip against 244.0 KiB and desktop LCP 940 ms
+ * against 772 ms. The pair of functions that needs the model lives in
+ * `on-call-entry-view.ts` for exactly this reason.
  */
 
 /**
@@ -29,7 +50,12 @@ export const ON_CALL_SECTION_TITLES: Record<OnCallSection, string> = {
   referrals: "Referrals",
   orientation: "Orientation",
   education: "Teaching",
-  logistics: "Logistics",
+  // Label only, exactly as `education` → "Teaching" above. The stored section
+  // id, the route segment and the database check constraint all stay
+  // `logistics`; renaming them is a migration for no functional gain. What the
+  // section HOLDS changed with the label — site logistics became the work
+  // admin a doctor does for themselves — but that is content, not schema.
+  logistics: "Admin",
 };
 
 export const ON_CALL_SECTION_ICONS: Record<OnCallSection, LucideIcon> = {
@@ -38,7 +64,7 @@ export const ON_CALL_SECTION_ICONS: Record<OnCallSection, LucideIcon> = {
   referrals: Repeat,
   orientation: BookOpen,
   education: GraduationCap,
-  logistics: MapPinned,
+  logistics: BriefcaseBusiness,
 };
 
 /**
@@ -53,7 +79,7 @@ export const ON_CALL_SECTION_TILE_DESCRIPTIONS: Record<OnCallSection, string> = 
   referrals: "Who takes whom",
   orientation: "Starting and leaving",
   education: "What's on this term",
-  logistics: "Rooms, food, access",
+  logistics: "Leave, forms, rosters",
 };
 
 /**
@@ -80,26 +106,61 @@ export const ON_CALL_SECTION_HREFS: Record<OnCallSection, string> = {
  * a seventh section value, because `section` is a database CHECK constraint. It
  * still needs a page, a title and a glyph, so the view union carries it.
  */
-export type OnCallPageView = OnCallSection | "who-is-who";
+export type OnCallPageView = OnCallSection | "who-is-who" | "compliance";
 
 export const ON_CALL_VIEW_TITLES: Record<OnCallPageView, string> = {
   ...ON_CALL_SECTION_TITLES,
   "who-is-who": "Who's who",
+  compliance: "Compliance",
 };
 
+/**
+ * Compliance wears `CalendarClock`, and deliberately not a shield with a tick.
+ *
+ * `ShieldCheck` was the first choice and is wrong for one reason the compliance
+ * module already spelled out for its own scope note: nothing on that page is
+ * checked with an issuing body, so a tick beside it is a glyph arguing with its
+ * own caption (`src/lib/on-call/compliance.ts`, "What this page may never say").
+ * The mark is `aria-hidden` everywhere, so nothing is voiced — but it is the
+ * first thing seen in the rail, the loading state and the home tile, and a tick
+ * read at a glance is exactly the verdict this page may never render.
+ *
+ * `ShieldAlert` only flips the verdict's sign — it asserts something is wrong,
+ * which is as much a judgement as asserting all is well — and this mode already
+ * uses it as a warning mark. Plain `Shield` is taken: `on-call-home.tsx` draws
+ * the pinned reminder with it, on the same screen as the Compliance tile, and
+ * one glyph must not mean two things on one screen. `CalendarClock` carries no
+ * verdict in either direction and names what every row on the page actually is:
+ * something with a date on it that runs out.
+ */
 export const ON_CALL_VIEW_ICONS: Record<OnCallPageView, LucideIcon> = {
   ...ON_CALL_SECTION_ICONS,
   "who-is-who": Users,
+  compliance: CalendarClock,
+};
+
+/**
+ * The route each VIEW lives at — `ON_CALL_SECTION_HREFS` widened by the two
+ * pages that are views rather than stored sections.
+ *
+ * A separate table rather than pouring the two view routes into
+ * `ON_CALL_SECTION_HREFS`, for the same reason the titles and icons above come
+ * in pairs: that map is keyed by `OnCallSection` and is read all over the mode
+ * with a section in hand, and a map whose name says "section" must not answer
+ * to `compliance`. Keeping the pair means the section-keyed map stays honest
+ * and this one is exhaustive over the views — a new view with no route is a
+ * compile error here rather than a tile that has to hardcode its own string.
+ *
+ * That hardcoding is what this replaces. The home's tile grid carried
+ * `/on-call/compliance` and `/on-call/who-is-who` as literals while the search
+ * box and the Recent list interpolated neither, so the same route was written
+ * in three places and only one of them could be wrong at a time.
+ */
+export const ON_CALL_VIEW_HREFS: Record<OnCallPageView, string> = {
+  ...ON_CALL_SECTION_HREFS,
+  "who-is-who": "/on-call/who-is-who",
+  compliance: "/on-call/compliance",
 };
 
 /** The glyph for the mode home. Not a section, so it is not in the maps above. */
 export const ON_CALL_HOME_ICON: LucideIcon = MoonStar;
-
-/**
- * Which stored section a view writes to. Who's who writes `contacts` rows; every
- * other view writes its own. The editor takes this rather than the view, so a
- * role explainer is saved as what it actually is.
- */
-export function onCallViewStorageSection(view: OnCallPageView): OnCallSection {
-  return view === "who-is-who" ? "contacts" : view;
-}
