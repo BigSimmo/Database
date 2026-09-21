@@ -46,6 +46,21 @@ function demoNumber(n: number): string {
   return `0000 000 0${`${n}`.padStart(2, "0")}`;
 }
 
+/**
+ * A second bank of placeholder numbers, under the same rule as `demoNumber`.
+ *
+ * `demoNumber` puts its distinguishing digit last, which yields only eighteen
+ * usable values — 1-9 and the round tens — before a second non-zero digit
+ * appears and the corpus guard rightly rejects the result (see
+ * `tests/on-call-demo-entries.test.ts`, "keeps every number obviously fake").
+ * This one moves the digit rather than adding one, so the directory can grow
+ * without either repeating a number or producing something that reads like a
+ * line which rings.
+ */
+function demoNumberAlt(n: number): string {
+  return `0000 ${n}00 000`;
+}
+
 function id(n: number): string {
   return `00000000-0000-4000-8000-${`${n}`.padStart(12, "0")}`;
 }
@@ -212,6 +227,164 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
+  // ---- Contacts, continued: enough wards to make the strip scroll, and the
+  // three number fields the one-line rows above never exercise ----
+  //
+  // `ON_CALL_WARD_STRIP_LIMIT` is eight, and three wards never showed what the
+  // strip does when it has to scroll. These take it to six. The rest carry a
+  // `pager`, an `afterHoursPhone` and an `availability` window, each of which
+  // renders differently from a bare `phone` and none of which appeared in the
+  // corpus before — a field with no demo row is a field nobody sees until a
+  // real one is typed into it.
+  entry({
+    id: id(12),
+    section: "contacts",
+    slug: "demo-ward-three",
+    title: "Demo Ward Three",
+    subtitle: "Nurses' station",
+    body: null,
+    details: { role: "Ward nurses' station", extension: "0004" },
+    linkedDocumentIds: [],
+    tags: [ON_CALL_HOME_TAGS.ward, "Wards"],
+    isPersonal: false,
+    includeOnCard: true,
+    sortOrder: 9,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(13),
+    section: "contacts",
+    slug: "demo-high-dependency-unit",
+    title: "Demo high dependency unit",
+    subtitle: "Nurses' station",
+    body: null,
+    details: { role: "Ward nurses' station", extension: "0005" },
+    linkedDocumentIds: [],
+    tags: [ON_CALL_HOME_TAGS.ward, "Wards"],
+    isPersonal: false,
+    includeOnCard: true,
+    sortOrder: 10,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(14),
+    section: "contacts",
+    slug: "demo-older-adult-ward",
+    title: "Demo older adult ward",
+    subtitle: "Nurses' station",
+    body: null,
+    details: { role: "Ward nurses' station", extension: "0006" },
+    linkedDocumentIds: [],
+    tags: [ON_CALL_HOME_TAGS.ward, "Wards"],
+    isPersonal: false,
+    includeOnCard: true,
+    sortOrder: 11,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(15),
+    section: "contacts",
+    slug: "demo-consultant-on-call",
+    title: "Demo consultant on call",
+    subtitle: "Through switchboard first, this number second",
+    body: null,
+    // The only row carrying a pager, so the pager line on a contact row is
+    // visible in a browser rather than only in the schema.
+    details: {
+      role: "Consultant on call",
+      phone: demoNumber(30),
+      pager: "0007",
+      availability: "Overnight and weekends",
+    },
+    linkedDocumentIds: [],
+    tags: ["Tonight"],
+    isPersonal: false,
+    includeOnCard: true,
+    sortOrder: 12,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(16),
+    section: "contacts",
+    slug: "demo-pharmacy",
+    title: "Demo pharmacy",
+    subtitle: "Two numbers, and they are not the same one",
+    body: null,
+    // The only row with both a daytime and an after-hours number, which is the
+    // case the two-number layout exists for.
+    details: {
+      role: "Pharmacy",
+      phone: demoNumber(40),
+      afterHoursPhone: demoNumber(50),
+      availability: "On site until 17:00",
+    },
+    linkedDocumentIds: [],
+    tags: ["Services"],
+    isPersonal: false,
+    includeOnCard: true,
+    sortOrder: 13,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(17),
+    section: "contacts",
+    slug: "demo-patient-transport",
+    title: "Demo patient transport",
+    subtitle: "Booking line",
+    body: null,
+    details: { role: "Patient transport", phone: demoNumber(60), availability: "24 hours" },
+    linkedDocumentIds: [],
+    tags: ["Services"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 14,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(18),
+    section: "contacts",
+    slug: "demo-social-work-after-hours",
+    title: "Demo social work, after hours",
+    subtitle: "Example entry shown in demo mode",
+    body: null,
+    details: { role: "Social work", phone: demoNumber(70), availability: "From 17:00" },
+    linkedDocumentIds: [],
+    tags: ["Services"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 15,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(19),
+    section: "contacts",
+    slug: "demo-medical-workforce-unit",
+    title: "Demo medical workforce unit",
+    subtitle: "Rosters, leave and pay — the people, not the building",
+    body: null,
+    // Tagged Services, not Admin, and that is a constraint rather than a
+    // preference. The Contacts page groups by tag and its bar is the drawing's
+    // three words — Services, Tonight, Wards — which `ui-on-call-boards.spec.ts`
+    // asserts exactly, at two widths. "Admin" exists as a contacts tag (Demo bed
+    // management carries it) but produces no group today, because that row is
+    // never-verified and files under "needs checking" instead. A VERIFIED Admin
+    // row is therefore what makes a fourth group appear, and a fourth group is a
+    // change to the drawing, not a fixture decision. A workforce desk is a
+    // number you ring, which is what Services holds.
+    details: {
+      role: "Medical workforce",
+      phone: demoNumber(80),
+      contactName: "Demo workforce officer",
+      availability: "Weekdays, business hours",
+    },
+    linkedDocumentIds: [],
+    tags: ["Services"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 16,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
   // ---- Who's who: role explainers, filed in contacts ----
   entry({
     id: id(10),
@@ -241,6 +414,90 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     isPersonal: false,
     includeOnCard: false,
     sortOrder: 1,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
+  // Five more role explainers, because two made Who's who look like a pair of
+  // footnotes rather than the page it is. A junior doctor covering a first
+  // night does not need the registrar's number so much as the sentence saying
+  // when ringing the registrar is the right thing to do — that is what this
+  // page holds, and it only reads as such once the whole ladder is on it.
+  entry({
+    id: id(100),
+    section: "contacts",
+    slug: "demo-role-nurse-in-charge",
+    title: "What the nurse in charge does",
+    subtitle: "Your first call for almost everything on the ward",
+    body: "Placeholder role description shown only in demo mode.",
+    details: { role: "Nurse in charge", kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags: ["Roles"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 2,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(101),
+    section: "contacts",
+    slug: "demo-role-resident",
+    title: "What the resident covering the wards does",
+    subtitle: "The other doctor in the building overnight",
+    body: "Placeholder role description shown only in demo mode.",
+    details: { role: "Resident medical officer", kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags: ["Roles"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 3,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(102),
+    section: "contacts",
+    slug: "demo-role-duty-manager",
+    title: "What the after-hours duty manager does",
+    subtitle: "Beds, staffing and anything that is not a patient",
+    body: "Placeholder role description shown only in demo mode.",
+    details: { role: "After-hours duty manager", kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags: ["Roles"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 4,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(103),
+    section: "contacts",
+    slug: "demo-role-medical-workforce",
+    title: "What medical workforce does",
+    subtitle: "Your roster, your leave and your pay — not a clinical desk",
+    body: "Placeholder role description shown only in demo mode.",
+    // The counterpart to the Admin section: Admin holds the forms, this says
+    // whose desk they land on. The pair is the whole reason Admin and
+    // Compliance were split out of one "logistics" list.
+    details: { role: "Medical workforce", kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags: ["Roles"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 5,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(104),
+    section: "contacts",
+    slug: "demo-role-director-of-training",
+    title: "What the director of training does",
+    subtitle: "Supervision, teaching and progression through the programme",
+    body: "Placeholder role description shown only in demo mode.",
+    details: { role: "Director of training", kind: "role-explainer" },
+    linkedDocumentIds: [],
+    tags: ["Roles"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 6,
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
@@ -299,6 +556,128 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
+  // Four more ladders. Two was enough to prove a ladder renders and not enough
+  // to show what the Playbook is: a shelf of the handful of situations that
+  // actually generate an overnight call, each answered by who to ring and in
+  // what order. Escalation only — THE PLAYBOOK RULE — so every trigger below
+  // is a staffing, bed, safety or process problem, and none of them says what
+  // to do for a patient.
+  entry({
+    id: id(22),
+    section: "playbook",
+    slug: "demo-escalation-registrar-unreachable",
+    title: "Demo escalation — the registrar is not answering",
+    subtitle: "Do not sit on this one",
+    body: null,
+    details: {
+      trigger: "Example escalation scenario shown in demo mode",
+      escalationSteps: [
+        { order: 1, whoToCall: "Demo registrar on call", when: "Twice, five minutes apart.", phone: demoNumber(2) },
+        {
+          order: 2,
+          whoToCall: "Demo Hospital switchboard",
+          when: "Ask them to page and to confirm the page went.",
+          phone: demoNumber(9),
+        },
+        {
+          order: 3,
+          whoToCall: "Demo consultant on call",
+          // NOT "You are expected to make this call". That sentence belongs to
+          // the pinned reminder, and `ui-on-call-boards.spec.ts` locates it by
+          // text — a second copy makes the locator ambiguous and the board
+          // assertion fails on a strict-mode violation rather than on anything
+          // being wrong with the page.
+          when: "If there is still no answer. Do not keep waiting on the registrar.",
+          phone: demoNumber(30),
+        },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 2,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(23),
+    section: "playbook",
+    slug: "demo-escalation-no-bed",
+    title: "Demo escalation — no bed available after hours",
+    subtitle: null,
+    body: null,
+    details: {
+      trigger: "Example escalation scenario shown in demo mode",
+      escalationSteps: [
+        { order: 1, whoToCall: "Demo bed management, after hours", when: "First.", phone: demoNumber(5) },
+        { order: 2, whoToCall: "Demo after-hours duty manager", when: "If nothing is found within the hour." },
+        {
+          order: 3,
+          whoToCall: "Demo consultant on call",
+          when: "Before any decision that leaves someone waiting overnight.",
+          phone: demoNumber(30),
+        },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 3,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(24),
+    section: "playbook",
+    slug: "demo-escalation-security-incident",
+    title: "Demo escalation — a safety incident on the ward",
+    subtitle: "Security first, then the people who have to know",
+    body: null,
+    details: {
+      trigger: "Example escalation scenario shown in demo mode",
+      escalationSteps: [
+        { order: 1, whoToCall: "Demo security escort", when: "Immediately.", phone: demoNumber(3) },
+        { order: 2, whoToCall: "Nurse in charge, on the ward", when: "As soon as the area is safe." },
+        { order: 3, whoToCall: "Demo after-hours duty manager", when: "Same shift, not the next morning." },
+        { order: 4, whoToCall: "Demo consultant on call", when: "Same shift.", phone: demoNumber(30) },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 4,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(25),
+    section: "playbook",
+    slug: "demo-escalation-complaint-overnight",
+    title: "Demo escalation — a complaint raised overnight",
+    subtitle: "A ladder with no phone numbers on it, which is allowed",
+    body: null,
+    // Deliberately numberless: an escalation step is a person and a moment,
+    // and the row has to read properly when the owner has not recorded a
+    // number for any of them.
+    details: {
+      trigger: "Example escalation scenario shown in demo mode",
+      escalationSteps: [
+        {
+          order: 1,
+          whoToCall: "Nurse in charge, on the ward",
+          when: "Listen and write it down. Nothing else tonight.",
+        },
+        { order: 2, whoToCall: "Demo after-hours duty manager", when: "Before the end of the shift." },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: [],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 5,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
   // ---- Referrals: tagged, so the chip row has something to filter ----
   entry({
     id: id(30),
@@ -340,6 +719,157 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     isPersonal: false,
     includeOnCard: false,
     sortOrder: 1,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
+  // Six more services, filed into four groups rather than two.
+  //
+  // FOUR GROUPS, NOT SIX, and that is a measured limit rather than a taste.
+  // The page's group bar is a `wordmark-five` band: at five items every word
+  // shows, and the sixth collapses the row into four words plus a "More".
+  // `tests/ui-on-call-boards.spec.ts` asserts the bar still offers
+  // "Community", so a fifth and sixth group here would push the assertion's
+  // own word into an overflow menu. A service that needs a new group needs
+  // the bar widened first.
+  //
+  // `accepts` and `exclusions` stay placeholder strings throughout. Who a
+  // service takes is the one thing on this page a reader would act on, and a
+  // demo corpus is the last place that should be answered — the shape of the
+  // row is what these rows are for.
+  entry({
+    id: id(32),
+    section: "referrals",
+    slug: "demo-adult-community-team",
+    title: "Demo adult community team, north",
+    subtitle: "The one with a form rather than a phone call",
+    body: null,
+    // The only row carrying a form link and a fax, so both render somewhere a
+    // browser can see them.
+    details: {
+      accepts: [
+        "Example acceptance criterion shown in demo mode",
+        "Second example acceptance criterion shown in demo mode",
+      ],
+      exclusions: ["Example exclusion shown in demo mode"],
+      catchment: "Demo catchment, north",
+      hours: "Weekdays, business hours",
+      howToRefer: "Placeholder referral process shown only in demo mode.",
+      phone: demoNumber(90),
+      fax: demoNumberAlt(5),
+      referralFormUrl: "https://example.org/demo-referral-form",
+    },
+    linkedDocumentIds: [],
+    tags: ["Community"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 2,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(33),
+    section: "referrals",
+    slug: "demo-community-outreach-team",
+    title: "Demo community outreach team",
+    subtitle: "Goes to people who will not come in",
+    body: null,
+    details: {
+      accepts: ["Example acceptance criterion shown in demo mode"],
+      exclusions: ["Example exclusion shown in demo mode"],
+      catchment: "Demo catchment, whole service",
+      hours: "Seven days, daytime",
+      phone: demoNumberAlt(1),
+    },
+    linkedDocumentIds: [],
+    tags: ["Community"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 3,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(34),
+    section: "referrals",
+    slug: "demo-youth-after-hours-line",
+    title: "Demo youth after-hours line",
+    subtitle: "The one that answers overnight",
+    body: null,
+    details: {
+      accepts: ["Example acceptance criterion shown in demo mode"],
+      exclusions: ["Example exclusion shown in demo mode"],
+      hours: "Overnight, seven days",
+      howToRefer: "Placeholder referral process shown only in demo mode.",
+      phone: demoNumberAlt(2),
+    },
+    linkedDocumentIds: [],
+    tags: ["Youth"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 4,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(35),
+    section: "referrals",
+    slug: "demo-older-adult-team",
+    title: "Demo older adult team",
+    subtitle: "Weekdays only",
+    body: null,
+    details: {
+      accepts: ["Example acceptance criterion shown in demo mode"],
+      exclusions: ["Example exclusion shown in demo mode"],
+      catchment: "Demo catchment",
+      hours: "Weekdays, business hours",
+      phone: demoNumberAlt(3),
+    },
+    linkedDocumentIds: [],
+    tags: ["Older"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 5,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(36),
+    section: "referrals",
+    slug: "demo-memory-service",
+    title: "Demo memory service",
+    subtitle: "Referral by letter, not by phone",
+    body: null,
+    // No phone at all, which is the case the row has to survive: a service
+    // reached only in writing must not render as a blank dial button.
+    details: {
+      accepts: ["Example acceptance criterion shown in demo mode"],
+      exclusions: ["Example exclusion shown in demo mode"],
+      hours: "Weekdays, business hours",
+      howToRefer: "Placeholder referral process shown only in demo mode.",
+      referralFormUrl: "https://example.org/demo-memory-service-referral",
+    },
+    linkedDocumentIds: [],
+    tags: ["Older"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 6,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(37),
+    section: "referrals",
+    slug: "demo-perinatal-service",
+    title: "Demo perinatal service",
+    subtitle: "Example entry shown in demo mode",
+    body: null,
+    details: {
+      accepts: ["Example acceptance criterion shown in demo mode"],
+      exclusions: ["Example exclusion shown in demo mode"],
+      catchment: "Demo catchment",
+      hours: "Weekdays, business hours",
+      phone: demoNumberAlt(4),
+    },
+    linkedDocumentIds: [],
+    tags: ["Perinatal"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 7,
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
@@ -464,6 +994,142 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
+  // Seven more shelves, so each folder holds a shelf rather than a single
+  // item.
+  //
+  // A folder with one thing in it does not read as a folder — it reads as a
+  // heading somebody forgot to delete, and that is what Orientation looked
+  // like with six rows across four folders plus the unfiled one. Manuals in
+  // particular is the folder the section is named for, and one ward manual
+  // does not show that the shelf is per-ward. The folder names themselves are
+  // fixed by `ORIENTATION_CATEGORY_OPTIONS` in the editor and nothing here
+  // invents a new one.
+  entry({
+    id: id(46),
+    section: "orientation",
+    slug: "demo-induction-week-timetable",
+    title: "Demo induction week timetable",
+    subtitle: "What is on, and which of it is compulsory",
+    body: null,
+    details: { pinnedSummaryIsOwnerNote: true, category: "Induction" },
+    linkedDocumentIds: [],
+    tags: ["Starting"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 6,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(47),
+    section: "orientation",
+    slug: "demo-first-week-checklist",
+    title: "Your first week",
+    subtitle: "Example checklist shown in demo mode",
+    body: "Placeholder orientation note shown only in demo mode.",
+    // The third checklist in the corpus. Two proved the control renders; three
+    // in two different folders shows that a checklist is a property of a
+    // shelf rather than a property of one folder.
+    details: {
+      pinnedSummaryIsOwnerNote: true,
+      category: "Induction",
+      checklist: [
+        { text: "Finish the compulsory induction modules", note: "They gate your logins." },
+        { text: "Meet your supervisor and agree a supervision time" },
+        { text: "Find the on-call room and the after-hours entrance" },
+        { text: "Check your name is on the roster you think you are on" },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: ["Starting"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 7,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(48),
+    section: "orientation",
+    slug: "demo-ward-two-manual",
+    title: "Demo Ward Two manual",
+    subtitle: "How the ward runs its own day",
+    body: null,
+    details: { pinnedSummaryIsOwnerNote: true, category: "Manuals" },
+    linkedDocumentIds: [],
+    tags: ["Wards"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 8,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(49),
+    section: "orientation",
+    slug: "demo-high-dependency-unit-manual",
+    title: "Demo high dependency unit manual",
+    subtitle: "Staffing, handover times and who runs the round",
+    body: null,
+    details: { pinnedSummaryIsOwnerNote: true, category: "Manuals" },
+    linkedDocumentIds: [],
+    tags: ["Wards"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 9,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(110),
+    section: "orientation",
+    slug: "demo-older-adult-ward-manual",
+    title: "Demo older adult ward manual",
+    subtitle: "How the ward runs its own day",
+    body: null,
+    details: { pinnedSummaryIsOwnerNote: true, category: "Manuals" },
+    linkedDocumentIds: [],
+    tags: ["Wards"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 10,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(111),
+    section: "orientation",
+    slug: "demo-after-hours-escalation-policy",
+    title: "Demo after-hours escalation policy",
+    subtitle: "The written version of what the Playbook shows as a ladder",
+    body: "Placeholder pointer shown only in demo mode. The policy itself lives in your own documents.",
+    details: { pinnedSummaryIsOwnerNote: true, category: "Policies" },
+    linkedDocumentIds: [],
+    tags: ["Policies"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 11,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(112),
+    section: "orientation",
+    slug: "demo-end-of-rotation-handover",
+    title: "End of rotation handover",
+    subtitle: "Example checklist shown in demo mode",
+    body: null,
+    details: {
+      pinnedSummaryIsOwnerNote: true,
+      category: "Departure",
+      checklist: [
+        { text: "Write the handover for whoever takes the list" },
+        { text: "Close or reassign anything still open in your name" },
+        { text: "Ask for your term assessment before you leave", note: "Chasing it afterwards takes months." },
+      ],
+    },
+    linkedDocumentIds: [],
+    tags: ["Finishing"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 12,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
   // ---- Teaching: dated, so "Coming up" has something to rank ----
   entry({
     id: id(50),
@@ -505,6 +1171,127 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     includeOnCard: false,
     sortOrder: 1,
     lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
+  // Five more sessions, so the Teaching page is a term rather than a pair.
+  //
+  // Between them they carry every field the section has: a structured
+  // `recurrenceRule` that the home rolls forward, a one-off with no rule at
+  // all, a `presenter`, a `recordingUrl` and a list of `topics`. The dates are
+  // relative to today for the same reason the two above are — the corpus has
+  // to still show a term when it is read a year from now.
+  entry({
+    id: id(52),
+    section: "education",
+    slug: "demo-case-conference",
+    title: "Demo case conference",
+    subtitle: "Example session shown in demo mode",
+    body: null,
+    details: {
+      recurrence: "Weekly in term, except the first week back",
+      nextOccurrence: "This week, 12:30",
+      nextOccurrenceDate: demoDateKey(1),
+      recurrenceRule: { frequency: "weekly" },
+      location: "Demo seminar room",
+      presenter: "Demo presenter",
+      topics: ["Example topic shown in demo mode"],
+    },
+    linkedDocumentIds: [],
+    tags: ["Teaching"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 2,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(53),
+    section: "education",
+    slug: "demo-exam-preparation-group",
+    title: "Demo exam preparation group",
+    subtitle: "Runs fortnightly through the year",
+    body: null,
+    details: {
+      recurrence: "Fortnightly",
+      nextOccurrence: "Next fortnight, 17:00",
+      nextOccurrenceDate: demoDateKey(8),
+      recurrenceRule: { frequency: "fortnightly" },
+      location: "Demo tutorial room",
+      topics: ["Example topic shown in demo mode", "Second example topic shown in demo mode"],
+    },
+    linkedDocumentIds: [],
+    tags: ["Teaching"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 3,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(54),
+    section: "education",
+    slug: "demo-grand-rounds",
+    title: "Demo grand rounds",
+    subtitle: "Recorded, so it can be watched later",
+    body: null,
+    // The only session with a recording link, which is a different control
+    // from a location and has to be seen next to one.
+    details: {
+      recurrence: "Monthly",
+      nextOccurrence: "Later this month, 12:00",
+      nextOccurrenceDate: demoDateKey(18),
+      recurrenceRule: { frequency: "monthly" },
+      location: "Demo lecture theatre",
+      presenter: "Demo presenter",
+      recordingUrl: "https://example.org/demo-grand-rounds-recording",
+      topics: ["Example topic shown in demo mode"],
+    },
+    linkedDocumentIds: [],
+    tags: ["Teaching"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 4,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(55),
+    section: "education",
+    slug: "demo-simulation-afternoon",
+    title: "Demo simulation afternoon",
+    subtitle: "Once a term, and it is not repeated",
+    body: null,
+    // A one-off: dated, but with no `recurrenceRule`, so the roll-forward
+    // leaves it alone and it drops off the home once its date passes. That is
+    // the behaviour the rule exists to distinguish, and it needs a row.
+    details: {
+      recurrence: "Once a term",
+      nextOccurrence: "Later in the term, 13:00",
+      nextOccurrenceDate: demoDateKey(40),
+      location: "Demo simulation suite",
+      presenter: "Demo presenter",
+    },
+    linkedDocumentIds: [],
+    tags: ["Teaching"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 5,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(56),
+    section: "education",
+    slug: "demo-supervision-hour",
+    title: "Demo supervision hour",
+    subtitle: "Yours to arrange with your supervisor",
+    body: "Placeholder note shown only in demo mode.",
+    // Undated on purpose. An undated session still belongs on the Teaching
+    // page and simply cannot be ranked on the home — the one case the
+    // optionality of `nextOccurrenceDate` exists for.
+    details: { recurrence: "Weekly, by arrangement" },
+    linkedDocumentIds: [],
+    tags: ["Teaching"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 6,
+    lastVerifiedAt: NEVER_VERIFIED,
   }),
 
   // ---- Admin: the work admin a doctor does for themselves ----
@@ -799,6 +1586,172 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     isPersonal: false,
     includeOnCard: false,
     sortOrder: 17,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+
+  // Ten more rows, weighted towards Leave.
+  //
+  // Leave is the folder this section was re-pointed at — the work admin a
+  // doctor does for themselves rather than the site's logistics — and three
+  // rows did not show that. Seven does: the reader can see that sick leave,
+  // PDL, annual, parental, carer's, study and unpaid leave are seven
+  // different processes with seven different people to tell, which is the
+  // fact the folder exists to make findable at all.
+  //
+  // No new folder is invented. `ADMIN_CATEGORY_OPTIONS` in the editor is the
+  // whole list, and a row that will not fit one of its six words is a change
+  // to that list rather than a seventh word typed in here.
+  entry({
+    id: id(120),
+    section: "logistics",
+    slug: "demo-carers-leave",
+    title: "Demo carer's leave",
+    subtitle: "Who to tell, and what counts",
+    body: null,
+    details: { category: "Leave", url: "https://example.org/demo-carers-leave" },
+    linkedDocumentIds: [],
+    tags: ["Leave"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 18,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(121),
+    section: "logistics",
+    slug: "demo-study-and-exam-leave",
+    title: "Demo study and exam leave",
+    subtitle: "Separate from PDL, and applied for separately",
+    body: null,
+    details: { category: "Leave", url: "https://example.org/demo-study-leave" },
+    linkedDocumentIds: [],
+    tags: ["Leave"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 19,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(122),
+    section: "logistics",
+    slug: "demo-leave-without-pay",
+    title: "Demo leave without pay",
+    subtitle: "What it does to your increment and your accrual",
+    body: null,
+    details: { category: "Leave" },
+    linkedDocumentIds: [],
+    tags: ["Leave"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 20,
+    lastVerifiedAt: NEVER_VERIFIED,
+  }),
+  entry({
+    id: id(123),
+    section: "logistics",
+    slug: "demo-compassionate-leave",
+    title: "Demo compassionate leave",
+    subtitle: "Ring first, paperwork after",
+    body: "Placeholder administrative note shown only in demo mode.",
+    details: { category: "Leave", phone: demoNumber(80) },
+    linkedDocumentIds: [],
+    tags: ["Leave"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 21,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(124),
+    section: "logistics",
+    slug: "demo-safe-hours-and-night-rosters",
+    title: "Demo safe hours and night rosters",
+    subtitle: "The breaks the roster is meant to give you",
+    body: null,
+    details: { category: "Rosters", url: "https://example.org/demo-safe-hours" },
+    linkedDocumentIds: [],
+    tags: ["Roster"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 22,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(125),
+    section: "logistics",
+    slug: "demo-higher-duties",
+    title: "Demo higher duties and acting up",
+    subtitle: "What to claim when you cover a level above your own",
+    body: null,
+    details: { category: "Pay", hours: "Weekdays, business hours", phone: demoNumberAlt(6) },
+    linkedDocumentIds: [],
+    tags: ["Pay"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 23,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(126),
+    section: "logistics",
+    slug: "demo-relocation-allowance",
+    title: "Demo relocation and accommodation allowance",
+    subtitle: "For a term at another site",
+    body: null,
+    details: { category: "Pay", url: "https://example.org/demo-relocation" },
+    linkedDocumentIds: [],
+    tags: ["Pay"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 24,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(127),
+    section: "logistics",
+    slug: "demo-incident-and-hazard-form",
+    title: "Demo incident and hazard report form",
+    subtitle: "Same shift, not the next morning",
+    body: null,
+    details: { category: "Forms", url: "https://example.org/demo-incident-form" },
+    linkedDocumentIds: [],
+    tags: ["Forms"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 25,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(128),
+    section: "logistics",
+    slug: "demo-flexible-working-request-form",
+    title: "Demo flexible working request form",
+    subtitle: null,
+    body: null,
+    details: { category: "Forms", url: "https://example.org/demo-flexible-working" },
+    linkedDocumentIds: [],
+    tags: ["Forms"],
+    isPersonal: false,
+    includeOnCard: false,
+    sortOrder: 26,
+    lastVerifiedAt: VERIFIED_RECENTLY,
+  }),
+  entry({
+    id: id(129),
+    section: "logistics",
+    slug: "demo-parking-permit",
+    title: "Demo parking permit",
+    subtitle: "And where to park before it comes through",
+    body: null,
+    // Private, like every other row in this folder. The Access folder is
+    // whole-folder private by construction and a test asserts it, because a
+    // single shared row in it would make the page's blanket statement false.
+    details: { category: "Access" },
+    linkedDocumentIds: [],
+    tags: ["Access"],
+    isPersonal: true,
+    includeOnCard: false,
+    sortOrder: 27,
     lastVerifiedAt: VERIFIED_RECENTLY,
   }),
 
