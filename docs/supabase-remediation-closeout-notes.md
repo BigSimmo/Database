@@ -44,9 +44,10 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 ## 3. Staging / prod apply status (operator)
 
-- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared.
+- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared. **Prod Auth not changed.**
 - **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
-- **Staging Auth:** leaked-password WARN remains until Joshua toggles Auth dashboard.
+- **Staging Auth (Phase 1): DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**, CAPTCHA still **OFF**.
+- **DB pool (absolute):** staging 15/200 · prod 24/200.
 
 ## 4. Railway env inventory (names only)
 
@@ -65,6 +66,6 @@ Names-only check — **no values recorded.**
 ## 5. Out of scope here
 
 - No schema/DDL from this closeout file.
-- Auth dashboard CAPTCHA/signup vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned when Phase 1 Auth finishes.
+- Auth dashboard CAPTCHA (still OFF on staging) vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned; prod Auth unchanged.
 
-_Updated 2026-09-21 — Railway names-only inventory appended; Documentation owns._
+_Updated 2026-09-21 — Phase 1 staging Auth + pool notes; Documentation owns._
