@@ -1,16 +1,18 @@
 "use client";
 
-import { Lock, MapPinned, Pencil, Phone } from "lucide-react";
+import { BriefcaseBusiness, FileText, Lock, MapPinned, Pencil, Phone, type LucideIcon } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
 import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { onCallAdminCategoryLabel } from "@/components/on-call/on-call-page-sections";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
+import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
@@ -33,8 +35,6 @@ interface OnCallLogisticsDetails {
   url?: string;
 }
 
-const UNGROUPED_CATEGORY = "General";
-
 function parseLogisticsDetails(details: unknown): OnCallLogisticsDetails | null {
   const result = onCallDetailsSchemaFor("logistics").safeParse(details);
   return result.success ? (result.data as OnCallLogisticsDetails) : null;
@@ -46,9 +46,21 @@ function telHref(raw: string | undefined): string | undefined {
   return compact.length > 0 ? `tel:${compact}` : undefined;
 }
 
-function logisticsCategoryFor(entry: OnCallEntry): string {
-  const details = parseLogisticsDetails(entry.details);
-  return details?.category ?? UNGROUPED_CATEGORY;
+/**
+ * The glyph a row wears, which follows what the row IS rather than what this
+ * section used to be called.
+ *
+ * Every row here once got a map pin, because every row was a place — parking,
+ * the call room, the after-hours door. Most admin is not a place: a leave
+ * application, a roster, a pay claim and a form were all being pinned to a
+ * location they do not have. The pin is now reserved for the rows that really
+ * carry one, which is how the facilities notes this page was first built for
+ * stay at home here rather than reading as strays.
+ */
+function adminRowIcon(details: OnCallLogisticsDetails | null, callable: boolean): LucideIcon {
+  if (callable) return Phone;
+  if (details?.location) return MapPinned;
+  return FileText;
 }
 
 function LogisticsRow({
@@ -72,7 +84,7 @@ function LogisticsRow({
       <div className="flex items-stretch gap-2">
         <div className="min-w-0 flex-1">
           <OnCallEntryRow
-            icon={href ? Phone : MapPinned}
+            icon={adminRowIcon(details, Boolean(href))}
             title={entry.title}
             subtitle={details?.location}
             href={href}
@@ -123,10 +135,30 @@ function LogisticsRow({
 }
 
 /**
- * The Logistics section: the plainest On Call page (spec §8.4) — grouped
- * rows, each naming a place, an hour range, or a number. Grouped by
- * `details.category`, which the schema requires on every entry, so the
+ * The Admin section: the work admin a doctor does for themselves — leave, both
+ * sick and professional development; rosters and hours; pay and claims; forms;
+ * IT and access. Facilities keep a folder of their own, so the parking, food
+ * and call-room notes this page was first built for are still at home in it
+ * rather than being orphaned by the change of purpose.
+ *
+ * Compliance rows never reach this list. They are stored in the same section
+ * behind `details.kind`, because `section` is a database CHECK constraint and a
+ * seventh value costs a migration that reaches the live clinical database, and
+ * `partitionLogisticsEntries` is the single place the two are told apart. A
+ * registration whose expiry can stop someone working has no business filed
+ * among forms and rosters, where nothing is expected to run out — that is the
+ * one hazard `src/lib/on-call/compliance.ts` documents, and this filter is half
+ * of what closes it.
+ *
+ * Grouped by `details.category`, which the schema requires on every row, so the
  * grouping key can never be missing the way Contacts' `tags`-derived area can.
+ * The label itself comes from `onCallAdminCategoryLabel`, shared with the jump
+ * list this page's header draws, so a heading and the row that jumps to it
+ * cannot drift apart.
+ *
+ * Only the label and the contents changed. The section id, the route segment
+ * and the stored value all stay `logistics`; renaming them would be a migration
+ * for no functional gain.
  */
 export function OnCallLogisticsSection({
   entries,
@@ -135,22 +167,22 @@ export function OnCallLogisticsSection({
   onEditEntry,
   onVerified,
 }: OnCallLogisticsSectionProps) {
-  const logisticsEntries = entries.filter((entry) => entry.section === "logistics");
+  const adminEntries = partitionLogisticsEntries(entries).admin;
 
-  if (logisticsEntries.length === 0) {
+  if (adminEntries.length === 0) {
     return (
       <EmptyState
-        icon={MapPinned}
-        title="No logistics notes yet"
-        body="Parking, food, call rooms, IT, rostering, payroll and leave will appear here, grouped by category."
+        icon={BriefcaseBusiness}
+        title="No admin entries yet"
+        body="Leave, rosters, pay, forms, access and facilities will appear here, filed into folders. Compliance requirements live on their own page."
         testId="on-call-logistics-empty"
       />
     );
   }
 
   const byCategory = new Map<string, OnCallEntry[]>();
-  for (const entry of logisticsEntries) {
-    const category = logisticsCategoryFor(entry);
+  for (const entry of adminEntries) {
+    const category = onCallAdminCategoryLabel(entry);
     const existing = byCategory.get(category);
     if (existing) existing.push(entry);
     else byCategory.set(category, [entry]);
@@ -208,8 +240,8 @@ export function OnCallLogisticsSection({
               >
                 <Lock aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
                 <span>
-                  <b className="text-[color:var(--text-heading)]">Only you can see this group.</b> After-hours entry and
-                  locked-ward detail stay off the page everyone else reads.
+                  <b className="text-[color:var(--text-heading)]">Only you can see this group.</b> Your own leave, pay
+                  and access detail stays off the page everyone else reads.
                 </span>
               </p>
             ) : null}

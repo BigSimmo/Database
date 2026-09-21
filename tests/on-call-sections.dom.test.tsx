@@ -91,6 +91,32 @@ const UNLINKED_SCENARIO = entry("playbook", {
 const FORBIDDEN_CLINICAL_LANGUAGE =
   /\b(administer|dosage|titrate|titration|antipsychotic|benzodiazepine|olanzapine|haloperidol|lorazepam|diazepam|IM stat|IV stat|\d+\s?mg)\b/i;
 
+/**
+ * The card's text with element boundaries preserved as spaces.
+ *
+ * `textContent` concatenates adjacent elements with no separator, so a drug
+ * name in one span beside a dose in the next reads as `"lorazepam2mg"` — and
+ * every pattern above is word-boundary anchored, so neither `\blorazepam\b`
+ * nor `\b\d+\s?mg\b` matches it and the gate passes on the exact markup it
+ * exists to catch. Found 2026-09-20 by an agent that hit the same flaw in its
+ * own new test and went looking for others.
+ *
+ * Walking text nodes and joining on a space restores the boundary the DOM
+ * already implies visually. It cannot over-match: two halves of one real word
+ * are never in separate elements in this component.
+ */
+function renderedText(root: HTMLElement): string {
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const parts: string[] = [];
+  let node = walker.nextNode();
+  while (node) {
+    const text = node.textContent?.trim();
+    if (text) parts.push(text);
+    node = walker.nextNode();
+  }
+  return parts.join(" ");
+}
+
 describe("OnCallPlaybookSection", () => {
   it("renders escalation steps as an ordered list of who, when, and a tap-to-call number", () => {
     render(<OnCallPlaybookSection entries={[ACUTE_AGITATION]} now={NOW} />);
@@ -140,8 +166,8 @@ describe("OnCallPlaybookSection", () => {
     // The clinical-safety assertion: nowhere on this card — not the empty
     // state, not the trigger/step text, not the trigger label — does the app
     // author a clinical instruction in its own voice.
-    expect(card.textContent ?? "").not.toMatch(FORBIDDEN_CLINICAL_LANGUAGE);
-    expect(emptyState.textContent ?? "").not.toMatch(/typically|you would|first line|as a rule/i);
+    expect(renderedText(card)).not.toMatch(FORBIDDEN_CLINICAL_LANGUAGE);
+    expect(renderedText(emptyState)).not.toMatch(/typically|you would|first line|as a rule/i);
   });
 
   it("renders a real empty state, and no cards at all, when there are no playbook entries", () => {

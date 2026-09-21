@@ -214,6 +214,12 @@ const routeDescriptions: Record<string, string> = {
     "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
   "/cme/customise":
     "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
+  // The second On Call page that is a view rather than a stored section, and
+  // the second to need a line here for that reason: both are `details.kind`
+  // discriminators over an existing section, so neither has a section title
+  // for the generator to fall back on.
+  "/on-call/compliance":
+    "The requirements a doctor keeps current for themselves, grouped by what lapsing costs. Recorded dates only — never a check with the issuing body.",
   "/tools": "Clinical tools and applications launcher directory.",
   // Ward Flow's routes moved under /mockups/ward-flow/** in the sandbox move (see
   // src/lib/developer-area/headers.ts). Mockup routes deliberately carry no curated

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5ff1a540-62a3-4169-a3ff-0bfd0830b255",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "A silent HTTP 400 on long or single-character queries, and a unit-less creatinine range message",
+    "detail": "(a) api/search/universal/route.ts:36 is z.string().trim().min(2).max(200); a 614-char query 400s with no message anywhere on screen, and a single character 400s the same way. (b) The Serum creatinine field rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one. Carried forward from the refutation of #WFARS3.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQP26HXC4D4E76HBA0F4E"
+  }
+}

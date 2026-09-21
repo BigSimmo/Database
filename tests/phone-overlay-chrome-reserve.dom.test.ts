@@ -331,6 +331,13 @@ describe("readPhoneOverlayChromeReservePx", () => {
  * The quiet window still guards what it was built for (a transient wide-stack
  * measurement during hydration, #147); it just no longer gates a discrete portal
  * mount whose geometry is already correct.
+ *
+ * EVERY CASE BELOW CALLS THE PUBLISHER DIRECTLY, so it proves what the function
+ * does once invoked and nothing about who invokes it, or when. Both
+ * `useLayoutEffect` blocks that call it could be deleted and this whole block
+ * would stay green. The wiring — and the two transitions it does not cover, one
+ * of which is the cold load #CHPC5C actually recorded — lives in
+ * `tests/phone-overlay-reserve-portal-wiring.dom.test.tsx`.
  */
 describe("publishPhoneOverlayChromeReserveNow", () => {
   beforeEach(() => {
@@ -423,9 +430,11 @@ describe("publishPhoneOverlayChromeReserveNow", () => {
     expect(document.documentElement.style.getPropertyValue("--phone-overlay-chrome-h")).toBe("121px");
   });
 
-  it("republishes a shrunk stack when the row returns to page flow", () => {
+  it("publishes a shrunk stack too, when something invokes it after the row returns to flow", () => {
     // The mirror of the defect: leaving the larger reserve in place after the
-    // portal releases the row would hold content 49px too low instead.
+    // portal releases the row holds content 49px too low instead. Note the
+    // careful title — the function shrinks correctly, but on a portal UNMOUNT
+    // nothing calls it, which the wiring test pins as an open gap.
     mountStack({ stackHeight: 121, matches: true });
     settleReserve();
     publishPhoneOverlayChromeReserveNow();

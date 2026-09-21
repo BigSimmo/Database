@@ -137,6 +137,48 @@ function triageTrustedSnapshots(
   return snapshots;
 }
 
+/**
+ * What the counts mean, as a value rather than as a sequence of `console.error` calls.
+ *
+ * WHY THIS IS SEPARATE. `triageSnapshots` is empty exactly when no group has an adapter canonical
+ * candidate, and `canonicalCandidate` requires ALL FOUR of `publicationState === "published"`,
+ * `renderedByPublicSite`, `explicitlyReconciled` and `rowOwnerId === null`. This script supplies
+ * the first three at their pre-adoption values by construction, and every
+ * `clinical_registry_records` row is owner-scoped, so a corpus that has never published through
+ * the control plane can produce NO snapshots at all. Every group then lands on
+ * `divergent_requires_administrator_review`, and a refusal that reads those counts naively tells
+ * the operator that N groups diverge from a published snapshot — about content nobody has touched,
+ * against a snapshot that was never built.
+ *
+ * Measured live 2026-09-21: 222 service rows and 54 form rows, all with a non-null `owner_id`;
+ * `site_content_publications` 0 rows; `site_content_public_records` 0 rows; the run reported
+ * "triage snapshots 0 / needs owner review 222 / adoptable 0" and blamed the corpus.
+ *
+ * `not_comparable` is therefore its own verdict. It is still a refusal — nothing is published in
+ * this state either — but it sends the reader at the mechanism rather than at 222 service records.
+ */
+export type PlannerVerdict =
+  | { kind: "not_comparable"; comparableGroups: number; ownerScopedRows: number }
+  | { kind: "needs_review"; needsReview: number; missing: number }
+  | { kind: "proceed" };
+
+export function plannerVerdict(input: {
+  groups: number;
+  missing: number;
+  triageSnapshots: number;
+  needsReview: number;
+  ownerScopedRows: number;
+}): PlannerVerdict {
+  const comparableGroups = input.groups - input.missing;
+  if (input.triageSnapshots === 0 && comparableGroups > 0) {
+    return { kind: "not_comparable", comparableGroups, ownerScopedRows: input.ownerScopedRows };
+  }
+  if (input.needsReview > 0 || input.missing > 0) {
+    return { kind: "needs_review", needsReview: input.needsReview, missing: input.missing };
+  }
+  return { kind: "proceed" };
+}
+
 async function main() {
   const options = parseOptions(process.argv.slice(2));
   const published = publishedRecords(options.population);
@@ -186,8 +228,45 @@ async function main() {
   console.log(`  adoptable             ${report.adoptableCount}`);
   console.log(`  identical duplicates  ${report.identicalDuplicateCount}`);
 
+  const verdict = plannerVerdict({
+    groups: groups.length,
+    missing: missing.length,
+    triageSnapshots: triageSnapshots.length,
+    needsReview: needsReview.length,
+    ownerScopedRows: candidates.filter((candidate) => candidate.rowOwnerId !== null).length,
+  });
+
+  // THE REFUSAL THAT IS NOT ABOUT THE CORPUS. Reported first, because the counts underneath it
+  // are the ones that mislead: every group reads as divergent when nothing was comparable.
+  if (verdict.kind === "not_comparable") {
+    console.error("");
+    console.error("PLAN NOT WRITTEN — and this is NOT a finding about the catalogue's content.");
+    console.error(`  ${verdict.comparableGroups} group(s) are published, yet not one trusted snapshot could be`);
+    console.error("  built, so nothing was compared and every group reads as needing review. That count");
+    console.error("  measures the state of the control plane, not drift in the records.");
+    console.error("");
+    console.error("  A group is only comparable when its adapter canonical candidate satisfies ALL of:");
+    console.error("    publicationState = 'published'");
+    console.error("    renderedByPublicSite = true");
+    console.error("    explicitlyReconciled = true");
+    console.error("    rowOwnerId = null");
+    console.error(
+      `  ${verdict.ownerScopedRows} of ${rows.length} row(s) here are owner-scoped, so the last one cannot hold,`,
+    );
+    console.error("  and a corpus that has never published through the control plane fails the first three");
+    console.error("  by definition. No input to this script can change that.");
+    console.error("");
+    console.error("  So this is a FIRST PUBLICATION, not an adoption, and adoption is the only thing this");
+    console.error("  script knows how to plan. Settle that before more tooling is written, and do NOT");
+    console.error("  resolve it by loosening reconcileCanonicalPublicSiteContent — that would mark");
+    console.error("  owner-scoped rows canonical for a clinical publication, which is the one judgement");
+    console.error("  this script exists to refuse. See docs/site-content-publication-handover.md.");
+    process.exitCode = 1;
+    return;
+  }
+
   // THE REFUSAL. Everything below would be mechanical; this is the part that is not.
-  if (needsReview.length > 0 || missing.length > 0) {
+  if (verdict.kind === "needs_review") {
     console.error("");
     console.error("PLAN NOT WRITTEN — decisions are required that this script must not make.");
     if (needsReview.length > 0) {

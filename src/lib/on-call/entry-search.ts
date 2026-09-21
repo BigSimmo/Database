@@ -1,4 +1,6 @@
+import { complianceExpiresOn, isComplianceEntry } from "@/lib/on-call/compliance";
 import { onCallDetailsSchemaFor, type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 
 /**
  * Local search across every On Call entry the viewer already holds.
@@ -56,7 +58,24 @@ const RANK_TEXT = 2;
 
 export interface OnCallSearchResult {
   entry: OnCallEntry;
-  /** Duplicated from the entry so a caller can group without re-reading it. */
+  /**
+   * The STORED section, duplicated off the entry. Do not group, label, route or
+   * count by it, and do not add a caller that does.
+   *
+   * It was added so a caller could group without re-reading the entry, and that
+   * stated purpose is the trap: two of this mode's pages are views over a
+   * stored section behind `details.kind` — Compliance over `logistics`, Who's
+   * who over `contacts` — so this field files a compliance requirement under
+   * Admin and sends a role explainer to Contacts. `onCallViewForEntry` in
+   * `on-call-section-identity.ts` is the only thing that answers "which page is
+   * this row on", and `OnCallSearchBox` already reads that instead.
+   *
+   * Nothing in `src/` reads this any more. It survives only because
+   * `tests/on-call-entry-search.test.ts` asserts on it ("carries the section
+   * alongside the entry so the caller can group"), and weakening a test to
+   * delete a field is not a trade this repository makes. Retire the two
+   * together.
+   */
   section: OnCallSection;
   /** 0 title, 1 tag, 2 body/subtitle/details. Exposed so ordering is inspectable. */
   rank: number;
@@ -146,20 +165,92 @@ function detailStrings(entry: OnCallEntry): string[] {
       break;
     case "logistics":
       for (const key of ["category", "location", "hours", "phone"]) push(details[key]);
+      // Compliance requirements are `logistics` rows behind `details.kind`, so
+      // they land in this arm, and `issuingBody` is the one compliance field a
+      // person actually types. The row someone wants is "my Ahpra
+      // registration"; until this line "Ahpra" — the word printed on the very
+      // page they are trying to reach — matched nothing at all, and so did
+      // "RANZCP" and "Department of Communities". A search box exists so that
+      // finding something does not require knowing which page it is on, and
+      // without this it reinstated exactly that problem for the most natural
+      // query Compliance has.
+      push(details.issuingBody);
+      // The remaining compliance fields are deliberately NOT indexed:
+      //
+      // - `expiresOn` is a bare `YYYY-MM-DD`, which nobody types to find a
+      //   requirement — and indexing it would damage the mode's single most
+      //   likely query. `fieldMatches` also compares digits-only, so
+      //   "2027-03-12" indexes as "20270312" and a half-remembered number typed
+      //   as "0312" would drag back every requirement expiring in March. The
+      //   date is shown in the result summary below instead, which is where it
+      //   helps.
+      // - `consequence` and `provenance` store enum tokens — "stops-work",
+      //   "read-from-certificate" — that no reader is ever shown. Indexing the
+      //   token makes "work" return every requirement whose lapse stops work,
+      //   noise the reader cannot account for. The phrasing they DO see
+      //   ("Lapsing stops you working") lives in the component layer, and
+      //   copying it down here would be a third copy of a list this mode has
+      //   already let drift once.
+      // - `url` and `evidenceUrl` are links rather than prose; `url` was
+      //   already left out above for the same reason.
       break;
   }
   return strings;
 }
 
 /**
- * The one line under a result's title: the role, the category, the scenario.
+ * `YYYY-MM-DD` written the way the Compliance page writes it: "12 Mar 2027".
+ *
+ * Deliberately the mode's own date formatter rather than a second one, so a
+ * registration's expiry does not read one way in a search result and another
+ * on the page the result opens. An unparseable value falls back to the stored
+ * string rather than to an invented date, exactly as `formatExpiry` does in
+ * `on-call-compliance-section.tsx`.
+ */
+function formatRecordedExpiry(date: string): string {
+  const { day, month, year } = onCallTeachingDateParts(date);
+  return day && month ? `${day} ${month} ${year}` : date;
+}
+
+/**
+ * The one line under a result's title: the role, the expiry, the category, the
+ * scenario.
  *
  * Section-specific because the sections genuinely disagree about what names a
- * row — a contact is its role, a logistics entry is its category, a playbook
+ * row — a contact is its role, an admin entry is its category, a playbook
  * entry is the situation that triggers it. Falls back to the subtitle, then to
  * nothing at all rather than to filler.
+ *
+ * A compliance requirement is the exception and is checked first, because it
+ * shares `logistics` with the admin entries and the category is the wrong
+ * answer for it. "Registration" is the folder the row files under; the reason
+ * the row exists at all is the date on it, and a reader scanning results for
+ * their registration is scanning for that date. Answering with the folder
+ * spends the one line this row gets on the least informative thing about it.
+ *
+ * Two constraints on the wording, both load-bearing:
+ *
+ * - "Recorded as expiring", never "Expires" or "Valid to". Nothing in this app
+ *   is checked with an issuing body, so no surface built on these rows may
+ *   render a verdict — see `src/lib/on-call/compliance.ts`, "What this page may
+ *   never say". The phrase here is the Compliance page's own, word for word.
+ * - No "that date has passed" suffix, which the page does add. This function
+ *   takes no clock and must not read one: it is called during render for every
+ *   result, and a summary that silently depends on `new Date()` is a value that
+ *   changes underneath a memoised list. Whether the date has passed is the
+ *   page's job, where a `now` is already in hand.
+ *
+ * The expiry is read through `complianceExpiresOn` rather than off the parse
+ * below, for the reason that helper exists: `logisticsDetails` is all-or-
+ * nothing, so one bad key elsewhere on the row would drop a perfectly good
+ * date. A row with no readable date falls through to the category, which is
+ * then genuinely the best thing left to say about it.
  */
 export function onCallSearchSummary(entry: OnCallEntry): string | null {
+  if (isComplianceEntry(entry)) {
+    const expiresOn = complianceExpiresOn(entry);
+    if (expiresOn) return `Recorded as expiring ${formatRecordedExpiry(expiresOn)}`;
+  }
   const parsed = onCallDetailsSchemaFor(entry.section).safeParse(entry.details);
   if (parsed.success) {
     const details = parsed.data as Record<string, unknown>;

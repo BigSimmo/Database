@@ -38,7 +38,12 @@ const expectedLabels: Record<AppModeId, string[]> = {
     // "Teaching" is the label; the id, route segment and check constraint all
     // stay "education".
     "Teaching",
-    "Logistics",
+    // "Admin" is likewise label-only: the id, route segment and check
+    // constraint all stay "logistics". Compliance is not a section at all —
+    // it is a view over those same stored rows, discriminated by
+    // `details.kind`, so it costs no migration and appears here without one.
+    "Admin",
+    "Compliance",
     "Who's who",
     "Pocket card",
   ],

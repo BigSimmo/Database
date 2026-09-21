@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "bc090157-042c-4114-80a5-1a481fe0e249",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "WebKit renders the differentials compare page body twice, producing two <main> elements with the same test id",
+    "detail": "Found 2026-09-20 while reading the release-browser-matrix logs for the #2925 merge commit 7936c3f9e (run 35519242943, job 106102164822). tests/ui-tools.spec.ts:2953 \"differentials compare queue launches presentation comparison\" fails in WebKit, and NOT with the tap-target race that #CHPC5C is about. It fails with: strict mode violation: getByTestId(\"differential-compare-queue\") resolved to 2 elements. Both are <main data-testid=\"differential-compare-queue\" class=\"min-h-[calc(100dvh-var(--shell-header-h))] ...\">, byte-identical in class; Playwright disambiguates them as getByTestId(\"mobile-composer-reserve-pad\").getByTestId(\"differential-compare-queue\") and getByTestId(\"differential-compare-queue\").nth(1). So one copy is inside the shell reserve pad (src/components/clinical-dashboard/global-search-shell.tsx:1116) and one is outside it. WHY THIS IS A REAL DEFECT AND NOT A TEST PROBLEM: only ONE source location emits that test id — src/components/differentials/differential-compare-queue-page.tsx:85 — so the page body component is being RENDERED TWICE at runtime. Two <main> landmarks on one document is also an accessibility defect in its own right and is the class of thing expectDomIntegrity exists to catch, so it is worth checking whether that helper covers landmark duplication. NOT ESTABLISHED: whether the double render is WebKit-specific in cause or merely WebKit-specific in exposure — the likelier reading is that a shell branch renders children twice under some condition and only WebKit timing surfaces it, which would mean Chromium and Firefox are one timing change away from the same fault. Also not established: whether this predates the #2925 merge; the failure was read on that merge commit only. Chromium passes this test, including in the required Production UI shards. TO INVESTIGATE: render /differentials/compare at 390x844 and count <main> elements; if reproducible off WebKit, this is a shell composition bug rather than an engine one. The diagnostics bundle is artifact 10608281397 on run 35519242943, readable from a machine whose egress allows GitHub blob storage (this sandbox gets 403).",
+    "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); read from CI logs via the GitHub API, not reproduced locally — WebKit cannot be installed in this environment",
+    "issueUlid": "01M2ZSYW4HTWS2GDE69HCY238C"
+  }
+}

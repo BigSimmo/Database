@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d2275b40-44a4-4c35-8ac3-7abc0f31f307",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Differentials badges dress reference-bullet counts as clinical assessment states",
+    "detail": "differential-detail.ts:110-124 maps section tone to a suffix (fit->present, warning->possible, question->positive, action->pending) and appends it to the item count, rendering green '2 present' with a tick, '8 possible', '1 positive', '5 pending'. Nothing patient-specific has been entered. The DSM sibling gets this right ('0 of 5 recorded'). Clinical wording - report for a human, do not reword unilaterally.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQN0QKZDNNX4XJ94C6K2Q"
+  }
+}

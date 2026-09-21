@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-20"
+    "committed_at": "2026-09-21"
   },
   "routes": {
     "modes": [
@@ -196,6 +196,11 @@
         "area": "mockup"
       },
       {
+        "path": "/mockups/on-call-shift-cover",
+        "file": "src/app/mockups/on-call-shift-cover/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/on-call",
         "file": "src/app/(search-app)/on-call/page.tsx",
         "area": "product"
@@ -216,6 +221,11 @@
         "area": "product"
       },
       {
+        "path": "/mockups/coverage-gaps",
+        "file": "src/app/mockups/coverage-gaps/page.tsx",
+        "area": "mockup"
+      },
+      {
         "path": "/mockups/document-phone-zero-chrome",
         "file": "src/app/mockups/document-phone-zero-chrome/page.tsx",
         "area": "mockup"
@@ -223,6 +233,11 @@
       {
         "path": "/mockups/caring-contacts/contacts/[contactId]",
         "file": "src/app/mockups/caring-contacts/contacts/[contactId]/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/doctor-compliance",
+        "file": "src/app/mockups/doctor-compliance/page.tsx",
         "area": "mockup"
       },
       {
@@ -404,6 +419,11 @@
         "path": "/mockups/therapy-recommend-popup-dossier",
         "file": "src/app/mockups/therapy-recommend-popup-dossier/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/compliance",
+        "file": "src/app/(search-app)/on-call/compliance/page.tsx",
+        "area": "product"
       },
       {
         "path": "/cme/log/[id]",
@@ -793,6 +813,11 @@
       {
         "path": "/mockups/tools-split-compact-sheet",
         "file": "src/app/mockups/tools-split-compact-sheet/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/clinical-sign-off-actions",
+        "file": "src/app/mockups/clinical-sign-off-actions/page.tsx",
         "area": "mockup"
       },
       {
@@ -1223,6 +1248,11 @@
       {
         "path": "/mockups/ward-flow/statistics/overview",
         "file": "src/app/mockups/ward-flow/statistics/overview/page.tsx",
+        "area": "mockup"
+      },
+      {
+        "path": "/mockups/on-call-calendars",
+        "file": "src/app/mockups/on-call-calendars/page.tsx",
         "area": "mockup"
       },
       {
@@ -1920,6 +1950,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/on-call/design/2026-09-19-review-and-proposals.md",
+        "section": "on-call",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/reports/ward-builder-two-session-review-2026-09-02.md",
         "section": "ward-flow",
         "catalogued": false
@@ -2330,6 +2365,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/product/2026-09-19-second-recommendations.md",
+        "section": "product",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow-phase-3-workspace/task-6a-brief.md",
         "section": "ward-flow-phase-3-workspace",
         "catalogued": true
@@ -2433,6 +2473,11 @@
         "path": "docs/ward-management-context.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
+        "section": "product",
+        "catalogued": false
       },
       {
         "path": "docs/ward-flow/sdd-rescued/ward-community-index/progress.md",
@@ -3787,6 +3832,11 @@
       {
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
         "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/on-call/design/2026-09-20-admin-compliance-and-folders.md",
+        "section": "on-call",
         "catalogued": true
       },
       {
@@ -5998,6 +6048,11 @@
         "path": "docs/audit/worktree-reconciliation-2026-08-23.md",
         "section": "audit",
         "catalogued": true
+      },
+      {
+        "path": "docs/audit/2026-09-20-visual-ux-audit.md",
+        "section": "audit",
+        "catalogued": false
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-3-brief.md",

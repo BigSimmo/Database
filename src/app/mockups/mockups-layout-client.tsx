@@ -177,6 +177,21 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
 
   const isFavouritesPhonePerfectedMockup = pathname === "/mockups/favourites-phone-perfected";
 
+  // Both On Call studies draw the universal top bar inside every 390px artboard,
+  // because the chrome budget above the fold is part of what each board is
+  // arguing about. Shared chrome would read as a second real header over eight
+  // frames that each already have one — and On Call declares no search surface
+  // at all, so a composer above these boards would contradict the very contract
+  // the mode is built on.
+  const isOnCallStudyMockup = pathname === "/mockups/on-call-shift-cover" || pathname === "/mockups/on-call-calendars";
+  // The compliance study borrows the same artboard scaffold, so it needs the
+  // same treatment for the same reason: its own top bar is inside every frame.
+  const isDoctorComplianceMockup = pathname === "/mockups/doctor-compliance";
+  // Two desk-width studies on the same scaffold. Both draw the developer hub's
+  // own panel chrome inside every frame, and neither is a search surface.
+  const isGovernanceStudyMockup =
+    pathname === "/mockups/clinical-sign-off-actions" || pathname === "/mockups/coverage-gaps";
+
   return (
     <GlobalMockupSearchShell
       initialMode={
@@ -232,6 +247,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
+        !isOnCallStudyMockup &&
+        !isDoctorComplianceMockup &&
+        !isGovernanceStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
       chromeVisible={
@@ -269,6 +287,9 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isDictionaryControlRowMockup &&
         !isFactsheetsTopicsPhoneMockup &&
         !isFavouritesPhonePerfectedMockup &&
+        !isOnCallStudyMockup &&
+        !isDoctorComplianceMockup &&
+        !isGovernanceStudyMockup &&
         !isSpecifierRecordDirectionsMockup
       }
     >

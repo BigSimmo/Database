@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c309008f-eca9-4d70-b372-fde709467af6",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Two contrast failures on live controls: document section-nav subtitle and the shared Show-all chip",
+    "detail": "axe color-contrast. (a) section-nav.tsx:183-185 'Long sections collapsed' computes 3.13:1 at 10px (fg #5291ca on bg #f2f8fe) in BOTH themes; it is a live control, so the inert-control exemption does not apply. (b) show-all-chip.tsx:39-40 computes 4.23:1 at 13px (fg #1d6fb8 on bg #dde9f4) in LIGHT ONLY, passing in dark. Light theme carries three axe violations to dark's one.",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQNX77J47R188F3T354A8"
+  }
+}

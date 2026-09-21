@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "ef19ac03-6c24-4b2f-9c47-abd733a7ad45",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "next dev is OOM-killed after compiling roughly 55-60 routes in sequence",
+    "detail": "Reproduced three times at ~13.6 GB RSS in a 16 GB container, each time around the same point in a sequential route sweep; a --max-old-space-size cap did not help. The visual audit had to build and serve production instead. Not a product defect, but it costs anyone doing sustained local work across many routes, and a whole sweep going blank looks like an app failure (the 2026-08-06 audit recorded exactly that misreading).",
+    "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
+    "issueUlid": "01M2ZSQPHBMFV1Z2H76TR0EFHN"
+  }
+}

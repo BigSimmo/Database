@@ -39,9 +39,17 @@ export function PhoneHeaderCollapsePortal({ children }: { children: ReactNode })
     };
   }, []);
 
-  // Runs after the commit that mounted (or removed) the portal, so the stack it
-  // measures already includes or excludes this subtree. Both directions matter:
-  // on the way back into flow an unchanged reserve leaves content too low.
+  // Runs after the commit that resolved (or dropped) the host, so the stack it
+  // measures already includes or excludes this subtree.
+  //
+  // Two things it does NOT do, both pinned in
+  // tests/phone-overlay-reserve-portal-wiring.dom.test.tsx. On a cold first
+  // load the publisher is suppressed outright — see its SCOPE LIMIT note. And
+  // there is no cleanup, so unmounting this component leaves the reserve at the
+  // taller value and holds content too low until the quiet window catches up;
+  // a cleanup cannot simply publish, because React runs layout-effect destroys
+  // before it detaches portal children, so it would measure the row it is
+  // about to lose.
   useLayoutEffect(() => {
     publishPhoneOverlayChromeReserveNow();
   }, [phoneHost]);

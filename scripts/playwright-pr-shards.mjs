@@ -51,7 +51,10 @@ export const prUiSpecProfiles = Object.freeze([
   // The On Call artboard sweep: eleven boards at the width they were drawn at,
   // plus the site's own narrow, tablet and dark-mode points. Zero timing per the
   // convention above — keep it on the lightest measured shard until hosted
-  // evidence exists. Measured locally at ~24s for 36 tests.
+  // evidence exists. The one local measurement, ~24s, was taken when the spec
+  // held 36 tests; it now holds 46 (board 11 became Admin and Compliance was
+  // added) and has NOT been re-measured. Treat the figure as a stale lower
+  // bound rather than a current timing.
   { file: "tests/ui-cme-phone.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   { file: "tests/ui-on-call-boards.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 1, fullSeconds: 42.5, criticalSeconds: 0 },

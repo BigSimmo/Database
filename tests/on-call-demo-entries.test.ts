@@ -8,8 +8,8 @@ import {
   selectSwitchboardContact,
   selectUpcomingSessions,
   selectWardContacts,
-  onCallLocalDateKey,
 } from "@/lib/on-call/home-modules";
+import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
