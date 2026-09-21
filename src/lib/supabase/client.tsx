@@ -112,7 +112,14 @@ function createBrowserSupabaseClient() {
     return null;
   }
 
-  const projectCheck = checkSupabaseProjectConfig({ NEXT_PUBLIC_SUPABASE_URL: url });
+  const projectCheck = checkSupabaseProjectConfig({
+    NEXT_PUBLIC_SUPABASE_URL: url,
+    // The ref and name are non-secret identity metadata. Staging must declare
+    // them publicly because this guard runs in the browser; the server-only
+    // SUPABASE_STAGING_* values are intentionally unavailable here.
+    SUPABASE_STAGING_PROJECT_REF: process.env.NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF,
+    SUPABASE_STAGING_PROJECT_NAME: process.env.NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME,
+  });
   if (projectCheck.status === "mismatch") {
     console.error(formatSupabaseProjectCheck(projectCheck));
     browserSupabaseClient = null;

@@ -47,6 +47,8 @@ export function parseClinicalAskDisabledModes(value: unknown): string[] {
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF: z.string().optional(),
+  NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME: z.string().optional(),
   SUPABASE_PROJECT_REF: z.string().optional(),
   SUPABASE_PROJECT_NAME: z.string().optional(),
   // Optional: declares a second accepted (staging) Supabase project so the
