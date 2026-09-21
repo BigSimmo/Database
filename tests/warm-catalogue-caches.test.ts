@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearCatalogueSeedFallbackCooldown } from "@/lib/site-content/catalogue-seed-fallback";
 import { clearSiteContentRecordCache } from "@/lib/site-content/site-content-record-cache";
-import { catalogueSearchWarmKinds, warmCanonicalCatalogueSearchCaches } from "@/lib/site-content/warm-catalogue-caches";
+import {
+  catalogueSearchWarmBudgetMs,
+  catalogueSearchWarmKinds,
+  warmCanonicalCatalogueSearchCaches,
+} from "@/lib/site-content/warm-catalogue-caches";
 
 const { readCanonicalSiteContentRecords, markCatalogueProcessConnectionWarmed } = vi.hoisted(() => ({
   readCanonicalSiteContentRecords: vi.fn(),
@@ -28,6 +32,7 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.clearAllMocks();
   clearCatalogueSeedFallbackCooldown();
   clearSiteContentRecordCache();
@@ -68,6 +73,42 @@ describe("warmCanonicalCatalogueSearchCaches", () => {
     expect(readCanonicalSiteContentRecords).toHaveBeenCalledTimes(3);
     expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  // Codex P2: a never-settling warm RPC must not pin the process; recovery must succeed afterward.
+  it("bounds each warm read with an abort signal so a hung RPC cannot pin later recovery", async () => {
+    vi.useFakeTimers();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const seenSignals: AbortSignal[] = [];
+
+    readCanonicalSiteContentRecords.mockImplementation(async ({ signal }: { signal?: AbortSignal }) => {
+      expect(signal).toBeInstanceOf(AbortSignal);
+      seenSignals.push(signal!);
+      await new Promise<never>((_resolve, reject) => {
+        const onAbort = () => reject(signal!.reason ?? new DOMException("aborted", "AbortError"));
+        if (signal!.aborted) onAbort();
+        else signal!.addEventListener("abort", onAbort, { once: true });
+      });
+    });
+
+    const hung = warmCanonicalCatalogueSearchCaches({} as never);
+    await vi.advanceTimersByTimeAsync(catalogueSearchWarmBudgetMs * catalogueSearchWarmKinds.length);
+    await hung;
+
+    expect(seenSignals).toHaveLength(catalogueSearchWarmKinds.length);
+    expect(seenSignals.every((signal) => signal.aborted)).toBe(true);
+    expect(markCatalogueProcessConnectionWarmed).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+
+    // Recovery after the hung warm: bounded signal lets a later warm succeed.
+    readCanonicalSiteContentRecords.mockResolvedValue({
+      records: [],
+      source: "canonical_public",
+      snapshot: null,
+    });
+    await warmCanonicalCatalogueSearchCaches({} as never);
+    expect(markCatalogueProcessConnectionWarmed).toHaveBeenCalled();
     warn.mockRestore();
   });
 });

@@ -8,11 +8,13 @@ import {
   catalogueSearchScope,
   catalogueSeedFallbackBudgetMs,
   catalogueSeedFallbackCooldownMs,
+  catalogueSeedFallbackRetryBudgetMs,
   clearCatalogueSeedFallbackCooldown,
   markCatalogueProcessConnectionWarmed,
   readCatalogueWithSeedFallback,
   withCatalogueDegradedNotice,
 } from "@/lib/site-content/catalogue-seed-fallback";
+import { siteContentRecordCacheStaleMs } from "@/lib/site-content/site-content-record-cache";
 
 type CatalogueRecord = { slug: string };
 
@@ -38,13 +40,13 @@ function clock(startedAt = 1_000_000) {
  * that asserts what happens when a read fails is describing the warm path, so it warms first and
  * keeps asserting exactly what it always did. The cold path has its own cases.
  */
-async function warm(kind: string, scope?: string) {
+async function warm(kind: string, scope?: string, now: () => number = Date.now) {
   const outcome = await readCatalogueWithSeedFallback({
     kind,
     scope,
     seeds,
     read: async () => canonical,
-    now: () => 0,
+    now,
   });
   expect(outcome.degraded).toBe(false);
 }
@@ -690,5 +692,72 @@ describe("concurrent cold catalogue reads are serialised across kinds", () => {
     ]);
 
     expect(maxConcurrent).toBe(2);
+  });
+
+  // Codex P1: processHasWarmedCanonicalRead must not outlive the record-cache idle ceiling.
+  it("re-arms cold serialisation after the site-content cache stale ceiling", async () => {
+    const time = clock();
+    await warm("form", undefined, time.now);
+
+    // Past the idle ceiling the cached connection is cold again — concurrent kinds must serialise.
+    time.advance(siteContentRecordCacheStaleMs);
+
+    let formFinished = false;
+    let serviceStartedBeforeFormFinished = false;
+    const formRead = async (): Promise<CatalogueRecord[]> => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      formFinished = true;
+      return [{ slug: "form-after-stale" }];
+    };
+    const serviceRead = async (): Promise<CatalogueRecord[]> => {
+      if (!formFinished) serviceStartedBeforeFormFinished = true;
+      return [{ slug: "service-after-stale" }];
+    };
+
+    const [form, service] = await Promise.all([
+      readCatalogueWithSeedFallback({ kind: "form", seeds, read: formRead, now: time.now }),
+      readCatalogueWithSeedFallback({ kind: "service", seeds, read: serviceRead, now: time.now }),
+    ]);
+
+    expect(serviceStartedBeforeFormFinished).toBe(false);
+    expect(form.degraded).toBe(false);
+    expect(service.degraded).toBe(false);
+  });
+
+  // Codex P1: queued domains must still reach seeds under the 2500 ms domain timeout on cold outage.
+  it("degrades every domain to seeds on a cold outage instead of aborting queued kinds empty", async () => {
+    vi.useFakeTimers();
+    const time = clock();
+    const domainTimeoutMs = 2_500;
+    const hung = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
+
+    const runDomain = (kind: string) => {
+      const domain = new AbortController();
+      const timer = setTimeout(() => {
+        domain.abort(new DOMException(`${kind} search timed out after ${domainTimeoutMs}ms`, "TimeoutError"));
+      }, domainTimeoutMs);
+      return readCatalogueWithSeedFallback({
+        kind,
+        seeds,
+        read: hung,
+        now: time.now,
+        signal: domain.signal,
+        budgetMs: catalogueSeedFallbackBudgetMs,
+        retryBudgetMs: catalogueSeedFallbackRetryBudgetMs,
+      }).finally(() => clearTimeout(timer));
+    };
+
+    const pending = Promise.all([runDomain("form"), runDomain("service"), runDomain("medication")]);
+
+    // Owner pays attempt + retry; waiters are released afterward and must still land on seeds
+    // before (or as) their domain timeout fires — never empty AbortError groups.
+    await vi.advanceTimersByTimeAsync(domainTimeoutMs + catalogueSeedFallbackBudgetMs);
+    const outcomes = await pending;
+
+    expect(outcomes).toEqual([
+      { records: seeds, degraded: true },
+      { records: seeds, degraded: true },
+      { records: seeds, degraded: true },
+    ]);
   });
 });
