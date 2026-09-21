@@ -176,10 +176,19 @@ describe("the example-content control", () => {
     // transaction, so a failure part-way leaves earlier sections already gone.
     // Telling the reader "nothing was deleted" would be false, and would send
     // them away believing a half-removed corpus was intact.
-    mockFetch(ON_CALL_DEMO_ENTRY_COUNT, { ok: false, payload: { removed: 12, partial: true } });
+    mockFetch(ON_CALL_DEMO_ENTRY_COUNT, {
+      ok: false,
+      payload: {
+        error:
+          "That did not finish. 12 example entries were removed before it stopped — press Remove again to clear the rest.",
+        message:
+          "That did not finish. 12 example entries were removed before it stopped — press Remove again to clear the rest.",
+        code: "demo_content_removal_partial",
+      },
+    });
     render(<Harness signedOut={false} demoMode={false} />);
     fireEvent.click(await screen.findByTestId("on-call-demo-content-remove"));
-    expect(await screen.findByText(/12 example entries were removed before it stopped/i)).toBeVisible();
+    expect(await screen.findByText(/12 example entries were removed/i)).toBeVisible();
     expect(screen.queryByText(/Nothing was deleted/i)).toBeNull();
   });
 });

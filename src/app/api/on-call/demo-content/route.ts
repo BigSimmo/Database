@@ -243,14 +243,15 @@ export async function DELETE(request: Request) {
       // finishes the job, because each delete is scoped to rows that still
       // match.
       if (error) {
-        return NextResponse.json(
-          {
-            removed,
-            total: ON_CALL_DEMO_ENTRY_COUNT,
-            partial: true,
-            error: `Removal stopped at the ${section} section: ${error.message}`,
-          },
-          { status: 500 },
+        // Public errors must go through publicErrorResponse (api-validation-contract).
+        // Keep the removed count in the message so the control can tell the reader
+        // a half-finished delete happened — pressing Remove again is safe.
+        return publicErrorResponse(
+          removed > 0
+            ? `That did not finish. ${removed} example ${removed === 1 ? "entry" : "entries"} were removed before it stopped — press Remove again to clear the rest.`
+            : `Removal stopped at the ${section} section.`,
+          500,
+          { code: "demo_content_removal_partial" },
         );
       }
       removed += data?.length ?? 0;

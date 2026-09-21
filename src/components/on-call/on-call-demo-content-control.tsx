@@ -102,15 +102,17 @@ export function OnCallDemoContentControl({ state }: { state: OnCallDemoContentSt
       });
       const body: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        const partial =
-          typeof body === "object" && body !== null && (body as { removed?: unknown }).removed
-            ? (body as { removed?: unknown }).removed
-            : 0;
+        const apiMessage =
+          typeof body === "object" && body !== null && typeof (body as { message?: unknown }).message === "string"
+            ? (body as { message: string }).message.trim()
+            : typeof body === "object" && body !== null && typeof (body as { error?: unknown }).error === "string"
+              ? (body as { error: string }).error.trim()
+              : "";
         setError(
           loading
             ? "That did not load. Nothing was added — try again."
-            : typeof partial === "number" && partial > 0
-              ? `That did not finish. ${partial} example ${partial === 1 ? "entry" : "entries"} were removed before it stopped — press Remove again to clear the rest.`
+            : apiMessage && /removed|Press Remove again/i.test(apiMessage)
+              ? apiMessage
               : "That did not remove. Nothing was deleted — try again.",
         );
         return;
