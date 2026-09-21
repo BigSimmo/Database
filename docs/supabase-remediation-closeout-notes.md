@@ -44,8 +44,8 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 ## 3. Staging / prod apply status (operator)
 
-- **Staging:** applied `audit_logs_append_only` only. Site-content revoke **cannot** be tested on staging (functions absent).
-- **Prod:** still needs **both** (`audit_logs_append_only` and site-content revoke).
+- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared.
+- **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
 - **Staging Auth:** leaked-password WARN remains until Joshua toggles Auth dashboard.
 
 ## 4. Out of scope here
@@ -53,4 +53,4 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA/signup vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned when Phase 1 Auth finishes.
 
-*Updated 2026-09-21 — Phase 3 exact lists from Supabase; Documentation owns.*
+*Updated 2026-09-21 — prod apply confirmed by Supabase; Documentation owns.*
