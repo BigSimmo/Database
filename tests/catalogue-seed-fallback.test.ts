@@ -8,10 +8,13 @@ import {
   catalogueSearchScope,
   catalogueSeedFallbackBudgetMs,
   catalogueSeedFallbackCooldownMs,
+  catalogueSeedFallbackRetryBudgetMs,
   clearCatalogueSeedFallbackCooldown,
+  markCatalogueProcessConnectionWarmed,
   readCatalogueWithSeedFallback,
   withCatalogueDegradedNotice,
 } from "@/lib/site-content/catalogue-seed-fallback";
+import { siteContentRecordCacheStaleMs } from "@/lib/site-content/site-content-record-cache";
 
 type CatalogueRecord = { slug: string };
 
@@ -37,13 +40,13 @@ function clock(startedAt = 1_000_000) {
  * that asserts what happens when a read fails is describing the warm path, so it warms first and
  * keeps asserting exactly what it always did. The cold path has its own cases.
  */
-async function warm(kind: string, scope?: string) {
+async function warm(kind: string, scope?: string, now: () => number = Date.now) {
   const outcome = await readCatalogueWithSeedFallback({
     kind,
     scope,
     seeds,
     read: async () => canonical,
-    now: () => 0,
+    now,
   });
   expect(outcome.degraded).toBe(false);
 }
@@ -571,5 +574,190 @@ describe("the one retry a cold read gets", () => {
 
     expect(read).toHaveBeenCalledTimes(1);
     expect(outcome).toEqual({ records: seeds, degraded: true });
+  });
+});
+
+/**
+ * Process-level cold serialisation.
+ *
+ * The one-shot per-kind retry is not enough when universal-search Promise.all's three cold
+ * kinds: each looks cold, three connection setups race, and all three blow the budget (monitor
+ * #2919). Until the process has one successful canonical read, concurrent callers share a single
+ * flight; after that, parallelism is restored.
+ */
+describe("concurrent cold catalogue reads are serialised across kinds", () => {
+  it("does not start a second cold kind until the first has finished", async () => {
+    const time = clock();
+    let formFinished = false;
+    let serviceStartedBeforeFormFinished = false;
+
+    const formRead = async (): Promise<CatalogueRecord[]> => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      formFinished = true;
+      return [{ slug: "form" }];
+    };
+    const serviceRead = async (): Promise<CatalogueRecord[]> => {
+      if (!formFinished) serviceStartedBeforeFormFinished = true;
+      return [{ slug: "service" }];
+    };
+
+    const [form, service] = await Promise.all([
+      readCatalogueWithSeedFallback({ kind: "form", seeds, read: formRead, now: time.now }),
+      readCatalogueWithSeedFallback({ kind: "service", seeds, read: serviceRead, now: time.now }),
+    ]);
+
+    // The whole point of the gate: service must not race form's connection setup.
+    expect(serviceStartedBeforeFormFinished).toBe(false);
+    expect(form.degraded).toBe(false);
+    expect(service.degraded).toBe(false);
+  });
+
+  it("allows parallel reads once any kind has succeeded in this process", async () => {
+    const time = clock();
+    // Warm the process connection without warming service/medication kinds.
+    await warm("form");
+
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    const slow = async (): Promise<CatalogueRecord[]> => {
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      concurrent -= 1;
+      return canonical;
+    };
+
+    await Promise.all([
+      readCatalogueWithSeedFallback({ kind: "service", seeds, read: slow, now: time.now }),
+      readCatalogueWithSeedFallback({ kind: "medication", seeds, read: slow, now: time.now }),
+    ]);
+
+    expect(maxConcurrent).toBe(2);
+  });
+
+  it("lets a later kind succeed after an earlier cold kind timed out, instead of racing both", async () => {
+    vi.useFakeTimers();
+    const time = clock();
+    const formRead = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
+    const serviceRead = vi.fn(async () => canonical);
+
+    const formPending = readCatalogueWithSeedFallback({
+      kind: "form",
+      seeds,
+      read: formRead,
+      now: time.now,
+      budgetMs: 100,
+      retryBudgetMs: 100,
+    });
+    const servicePending = readCatalogueWithSeedFallback({
+      kind: "service",
+      seeds,
+      read: serviceRead,
+      now: time.now,
+    });
+
+    // Form owns the cold gate for attempt + retry. Service must not have started yet.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(formRead).toHaveBeenCalled();
+    expect(serviceRead).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(200);
+    const form = await formPending;
+    expect(form.degraded).toBe(true);
+
+    // Gate released; service now runs alone on what may be a warmer connection.
+    await vi.advanceTimersByTimeAsync(0);
+    const service = await servicePending;
+    expect(serviceRead).toHaveBeenCalledTimes(1);
+    expect(service).toEqual({ records: canonical, degraded: false });
+  });
+
+  it("honours markCatalogueProcessConnectionWarmed from boot pre-warm", async () => {
+    const time = clock();
+    markCatalogueProcessConnectionWarmed();
+
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    const slow = async (): Promise<CatalogueRecord[]> => {
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      concurrent -= 1;
+      return canonical;
+    };
+
+    await Promise.all([
+      readCatalogueWithSeedFallback({ kind: "form", seeds, read: slow, now: time.now }),
+      readCatalogueWithSeedFallback({ kind: "service", seeds, read: slow, now: time.now }),
+    ]);
+
+    expect(maxConcurrent).toBe(2);
+  });
+
+  // Codex P1: processHasWarmedCanonicalRead must not outlive the record-cache idle ceiling.
+  it("re-arms cold serialisation after the site-content cache stale ceiling", async () => {
+    const time = clock();
+    await warm("form", undefined, time.now);
+
+    // Past the idle ceiling the cached connection is cold again — concurrent kinds must serialise.
+    time.advance(siteContentRecordCacheStaleMs);
+
+    let formFinished = false;
+    let serviceStartedBeforeFormFinished = false;
+    const formRead = async (): Promise<CatalogueRecord[]> => {
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      formFinished = true;
+      return [{ slug: "form-after-stale" }];
+    };
+    const serviceRead = async (): Promise<CatalogueRecord[]> => {
+      if (!formFinished) serviceStartedBeforeFormFinished = true;
+      return [{ slug: "service-after-stale" }];
+    };
+
+    const [form, service] = await Promise.all([
+      readCatalogueWithSeedFallback({ kind: "form", seeds, read: formRead, now: time.now }),
+      readCatalogueWithSeedFallback({ kind: "service", seeds, read: serviceRead, now: time.now }),
+    ]);
+
+    expect(serviceStartedBeforeFormFinished).toBe(false);
+    expect(form.degraded).toBe(false);
+    expect(service.degraded).toBe(false);
+  });
+
+  // Codex P1: queued domains must still reach seeds under the 2500 ms domain timeout on cold outage.
+  it("degrades every domain to seeds on a cold outage instead of aborting queued kinds empty", async () => {
+    vi.useFakeTimers();
+    const time = clock();
+    const domainTimeoutMs = 2_500;
+    const hung = vi.fn(() => new Promise<CatalogueRecord[]>(() => {}));
+
+    const runDomain = (kind: string) => {
+      const domain = new AbortController();
+      const timer = setTimeout(() => {
+        domain.abort(new DOMException(`${kind} search timed out after ${domainTimeoutMs}ms`, "TimeoutError"));
+      }, domainTimeoutMs);
+      return readCatalogueWithSeedFallback({
+        kind,
+        seeds,
+        read: hung,
+        now: time.now,
+        signal: domain.signal,
+        budgetMs: catalogueSeedFallbackBudgetMs,
+        retryBudgetMs: catalogueSeedFallbackRetryBudgetMs,
+      }).finally(() => clearTimeout(timer));
+    };
+
+    const pending = Promise.all([runDomain("form"), runDomain("service"), runDomain("medication")]);
+
+    // Owner pays attempt + retry; waiters are released afterward and must still land on seeds
+    // before (or as) their domain timeout fires — never empty AbortError groups.
+    await vi.advanceTimersByTimeAsync(domainTimeoutMs + catalogueSeedFallbackBudgetMs);
+    const outcomes = await pending;
+
+    expect(outcomes).toEqual([
+      { records: seeds, degraded: true },
+      { records: seeds, degraded: true },
+      { records: seeds, degraded: true },
+    ]);
   });
 });
