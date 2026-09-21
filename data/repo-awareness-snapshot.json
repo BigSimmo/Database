@@ -5600,6 +5600,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/supabase-remediation-closeout-notes.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/clinical-governance.md",
         "section": "root",
         "catalogued": true
