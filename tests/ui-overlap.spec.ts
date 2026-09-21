@@ -441,7 +441,11 @@ test.describe("Header element overlap coverage", () => {
     // and clicking. Reading the label on a live rotation is the race that made
     // this journey flaky.
     await ticker.hover();
-    const suggestion = (await ticker.getAttribute("aria-label"))?.replace("Try suggested search: ", "");
+    const ariaLabel = (await ticker.getAttribute("aria-label")) ?? "";
+    // Label-in-Name (WCAG 2.5.3): visible "Try this" / suggestion / "Tap to search"
+    // must appear in the accessible name.
+    expect(ariaLabel).toMatch(/^Try this .+\. Tap to search$/);
+    const suggestion = ariaLabel.replace(/^Try this /, "").replace(/\. Tap to search$/, "");
     expect(suggestion).toBeTruthy();
     await ticker.click();
     await expect(page.locator('[data-testid="global-search-input"]:visible').first()).toHaveValue(suggestion ?? "");

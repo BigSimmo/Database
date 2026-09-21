@@ -114,6 +114,12 @@ const expectedPresentations = [
     subtitle: "Your service's numbers, escalation, orientation and teaching.",
     iconClass: "lucide-phone-call",
   },
+  {
+    modeId: "cme",
+    title: "CME",
+    subtitle: "What you have done this year, and what is still short.",
+    iconClass: "lucide-graduation-cap",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

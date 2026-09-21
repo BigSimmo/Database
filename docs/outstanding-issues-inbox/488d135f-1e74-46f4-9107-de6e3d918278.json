@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "488d135f-1e74-46f4-9107-de6e3d918278",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "CME dark, forced-colours and print proofs point at shared evidence, not CME-specific captures",
+    "detail": "Every production route must carry five proof categories: dark, forcedColours, compact320, print, browser. The nine CME routes are declared with all five in docs/design-system/adoption-contract.json, but three of them — dark, forcedColours, print — point at pre-existing shared evidence files rather than CME-specific captures. The declaration is therefore satisfied without those three having been demonstrated for these screens specifically. The agent that wrote them said so plainly rather than letting it pass. This matters more than usual for this mode: it has no status colour at all, so it leans entirely on weight, position and wording, and those are exactly what dark mode and Windows high-contrast disturb. The browser proof IS CME-specific (tests/ui-cme-phone.spec.ts, five journeys on real Chromium with a frozen clock) and compact320 is covered by the mode-wide contract test.",
+    "source": "PR #2902 task-16 report, 2026-09-20; docs/design-system/adoption-contract.json",
+    "issueUlid": "01M2ZVVBKYGXG1EJD2877RJ4WA"
+  }
+}

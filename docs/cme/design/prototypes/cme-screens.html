@@ -1,0 +1,1999 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CME mode — screen boards</title>
+    <!--
+      CME mode design boards — phone-first.
+
+      Status: ACTIVE STUDY. Nothing here is built. These boards exist to settle
+      the direction of the CME (continuing education) mode before a single
+      production file is touched, following the route On Call took
+      (`docs/on-call/design/prototypes/on-call-screens.html`).
+
+      Decisions already settled with the owner and encoded below:
+        - Label "CME" in navigation, College wording inside.
+        - Each YEAR is stamped with the programme that applied to it, permanently.
+        - Auto-capture records DOCUMENT TITLES ONLY, never typed search text.
+        - Daily roll-up: one draft per day of reading, not one per document.
+        - Two-minute floor; measured minutes only; never counts the CME mode itself.
+        - Certificates live in a vault that structurally cannot reach clinical search.
+        - Reminders are in-app banners only (the app has no notification channel).
+        - No streaks, no badges, no traffic lights.
+
+      Constraint encoded in the visual language: the design system forbids the
+      clinical status colours (danger / warning / success) on charts and
+      numerals (`docs/design-system/TOKENS.md`). So a shortfall is NEVER red.
+      It is shown by position, weight and words. That is also honest — being
+      three hours short of a CPD target is not a clinical danger.
+
+      Identity colour: `--tone-indigo` #43508f, already sanctioned in
+      `src/app/ckb-v2-tokens.css`. Sits beside On Call's teal without inventing
+      a new hue. Contrast is ~7.7:1 on white as a fill; to be formally verified
+      against `tests/design-token-contract.test.ts` before it ships.
+    -->
+    <style>
+      :root {
+        --background: #ffffff;
+        --surface: #fcfdfe;
+        --surface-chrome: #ffffff;
+        --surface-subtle: #fbfcfd;
+        --surface-wash: #f8fafc;
+        --surface-inset: #f4f7fa;
+        --border: #e2e8f0;
+        --border-strong: #c8d2de;
+        --border-lux: #dde4ee;
+        --text-heading: #0a1220;
+        --text: #1b2533;
+        --text-muted: #55627a;
+        --decoration-soft: #8894a6;
+        --command: #111827;
+        --command-contrast: #ffffff;
+        --mode-identity: #43508f;
+        --mode-identity-soft: #f0f2fa;
+        --mode-identity-border: #d6dcef;
+        --mode-identity-contrast: #ffffff;
+
+        --page: #eef1f5;
+        --frame: #0a1220;
+
+        --text-xs: 0.75rem;
+        --text-sm: 0.8125rem;
+        --text-body: 0.9375rem;
+        --text-md: 1.0625rem;
+        --text-lg: 1.25rem;
+        --text-xl: 1.5rem;
+
+        --radius-sm: 0.375rem;
+        --radius-md: 0.625rem;
+        --radius-lg: 0.75rem;
+        --radius-xl: 1rem;
+        --radius-2xl: 1.25rem;
+
+        --nums: tabular-nums;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --background: #12161a;
+          --surface: #12161a;
+          --surface-chrome: #0e1216;
+          --surface-subtle: #1c2126;
+          --surface-wash: #161a1e;
+          --surface-inset: #0a0c0e;
+          --border: #333a41;
+          --border-strong: #47505a;
+          --border-lux: #3a424a;
+          --text-heading: #fbfcfd;
+          --text: #e7ebef;
+          --text-muted: #a8b2bd;
+          --decoration-soft: #77828f;
+          --command: #f5f7f7;
+          --command-contrast: #0a0c0e;
+          --mode-identity: #a8b2e8;
+          --mode-identity-soft: #1b1f38;
+          --mode-identity-border: #343c6b;
+          --mode-identity-contrast: #121733;
+          --page: #06080a;
+          --frame: #000000;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--page);
+        color: var(--text);
+        font-family:
+          "Geist",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        font-size: var(--text-body);
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .doc {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 3rem 1rem 6rem;
+      }
+
+      .doc-head {
+        max-width: 68ch;
+        margin: 0 auto 3rem;
+      }
+
+      .doc-head h1 {
+        font-size: clamp(1.75rem, 1.2rem + 2vw, 2.25rem);
+        line-height: 1.12;
+        letter-spacing: -0.022em;
+        color: var(--text-heading);
+        margin: 0 0 0.75rem;
+      }
+
+      .doc-head p {
+        color: var(--text-muted);
+        margin: 0 0 0.75rem;
+      }
+
+      .doc-head strong {
+        color: var(--text-heading);
+      }
+
+      .kicker {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mode-identity);
+        margin: 0 0 0.5rem;
+      }
+
+      .boards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(390px, 1fr));
+        gap: 3rem 2rem;
+        align-items: start;
+      }
+
+      .board {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .board-caption {
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .board-caption h2 {
+        font-size: var(--text-md);
+        color: var(--text-heading);
+        margin: 0;
+        line-height: 1.3;
+      }
+
+      .board-caption .num {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--decoration-soft);
+      }
+
+      .board-caption p {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+        margin: 0;
+      }
+
+      /* ---------- phone frame ---------- */
+
+      .phone {
+        width: 390px;
+        max-width: 100%;
+        border-radius: 2.25rem;
+        background: var(--frame);
+        padding: 0.5rem;
+        box-shadow: 0 24px 60px -24px rgb(10 18 32 / 45%);
+      }
+
+      .screen {
+        background: var(--background);
+        border-radius: 1.85rem;
+        overflow: hidden;
+        height: 780px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .screen-scroll {
+        overflow: hidden;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ---------- app header ---------- */
+
+      .app-header {
+        background: var(--surface-chrome);
+        border-bottom: 1px solid var(--border);
+        padding: 0.75rem 1rem 0.5rem;
+        display: grid;
+        gap: 0.5rem;
+        flex: none;
+      }
+
+      .app-header-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .mode-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.625rem;
+        flex: 1;
+        min-width: 0;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        border-radius: var(--radius-md);
+        padding: 0.375rem 0.625rem;
+      }
+
+      .mode-disc {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 999px;
+        background: var(--mode-identity);
+        color: var(--mode-identity-contrast);
+        display: grid;
+        place-items: center;
+        flex: none;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .mode-labels {
+        display: grid;
+        min-width: 0;
+      }
+
+      .mode-page {
+        font-size: var(--text-body);
+        font-weight: 600;
+        color: var(--text-heading);
+        line-height: 1.25;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .mode-name {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--mode-identity);
+        line-height: 1.3;
+      }
+
+      .icon-btn {
+        width: 2.25rem;
+        height: 2.25rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        display: grid;
+        place-items: center;
+        flex: none;
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      /* section rail portaled under the pill */
+      .rail {
+        display: flex;
+        gap: 1.125rem;
+        overflow: hidden;
+        border-top: 1px solid var(--border);
+        padding-top: 0.5rem;
+        margin: 0 -0.25rem;
+        padding-left: 0.25rem;
+      }
+
+      .rail span {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-muted);
+        padding-bottom: 0.375rem;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+      }
+
+      .rail span[data-active] {
+        color: var(--text-heading);
+        border-bottom-color: var(--mode-identity);
+      }
+
+      /* ---------- page body ---------- */
+
+      .body {
+        padding: 1rem;
+        display: grid;
+        gap: 1.5rem;
+        align-content: start;
+        overflow: hidden;
+        flex: 1;
+      }
+
+      .module {
+        display: grid;
+        gap: 0.5rem;
+      }
+
+      .module > h3 {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: 1.5rem;
+      }
+
+      .module > h3 a {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--text-muted);
+        text-decoration: none;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 0.875rem;
+      }
+
+      .card-lux {
+        background: var(--surface-chrome);
+        border: 1px solid var(--border-lux);
+        border-radius: var(--radius-xl);
+        padding: 1rem;
+      }
+
+      /* ---------- hero: the gap ---------- */
+
+      .gap-hero {
+        background: var(--mode-identity-soft);
+        border: 1px solid var(--mode-identity-border);
+        border-radius: var(--radius-xl);
+        padding: 1rem;
+        display: grid;
+        gap: 0.625rem;
+      }
+
+      .gap-eyebrow {
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--mode-identity);
+      }
+
+      .gap-figure {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        font-variant-numeric: var(--nums);
+      }
+
+      .gap-figure b {
+        font-size: 2.125rem;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        color: var(--text-heading);
+        line-height: 1;
+      }
+
+      .gap-figure span {
+        font-size: var(--text-body);
+        color: var(--text-muted);
+      }
+
+      .gap-what {
+        font-size: var(--text-md);
+        font-weight: 600;
+        color: var(--text-heading);
+        line-height: 1.3;
+      }
+
+      .gap-sub {
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+      }
+
+      /* ---------- bars ---------- */
+
+      .bar-row {
+        display: grid;
+        gap: 0.3rem;
+        padding: 0.5rem 0;
+      }
+
+      .bar-row + .bar-row {
+        border-top: 1px solid var(--border);
+      }
+
+      .bar-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+      }
+
+      .bar-name {
+        font-size: var(--text-sm);
+        font-weight: 500;
+        color: var(--text);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .bar-val {
+        font-size: var(--text-sm);
+        font-weight: 650;
+        color: var(--text-heading);
+        font-variant-numeric: var(--nums);
+        flex: none;
+      }
+
+      .bar-val small {
+        font-weight: 500;
+        color: var(--text-muted);
+      }
+
+      .bar {
+        height: 0.4rem;
+        border-radius: 999px;
+        background: var(--surface-inset);
+        overflow: hidden;
+      }
+
+      .bar i {
+        display: block;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--mode-identity);
+      }
+
+      .bar[data-short] i {
+        background: repeating-linear-gradient(
+          135deg,
+          var(--mode-identity) 0 5px,
+          color-mix(in srgb, var(--mode-identity) 55%, transparent) 5px 10px
+        );
+      }
+
+      .bar-note {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+
+      /* ---------- quick capture ---------- */
+
+      .capture {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+
+      .capture button {
+        appearance: none;
+        font: inherit;
+        text-align: left;
+        min-height: 3rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-heading);
+        padding: 0.625rem 0.75rem;
+        display: grid;
+        gap: 0.1rem;
+        cursor: pointer;
+      }
+
+      .capture button[data-primary] {
+        background: var(--command);
+        color: var(--command-contrast);
+        border-color: var(--command);
+        grid-column: 1 / -1;
+        min-height: 3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: center;
+        font-weight: 600;
+      }
+
+      .capture b {
+        font-size: var(--text-sm);
+        font-weight: 600;
+      }
+
+      .capture em {
+        font-style: normal;
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+
+      /* ---------- rows ---------- */
+
+      .row {
+        display: flex;
+        gap: 0.625rem;
+        align-items: flex-start;
+        padding: 0.625rem 0;
+      }
+
+      .row + .row {
+        border-top: 1px solid var(--border);
+      }
+
+      .row-dot {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: var(--radius-sm);
+        background: var(--mode-identity-soft);
+        border: 1px solid var(--mode-identity-border);
+        color: var(--mode-identity);
+        display: grid;
+        place-items: center;
+        flex: none;
+        font-size: 0.6875rem;
+        font-weight: 700;
+        margin-top: 0.1rem;
+      }
+
+      .row-main {
+        display: grid;
+        gap: 0.15rem;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .row-title {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-heading);
+        line-height: 1.35;
+      }
+
+      .row-meta {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        align-items: center;
+      }
+
+      .row-hours {
+        font-size: var(--text-sm);
+        font-weight: 650;
+        color: var(--text-heading);
+        font-variant-numeric: var(--nums);
+        flex: none;
+        margin-top: 0.1rem;
+      }
+
+      .tick {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        padding: 0.05rem 0.35rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface-wash);
+        color: var(--text-muted);
+      }
+
+      .tick[data-on] {
+        border-color: var(--mode-identity-border);
+        background: var(--mode-identity-soft);
+        color: var(--mode-identity);
+      }
+
+      .dot-sep::before {
+        content: "·";
+        margin-right: 0.35rem;
+        color: var(--decoration-soft);
+      }
+
+      /* ---------- draft card ---------- */
+
+      .draft {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        background: var(--surface);
+        overflow: hidden;
+      }
+
+      .draft-head {
+        padding: 0.75rem 0.875rem;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        align-items: baseline;
+        background: var(--surface-wash);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .draft-day {
+        font-size: var(--text-sm);
+        font-weight: 650;
+        color: var(--text-heading);
+      }
+
+      .draft-mins {
+        font-size: var(--text-sm);
+        font-weight: 650;
+        color: var(--text-heading);
+        font-variant-numeric: var(--nums);
+      }
+
+      .draft-list {
+        padding: 0.5rem 0.875rem;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .draft-item {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .draft-item b {
+        font-weight: 500;
+        color: var(--text);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .draft-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding: 0.625rem 0.875rem 0.75rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .btn {
+        appearance: none;
+        font: inherit;
+        font-size: var(--text-sm);
+        font-weight: 600;
+        min-height: 2.5rem;
+        padding: 0 0.875rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-heading);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.35rem;
+      }
+
+      .btn[data-primary] {
+        background: var(--command);
+        border-color: var(--command);
+        color: var(--command-contrast);
+        flex: 1;
+      }
+
+      .btn[data-quiet] {
+        background: transparent;
+        border-color: transparent;
+        color: var(--text-muted);
+      }
+
+      .btn-full {
+        width: 100%;
+      }
+
+      /* ---------- sheet ---------- */
+
+      .sheet-backdrop {
+        flex: 1;
+        background: rgb(10 18 32 / 35%);
+        display: flex;
+        align-items: flex-end;
+      }
+
+      .sheet {
+        background: var(--surface-chrome);
+        border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+        width: 100%;
+        padding: 0.75rem 1rem 1.25rem;
+        display: grid;
+        gap: 0.875rem;
+        max-height: 100%;
+        overflow: hidden;
+      }
+
+      .grab {
+        width: 2.25rem;
+        height: 0.25rem;
+        border-radius: 999px;
+        background: var(--border-strong);
+        margin: 0 auto 0.25rem;
+      }
+
+      .sheet h4 {
+        margin: 0;
+        font-size: var(--text-md);
+        color: var(--text-heading);
+      }
+
+      .field {
+        display: grid;
+        gap: 0.3rem;
+      }
+
+      .field label {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--text-muted);
+      }
+
+      .input {
+        min-height: 2.75rem;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        background: var(--surface-inset);
+        padding: 0.5rem 0.75rem;
+        font-size: var(--text-body);
+        color: var(--text-heading);
+        display: flex;
+        align-items: center;
+      }
+
+      .input[data-placeholder] {
+        color: var(--text-muted);
+      }
+
+      .chips {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+      }
+
+      .chip {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        padding: 0.3rem 0.55rem;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .chip[data-on] {
+        border-color: var(--mode-identity);
+        background: var(--mode-identity-soft);
+        color: var(--mode-identity);
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.625rem;
+      }
+
+      /* ---------- misc ---------- */
+
+      .banner {
+        border: 1px solid var(--mode-identity-border);
+        background: var(--mode-identity-soft);
+        border-radius: var(--radius-lg);
+        padding: 0.75rem 0.875rem;
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .banner b {
+        font-size: var(--text-sm);
+        color: var(--text-heading);
+      }
+
+      .banner p {
+        margin: 0;
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+      }
+
+      .honesty {
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        text-align: center;
+        padding-top: 0.25rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+
+      .cert {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface-inset);
+        aspect-ratio: 3 / 4;
+        padding: 0.5rem;
+        display: grid;
+        align-content: end;
+        gap: 0.1rem;
+      }
+
+      .cert b {
+        font-size: var(--text-xs);
+        color: var(--text-heading);
+        font-weight: 600;
+        line-height: 1.3;
+      }
+
+      .cert span {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+      }
+
+      .cert[data-missing] {
+        border-style: dashed;
+        background: transparent;
+        place-content: center;
+        text-align: center;
+      }
+
+      .strip {
+        display: flex;
+        gap: 0.15rem;
+        align-items: flex-end;
+        height: 3rem;
+      }
+
+      .strip i {
+        flex: 1;
+        background: var(--mode-identity-soft);
+        border: 1px solid var(--mode-identity-border);
+        border-radius: 0.15rem 0.15rem 0 0;
+        display: block;
+      }
+
+      .strip i[data-h] {
+        background: var(--mode-identity);
+        border-color: var(--mode-identity);
+      }
+
+      .months {
+        display: flex;
+        gap: 0.15rem;
+      }
+
+      .months span {
+        flex: 1;
+        text-align: center;
+        font-size: 0.5625rem;
+        color: var(--decoration-soft);
+        font-weight: 600;
+      }
+
+      .note {
+        max-width: 68ch;
+        margin: 3rem auto 0;
+        padding: 1.25rem 1.5rem;
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--border);
+        background: var(--surface-chrome);
+      }
+
+      .note h2 {
+        margin: 0 0 0.5rem;
+        font-size: var(--text-md);
+        color: var(--text-heading);
+      }
+
+      .note ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: var(--text-muted);
+        font-size: var(--text-sm);
+      }
+
+      .note li + li {
+        margin-top: 0.4rem;
+      }
+
+      .note b {
+        color: var(--text-heading);
+      }
+
+      @media (max-width: 460px) {
+        .phone {
+          width: 100%;
+          padding: 0;
+          border-radius: var(--radius-xl);
+          box-shadow: none;
+        }
+        .screen {
+          border-radius: var(--radius-xl);
+          height: auto;
+        }
+        .body,
+        .screen-scroll {
+          overflow: visible;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <main class="doc">
+      <header class="doc-head">
+        <p class="kicker">Active study · not built</p>
+        <h1>CME mode — screen boards</h1>
+        <p>
+          Eleven screens for a continuing-education tracker, drawn phone-first. These settle the direction before any
+          production file is touched — the same route On Call took.
+        </p>
+        <p>
+          Three of these are <strong>competing versions of the same home screen</strong>. Boards 1, 2 and 3 are
+          alternatives, not a sequence. Pick one. Everything after board 3 is shared regardless of which home wins.
+        </p>
+        <p>
+          <strong>A shortfall is never red.</strong> The design system reserves the clinical status colours for clinical
+          states, so being short of a target is shown by position, weight and plain words instead. That happens to be
+          honest: three hours short is not an emergency.
+        </p>
+      </header>
+
+      <div class="boards">
+        <!-- ============ BOARD 1 — HOME A ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 01 · Home, version A</p>
+            <h2>The gap leads</h2>
+            <p>
+              The screen opens by naming the one requirement you are furthest from. The 50-hour total is demoted to a
+              quiet strip, because nobody fails on the total.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">This year</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+              </div>
+
+              <div class="body">
+                <div class="gap-hero">
+                  <span class="gap-eyebrow">2026 · RANZCP Fellow</span>
+                  <span class="gap-figure"><b>3.0</b><span>hours short</span></span>
+                  <span class="gap-what">Measuring outcomes</span>
+                  <span class="gap-sub">
+                    Your tightest requirement. Everything else is on track, and there are 103 days left.
+                  </span>
+                </div>
+
+                <div class="module">
+                  <h3>Log something</h3>
+                  <div class="capture">
+                    <button data-primary>＋ &nbsp;New entry</button>
+                    <button><b>I attended teaching</b><em>From your On&nbsp;Call schedule</em></button>
+                    <button><b>Add a certificate</b><em>Photo or PDF</em></button>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Ready to log <a href="#">Review all 4</a></h3>
+                  <div class="card">
+                    <div class="row">
+                      <span class="row-dot">📖</span>
+                      <span class="row-main">
+                        <span class="row-title">4 days of reading, waiting on you</span>
+                        <span class="row-meta">2.8 hours · 11 documents · since 8 Sep</span>
+                      </span>
+                    </div>
+                    <button class="btn btn-full" style="margin-top: 0.5rem">Review drafts</button>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>The year so far</h3>
+                  <div class="card">
+                    <div class="bar-head" style="margin-bottom: 0.3rem">
+                      <span class="bar-name">All sections</span>
+                      <span class="bar-val">38.5 <small>/ 50 h</small></span>
+                    </div>
+                    <div class="bar"><i style="width: 77%"></i></div>
+                  </div>
+                </div>
+
+                <p class="honesty">Targets confirmed by you on 19 Sep 2026, from the 2026 Programme Guide.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 2 — HOME B ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 02 · Home, version B</p>
+            <h2>The four sections lead</h2>
+            <p>
+              Every requirement visible at once, tightest at the top. More information, more to read. Answers "where am
+              I on everything" rather than "what should I worry about".
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">This year</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+              </div>
+
+              <div class="body">
+                <div class="card-lux">
+                  <div
+                    style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.5rem"
+                  >
+                    <span class="gap-eyebrow">2026 · RANZCP Fellow</span>
+                    <span class="bar-val">38.5 <small>/ 50 h</small></span>
+                  </div>
+
+                  <div class="bar-row" style="padding-top: 0">
+                    <div class="bar-head">
+                      <span class="bar-name">Measuring outcomes</span>
+                      <span class="bar-val">2.0 <small>/ 5</small></span>
+                    </div>
+                    <div class="bar" data-short><i style="width: 40%"></i></div>
+                    <span class="bar-note">3 hours short — your tightest gap</span>
+                  </div>
+
+                  <div class="bar-row">
+                    <div class="bar-head">
+                      <span class="bar-name">Formal peer review</span>
+                      <span class="bar-val">7.0 <small>/ 10</small></span>
+                    </div>
+                    <div class="bar" data-short><i style="width: 70%"></i></div>
+                    <span class="bar-note">3 hours short — one more group meeting</span>
+                  </div>
+
+                  <div class="bar-row">
+                    <div class="bar-head">
+                      <span class="bar-name">Reviewing performance</span>
+                      <span class="bar-val">14.5 <small>/ 10</small></span>
+                    </div>
+                    <div class="bar"><i style="width: 100%"></i></div>
+                    <span class="bar-note">Met</span>
+                  </div>
+
+                  <div class="bar-row">
+                    <div class="bar-head">
+                      <span class="bar-name">Educational activities</span>
+                      <span class="bar-val">15.0 <small>/ 12.5</small></span>
+                    </div>
+                    <div class="bar"><i style="width: 100%"></i></div>
+                    <span class="bar-note">Met</span>
+                  </div>
+
+                  <div class="bar-row">
+                    <div class="bar-head">
+                      <span class="bar-name">Development plan</span>
+                      <span class="bar-val">2.0 <small>/ 2 max</small></span>
+                    </div>
+                    <div class="bar"><i style="width: 100%"></i></div>
+                    <span class="bar-note">Written 12 Jan · reflection still open</span>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Log something</h3>
+                  <div class="capture">
+                    <button data-primary>＋ &nbsp;New entry</button>
+                    <button><b>I attended teaching</b><em>From On&nbsp;Call</em></button>
+                    <button><b>Add a certificate</b><em>Photo or PDF</em></button>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Ready to log <a href="#">Review all 4</a></h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-dot">📖</span>
+                      <span class="row-main">
+                        <span class="row-title">4 days of reading, waiting on you</span>
+                        <span class="row-meta">2.8 hours · 11 documents</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="honesty">Targets confirmed by you on 19 Sep 2026.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 3 — HOME C ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 03 · Home, version C</p>
+            <h2>The year as a shape</h2>
+            <p>
+              Leads with when the learning actually happened across the twelve months. Shows the November scramble
+              forming while there is still time to prevent it — but says less about which requirement is short.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">This year</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+              </div>
+
+              <div class="body">
+                <div class="card-lux">
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      align-items: baseline;
+                      margin-bottom: 0.625rem;
+                    "
+                  >
+                    <span class="gap-eyebrow">2026</span>
+                    <span class="bar-val">38.5 <small>/ 50 h</small></span>
+                  </div>
+                  <div class="strip">
+                    <i data-h style="height: 45%"></i>
+                    <i data-h style="height: 70%"></i>
+                    <i data-h style="height: 30%"></i>
+                    <i data-h style="height: 85%"></i>
+                    <i data-h style="height: 55%"></i>
+                    <i data-h style="height: 20%"></i>
+                    <i data-h style="height: 65%"></i>
+                    <i data-h style="height: 40%"></i>
+                    <i data-h style="height: 25%"></i>
+                    <i style="height: 8%"></i>
+                    <i style="height: 8%"></i>
+                    <i style="height: 8%"></i>
+                  </div>
+                  <div class="months">
+                    <span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span
+                    ><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
+                  </div>
+                  <p style="margin: 0.625rem 0 0; font-size: var(--text-sm); color: var(--text-muted)">
+                    11.5 hours to find in 103 days. At your usual pace that is comfortable — but
+                    <strong style="color: var(--text-heading)">3 of them must be measuring outcomes</strong>, which you
+                    have not logged since May.
+                  </p>
+                </div>
+
+                <div class="module">
+                  <h3>Log something</h3>
+                  <div class="capture">
+                    <button data-primary>＋ &nbsp;New entry</button>
+                    <button><b>I attended teaching</b><em>From On&nbsp;Call</em></button>
+                    <button><b>Add a certificate</b><em>Photo or PDF</em></button>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Recent</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main">
+                        <span class="row-title">Journal club — treatment-resistant depression</span>
+                        <span class="row-meta">16 Sep<span class="dot-sep">Educational activities</span></span>
+                      </span>
+                      <span class="row-hours">1.0</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Peer review group — September</span>
+                        <span class="row-meta">11 Sep<span class="dot-sep">Peer review</span></span>
+                      </span>
+                      <span class="row-hours">1.5</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="honesty">Targets confirmed by you on 19 Sep 2026.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 4 — CAPTURE SHEET ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 04 · Shared</p>
+            <h2>New entry — the whole thing on one sheet</h2>
+            <p>
+              A sheet, never a page, so it opens over whatever you were doing. Date defaults to today with the last few
+              days one tap away. The reflection box is two lines, and it is the field the auditor actually reads.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">This year</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+              </div>
+
+              <div class="screen-scroll">
+                <div class="sheet-backdrop">
+                  <div class="sheet">
+                    <span class="grab"></span>
+                    <h4>New entry</h4>
+
+                    <div class="field">
+                      <label>What was it</label>
+                      <div class="input" data-placeholder>Grand round, course, reading…</div>
+                    </div>
+
+                    <div class="split">
+                      <div class="field">
+                        <label>When</label>
+                        <div class="input">Today</div>
+                        <div class="chips" style="margin-top: 0.15rem">
+                          <span class="chip">Yesterday</span><span class="chip">Thu</span
+                          ><span class="chip">Pick…</span>
+                        </div>
+                      </div>
+                      <div class="field">
+                        <label>Hours</label>
+                        <div class="input">1.0</div>
+                        <div class="chips" style="margin-top: 0.15rem">
+                          <span class="chip">0.5</span><span class="chip" data-on>1</span><span class="chip">2</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="field">
+                      <label>Counts toward</label>
+                      <div class="chips">
+                        <span class="chip" data-on>Measuring outcomes</span>
+                        <span class="chip">Reviewing performance</span>
+                        <span class="chip">Educational</span>
+                        <span class="chip">Peer review</span>
+                        <span class="chip">Not claimable</span>
+                      </div>
+                      <span class="bar-note" style="margin-top: 0.15rem">Suggested — this is your tightest gap</span>
+                    </div>
+
+                    <div class="field">
+                      <label>What will you do differently? <span style="font-weight: 400">(2 lines)</span></label>
+                      <div class="input" data-placeholder style="min-height: 3.5rem; align-items: flex-start">
+                        The thing an auditor actually reads…
+                      </div>
+                    </div>
+
+                    <div class="split">
+                      <button class="btn">📎 Attach evidence</button>
+                      <button class="btn" data-primary>Save entry</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 5 — DRAFTS ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 05 · Shared</p>
+            <h2>Drafts — what the app noticed</h2>
+            <p>
+              One card per day, not per document. Titles only — what you typed into the search box is never recorded,
+              and the screen says so where you can see it.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Drafts</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail"><span data-active>Waiting</span><span>Dismissed</span><span>Settings</span></div>
+              </div>
+
+              <div class="body">
+                <div class="draft">
+                  <div class="draft-head">
+                    <span class="draft-day">Tuesday 16 September</span>
+                    <span class="draft-mins">47 min</span>
+                  </div>
+                  <div class="draft-list">
+                    <span class="draft-item"><b>WA clozapine monitoring guideline</b><span>22 min</span></span>
+                    <span class="draft-item"><b>Perinatal prescribing — factsheet</b><span>14 min</span></span>
+                    <span class="draft-item"><b>Metabolic monitoring schedule</b><span>11 min</span></span>
+                  </div>
+                  <div class="draft-actions">
+                    <button class="btn" data-primary>Log 0.75 h</button>
+                    <button class="btn">Edit</button>
+                    <button class="btn" data-quiet>Dismiss</button>
+                  </div>
+                </div>
+
+                <div class="draft">
+                  <div class="draft-head">
+                    <span class="draft-day">Monday 15 September</span>
+                    <span class="draft-mins">31 min</span>
+                  </div>
+                  <div class="draft-list">
+                    <span class="draft-item"><b>Lithium in older adults — review</b><span>19 min</span></span>
+                    <span class="draft-item"><b>Mental Health Act form 1A</b><span>12 min</span></span>
+                  </div>
+                  <div class="draft-actions">
+                    <button class="btn" data-primary>Log 0.5 h</button>
+                    <button class="btn">Edit</button>
+                    <button class="btn" data-quiet>Dismiss</button>
+                  </div>
+                </div>
+
+                <div class="banner">
+                  <b>What this records</b>
+                  <p>
+                    Document titles and how long they were open, on this account only. It never records what you typed
+                    into the search box, and it never counts time with the screen off. Turn it off in Settings.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 6 — LOG ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 06 · Shared</p>
+            <h2>Log — the record itself</h2>
+            <p>
+              Every entry for the year. Two small ticks per row: evidence attached, and copied into the College portal.
+              Those two dots are the whole audit-readiness story at a glance.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Log</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail">
+                  <span data-active>All</span><span>Measuring</span><span>Reviewing</span><span>Educational</span
+                  ><span>Peer</span>
+                </div>
+              </div>
+
+              <div class="body">
+                <div class="module">
+                  <h3>September · 4.5 h</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main">
+                        <span class="row-title">Journal club — treatment-resistant depression</span>
+                        <span class="row-meta">
+                          16 Sep<span class="dot-sep">Educational</span>
+                          <span class="tick" data-on>📎 1</span>
+                          <span class="tick">Portal</span>
+                        </span>
+                      </span>
+                      <span class="row-hours">1.0</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Peer review group — September</span>
+                        <span class="row-meta">
+                          11 Sep<span class="dot-sep">Peer review</span>
+                          <span class="tick" data-on>📎 1</span>
+                          <span class="tick" data-on>✓ Portal</span>
+                        </span>
+                      </span>
+                      <span class="row-hours">1.5</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Self-directed reading</span>
+                        <span class="row-meta">
+                          9 Sep<span class="dot-sep">Educational</span>
+                          <span class="tick" data-on>3 docs</span>
+                          <span class="tick">Portal</span>
+                        </span>
+                      </span>
+                      <span class="row-hours">0.75</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Audit — clozapine bloods turnaround</span>
+                        <span class="row-meta">
+                          4 Sep<span class="dot-sep">Measuring outcomes</span>
+                          <span class="tick">📎 none</span>
+                          <span class="tick">Portal</span>
+                        </span>
+                      </span>
+                      <span class="row-hours">1.25</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>August · 6.0 h</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main">
+                        <span class="row-title">RANZCP WA Branch training day</span>
+                        <span class="row-meta">
+                          22 Aug<span class="dot-sep">Educational</span>
+                          <span class="tick" data-on>📎 2</span>
+                          <span class="tick" data-on>✓ Portal</span>
+                        </span>
+                      </span>
+                      <span class="row-hours">5.0</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 7 — ENTRY DETAIL ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 07 · Shared</p>
+            <h2>One entry — and the button you press most</h2>
+            <p>
+              "Copy for the portal" puts the fields on your clipboard in the College's own order, then marks the entry
+              as transcribed. That single control is what makes feeding MyCPD tolerable.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Back">←</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Entry</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+              </div>
+
+              <div class="body">
+                <div class="card-lux">
+                  <span class="gap-eyebrow">Measuring outcomes</span>
+                  <h4
+                    style="
+                      margin: 0.35rem 0 0.15rem;
+                      font-size: var(--text-lg);
+                      color: var(--text-heading);
+                      line-height: 1.25;
+                    "
+                  >
+                    Audit — clozapine bloods turnaround
+                  </h4>
+                  <p style="margin: 0; font-size: var(--text-sm); color: var(--text-muted)">
+                    4 September 2026 · 1.25 hours · claimable
+                  </p>
+                </div>
+
+                <div class="module">
+                  <h3>Reflection</h3>
+                  <div class="card">
+                    <p style="margin: 0; font-size: var(--text-sm)">
+                      Turnaround was slower than I assumed on weekends. I will raise a standing Friday order with the
+                      ward and re-audit in March.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Evidence <a href="#">Add</a></h3>
+                  <div class="card" style="border-style: dashed; text-align: center">
+                    <p style="margin: 0; font-size: var(--text-sm); color: var(--text-muted)">
+                      Nothing attached yet. An entry with its evidence is worth five without.
+                    </p>
+                    <button class="btn btn-full" style="margin-top: 0.625rem">📎 Attach a certificate or photo</button>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>College portal</h3>
+                  <button class="btn btn-full" data-primary>Copy for MyCPD</button>
+                  <p
+                    style="margin: 0.35rem 0 0; font-size: var(--text-xs); color: var(--text-muted); text-align: center"
+                  >
+                    Puts every field on your clipboard in the portal's order, then ticks this entry as transcribed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 8 — EVIDENCE ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 08 · Shared</p>
+            <h2>Evidence — a vault, sealed off from clinical search</h2>
+            <p>
+              Certificates and photos live here and nowhere else. The line at the bottom is not decoration: it is the
+              promise that a conference receipt can never surface as a citation in a clinical answer.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Evidence</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail">
+                  <span data-active>All</span><span>Missing</span><span>2026</span><span>2025</span>
+                </div>
+              </div>
+
+              <div class="body">
+                <button class="btn btn-full" data-primary>📷 &nbsp;Photograph a certificate</button>
+
+                <div class="module">
+                  <h3>Attached · 9</h3>
+                  <div class="grid-2">
+                    <div class="cert"><b>WA Branch training day</b><span>PDF · 22 Aug</span></div>
+                    <div class="cert"><b>Peer review record</b><span>Photo · 11 Sep</span></div>
+                    <div class="cert"><b>Suicide prevention module</b><span>PDF · 3 Jul</span></div>
+                    <div class="cert"><b>Congress attendance</b><span>PDF · 19 May</span></div>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Entries with nothing attached · 3</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main">
+                        <span class="row-title">Audit — clozapine bloods turnaround</span>
+                        <span class="row-meta">4 Sep · 1.25 h</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Add</button>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Supervision — monthly</span>
+                        <span class="row-meta">28 Aug · 1.0 h</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                <p class="honesty">
+                  Files here are stored against your account only. They are never indexed and can never appear as a
+                  source in a clinical answer.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 9 — PLAN ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 09 · Shared</p>
+            <h2>Plan — written in January, answered in December</h2>
+            <p>
+              The development plan is a requirement in its own right, and the only one with two halves separated by a
+              year. So the page holds both, and shows the gap between what you intended and what you actually logged.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Plan</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail"><span data-active>2026</span><span>2025</span><span>2024</span></div>
+              </div>
+
+              <div class="body">
+                <div class="module">
+                  <h3>Written 12 January</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-dot">1</span>
+                      <span class="row-main">
+                        <span class="row-title">Sharpen clozapine monitoring practice</span>
+                        <span class="row-meta">4 entries logged · 6.25 h</span>
+                      </span>
+                    </div>
+                    <div class="row">
+                      <span class="row-dot">2</span>
+                      <span class="row-main">
+                        <span class="row-title">Improve perinatal prescribing confidence</span>
+                        <span class="row-meta">2 entries logged · 3.0 h</span>
+                      </span>
+                    </div>
+                    <div class="row">
+                      <span class="row-dot">3</span>
+                      <span class="row-main">
+                        <span class="row-title">Supervision skills for registrars</span>
+                        <span class="row-meta">Nothing logged against this yet</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>End-of-year reflection</h3>
+                  <div class="card" style="border-style: dashed">
+                    <p style="margin: 0 0 0.625rem; font-size: var(--text-sm); color: var(--text-muted)">
+                      Still open. Due before the year closes on 31 December — it is worth up to 2 hours and it is the
+                      half people forget.
+                    </p>
+                    <button class="btn btn-full">Write the reflection</button>
+                  </div>
+                </div>
+
+                <div class="banner">
+                  <b>Goal 3 has nothing against it</b>
+                  <p>
+                    You set out to develop supervision skills and have logged nothing toward it. Either something counts
+                    and is not yet recorded, or this is worth saying in the reflection.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 10 — EXPORT ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 10 · Shared</p>
+            <h2>Export — the three things that come out</h2>
+            <p>
+              The PDF is what you would hand an auditor. The ZIP is every certificate. The per-entry clipboard button is
+              the one you actually use, and it is on every entry, not only here.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Export</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail"><span data-active>2026</span><span>2025</span><span>2024</span></div>
+              </div>
+
+              <div class="body">
+                <div class="card-lux">
+                  <span class="gap-eyebrow">2026 · RANZCP Fellow</span>
+                  <p style="margin: 0.35rem 0 0; font-size: var(--text-sm); color: var(--text-muted)">
+                    47 entries · 38.5 hours · 9 certificates attached ·
+                    <strong style="color: var(--text-heading)">14 entries not yet in the portal</strong>
+                  </p>
+                </div>
+
+                <div class="module">
+                  <h3>Take it with you</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-dot">📄</span>
+                      <span class="row-main">
+                        <span class="row-title">Summary PDF</span>
+                        <span class="row-meta">Ordered by section, totalled against each requirement</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Make</button>
+                    </div>
+                    <div class="row">
+                      <span class="row-dot">🗂</span>
+                      <span class="row-main">
+                        <span class="row-title">Evidence bundle</span>
+                        <span class="row-meta">All 9 certificates, named by entry</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Make</button>
+                    </div>
+                    <div class="row">
+                      <span class="row-dot">📋</span>
+                      <span class="row-main">
+                        <span class="row-title">Spreadsheet</span>
+                        <span class="row-meta">One row per entry, for anything else</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Make</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Still to transcribe · 14</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main">
+                        <span class="row-title">Journal club — treatment-resistant depression</span>
+                        <span class="row-meta">16 Sep · 1.0 h</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Copy</button>
+                    </div>
+                    <div class="row">
+                      <span class="row-main">
+                        <span class="row-title">Self-directed reading</span>
+                        <span class="row-meta">9 Sep · 0.75 h</span>
+                      </span>
+                      <button class="btn" style="min-height: 2rem; font-size: var(--text-xs)">Copy</button>
+                    </div>
+                  </div>
+                  <p
+                    style="margin: 0.35rem 0 0; font-size: var(--text-xs); color: var(--text-muted); text-align: center"
+                  >
+                    Work down this list with the portal open in another tab.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ BOARD 11 — PROGRAMME ============ -->
+        <section class="board">
+          <div class="board-caption">
+            <p class="num">Board 11 · Shared</p>
+            <h2>Programme — where the numbers come from</h2>
+            <p>
+              The app never claims to know the College's rules on its own. You confirm the targets once, it records the
+              date and the document, and every screen carries that provenance. Changing status next year does not
+              rewrite last year.
+            </p>
+          </div>
+          <div class="phone">
+            <div class="screen">
+              <div class="app-header">
+                <div class="app-header-row">
+                  <button class="icon-btn" aria-label="Menu">☰</button>
+                  <div class="mode-pill">
+                    <span class="mode-disc">CME</span>
+                    <span class="mode-labels">
+                      <span class="mode-page">Programme</span>
+                      <span class="mode-name">CME</span>
+                    </span>
+                  </div>
+                  <button class="icon-btn" aria-label="Actions">⋯</button>
+                </div>
+                <div class="rail"><span data-active>2026</span><span>Past years</span><span>Capture</span></div>
+              </div>
+
+              <div class="body">
+                <div class="field">
+                  <label>Your status in 2026</label>
+                  <div class="chips">
+                    <span class="chip" data-on>RANZCP Fellow</span>
+                    <span class="chip">Certificant</span>
+                    <span class="chip">Trainee — in training</span>
+                    <span class="chip">Trainee — break in training</span>
+                    <span class="chip">Custom</span>
+                  </div>
+                </div>
+
+                <div class="module">
+                  <h3>Targets for this year</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main"><span class="row-title">Total</span></span>
+                      <span class="row-hours">50</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Educational activities</span
+                        ><span class="row-meta">minimum</span></span
+                      >
+                      <span class="row-hours">12.5</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Reviewing performance</span><span class="row-meta">minimum</span></span
+                      >
+                      <span class="row-hours">10</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Measuring outcomes</span><span class="row-meta">minimum</span></span
+                      >
+                      <span class="row-hours">5</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Formal peer review</span><span class="row-meta">minimum</span></span
+                      >
+                      <span class="row-hours">10</span>
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Development plan</span
+                        ><span class="row-meta">maximum claimable</span></span
+                      >
+                      <span class="row-hours">2</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="banner">
+                  <b>These are your numbers, not ours</b>
+                  <p>
+                    Confirmed by you on 19 September 2026 against the 2026 Programme Guide. If the College changes them,
+                    change them here — nothing else in the app will argue.
+                  </p>
+                </div>
+
+                <div class="module">
+                  <h3>Year end</h3>
+                  <div class="card">
+                    <div class="row" style="padding-top: 0">
+                      <span class="row-main"
+                        ><span class="row-title">CPD year closes</span
+                        ><span class="row-meta">31 December 2026</span></span
+                      >
+                    </div>
+                    <div class="row">
+                      <span class="row-main"
+                        ><span class="row-title">Reporting window closes</span
+                        ><span class="row-meta">1 March 2027 · you will be reminded</span></span
+                      >
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="note">
+        <h2>What these boards are deliberately not showing</h2>
+        <ul>
+          <li>
+            <b>No streaks, no badges, no confetti.</b> Every visual reward mechanic was left out on purpose. You take
+            leave and you get sick; a broken chain would be an insult.
+          </li>
+          <li>
+            <b>No red.</b> Being short of a target is shown by position, weight and words. The clinical status colours
+            stay reserved for clinical states.
+          </li>
+          <li>
+            <b>No progress ring.</b> Your design system ships a bar and nothing else, and a ring would mean building and
+            registering a new component before a single CME feature existed. A bar says the same thing.
+          </li>
+          <li>
+            <b>Nothing about what you typed.</b> Every capture surface shows document titles only. The one screen where
+            that could be misunderstood — Drafts — states it in plain words on the screen itself.
+          </li>
+          <li>
+            <b>No hour figures the app invented.</b> Every number on board 11 is one you confirmed, dated and
+            attributed. The numbers shown here are drawn from search summaries and have <em>not</em> been verified
+            against the College's own document.
+          </li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

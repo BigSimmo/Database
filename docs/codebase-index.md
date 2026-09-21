@@ -51,9 +51,9 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 
 Never commit: `.next/`, `node_modules/`, `coverage/`, `.env*`, `sample-documents/`, logs.
 
-The product surface is **17 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
+The product surface is **18 app modes** (`src/lib/app-modes.ts`) sharing one search shell:
 answer, documents, services, forms, favourites, differentials, dsm, specifiers, formulation,
-prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources, on-call.
+prescribing, tools, calculators, therapy-compass, factsheets, dictionary, sources, on-call, cme.
 
 ### The two flows that matter
 
@@ -121,7 +121,7 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
 - **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (16):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources
+- **Modes (18):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources, On Call, CME
   - **Sources catalogue:** `/sources` provides a read-only, quality-banded catalogue with Topics, Publishers, Method and source-detail traceability; `/dictionary/sources` redirects into its Dictionary-filtered view. Method (`/sources/method`) and the Guide Centre's Source rating topic both render `src/components/reference/source-method-reference-content.tsx` — one component, `variant: "page" | "guide"`, the same arrangement `colour-coding-reference-content.tsx` uses for `/reference/colour-coding`.
   - **Therapy review disclosure.** Therapy was `devOnly` while its 205-record catalogue awaited qualified-clinician sign-off. That hid the mode from production navigation, 404'd `/therapy-compass` in the route layout, and made `therapyRecordsForEnvironment` filter every record out — so all 205 detail/brief/sheet routes and every universal-search therapy hit 404'd for real users while working locally. The owner's decision (2026-08-19) replaced the gate with disclosure: reachability is no longer conditioned on review status anywhere, and the caveat is stated per record instead, by the `reviewStatus` badge on every card, detail page, brief, sheet, comparison, pathway, and universal-search result. A catalogue-wide banner (`TherapyReviewNotice`, counts from the generated `THERAPY_CATALOGUE_SUMMARY.needsReviewCount`) sat above the search band until 2026-09-06, when the owner removed it: a caveat repeated above every search is read past, while the per-record badge sits where the decision is actually made. `therapyNeedsReview` survives as the label source only. Pinned by `tests/app-modes.test.ts` (reachability), `tests/therapy-review-regressions.test.ts` (the per-record badges, and the banner's absence), and `tests/therapy-pr-unblocking-contract.test.ts` (the retired `PLAYWRIGHT_OFFLINE_MODE` bypass that existed only to reach the gated route).
 
@@ -167,27 +167,28 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 
 ### API routes (`src/app/api/`)
 
-| Area             | Routes                                                                                                                                      | Entry files                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                       | `account/`                                                      |
-| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                 | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                  | `clinical-ask/stream/route.ts`                                  |
-| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                            | `clinical-quality/route.ts`                                     |
-| Speech           | `/api/speech/transcribe`                                                                                                                    | `speech/transcribe/route.ts`                                    |
-| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                           | `search/`                                                       |
-| Upload           | `/api/upload`                                                                                                                               | `upload/route.ts`                                               |
-| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                         | `documents/`                                                    |
-| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                | `differentials/`                                                |
-| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                               | `medications/`                                                  |
-| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                             | `ingestion/`                                                    |
-| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                     | `registry/records/`                                             |
-| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries) | `on-call/entries/`                                              |
-| Images           | `/api/images/[id]/signed-url`                                                                                                               | `images/[id]/signed-url/route.ts`                               |
-| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                            | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                      | `eval-cases/`, `jobs/`                                          |
-| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                            | `webhooks/`                                                     |
-| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                 | `caring-contacts/`                                              |
-| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                  | `site-content/publications/`                                    |
+| Area             | Routes                                                                                                                                                    | Entry files                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                                     | `account/`                                                      |
+| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                               | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                                | `clinical-ask/stream/route.ts`                                  |
+| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                                          | `clinical-quality/route.ts`                                     |
+| Speech           | `/api/speech/transcribe`                                                                                                                                  | `speech/transcribe/route.ts`                                    |
+| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                                         | `search/`                                                       |
+| Upload           | `/api/upload`                                                                                                                                             | `upload/route.ts`                                               |
+| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                                       | `documents/`                                                    |
+| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                              | `differentials/`                                                |
+| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                                             | `medications/`                                                  |
+| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                           | `ingestion/`                                                    |
+| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                   | `registry/records/`                                             |
+| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries)               | `on-call/entries/`                                              |
+| CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository) | `cme/entries/`, `cme/year/`                                     |
+| Images           | `/api/images/[id]/signed-url`                                                                                                                             | `images/[id]/signed-url/route.ts`                               |
+| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                                          | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                                    | `eval-cases/`, `jobs/`                                          |
+| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                                          | `webhooks/`                                                     |
+| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                               | `caring-contacts/`                                              |
+| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                                | `site-content/publications/`                                    |
 
 ---
 
@@ -418,6 +419,55 @@ application-layer ownership model as `clinical_registry_records`.
 
 ---
 
+### Continuing education (CME/CPD)
+
+`src/lib/cme/` is the eighteenth mode's domain layer: an owner's own record of the continuing
+professional development he has done, and of the targets he has confirmed for the year.
+
+**The app never asserts a regulatory requirement.** Every target is the owner's confirmed data,
+carrying the date he confirmed it and the document it came from; the mode computes progress
+against those numbers and never supplies one of its own. Nothing here may reduce a target for a
+working pattern — part-time work does not lower the requirement, and a tracker that quietly
+lowered it would be the most dangerous thing in the design.
+
+| Module     | Role                                                                                                             |
+| ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| `cpd-year` | Every date question asked in `Australia/Perth`; year membership, elapsed/remaining days, and the pace projection |
+| `types`    | The four requirement shapes, the category set, and the entry/allocation/requirement-set records                  |
+| `evaluate` | Requirement status and year status from entries; two arguments only, so no working pattern can reach it          |
+| `schemas`  | Zod validation for entry creation and the list query, at the API boundary                                        |
+
+**Why Perth, specifically.** Perth is UTC+8 with no daylight saving. Asked in UTC, an activity
+logged in the first eight hours of 1 January is filed against the year that just closed — silently,
+in the one record its owner cannot afford to have wrong. `paceProjection` returns `null` below 28
+elapsed days, because a confident wrong number in January is worse than saying nothing.
+
+**Why four requirement shapes.** Three of them — a count scoped to a container, a panel judgement,
+a one-off task — cannot be expressed as hours in a category, and a tracker modelling only the first
+quietly misses them. The shape is held as JSON rather than in columns of its own, so adding a shape
+this design does not yet draw is a code change rather than a migration against the live clinical
+database.
+
+**Storage.** Five tables — `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`,
+`cme_allocations` — each `owner_id not null` with RLS enabled, revoked from `anon` and
+`authenticated`, and granted to `service_role` only: the same single-layer application-level
+ownership model as `on_call_entries`. `cme_requirements.spec` is `jsonb` for the reason above.
+`cme_entries.activity_date` is a `date` the application sets in Perth and never derives from a
+timestamp — derived, it would be UTC, and an activity logged after 16:00 UTC on 31 December would
+file itself into the closing year. `src/lib/cme/repository.ts` serves the reads and the entry
+insert, and is listed in `SCANNED_LIB_MODULES` so `check:owner-scope` actually reads it. It is not
+the mode's only owner-scoped query: `src/app/api/cme/entries/[id]/route.ts` holds the update and
+delete, and `src/app/api/cme/year/route.ts` holds the year write, each following
+`on-call/entries/[id]/route.ts`. Those stay in the route files on purpose — phase 1 of the same
+scanner walks every file under `src/app/api`, so a scoped query there is more proven than one in a
+lib module, which is reached only by being named in that list.
+
+Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
+`/api/cme/entries`, `[id]` and `/api/cme/year`. Demo-mode branching lives in those routes and
+never in the repository, so production cannot silently fall back to synthetic data.
+
+---
+
 ## Supabase
 
 ### Config and schema
@@ -429,7 +479,7 @@ application-layer ownership model as `clinical_registry_records`.
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 
@@ -553,7 +603,7 @@ sequenceDiagram
 
 ### PsychSift surface
 
-- 17 app modes with unified search shell
+- 18 app modes with unified search shell
 - Documents mode: browse indexed guidelines, search, scope, and inspect cited answers; document uploads remain in the administrator backend
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -854,7 +904,7 @@ terminology: `docs/care-plan-context.md`; build history and rulings: `docs/care-
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes**: all 17 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while two routes still own a functional home of their own — `/favourites` (a hub) and `/tools` (a launcher). Neither is a duplicate of the shared home; each is its mode's own functional surface. `/sources` was a third until its four-card `ModeHomeTemplate` home was retired: it duplicated the shared home's title and subtitle, and its cards duplicated the Sources tab bar, so it was deleted and the bare path consolidated. The catalogue keeps its own route at `/sources/search`, reached from the shared home by the `ShowAllChip` Calculators also uses. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. Fourteen modes are now consolidated onto the shared home, via two different mechanisms: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass`, `/documents`, `/sources` and `/on-call` (whose six section pages live under `/on-call/<section>`) are `redirect()` stubs registered in `consolidatedModeHomePaths` (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). `/medications` is consolidated too, but through its own bespoke redirect (`medications/page.tsx` plus a matching fast-path, `medicationsHomeTarget()`, in `src/proxy.ts`) — it stays out of `consolidatedModeHomePaths` because it has no separate `/medications/search` route for that map's generic `${pathname}/search` submitted-target logic to forward to; its submitted searches already went straight to `/?mode=prescribing&q=…&run=1` before this change, and still do. Do not assume Medications is in the shared map — a reader who does will go looking for a results route that does not exist. Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
+- **Mode homes**: all 18 modes use the one shared home at `/?mode=<id>` (including Answer at `/`), while four routes still own a functional home of their own — `/favourites` (a hub), `/tools` (a launcher), `/on-call` (a dashboard) and `/cme` (a dashboard). The last two qualify for a reason the first two do not: neither mode declares a search surface at all, so without a standalone home the mode pill would retarget a composer they have nowhere to send. Neither is a duplicate of the shared home; each is its mode's own functional surface. `/sources` was a third until its four-card `ModeHomeTemplate` home was retired: it duplicated the shared home's title and subtitle, and its cards duplicated the Sources tab bar, so it was deleted and the bare path consolidated. The catalogue keeps its own route at `/sources/search`, reached from the shared home by the `ShowAllChip` Calculators also uses. Composer inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. Fourteen modes are now consolidated onto the shared home, via two different mechanisms: `/services`, `/forms`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/calculators`, `/factsheets`, `/dictionary`, `/therapy-compass`, `/documents`, `/sources` and `/on-call` (whose six section pages live under `/on-call/<section>`) are `redirect()` stubs registered in `consolidatedModeHomePaths` (`src/lib/consolidated-mode-home-redirect.ts`, resolved in `src/proxy.ts` so they emit a real 307 rather than a streamed meta-refresh). `/medications` is consolidated too, but through its own bespoke redirect (`medications/page.tsx` plus a matching fast-path, `medicationsHomeTarget()`, in `src/proxy.ts`) — it stays out of `consolidatedModeHomePaths` because it has no separate `/medications/search` route for that map's generic `${pathname}/search` submitted-target logic to forward to; its submitted searches already went straight to `/?mode=prescribing&q=…&run=1` before this change, and still do. Do not assume Medications is in the shared map — a reader who does will go looking for a results route that does not exist. Calculators and Dictionary are full modes in this inventory, not route aliases. Their per-mode copy is `sharedHomePresentation` in `src/lib/ui-copy.ts`. (`/applications` is a redirect to `/tools`, not a mode or composer surface.)
 - **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dictionary/[slug]`, `/dictionary/topics/[slug]`, `/therapy-compass/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer and the differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: each consolidated mode owns its submitted searches at `<mode>/search` (`/services/search` → `ServicesNavigatorPage`, `/forms/search` → `FormsSearchResultsPage`, `/differentials/search` → `DifferentialsHome` results view, `/formulation/search` → local mechanism results, and the same shape for dsm, dictionary, factsheets, specifiers, calculators, therapy-compass and documents). That split is not cosmetic: the bare path redirects to the shared home, so routing a submitted query back at it would loop — `consolidatedModeHomeModeIds` drives both halves from one list, and `tests/consolidated-mode-home-redirect.test.ts` pins the no-loop property. `/favourites` and `/tools` keep filtering in place on their own routes. `/sources` is the one consolidated mode whose bare path also forwards on a filter key alone (`?topic=`, `?band=`, and the rest of `consolidatedModeCatalogueFilterKeys`): a filter chip has no draft state, so requiring `run=1` for it would silently drop a shareable catalogue link on the home. Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. Bare `/?mode=<id>` always renders the shared home with that mode preselected; only a submitted deep link (`q` plus `run=1`) resolves onward to the mode's own search surface.

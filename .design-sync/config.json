@@ -52,7 +52,7 @@
     "PageHeader": "actions?: ReactNode; breadcrumb?: Crumb[]; className?: string; description?: ReactNode; eyebrow?: string; icon?: LucideIcon; inlineMeta?: ReactNode; meta?: ReactNode; title: string;",
     "Pagination": "className?: string; label?: string; onPageChange: (page: number) => void; page: number; pageCount: number; summary?: string;",
     "PanelHeading": "description?: string; icon?: LucideIcon; title: string;",
-    "Progress": "className?: string; detail?: ReactNode; label: string; value?: number;",
+    "Progress": "className?: string; detail?: ReactNode; label: string; mark?: { value: number; label: string; }; value?: number;",
     "Quantity": "className?: string; demoted?: boolean; size?: \"sm\" | \"md\" | \"lg\"; unit?: string; value: string;",
     "RadioGroup": "className?: string; defaultValue?: string; describedBy?: string; error?: string; hideLabel?: boolean; hint?: string; id?: string; label: string; name: string; onChange?: ((value: string) => void); options: RadioOption[]; value?: string;",
     "RetrievalStateBanner": "className?: string; onOpenSource: (sourceId: string, locator?: string) => void; state: DegradedAnswerState;",

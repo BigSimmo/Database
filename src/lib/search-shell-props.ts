@@ -105,6 +105,10 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "on-call", desktopSearchPlacement: "hero" };
   }
 
+  if (pathname.startsWith("/cme")) {
+    return { initialMode: "cme", desktopSearchPlacement: "hero" };
+  }
+
   if (pathname.startsWith("/dictionary")) {
     // `/dictionary/sources` is a read-only governance page — the source method,
     // the authority hierarchy, the index and the review cadence. Nothing on it

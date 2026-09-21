@@ -2238,6 +2238,189 @@ export type Database = {
         };
         Relationships: [];
       };
+      cme_allocations: {
+        Row: {
+          category: string;
+          entry_id: string;
+          hours: number;
+          id: string;
+          owner_id: string;
+        };
+        Insert: {
+          category: string;
+          entry_id: string;
+          hours: number;
+          id?: string;
+          owner_id: string;
+        };
+        Update: {
+          category?: string;
+          entry_id?: string;
+          hours?: number;
+          id?: string;
+          owner_id?: string;
+        };
+        Relationships: [];
+      };
+      cme_entries: {
+        Row: {
+          activity_date: string;
+          buckets: string[];
+          cost_cents: number | null;
+          created_at: string;
+          document_id: string | null;
+          id: string;
+          owner_id: string;
+          reflection: string;
+          routine_id: string | null;
+          title: string;
+          transcribed_at: string | null;
+          updated_at: string;
+          year_id: string;
+        };
+        Insert: {
+          activity_date: string;
+          buckets?: string[];
+          cost_cents?: number | null;
+          created_at?: string;
+          document_id?: string | null;
+          id?: string;
+          owner_id: string;
+          reflection?: string;
+          routine_id?: string | null;
+          title: string;
+          transcribed_at?: string | null;
+          updated_at?: string;
+          year_id: string;
+        };
+        Update: {
+          activity_date?: string;
+          buckets?: string[];
+          cost_cents?: number | null;
+          created_at?: string;
+          document_id?: string | null;
+          id?: string;
+          owner_id?: string;
+          reflection?: string;
+          routine_id?: string | null;
+          title?: string;
+          transcribed_at?: string | null;
+          updated_at?: string;
+          year_id?: string;
+        };
+        Relationships: [];
+      };
+      cme_requirements: {
+        Row: {
+          completed_on: string | null;
+          created_at: string;
+          id: string;
+          label: string;
+          owner_id: string;
+          sort_order: number;
+          source: string;
+          spec: Json;
+          year_id: string;
+        };
+        Insert: {
+          completed_on?: string | null;
+          created_at?: string;
+          id?: string;
+          label: string;
+          owner_id: string;
+          sort_order?: number;
+          source: string;
+          spec: Json;
+          year_id: string;
+        };
+        Update: {
+          completed_on?: string | null;
+          created_at?: string;
+          id?: string;
+          label?: string;
+          owner_id?: string;
+          sort_order?: number;
+          source?: string;
+          spec?: Json;
+          year_id?: string;
+        };
+        Relationships: [];
+      };
+      cme_routines: {
+        Row: {
+          archived_at: string | null;
+          cadence: string;
+          created_at: string;
+          id: string;
+          next_due: string | null;
+          owner_id: string;
+          title: string;
+          usual_allocations: Json;
+          usual_hours: number;
+        };
+        Insert: {
+          archived_at?: string | null;
+          cadence: string;
+          created_at?: string;
+          id?: string;
+          next_due?: string | null;
+          owner_id: string;
+          title: string;
+          usual_allocations?: Json;
+          usual_hours: number;
+        };
+        Update: {
+          archived_at?: string | null;
+          cadence?: string;
+          created_at?: string;
+          id?: string;
+          next_due?: string | null;
+          owner_id?: string;
+          title?: string;
+          usual_allocations?: Json;
+          usual_hours?: number;
+        };
+        Relationships: [];
+      };
+      cme_years: {
+        Row: {
+          closed_at: string | null;
+          confirmed_on: string;
+          confirmed_source: string;
+          created_at: string;
+          id: string;
+          owner_id: string;
+          shortfall_note: string | null;
+          total_hours: number;
+          updated_at: string;
+          year: number;
+        };
+        Insert: {
+          closed_at?: string | null;
+          confirmed_on: string;
+          confirmed_source: string;
+          created_at?: string;
+          id?: string;
+          owner_id: string;
+          shortfall_note?: string | null;
+          total_hours: number;
+          updated_at?: string;
+          year: number;
+        };
+        Update: {
+          closed_at?: string | null;
+          confirmed_on?: string;
+          confirmed_source?: string;
+          created_at?: string;
+          id?: string;
+          owner_id?: string;
+          shortfall_note?: string | null;
+          total_hours?: number;
+          updated_at?: string;
+          year?: number;
+        };
+        Relationships: [];
+      };
       rag_aliases: {
         Row: {
           alias: string;

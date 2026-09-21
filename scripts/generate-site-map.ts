@@ -196,6 +196,24 @@ const routeDescriptions: Record<string, string> = {
   "/on-call":
     "On Call shift dashboard: the calls that come first, tonight's wards, recent numbers and the section grid.",
   "/on-call/who-is-who": "What each on-call role does, when to call them, and the acronyms this service uses.",
+  "/cme":
+    "CME dashboard: total hours logged this year against the confirmed targets, whether the pace is on track for the deadline, the next thing to do, and the modules the owner has chosen to show below that. A dashboard, not a redirect to the shared search home — CME has no search results surface.",
+  "/cme/log":
+    "Every continuing-education activity recorded, grouped by month, with a category filter and a text search box. Each row opens the entry it belongs to.",
+  "/cme/log/[id]":
+    "One recorded activity in full: its date, hours, the categories those hours count toward, and the reflection written for it. Offers a copy-to-clipboard action for pasting the entry into an external CPD portal.",
+  "/cme/new":
+    "Log a new continuing-education activity — title, date, hours, the categories they split across, and an optional reflection — saved through `/api/cme/entries`.",
+  "/cme/routines":
+    "The activities done on a regular schedule, such as monthly or by term, and when each is next due. A Log control opens the new-entry form prefilled from the routine.",
+  "/cme/plan":
+    "The yearly development plan screen. Not yet built in this phase — the page says so plainly, and offers logging the time spent writing the plan as an activity so the hours still count toward the year.",
+  "/cme/programme":
+    "The requirement targets confirmed for this year — hours required in each category — and the source document they were confirmed against.",
+  "/cme/setup":
+    "The one-time setup checklist: confirm this year's requirement targets, set up routines, and the other steps this phase has not built yet.",
+  "/cme/customise":
+    "Choose which modules show on the CME dashboard below the hours, pace and next-action rows, and reorder them with up/down controls that work as well from a keyboard as from a pointer.",
   // The second On Call page that is a view rather than a stored section, and
   // the second to need a line here for that reason: both are `details.kind`
   // discriminators over an existing section, so neither has a section title
@@ -289,6 +307,7 @@ const routeOwnershipRows = [
   ],
   ["Sources", "src/app/(search-app)/sources, src/components/sources, src/lib/sources"],
   ["On Call", "src/app/(search-app)/on-call, src/components/on-call"],
+  ["CME", "src/app/(search-app)/cme, src/components/cme"],
   [
     "Caring Contacts workspace",
     "src/app/caring-contacts, src/components/caring-contacts/workspace, src/lib/caring-contacts-routes.ts",
@@ -475,6 +494,7 @@ function renderModeRoutes() {
     dictionary: appModeHomeHref("dictionary", { query: "mental state examination", focus: true, run: true }),
     sources: appModeHomeHref("sources", { query: "RANZCP", focus: true, run: true }),
     "on-call": appModeHomeHref("on-call", { query: "after-hours registrar", focus: true, run: true }),
+    cme: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) => {
@@ -607,6 +627,13 @@ function renderModePageIndex() {
       search: appModeHomeHref("therapy-compass", { query: "CBT", focus: true, run: true }),
       detail:
         "`/therapy-compass` redirects to the shared home; `/search` is a query-free browse. Also `/recommend`, `/compare`, `/pathways`, `/review`, and `/[slug]` records with `/brief` and `/sheet` outputs.",
+    },
+    {
+      mode: "CME",
+      home: appModeHomeHref("cme"),
+      search: appModeHomeHref("cme", { query: "peer review group", focus: true, run: true }),
+      detail:
+        'No results page — `resultsSurface: "none"`, like On Call. `/cme/log` full activity list, `/cme/log/[id]` one entry, `/cme/new` new-entry form, `/cme/routines` recurring activities and their due dates, plus `/cme/plan`, `/cme/programme`, `/cme/setup`, and `/cme/customise`.',
     },
   ]);
 }

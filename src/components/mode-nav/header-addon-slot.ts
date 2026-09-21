@@ -71,5 +71,13 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
   // the bare path, not a slug detail.
   if (isSlugDetail(pathname, "/on-call")) return true;
   if (pathname === "/on-call") return true;
+  // CME's two pages that mount `CmeNavHeader` (`cme/cme-nav-header.tsx`), which
+  // is an `InPageNavHeader`. Named exactly rather than by prefix or slug test:
+  // the mode's other routes — the dashboard, the log, one entry, the form,
+  // routines, the plan and customise — mount no header of their own, and
+  // claiming the slot for a route that never fills it is the same error in the
+  // other direction. Both named routes are `isInformationPage`, which is the
+  // agreement `tests/mode-nav-addon-slot.dom.test.tsx` checks route for route.
+  if (pathname === "/cme/programme" || pathname === "/cme/setup") return true;
   return false;
 }

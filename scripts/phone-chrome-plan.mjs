@@ -68,6 +68,13 @@ const patterns = {
   // owner here, any edit under `src/components/on-call/` falls into `unknownUi`
   // and escalates a section-copy tweak to the whole Chromium suite.
   onCall: [/^src\/components\/on-call\//, /^src\/lib\/on-call\//],
+  // CME owns phone chrome of its own the same way On Call does: its screens
+  // share one in-page navigation header (`CmeNavHeader`) rather than
+  // receiving chrome from the shell, and the mode is a phone-first personal
+  // log. Without an owner here, any edit under `src/components/cme/` or
+  // `src/lib/cme/` falls into `unknownUi` and escalates a copy tweak to the
+  // whole Chromium suite instead of narrowing to CME's own journeys.
+  cme: [/^src\/components\/cme\//, /^src\/lib\/cme\//],
   sharedFoundation: [
     /^src\/app\/globals\.css$/,
     /^src\/styles\//,
@@ -126,6 +133,7 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     flags.calculators ||
     flags.differentials ||
     flags.onCall ||
+    flags.cme ||
     flags.sharedFoundation ||
     flags.phoneContract;
   const unknownUi = uiSourceChanged && !phoneRelevant;
@@ -141,6 +149,9 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
       // itself rather than receiving it from the shell — so the page-owned
       // ownership journey is the one that can see them break.
       flags.onCall ||
+      // CME's screens share one in-page nav header of their own for the same
+      // reason; see the `cme` pattern comment above.
+      flags.cme ||
       flags.sharedFoundation ||
       flags.phoneContract);
   const runDashboardJourneys =
