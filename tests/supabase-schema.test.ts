@@ -1155,7 +1155,9 @@ describe("Supabase schema Data API grants", () => {
     expect(auditLogsServiceRolePolicyMigration).toContain(
       "grant select, insert, update, delete on table public.audit_logs to service_role",
     );
-    expect(auditLogsServiceRolePolicyMigration).toContain('create policy "audit logs service role all" on public.audit_logs');
+    expect(auditLogsServiceRolePolicyMigration).toContain(
+      'create policy "audit logs service role all" on public.audit_logs',
+    );
     expect(auditLogsServiceRolePolicyMigration).toContain("for all to service_role");
 
     // Current schema: append-only (select+insert, no update/delete, prevent_mutation trigger).
