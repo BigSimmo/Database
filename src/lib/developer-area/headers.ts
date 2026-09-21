@@ -18,6 +18,19 @@ export const DEVELOPER_AREA_HEADER = "x-developer-area";
  *  just the area root. */
 export const DEVELOPER_AREA_PATH_HEADER = "x-developer-area-path";
 
+/** Trusted request marker for Ward Flow's database-free runtime. `src/proxy.ts`
+ * strips any client-supplied copy and restores it only for the exact Ward Flow
+ * subtree before the root layout reads it. */
+export const WARD_FLOW_OFFLINE_HEADER = "x-ward-flow-offline";
+
+/** Ward Flow remains inside the repository for shared Next.js/design tooling,
+ * but it is a standalone synthetic prototype rather than a Clinical KB surface. */
+export const WARD_FLOW_PATH_PREFIX = "/mockups/ward-flow";
+
+export function isWardFlowPath(pathname: string): boolean {
+  return pathname === WARD_FLOW_PATH_PREFIX || pathname.startsWith(`${WARD_FLOW_PATH_PREFIX}/`);
+}
+
 /** Exact prefixes only. A path that merely begins with the same characters —
  *  `/mockups/care-plan-archive`, say — is not a match and stays behind the
  *  blanket production block, because `isDeveloperGatedPath` requires either an

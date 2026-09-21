@@ -1147,6 +1147,7 @@
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
+        "src/components/developer-area/ward-flow-key-gate-screen.tsx",
         "src/components/document-viewer/document-rail-panels.tsx",
         "src/components/on-call/on-call-entry-editor.tsx"
       ],
@@ -2223,6 +2224,7 @@
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/developer-area/developer-gate-screen.tsx",
+        "src/components/developer-area/ward-flow-key-gate-screen.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/ui/catalogue-toolbar.tsx"
       ],

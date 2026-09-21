@@ -7,7 +7,13 @@ import { consolidatedModeHomeTarget, unsubmittedModeSearchTarget } from "@/lib/c
 import { documentSourceRedirectTarget, isDocumentSourcePath } from "@/lib/document-source-redirect";
 import { env } from "@/lib/env";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
-import { DEVELOPER_AREA_HEADER, DEVELOPER_AREA_PATH_HEADER, isDeveloperGatedPath } from "@/lib/developer-area/headers";
+import {
+  DEVELOPER_AREA_HEADER,
+  DEVELOPER_AREA_PATH_HEADER,
+  WARD_FLOW_OFFLINE_HEADER,
+  isDeveloperGatedPath,
+  isWardFlowPath,
+} from "@/lib/developer-area/headers";
 import {
   DEVELOPER_ACCESS_COOKIE,
   DEVELOPER_ACCESS_COOKIE_MAX_AGE_SECONDS,
@@ -192,10 +198,14 @@ export async function proxy(request: NextRequest) {
     // not (2026-09-02 audit, L76). Read the constant.
     headers.delete(DEVELOPER_AREA_HEADER);
     headers.delete(DEVELOPER_AREA_PATH_HEADER);
+    headers.delete(WARD_FLOW_OFFLINE_HEADER);
     headers.delete(PROXY_AUTH_USER_HEADER);
     if (isDeveloperGatedPath(pathname)) {
       headers.set(DEVELOPER_AREA_HEADER, "1");
       headers.set(DEVELOPER_AREA_PATH_HEADER, `${pathname}${request.nextUrl.search}`);
+    }
+    if (isWardFlowPath(pathname)) {
+      headers.set(WARD_FLOW_OFFLINE_HEADER, "1");
     }
     if (authenticatedUserHeader) {
       headers.set(PROXY_AUTH_USER_HEADER, authenticatedUserHeader);
@@ -322,6 +332,16 @@ export async function proxy(request: NextRequest) {
 
   if (shouldBlockProductionMockups(pathname)) {
     return withCsp(new NextResponse(null, { status: 404 }));
+  }
+
+  // Ward Flow is a synthetic, database-free prototype. It shares this Next.js
+  // repository, but it must never inherit the Clinical KB session refresh merely
+  // because the browser also holds an `sb-` cookie for psychiatry.tools. The
+  // trusted request marker also tells the root layout to omit its browser auth
+  // and account-data providers. Developer-key exchange/renewal has already run
+  // above and uses only the signed mockup cookie, never Supabase.
+  if (isWardFlowPath(pathname)) {
+    return withCsp(NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
   }
 
   const url = env.NEXT_PUBLIC_SUPABASE_URL;

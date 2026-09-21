@@ -12,6 +12,7 @@ import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
 import { PUBLIC_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import { BRAND_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
+import { WARD_FLOW_OFFLINE_HEADER } from "@/lib/developer-area/headers";
 import "./globals.css";
 
 /**
@@ -111,12 +112,14 @@ export default async function RootLayout({
   // it must carry the nonce explicitly or the strict script-src blocks it (a
   // silent runtime failure: theme flash returns). Reading headers() opts the app
   // into dynamic rendering — inherent to nonce-based CSP.
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  const isOfflineWardFlow = requestHeaders.get(WARD_FLOW_OFFLINE_HEADER) === "1";
   const cookieStore = await cookies();
   const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
   const isDark = clinicalTheme === "dark";
   const themeClass = isDark ? "dark" : "";
-  const authOrigin = supabaseOrigin();
+  const authOrigin = isOfflineWardFlow ? null : supabaseOrigin();
 
   return (
     <html
@@ -165,11 +168,15 @@ export default async function RootLayout({
         <PwaLifecycle />
         <AppAnnouncements />
         <OverlayRoot />
-        <AuthProvider>
-          <AccountDataProvider>
-            <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
-          </AccountDataProvider>
-        </AuthProvider>
+        {isOfflineWardFlow ? (
+          <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
+        ) : (
+          <AuthProvider>
+            <AccountDataProvider>
+              <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
+            </AccountDataProvider>
+          </AuthProvider>
+        )}
       </body>
     </html>
   );

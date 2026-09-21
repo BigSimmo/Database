@@ -249,6 +249,16 @@ describe("developer-area header (x-developer-area)", () => {
     expect(otherMockupResponse.headers.get("x-middleware-request-x-developer-area-path")).toBeNull();
   });
 
+  it("sets the trusted offline marker only for Ward Flow and strips a spoofed copy elsewhere", async () => {
+    const wardResponse = await proxy(requestFor("/mockups/ward-flow/capacity"));
+    expect(wardResponse.headers.get("x-middleware-request-x-ward-flow-offline")).toBe("1");
+
+    const clinicalRequest = requestFor("/documents/some-id");
+    clinicalRequest.headers.set("x-ward-flow-offline", "1");
+    const clinicalResponse = await proxy(clinicalRequest);
+    expect(clinicalResponse.headers.get("x-middleware-request-x-ward-flow-offline")).toBeNull();
+  });
+
   // #L69: the test above only ever exercised /mockups/development and
   // /mockups/care-plan/**, so a regression that dropped /mockups/caring-contacts
   // or /mockups/ward-flow from DEVELOPER_GATED_PATH_PREFIXES would fail closed

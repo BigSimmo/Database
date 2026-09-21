@@ -48,7 +48,10 @@ const APPROVED_SHARED_MODULES = new Map([
     "the product wordmark, so the prototype is not misread as a separate product",
   ],
   ["@/components/ui/sheet", "the slide-over panel primitive"],
-  ["@/components/developer-area/developer-area-gate", "the administrator gate that keeps Ward Flow out of production"],
+  [
+    "@/components/developer-area/ward-flow-access-gate",
+    "the passwordless gate that keeps Ward Flow private without Clinical KB database access",
+  ],
   ["@/components/contextual-back-link", "shared back navigation"],
   ["@/lib/form-register", "shared form registration"],
   ["@/lib/client-store-factory", "shared client-side store helper"],
@@ -226,7 +229,7 @@ describe("ward flow keeps its seam with the rest of the repository", () => {
     expect([...APPROVED_SHARED_MODULES.keys()].sort()).toEqual([
       "@/components/clinical-dashboard/brand",
       "@/components/contextual-back-link",
-      "@/components/developer-area/developer-area-gate",
+      "@/components/developer-area/ward-flow-access-gate",
       "@/components/ui-primitives",
       "@/components/ui/missing-value",
       "@/components/ui/sheet",

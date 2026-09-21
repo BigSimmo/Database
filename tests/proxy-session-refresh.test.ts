@@ -89,6 +89,15 @@ describe("proxy session refresh scoping", () => {
     expect(getClaims).not.toHaveBeenCalled();
   });
 
+  it("keeps Ward Flow independent from Supabase even when the browser carries an sb- cookie", async () => {
+    const { proxy } = await import("../src/proxy");
+    const response = await proxy(requestWithSessionCookie("/mockups/ward-flow/capacity"));
+
+    expect(getClaims).not.toHaveBeenCalled();
+    expect(response.headers.get("x-middleware-request-x-ward-flow-offline")).toBe("1");
+    expect(response.cookies.get("sb-unit-test-auth-token")).toBeUndefined();
+  });
+
   it.each(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg", "/icons/icon-192"])(
     "keeps the public PWA bootstrap path %s independent from user sessions",
     async (path) => {
