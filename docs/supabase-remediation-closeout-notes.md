@@ -4,7 +4,6 @@ Short deferred list after Codex PRs. **No DDL in this note.** Documentation owns
 
 **Projects:** prod `sjrfecxgysukkwxsowpy` · staging `ikoiolksxqxfxgiyqpnu`
 
-
 ## Ledger checkpoint
 
 Deferred rows in §1 are queued as `docs/outstanding-issues-inbox/` **add** requests on this PR (reconcile onto `docs/outstanding-issues.md` after merge). Keep task status in that ledger checkpoint per AGENTS.md — do not let this closeout file become the only home for that work.
