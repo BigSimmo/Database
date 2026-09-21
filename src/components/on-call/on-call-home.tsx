@@ -322,6 +322,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // DELETE behind it matches (section, slug) against the real corpus and so
   // leaves their row alone.
   const hasDemoContent = entries.some((entry) => entry.slug.startsWith("demo-"));
+
+  // Whether there is an example-content control to wrap at all.
+  //
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo mode,
+  // and the module around it must not outlive its own child. Demo mode is the
+  // case that bites rather than a hypothetical one: there the corpus IS the
+  // entries, so every slug carries the `demo-` prefix, `hasDemoContent` is
+  // true for every reader, and a module gated on that alone would put an
+  // "Example content" heading with nothing under it on the home of the public
+  // demo — which is also the mode every `ui-*.spec.ts` renders.
+  const canManageExampleContent = !signedOut && !demoMode;
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -399,7 +410,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
-        {hasDemoContent ? (
+        {hasDemoContent && canManageExampleContent ? (
           <HomeModule id="on-call-home-example-content" label="Example content">
             {/* Deliberately at the top of the page rather than tucked into a
                 menu. These rows are shared, so while they are loaded they are

@@ -26,6 +26,7 @@ const storeState = vi.hoisted(() => ({
   loading: false,
   isOffline: false,
   signedOut: false,
+  demoMode: false,
   cachedAt: null as string | null,
 }));
 
@@ -105,6 +106,8 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
 beforeEach(() => {
   storeState.entries = [];
   storeState.loading = false;
+  storeState.signedOut = false;
+  storeState.demoMode = false;
   recentState.items = [];
 });
 
@@ -333,5 +336,43 @@ describe("On Call home tiles for Admin and Compliance", () => {
     expect(tile).toHaveAttribute("href", "/on-call/compliance");
     expect(tile).toHaveTextContent("Compliance");
     expect(within(tile).getByText(String(compliance.length))).toBeInTheDocument();
+  });
+});
+
+describe("the example-content module", () => {
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo mode,
+  // so the module around it must not render either. The demo case is not
+  // hypothetical: in demo mode the example corpus IS the entries, so every slug
+  // carries the `demo-` prefix and the "is any example content loaded?" test is
+  // true for every reader. Gated on that alone, the public demo home — and the
+  // home every `ui-*.spec.ts` renders — grew an "Example content" heading with
+  // nothing underneath it.
+  it("is absent in demo mode, where the corpus is the content and there is nothing to remove", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.demoMode = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+    expect(screen.queryByText("Example content")).toBeNull();
+  });
+
+  it("is absent for a signed-out reader, who cannot remove anything either", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.signedOut = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+  });
+
+  it("is present for the signed-in owner whose account actually holds the rows", () => {
+    // Guard the two tests above: if the module never rendered at all they would
+    // pass on a component that had simply been deleted.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
   });
 });
