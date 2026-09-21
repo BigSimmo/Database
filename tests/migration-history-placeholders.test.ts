@@ -41,6 +41,10 @@ const KNOWN_ORPHAN_VERSIONS: Record<string, string> = {
     "Staging recorded audit_logs_append_only here; durable effects live in 20260921065653_audit_logs_append_only.sql (prod version).",
   "20260921140000":
     "PR Preview recorded revoke_site_content_definer_execute here; durable effects live in 20260921065646_revoke_site_content_definer_execute.sql (prod version).",
+  "20260921070422":
+    "Staging MCP recorded revoke_site_content_definer_execute here; durable effects live in 20260921065646_revoke_site_content_definer_execute.sql (prod version).",
+  "20260921070432":
+    "Staging MCP recorded audit_logs_append_only here; durable effects live in 20260921065653_audit_logs_append_only.sql (prod version).",
 };
 
 /**
