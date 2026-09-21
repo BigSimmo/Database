@@ -20,7 +20,6 @@ and acceptance evidence belong to their current task; historical reports are lea
 
 Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift + Ward Flow registry).
 
-
 | Task or concern                                              | Authoritative reference                                                                                                                                                                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Select verification, reuse evidence, choose browser coverage | [Verification gates](../AGENTS.md#process-hardening-phases)                                                                                                                                                                     |
