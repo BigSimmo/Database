@@ -2,17 +2,18 @@
 
 How Documentation keeps project docs accurate, logged, and non-stale across Joshua’s repos. **Process doc — no product DDL.**
 
-_Owned by Documentation. Updated 2026-09-21 (review: auth-gated PR ship + portable Ward Flow registry)._
+_Owned by Documentation. Updated 2026-09-21 (adversarial registry accuracy)._
 
 ## Principles
 
 1. **One live source per topic** — archive or stub duplicates.
 2. **Stamp what you touch** — live docs carry `_Updated YYYY-MM-DD — <why>; Documentation owns._`
 3. **Names only for secrets** — never paste values, JWTs, or dashboard passwords.
-4. **Status in one board** — closeout/coordination files own deferred status; other docs link, don’t fork.
+4. **Status in one board** — one deferred/status owner per topic; other docs link, don’t fork.
 5. **Improve the map while you’re here** — one small discoverability/archive/link fix per pass when cheap.
 6. **Ward Flow tip lock (operator rule, not portable config)** — Repo identity is `BigSimmo/Database`. When Joshua asks for Ward Flow, use only the checkout he names; confirm tip (`git log -1` / `rev-parse`) before acting. Default on **Josh’s PC** is the `ward-lead` worktree under his Database worktrees folder — discover that path at runtime on his machine; do **not** treat a workstation-absolute path as something Cloud/Linux/other PCs can open. Discover the running app origin via `npm run ensure` / `stableProjectPort` — never hardcode ports. No stale worktrees, detached inventory/suite checkouts, older SHAs, or cloud agents unless Joshua explicitly names another path.
 7. **Recheck triggers** — every live doc class has an event that invalidates it (below). Weekday sweep is backup, not the only freshness mechanism.
+8. **Registry claims must be tip-true** — script names, entry filenames, and “generated” claims must match the tip you are editing (`package.json` + tree). Prefer under-claiming over inventing tip-only paths.
 
 ## Pipeline (every docs change)
 
@@ -49,12 +50,18 @@ Scope → Read tip → Edit (class-aware) → Stamp + ship (auth-gated PR) → M
 
 ## Project registry
 
-| Project                                  | Tip / repo                                                                                                                                                                          | Entry docs                                                                                                                                           | Doc check                                                                                    | Notes                                                                                                                                                                                       |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named                                                                                                                     | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file                                                        | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [PR #2959 closeout notes](https://github.com/BigSimmo/Database/pull/2959) (PR #2959)                      |
-| **Ward Flow**                            | Repo `BigSimmo/Database`. Operator tip lock: checkout Joshua names (default on Josh PC: `ward-lead` worktree — confirm with `git log -1`; other machines must not assume that path) | Ward Flow tip live set: README / LOCAL-FIRST-RUN / ARCHIVE-NOTE / STATUS (live under the tip docs/ward-flow tree; that folder layout is not on main) | Ward Flow tip only: script ward:check-docs (alias of check:ward-doc-links; not on main)      | Discover origin via `npm run ensure` / `stableProjectPort` — never hardcode ports. Dated notes under tip archive only. Never stale worktrees / cloud / other paths unless Joshua names them |
+Verified against `origin/main` on 2026-09-21 unless noted. Tip-only claims are labeled.
 
-Extend this table when a new product tip is confirmed — don’t invent paths.
+| Project                                  | Tip / repo                                                                                                                                                               | Entry docs (on `main` unless noted)                                                                                                                   | Doc check on `main`                                                                                                 | Notes                                                                                                                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named                                                                                                          | Root `README.md`, curated `docs/README.md` (hand-maintained Start-here / index — **not** auto-written by `docs:update`), process: this file           | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index`                        | Product name is **PsychSift**. Supabase project label is **Clinical KB Database**. Closeout board (when merged): [PR #2959](https://github.com/BigSimmo/Database/pull/2959).                  |
+| **Ward Flow**                            | Same monorepo. Operator tip lock: checkout Joshua names (default on Josh PC: `ward-lead` worktree — confirm with `git log -1`; other machines must not assume that path) | On `main` today: `docs/ward-flow/README.md`, `docs/ward-flow/START-LOCAL-CHAT.md` (many dated ledgers also live under `docs/ward-flow/` — historical) | Same PsychSift docs checks for paths that exist on `main`. **No** `ward:check-docs` script on `main` `package.json` | Discover origin via `npm run ensure` / `stableProjectPort` — never hardcode ports. Before citing tip-only entry names or scripts, confirm they exist on **that** tip’s tree / `package.json`. |
+
+### Catalog honesty
+
+- `docs/README.md` is a **curated** map. `npm run docs:update` / repo-awareness snapshot **reads** it to mark paths catalogued vs not; it does **not** regenerate the README.
+- Hundreds of `docs/ward-flow/**` paths are currently uncatalogued in the snapshot — treat that as known debt, not “the index is complete.”
+- New docs need a manual Start-here / README row (or an explicit backlog note) when they are load-bearing.
 
 ### Registry accuracy rules
 
@@ -65,4 +72,4 @@ Extend this table when a new product tip is confirmed — don’t invent paths.
 ## Related
 
 - Agent skills (Documentation bot): **Documentation Operating System**, **Docs Freshness Audit**.
-- Active PsychSift / Clinical KB closeout: [PR #2959 closeout notes](https://github.com/BigSimmo/Database/pull/2959).
+- Active PsychSift / Clinical KB Database closeout PR: [#2959](https://github.com/BigSimmo/Database/pull/2959) (lands `docs/supabase-remediation-closeout-notes.md`).
