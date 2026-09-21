@@ -37,6 +37,18 @@ const KNOWN_ORPHAN_VERSIONS: Record<string, string> = {
   "20260713122000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260717133000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260718223000": "Renumbered away; placeholder holds the remote-history slot.",
+  "20260921065428":
+    "Staging recorded audit_logs_append_only here; durable effects live in 20260921065653_audit_logs_append_only.sql (prod version).",
+  "20260921140000":
+    "PR Preview recorded revoke_site_content_definer_execute here; durable effects live in 20260921065646_revoke_site_content_definer_execute.sql (prod version).",
+  "20260921070422":
+    "Staging MCP recorded revoke_site_content_definer_execute here; durable effects live in 20260921065646_revoke_site_content_definer_execute.sql (prod version).",
+  "20260921070432":
+    "Staging MCP recorded audit_logs_append_only here; durable effects live in 20260921065653_audit_logs_append_only.sql (prod version).",
+  "20260921072945":
+    "Staging MCP recorded restore_authenticated_site_content_mutation_execute here; durable effects live in 20260921072938_restore_authenticated_site_content_mutation_execute.sql (prod version).",
+  "20260921154500":
+    "Repo stem before live MCP apply / possible Preview history; durable effects live in 20260921072938_restore_authenticated_site_content_mutation_execute.sql (prod version).",
 };
 
 /**
