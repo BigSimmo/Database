@@ -5347,7 +5347,7 @@ grant select, insert, update, delete on table
 to service_role;
 
 revoke all on public.audit_logs from anon, authenticated;
-grant select, insert, update, delete on table public.audit_logs to service_role;
+grant select, insert on table public.audit_logs to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
@@ -5494,10 +5494,37 @@ create policy "api rate limit subjects service role all" on public.api_rate_limi
   using (true)
   with check (true);
 
-create policy "audit logs service role all" on public.audit_logs
-  for all to service_role
-  using (true)
+create policy "audit logs service role select" on public.audit_logs
+  for select to service_role
+  using (true);
+
+create policy "audit logs service role insert" on public.audit_logs
+  for insert to service_role
   with check (true);
+
+create or replace function public.audit_logs_prevent_mutation()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  raise exception 'audit_logs is append-only: % not allowed', tg_op
+    using errcode = '42501';
+  return null;
+end;
+$$;
+
+revoke all on function public.audit_logs_prevent_mutation()
+  from public, anon, authenticated;
+grant execute on function public.audit_logs_prevent_mutation() to service_role;
+alter function public.audit_logs_prevent_mutation() owner to postgres;
+
+drop trigger if exists audit_logs_append_only on public.audit_logs;
+create trigger audit_logs_append_only
+  before update or delete on public.audit_logs
+  for each row
+  execute function public.audit_logs_prevent_mutation();
 
 create policy "storage cleanup owner read" on public.storage_cleanup_jobs
 for select to authenticated
@@ -14783,7 +14810,7 @@ revoke all on function public.site_content_release_digest(uuid) from public, ano
 revoke all on function public.site_content_provider_free_checks_pass(uuid) from public, anon, authenticated, service_role;
 
 revoke all on function public.read_site_content_public_records(text, text) from public;
-grant execute on function public.read_site_content_public_records(text, text) to anon, authenticated, service_role;
+grant execute on function public.read_site_content_public_records(text, text) to service_role;
 
 revoke all on function public.record_site_content_reconciliation_plan(jsonb, uuid) from public, anon, authenticated;
 grant execute on function public.record_site_content_reconciliation_plan(jsonb, uuid) to service_role;
@@ -15392,10 +15419,10 @@ $$;
 alter table public.site_content_sync_worker_invocations enable row level security;
 alter table public.site_content_sync_worker_invocations force row level security;
 revoke all on table public.site_content_sync_worker_invocations from public, anon, authenticated, service_role;
-revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text) from public, anon, service_role;
-grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text) to authenticated;
-revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text) from public, anon, service_role;
-grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text) to authenticated;
+revoke all on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text) from public, anon, authenticated, service_role;
+grant execute on function public.publish_site_content_record(text, uuid, text, bigint, text, text, text) to service_role;
+revoke all on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text) from public, anon, authenticated, service_role;
+grant execute on function public.retire_site_content_record(text, uuid, text, bigint, text, text, text) to service_role;
 revoke all on function public.record_site_content_sync_worker_invocation(uuid, uuid, text, text) from public, anon, authenticated, service_role;
 grant execute on function public.record_site_content_sync_worker_invocation(uuid, uuid, text, text) to service_role;
 revoke all on function public.read_site_content_health() from public, anon, authenticated, service_role;
@@ -15725,7 +15752,7 @@ end;
 $$;
 
 revoke all on function public.record_site_content_reconciliation_plan(jsonb) from public, anon, authenticated, service_role;
-grant execute on function public.record_site_content_reconciliation_plan(jsonb) to authenticated;
+grant execute on function public.record_site_content_reconciliation_plan(jsonb) to service_role;
 revoke all on function public.claim_site_content_sync_events(uuid, integer, integer)
   from public, anon, authenticated, service_role;
 grant execute on function public.claim_site_content_sync_events(uuid, integer, integer) to service_role;
@@ -17436,7 +17463,7 @@ $$;
 
 revoke all on function public.read_site_content_public_records(text, text)
   from public, anon, authenticated, service_role;
-grant execute on function public.read_site_content_public_records(text, text) to anon, authenticated, service_role;
+grant execute on function public.read_site_content_public_records(text, text) to service_role;
 revoke all on function public.activate_site_content_release(uuid, text, bigint, text, jsonb)
   from public, anon, authenticated, service_role;
 grant execute on function public.activate_site_content_release(uuid, text, bigint, text, jsonb) to service_role;
