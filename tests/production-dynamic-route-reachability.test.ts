@@ -562,6 +562,9 @@ describe("production dynamic route reachability", () => {
       // the one place meant to hold the truth about it.
       "/caring-contacts/patients/[patientId]",
       "/caring-contacts/templates/[pathwayId]",
+      // CME's one entry record. Reached from the log's rows, which build
+      // `/cme/log/${entry.id}` — a template literal this scan reads directly.
+      "/cme/log/[id]",
       "/dictionary/[slug]",
       "/dictionary/topics/[slug]",
       "/differentials/diagnoses/[slug]",

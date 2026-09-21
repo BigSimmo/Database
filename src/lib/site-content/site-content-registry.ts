@@ -14,7 +14,7 @@ export const SITE_CONTENT_REGISTRY_VERSION = "site-content-registry-v1" as const
 
 export type SiteContentProducerDefinition = {
   version: "site-content-producer-v1";
-  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call">;
+  modeId: Exclude<AppModeId, "answer" | "documents" | "favourites" | "sources" | "on-call" | "cme">;
   corpusScope: SiteContentCorpusScope;
   domain: SiteContentDomain;
   producerClass: SiteContentRecord["producerClass"];
@@ -273,6 +273,15 @@ export const siteContentModeExclusions = [
   },
   {
     modeId: "on-call",
+    reason: "private_user_state",
+    permanent: true,
+    reviewed: true,
+    reviewOwner: "clinical_content_governance",
+  },
+  {
+    // CME holds the owner's own continuing-education record. It publishes
+    // nothing and must never become a retrieval corpus.
+    modeId: "cme",
     reason: "private_user_state",
     permanent: true,
     reviewed: true,

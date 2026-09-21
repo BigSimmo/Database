@@ -110,6 +110,7 @@ const sidebarMoreModeIds = [
   "dictionary",
   "sources",
   "on-call",
+  "cme",
 ] as const satisfies readonly AppModeId[];
 
 const sidebarModeItems = [

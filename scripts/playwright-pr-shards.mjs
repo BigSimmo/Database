@@ -19,7 +19,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 /** Same matcher as playwright.config.ts `productionSpecPattern` (keep in sync). */
 export const productionSpecFilePattern =
-  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
+  /^(?:api-csrf-proxy|adaptive-answer-ui|answer-progress-ui-smoke|dsm-ui-smoke|ui-(?:smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts$/;
 
 /**
  * Same matcher as playwright.config.ts `seededSpecPattern` (keep in sync).
@@ -55,6 +55,7 @@ export const prUiSpecProfiles = Object.freeze([
   // held 36 tests; it now holds 46 (board 11 became Admin and Compliance was
   // added) and has NOT been re-measured. Treat the figure as a stale lower
   // bound rather than a current timing.
+  { file: "tests/ui-cme-phone.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   { file: "tests/ui-on-call-boards.spec.ts", shard: 1, fullSeconds: 0, criticalSeconds: 0 },
   { file: "tests/ui-phone-scroll-page-owned.spec.ts", shard: 1, fullSeconds: 42.5, criticalSeconds: 0 },
   // Moved to shard 2 to offset the Caring Contacts populated sweep landing on shard 1; its own

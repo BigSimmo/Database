@@ -259,7 +259,7 @@ function ExampleTicker({
           onTouchStart={freezeTicker}
           onTouchEnd={releaseTicker}
           onTouchCancel={releaseTicker}
-          aria-label={`Try suggested search: ${resolvedTickerExample}`}
+          aria-label={`Try this ${resolvedTickerExample}. Tap to search`}
         >
           <span className="smart-search-phone-ticker-kicker">
             <Sparkles aria-hidden="true" className="size-icon-sm" />
