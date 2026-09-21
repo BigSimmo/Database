@@ -3849,10 +3849,29 @@ body:has([data-route-recovery="true"]) .pwa-install-sheet {
   }
 }
 
-@media (min-width: 1280px) {
+/* Wide + tall: keep the lower-right anchor with a slightly larger inset.
+   Wide + short must NOT re-apply `bottom` here — that would override the
+   short-height `bottom: auto` above and stretch offline/update cards into a
+   full-height pointer-events panel (e.g. 1366×768). */
+@media (min-width: 1280px) and (min-height: 900px) {
   .pwa-notice-stack {
     right: max(1.5rem, var(--safe-area-right));
     bottom: max(1.5rem, var(--safe-area-bottom));
+  }
+}
+
+@media (min-width: 1280px) and (max-height: 899.98px) {
+  .pwa-notice-stack {
+    right: max(1.5rem, var(--safe-area-right));
+    bottom: auto;
+  }
+
+  /* Offline / update cards lack the install sheet's max-height; bound them so a
+     single notice cannot become a tall intercepting panel on short wide screens. */
+  .pwa-notice-stack > .pwa-lifecycle-card,
+  .pwa-notice-stack > .pwa-connection-restored {
+    max-height: min(42dvh, calc(100dvh - 6rem - var(--safe-area-top) - var(--safe-area-bottom)));
+    overflow: auto;
   }
 }
 
