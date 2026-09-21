@@ -48,9 +48,23 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 - **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
 - **Staging Auth:** leaked-password WARN remains until Joshua toggles Auth dashboard.
 
-## 4. Out of scope here
+## 4. Railway env inventory (names only)
+
+Names-only check — **no values recorded.**
+
+| Present by name | Where |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Prod app, prod worker, staging app |
+
+| Not present on Railway by name | Where it lives instead |
+| --- | --- |
+| `INDEXING_V3_AGENT_SECRET` | Vault `indexing_v3_agent_secret` |
+| Cron JWT (`cron_ingestion_jwt` / related) | Vault `cron_ingestion_jwt` |
+| `PROXY_AUTH` / signing secret | Not on Railway by name |
+
+## 5. Out of scope here
 
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA/signup vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned when Phase 1 Auth finishes.
 
-*Updated 2026-09-21 — prod apply confirmed by Supabase; Documentation owns.*
+*Updated 2026-09-21 — Railway names-only inventory appended; Documentation owns.*
