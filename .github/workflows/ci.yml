@@ -727,6 +727,9 @@ jobs:
         with:
           name: playwright-next-build-${{ github.run_id }}
           path: .next-playwright/ci-${{ github.run_id }}
+          # Dot-dir under .next-playwright is hidden; upload-artifact excludes by default
+          # (same pattern as .local/eval-canary).
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 2
 
