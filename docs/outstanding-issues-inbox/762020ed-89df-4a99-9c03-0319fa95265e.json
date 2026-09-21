@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "762020ed-89df-4a99-9c03-0319fa95265e",
+  "createdOn": "2026-09-21",
+  "action": "update",
+  "payload": {
+    "id": "#NNAWDT",
+    "detail": "CORRECTED 2026-09-20/21 by measurement. The claim that the workflow 'fails on every PR' is FALSE as stated. Runs 11, 12, 15, 17, 18, 20, 23, 24 and 25 of claude-review.yml all concluded SUCCESS between 14:58 and 16:04 on 2026-09-20; it then failed on PR #2900 twice (runs 29 att1/att2) and on PR #2939 (run 30) inside a five-minute window at 16:15-16:20. Both failures were identical: duration_ms ~1900, num_turns 1, total_cost_usd 0, permission_denials_count 0, modelUsage {} \u2014 the run died on its first request having read no file, on two different branches with two different diffs, minutes apart. That is an ACCOUNT-LEVEL LIMIT on the CLAUDE_CODE_OAUTH_TOKEN subscription, not a broken workflow and not a property of any diff. SO THE REAL SHAPE OF THIS ISSUE IS: automated review is intermittently unavailable when several PRs are reviewed in quick succession, which is the same failure mode the workflow was created to escape (CodeRabbit categorical, Codex usage limits, Bugbot spend cap \u2014 all three recorded in the workflow header, and Bugbot posted 'usage limit reached' again on #2900 at 17:24). SECOND CORRECTION: it does not 'paint a red check'. .github/workflows/claude-review.yml sets continue-on-error: true at job level and the workflow is absent from pr-required's needs, so the RUN concludes success even when the JOB fails; the red is a job-level conclusion that cannot block a merge. The workflow header states this deliberately. ALSO WORTH KNOWING: the 'synchronize' event is not one of its triggers (only opened and ready_for_review), so a PR that takes further pushes after its one review never gets re-reviewed, and the red job conclusion stays pinned to a stale head where a reader will mistake it for current. NEXT ACTION for whoever picks this up: the question is not 'why is the workflow broken' but 'what is the subscription's review concurrency, and should the workflow retry with backoff on a zero-usage first-request failure rather than surfacing it'.",
+    "source": "Session 2026-09-20, PR #2900; claude-review.yml run history 11-30 and job logs 106107924930 and 106108413981",
+    "baseRowFingerprint": "52167c55943a7c898633f257879fc60cbd97818f1fc562e6c36ae49fef48ae6e"
+  }
+}
