@@ -2,10 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearCatalogueSeedFallbackCooldown } from "@/lib/site-content/catalogue-seed-fallback";
 import { clearSiteContentRecordCache } from "@/lib/site-content/site-content-record-cache";
-import {
-  catalogueSearchWarmKinds,
-  warmCanonicalCatalogueSearchCaches,
-} from "@/lib/site-content/warm-catalogue-caches";
+import { catalogueSearchWarmKinds, warmCanonicalCatalogueSearchCaches } from "@/lib/site-content/warm-catalogue-caches";
 
 const { readCanonicalSiteContentRecords, markCatalogueProcessConnectionWarmed } = vi.hoisted(() => ({
   readCanonicalSiteContentRecords: vi.fn(),

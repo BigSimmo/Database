@@ -575,7 +575,6 @@ describe("the one retry a cold read gets", () => {
   });
 });
 
-
 /**
  * Process-level cold serialisation.
  *
