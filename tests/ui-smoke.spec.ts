@@ -1032,8 +1032,8 @@ async function expectMobileSettingsLayout(settings: Locator) {
 async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Continue to your workspace" })).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
-  await expect(setup.getByLabel("Work email")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue securely" })).toBeVisible();
+  await expect(setup.getByLabel("Email address")).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
@@ -1768,7 +1768,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
     await expectAccountProviderLayout(setup, "stack");
-    await expect(setup.getByLabel("Work email")).toBeFocused();
+    await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const workspaceMark = setup.getByTestId("account-workspace-mark");
     await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
@@ -1789,10 +1789,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     }
 
     await page.setViewportSize({ width: 320, height: 700 });
-    const setupEmail = setup.getByLabel("Work email");
+    const setupEmail = setup.getByLabel("Email address");
     await setupEmail.scrollIntoViewIfNeeded();
     await expect(setupEmail).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Continue securely" })).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
