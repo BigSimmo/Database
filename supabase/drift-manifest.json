@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-18T14:26:28.223Z",
+  "generated_at": "2026-09-21T04:40:58.495Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "8ecfb719ee317120764eccf09807ce109e9cfcbd8bc8610600353bc8077113f5",
-  "replay_seconds": 34,
+  "schema_sha256": "c69b79315484fd1618ded663436c982903eb6c267bc1888bc38b78df7312723e",
+  "replay_seconds": 14,
   "snapshot": {
     "views": [
       {
@@ -687,6 +687,434 @@
             "name": "verification",
             "type": "jsonb",
             "default": "'{}'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_allocations",
+        "columns": [
+          {
+            "name": "category",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "entry_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "hours",
+            "type": "numeric(5,2)",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_entries",
+        "columns": [
+          {
+            "name": "activity_date",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "buckets",
+            "type": "text[]",
+            "default": "'{}'::text[]",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "cost_cents",
+            "type": "integer",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reflection",
+            "type": "text",
+            "default": "''::text",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "routine_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "transcribed_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "year_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_requirements",
+        "columns": [
+          {
+            "name": "completed_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "label",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "sort_order",
+            "type": "smallint",
+            "default": "0",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "source",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "spec",
+            "type": "jsonb",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "year_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_routines",
+        "columns": [
+          {
+            "name": "archived_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "cadence",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "next_due",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "title",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "usual_allocations",
+            "type": "jsonb",
+            "default": "'[]'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "usual_hours",
+            "type": "numeric(5,2)",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "cme_years",
+        "columns": [
+          {
+            "name": "closed_at",
+            "type": "timestamp with time zone",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "confirmed_on",
+            "type": "date",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "confirmed_source",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "shortfall_note",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
+            "generated": ""
+          },
+          {
+            "name": "total_hours",
+            "type": "numeric(6,2)",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "year",
+            "type": "smallint",
+            "default": null,
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -7193,6 +7621,66 @@
         "def_hash": "26fa0d61d1d9125e8c2d9c8c62d461f0"
       },
       {
+        "def": "CREATE UNIQUE INDEX cme_allocations_entry_id_category_key ON public.cme_allocations USING btree (entry_id, category)",
+        "name": "cme_allocations_entry_id_category_key",
+        "table": "cme_allocations",
+        "def_hash": "751423ed1a90eb93ea543eeb1ad98407"
+      },
+      {
+        "def": "CREATE INDEX cme_allocations_entry_idx ON public.cme_allocations USING btree (entry_id)",
+        "name": "cme_allocations_entry_idx",
+        "table": "cme_allocations",
+        "def_hash": "e6e99b006ca09386c9ef19873f310e3f"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_allocations_pkey ON public.cme_allocations USING btree (id)",
+        "name": "cme_allocations_pkey",
+        "table": "cme_allocations",
+        "def_hash": "2e95b1b0162d8507fad86079a66685c3"
+      },
+      {
+        "def": "CREATE INDEX cme_entries_owner_year_date_idx ON public.cme_entries USING btree (owner_id, year_id, activity_date DESC)",
+        "name": "cme_entries_owner_year_date_idx",
+        "table": "cme_entries",
+        "def_hash": "58162ce5148713ee358e58010eddbe1f"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_entries_pkey ON public.cme_entries USING btree (id)",
+        "name": "cme_entries_pkey",
+        "table": "cme_entries",
+        "def_hash": "ddfa7ecd685a0125235fb746d7c8bef6"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_requirements_pkey ON public.cme_requirements USING btree (id)",
+        "name": "cme_requirements_pkey",
+        "table": "cme_requirements",
+        "def_hash": "e69d78cf5a6441f94186680425da1ceb"
+      },
+      {
+        "def": "CREATE INDEX cme_requirements_year_idx ON public.cme_requirements USING btree (year_id, sort_order)",
+        "name": "cme_requirements_year_idx",
+        "table": "cme_requirements",
+        "def_hash": "6b004419542c6714f4d66c4b4b5eb96c"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_routines_pkey ON public.cme_routines USING btree (id)",
+        "name": "cme_routines_pkey",
+        "table": "cme_routines",
+        "def_hash": "675ece2c9db9188c051b01135aaa9595"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_years_owner_id_year_key ON public.cme_years USING btree (owner_id, year)",
+        "name": "cme_years_owner_id_year_key",
+        "table": "cme_years",
+        "def_hash": "611b18d11b2c644c5f003b75e1f31c3f"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX cme_years_pkey ON public.cme_years USING btree (id)",
+        "name": "cme_years_pkey",
+        "table": "cme_years",
+        "def_hash": "de01a95e222cae697ed451a8370fa5d0"
+      },
+      {
         "def": "CREATE UNIQUE INDEX differential_records_owner_id_kind_slug_key ON public.differential_records USING btree (owner_id, kind, slug)",
         "name": "differential_records_owner_id_kind_slug_key",
         "table": "differential_records",
@@ -8768,6 +9256,66 @@
       },
       {
         "cmd": "ALL",
+        "name": "cme_allocations service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_allocations",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_entries service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_entries",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_requirements service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_requirements",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_routines service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_routines",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
+        "name": "cme_years service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "cme_years",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "differential records service role all",
         "qual": "true",
         "roles": [
@@ -9413,6 +9961,16 @@
         "def": "CREATE TRIGGER clinical_registry_records_updated_at BEFORE UPDATE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "clinical_registry_records_updated_at",
         "table": "clinical_registry_records"
+      },
+      {
+        "def": "CREATE TRIGGER cme_entries_updated_at BEFORE UPDATE ON public.cme_entries FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_entries_updated_at",
+        "table": "cme_entries"
+      },
+      {
+        "def": "CREATE TRIGGER cme_years_updated_at BEFORE UPDATE ON public.cme_years FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
+        "name": "cme_years_updated_at",
+        "table": "cme_years"
       },
       {
         "def": "CREATE TRIGGER differential_records_delete_cleanup AFTER DELETE ON public.differential_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
@@ -11215,6 +11773,116 @@
         "def": "CHECK ((validation_status = ANY (ARRAY['unverified'::text, 'locally_reviewed'::text, 'approved'::text])))",
         "name": "clinical_registry_records_validation_status_check",
         "table": "clinical_registry_records"
+      },
+      {
+        "def": "CHECK ((category = ANY (ARRAY['educational'::text, 'reviewing'::text, 'measuring'::text])))",
+        "name": "cme_allocations_category_check",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "UNIQUE (entry_id, category)",
+        "name": "cme_allocations_entry_id_category_key",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "FOREIGN KEY (entry_id) REFERENCES public.cme_entries(id) ON DELETE CASCADE",
+        "name": "cme_allocations_entry_id_fkey",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "CHECK ((hours > (0)::numeric))",
+        "name": "cme_allocations_hours_check",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_allocations_owner_id_fkey",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_allocations_pkey",
+        "table": "cme_allocations"
+      },
+      {
+        "def": "CHECK (((cost_cents IS NULL) OR (cost_cents >= 0)))",
+        "name": "cme_entries_cost_cents_check",
+        "table": "cme_entries"
+      },
+      {
+        "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE SET NULL",
+        "name": "cme_entries_document_id_fkey",
+        "table": "cme_entries"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_entries_owner_id_fkey",
+        "table": "cme_entries"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_entries_pkey",
+        "table": "cme_entries"
+      },
+      {
+        "def": "FOREIGN KEY (routine_id) REFERENCES public.cme_routines(id) ON DELETE SET NULL",
+        "name": "cme_entries_routine_id_fkey",
+        "table": "cme_entries"
+      },
+      {
+        "def": "FOREIGN KEY (year_id) REFERENCES public.cme_years(id) ON DELETE CASCADE",
+        "name": "cme_entries_year_id_fkey",
+        "table": "cme_entries"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_requirements_owner_id_fkey",
+        "table": "cme_requirements"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_requirements_pkey",
+        "table": "cme_requirements"
+      },
+      {
+        "def": "CHECK ((source = ANY (ARRAY['national'::text, 'college'::text])))",
+        "name": "cme_requirements_source_check",
+        "table": "cme_requirements"
+      },
+      {
+        "def": "FOREIGN KEY (year_id) REFERENCES public.cme_years(id) ON DELETE CASCADE",
+        "name": "cme_requirements_year_id_fkey",
+        "table": "cme_requirements"
+      },
+      {
+        "def": "CHECK ((cadence = ANY (ARRAY['weekly'::text, 'monthly'::text, 'quarterly'::text])))",
+        "name": "cme_routines_cadence_check",
+        "table": "cme_routines"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_routines_owner_id_fkey",
+        "table": "cme_routines"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_routines_pkey",
+        "table": "cme_routines"
+      },
+      {
+        "def": "FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "cme_years_owner_id_fkey",
+        "table": "cme_years"
+      },
+      {
+        "def": "UNIQUE (owner_id, year)",
+        "name": "cme_years_owner_id_year_key",
+        "table": "cme_years"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "cme_years_pkey",
+        "table": "cme_years"
       },
       {
         "def": "CHECK ((kind = ANY (ARRAY['presentation'::text, 'diagnosis'::text])))",

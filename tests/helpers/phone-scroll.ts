@@ -47,6 +47,11 @@ export const modeHomeRoutes = [
   "/services",
   "/forms",
   "/favourites",
+  // CME declares no search surface (resultsSurface: "none") and so has no hero
+  // composer at all, unlike every route above it in this list — but it is an
+  // always-standalone shell path (`isAlwaysStandaloneShellPath`) exactly like
+  // them, sharing the same document-scrolling contract this sweep checks.
+  "/cme",
 ];
 
 // ClinicalDashboard scroller (answer home keeps the in-flow hero pill; the
@@ -77,6 +82,18 @@ export const appModeHeaderRoutes = [
   { mode: "Calculators", route: "/calculators" },
   { mode: "Therapy", route: "/therapy-compass" },
   { mode: "Factsheets", route: "/factsheets" },
+  // CME's sub-pages, rather than a second entry for its mode home (`/cme` is
+  // already the sweep's mode home entry in `modeHomeRoutes` above). Each of
+  // these still sits under the shared universal header, so the header's own
+  // hide/reveal contract applies to them exactly as it does to every other
+  // mode's home route above.
+  { mode: "CME log", route: "/cme/log" },
+  { mode: "CME new entry", route: "/cme/new" },
+  { mode: "CME routines", route: "/cme/routines" },
+  { mode: "CME plan", route: "/cme/plan" },
+  { mode: "CME programme", route: "/cme/programme" },
+  { mode: "CME setup", route: "/cme/setup" },
+  { mode: "CME customise", route: "/cme/customise" },
 ];
 
 // Every phone route now overlays its chrome, portaled page navigation included:

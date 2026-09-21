@@ -10,6 +10,7 @@ import {
   FileCheck2,
   FileSignature,
   FileText,
+  GraduationCap,
   Heart,
   HeartHandshake,
   LibraryBig,
@@ -69,6 +70,7 @@ const categoryIcons: Record<CategoryIconKey, LucideIcon> = {
   star: Star,
   chat: MessagesSquare,
   phoneCall: PhoneCall,
+  graduationCap: GraduationCap,
 };
 
 /** Component form, for the call sites that still take a `LucideIcon` prop. */

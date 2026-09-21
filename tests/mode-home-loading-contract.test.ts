@@ -27,6 +27,9 @@ const MODE_HOME_LOADING_ROUTES = [
   // `standaloneModeHomePaths` at the same time, and the assertion below requires
   // every standalone home to appear here.
   "on-call",
+  // CME's dashboard, which is a standalone mode home for On Call's reason and
+  // so must appear here — the assertion below requires it.
+  "cme",
 ] as const;
 
 describe("mode-home loading contract", () => {

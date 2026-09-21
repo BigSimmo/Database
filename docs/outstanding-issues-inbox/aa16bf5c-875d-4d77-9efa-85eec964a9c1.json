@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "aa16bf5c-875d-4d77-9efa-85eec964a9c1",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "CME Phase 3 (automatic capture) is blocked until the owner gives an explicit privacy ruling",
+    "detail": "The CME design includes automatic capture of reading time — recording that a document was opened and for how long. It is NOT built, and the setup screen's switch is pinned by test to stay off (aria-checked=false after a click), with copy naming only document titles and dwell time, never typed search text, per the owner's Q19 ruling. It must stay that way until he rules explicitly, because automatic capture inverts all three conditions under which recording his own activity was previously permitted (see src/lib/on-call/recent-storage.ts): it records without an action he took to record, it persists beyond the session, and it produces a record he may later have to defend rather than a convenience he can clear. Do not build Phase 3 on the strength of the design document alone. The question to put to him is narrow: may the app record, durably and without asking each time, which clinical documents he opened and for how long — knowing that record is discoverable in the same way the rest of his CPD record is.",
+    "source": "docs/cme/design/cme-design-decisions.md; owner Q19 ruling; src/lib/on-call/recent-storage.ts",
+    "issueUlid": "01M2ZVTWT9E5V0TVQNG3DRT9XN"
+  }
+}

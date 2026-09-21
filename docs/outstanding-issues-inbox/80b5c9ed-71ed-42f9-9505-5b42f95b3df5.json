@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "80b5c9ed-71ed-42f9-9505-5b42f95b3df5",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "src/lib/on-call/repository.ts is not scanned by check:owner-scope, the same gap CME had",
+    "detail": "check:owner-scope covers every file under src/app/api (phase 1) plus a NAMED list, SCANNED_LIB_MODULES in scripts/lib/tenancy-scan.mjs (phase 2). src/lib/cme/repository.ts was absent from that list, so the gate ran green over the one module standing between one owner's CME records and another's — a green verdict on a file it never opened. Found because the implementing agent reported its own pass as worthless rather than banking it. Fixed for CME in PR #2902 and verified: phase 2 went from 79 to 85 direct queries, exactly the six .from() sites in that file. src/lib/on-call/repository.ts has the same shape — owner-scoped reads of on_call_entries, the module CME's was modelled on — and is ALSO absent from the list. Not fixed in #2902 because it is unrelated to that change and adding a file to the scan can surface findings that need their own review. Check whether any other src/lib module serving owner data to a page or route is likewise unscanned.",
+    "source": "PR #2902 task-5 implementer report and task-5 review, both 2026-09-20; scripts/lib/tenancy-scan.mjs",
+    "issueUlid": "01M2ZVSJGSTC199RMY95RXJD4V"
+  }
+}
