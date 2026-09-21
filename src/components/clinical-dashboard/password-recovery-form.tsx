@@ -24,7 +24,6 @@ export function PasswordRecoveryForm() {
   const signedIn = status === "authenticated" && Boolean(session);
 
   useEffect(() => {
-    setRecoveryAuthorized(readPasswordRecoveryAuthorized());
     if (!client) return () => undefined;
     const {
       data: { subscription },

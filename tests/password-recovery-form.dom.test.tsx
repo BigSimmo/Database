@@ -7,7 +7,9 @@ const api = vi.hoisted(() => ({
   getUser: vi.fn(),
   updateUser: vi.fn(),
   resetPasswordForEmail: vi.fn(),
-  onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: vi.fn() } } })),
+  onAuthStateChange: vi.fn(() => ({
+    data: { subscription: { unsubscribe: vi.fn() } },
+  })) as ReturnType<typeof vi.fn>,
 }));
 const auth = vi.hoisted(() => ({
   status: "signed_out",
@@ -102,8 +104,8 @@ describe("password recovery", () => {
     auth.status = "authenticated";
     auth.session = { user: { id: "owner-a" } };
     let listener: ((event: string) => void) | undefined;
-    api.onAuthStateChange.mockImplementation((cb: (event: string) => void) => {
-      listener = cb;
+    api.onAuthStateChange.mockImplementation((...args: unknown[]) => {
+      listener = args[0] as (event: string) => void;
       return { data: { subscription: { unsubscribe: vi.fn() } } };
     });
     render(<PasswordRecoveryForm />);

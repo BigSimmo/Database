@@ -145,11 +145,7 @@ export function EmailAuthForm({
       {mode === "signup" && (
         <p className="text-sm text-[color:var(--text-muted)]">Confirm your email address before signing in.</p>
       )}
-      <Link
-        href="/auth/reset-password"
-        prefetch={false}
-        className={cn(floatingControl, "justify-center text-sm")}
-      >
+      <Link href="/auth/reset-password" prefetch={false} className={cn(floatingControl, "justify-center text-sm")}>
         Forgot password?
       </Link>
       {localError && <InlineNotice tone="danger">{localError}</InlineNotice>}

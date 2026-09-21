@@ -2,10 +2,7 @@ import type { SetAllCookies } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  isPasswordResetPath,
-  PASSWORD_RECOVERY_COOKIE,
-} from "@/lib/supabase/password-recovery-authorization";
+import { isPasswordResetPath, PASSWORD_RECOVERY_COOKIE } from "@/lib/supabase/password-recovery-authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
