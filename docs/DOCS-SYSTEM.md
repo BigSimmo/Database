@@ -11,6 +11,7 @@ _Owned by Documentation. Updated 2026-09-21._
 3. **Names only for secrets** — never paste values, JWTs, or dashboard passwords.
 4. **Status in one board** — closeout/coordination files own deferred status; other docs link, don’t fork.
 5. **Improve the map while you’re here** — one small discoverability/archive/link fix per pass when cheap.
+6. **Ward Flow tip lock** — Ward Flow work uses only `D:\Worktrees\Database\ward-lead` on Josh’s PC. Confirm tip (`git log -1` / `rev-parse`) before acting. No stale worktrees, detached inventory/suite checkouts, older SHAs, or cloud agents unless Joshua explicitly names another path.
 
 ## Pipeline (every docs change)
 
@@ -49,7 +50,7 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 | Project | Tip / repo | Entry docs | Doc check | Notes |
 | --- | --- | --- | --- | --- |
 | Clinical KB / Database | `BigSimmo/Database` (default `main`); local tip often Josh PC worktrees | `README.md`, `docs/README.md`, `docs/supabase-remediation-closeout-notes.md` | Prefer project npm doc-link scripts when present | Supabase closeout: PR #2959 branch `docs/supabase-remediation-closeout-notes` |
-| Ward Flow | Josh PC `D:\Worktrees\Database\ward-lead` (path-stable port helper; often 3605) | `docs/ward-flow/` Start-here / LOCAL-FIRST-RUN / ARCHIVE-NOTE | `npm run ward:check-docs` / link helpers when available | Dated notes archived under `docs/ward-flow/archive/dated-notes/` |
+| Ward Flow | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting; path-stable port helper, often 3605) | `docs/ward-flow/` Start-here / LOCAL-FIRST-RUN / ARCHIVE-NOTE | `npm run ward:check-docs` / link helpers when available | Dated notes under `docs/ward-flow/archive/dated-notes/`; never stale worktrees / cloud / other paths unless Joshua names them |
 
 Extend this table when a new product tip is confirmed — don’t invent paths.
 
