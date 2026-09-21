@@ -87,7 +87,12 @@ export function OnCallDemoContentControl({
         className={cn(
           "inline-flex min-h-tap items-center gap-1.5 self-start rounded-sm px-1.5 text-sm font-semibold",
           "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-          "disabled:opacity-60",
+          // The design system's disabled treatment for a borderless text
+          // control, as `ui/segmented-control.tsx` uses it. Not
+          // `disabled:opacity-60`: opacity fades the whole control including
+          // its focus ring, and it is a raw value rather than the `--disabled`
+          // token, which is what `check:design-system-contract` ratchets down.
+          "disabled:cursor-not-allowed disabled:text-[color:var(--disabled)]",
           focusRing,
         )}
       >
