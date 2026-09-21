@@ -100,6 +100,20 @@ describe("the example-content control", () => {
 describe("what the loader claims to own", () => {
   it("covers the whole corpus and nothing else", () => {
     expect(ON_CALL_DEMO_ENTRY_COUNT).toBe(DEMO_ON_CALL_ENTRIES.length);
+
+    // The load button spells the count in words, because the client cannot
+    // import the corpus to read it — that would ship a kilobyte of fixture
+    // identity to a page which renders none of it, and the bundle budget is
+    // measured. A spelled number is therefore a copy of a fact, and a copy
+    // drifts: grow the corpus by one entry and the sentence a reader is
+    // deciding on becomes false, silently and on the live site.
+    //
+    // So the copy is pinned here rather than trusted. If this fails, the
+    // corpus changed size and `on-call-demo-content-control.tsx` needs the
+    // new number written out in the load sentence.
+    expect(ON_CALL_DEMO_ENTRY_COUNT, "the load button says 'Ninety-four example entries' — update that copy too").toBe(
+      94,
+    );
     expect(new Set(ON_CALL_DEMO_SLUGS)).toEqual(new Set(DEMO_ON_CALL_ENTRIES.map((entry) => entry.slug)));
   });
 
