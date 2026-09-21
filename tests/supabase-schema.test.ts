@@ -1149,13 +1149,24 @@ describe("Supabase schema Data API grants", () => {
   });
 
   it("keeps audit logs service-role-only with an explicit RLS policy", () => {
-    for (const sql of [schema, auditLogsServiceRolePolicyMigration]) {
-      expect(sql).toContain("alter table public.audit_logs enable row level security");
-      expect(sql).toContain("revoke all on public.audit_logs from anon, authenticated");
-      expect(sql).toContain("grant select, insert, update, delete on table public.audit_logs to service_role");
-      expect(sql).toContain('create policy "audit logs service role all" on public.audit_logs');
-      expect(sql).toContain("for all to service_role");
-    }
+    // Historical policy migration: full CRUD + single FOR ALL policy (pre append-only).
+    expect(auditLogsServiceRolePolicyMigration).toContain("alter table public.audit_logs enable row level security");
+    expect(auditLogsServiceRolePolicyMigration).toContain("revoke all on public.audit_logs from anon, authenticated");
+    expect(auditLogsServiceRolePolicyMigration).toContain(
+      "grant select, insert, update, delete on table public.audit_logs to service_role",
+    );
+    expect(auditLogsServiceRolePolicyMigration).toContain('create policy "audit logs service role all" on public.audit_logs');
+    expect(auditLogsServiceRolePolicyMigration).toContain("for all to service_role");
+
+    // Current schema: append-only (select+insert, no update/delete, prevent_mutation trigger).
+    expect(schema).toContain("alter table public.audit_logs enable row level security");
+    expect(schema).toContain("revoke all on public.audit_logs from anon, authenticated");
+    expect(schema).toContain("revoke update, delete on table public.audit_logs from service_role");
+    expect(schema).toContain("grant select, insert on table public.audit_logs to service_role");
+    expect(schema).toContain('create policy "audit logs service role select" on public.audit_logs');
+    expect(schema).toContain('create policy "audit logs service role insert" on public.audit_logs');
+    expect(schema).toContain("create or replace function public.audit_logs_prevent_mutation()");
+    expect(schema).not.toContain('create policy "audit logs service role all" on public.audit_logs');
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to authenticated;/);
     expect(schema).not.toMatch(/grant [^;]*public\.audit_logs[^;]* to anon;/);
   });
@@ -1167,7 +1178,7 @@ describe("Supabase schema Data API grants", () => {
       ["audit_logs", 2],
       ["audit_logs_service_role_policy", 2],
       ["enforce_public_title_word_scope", 2],
-      ["historical_version_placeholder", 6],
+      ["historical_version_placeholder", 12],
       ["indexing_reliability_recovery", 2],
       ["ingestion_jobs_one_open_per_document", 2],
       ["rag_queries_retention", 2],

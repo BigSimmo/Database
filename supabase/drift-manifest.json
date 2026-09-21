@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-21T07:25:10.186Z",
+  "generated_at": "2026-09-21T07:35:39.423Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "e2ebad91589ff378f573e157e34f20994fc2e4fa693efb7268953ee3cefe32ff",
-  "replay_seconds": 15,
+  "schema_sha256": "a5a2291c81e92cd79b57a5ce92ae48d3aba4c7daa43a1c65fafef39529e0a3f3",
+  "replay_seconds": 17,
   "snapshot": {
     "views": [
       {
@@ -10956,8 +10956,8 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
         "def_hash": "3c021e0243c1052b4928112c9dcc96c7",
         "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,text,text)"
@@ -11036,8 +11036,8 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
         "def_hash": "b9a4ce368d6d3b48382c1ea5f888fe6b",
         "signature": "public.record_site_content_reconciliation_plan(jsonb)"
@@ -11163,8 +11163,8 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "authenticated=X/postgres",
+          "postgres=X/postgres"
         ],
         "def_hash": "8cca178909ebadcd9fd6da7a05395dda",
         "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,text,text)"
