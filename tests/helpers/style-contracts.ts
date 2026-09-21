@@ -438,6 +438,8 @@ export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   "pwa-install-benefits":
     "PWA benefit list — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-body": "PWA install body — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
+  "pwa-install-sheet":
+    "PWA install sheet — short-desktop park/compact and geometry covered by ui-pwa and pwa-install-short-desktop; effect not contracted yet (#094)",
   "pwa-install-copy": "PWA install copy — install-sheet journey covered by ui-pwa; effect not contracted yet (#094)",
   "pwa-install-compact-copy":
     "PWA compact phone proposition — visibility and geometry covered across target widths by ui-pwa",
