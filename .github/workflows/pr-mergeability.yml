@@ -9,7 +9,9 @@ on:
 
 concurrency:
   group: pr-mergeability-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  # PR events cancel superseded heads; base-branch push refreshes must not cancel
+  # (same pattern as ci.yml — AGENTS anti-conflict-speed).
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
