@@ -362,9 +362,15 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     title: "Demo medical workforce unit",
     subtitle: "Rosters, leave and pay — the people, not the building",
     body: null,
-    // Filed under Admin rather than Services on purpose: this is the desk the
-    // Admin section's rows keep pointing at, and a reader who lands on a leave
-    // form with a question needs the number in the same mode.
+    // Tagged Services, not Admin, and that is a constraint rather than a
+    // preference. The Contacts page groups by tag and its bar is the drawing's
+    // three words — Services, Tonight, Wards — which `ui-on-call-boards.spec.ts`
+    // asserts exactly, at two widths. "Admin" exists as a contacts tag (Demo bed
+    // management carries it) but produces no group today, because that row is
+    // never-verified and files under "needs checking" instead. A VERIFIED Admin
+    // row is therefore what makes a fourth group appear, and a fourth group is a
+    // change to the drawing, not a fixture decision. A workforce desk is a
+    // number you ring, which is what Services holds.
     details: {
       role: "Medical workforce",
       phone: demoNumber(80),
@@ -372,7 +378,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
       availability: "Weekdays, business hours",
     },
     linkedDocumentIds: [],
-    tags: ["Admin"],
+    tags: ["Services"],
     isPersonal: false,
     includeOnCard: false,
     sortOrder: 16,
@@ -576,7 +582,12 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
         {
           order: 3,
           whoToCall: "Demo consultant on call",
-          when: "If there is still no answer. You are expected to make this call.",
+          // NOT "You are expected to make this call". That sentence belongs to
+          // the pinned reminder, and `ui-on-call-boards.spec.ts` locates it by
+          // text — a second copy makes the locator ambiguous and the board
+          // assertion fails on a strict-mode violation rather than on anything
+          // being wrong with the page.
+          when: "If there is still no answer. Do not keep waiting on the registrar.",
           phone: demoNumber(30),
         },
       ],
