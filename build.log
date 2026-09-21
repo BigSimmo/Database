@@ -1,0 +1,121 @@
+#0 building with "desktop-linux" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile:
+#1 transferring dockerfile: 5.78kB 0.0s done
+#1 DONE 0.3s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 1.8s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+#3 resolve docker.io/docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32 0.1s done
+#3 CACHED
+
+#4 [internal] load metadata for dhi.io/node:24-debian12-dev
+#4 ...
+
+#5 [auth] node:pull token for dhi.io
+#5 DONE 0.0s
+
+#6 [internal] load metadata for dhi.io/node:24-debian12
+#6 ...
+
+#4 [internal] load metadata for dhi.io/node:24-debian12-dev
+#4 DONE 3.4s
+
+#6 [internal] load metadata for dhi.io/node:24-debian12
+#6 DONE 4.0s
+
+#7 [internal] load .dockerignore
+#7 transferring context:
+#7 transferring context: 549B 0.1s done
+#7 DONE 0.5s
+
+#8 [runner  1/11] FROM dhi.io/node:24-debian12@sha256:23c00a775d25945dc01f102b4f0a0551e41b9e3894aa6c467182da75bbe9eb0d
+#8 resolve dhi.io/node:24-debian12@sha256:23c00a775d25945dc01f102b4f0a0551e41b9e3894aa6c467182da75bbe9eb0d 0.1s done
+#8 DONE 0.2s
+
+#9 [runner  2/11] WORKDIR /app
+#9 CACHED
+
+#10 [node-base 1/1] FROM dhi.io/node:24-debian12-dev@sha256:1054ad79b107cdeb12ce1baf617c14f536c27ee803abb1eb35a7c974881753c3
+#10 resolve dhi.io/node:24-debian12-dev@sha256:1054ad79b107cdeb12ce1baf617c14f536c27ee803abb1eb35a7c974881753c3 0.1s done
+#10 sha256:ca760c42f0cedcfd059eaa684ca4f86dd0380c0086fd015b14591fcdab7f9ed0 77B / 77B 0.6s done
+#10 sha256:2c1ce468d9f3d941396801f6e3afc8921466650dd05430fe644cd3537713d27f 16B / 16B 0.6s done
+#10 sha256:371d3b3e2951de572cc66a015c1fd2dac1db7cce71ac0a3f234d75f26916ba3b 6.15kB / 6.15kB 1.2s done
+#10 sha256:1a74ff6aa41f418f1359d0226d93b86dbe848002078afa302082b920df02e95d 23.10kB / 23.10kB 1.3s done
+#10 sha256:1933ab78b45955313841f9eb7d5b5413b6e958bae159be6edeb25d68a8d8c4d3 411B / 411B 0.5s done
+#10 sha256:95f0cb2f0fd842c1653f0ba941739af0c665b95a8c91cc48294f6c7e14d64a13 181.09kB / 181.09kB 1.8s done
+#10 extracting sha256:95f0cb2f0fd842c1653f0ba941739af0c665b95a8c91cc48294f6c7e14d64a13 0.5s done
+#10 sha256:fd2bd841ec3d18b5c5f69b145f926f934431bb87b944f0c617ae1d63799f3ef7 41.75MB / 41.75MB 16.3s done
+#10 sha256:6acc4a6b0001265f7a06b9a66e01aeb110cf90a75d3cfc1364fc46224cf96e85 43.23MB / 43.23MB 16.6s done
+#10 extracting sha256:6acc4a6b0001265f7a06b9a66e01aeb110cf90a75d3cfc1364fc46224cf96e85 4.6s done
+#10 extracting sha256:1933ab78b45955313841f9eb7d5b5413b6e958bae159be6edeb25d68a8d8c4d3 0.1s done
+#10 extracting sha256:fd2bd841ec3d18b5c5f69b145f926f934431bb87b944f0c617ae1d63799f3ef7 4.3s done
+#10 extracting sha256:2c1ce468d9f3d941396801f6e3afc8921466650dd05430fe644cd3537713d27f 0.1s done
+#10 extracting sha256:ca760c42f0cedcfd059eaa684ca4f86dd0380c0086fd015b14591fcdab7f9ed0 0.1s done
+#10 extracting sha256:1a74ff6aa41f418f1359d0226d93b86dbe848002078afa302082b920df02e95d 0.1s done
+#10 extracting sha256:371d3b3e2951de572cc66a015c1fd2dac1db7cce71ac0a3f234d75f26916ba3b 0.1s done
+#10 DONE 28.4s
+
+#11 [deps 1/6] WORKDIR /app
+#11 DONE 1.1s
+
+#12 [internal] load build context
+#12 transferring context: 9.91MB 4.2s
+#12 transferring context: 18.89MB 9.2s
+#12 transferring context: 26.11MB 14.2s
+#12 transferring context: 31.91MB 19.3s
+#12 transferring context: 44.67MB 24.3s
+#12 transferring context: 54.60MB 29.3s
+#12 transferring context: 71.59MB 34.4s
+#12 transferring context: 91.12MB 39.5s
+#12 transferring context: 105.41MB 44.6s
+#12 transferring context: 113.29MB 49.7s
+#12 transferring context: 122.35MB 54.8s
+#12 transferring context: 130.36MB 59.9s
+#12 transferring context: 147.90MB 65.0s
+#12 transferring context: 160.33MB 70.0s
+#12 transferring context: 173.95MB 75.1s
+#12 transferring context: 192.64MB 80.2s
+#12 transferring context: 213.68MB 85.3s
+#12 transferring context: 232.68MB 90.3s
+#12 transferring context: 254.11MB 95.4s
+#12 transferring context: 280.26MB 100.4s
+#12 transferring context: 305.96MB 105.5s
+#12 transferring context: 322.18MB 110.5s
+#12 transferring context: 335.98MB 115.6s
+#12 transferring context: 349.54MB 120.6s
+#12 transferring context: 361.84MB 125.7s
+#12 transferring context: 379.98MB 130.8s
+#12 transferring context: 405.18MB 135.8s
+#12 transferring context: 413.75MB 140.8s
+#12 transferring context: 425.69MB 145.9s
+#12 transferring context: 435.03MB 150.9s
+#12 transferring context: 453.45MB 156.1s
+#12 transferring context: 475.50MB 161.2s
+#12 transferring context: 499.67MB 166.3s
+#12 transferring context: 519.63MB 171.4s
+#12 transferring context: 531.24MB 176.6s
+#12 transferring context: 549.95MB 181.6s
+#12 transferring context: 571.80MB 186.7s
+#12 transferring context: 610.90MB 191.8s
+#12 transferring context: 652.19MB 196.8s
+#12 transferring context: 689.72MB 201.8s
+#12 transferring context: 713.48MB 206.8s
+#12 transferring context: 735.76MB 211.9s
+#12 transferring context: 769.82MB 217.0s
+#12 transferring context: 783.01MB 222.1s
+#12 transferring context: 790.42MB 227.2s
+#12 transferring context: 792.74MB 232.3s
+#12 transferring context: 795.21MB 237.3s
+#12 transferring context: 801.47MB 242.4s
+#12 transferring context: 806.49MB 247.5s
+#12 transferring context: 816.15MB 252.6s
+#12 transferring context: 826.35MB 257.7s
+#12 transferring context: 843.03MB 262.7s
+#12 transferring context: 859.27MB 267.8s
+#12 transferring context: 877.44MB 272.9s
+#12 transferring context: 892.89MB 277.9s
+#12 transferring context: 912.15MB 283.0s

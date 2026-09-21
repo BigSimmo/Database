@@ -36,8 +36,8 @@ export function verifyProxyAuthHeader(headerValue: string): string | null {
   const expectedSignature = createHmac("sha256", secret).update(payloadBase64).digest("base64url");
 
   try {
-    const a = Buffer.from(signature, "utf8");
-    const b = Buffer.from(expectedSignature, "utf8");
+    const a = Buffer.from(signature, "base64url");
+    const b = Buffer.from(expectedSignature, "base64url");
     if (a.length === b.length && timingSafeEqual(a, b)) {
       return payloadBase64;
     }

@@ -46,6 +46,8 @@ export type RagAliasInput = {
 };
 
 const ragAliasCache = new Map<string, { expiresAt: number; aliases: RagAliasInput[] }>();
+/** Pending requests by cache key to prevent concurrent fetches for the same scope. */
+const ragAliasCacheRequests = new Map<string, Promise<RagAliasInput[]>>();
 
 /** Normalize retrieval variant. */
 export function normalizeRetrievalVariant(value: string) {
@@ -116,13 +118,19 @@ export function shouldApplyUnsupportedSearchShortCircuit(
 /**
  * Warm the global (owner_id IS NULL) rag_aliases cache at server startup so the
  * first search after a deploy does not pay the cold-cache DB RTT.
- * Failures are swallowed — warmup must never block boot.
+ * Failures are swallowed — warmup must never block boot or hang indefinitely.
  */
 export async function warmEnabledRagAliasCache(
   supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
 ): Promise<void> {
   try {
-    await fetchEnabledRagAliases(supabase, undefined, { includePublic: true });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      await fetchEnabledRagAliases(supabase, undefined, { includePublic: true }, controller.signal);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     console.warn("rag_aliases cache warmup failed; first request will retry.", {
       message: error instanceof Error ? error.message : String(error),
@@ -143,6 +151,11 @@ export async function fetchEnabledRagAliases(
   const cached = readExpiringCacheEntry(ragAliasCache, cacheKey);
   if (cached) return cached.aliases;
 
+  // If another request is already fetching this scope, wait for it instead of redundant fetch.
+  if (ragAliasCacheRequests.has(cacheKey)) {
+    return ragAliasCacheRequests.get(cacheKey)!;
+  }
+
   /** Read scope. */
   async function readScope(scopeOwnerId: string | null) {
     let query = supabase
@@ -159,34 +172,43 @@ export async function fetchEnabledRagAliases(
     return (data ?? []) as RagAliasInput[];
   }
 
-  try {
-    const [globalAliases, ownerAliases] = await Promise.all([
-      readScope(null),
-      scope.ownerId ? readScope(scope.ownerId) : Promise.resolve([] as RagAliasInput[]),
-    ]);
-    const merged: RagAliasInput[] = [];
-    const seen = new Set<string>();
-    for (const alias of [...ownerAliases, ...globalAliases]) {
-      const key = `${normalizeAliasLookup(alias.alias)}||${normalizeAliasLookup(alias.canonical)}`;
-      if (!alias.alias?.trim() || !alias.canonical?.trim() || seen.has(key)) continue;
-      seen.add(key);
-      merged.push(alias);
-      if (merged.length >= maxRagAliasesPerScope) break;
+  const promise = (async () => {
+    try {
+      const [globalAliases, ownerAliases] = await Promise.all([
+        readScope(null),
+        scope.ownerId ? readScope(scope.ownerId) : Promise.resolve([] as RagAliasInput[]),
+      ]);
+      const merged: RagAliasInput[] = [];
+      const seen = new Set<string>();
+      for (const alias of [...ownerAliases, ...globalAliases]) {
+        const key = `${normalizeAliasLookup(alias.alias)}||${normalizeAliasLookup(alias.canonical)}`;
+        if (!alias.alias?.trim() || !alias.canonical?.trim() || seen.has(key)) continue;
+        seen.add(key);
+        merged.push(alias);
+        if (merged.length >= maxRagAliasesPerScope) break;
+      }
+      throwIfAborted(signal);
+      writeBoundedExpiringCacheEntry(
+        ragAliasCache,
+        cacheKey,
+        { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs },
+        maxRagAliasCacheEntries,
+      );
+      return merged;
+    } catch {
+      if (signal?.aborted) throw abortReason(signal);
+      // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress
+      // alias-based query expansion (and could let an alias-rescuable query short-circuit) for the whole
+      // TTL. Return empty for this call only and retry on the next call.
+      return [];
     }
-    throwIfAborted(signal);
-    writeBoundedExpiringCacheEntry(
-      ragAliasCache,
-      cacheKey,
-      { aliases: merged, expiresAt: Date.now() + ragAliasCacheTtlMs },
-      maxRagAliasCacheEntries,
-    );
-    return merged;
-  } catch {
-    if (signal?.aborted) throw abortReason(signal);
-    // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress
-    // alias-based query expansion (and could let an alias-rescuable query short-circuit) for the whole
-    // TTL. Return empty for this call only and retry on the next call.
-    return [];
+  })();
+
+  ragAliasCacheRequests.set(cacheKey, promise);
+  try {
+    return await promise;
+  } finally {
+    ragAliasCacheRequests.delete(cacheKey);
   }
 }
 
@@ -259,7 +281,7 @@ export function buildRetrievalQueryVariants(
     // Match the zone the query actually names so an amber-zone question does not
     // pull red-zone chunks into its candidate pool.
     const zoneColour = queriedZoneColour(query);
-    if (zoneColour) {
+    if (zoneColour?.trim()) {
       addVariant(`${zoneColour} zone`);
     }
   }

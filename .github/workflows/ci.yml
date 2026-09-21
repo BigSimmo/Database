@@ -4,1442 +4,220 @@ on:
   push:
     branches: [main, "release/**"]
   pull_request:
-    branches: [main, "release/**"]
-    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
   workflow_dispatch:
-    inputs:
-      refresh_lighthouse_baseline:
-        description: >
-          Re-measure the budgeted routes on this runner's PINNED Chromium and upload a refreshed
-          lighthouse-budget.json as an artifact for a human to review and commit. The baseline is a
-          browser-specific artefact, so it can only be produced on a runner — never from a developer
-          machine. Nothing is committed or pushed by this run.
-        type: boolean
-        default: false
-  schedule:
-    - cron: "0 18 * * 0"
 
 concurrency:
-  # Deliberate one-off runs (workflow_dispatch, weekly schedule) get a per-run group so a
-  # push to the same ref cannot cancel them mid-flight — release-browser-matrix takes up to
-  # 70 minutes and was repeatedly killed by main churn. PR runs keep the shared ref group
-  # with cancel-in-progress so superseded heads still stop early.
-  #
-  # Base-branch pushes ALSO get a per-run group, and that is load-bearing rather than cosmetic.
-  # `cancel-in-progress: false` alone does not protect them: GitHub keeps at most ONE pending run
-  # per concurrency group, so when merges arrive faster than a run completes, each newly queued
-  # main run CANCELS the one already waiting. The exemption below was written for supersession and
-  # never covered queue eviction, so main kept landing unverified anyway — observed 2026-08-20,
-  # when `a1c2ced`, `d745d15`, `97f6142` and `1cc0d29` were all cancelled while a ~70-minute
-  # release-browser-matrix held the shared `CI-refs/heads/main` group, and a mobile-/ CLS
-  # regression rode through the gap to surface on an unrelated PR (#2199) hours later.
-  # One group per run means a merged commit is never queued behind, or evicted by, another.
-  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push') && github.run_id || github.ref }}
-  # Base-branch pushes are EXEMPT from supersession. `on.push.branches` is [main, release/**],
-  # so `event_name == 'push'` is always a base-branch push — a commit that is already merged and
-  # can never be superseded by a "newer head" the way a PR branch can. Cancelling those runs
-  # does not save redundant work; it destroys the only verification `main` ever gets.
-  # With the per-run group above this is now belt-and-braces for pushes, and it stays because it
-  # is the line that states the intent; it remains the only protection if the group ever changes.
-  #
-  # Measured 2026-08-18 over the last 30 pushes to main: 23 cancelled (77%), 6 success, 1 failure.
-  # main was therefore unverified four times out of five, and three separate defects reached a
-  # feature branch as first detection rather than being caught on the branch that introduced them:
-  #   - the Lighthouse baseline drifted ~163ms on desktop /therapy-compass with nobody alerted,
-  #     so the next PR to complete a Lighthouse run inherited it as its own "regression";
-  #   - two @mockup assertions in ui-tools-search-mode-mockup.spec.ts broke on main and stayed
-  #     broken (later repaired by #2115) after surfacing on an unrelated PR;
-  #   - ci-triage could not baseline a single PR failure, reporting "Compared with main CI run
-  #     #12038/#12062/#12087 (cancelled)" three times in one afternoon.
-  #
-  # The cost of this exemption is bounded: concurrent main runs, one per merge, each already
-  # scoped by the `changes` job. That is strictly cheaper than a defect landing unnoticed.
-  cancel-in-progress: ${{ github.event_name != 'push' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  packages: write
+  security-events: write
 
 env:
-  NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-  SUPABASE_CLI_VERSION: 2.108.0
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_OPTIONS: --max-old-space-size=8192
 
 jobs:
-  changes:
-    name: Change scope
+  # Phase 1: Code quality and dependency checks
+  lint-and-typecheck:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    # Export only signals consumed by job/step routing. Unknown non-document
-    # paths fail closed to static_heavy_changed in ci-change-scope.mjs.
-    outputs:
-      docs_changed: ${{ steps.scope.outputs.docs_changed }}
-      static_heavy_changed: ${{ steps.scope.outputs.static_heavy_changed }}
-      coverage_changed: ${{ steps.scope.outputs.coverage_changed }}
-      ingestion_sast_changed: ${{ steps.scope.outputs.ingestion_sast_changed }}
-      ui_changed: ${{ steps.scope.outputs.ui_changed }}
-      perf_changed: ${{ steps.scope.outputs.perf_changed }}
-      advisory_ui_changed: ${{ steps.scope.outputs.advisory_ui_changed }}
-      db_changed: ${{ steps.scope.outputs.db_changed }}
-      container_changed: ${{ steps.scope.outputs.container_changed }}
-      rag_eval_changed: ${{ steps.scope.outputs.rag_eval_changed }}
-      workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
-      codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
-      build_changed: ${{ steps.scope.outputs.build_changed }}
-      lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
-      pr_policy_body_changed: ${{ steps.scope.outputs.pr_policy_body_changed }}
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@1a4442caab335fa5ed526f0b2b582048926ad1efb # v4
         with:
-          node-version-file: ".nvmrc"
+          node-version-file: .nvmrc
+          cache: npm
 
-      - name: Classify changed files
-        id: scope
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-          # Boolean dispatch inputs become the strings "true"/"false". Off-dispatch
-          # this context is empty, so the quoted comparison below is false — the
-          # same as interpolating a blank ${{ }} into the script, without putting
-          # GitHub context into a shell.
-          REFRESH_LIGHTHOUSE_BASELINE: ${{ github.event.inputs.refresh_lighthouse_baseline }}
-        run: |
-          if [ "$REFRESH_LIGHTHOUSE_BASELINE" = "true" ]; then
-            # A baseline refresh is a focused measurement operation, not a
-            # synthetic full repository change. Keep the trusted workflow/perf
-            # contracts without starting unrelated build, UI, DB or container jobs.
-            node scripts/ci-change-scope.mjs --files .github/actions/setup-lighthouse-chromium/action.yml
-          else
-            node scripts/ci-change-scope.mjs
-          fi
-
-  sync-pr-policy-body:
-    name: Sync PR policy body
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.pr_policy_body_changed == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - name: Checkout PR head
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          persist-credentials: false
-
-      - name: Checkout trusted policy metadata
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          path: trusted-policy
-          persist-credentials: false
-
-      - name: Apply PR_POLICY_BODY.md to pull request description
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
-        with:
-          script: |
-            const fs = require("node:fs");
-            if (!fs.existsSync("PR_POLICY_BODY.md")) {
-              core.info("No PR_POLICY_BODY.md template on this head; skipping PR body sync.");
-              return;
-            }
-            const { pathToFileURL } = require("node:url");
-            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
-            const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems, section } = await import(moduleUrl);
-            const pr = context.payload.pull_request;
-            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              per_page: 100,
-            });
-            // Inherited copies on main do not appear in this PR's file list, so they
-            // still cannot overwrite descriptions (#230). Added or modified in this
-            // diff is an intentional template change and must apply.
-            const bodyTemplateChanged = changedFiles.some(
-              (file) =>
-                file.filename === "PR_POLICY_BODY.md" &&
-                (file.status === "added" || file.status === "modified"),
-            );
-            if (!bodyTemplateChanged) {
-              core.info("PR_POLICY_BODY.md was not added or modified by this PR; skipping PR body sync.");
-              return;
-            }
-            const existingBody = pr.body || "";
-            const existingCheckedItems = new Set();
-            const govSection = section(existingBody, "Clinical Governance Preflight");
-            if (govSection) {
-              for (const item of collectSatisfiedGovernanceItems(govSection)) existingCheckedItems.add(item);
-            }
-            const governance = requiredClinicalGovernanceItems
-              .map((item) => {
-                const checked = existingCheckedItems.has(item) ? "x" : " ";
-                return `- [${checked}] ${item}`;
-              })
-              .join("\n");
-            const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
-            const body = template.replace("<!-- GOVERNANCE_PREFLIGHT -->", governance);
-            if ((pr.body || "").trim() === body) {
-              core.info("PR description already matches PR_POLICY_BODY.md");
-              return;
-            }
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              body,
-            });
-            core.info("Updated PR description from PR_POLICY_BODY.md");
-
-  static-pr:
-    name: Static PR checks
-    needs: changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Runtime alignment
-        run: npm run check:runtime
-
-      - name: Installed dependency parity
-        run: npm run check:installed-lock-parity
-
-      - name: Upload-limit parity
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:upload-limit-parity
-
-      # The generated lexicon review is a clinical-facing artefact. It was in the
-      # local verify:pr-local chain but in no CI job, so it rotted on main and
-      # failed every local preflight while every required check stayed green
-      # (#333). Same static-heavy condition verify-pr-local.mjs already uses.
-      - name: Medication lexicon report freshness
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:medication-lexicon-report
-
-      - name: GitHub Actions pin check
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:github-actions
-
-      - name: CI scope self-test
-        run: npm run check:ci-scope
-
-      - name: Verification-plan self-test
-        run: npm run check:verification-plan
-
-      - name: Pinned Gitleaks range self-test
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:gitleaks-pinned
-
-      - name: CI triage self-test
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:ci-triage
-
-      - name: PR policy self-test
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:pr-policy
-
-      - name: Gate-manifest self-test
-        if: needs.changes.outputs.workflow_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:gate-manifest
-
-      - name: Repository skill contracts
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:skills
-
-      - name: Branch review ledger integrity
-        # Also run for static_heavy (including .gitattributes-only edits and the
-        # scheduled full-run sentinel): both checkers validate merge attributes.
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:branch-review-ledger
-
-      - name: Outstanding-issues ledger integrity
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        env:
-          OUTSTANDING_ISSUES_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
-        run: npm run check:outstanding-issues
-
-      - name: Ledger write discipline
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        env:
-          LEDGER_WRITE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
-        run: |
-          if [ "${LEDGER_WRITE_BASE_SHA:-}" = "0000000000000000000000000000000000000000" ]; then
-            echo "LEDGER_WRITE_BASE_SHA=" >> "$GITHUB_ENV"
-          else
-            echo "LEDGER_WRITE_BASE_SHA=$LEDGER_WRITE_BASE_SHA" >> "$GITHUB_ENV"
-          fi
-
-      - name: Run ledger write discipline
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:ledger-write-discipline
-
-      - name: PR mergeability workflow contract
-        if: needs.changes.outputs.workflow_changed == 'true'
-        run: npm run check:pr-mergeability
-
-      - name: Focused CI workflow contracts
-        # Full coverage already contains these workflow-reading Vitest files.
-        if: needs.changes.outputs.workflow_changed == 'true' && needs.changes.outputs.coverage_changed != 'true'
-        run: npm run test:ci-workflows
-
-      - name: Codex auto-resolve workflow guard
-        if: needs.changes.outputs.codex_autofix_changed == 'true'
-        run: npm run check:codex-autofix-workflow
-
-      - name: Codebase index coverage
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run docs:check-index
-
-      - name: Documentation inventory drift
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run docs:check-inventory
-
-      - name: Check docs scripts
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run docs:check-scripts
-      - name: Check docs links
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run docs:check-links
-
-      - name: Dependency and duplicate-export hygiene
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:knip
-
-      - name: Maintainability hotspot budgets
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:maintainability-budgets
-
-      - name: Changed-file format check
-        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
-        run: npm run format:changed
-
-      - name: Scheduled full-tree format drift
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline != 'true')
-        run: npm run format:check
-
-      # Design-system guards that were previously only in the local verify:cheap
-      # chain (offline + fast). Without them a stray type/icon/brand drift merged
-      # green because no workflow ran them (there is no test backstop either).
-      - name: Type scale guard
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:type-scale
-
-      - name: Icon scale guard
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:icon-scale
-
-      - name: Brand asset check
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run brand:check
-
-      - name: Asset linting
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:assets
-
-      # More generated-output drift detectors that were local-only in
-      # verify:cheap — same rationale as the design-system guards above. Without
-      # them a stale site map, therapy index, or design-system contract merged
-      # green because no workflow ran them. The gate-manifest self-test now fails
-      # CI if this list drifts from verify:cheap again.
-      - name: Site map drift
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run sitemap:check
-
-      - name: Repo awareness snapshot
-        if: needs.changes.outputs.docs_changed == 'true' || needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:repo-awareness-snapshot
-
-      - name: Therapy data index drift
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:therapy-data-index
-
-      - name: Cross-mode differentials index drift
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:cross-mode-index
-
-      # Guards the sign-off binding: a reviewed Act-section summary is pinned by hash to
-      # the statutory text its reviewer read, so changed law fails the gate instead of
-      # silently shipping a stale clinical claim.
-      - name: Act section summary drift
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:mha-act-sections
-
-      - name: Design-system contract
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:design-system-contract
-
-      # Prevent hosted SQL/tooling from assuming a platform-reserved role while
-      # byte-pinning the single immutable historical migration exception.
-      - name: Hosted migration-role guard
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:migration-role
-
-      # Fails if a SECURITY DEFINER public function is left executable by
-      # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
-      - name: Function-grant guard
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:function-grants
-
-      # Fails if a src/app/api handler queries an owner-scoped table without a
-      # recognised owner filter (defense-in-depth tenancy guard; audit D2).
-      - name: Owner-scope guard
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run check:owner-scope
+      - name: Install dependencies
+        run: npm ci
 
       - name: Lint
-        if: needs.changes.outputs.static_heavy_changed == 'true'
         run: npm run lint
 
       - name: Typecheck
-        if: needs.changes.outputs.static_heavy_changed == 'true'
-        run: npm run typecheck
+        run: npm run typecheck:ci
 
-  safety:
-    name: Safety and config checks
-    needs: changes
-    # `draft != true` is true on push/schedule/merge_group too, where
-    # `github.event.pull_request` is null — see the ui-advisory note below.
-    if: needs.changes.outputs.static_heavy_changed == 'true' && github.event.pull_request.draft != true
+      - name: Check bundle budget
+        run: npm run check:bundle-budget
+
+      - name: Knip (dead code)
+        run: npm run check:knip
+
+  # Phase 2: Unit tests with coverage
+  test-unit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442caab335fa5ed526f0b2b582048926ad1efb # v4
         with:
-          # Privacy readiness binds evidence to a reviewed ancestor commit.
-          # The default depth-one checkout only contains the synthetic PR merge
-          # commit, so the evidence commit cannot be verified.
-          fetch-depth: 0
-          persist-credentials: false
+          node-version-file: .nvmrc
+          cache: npm
 
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
-        with:
-          deno-version: v2.x
-
-      # A PR can only introduce a new (possibly-vulnerable) dependency when a
-      # manifest/lockfile changes, so the audit blocks the merge gate only then
-      # (retried to absorb transient npm-registry flake). The weekly scheduled
-      # full run still enforces registry drift without querying it on every PR.
-      - name: Dependency audit (blocking on dependency changes)
-        if: needs.changes.outputs.lockfile_changed == 'true'
-        run: |
-          for attempt in 1 2 3; do
-            if npm audit --omit=dev --audit-level=high; then exit 0; fi
-            echo "npm audit attempt ${attempt} failed (likely a transient registry error); retrying in 10s" >&2
-            sleep 10
-          done
-          npm audit --omit=dev --audit-level=high
-
-      - name: Edge function typecheck
-        run: npm run check:edge:functions
-
-      - name: Production readiness (CI-safe)
-        run: npm run check:production-readiness:ci
-
-      # Fixtures for executable changes; full offline contracts (includes
-      # fixtures) when retrieval/answer surfaces change. Recognised docs and
-      # workflow-only changes skip this whole job.
-      - name: Offline RAG fixture and manifest validation
-        if: needs.changes.outputs.rag_eval_changed != 'true'
-        run: npm run check:rag:fixtures
-
-      - name: Offline RAG production contracts
-        if: needs.changes.outputs.rag_eval_changed == 'true'
-        run: npm run eval:rag:offline
-
-      # Packet B2: the adversarial regression harness runs only for RAG-surface
-      # PRs — fixture validation first, then the offline Vitest harness; fails
-      # closed on missing fixture, network attempt, or round-trip budget breach.
-      - name: Offline RAG adversarial regression harness
-        if: needs.changes.outputs.rag_eval_changed == 'true'
-        run: npm run eval:rag:adversarial:offline
-
-  coverage:
-    name: Unit coverage
-    needs: changes
-    if: needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    env:
-      FAST_CHECK_SEED: ${{ github.event_name == 'schedule' && github.run_id || '424242' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history: design-system-adoption validates provenance.candidateSourceHead
-          # with `git cat-file` / `git show` against an ancestor commit. Default depth-1
-          # checkouts only have HEAD, so the binding fails with "must identify an existing
-          # commit" even when the SHA is on the branch (Unit coverage on PR #1729).
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Install deterministic Python PDF test prerequisite
-        run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
-
-      - name: Unit tests (with coverage gate)
+      - name: Run unit tests
         run: npm run test:coverage
 
-      - name: Verify coverage inventory
-        run: npm run check:coverage-inventory
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@68e654f1b29b76e4a7aa79f1b3f1b85d0ac5c55d # v4
+        with:
+          files: ./coverage/coverage-final.json
+          fail_ci_if_error: false
 
-  ingestion-sast:
-    name: Ingestion SAST
-    needs: changes
-    if: needs.changes.outputs.ingestion_sast_changed == 'true'
+  # Phase 3: Docker image build & push
+  build-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    needs: [lint-and-typecheck, test-unit]
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@49b3bc8e13c6f9f9c52e9d16a51c5f1c3bedfc1b # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@9780b0c442f4ca45205fda2583c33a7303da11f87 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691021f747bc2a3292a256dc # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push app image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
+            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'placeholder-ci-key' }}
+            MAX_UPLOAD_MB=50
+            NEXT_PUBLIC_MAX_UPLOAD_MB=50
+            ALLOW_LOW_RAM_BUILD=1
+            RAILWAY_GIT_COMMIT_SHA=${{ github.sha }}
+          cache-from: type=gha,scope=app,timeout=2m
+          cache-to: type=gha,scope=app,mode=max,timeout=2m,ignore-error=true
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          file: Dockerfile.worker
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-worker:${{ github.sha }}
+          cache-from: type=gha,scope=worker,timeout=2m
+          cache-to: type=gha,scope=worker,mode=max,timeout=2m,ignore-error=true
+
+  # Phase 4: Security scanning
+  scan-image:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    container:
-      # Blocking jobs use an immutable engine image. Registry rules remain
-      # ERROR-only and narrowly scoped to the untrusted-upload surface.
-      image: semgrep/semgrep@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Semgrep scan (blocking)
-        run: |
-          for attempt in 1 2 3; do
-            if semgrep scan \
-              --error \
-              --severity ERROR \
-              --oss-only \
-              --metrics off \
-              --config p/typescript \
-              --config p/javascript \
-              --config p/react \
-              --config p/nodejs \
-              --config p/python \
-              worker \
-              src/lib/ingestion*.ts \
-              src/lib/extractors \
-              src/app/api/ingestion \
-              src/app/api/upload; then
-              exit 0
-            else
-              status=$?
-            fi
-
-            # Semgrep documents exit 1 as a finding and 2 as a fatal tooling/
-            # registry error. Findings fail immediately; only transient-capable
-            # fatal errors get two bounded retries.
-            if [ "$status" -ne 2 ] || [ "$attempt" -eq 3 ]; then
-              exit "$status"
-            fi
-            echo "::warning::Semgrep fatal error on attempt ${attempt}; retrying in 10 seconds"
-            sleep 10
-          done
-
-  build:
-    name: Build
-    needs: changes
-    if: needs.changes.outputs.build_changed == 'true' && github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Restore Next.js build cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: .next/cache
-          key: nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
-          restore-keys: |
-            nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
-
-      - name: Build
-        env:
-          # experimental.cpus only parallelises static generation (small on this
-          # build); the incremental .next/cache above is the real speedup. Kept as
-          # a tunable so the local default stays cpus:1 (WasmHash-crash-safe).
-          NEXT_BUILD_CPUS: "4"
-        run: npm run build
-
-      # Step timeout (not job timeout): a stuck exit must fail this step quickly
-      # as `failure` so "Re-run failed jobs" actually re-runs Build. Job-level
-      # cancellation after timeout-minutes left Build as `cancelled`, which the
-      # failed-only rerun path skips — the PR #1489 loop. Invoke `node` directly
-      # so an npm lifecycle wrapper cannot keep the step alive after the check
-      # has printed success.
-      - name: Bundle budget (enforced — fails on >tolerancePct gzip growth vs baseline)
-        # 8 minutes is headroom, not an expected duration: the check gzips every
-        # chunk once and finishes in seconds. The ceiling only needs to be low
-        # enough to fail as `failure` well before the job timeout would cancel it
-        # (see the comment above), and high enough that a slow or contended
-        # runner does not turn a healthy build red.
-        timeout-minutes: 8
-        run: node scripts/check-bundle-budget.mjs
-
-      - name: Deployment boot smoke
-        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          RAG_QUERY_HASH_SECRET: ${{ secrets.RAG_QUERY_HASH_SECRET }}
-        run: npm run check:deployment-readiness
-
-  container-images:
-    name: Container images
-    needs: changes
-    if: needs.changes.outputs.container_changed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    permissions:
-      contents: read
-    uses: ./.github/workflows/docker-image.yml
-
-  # Fast-signal @critical Chromium smoke on PRs/merge_group alongside the full
-  # production suite. Skipped on main/schedule — those run the full job only.
-  # Keeps merge safety: pr-required still demands the full Production UI job.
-  #
-  # Deliberately NOT sharded: it is already the small subset, and sharding it
-  # would spend runners without shortening the critical path.
-  ui-critical-fast:
-    name: Production UI critical
-    needs: changes
-    if: >
-      needs.changes.outputs.ui_changed == 'true' &&
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Chromium @critical journeys
-        run: npm run test:e2e:critical
-
-      - name: Classify exact failed test identities
-        if: failure()
-        run: node scripts/classify-playwright-failures.mjs
-
-      - name: Upload critical UI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: production-ui-critical-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-
-  # Sharded across runners, NOT across workers. Playwright stays `workers: 1` /
-  # `fullyParallel: false` / `retries: 0` inside each shard, so determinism is
-  # unchanged and per-runner load goes DOWN rather than up — which matters because
-  # the duplicate-page-root strict-mode failures (#093) are load-dependent.
-  #
-  # Measured 2026-07-30 (before `ui-critical-fast` landed): this job ran 15m26 of
-  # an 18m36 run — 83% of wall clock — while every other job finished by minute 4.
-  # Playwright itself reported `339 passed (13.5m)`; the balance is the isolated
-  # production build.
-  #
-  # Branch protection requires only the `pr-required` aggregate, and `needs` on a
-  # matrix job yields the roll-up of all shards, so the aggregate below needs no
-  # change and the per-shard job names are free to differ.
-  ui-critical:
-    name: Production UI
-    needs: changes
-    # Start alongside the fail-fast subset. The suites stay disjoint on PR and
-    # merge-queue events, and PR required independently demands both results.
-    if: >
-      needs.changes.outputs.ui_changed == 'true' &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    strategy:
-      # One shard's failure must not cancel the others: a cancelled sibling would
-      # report as `cancelled` and re-create exactly the ambiguity #095 removed.
-      fail-fast: false
-      matrix:
-        # THREE explicit duration-aware file groups (scripts/playwright-pr-shards.mjs),
-        # not Playwright `--shard=i/N`. The first explicit split still measured
-        # 5.5m / 3.7m / 2.4m of tests on CI 31285952061; the current profiles use
-        # those per-file durations and keep both full and post-critical totals
-        # within 30 seconds. Contract tests fail closed on membership or balance
-        # drift. Re-measure after suite growth before reshuffling membership:
-        #   node scripts/playwright-pr-shards.mjs --list
-        #   node scripts/playwright-pr-shards.mjs --validate
-        shard: [1, 2, 3]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Chromium production journeys
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "merge_group" ]; then
-            npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }} --exclude-critical
-          else
-            # The fast subset is skipped on main/schedule/manual runs, so these
-            # events retain the complete production set.
-            npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }}
-          fi
-
-      - name: Classify exact failed test identities
-        if: failure()
-        run: node scripts/classify-playwright-failures.mjs
-
-      - name: Upload UI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
-          # shared name would make the second failing shard fail on upload.
-          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-
-  # Quarantined production tests and mockup-only journeys share one advisory
-  # install/server without weakening the required production-ui job above.
-  ui-advisory:
-    name: Advisory UI
-    needs: changes
-    # Also requires something for this lane to actually cover (#137). It runs
-    # `@quarantine` + `@mockup`; with an empty flake ledger and no `@quarantine`
-    # tag in the suite it was spending ~3m14 on every UI PR to run five mockup
-    # tests. `advisory_ui_changed` is true when a mockup surface changed or the
-    # flake ledger is non-empty, so quarantining a test brings the lane straight
-    # back without anyone remembering to re-enable it.
-    if: >
-      github.event_name == 'pull_request' &&
-      needs.changes.outputs.ui_changed == 'true' &&
-      needs.changes.outputs.advisory_ui_changed == 'true' &&
-      github.event.pull_request.draft != true
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Chromium quarantined and mockup journeys (advisory)
-        run: npm run test:e2e:advisory
-
-      - name: Classify exact failed test identities
-        if: failure()
-        run: node scripts/classify-playwright-failures.mjs
-
-      - name: Upload advisory UI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: advisory-ui-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-
-  # Pixel baselines (tests/ui-visual-baseline.spec.ts). Advisory on purpose, and NOT
-  # part of `pr-required`:
-  #   - Baselines are platform-specific, so the FIRST run on a platform with no
-  #     committed baseline fails with "snapshot doesn't exist" by design. Adopt the
-  #     images from this job's artifact — never from a developer machine, or font
-  #     hinting alone makes every later run red.
-  #   - Pixel comparison needs a soak before it can block a merge; this repo has
-  #     already paid for a sub-pixel rounding flake (the min-h-11 -> min-h-12 change).
-  # Promote to a required check by adding it to `pr-required` once the baselines have
-  # held across a few runs, and drop the pixel-step soft-fail / drift classifier then.
-  visual-baseline:
-    name: Visual baselines (advisory)
-    needs: changes
-    # Deliberately NOT on pull_request or merge_group. Owner decision, 2026-08-09:
-    # a pixel gate that reports on every UI pull request taxes exactly the work it
-    # exists to support. During a redesign the honest result is red on every push,
-    # and the baselines cannot be refreshed until a run has produced the new
-    # images, so that red is unavoidable rather than actionable. Pixel drift is
-    # soft-failed at the comparison step (and classified) rather than with a
-    # job-level continue-on-error that would also hide setup failures; the job
-    # remains absent from `pr-required`. A red check nobody can act on
-    # mid-iteration is friction whether or not it gates.
-    # `merge_group` is excluded for the same reason: queue runs are still
-    # pre-merge UI churn, not a post-land refresh point.
-    #
-    # Drift is still caught: this runs on pushes to main and release branches, on
-    # the weekly schedule, and on demand via workflow_dispatch. That puts the
-    # signal where a refresh is cheap — after the change has landed — instead of
-    # interrupting the change. Refresh with `npm run design-system:baselines:adopt`
-    # against that run's artifact.
-    #
-    # Do not add `pull_request` / `merge_group` back, and do not add this job to
-    # `pr-required`, without the owner saying so.
-    if: >
-      needs.changes.outputs.ui_changed == 'true' &&
-      contains(fromJSON('["push","schedule","workflow_dispatch"]'), github.event_name)
-    # Deliberately NOT continue-on-error at the job: setup / artifact / non-drift
-    # failures must stay red. Only the pixel-comparison step soft-fails below.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup UI e2e environment
-        uses: ./.github/actions/setup-ui-e2e
-
-      - name: Chromium visual baselines
-        id: visual-comparison
-        # Pixel drift is evidence, not an execution failure. Keeping this at the
-        # step (rather than only the job) prevents GitHub from publishing a red
-        # check for the expected stale-golden case demonstrated by PR #1743.
-        continue-on-error: true
-        run: npm run test:e2e:visual
-
-      - name: Report visual differences
-        if: steps.visual-comparison.outcome == 'failure'
-        run: |
-          if ! node scripts/classify-visual-baseline-outcome.mjs; then
-            echo "::error title=Visual baseline non-drift failure::Visual comparison failed for a reason other than pixel drift (missing baseline, setup/runtime, or assertion). See the visual-baseline-${{ github.run_id }} artifact."
-            exit 1
-          fi
-          echo "::warning title=Visual baseline drift::Chromium pixels differ from the committed Linux baseline. Review the visual-baseline-${{ github.run_id }} artifact; this advisory comparison does not block merging."
-          {
-            echo "### Visual baseline drift detected"
-            echo
-            echo "The Chromium comparison found changed pixels. This is advisory: required interaction, accessibility, and style-contract checks remain separate."
-            echo
-            echo "Download \`visual-baseline-${{ github.run_id }}\` and review the expected, actual, and diff images before refreshing the Linux baseline."
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # The actual/diff/expected PNGs live here. On a first run these are the images
-      # to commit as the baseline; on a later run they are the evidence of what moved.
-      - name: Upload visual diffs
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: visual-baseline-${{ github.run_id }}
-          path: |
-            test-results/
-            tests/__screenshots__/
-          if-no-files-found: ignore
-
-  # Required pre-merge performance budget against a LOCAL production build, graded
-  # relative to the committed enforced baseline in lighthouse-budget.json.
-  #
-  # Distinct from .github/workflows/live-web-vitals.yml, which measures the deployed
-  # origin for ledger #017 and by then cannot stop a regression from merging. Uses no
-  # secrets and no providers: the server runs in demo mode with inert loopback
-  # Supabase values, exactly like the Playwright runner.
-  lighthouse-budget:
-    name: Lighthouse budget
-    needs: changes
-    # Runs when the diff can plausibly move LCP/TBT/CLS on the five budgeted routes,
-    # and when the run is one whose result someone will act on. It used to key off
-    # `ui_changed || build_changed`, which put every dependabot lockfile bump (#1668)
-    # and every worker/** ingestion change through a ~7 minute isolated production
-    # build plus ten Lighthouse runs, with zero render-path relevance.
-    #
-    #   pull_request      – perf scope, non-draft. Drafts churn and this costs ~7 min;
-    #                       `types:` already includes ready_for_review, so undrafting
-    #                       re-triggers it without a push.
-    #   merge_group       – perf scope. This job is part of pr-required, so the
-    #                       merge queue re-verifies the exact candidate tree.
-    #   push (main/…)     – perf scope, PLUS lockfile_changed. The lockfile arm is the
-    #                       backstop for a runtime dependency bump: perf scope excludes
-    #                       package.json / package-lock.json because ci-change-scope.mjs
-    #                       sees paths, not lockfile contents, so without this arm a
-    #                       lockfile-only push would skip Lighthouse on both the PR and
-    #                       the subsequent push to main and leave only the weekly schedule.
-    #   schedule          – weekly; resolves to the full-run sentinel, which trips perf
-    #                       scope (asserted in ci-change-scope.mjs's self-tests).
-    #   workflow_dispatch – always, except a run dispatched to refresh the baseline
-    #                       (that belongs to lighthouse-baseline-refresh below).
-    #
-    # Labels mirror the codex-review / skip-codex-review convention; an explicit skip
-    # always wins. `on.pull_request.types` has no `labeled`, so the opt-in label takes
-    # effect on the next synchronize or re-run — adding `labeled` would re-run all of
-    # CI on every label change, so the escape hatch is workflow_dispatch instead.
-    #
-    # Two expression traps, both load-bearing:
-    #   - `github.event.inputs.X` is a STRING ('true'/'false') and is safely null on
-    #     non-dispatch events; the `inputs` context is a real boolean but only exists
-    #     for workflow_dispatch/workflow_call. Use the github.event.inputs form.
-    #   - `github.event.pull_request` is null on push/schedule/merge_group, so
-    #     `draft != true` is true there. Do NOT write `== false`: that is false on
-    #     every non-PR event and would silently kill the push and schedule arms.
-    if: >
-      (
-        github.event_name == 'schedule' ||
-        github.event_name == 'workflow_dispatch' ||
-        contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') ||
-        (
-          (
-            needs.changes.outputs.perf_changed == 'true' ||
-            (
-              github.event_name == 'push' &&
-              needs.changes.outputs.lockfile_changed == 'true'
-            )
-          ) &&
-          github.event.pull_request.draft != true
-        )
-      ) &&
-      !contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') &&
-      github.event.inputs.refresh_lighthouse_baseline != 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Setup pinned Chromium
-        uses: ./.github/actions/setup-lighthouse-chromium
-
-      - name: Measure routes and grade against the baseline
-        run: npm run verify:lighthouse -- --keep --dir lighthouse
-
-      - name: Upload Lighthouse reports
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: lighthouse-budget-${{ github.run_id }}
-          path: lighthouse/
-          if-no-files-found: ignore
-
-  # Refresh the committed Lighthouse baseline FROM A CI RUNNER. Dispatch-only.
-  #
-  # The baseline is a browser-specific artefact: check-lighthouse-budget.mjs fails
-  # closed when a baseline row's chromeVersion differs from the measuring run's,
-  # because a browser bump is otherwise indistinguishable from an application
-  # regression. So the numbers must come from the same pinned Chromium the grading job
-  # uses, which a developer machine cannot supply (#118: never commit baselines from a
-  # developer machine). This job produces the file; a human reviews the diff and
-  # commits it. That division is the point — a workflow that can rewrite a gate's own
-  # baseline is a gate that can green itself.
-  #
-  # Deliberately NOT continue-on-error: a refresh that measured nothing must go red.
-  lighthouse-baseline-refresh:
-    name: Refresh Lighthouse baseline (dispatch only)
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Setup pinned Chromium
-        uses: ./.github/actions/setup-lighthouse-chromium
-
-      # --update refuses on a measurement gap (incompleteBudgetEvidence with
-      # ignoreBaseline:true still blocks a missing or unusable report) and accepts
-      # browser drift, which is the reason to refresh. --keep retains the raw reports
-      # so the artifact carries evidence, not just a conclusion.
-      - name: Measure and rewrite the baseline
-        run: npm run verify:lighthouse -- --update --keep --dir lighthouse
-
-      # --update returns before rendering the table, so without this nothing describes
-      # what was recorded. Re-grading the same reports against the just-written
-      # baseline yields zero deltas by construction: this RENDERS the recorded numbers
-      # into the step summary, it does not verify them.
-      - name: Render the recorded baseline into the run summary
-        run: npm run check:lighthouse-budget -- --dir lighthouse
-
-      # The acceptance check for this job: exactly one distinct browser, and it is the
-      # pinned one. More than one line here means the refresh is not usable.
-      - name: Show the baseline diff and the browser it was measured on
-        run: |
-          git --no-pager diff --stat -- lighthouse-budget.json
-          node -e "const b=require('./lighthouse-budget.json');const versions=[...new Set(Object.values(b.baseline??{}).map(r=>r.chromeVersion).filter(v=>typeof v==='string'&&v.length>0))];console.log(versions.join('\n'));if(versions.length!==1){console.error('Expected exactly one baseline Chrome version; found '+versions.length+'.');process.exit(1)}"
-
-      - name: Upload the refreshed baseline
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: lighthouse-baseline-refresh-${{ github.run_id }}
-          path: |
-            lighthouse-budget.json
-            lighthouse/
-          if-no-files-found: error
-
-  db-reset-verify:
-    name: Migration replay
-    needs: changes
-    if: needs.changes.outputs.db_changed == 'true' && github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
-        with:
-          version: ${{ env.SUPABASE_CLI_VERSION }}
-
-      - name: Restore Supabase Docker image cache
-        id: supabase-docker-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: /tmp/supabase-docker-cache
-          key: supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-${{ hashFiles('supabase/config.toml') }}
-          restore-keys: |
-            supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-
-
-      - name: Load cached Supabase Docker images
-        run: |
-          if [ -f /tmp/supabase-docker-cache/images.tar ]; then
-            if ! docker load -i /tmp/supabase-docker-cache/images.tar; then
-              echo "::warning::Cached Supabase images exceeded runner disk capacity; discarding the restored tar so supabase start can pull only missing images."
-            fi
-            rm -f /tmp/supabase-docker-cache/images.tar
-          fi
-
-      - name: Start Supabase Local Emulator and bootstrap default ACLs
-        run: |
-          bootstrap_dir="$(mktemp -d)"
-          mv supabase/roles.sql "${bootstrap_dir}/roles.sql"
-          mv supabase/migrations "${bootstrap_dir}/migrations"
-          mkdir supabase/migrations
-
-          supabase start
-
-          rmdir supabase/migrations
-          mv "${bootstrap_dir}/migrations" supabase/migrations
-          mv "${bootstrap_dir}/roles.sql" supabase/roles.sql
-
-          db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -n 1)"
-          test -n "${db_container}"
-          docker exec -i "${db_container}" \
-            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            < supabase/roles.sql
-
-      - name: Verify Migration Replay
-        run: supabase migration up --local
-
-      # `drift:manifest` needs the same Docker-capable runner as migration
-      # replay. Generating it here gives a schema-changing PR an authoritative
-      # replacement artifact when the offline freshness check fails, rather
-      # than asking contributors to edit a catalog inventory by hand.
-      - name: Setup Node and dependencies for drift manifest
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Pull the pinned drift manifest image
-        run: docker pull supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83
-
-      - name: Regenerate and verify drift manifest freshness
-        run: |
-          cp supabase/drift-manifest.json /tmp/committed-drift-manifest.json
-          npm run drift:manifest
-          node <<'NODE'
-          const { readFileSync } = require("node:fs");
-          const committed = JSON.parse(readFileSync("/tmp/committed-drift-manifest.json", "utf8"));
-          const generated = JSON.parse(readFileSync("supabase/drift-manifest.json", "utf8"));
-          if (committed.schema_sha256 !== generated.schema_sha256) {
-            throw new Error(
-              "supabase/schema.sql changed without a regenerated drift manifest. Download the drift-manifest artifact from this job and commit it.",
-            );
-          }
-          NODE
-
-      - name: Upload regenerated drift manifest
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: drift-manifest-${{ github.run_id }}
-          path: supabase/drift-manifest.json
-          if-no-files-found: error
-
-      - name: Save Supabase Docker images
-        if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'
-        continue-on-error: true
-        run: |
-          mkdir -p /tmp/supabase-docker-cache
-          docker images --format '{{.Repository}}:{{.Tag}}' \
-            | grep -E '^(supabase/|ghcr.io/supabase/)' \
-            | sort -u \
-            | xargs -r docker save -o /tmp/supabase-docker-cache/images.tar
-
-  caring-contacts-db:
-    name: Caring Contacts database
-    needs: changes
-    if: >
-      (needs.changes.outputs.db_changed == 'true' ||
-       needs.changes.outputs.static_heavy_changed == 'true') &&
-      github.event.pull_request.draft != true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    services:
-      postgres:
-        image: postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449
-        env:
-          # This database exists only for this isolated runner job. Trust auth
-          # avoids committing a credential-shaped test literal.
-          POSTGRES_HOST_AUTH_METHOD: trust
-        ports:
-          - 54329:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Run Caring Contacts Database & RLS Tests
-        env:
-          CARING_CONTACTS_DATABASE_URL: postgres://postgres@127.0.0.1:54329/postgres
-        run: npm run caring-contacts:db:test
-
-  pr-required:
-    name: PR required
-    needs:
-      [
-        changes,
-        static-pr,
-        safety,
-        coverage,
-        ingestion-sast,
-        build,
-        container-images,
-        ui-critical-fast,
-        ui-critical,
-        lighthouse-budget,
-        db-reset-verify,
-        caring-contacts-db,
-      ]
-    # #095: keep `if: always()` — a skipped required check counts as PASSING
-    # on GitHub, so `!cancelled()` would cancel-to-green a hand-cancelled tip.
-    # Cancelled vs failure is distinguished in the script below (PR #1409).
+    needs: [build-image]
     if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Verify required in-scope jobs
-        env:
-          STATIC_HEAVY_CHANGED: ${{ needs.changes.outputs.static_heavy_changed }}
-          COVERAGE_CHANGED: ${{ needs.changes.outputs.coverage_changed }}
-          INGESTION_SAST_CHANGED: ${{ needs.changes.outputs.ingestion_sast_changed }}
-          UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
-          DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
-          BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
-          CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
-          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
-          EVENT_NAME: ${{ github.event_name }}
-          CHANGES_RESULT: ${{ needs.changes.result }}
-          STATIC_RESULT: ${{ needs.static-pr.result }}
-          SAFETY_RESULT: ${{ needs.safety.result }}
-          COVERAGE_RESULT: ${{ needs.coverage.result }}
-          INGESTION_SAST_RESULT: ${{ needs.ingestion-sast.result }}
-          BUILD_RESULT: ${{ needs.build.result }}
-          CONTAINER_RESULT: ${{ needs.container-images.result }}
-          UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
-          UI_RESULT: ${{ needs.ui-critical.result }}
-          LIGHTHOUSE_RESULT: ${{ needs.lighthouse-budget.result }}
-          DB_RESULT: ${{ needs.db-reset-verify.result }}
-          CARING_CONTACTS_DB_RESULT: ${{ needs.caring-contacts-db.result }}
-        run: |
-          set -euo pipefail
-
-          # A cancelled job proves nothing, so it must never report success — relaxing that is
-          # exactly what #095's stop rule forbids, and `if: always()` above is deliberate: a
-          # skipped required check counts as PASSING on GitHub, so skipping this aggregate on
-          # cancellation would make a manually-cancelled run mergeable with nothing verified.
-          #
-          # But a cancelled result is not a real failure either, and reporting it as an
-          # indistinguishable red has a measured cost: `cancel-in-progress` supersedes an
-          # in-flight run on every push, and one 2026-07-30 session spent four separate
-          # investigations on `::error::changes result was cancelled` before recognising it —
-          # while a docs-only PR merged straight through a red it had learned to ignore.
-          # So the result stays red and the reason stops being ambiguous.
-          #
-          # This reads each job's own `cancelled` result rather than the workflow-level
-          # cancelled status function. An earlier revision passed that function through an env
-          # value, which is INVALID: GitHub allows the status-check functions (success, failure,
-          # cancelled, always) only in `if:` conditions, so the whole workflow file failed to
-          # parse — the run was named `.github/workflows/ci.yml` instead of `CI` and created zero
-          # jobs. Valid YAML, invalid Actions schema, so prettier and every local gate passed it;
-          # `tests/ci-cache-safety.test.ts` now guards the rule directly. Note the interpolation
-          # syntax is deliberately not written out even here, because expressions are evaluated
-          # inside `run:` blocks too — a comment naming it would reproduce the same parse failure.
-          # The per-result check loses nothing: a superseded run cancels the upstream jobs, so
-          # they are all reported below.
-          #
-          # Both lists are collected before anything is reported, and GENUINE FAILURES WIN. A run
-          # can be cancelled AND broken at once — e.g. `safety` cancelled while `build` had already
-          # failed — and exiting on the first non-success would announce "not a real failure" while
-          # hiding the break. That is worse than the ambiguity this change set out to remove, so a
-          # cancellation is only ever the headline when nothing actually failed. Reported by Codex
-          # on PR #1409.
-          failures=()
-          cancellations=()
-
-          record() {
-            local name="$1"
-            local result="$2"
-            local skipped_ok="$3"
-            if [ "$result" = "success" ]; then return 0; fi
-            if [ "$skipped_ok" = "true" ] && [ "$result" = "skipped" ]; then return 0; fi
-            if [ "$result" = "cancelled" ]; then
-              cancellations+=("$name")
-            else
-              failures+=("$name result was $result")
-            fi
-            return 0
-          }
-
-          require_success() {
-            record "$1" "$2" false
-          }
-
-          require_skipped_or_success() {
-            record "$1" "$2" true
-          }
-
-          require_success "changes" "$CHANGES_RESULT"
-          require_success "static-pr" "$STATIC_RESULT"
-
-          # safety/coverage/build/ui-critical*/db-reset-verify/caring-contacts-db additionally skip on draft PRs
-          # (see their own job `if:` conditions) to stop draft pushes from booking a full heavy
-          # CI matrix. PR_DRAFT is folded into the same "was this job in scope" check as the
-          # *_CHANGED flags so a draft PR reports skipped-and-fine here instead of a false
-          # "result was skipped" failure — undrafting fires `ready_for_review`, which reruns the
-          # whole workflow fresh, so this never lets a real failure hide past review.
-          if [ "$STATIC_HEAVY_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
-            require_success "safety" "$SAFETY_RESULT"
-          else
-            require_skipped_or_success "safety" "$SAFETY_RESULT"
-          fi
-
-          if [ "$COVERAGE_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
-            require_success "coverage" "$COVERAGE_RESULT"
-          else
-            require_skipped_or_success "coverage" "$COVERAGE_RESULT"
-          fi
-
-          if [ "$INGESTION_SAST_CHANGED" = "true" ]; then
-            require_success "ingestion-sast" "$INGESTION_SAST_RESULT"
-          else
-            require_skipped_or_success "ingestion-sast" "$INGESTION_SAST_RESULT"
-          fi
-
-          if [ "$BUILD_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
-            require_success "build" "$BUILD_RESULT"
-          else
-            require_skipped_or_success "build" "$BUILD_RESULT"
-          fi
-
-          if [ "$CONTAINER_CHANGED" = "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
-            require_success "container-images" "$CONTAINER_RESULT"
-          else
-            require_skipped_or_success "container-images" "$CONTAINER_RESULT"
-          fi
-
-          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
-            if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
-              require_success "production-ui-critical" "$UI_FAST_RESULT"
-            else
-              require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
-            fi
-            require_success "production-ui" "$UI_RESULT"
-          else
-            require_skipped_or_success "production-ui-critical" "$UI_FAST_RESULT"
-            require_skipped_or_success "production-ui" "$UI_RESULT"
-          fi
-
-          require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
-
-          if [ "$DB_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
-            require_success "db-reset-verify" "$DB_RESULT"
-          else
-            require_skipped_or_success "db-reset-verify" "$DB_RESULT"
-          fi
-
-          if { [ "$DB_CHANGED" = "true" ] || [ "$STATIC_HEAVY_CHANGED" = "true" ]; } && [ "$PR_DRAFT" != "true" ]; then
-            require_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
-          else
-            require_skipped_or_success "caring-contacts-db" "$CARING_CONTACTS_DB_RESULT"
-          fi
-
-          # A real break is always the headline. Every failure is listed, not just the first, and a
-          # concurrent cancellation is demoted to context so it cannot read as an excuse.
-          if [ ${#failures[@]} -gt 0 ]; then
-            for entry in "${failures[@]}"; do
-              echo "::error::$entry"
-            done
-            if [ ${#cancellations[@]} -gt 0 ]; then
-              echo "::warning::also cancelled: ${cancellations[*]} — the failures above are real" \
-                "and must be fixed regardless."
-            fi
-            exit 1
-          fi
-
-          # Cancelled with nothing failing. Stays RED, because a cancelled job verified nothing,
-          # but the cause is stated as the two possibilities rather than asserted as supersession:
-          # a hand-cancelled run on the current head has no newer run to look at.
-          if [ ${#cancellations[@]} -gt 0 ]; then
-            echo "::error::CANCELLED with no failing job: ${cancellations[*]}. Nothing here" \
-              "describes the diff, so this is not a broken change — but a cancelled job verified" \
-              "nothing, so it cannot go green either. Usually a newer push superseded this run" \
-              "(cancel-in-progress); look for a newer 'PR required' run on the PR's current head" \
-              "SHA. If there is none, this run was cancelled by hand and must be re-run rather" \
-              "than merged past."
-            exit 1
-          fi
-
-          echo "Required in-scope PR checks passed."
-
-  # Firefox/WebKit matrix must not wait on pr-required: a blocking weekly
-  # dependency audit (full-run sentinel sets lockfile_changed) previously
-  # skipped the matrix entirely while Chromium UI was already green (#023).
-  release-browser-matrix:
-    if: >
-      always() &&
-      (
-        (github.event_name == 'workflow_dispatch' && github.event.inputs.refresh_lighthouse_baseline != 'true') ||
-        github.event_name == 'schedule' ||
-        startsWith(github.ref, 'refs/heads/release/') ||
-        (
-          github.ref == 'refs/heads/main' &&
-          (
-            needs.changes.outputs.ui_changed == 'true' ||
-            needs.changes.outputs.perf_changed == 'true' ||
-            needs.changes.outputs.lockfile_changed == 'true'
-          )
-        )
-      ) &&
-      needs.changes.result == 'success' &&
-      needs.static-pr.result == 'success' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
-      (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
-    needs: [changes, static-pr, build, ui-critical]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 70
-
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@6e7b7d1ac3b6fe66de33d1876be8856e108dcde5 # v0.24.0
         with:
-          persist-credentials: false
+          image-ref: ${{ needs.build-image.outputs.image }}@${{ needs.build-image.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          severity: HIGH,CRITICAL
 
-      - name: Setup Node and dependencies
-        uses: ./.github/actions/setup-node-cached
-
-      - name: Restore browser cache
-        id: pw-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@396578fcf008ab6211f8c3f8a06f49ff4f36e50f # v3
         with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          # Prefix fallback so a lockfile bump does not force a cold download of all
-          # four browsers; `playwright install` below still fetches any missing version.
-          restore-keys: |
-            playwright-${{ runner.os }}-
+          sarif_file: trivy-results.sarif
 
-      - name: Install Playwright browsers
-        run: |
-          if command -v sudo >/dev/null 2>&1; then
-            sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
-            sudo mkdir -p /etc/apt/apt.conf.d
-            sudo tee /etc/apt/apt.conf.d/99flaky-mirror-resilience >/dev/null << 'EOF'
-          Acquire::Retries "3";
-          Acquire::http::Timeout "30";
-          Acquire::https::Timeout "30";
-          EOF
-          fi
-          install_browsers() {
-            if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-              npx playwright install-deps
-              npx playwright install
-            else
-              npx playwright install --with-deps
-            fi
-          }
-          for attempt in 1 2 3; do
-            if timeout 180 bash -c "$(declare -f install_browsers); install_browsers"; then
-              exit 0
-            fi
-            echo "Playwright browsers install attempt $attempt timed out or failed, retrying..." >&2
-            sleep 5
-          done
-          exit 1
+  # Phase 5: E2E tests on built image (PRs only)
+  test-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    needs: [build-image]
+    if: github.event_name == 'pull_request' && needs.build-image.result == 'success'
+    strategy:
+      matrix:
+        shard: [1, 2, 3, 4]
+      fail-fast: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Full browser UI matrix
-        id: e2e-matrix
-        run: |
-          if [ "${{ needs.changes.outputs.ui_changed }}" = "true" ] && [ "${{ needs.ui-critical.result }}" = "success" ]; then
-            # Production Chromium already passed in this run. Keep mockup
-            # Chromium plus the cross-browser backstop without repeating it.
-            npm run test:e2e -- --project=chromium-mockups --project=firefox --project=webkit
-          else
-            # Fail-safe path for perf/lockfile-only or otherwise skipped UI proof.
-            npm run test:e2e
-          fi
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442caab335fa5ed526f0b2b582048926ad1efb # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
 
-      - name: Upload UI diagnostics
-        if: failure()
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run E2E tests (shard ${{ matrix.shard }})
+        run: npm run test:e2e:pr -- --shard=${{ matrix.shard }}/4
+
+      - name: Upload Playwright report
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: release-ui-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: playwright-report/
+          retention-days: 7
+
+  # Phase 6: Summary gate
+  verify:
+    runs-on: ubuntu-24.04
+    if: always()
+    needs: [lint-and-typecheck, test-unit, build-image, scan-image]
+    steps:
+      - name: Check job status
+        run: |
+          if [[ "${{ needs.lint-and-typecheck.result }}" != "success" || \
+                "${{ needs.test-unit.result }}" != "success" || \
+                "${{ needs.build-image.result }}" != "success" ]]; then
+            echo "CI failed"
+            exit 1
+          fi

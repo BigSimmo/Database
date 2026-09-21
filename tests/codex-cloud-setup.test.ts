@@ -424,6 +424,16 @@ describe("Codex Cloud environment contract", () => {
     const tracked = readFileSync(new URL("../.codex/config.toml", import.meta.url), "utf8");
     expect(validateCodexProjectMcpConfiguration(tracked)).toEqual([]);
     expect(
+      validateCodexProjectMcpConfiguration(
+        tracked.replace(
+          "[mcp_servers.figma_cloud]",
+          'model = "gpt-5.6-sol"\nmodel_reasoning_effort = "high"\n\n[mcp_servers.figma_cloud]',
+        ),
+      ),
+    ).toContain(
+      ".codex/config.toml must not set repository-wide model or model_reasoning_effort; leave them to the task or desktop picker.",
+    );
+    expect(
       validateCodexProjectMcpConfiguration(tracked.replace("[mcp_servers.railway]", "[mcp_servers.railway_cloud]")),
     ).toContain(
       `.codex/config.toml must register exactly these MCP servers: figma_cloud, railway, sentry_cloud, supabase_cloud. unexpected: railway_cloud; missing: railway. Use the canonical railway template name; stale railway_cloud registrations are host-local OAuth apps and must not be reintroduced here.`,

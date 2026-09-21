@@ -5,6 +5,10 @@ Australia. The app uploads private clinical reference documents to Supabase
 Storage, indexes text and extracted image captions into pgvector, and answers
 questions with source citations that link back to the original PDF/document.
 
+For agent tasks, start with [AGENTS.md](AGENTS.md) and the
+[task navigator](docs/agents-guide.md). The [documentation index](docs/README.md)
+distinguishes maintained guides, generated views and historical evidence.
+
 ## Setup
 
 1. Use Node.js 24.x with npm 11.x. CI runs on Node 24, and `.nvmrc` /
@@ -37,6 +41,9 @@ tasks from explicitly connected provider tasks. Fresh Cloud validation runs the 
    local-first settings, not optional extras.
 4. Confirm the Supabase target:
 
+This is a provider-backed check. Obtain the required explicit authorisation before
+running it; it is not a prerequisite to documentation or other offline-only work.
+
 ```bash
 npm run check:supabase-project
 ```
@@ -55,13 +62,17 @@ demo mode if that stale ref appears in `.env.local`.
 
 5. Database bootstrap:
 
-- **Existing `Clinical KB Database` project:** migrations are already applied on
-  live. Normal local dev does not need a SQL editor bootstrap step.
-- **New staging or fresh database:** link the Supabase CLI to the project, then
-  apply committed migrations when local and remote histories align:
+- **Existing `Clinical KB Database` project:** this is the live project. Normal
+  local development does not require a SQL editor bootstrap step. Current schema
+  and migration status require the approved live checks; this README is not proof
+  that a particular migration has been applied.
+- **New staging or fresh database:** with explicit authorisation for the target
+  and migration application, link the Supabase CLI to that approved project, then
+  apply committed migrations when local and remote histories align. Replace the
+  placeholder below with that project's ref; the live ref above is not a staging target:
 
 ```bash
-npx supabase link --project-ref sjrfecxgysukkwxsowpy
+npx supabase link --project-ref <approved-staging-project-ref>
 npx supabase migration list --linked
 npx supabase db push
 ```

@@ -211,7 +211,7 @@ export async function proxy(request: NextRequest) {
   }
 
   let userHeaderValue: string | null = null;
-  let response = NextResponse.next({ request: { headers: requestHeadersWithNonce() } });
+  let response: NextResponse | null = null;
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -241,8 +241,8 @@ export async function proxy(request: NextRequest) {
     };
     const rawPayload = Buffer.from(JSON.stringify(userPayload), "utf8").toString("base64");
     userHeaderValue = signProxyAuthPayload(rawPayload);
-    const previousCookies = response.cookies.getAll();
-    const previousHeaders = new Headers(response.headers);
+    const previousCookies = response?.cookies.getAll() ?? [];
+    const previousHeaders = response ? new Headers(response.headers) : new Headers();
     response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
     for (const [k, v] of previousHeaders.entries()) {
       // `Headers.entries()` does not reliably preserve Set-Cookie attributes.
@@ -254,7 +254,7 @@ export async function proxy(request: NextRequest) {
       response.cookies.set(cookie);
     }
   }
-  return withCsp(response);
+  return withCsp(response ?? NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
 }
 
 export function shouldBlockProductionMockups(
