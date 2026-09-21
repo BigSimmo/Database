@@ -204,7 +204,9 @@ describe("/auth/callback", () => {
     const missingCodeResponse = await GET(callbackRequest("next=%2Fdocuments"));
     const unconfiguredResponse = await GET(callbackRequest("code=pkce-code"));
 
-    expect(missingCodeResponse.headers.get("location")).toBe("https://clinical.example/?auth_error=missing_auth_code");
+    expect(missingCodeResponse.headers.get("location")).toBe(
+      "https://clinical.example/documents?auth_error=missing_auth_code",
+    );
     expect(unconfiguredResponse.headers.get("location")).toBe("https://clinical.example/?auth_error=auth_unconfigured");
     expect(createSupabaseServerClient).toHaveBeenCalledTimes(1);
   });
@@ -238,9 +240,60 @@ describe("/auth/callback", () => {
 
     const response = await GET(callbackRequest("code=bad-code&next=%2Fdocuments"));
 
-    expect(response.headers.get("location")).toBe("https://clinical.example/?auth_error=Code%20verifier%20mismatch");
+    expect(response.headers.get("location")).toBe(
+      "https://clinical.example/documents?auth_error=Code%20verifier%20mismatch",
+    );
     expect(response.cookies.get("sb-session")?.value).toBe("");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("pragma")).toBe("no-cache");
+  });
+
+  it("preserves a validated reset destination when exchange fails", async () => {
+    vi.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServerClient: vi.fn(async () => ({
+        auth: {
+          exchangeCodeForSession: vi.fn(async () => ({ error: { message: "otp_expired" } })),
+        },
+      })),
+    }));
+    const { GET } = await import("../src/app/auth/callback/route");
+
+    const response = await GET(callbackRequest("code=stale&next=%2Fauth%2Freset-password"));
+
+    expect(response.headers.get("location")).toBe(
+      "https://clinical.example/auth/reset-password?auth_error=otp_expired",
+    );
+  });
+
+  it("marks successful reset-bound exchanges with a short-lived recovery cookie", async () => {
+    vi.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServerClient: vi.fn(async () => ({
+        auth: {
+          exchangeCodeForSession: vi.fn(async () => ({ error: null })),
+        },
+      })),
+    }));
+    const { GET } = await import("../src/app/auth/callback/route");
+
+    const response = await GET(callbackRequest("code=pkce-code&next=%2Fauth%2Freset-password"));
+
+    expect(response.headers.get("location")).toBe("https://clinical.example/auth/reset-password");
+    expect(response.cookies.get("ps_password_recovery")?.value).toBe("1");
+  });
+
+  it("does not mark ordinary sign-in exchanges as password recovery", async () => {
+    vi.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServerClient: vi.fn(async () => ({
+        auth: {
+          exchangeCodeForSession: vi.fn(async () => ({ error: null })),
+        },
+      })),
+    }));
+    const { GET } = await import("../src/app/auth/callback/route");
+
+    const response = await GET(callbackRequest("code=pkce-code&next=%2Fdocuments"));
+
+    expect(response.headers.get("location")).toBe("https://clinical.example/documents");
+    expect(response.cookies.get("ps_password_recovery")).toBeUndefined();
   });
 });
