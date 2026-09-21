@@ -33,17 +33,17 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 
 | Class | Rule | Recheck when |
 | --- | --- | --- |
-| Entry (README, first-run) | Short, current, linked from root / `docs/README` | Tip SHA / boot command / entry path changes |
+| Entry (README, first-run) | Short, current, linked from root / docs README | Tip SHA / boot command / entry path changes |
 | Runbook | Imperative; restamp when operator state changes | Operator dashboard/CLI steps change |
 | Closeout / deferred | Short; deferred list + status; no secrets | Teammate reports phase done / deferred item moves |
 | Plan / playbook | Don’t duplicate live status — point at the board | Plan superseded or board moves |
-| Historical | Under `archive/` (+ stub if old path is linked) | Never “update” — supersede with a new dated note |
+| Historical | Under an archive/ folder (+ stub if old path is linked) | Never “update” — supersede with a new dated note |
 | Generated | Don’t hand-edit | After regenerating indexes/inventories |
 
 ## Freshness
 
 - **Event-driven first:** apply the recheck column when the triggering event happens (handoff from Supabase/Railway, tip move, boot script rename, merge of a docs PR).
-- **Weekday sweep (Documentation routine, 08:15 AWST Mon–Fri):** tip identity → entry docs → stamps vs known operator moves → dual ledgers → archive hygiene → link check → open `docs/*` PRs vs teammate updates.
+- **Weekday sweep (Documentation routine, 08:15 AWST Mon–Fri):** tip identity → entry docs → stamps vs known operator moves → dual ledgers → archive hygiene → link check → open docs/* PRs vs teammate updates.
 - Fix cheap issues in-sweep; queue large rewrites.
 - Stay quiet to Joshua unless something changed or a decision is needed.
 
@@ -52,7 +52,7 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 | Project | Tip / repo | Entry docs | Doc check | Notes |
 | --- | --- | --- | --- | --- |
 | **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [PR #2959 closeout notes](https://github.com/BigSimmo/Database/pull/2959) (PR #2959) |
-| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | Ward Flow tip live set: README / LOCAL-FIRST-RUN / ARCHIVE-NOTE / STATUS (under tip `docs/ward-flow/`; not present as that tree on main) | Ward Flow tip only: script `ward:check-docs` (alias of `check:ward-doc-links`; not on main) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under dated-notes archive on the Ward Flow tip (not on main). Never stale worktrees / cloud / other paths unless Joshua names them |
+| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | Ward Flow tip live set: README / LOCAL-FIRST-RUN / ARCHIVE-NOTE / STATUS (live under the tip docs/ward-flow tree; that folder layout is not on main) | Ward Flow tip only: script `ward:check-docs` (alias of `check:ward-doc-links`; not on main) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under dated-notes archive on the Ward Flow tip (not on main). Never stale worktrees / cloud / other paths unless Joshua names them |
 
 Extend this table when a new product tip is confirmed — don’t invent paths.
 
