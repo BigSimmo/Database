@@ -14,6 +14,8 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 | 4   | FK indexes / unused indexes                               | Only with evidence; do not batch-drop                                                               |
 | 5   | `PROXY_AUTH` dedicated secret                             | Quiet change window only                                                                            |
 
+**Phase 4** (post-Codex hardening above) remains deferred until Codex PRs land.
+
 ## 2. Intentional RLS-on / no-policy (prod, fail-closed)
 
 **16** prod `public` tables keep **RLS enabled with no policies** on purpose: **service_role fail-closed** (anon/authenticated get nothing). Do not treat these as defects.
@@ -46,8 +48,10 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 - **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared. **Prod Auth not changed.**
 - **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
-- **Staging Auth (Phase 1): DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**, CAPTCHA still **OFF**.
+- **Staging Auth (Phase 1): mostly DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**. CAPTCHA **OFF by design** unless Joshua asks.
+- **Phase 1 remaining:** Auth DB connections **percentage** on staging + prod (in progress on dashboard).
 - **DB pool (absolute):** staging 15/200 · prod 24/200.
+- **Phase 5:** weekday advisors routine created (quiet unless WARN).
 
 ## 4. Railway env inventory (names only)
 
@@ -66,6 +70,6 @@ Names-only check — **no values recorded.**
 ## 5. Out of scope here
 
 - No schema/DDL from this closeout file.
-- Auth dashboard CAPTCHA (still OFF on staging) vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned; prod Auth unchanged.
+- Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md). Prod Auth unchanged.
 
-_Updated 2026-09-21 — Phase 1 staging Auth + pool notes; Documentation owns._
+_Updated 2026-09-21 — Phase 5 advisors routine + Phase 1 remaining; Documentation owns._
