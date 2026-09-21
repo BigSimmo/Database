@@ -2749,13 +2749,12 @@ summary::-webkit-details-marker {
 /* END tablet mode-home composer geometry */
 
 /* BEGIN sm+ hero home canvas alignment */
-/* Mode homes optically centre a ~160px composer. The 432px × ~383px
-   bottom-right install card overlaps that band on constrained 640–1919px
-   viewports (Production UI `ui-pwa`), so keep the canvas top-aligned from
-   first paint while the viewport is shorter than 1280px. Taller desktop
-   windows have enough vertical clearance for the complete home and install
-   surface, and must retain the default centred placement instead of leaving
-   most of the usable canvas empty below the primary action. At 1920px+ the
+/* Mode homes optically centre a ~160px composer. The install card can overlap
+   that band on constrained 640–1919px viewports (Production UI `ui-pwa`), so
+   keep the canvas top-aligned from first paint while the viewport is shorter
+   than 1280px. Short heights also move/compact `.pwa-notice-stack` (see the
+   max-height: 899.98px block with `.pwa-install-sheet`). Taller desktop
+   windows keep centred placement and the lower-right install card. At 1920px+
    horizontal separation already clears a centred composer. A dynamic
    `body:has(.pwa-notice-stack)` canvas restyle caused 0.12 CLS, so the stable
    first-paint media gate remains the owner. Phones stay centred. */
@@ -3797,6 +3796,50 @@ body:has([data-route-recovery="true"]) .pwa-install-sheet {
 
   .pwa-install-grip {
     display: none;
+  }
+}
+
+/* Short desktop / laptop heights: the lower-right install card overlaps the
+   centred (or top-aligned) mode-home search band. Park notices in the top-right
+   and compact the install sheet so search, dismiss, iOS hint, keyboard, and
+   privacy copy remain reachable. Taller desktops keep the lower-right card. */
+@media (min-width: 640px) and (max-height: 899.98px) {
+  .pwa-notice-stack {
+    top: calc(4.25rem + max(0.75rem, var(--safe-area-top)));
+    bottom: auto;
+    width: min(22rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+
+  .pwa-install-sheet {
+    max-height: min(42dvh, calc(100dvh - 6rem - var(--safe-area-top) - var(--safe-area-bottom)));
+  }
+
+  .pwa-install-sheet .pwa-install-tagline,
+  .pwa-install-sheet .pwa-install-copy,
+  .pwa-install-sheet .pwa-install-support,
+  .pwa-install-sheet .pwa-install-benefits {
+    display: none;
+  }
+
+  .pwa-install-sheet .pwa-install-header {
+    min-height: 3.25rem;
+    padding-block: calc(2 * var(--pwa-inset-xs));
+  }
+
+  .pwa-install-sheet .pwa-install-body {
+    padding: var(--pwa-inset-sm) var(--pwa-inset-xl) var(--pwa-inset-xl);
+  }
+
+  .pwa-install-sheet .pwa-install-compact-copy {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: var(--pwa-line-height-support);
+  }
+
+  .pwa-install-sheet .pwa-install-actions {
+    margin-top: var(--pwa-inset-sm);
   }
 }
 

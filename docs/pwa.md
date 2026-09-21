@@ -36,6 +36,8 @@ The manifest defines a stable app identity and root scope:
 
 - `id`, `start_url`, and `scope` are `/`.
 - `display` is `standalone`; the document viewport uses `viewport-fit=cover`.
+- `background_color` is the brand light splash (`APP_THEME_COLORS.light`). `theme_color` is intentionally omitted
+  from the manifest so light/dark browser chrome can keep updating via meta `theme-color`.
 - Language and direction are `en-AU` and `ltr`.
 - Categories are `medical`, `productivity`, and `utilities`; related native applications are not preferred.
 - The SVG icon is accompanied by generated 192 px and 512 px PNG icons for the `any`, `maskable`, and `monochrome`
@@ -52,10 +54,11 @@ registered service worker. Localhost is the browser's secure-context development
 is shown only when the browser emits `beforeinstallprompt`; browsers that do not expose that event retain their own
 install/Add to Home Screen flow.
 
-The install card is not shown in standalone mode. It stays non-blocking and lower-right on wide screens; on phones it
-becomes a compact sheet positioned clear of the current composer owner (above a bottom dock or below an in-flow home
-composer) and the safe area. The benefit list is deliberately limited to quick access, app-like launch, and the
-familiar PsychSift workspace. It does not imply offline clinical access.
+The install card is not shown in standalone mode. It stays non-blocking and lower-right on tall wide screens; on short
+desktop heights (under ~900px) it moves to the top-right and compact-sheet layout so the mode-home search stays
+usable; on phones it becomes a compact sheet positioned clear of the current composer owner (above a bottom dock or
+below an in-flow home composer) and the safe area. The benefit list is deliberately limited to quick access, app-like
+launch, and the familiar PsychSift workspace. It does not imply offline clinical access.
 Choosing **Not now**, using **Dismiss**, or dismissing the browser prompt suppresses the custom prompt for 30 days
 using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that value. Storage failures are
 treated as non-fatal progressive-enhancement failures.
@@ -249,6 +252,7 @@ resource problem by weakening the page CSP or adding a provider origin to the wo
 - Phone and standalone placement accounts for left, right, and bottom safe-area insets and sits above the bottom
   composer/home indicator. The offline page uses all four safe-area insets.
 - The offline page supports light/dark colour schemes, keyboard focus, responsive type, and forced-colour mode.
+- Manifest `background_color` uses `APP_THEME_COLORS.light` for splash only; do not lock `theme_color` in the manifest.
 - Light and dark theme colours come from `APP_THEME_COLORS`. The pre-hydration theme script updates `theme-color`
   before paint, and the theme hook keeps it synchronized after user/OS theme changes.
 - Standalone detection covers both `display-mode: standalone` and the Apple `navigator.standalone` extension; the
