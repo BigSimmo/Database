@@ -1,9 +1,20 @@
 import type { Metadata, MetadataRoute } from "next";
 
 /**
- * PsychSift is a private application, not a public content catalogue. Keep its
- * routes out of search results even when a crawler reaches a URL without first
- * consulting robots.txt.
+ * Default robots for public application surfaces that should be discoverable
+ * once PsychSift is served on its production host. Auth still protects private
+ * clinical content; indexing is not access control.
+ */
+export const PUBLIC_APP_ROBOTS_METADATA = {
+  index: true,
+  follow: true,
+} satisfies Metadata["robots"];
+
+/**
+ * Restrictive robots for surfaces that must stay out of search results:
+ * synthetic demos (Caring Contacts), prototype mockups, and similar
+ * non-product pages. Offline/error static documents keep their own noindex
+ * meta in markup or response headers.
  */
 export const PRIVATE_APP_ROBOTS_METADATA = {
   index: false,
@@ -18,9 +29,9 @@ export const PRIVATE_APP_ROBOTS_METADATA = {
 } satisfies Metadata["robots"];
 
 /**
- * Let compliant crawlers fetch application routes so they can observe the global
- * `noindex` metadata. Search exclusion is not access control; private content must
- * remain protected by authentication. Do not advertise an XML sitemap.
+ * Let compliant crawlers fetch application routes so they can observe per-route
+ * robots metadata (including noindex on private/demo surfaces). Do not advertise
+ * an XML sitemap from this private-product robots.txt.
  */
 export const PRIVATE_APP_ROBOTS_TXT = {
   rules: {

@@ -2,11 +2,11 @@
   "$comment": "Client JS bundle-size budgets captured from a known-good production build. `production` guards aggregate user-facing chunks, `routes` guards the five Lighthouse journeys against route-local growth, and `mockups` is a looser design-scratch hygiene ceiling. Refresh intentionally with `npm run check:bundle-budget -- --update`.",
   "enforce": true,
   "production": {
-    "gzipBytes": 2016807,
+    "gzipBytes": 2219345,
     "tolerancePct": 10
   },
   "mockups": {
-    "gzipBytes": 822715,
+    "gzipBytes": 916037,
     "tolerancePct": 25
   },
   "serverPages": {
@@ -26,16 +26,16 @@
   },
   "routes": {
     "/": {
-      "gzipBytes": 277598,
+      "gzipBytes": 286137,
       "tolerancePct": 10
     },
     "/documents/search": {
-      "gzipBytes": 280491,
+      "gzipBytes": 289580,
       "tolerancePct": 10
     }
   },
-  "totalGzipBytes": 2839522,
+  "totalGzipBytes": 3135382,
   "tolerancePct": 10,
-  "updatedAt": "2026-09-13T17:23:16.629Z",
-  "baselineSource": "edc8768d1f80d7796968d2aca5421a4ef293809e"
+  "updatedAt": "2026-09-21T04:52:17.542Z",
+  "baselineSource": "0b3330c9e0acb8347ed2c8cd8bd75a2afdc08e8f"
 }

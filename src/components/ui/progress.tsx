@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Loader2, TriangleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { cn, textMuted } from "@/components/ui-primitives";
 
 export type ProgressProps = {
@@ -10,6 +10,15 @@ export type ProgressProps = {
   label: string;
   /** Right-aligned detail, e.g. "42 of 118 chunks". Tabular so it stops jittering. */
   detail?: ReactNode;
+  /**
+   * An optional reference point on the same scale as `value` — "where you would
+   * need to be today". Drawn as a notch, not a second fill, and kept out of
+   * `aria-valuenow`, which still reports the real value: a screen reader that
+   * announced the target as the progress would be stating the opposite of the
+   * truth. `label` reaches assistive technology as the bar's description, from
+   * a sibling node — see the note on the notch below.
+   */
+  mark?: { value: number; label: string };
   className?: string;
 };
 
@@ -21,9 +30,11 @@ export type ProgressProps = {
  * `role="progressbar"` with real `aria-valuenow/min/max`, so the percentage is
  * announced rather than inferred from a coloured rectangle.
  */
-export function Progress({ value, label, detail, className }: ProgressProps) {
+export function Progress({ value, label, detail, mark, className }: ProgressProps) {
   const determinate = typeof value === "number";
   const clamped = determinate ? Math.max(0, Math.min(100, value)) : undefined;
+  const markPercent = mark ? Math.max(0, Math.min(100, mark.value)) : undefined;
+  const markDescriptionId = useId();
 
   return (
     <div className={cn("w-full", className)}>
@@ -34,11 +45,19 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
       <div
         role="progressbar"
         aria-label={label}
+        aria-describedby={mark ? markDescriptionId : undefined}
         aria-valuenow={clamped}
         aria-valuemin={determinate ? 0 : undefined}
         aria-valuemax={determinate ? 100 : undefined}
         data-testid="progress"
-        className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]"
+        className={cn(
+          "h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)] shadow-[var(--shadow-inset)]",
+          // Only a positioning context when there is a mark to position — an
+          // unconditional `relative` here would be harmless too (no visible
+          // effect without an absolute child) but this keeps the no-mark
+          // markup byte-identical to before this prop existed.
+          mark && "relative",
+        )}
       >
         <div
           data-testid="progress-fill"
@@ -55,7 +74,35 @@ export function Progress({ value, label, detail, className }: ProgressProps) {
           )}
           style={determinate ? { transform: `scaleX(${(clamped ?? 0) / 100})`, transformOrigin: "left" } : undefined}
         />
+        {mark ? (
+          <span
+            data-testid="progress-mark"
+            // Hidden from assistive technology ON PURPOSE, and the description
+            // below is why. `progressbar` is one of the roles WAI-ARIA 1.2
+            // §5.2.3 gives "Presentational Children: True", so a conforming
+            // browser may strip the role and name of everything inside the
+            // track. A `role="img"` + `aria-label` notch nested here therefore
+            // risks being announced not twice but ZERO times — and no jsdom
+            // test can catch that, because `toHaveAccessibleName` computes the
+            // name on the node directly and never models the flattening.
+            aria-hidden="true"
+            // A notch, not a second fill: 2px wide, spans the track's own height
+            // rather than setting one, and centred on its percentage rather than
+            // left-edge-aligned so it reads as a point, not a tick starting there.
+            className="absolute top-0 h-full w-0.5 -translate-x-1/2 bg-[color:var(--text)] forced-colors:bg-[CanvasText]"
+            style={{ left: `${markPercent}%` }}
+          />
+        ) : null}
       </div>
+      {/* Sibling of the track, never a child — the same reason StageList's
+          status node is a sibling of its list. `aria-describedby` points at it
+          from the progressbar, so the description is computed from outside the
+          presentational subtree and survives. */}
+      {mark ? (
+        <span id={markDescriptionId} data-testid="progress-mark-description" className="sr-only">
+          {mark.label}
+        </span>
+      ) : null}
     </div>
   );
 }

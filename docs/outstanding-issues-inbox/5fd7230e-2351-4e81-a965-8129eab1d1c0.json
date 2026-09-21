@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5fd7230e-2351-4e81-a965-8129eab1d1c0",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "perthCalendarDate is a third independent Perth-date implementation in this repo",
+    "detail": "src/lib/cme/cpd-year.ts's perthCalendarDate uses the en-CA Intl trick to get a YYYY-MM-DD Perth date. src/lib/caring-contacts/clock.ts and src/components/ui/date-display.tsx each already do the same job their own way. All three are currently correct — the en-CA behaviour was verified on this Node version, and the leap-year arithmetic matches Intl's own Perth calendar for 2028 — so nothing is broken. But it is the third copy, each with its own tests pinning its own behaviour, and the fourth author to need a Perth date will write a fourth. Collapsing them was deliberately NOT done in PR #2902: it drags an unrelated clinical feature (caring-contacts) and a shared UI primitive into a change already at seventy files, for no behaviour change.",
+    "source": "PR #2902 task-1 review, 2026-09-20",
+    "issueUlid": "01M2ZVTX00D2M0NWBM9QZ8VC58"
+  }
+}

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../src/app/manifest";
+import { APP_THEME_COLORS } from "../src/lib/theme";
 import { BRAND_COUNTER_TRANSFORM, BRAND_DARK, BRAND_LIGHT, brandBareMarkInner } from "../src/lib/brand-mark";
 
 describe("PWA manifest and public bootstrap resources", () => {
@@ -18,9 +19,9 @@ describe("PWA manifest and public bootstrap resources", () => {
       dir: "ltr",
       prefer_related_applications: false,
     });
-    // Theme colours stay on viewport.themeColor / meta theme-color so light/dark
-    // can update at runtime; a static PWA manifest colour would lock install chrome.
-    expect(appManifest).not.toHaveProperty("background_color");
+    // Splash/install canvas uses the brand light background. theme_color stays
+    // on viewport.themeColor / meta theme-color so light/dark can update at runtime.
+    expect(appManifest.background_color).toBe(APP_THEME_COLORS.light);
     expect(appManifest).not.toHaveProperty("theme_color");
     expect(appManifest.name).toBeTruthy();
     expect(appManifest.short_name).toBeTruthy();

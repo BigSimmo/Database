@@ -68,6 +68,9 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
   // which is what the reader actually lands on; the assertion that it mounts
   // nothing lives in its own test.
   "on-call": { file: "src/components/on-call/on-call-home.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+  // CME, for On Call's reason exactly. The file named here is the dashboard the
+  // reader actually lands on at `/cme`.
+  cme: { file: "src/components/cme/cme-dashboard.tsx", mounts: false, because: NO_RESULTS_SURFACE },
 };
 
 function hasNoResultsSurface(modeId: AppModeId) {
@@ -148,7 +151,7 @@ describe("cross-mode also-matches coverage", () => {
     // The sibling tools-kind borrowers stay on the shared home rather than rendering
     // their results inside the dashboard, so they need no exclusion here. If one of
     // them ever gains an in-dashboard results branch, this list is where to notice.
-    for (const modeId of ["factsheets", "dictionary", "sources", "on-call"] as const) {
+    for (const modeId of ["factsheets", "dictionary", "sources", "on-call", "cme"] as const) {
       expect(gate, `${modeId} is not expected to need a dashboard exclusion yet`).not.toContain(
         `searchMode !== "${modeId}"`,
       );

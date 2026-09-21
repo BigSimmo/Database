@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "06290c57-e3e5-4df7-9038-78e7c184afdd",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two stale statements in docs/codebase-index.md and one missing On Call row in generate-site-map.ts",
+    "detail": "Found while adding CME, deliberately not fixed there because none is CME's doing. (1) docs/codebase-index.md's mode-homes paragraph says 'Fourteen modes are now consolidated onto the shared home'. On Call has left consolidatedModeHomePaths, so the real count is thirteen. Verifying it properly means auditing every consolidated route, which was not worth widening a seventy-file change for. (2) scripts/generate-site-map.ts's renderModePageIndex() has no On Call row and has not had one since On Call shipped — this is the one site-map input with no gate behind it, which is exactly why it was missed. CME's row was added; On Call's was reported rather than added, as a separate change. (3) Already fixed in #2902 but worth knowing it happened: the 'Modes (16)' id list in codebase-index.md was missing On Call entirely, independent of CME.",
+    "source": "PR #2902 task-18 agent report and controller verification against src/lib/search-route-ownership.ts, 2026-09-20",
+    "issueUlid": "01M2ZVSZZ57D21P1E0TQBZTWZK"
+  }
+}

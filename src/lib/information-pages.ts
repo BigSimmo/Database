@@ -21,7 +21,8 @@ export type InformationPageMode =
   | "dsm"
   | "documents"
   | "sources"
-  | "on-call";
+  | "on-call"
+  | "cme";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
 // consolidation gave every consolidated mode a `<mode>/search` results route:
@@ -74,6 +75,19 @@ export function isInformationPage(pathname: string): boolean {
   // its own test.
   if (isSlugDetail(pathname, "/on-call")) return true;
   if (pathname === "/on-call") return true;
+  // Every CME route, the mode home included, for On Call's reason exactly: the
+  // mode declares no search surface, so it has no composer on any page and this
+  // is what keeps the shell from mounting one. `isSlugDetail` covers the
+  // single-segment children (`/cme/log`, `/cme/new`, `/cme/routines`,
+  // `/cme/plan`, `/cme/programme`, `/cme/setup`, `/cme/customise`) and `/cme`
+  // itself is the bare path rather than a slug detail, so it needs its own test.
+  // One entry (`/cme/log/[id]`) is two segments deep and `isSlugDetail` stops
+  // short of it, so it is named separately — the entry record is the most
+  // read-focused page in the mode and must not be the only one wearing a
+  // composer.
+  if (isSlugDetail(pathname, "/cme")) return true;
+  if (pathname === "/cme") return true;
+  if (pathname.startsWith("/cme/log/") && !pathname.slice("/cme/log/".length).includes("/")) return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -114,4 +128,5 @@ export const informationPageShellModes = [
   "therapy-compass",
   "dsm",
   "on-call",
+  "cme",
 ] as const satisfies readonly InformationPageMode[];
