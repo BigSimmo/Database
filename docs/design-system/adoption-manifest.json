@@ -813,6 +813,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/app/(search-app)/cme/programme/page.tsx",
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
@@ -833,6 +834,7 @@
         "src/components/mode-home-template.tsx"
       ],
       "productImportFiles": [
+        "src/app/(search-app)/cme/programme/page.tsx",
         "src/components/ClinicalDashboard.tsx",
         "src/components/applications-launcher-page.tsx",
         "src/components/clinical-dashboard/DocumentManagerPanel.tsx",
@@ -2642,7 +2644,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/log/page.tsx",
@@ -2652,7 +2654,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/new/page.tsx",
@@ -2672,7 +2674,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": ["CmeDashboard"]
+          "sanctionedPatternsPresent": ["CmeDashboard", "CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/plan/page.tsx",
@@ -2687,12 +2689,12 @@
         {
           "file": "src/app/(search-app)/cme/programme/page.tsx",
           "exists": true,
-          "imports": [],
-          "importedFamilies": [],
+          "imports": ["EmptyState"],
+          "importedFamilies": ["feedback"],
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/routines/page.tsx",
@@ -2702,7 +2704,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/setup/page.tsx",
@@ -2712,7 +2714,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/dictionary/[slug]/page.tsx",

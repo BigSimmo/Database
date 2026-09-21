@@ -45,4 +45,12 @@ describe("Programme", () => {
     render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
     expect(screen.getByRole("button", { name: /re-confirm/i })).toBeInTheDocument();
   });
+
+  it("marks Add and Re-confirm unavailable when no handlers are wired", () => {
+    render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
+    const add = screen.getByRole("button", { name: /add/i });
+    const reconfirm = screen.getByRole("button", { name: /re-confirm/i });
+    expect(add).toHaveAttribute("aria-disabled", "true");
+    expect(reconfirm).toHaveAttribute("aria-disabled", "true");
+  });
 });

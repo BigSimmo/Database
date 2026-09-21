@@ -11,6 +11,7 @@ const routePaths = [
 ] as const;
 
 const routes = routePaths.map((path) => ({ path, source: readFileSync(path, "utf8") }));
+const repository = readFileSync("src/lib/cme/repository.ts", "utf8");
 const list = routes[0]!.source;
 const detail = routes[1]!.source;
 const year = routes[2]!.source;
@@ -102,12 +103,7 @@ describe("the CME API", () => {
    * inline `owner_id: …` key in the write payload (an insert/upsert) — so a query can never be
    * misread by looking at the `.from()` call alone without also seeing how it is scoped.
    *
-   * One documented exception: `replaceCmeAllocations`'s `.from("cme_allocations").insert(allocationRows)`
-   * (entries/[id]/route.ts) scopes ownership through the row payload itself, built one statement
-   * above (`allocationRows = allocations.map((allocation) => ({ owner_id: ownerId, … }))`) — the
-   * same "a write is scoped by what it writes" idiom `insertCmeEntry` uses in the repository —
-   * rather than an inline `.eq()`/`owner_id:` inside the chain text itself. Verified separately
-   * below rather than silently excluded.
+   * Allocation replace lives in `@/lib/cme/repository` (owner stamped on each inserted row).
    */
   it("scopes every cme_* query in every route by owner_id, on the same chain as .from()", () => {
     const chains = routes.flatMap(({ path, source }) =>
@@ -128,9 +124,10 @@ describe("the CME API", () => {
     }
   });
 
-  it("scopes the one documented exception — the cme_allocations insert — through its row payload", () => {
-    expect(detail).toMatch(/allocationRows = allocations\.map\(\(allocation\) => \(\{\s*\n\s*owner_id: ownerId,/);
-    expect(detail).toMatch(/\.from\("cme_allocations"\)\s*\n\s*\.insert\(allocationRows\)/);
+  it("scopes allocation writes through the repository row payload (owner_id on each insert)", () => {
+    expect(repository).toMatch(/owner_id: ownerId/);
+    expect(repository).toMatch(/\.from\("cme_allocations"\)[\s\S]*?\.insert\(/);
+    expect(detail).toMatch(/replaceCmeAllocations\(/);
   });
 });
 
@@ -149,13 +146,16 @@ describe("CME entry [id] route", () => {
     expect(detail).not.toMatch(/forbidden/i);
   });
 
-  it("validates linked routine/document IDs are not yet checked for ownership — and says so, twice", () => {
-    // Fix 3 (recorded, not implemented): both acceptance points carry the same explicit
-    // not-checked/why-safe/what-would-break-it comment, so a future author cannot miss it.
+  it("rejects linked routine/document IDs the caller does not own before writing", () => {
     for (const source of [list, detail]) {
-      expect(source).toMatch(/NOT CHECKED: that `routineId`\/`documentId` belong to this owner\./);
-      expect(source).toMatch(/cross-tenant existence oracle/);
+      expect(source).toMatch(/assertValidCmeLinkedIds\(/);
     }
+  });
+
+  it("persists transcribed_at through a narrow PATCH and replaces allocations with restore-on-failure", () => {
+    expect(detail).toMatch(/markCmeEntryTranscribed\(/);
+    expect(detail).toMatch(/replaceCmeAllocations\(/);
+    expect(detail).toMatch(/restoreCmeAllocations\(/);
   });
 });
 

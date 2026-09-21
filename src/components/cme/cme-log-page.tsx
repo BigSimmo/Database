@@ -13,7 +13,6 @@ import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateShort, formatCalendarMonthLabel } from "@/lib/cme/cpd-year";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
-import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import {
   cmeCategories,
   cmeCategoryLabels,
@@ -23,10 +22,10 @@ import {
 } from "@/lib/cme/types";
 
 export type CmeLogPageProps = {
-  /** Every entry the owner has recorded, any year. Defaults to the demo corpus. */
-  readonly entries?: readonly CmeEntry[];
-  /** The confirmed programme — only its `year` and provenance-free `id`s are read here. */
-  readonly set?: CmeRequirementSet;
+  /** Every entry the owner has recorded, any year — loaded from the owner-scoped API / repository. */
+  readonly entries: readonly CmeEntry[];
+  /** The confirmed programme — only its `year` is required for the year tabs. */
+  readonly set: CmeRequirementSet;
 };
 
 type CategoryFilter = "all" | CmeCategory;
@@ -157,7 +156,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
  * standing way to add to the log, not only something reached from the
  * dashboard.
  */
-export function CmeLogPage({ entries = DEMO_CME_ENTRIES, set = DEMO_CME_YEAR }: CmeLogPageProps) {
+export function CmeLogPage({ entries, set }: CmeLogPageProps) {
   const availableYears = useMemo(() => {
     const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
     years.add(set.year);

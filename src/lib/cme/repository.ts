@@ -263,3 +263,188 @@ export async function insertCmeEntry(
     })),
   );
 }
+
+/**
+ * Reject `routineId` / `documentId` that do not belong to this owner.
+ *
+ * Foreign keys only prove the target row exists somewhere. Without an owner
+ * check, a caller who knows another owner's UUID can attach it and learn
+ * whether it exists from success versus failure — an existence oracle on an
+ * otherwise owner-scoped record. Same closed message for missing and
+ * cross-owner ids, matching `assertValidLinkedDocumentIds` for On Call.
+ */
+export async function assertValidCmeLinkedIds(
+  supabase: AdminClient,
+  ownerId: string,
+  links: { readonly routineId: string | null; readonly documentId: string | null },
+): Promise<void> {
+  if (!ownerId) throw new Error("CME linked ids were checked without an ownerId; refusing to run.");
+
+  if (links.documentId) {
+    const { data, error } = await supabase
+      .from("documents")
+      .select("id")
+      .eq("id", links.documentId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      throw new PublicApiError("Invalid linked document ID: the document does not exist.", 400);
+    }
+  }
+
+  if (links.routineId) {
+    const { data, error } = await supabase
+      .from("cme_routines")
+      .select("id")
+      .eq("id", links.routineId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) {
+      throw new PublicApiError("Invalid linked routine ID: the routine does not exist.", 400);
+    }
+  }
+}
+
+/**
+ * Stamp `transcribed_at` after a successful clipboard copy. Never clears an
+ * already-transcribed entry — copying again refreshes the instant.
+ */
+export async function markCmeEntryTranscribed(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+): Promise<CmeEntry> {
+  if (!ownerId) throw new Error("A CME entry was transcribed without an ownerId; refusing to run.");
+
+  const { data: existing, error: existingError } = await supabase
+    .from("cme_entries")
+    .select("*, cme_allocations(category, hours)")
+    .eq("id", entryId)
+    .eq("owner_id", ownerId)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (!existing) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+
+  const { data: updated, error: updateError } = await supabase
+    .from("cme_entries")
+    .update({ transcribed_at: new Date().toISOString() })
+    .eq("id", entryId)
+    .eq("owner_id", ownerId)
+    .select("*, cme_allocations(category, hours)")
+    .maybeSingle();
+  if (updateError) throw new Error(updateError.message);
+  if (!updated) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
+
+  const row = updated as Record<string, unknown>;
+  const joined = (row.cme_allocations as { category: string; hours: number }[] | undefined) ?? [];
+  return rowToCmeEntry(
+    row,
+    joined.map((allocation) => ({
+      category: allocation.category as CmeCategory,
+      hours: allocation.hours,
+    })),
+  );
+}
+
+/**
+ * Replace one entry's allocations. Reads prior rows first and restores them if
+ * the insert fails, so a rejected edit cannot leave the entry with zero
+ * categories. Callers that then fail updating `cme_entries` should call
+ * `restoreCmeAllocations` with the returned `prior` snapshot.
+ */
+export async function replaceCmeAllocations(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+  allocations: readonly CmeAllocation[],
+): Promise<{ readonly written: CmeAllocation[]; readonly prior: CmeAllocation[] }> {
+  if (!ownerId) throw new Error("CME allocations were replaced without an ownerId; refusing to run.");
+  if (allocations.length === 0) {
+    throw new PublicApiError("A CME entry needs at least one category allocation.", 400);
+  }
+  const categories = allocations.map((allocation) => allocation.category);
+  if (new Set(categories).size !== categories.length) {
+    throw new PublicApiError("A CME entry cannot allocate hours to the same category twice.", 400);
+  }
+
+  const { data: priorRows, error: priorError } = await supabase
+    .from("cme_allocations")
+    .select("category, hours")
+    .eq("owner_id", ownerId)
+    .eq("entry_id", entryId);
+  if (priorError) throw new Error(priorError.message);
+  const prior: CmeAllocation[] = (priorRows ?? []).map((row) => ({
+    category: row.category as CmeCategory,
+    hours: row.hours,
+  }));
+
+  const { error: deleteError } = await supabase
+    .from("cme_allocations")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("entry_id", entryId);
+  if (deleteError) throw new Error(deleteError.message);
+
+  const allocationRows = allocations.map((allocation) => ({
+    owner_id: ownerId,
+    entry_id: entryId,
+    category: allocation.category,
+    hours: allocation.hours,
+  }));
+  const { data: insertedAllocations, error: insertError } = await supabase
+    .from("cme_allocations")
+    .insert(allocationRows)
+    .select("category, hours");
+  if (insertError) {
+    if (prior.length > 0) {
+      const { error: restoreError } = await supabase.from("cme_allocations").insert(
+        prior.map((allocation) => ({
+          owner_id: ownerId,
+          entry_id: entryId,
+          category: allocation.category,
+          hours: allocation.hours,
+        })),
+      );
+      if (restoreError) {
+        throw new Error(
+          `Allocation insert failed (${insertError.message}); restore also failed (${restoreError.message}).`,
+        );
+      }
+    }
+    throw new Error(insertError.message);
+  }
+
+  const written = (insertedAllocations ?? allocationRows).map((allocation) => ({
+    category: allocation.category as CmeCategory,
+    hours: allocation.hours,
+  }));
+  return { written, prior };
+}
+
+/** Re-insert a prior allocation snapshot after a later step in the same PATCH failed. */
+export async function restoreCmeAllocations(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+  prior: readonly CmeAllocation[],
+): Promise<void> {
+  const { error: deleteError } = await supabase
+    .from("cme_allocations")
+    .delete()
+    .eq("owner_id", ownerId)
+    .eq("entry_id", entryId);
+  if (deleteError) throw new Error(deleteError.message);
+  if (prior.length === 0) return;
+  const { error: insertError } = await supabase.from("cme_allocations").insert(
+    prior.map((allocation) => ({
+      owner_id: ownerId,
+      entry_id: entryId,
+      category: allocation.category,
+      hours: allocation.hours,
+    })),
+  );
+  if (insertError) throw new Error(insertError.message);
+}
+

@@ -12,23 +12,21 @@ import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitiv
 import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { totalAllocatedHours } from "@/lib/cme/evaluate";
-import { DEMO_CME_ENTRIES, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 export type CmeEntryPageProps = {
   /** The entry to show. Looked up from `entries` so a route needs to pass only the id from its own params. */
   readonly entryId: string;
-  /** Every entry the owner has recorded. Defaults to the demo corpus. */
-  readonly entries?: readonly CmeEntry[];
-  readonly set?: CmeRequirementSet;
+  /** Every entry the owner has recorded for the loaded year. */
+  readonly entries: readonly CmeEntry[];
+  readonly set: CmeRequirementSet;
   /**
-   * Called once the entry has actually been copied. Phase 1 keeps the
-   * "transcribed" flip local to this component — there is no repository
-   * write path yet — so a future task that adds one hangs it here rather
-   * than this component reaching for a store of its own.
+   * Called once the entry has actually been copied. Must persist
+   * `transcribed_at` (or resolve as a no-op in demo) before this page shows
+   * success — a local-only flip would lie after refresh.
    */
-  readonly onCopied?: (entryId: string) => void;
+  readonly onCopied?: (entryId: string) => void | Promise<void>;
   /** Wired by a future task; Phase 1 has no evidence-attachment flow yet. */
   readonly onAddEvidence?: (entryId: string) => void;
 };
@@ -58,8 +56,8 @@ function formatCostCents(cents: number): string {
  */
 export function CmeEntryPage({
   entryId,
-  entries = DEMO_CME_ENTRIES,
-  set = DEMO_CME_YEAR,
+  entries,
+  set,
   onCopied = noop,
   onAddEvidence = noop,
 }: CmeEntryPageProps) {
@@ -97,10 +95,10 @@ export function CmeEntryPage({
     setCopyFailed(false);
     try {
       await copyTextToClipboard(formatEntryForCpdHome(entry, set));
-      // Copy first, mark second: a failed copy must never be recorded as a
-      // successful one, so the flip only happens after `await` resolves.
+      // Copy first, persist second: a failed copy must never be recorded, and a
+      // failed persist must not claim success on a refresh either.
+      await onCopied(entry.id);
       setTranscribed(true);
-      onCopied(entry.id);
     } catch {
       setCopyFailed(true);
     }

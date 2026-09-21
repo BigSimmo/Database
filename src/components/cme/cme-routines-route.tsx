@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
-import { DEMO_CME_INSTANT } from "@/lib/cme/demo-year";
 
 /**
  * Routines, wired to real destinations.
@@ -21,16 +20,14 @@ import { DEMO_CME_INSTANT } from "@/lib/cme/demo-year";
  * the only place in the mode that offers routine setup — rather than to a
  * screen that does not exist. When the editor lands, this handler points at it.
  *
- * `now` is `DEMO_CME_INSTANT` for the reason given in `cme-dashboard-route.tsx`:
- * the prop is required so server and client agree on what is due, and a fresh
- * `new Date()` on each side is the disagreement it exists to prevent.
+ * `nowIso` comes from the server load so server and client agree on what is due.
  */
-export function CmeRoutinesRoute() {
+export function CmeRoutinesRoute({ nowIso }: { readonly nowIso: string }) {
   const router = useRouter();
 
   return (
     <CmeRoutinesPage
-      now={DEMO_CME_INSTANT}
+      now={new Date(nowIso)}
       onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
       onNewRoutine={() => router.push("/cme/setup#cme-setup-routines")}
     />

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
-import { CmeEntryPage } from "@/components/cme/cme-entry-page";
+import { CmeEntryRouteClient } from "@/components/cme/cme-entry-route-client";
+import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
+import type { CmeRequirementSet } from "@/lib/cme/types";
 
 type CmeEntryRouteProps = {
   params: Promise<{ id: string }>;
@@ -11,7 +13,19 @@ export const metadata: Metadata = {
   description: "One recorded activity: its hours, the categories they count toward, and your reflection.",
 };
 
+function placeholderSet(year: number): CmeRequirementSet {
+  return { year, confirmedOn: "", confirmedSource: "", totalHours: 0, requirements: [] };
+}
+
 export default async function CmeEntryRoute({ params }: CmeEntryRouteProps) {
   const { id } = await params;
-  return <CmeEntryPage entryId={id} />;
+  const data = await loadCmePageData();
+  return (
+    <CmeEntryRouteClient
+      entryId={id}
+      entries={data.entries}
+      set={data.set ?? placeholderSet(data.year)}
+      persistTranscribed={!data.demoMode}
+    />
+  );
 }
