@@ -1,8 +1,13 @@
 # Clinical KB — Supabase remediation closeout notes
 
-Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documentation (not Issues).
+Short deferred list after Codex PRs. **No DDL in this note.** Documentation owns this operational closeout; **deferred security/DB work is queued in the canonical outstanding-issues ledger** (inbox add-requests on this PR) so session-start and the issues report still surface it. This file is detail + link target — not a replacement for that checkpoint.
 
 **Projects:** prod `sjrfecxgysukkwxsowpy` · staging `ikoiolksxqxfxgiyqpnu`
+
+
+## Ledger checkpoint
+
+Deferred rows in §1 are queued as `docs/outstanding-issues-inbox/` **add** requests on this PR (reconcile onto `docs/outstanding-issues.md` after merge). Keep task status in that ledger checkpoint per AGENTS.md — do not let this closeout file become the only home for that work.
 
 ## 1. File / defer (after Codex)
 
@@ -72,4 +77,4 @@ Names-only check — **no values recorded.**
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md).
 
-_Updated 2026-09-21 — Phase 1 Auth DB connections % DONE; Documentation owns._
+_Updated 2026-09-21 — queued deferred items into outstanding-issues inbox; Documentation owns._
