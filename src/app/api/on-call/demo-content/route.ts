@@ -144,6 +144,37 @@ export async function POST(request: Request) {
       return rateLimitJsonResponse("On Call requests are rate limited. Try again shortly.", rateLimit);
     }
 
+    // Refuse if another account already holds the corpus.
+    //
+    // The conflict key below is (owner_id, section, slug), so a second account
+    // does not collide with the first — it gets its own ninety-four rows. That
+    // would be harmless if these rows were private, and they are not:
+    // `fetchSharedOnCallEntries` returns every non-personal row across EVERY
+    // account, and `fetchVisibleOnCallEntries` merges by row id, which differs
+    // per copy. So a second load puts a second, undeduplicated copy of the
+    // example corpus on the page of every reader of this site, signed in or
+    // not — and repeated loads walk toward the ON_CALL_MAX_ENTRIES cap on the
+    // shared read, where they would start crowding out real entries.
+    //
+    // A refusal rather than a silent merge, because the person who can undo it
+    // is the account that loaded it: only that owner's DELETE can remove their
+    // own rows.
+    const { data: foreign, error: foreignError } = await supabase
+      .from("on_call_entries")
+      .select("owner_id")
+      .neq("owner_id", user.id)
+      .eq("is_personal", false)
+      .in("slug", ON_CALL_DEMO_SLUGS)
+      .limit(1);
+    if (foreignError) throw new Error(foreignError.message);
+    if ((foreign ?? []).length > 0) {
+      return publicErrorResponse(
+        "Example content is already loaded by another account on this site, and it is visible to everyone. That account needs to remove it first.",
+        409,
+        { code: "demo_content_loaded_elsewhere" },
+      );
+    }
+
     // Through the same conversion every hand-typed entry uses, so the
     // compliance privacy stamp is applied here by the same line of code rather
     // than by a copy of it. `onCallEntryToRow` emits no `id`, so Postgres
@@ -198,7 +229,25 @@ export async function DELETE(request: Request) {
         .eq("section", section)
         .in("slug", [...slugs])
         .select("id");
-      if (error) throw new Error(error.message);
+      // A failure part-way through has already committed the sections before
+      // it. Supabase's REST client gives no cross-statement transaction here,
+      // so the honest handling is to report what actually happened rather than
+      // to throw and let the client tell the reader "nothing was deleted" —
+      // which would be false, and would leave them with a half-removed corpus
+      // they have been told is intact. Pressing Remove again is safe and
+      // finishes the job, because each delete is scoped to rows that still
+      // match.
+      if (error) {
+        return NextResponse.json(
+          {
+            removed,
+            total: ON_CALL_DEMO_ENTRY_COUNT,
+            partial: true,
+            error: `Removal stopped at the ${section} section: ${error.message}`,
+          },
+          { status: 500 },
+        );
+      }
       removed += data?.length ?? 0;
     }
 

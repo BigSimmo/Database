@@ -25,7 +25,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
-import { OnCallDemoContentControl } from "@/components/on-call/on-call-demo-content-control";
+import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -312,27 +312,24 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // tries to serve both ends up telling a first-time reader about tags they have
   // nothing to tag yet.
   const hasEntries = entries.length > 0;
-  // Whether the example corpus is currently loaded into this account.
+  // Whether this reader can act on example content at all.
   //
-  // A prefix test rather than the corpus's own slug list, on purpose: the list
-  // is ninety-four strings and this is the only thing the client needs to know
-  // about it, so shipping it here would put a kilobyte of fixture identity into
-  // a page that renders none of it. A false positive costs nothing — an owner
-  // who names a row `demo-…` themselves is offered a Remove control, and the
-  // DELETE behind it matches (section, slug) against the real corpus and so
-  // leaves their row alone.
-  const hasDemoContent = entries.some((entry) => entry.slug.startsWith("demo-"));
-
-  // Whether there is an example-content control to wrap at all.
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo
+  // mode, and the module around it must not outlive its own child. Demo mode
+  // is the case that bites rather than a hypothetical one: there the example
+  // corpus IS the entries, so a module gated on "are any example rows visible"
+  // would put an "Example content" heading with nothing under it on the home
+  // of the public demo — which is also the mode every `ui-*.spec.ts` renders.
   //
-  // `OnCallDemoContentControl` renders nothing when signed out or in demo mode,
-  // and the module around it must not outlive its own child. Demo mode is the
-  // case that bites rather than a hypothetical one: there the corpus IS the
-  // entries, so every slug carries the `demo-` prefix, `hasDemoContent` is
-  // true for every reader, and a module gated on that alone would put an
-  // "Example content" heading with nothing under it on the home of the public
-  // demo — which is also the mode every `ui-*.spec.ts` renders.
-  const canManageExampleContent = !signedOut && !demoMode;
+  // What is NOT decided here is whether the corpus is loaded. That question is
+  // about this account, and the entries in view are not: the shared read
+  // returns every non-personal row across all accounts. The control asks the
+  // owner-scoped endpoint instead.
+  // How much of the example corpus THIS account holds, or null while that is
+  // unknown — which also covers signed out and demo mode. The module below is
+  // gated on it, so a labelled heading can never appear above a control that
+  // has decided to render nothing.
+  const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -410,14 +407,21 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
-        {hasDemoContent && canManageExampleContent ? (
+        {exampleContent ? (
           <HomeModule id="on-call-home-example-content" label="Example content">
             {/* Deliberately at the top of the page rather than tucked into a
                 menu. These rows are shared, so while they are loaded they are
                 on the page a stranger reads; the way out of that should be
                 where the reader already is, not somewhere they have to
-                remember to look. */}
-            <OnCallDemoContentControl mode="remove" signedOut={signedOut} demoMode={demoMode} />
+                remember to look.
+
+                The control renders nothing until it knows what this ACCOUNT
+                holds, and decides Load or Remove from that. It is not gated on
+                the entries in view: the shared read returns every non-personal
+                row across all accounts, so example rows another account loaded
+                are on this page too, and gating on them would offer Remove to
+                someone who owns none of them. */}
+            <OnCallDemoContentControl state={exampleContent} />
           </HomeModule>
         ) : null}
 
@@ -430,7 +434,6 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               description="Adding and editing needs an account. Reading does not."
               actions={
                 <div className="flex flex-col gap-3">
-                  <OnCallDemoContentControl mode="load" signedOut={signedOut} demoMode={demoMode} />
                   <Link
                     href={ON_CALL_SECTION_HREFS.contacts}
                     className={cn(
