@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { TextField } from "@/components/ui/text-field";
 import { AsyncButton, cn, InlineNotice, primaryControl } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
+import {
+  clearPasswordRecoveryAuthorized,
+  markPasswordRecoveryAuthorized,
+  readPasswordRecoveryAuthorized,
+} from "@/lib/supabase/password-recovery-authorization";
 
 export function PasswordRecoveryForm() {
   const { client, status, session, isConfigured, error: authError } = useAuthSession();
@@ -15,20 +20,35 @@ export function PasswordRecoveryForm() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
+  const [recoveryAuthorized, setRecoveryAuthorized] = useState(() => readPasswordRecoveryAuthorized());
   const signedIn = status === "authenticated" && Boolean(session);
+
+  useEffect(() => {
+    setRecoveryAuthorized(readPasswordRecoveryAuthorized());
+    if (!client) return () => undefined;
+    const {
+      data: { subscription },
+    } = client.auth.onAuthStateChange((event) => {
+      if (event !== "PASSWORD_RECOVERY") return;
+      markPasswordRecoveryAuthorized();
+      setRecoveryAuthorized(true);
+    });
+    return () => subscription.unsubscribe();
+  }, [client]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!client || busy || status === "loading") return;
     setError(null);
     setNotice(null);
-    if (signedIn && (password.length < 12 || password !== confirmation)) {
+    const canUpdatePassword = signedIn && readPasswordRecoveryAuthorized();
+    if (canUpdatePassword && (password.length < 12 || password !== confirmation)) {
       setError(password.length < 12 ? "Use at least 12 characters." : "The passwords do not match.");
       return;
     }
     setBusy(true);
     try {
-      if (signedIn) {
+      if (canUpdatePassword) {
         // Revalidate the stored session before changing credentials. A URL flag
         // or stale browser state alone never permits a password update.
         const verified = await client.auth.getUser();
@@ -41,9 +61,13 @@ export function PasswordRecoveryForm() {
           setError("The password could not be changed. Use a different password or request a fresh recovery link.");
           return;
         }
+        clearPasswordRecoveryAuthorized();
+        setRecoveryAuthorized(false);
         setComplete(true);
         setNotice("Your password has been updated.");
       } else {
+        // Signed-in without recovery proof never reaches updateUser — that is the
+        // shared-workstation takeover gate. Offer a fresh recovery email instead.
         const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset-password")}`;
         const result = await client.auth.resetPasswordForEmail(email.trim(), { redirectTo });
         if (result.error) {
@@ -70,10 +94,12 @@ export function PasswordRecoveryForm() {
         <>
           <p className="text-sm leading-6 text-[color:var(--text-muted)]">
             {signedIn
-              ? `Choose a new password for ${session?.user.email ?? "your signed-in account"}.`
+              ? recoveryAuthorized
+                ? `Choose a new password for ${session?.user.email ?? "your signed-in account"}.`
+                : "This page only changes a password after you open a recovery link. Request a fresh link below if you need one."
               : "Enter your account email to receive a recovery link."}
           </p>
-          {signedIn ? (
+          {signedIn && recoveryAuthorized ? (
             <>
               <TextField
                 label="New password"
@@ -98,32 +124,43 @@ export function PasswordRecoveryForm() {
                 minLength={12}
                 disabled={busy}
               />
+              <AsyncButton
+                type="submit"
+                busy={busy}
+                busyLabel="Please wait…"
+                disabled={busy || !password || !confirmation}
+                className={cn(primaryControl, "w-full")}
+              >
+                Update password
+              </AsyncButton>
             </>
           ) : (
-            <TextField
-              label="Email address"
-              type="email"
-              name="email"
-              autoComplete="email"
-              inputMode="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              disabled={busy}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-            />
+            <>
+              <TextField
+                label="Email address"
+                type="email"
+                name="email"
+                autoComplete="email"
+                inputMode="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                disabled={busy}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              <AsyncButton
+                type="submit"
+                busy={busy}
+                busyLabel="Please wait…"
+                disabled={busy || !email.trim()}
+                className={cn(primaryControl, "w-full")}
+              >
+                Send recovery link
+              </AsyncButton>
+            </>
           )}
-          <AsyncButton
-            type="submit"
-            busy={busy}
-            busyLabel="Please wait…"
-            disabled={busy || (signedIn ? !password || !confirmation : !email.trim())}
-            className={cn(primaryControl, "w-full")}
-          >
-            {signedIn ? "Update password" : "Send recovery link"}
-          </AsyncButton>
         </>
       )}
       {notice && <InlineNotice tone="success">{notice}</InlineNotice>}

@@ -2,6 +2,10 @@ import type { SetAllCookies } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  isPasswordResetPath,
+  PASSWORD_RECOVERY_COOKIE,
+} from "@/lib/supabase/password-recovery-authorization";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +74,20 @@ export async function GET(request: Request) {
   const rawNext = searchParams.get("next") ?? "/";
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
 
-  const failure = (reason: string) => NextResponse.redirect(`${origin}/?auth_error=${encodeURIComponent(reason)}`);
+  // Keep the validated `next` on failure so recovery (and other deep links) can
+  // still render their retry UI instead of dumping the user on `/` with a hidden error.
+  const failure = (reason: string) => {
+    const target = new URL(next, origin);
+    if (target.origin !== new URL(origin).origin) {
+      return NextResponse.redirect(`${origin}/?auth_error=${encodeURIComponent(reason)}`);
+    }
+    // Prefer encodeURIComponent (%20) over URLSearchParams (+): AuthProvider and
+    // existing callback fixtures decode both, but the prior helper used %20.
+    const separator = target.search ? "&" : "?";
+    return NextResponse.redirect(
+      `${target.origin}${target.pathname}${target.search}${separator}auth_error=${encodeURIComponent(reason)}${target.hash}`,
+    );
+  };
 
   if (errorDescription) {
     return failure(errorDescription);
@@ -100,5 +117,17 @@ export async function GET(request: Request) {
   if (error) {
     return withAuthMutations(failure(error.message));
   }
-  return withAuthMutations(NextResponse.redirect(`${origin}${next}`));
+  const response = NextResponse.redirect(`${origin}${next}`);
+  // Mark recovery-bound sessions so /auth/reset-password can require more than
+  // a leftover signed-in session before changing credentials.
+  if (isPasswordResetPath(next)) {
+    response.cookies.set(PASSWORD_RECOVERY_COOKIE, "1", {
+      httpOnly: false,
+      maxAge: 15 * 60,
+      path: "/",
+      sameSite: "lax",
+      secure: origin.startsWith("https://"),
+    });
+  }
+  return withAuthMutations(response);
 }
