@@ -693,9 +693,49 @@ jobs:
   #
   # Deliberately NOT sharded: it is already the small subset, and sharding it
   # would spend runners without shortening the critical path.
+
+  # One isolated Next production build shared by PR UI Playwright lanes.
+  # Historically each of ui-critical-fast / ui-critical shards / ward journeys
+  # cold-built (~83% of UI wall clock). Build once here; consumers set
+  # PLAYWRIGHT_REUSE_BUILD=true with the same PLAYWRIGHT_BUILD_ROOT_ID.
+  ui-playwright-build:
+    name: Playwright Next build
+    needs: changes
+    if: >
+      needs.changes.outputs.ui_changed == 'true' &&
+      github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Build isolated Next app for Playwright
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
+          PLAYWRIGHT_BUILD_ONLY: "true"
+        run: node scripts/run-playwright.mjs --project=chromium
+
+      - name: Upload Playwright Next build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+          # Dot-dir under .next-playwright is hidden; upload-artifact excludes by default
+          # (same pattern as .local/eval-canary).
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
+
   ui-critical-fast:
     name: Production UI critical
-    needs: changes
+    needs: [changes, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -711,7 +751,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Chromium @critical journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: npm run test:e2e:critical
 
       - name: Classify exact failed test identities
@@ -743,7 +792,7 @@ jobs:
   # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
-    needs: changes
+    needs: [changes, ui-playwright-build]
     # Start alongside the fail-fast subset. The suites stay disjoint on PR and
     # merge-queue events, and PR required independently demands both results.
     if: >
@@ -774,7 +823,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Chromium production journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "merge_group" ]; then
             npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }} --exclude-critical
@@ -832,7 +890,7 @@ jobs:
   # edit to one is an edit to both.
   ui-ward-journeys:
     name: Ward Flow browser journeys
-    needs: changes
+    needs: [changes, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -848,7 +906,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Ward Flow journeys (blocking)
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: npm run test:e2e:ward-journeys
 
       - name: Classify exact failed test identities
@@ -1330,6 +1397,7 @@ jobs:
         ingestion-sast,
         build,
         container-images,
+        ui-playwright-build,
         ui-critical-fast,
         ui-critical,
         ui-ward-journeys,
@@ -1370,6 +1438,7 @@ jobs:
           INGESTION_SAST_RESULT: ${{ needs.ingestion-sast.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           CONTAINER_RESULT: ${{ needs.container-images.result }}
+          UI_BUILD_RESULT: ${{ needs.ui-playwright-build.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           WARD_JOURNEYS_RESULT: ${{ needs.ui-ward-journeys.result }}
@@ -1471,6 +1540,12 @@ jobs:
             require_success "container-images" "$CONTAINER_RESULT"
           else
             require_skipped_or_success "container-images" "$CONTAINER_RESULT"
+          fi
+
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
+            require_success "Playwright Next build" "$UI_BUILD_RESULT"
+          else
+            require_skipped_or_success "Playwright Next build" "$UI_BUILD_RESULT"
           fi
 
           if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
