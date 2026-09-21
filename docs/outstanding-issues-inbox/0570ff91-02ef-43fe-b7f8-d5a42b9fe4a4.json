@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0570ff91-02ef-43fe-b7f8-d5a42b9fe4a4",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Two CME controls are honest placeholders: New routine goes to Setup, and Log a routine does not pre-fill",
+    "detail": "Both are unreachable in Phase 1 because no routines exist yet, and neither writes anything — the routines page has no fetch and no Supabase call at all, which was a deliberate structural choice so that 'a routine never logs itself' is enforced by the file's contents rather than by convention. (1) onNewRoutine navigates to /cme/setup#cme-setup-routines, a real destination, because Phase 1 has no routine editor. Repoint it the moment one lands. (2) onLogRoutine opens /cme/new?routine=<id> but CmeEntryForm takes no prefill prop, so the form opens empty. The design intent is a pre-filled form the owner confirms. Add the prefill prop and wire the query parameter. Neither is a defect today; both are the first things to finish when routines become real.",
+    "source": "PR #2902 task-789 report and task-14 report, 2026-09-20",
+    "issueUlid": "01M2ZVVBT574PPT3C01DHP8XSF"
+  }
+}

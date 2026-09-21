@@ -21,6 +21,14 @@ import type { AppModeId } from "@/lib/app-modes";
  *                 It was in this map, as a redirect onto a shared home carrying
  *                 a composer; the mode declares no search surface, so that home
  *                 was the one place a composer reached it.
+ *   /cme          the continuing-education dashboard (hours, pace, next action,
+ *                 the year's requirements). Absent for exactly On Call's reason,
+ *                 and it must stay absent: this map's contract is that a
+ *                 consolidated mode's submitted search resolves to its own
+ *                 `/<mode>/search` route, and CME has none — adding it here
+ *                 would build an href that redirects back to the shared home and
+ *                 round again (the loop `tests/consolidated-mode-home-redirect.test.ts`
+ *                 guards).
  *   /            the shared home itself
  *
  * `/sources` used to be absent too, and rendered a four-card home of its own. That

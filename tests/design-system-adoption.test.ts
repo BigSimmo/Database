@@ -1424,6 +1424,12 @@ describe("design-system adoption manifest", () => {
           ["committed", "not-committed", "not-applicable"].includes(surface.baseline.status),
       ),
     ).toBe(true);
+    // 101 = 92 prior census + 9 CME routes: the dashboard (`/cme`), the log and one entry
+    // (`/cme/log`, `/cme/log/[id]`), the entry form (`/cme/new`), routines, the development plan,
+    // the programme, first-run setup and dashboard customise. All nine were already declared in
+    // `adoption-contract.json` under `catalogues-forms-and-info` before the routes existed, so
+    // this number moving is what closes that gap rather than opening one. Prior 92 = 91 prior
+    // census + 1: `/on-call/who-is-who`.
     // 91 = 90 prior census + 1 On Call route: `/on-call/card`, the printable essentials card
     // (Task 13) built from entries flagged `includeOnCard`. Prior 90 = 82 prior census + 8 On Call
     // routes: the redirect stub (`/on-call`), the six section pages (contacts, playbook,
@@ -1451,7 +1457,12 @@ describe("design-system adoption manifest", () => {
     // with its own `page.tsx`, so it is declared in `adoption-contract.json` beside its six
     // sibling On Call pages. Bumped deliberately, with the route named, because a bump with
     // no name is how this census stops being one.
-    expect(manifest.routeCoverage.discovered).toHaveLength(93);
+    //
+    // 93 -> 102 on 2026-09-21 (PR #2902 merge with main): nine CME routes under
+    // `/cme/**` (dashboard, log, log/[id], new, routines, plan, programme, setup,
+    // customise) landed on the same catalogue surface. Bumped deliberately, with
+    // the routes named, because a bump with no name is how this census stops being one.
+    expect(manifest.routeCoverage.discovered).toHaveLength(102);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

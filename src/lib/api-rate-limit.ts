@@ -60,7 +60,8 @@ export type ApiRateLimitBucket =
   | "registry"
   | "document_admin"
   | "ingestion_admin"
-  | "on_call";
+  | "on_call"
+  | "cme";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -100,6 +101,9 @@ const apiRateLimitDefaults = {
   // On Call entry reads/writes: an owner's private hospital contact/orientation notes.
   // Generous for interactive single-owner admin use, bounded against an abusive/compromised client.
   on_call: { limit: 60, windowSeconds: 60 },
+  // CME entry/year reads and writes: an owner's own CPD log and confirmed targets. Same
+  // shape as on_call — generous for interactive single-owner use, bounded against abuse.
+  cme: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {

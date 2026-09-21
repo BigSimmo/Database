@@ -10,7 +10,7 @@ import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/l
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import { AppAnnouncements } from "@/components/app-announcements";
 import { OverlayRoot } from "@/components/ui/overlay-root";
-import { PRIVATE_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
+import { PUBLIC_APP_ROBOTS_METADATA } from "@/lib/crawler-policy";
 import { BRAND_DESCRIPTION, BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
 
@@ -62,7 +62,7 @@ const baseMetadata: Metadata = {
   applicationName: BRAND_NAME,
   title: BRAND_NAME,
   description: BRAND_DESCRIPTION,
-  robots: PRIVATE_APP_ROBOTS_METADATA,
+  robots: PUBLIC_APP_ROBOTS_METADATA,
   appleWebApp: {
     capable: true,
     title: BRAND_NAME,

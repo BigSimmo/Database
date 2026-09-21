@@ -41,6 +41,14 @@ const API_DIR = join(SRC_DIR, "app", "api");
 const OWNER_SCOPED_API_TABLES = new Set([
   "clinical_registry_record_sources",
   "clinical_registry_records",
+  // The two CME tables the API routes query directly. `cme_allocations`,
+  // `cme_requirements` and `cme_routines` are absent on purpose: nothing under
+  // src/app/api reaches them yet (allocations live in lib/cme/repository), and
+  // this list must match what the routes actually touch, not what the schema
+  // contains — an aspirational entry here would make the guard pass over a
+  // table no route has ever been checked against.
+  "cme_entries",
+  "cme_years",
   "document_index_quality",
   "document_labels",
   "document_summaries",

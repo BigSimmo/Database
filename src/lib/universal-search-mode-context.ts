@@ -27,6 +27,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // On Call searches the owner's own operational entries, already in the
   // browser, so it contributes no cross-entity universal-search domain.
   "on-call": [],
+  // CME reads the owner's own continuing-education entries, already in the
+  // browser, so it contributes no cross-entity universal-search domain.
+  cme: [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {

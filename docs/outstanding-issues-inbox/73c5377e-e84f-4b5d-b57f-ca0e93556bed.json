@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "73c5377e-e84f-4b5d-b57f-ca0e93556bed",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "CME demo corpus has no multi-allocation and no routine-sourced entry, so two real shapes are untested against shared data",
+    "detail": "All 47 entries in src/lib/cme/demo-year.ts carry exactly one allocation, and none is routine-sourced. Two consequences. (1) The brief's own clipboard test could not run as written — it did .find(e => e.allocations.length > 1)! and would have crashed on undefined; the implementer kept the assertions and pointed them at a local fixture, which is right but means the multi-category clipboard path is exercised only by that fixture, not by the corpus every screen renders. (2) Splitting one activity's hours across categories is the main thing the entry form exists for, and no demo screen shows it. Adding one is not free: the corpus figures are pinned by tests and by future pixel baselines (47 entries, 32.5 hours, educational 22.5 / reviewing 8.0 / measuring 2.0), so a new split must keep every category total unchanged or every pinned figure must move together. Worth doing when demo-year.ts is next touched.",
+    "source": "PR #2902 task-13 implementer report and task-3 review, 2026-09-20",
+    "issueUlid": "01M2ZVTEP9Z84GK3REZ1R55FCZ"
+  }
+}
