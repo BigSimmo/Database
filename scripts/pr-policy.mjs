@@ -944,7 +944,7 @@ function ownerApprovalVerdict({ draft = false, ownerMergeReasons: reasons, owner
 // later still gets past it. The boundary needs a live setting — see pull-request-workflow.md.
 // ---------------------------------------------------------------------------
 
-export const PROTECTED_REQUIRED_CONTEXTS = ["PR policy", OWNER_APPROVAL_CONTEXT];
+export const PROTECTED_REQUIRED_CONTEXTS = ["PR policy", OWNER_APPROVAL_CONTEXT, "PR mergeability"];
 
 // Triggers whose workflow definition is always read from the default branch, so a PR's edit
 // to the file cannot run before it merges. Anything else — or a file whose triggers cannot be
