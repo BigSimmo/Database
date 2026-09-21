@@ -159,9 +159,14 @@ export async function POST(request: Request) {
     // A refusal rather than a silent merge, because the person who can undo it
     // is the account that loaded it: only that owner's DELETE can remove their
     // own rows.
+    // Selects `slug`, not `owner_id`: the question is only "does a copy exist
+    // elsewhere", so the answer does not need to name whose. This is a
+    // deliberately cross-owner read on an owner-scoped table and is declared
+    // as one in `scripts/lib/tenancy-scan.mjs`; keeping the projection free of
+    // any owner identity is what makes that declaration narrow.
     const { data: foreign, error: foreignError } = await supabase
       .from("on_call_entries")
-      .select("owner_id")
+      .select("slug")
       .neq("owner_id", user.id)
       .eq("is_personal", false)
       .in("slug", ON_CALL_DEMO_SLUGS)
