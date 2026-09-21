@@ -5341,12 +5341,12 @@ grant select, insert, update, delete on table
   public.rag_response_cache,
   public.api_rate_limits,
   public.api_rate_limit_subjects,
-  public.audit_logs,
   public.storage_cleanup_jobs,
   public.rag_retrieval_logs
 to service_role;
 
 revoke all on public.audit_logs from anon, authenticated;
+revoke update, delete on table public.audit_logs from service_role;
 grant select, insert on table public.audit_logs to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
@@ -5509,13 +5509,13 @@ security invoker
 set search_path = public
 as $$
 begin
-  raise exception 'audit_logs is append-only: % not allowed', tg_op
+  raise exception 'audit_logs is append-only: % not allowed', TG_OP
     using errcode = '42501';
   return null;
 end;
 $$;
 
-revoke all on function public.audit_logs_prevent_mutation() from public;
+revoke all on function public.audit_logs_prevent_mutation() from public, anon, authenticated, service_role;
 grant execute on function public.audit_logs_prevent_mutation() to postgres;
 alter function public.audit_logs_prevent_mutation() owner to postgres;
 
