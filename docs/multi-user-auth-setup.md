@@ -22,8 +22,8 @@ provider secrets directly in the relevant provider console and Supabase.
 - OAuth error details are removed from the browser address and reduced to safe,
   allowlisted messages.
 
-These repository changes are prepared locally only. They are not committed,
-published, deployed, or proof that a provider works in production.
+These repository changes are committed and published in PR #2972. They are not
+merged or deployed, and they are not proof that a provider works in production.
 
 ## Exact current targets
 
@@ -60,21 +60,20 @@ Production redirect allowlist:
 
 Staging Auth configuration:
 
-- Site URL: `http://localhost:3000`
-- Redirect allowlist: empty
+- Site URL: `https://app-staging-6a78.up.railway.app`
+- Redirect allowlist:
+  - `https://app-staging-6a78.up.railway.app/auth/callback`
+  - `https://app-staging-6a78.up.railway.app/auth/callback?next=%2Fauth%2Freset-password`
 - Email provider: enabled; confirmation required; signup allowed
+- Minimum password length: 12
 - Apple, Google, and Azure: disabled and unconfigured
 - Custom SMTP: not configured
 
-Before any staging provider test, obtain explicit approval to change staging
-Auth configuration to:
+These credential-free staging URL and password-policy changes were applied and
+re-read in the Supabase dashboard on 2026-09-21. The provider callback to
+register with Apple, Google, or Microsoft is:
 
-- Site URL: `https://app-staging-6a78.up.railway.app`
-- App callback: `https://app-staging-6a78.up.railway.app/auth/callback`
-- Recovery callback:
-  `https://app-staging-6a78.up.railway.app/auth/callback?next=%2Fauth%2Freset-password`
-- Provider callback to register with Apple, Google, or Microsoft:
-  `https://ikoiolksxqxfxgiyqpnu.supabase.co/auth/v1/callback`
+`https://ikoiolksxqxfxgiyqpnu.supabase.co/auth/v1/callback`
 
 Staging still needs separate provider credentials entered directly in Supabase;
 none were copied from production or requested during this preparation.
@@ -142,8 +141,7 @@ Values you must supply directly to Supabase Apple settings:
 - Apple Key ID
 - Generated Apple client secret
 
-Leave Apple disabled until those values are saved and you explicitly approve a
-staging test and production activation.
+Leave Apple disabled until those values are saved and a staging test passes.
 
 ## Google handoff
 
@@ -195,7 +193,10 @@ hard refresh, and signs out cleanly.
 
 ## Activation boundary and acceptance
 
-Activation still requires explicit approval. In order:
+Hosted-change approval was received on 2026-09-21. Production activation is
+still blocked by `check:production-readiness` until the OpenAI and Railway DPA,
+cross-border, privacy-notice, ZDR, and PHI-minimisation evidence is resolved. In
+order:
 
 1. Review, commit, publish, and deploy the repository change through the normal
    protected workflow.
@@ -205,5 +206,6 @@ Activation still requires explicit approval. In order:
 5. Repeat on the production domains and verify session persistence, sign-out,
    cancellation/error recovery, and owner isolation between two test accounts.
 
-Do not enable a provider, change Railway or production Supabase settings,
-deploy, or enter a third-party credential without separate operator approval.
+Do not merge or activate production while the required production-readiness
+gate is failing. Provider secrets must still be entered directly in their
+approved consoles; never put them in the repository, chat, logs, or screenshots.
