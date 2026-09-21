@@ -8,12 +8,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
-import {
-  assertValidCmeLinkedIds,
-  fetchOwnerCmeEntries,
-  fetchOwnerCmeYear,
-  insertCmeEntry,
-} from "@/lib/cme/repository";
+import { assertValidCmeLinkedIds, fetchOwnerCmeEntries, fetchOwnerCmeYear, insertCmeEntry } from "@/lib/cme/repository";
 import { cmeEntryCreateSchema, cmeListQuerySchema } from "@/lib/cme/schemas";
 import type { CmeEntry } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";

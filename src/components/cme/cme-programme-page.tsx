@@ -205,8 +205,8 @@ export function CmeProgrammePage({
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
                 Add
                 <span id="cme-college-add-unavailable" className="sr-only">
-                  Adding a college-specific requirement is not built yet. The national baseline above still applies on its
-                  own.
+                  Adding a college-specific requirement is not built yet. The national baseline above still applies on
+                  its own.
                 </span>
               </button>
             )}
@@ -257,8 +257,8 @@ export function CmeProgrammePage({
             >
               Re-confirm against this year&rsquo;s guide
               <span id="cme-reconfirm-unavailable" className="sr-only">
-                Re-confirming against this year&apos;s guide is not built yet. The numbers above stay exactly as you last
-                confirmed them.
+                Re-confirming against this year&apos;s guide is not built yet. The numbers above stay exactly as you
+                last confirmed them.
               </span>
             </button>
           )}

@@ -54,13 +54,7 @@ function formatCostCents(cents: number): string {
  * and `clipboard.ts` deliberately excludes it from what reaches a CPD
  * portal — see that file's own comment for why.
  */
-export function CmeEntryPage({
-  entryId,
-  entries,
-  set,
-  onCopied = noop,
-  onAddEvidence = noop,
-}: CmeEntryPageProps) {
+export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvidence = noop }: CmeEntryPageProps) {
   const entry = entries.find((candidate) => candidate.id === entryId) ?? null;
   const [transcribed, setTranscribed] = useState(entry?.transcribed ?? false);
   const [copyFailed, setCopyFailed] = useState(false);

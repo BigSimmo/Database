@@ -15,12 +15,7 @@ export type CmeEntryRouteClientProps = {
  * Client wrapper so the entry page can PATCH `transcribed_at` after a
  * successful clipboard copy without the Server Component owning a handler.
  */
-export function CmeEntryRouteClient({
-  entryId,
-  entries,
-  set,
-  persistTranscribed,
-}: CmeEntryRouteClientProps) {
+export function CmeEntryRouteClient({ entryId, entries, set, persistTranscribed }: CmeEntryRouteClientProps) {
   async function persistCopied(id: string) {
     if (!persistTranscribed) return;
     const response = await fetch(`/api/cme/entries/${id}`, {
