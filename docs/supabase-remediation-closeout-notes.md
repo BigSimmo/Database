@@ -46,12 +46,12 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 ## 3. Staging / prod apply status (operator)
 
-- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared. **Prod Auth not changed.**
+- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared.
 - **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
-- **Staging Auth (Phase 1): mostly DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**. CAPTCHA **OFF by design** unless Joshua asks.
-- **Phase 1 remaining:** Auth DB connections **percentage** on staging + prod (in progress on dashboard).
+- **Phase 1 Auth: DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**. CAPTCHA **OFF by design** unless Joshua asks. Auth DB connections set to **Percentage 17% (10/60)** on staging + prod via Auth → Performance.
 - **DB pool (absolute):** staging 15/200 · prod 24/200.
 - **Phase 5:** weekday advisors routine created (quiet unless WARN).
+- **Still open:** PR **#2960** needs CI green + owner approval; **Phase 4** remains post-Codex (§1).
 
 ## 4. Railway env inventory (names only)
 
@@ -70,6 +70,6 @@ Names-only check — **no values recorded.**
 ## 5. Out of scope here
 
 - No schema/DDL from this closeout file.
-- Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md). Prod Auth unchanged.
+- Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md).
 
-_Updated 2026-09-21 — Phase 5 advisors routine + Phase 1 remaining; Documentation owns._
+_Updated 2026-09-21 — Phase 1 Auth DB connections % DONE; Documentation owns._
