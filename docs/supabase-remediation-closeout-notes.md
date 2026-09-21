@@ -6,13 +6,13 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 ## 1. File / defer (after Codex)
 
-| # | Item | When / notes |
-| --- | --- | --- |
-| 1 | Confirm ingestion-worker fully gone | **PR1.** Cron already absent; still have Vault leftovers `cron_ingestion_jwt` / `cron_ingestion_jw` |
-| 2 | `indexing-v3-agent` JWT/secret dual-gate | After **PR2/PR3.** Cron invokes every minute; Vault `indexing_v3_agent_secret` |
-| 3 | `FORCE RLS` on six `force_rls=false` control-plane tables | Later — see §2 list |
-| 4 | FK indexes / unused indexes | Only with evidence; do not batch-drop |
-| 5 | `PROXY_AUTH` dedicated secret | Quiet change window only |
+| #   | Item                                                      | When / notes                                                                                        |
+| --- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 1   | Confirm ingestion-worker fully gone                       | **PR1.** Cron already absent; still have Vault leftovers `cron_ingestion_jwt` / `cron_ingestion_jw` |
+| 2   | `indexing-v3-agent` JWT/secret dual-gate                  | After **PR2/PR3.** Cron invokes every minute; Vault `indexing_v3_agent_secret`                      |
+| 3   | `FORCE RLS` on six `force_rls=false` control-plane tables | Later — see §2 list                                                                                 |
+| 4   | FK indexes / unused indexes                               | Only with evidence; do not batch-drop                                                               |
+| 5   | `PROXY_AUTH` dedicated secret                             | Quiet change window only                                                                            |
 
 ## 2. Intentional RLS-on / no-policy (prod, fail-closed)
 
@@ -52,19 +52,19 @@ Short deferred list after Codex PRs. **No DDL in this note.** Owned by Documenta
 
 Names-only check — **no values recorded.**
 
-| Present by name | Where |
-| --- | --- |
+| Present by name             | Where                              |
+| --------------------------- | ---------------------------------- |
 | `SUPABASE_SERVICE_ROLE_KEY` | Prod app, prod worker, staging app |
 
-| Not present on Railway by name | Where it lives instead |
-| --- | --- |
-| `INDEXING_V3_AGENT_SECRET` | Vault `indexing_v3_agent_secret` |
-| Cron JWT (`cron_ingestion_jwt` / related) | Vault `cron_ingestion_jwt` |
-| `PROXY_AUTH` / signing secret | Not on Railway by name |
+| Not present on Railway by name            | Where it lives instead           |
+| ----------------------------------------- | -------------------------------- |
+| `INDEXING_V3_AGENT_SECRET`                | Vault `indexing_v3_agent_secret` |
+| Cron JWT (`cron_ingestion_jwt` / related) | Vault `cron_ingestion_jwt`       |
+| `PROXY_AUTH` / signing secret             | Not on Railway by name           |
 
 ## 5. Out of scope here
 
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA/signup vs [`multi-user-auth-setup.md`](multi-user-auth-setup.md) stays operator-owned when Phase 1 Auth finishes.
 
-*Updated 2026-09-21 — Railway names-only inventory appended; Documentation owns.*
+_Updated 2026-09-21 — Railway names-only inventory appended; Documentation owns._
