@@ -37,6 +37,8 @@ const KNOWN_ORPHAN_VERSIONS: Record<string, string> = {
   "20260713122000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260717133000": "Renumbered away; placeholder holds the remote-history slot.",
   "20260718223000": "Renumbered away; placeholder holds the remote-history slot.",
+  "20260921065428":
+    "Staging recorded audit_logs_append_only here; durable effects live in 20260921065653_audit_logs_append_only.sql (prod version).",
 };
 
 /**
