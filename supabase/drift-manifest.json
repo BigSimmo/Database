@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-21T04:40:58.495Z",
+  "generated_at": "2026-09-21T08:19:28.570Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
-  "schema_sha256": "c69b79315484fd1618ded663436c982903eb6c267bc1888bc38b78df7312723e",
-  "replay_seconds": 14,
+  "schema_sha256": "655d5c215cc3f20e8882e65b8351ff7cec7507f5eba29dfae2bcc5eb7cc7b09c",
+  "replay_seconds": 98,
   "snapshot": {
     "views": [
       {
@@ -119,7 +119,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwd/postgres"
+          "service_role=ar/postgres"
         ],
         "name": "audit_logs",
         "columns": [
@@ -9219,9 +9219,9 @@
         "with_check": "true"
       },
       {
-        "cmd": "ALL",
-        "name": "audit logs service role all",
-        "qual": "true",
+        "cmd": "INSERT",
+        "name": "audit logs service role insert",
+        "qual": null,
         "roles": [
           "service_role"
         ],
@@ -9229,6 +9229,18 @@
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": "true"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "audit logs service role select",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "audit_logs",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
       },
       {
         "cmd": "ALL",
@@ -9953,6 +9965,11 @@
     ],
     "triggers": [
       {
+        "def": "CREATE TRIGGER audit_logs_append_only BEFORE DELETE OR UPDATE ON public.audit_logs FOR EACH ROW EXECUTE FUNCTION public.audit_logs_prevent_mutation()",
+        "name": "audit_logs_append_only",
+        "table": "audit_logs"
+      },
+      {
         "def": "CREATE TRIGGER clinical_registry_records_delete_cleanup AFTER DELETE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
         "name": "clinical_registry_records_delete_cleanup",
         "table": "clinical_registry_records"
@@ -10234,6 +10251,13 @@
         ],
         "def_hash": "b487d193e68953e1dd716fa9572426cd",
         "signature": "public.assert_public_source_document_governance(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "0eb7082711bef8a51095679808d0efa5",
+        "signature": "public.audit_logs_prevent_mutation()"
       },
       {
         "acl": [
@@ -10933,7 +10957,8 @@
       {
         "acl": [
           "authenticated=X/postgres",
-          "postgres=X/postgres"
+          "postgres=X/postgres",
+          "service_role=X/postgres"
         ],
         "def_hash": "3c021e0243c1052b4928112c9dcc96c7",
         "signature": "public.publish_site_content_record(text,uuid,text,bigint,text,text,text)"
@@ -10972,8 +10997,6 @@
       },
       {
         "acl": [
-          "anon=X/postgres",
-          "authenticated=X/postgres",
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
@@ -11015,7 +11038,8 @@
       {
         "acl": [
           "authenticated=X/postgres",
-          "postgres=X/postgres"
+          "postgres=X/postgres",
+          "service_role=X/postgres"
         ],
         "def_hash": "b9a4ce368d6d3b48382c1ea5f888fe6b",
         "signature": "public.record_site_content_reconciliation_plan(jsonb)"
@@ -11142,7 +11166,8 @@
       {
         "acl": [
           "authenticated=X/postgres",
-          "postgres=X/postgres"
+          "postgres=X/postgres",
+          "service_role=X/postgres"
         ],
         "def_hash": "8cca178909ebadcd9fd6da7a05395dda",
         "signature": "public.retire_site_content_record(text,uuid,text,bigint,text,text,text)"
