@@ -2,7 +2,7 @@
 
 How Documentation keeps project docs accurate, logged, and non-stale across Joshua’s repos. **Process doc — no product DDL.**
 
-_Owned by Documentation. Updated 2026-09-21._
+_Owned by Documentation. Updated 2026-09-21 (adversarial harden)._ 
 
 ## Principles
 
@@ -12,6 +12,7 @@ _Owned by Documentation. Updated 2026-09-21._
 4. **Status in one board** — closeout/coordination files own deferred status; other docs link, don’t fork.
 5. **Improve the map while you’re here** — one small discoverability/archive/link fix per pass when cheap.
 6. **Ward Flow tip lock** — Ward Flow work uses only `D:\Worktrees\Database\ward-lead` on Josh’s PC. Confirm tip (`git log -1` / `rev-parse`) before acting. No stale worktrees, detached inventory/suite checkouts, older SHAs, or cloud agents unless Joshua explicitly names another path.
+7. **Recheck triggers** — every live doc class has an event that invalidates it (below). Weekday sweep is backup, not the only freshness mechanism.
 
 ## Pipeline (every docs change)
 
@@ -30,18 +31,19 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 
 ## Doc classes
 
-| Class | Rule |
-| --- | --- |
-| Entry (README, first-run) | Short, current, linked from root / `docs/README` |
-| Runbook | Imperative; restamp when operator state changes |
-| Closeout / deferred | Short; deferred list + status; no secrets |
-| Plan / playbook | Don’t duplicate live status — point at the board |
-| Historical | Under `archive/` (+ stub if old path is linked) |
-| Generated | Don’t hand-edit |
+| Class | Rule | Recheck when |
+| --- | --- | --- |
+| Entry (README, first-run) | Short, current, linked from root / `docs/README` | Tip SHA / boot command / entry path changes |
+| Runbook | Imperative; restamp when operator state changes | Operator dashboard/CLI steps change |
+| Closeout / deferred | Short; deferred list + status; no secrets | Teammate reports phase done / deferred item moves |
+| Plan / playbook | Don’t duplicate live status — point at the board | Plan superseded or board moves |
+| Historical | Under `archive/` (+ stub if old path is linked) | Never “update” — supersede with a new dated note |
+| Generated | Don’t hand-edit | After regenerating indexes/inventories |
 
 ## Freshness
 
-- **Weekday sweep (Documentation routine):** tip identity → entry docs → stamps vs known operator moves → dual ledgers → archive hygiene → link check → open `docs/*` PRs vs teammate updates.
+- **Event-driven first:** apply the recheck column when the triggering event happens (handoff from Supabase/Railway, tip move, boot script rename, merge of a docs PR).
+- **Weekday sweep (Documentation routine, 08:15 AWST Mon–Fri):** tip identity → entry docs → stamps vs known operator moves → dual ledgers → archive hygiene → link check → open `docs/*` PRs vs teammate updates.
 - Fix cheap issues in-sweep; queue large rewrites.
 - Stay quiet to Joshua unless something changed or a decision is needed.
 
@@ -49,12 +51,18 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 
 | Project | Tip / repo | Entry docs | Doc check | Notes |
 | --- | --- | --- | --- | --- |
-| Clinical KB / Database | `BigSimmo/Database` (default `main`); local tip often Josh PC worktrees | `README.md`, `docs/README.md`, `docs/supabase-remediation-closeout-notes.md` | Prefer project npm doc-link scripts when present | Supabase closeout: PR #2959 branch `docs/supabase-remediation-closeout-notes` |
-| Ward Flow | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting; path-stable port helper, often 3605) | `docs/ward-flow/` Start-here / LOCAL-FIRST-RUN / ARCHIVE-NOTE | `npm run ward:check-docs` / link helpers when available | Dated notes under `docs/ward-flow/archive/dated-notes/`; never stale worktrees / cloud / other paths unless Joshua names them |
+| **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [`supabase-remediation-closeout-notes.md`](supabase-remediation-closeout-notes.md) (PR #2959) |
+| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | `docs/ward-flow/README.md`, `LOCAL-FIRST-RUN.md`, `ARCHIVE-NOTE.md`, `STATUS.md` | `npm run ward:check-docs` (= `check:ward-doc-links`) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under `docs/ward-flow/archive/dated-notes/`. Never stale worktrees / cloud / other paths unless Joshua names them |
 
 Extend this table when a new product tip is confirmed — don’t invent paths.
+
+### Registry accuracy rules
+
+- Script names and filenames in this table must match `package.json` and the tip tree — verify before editing this file.
+- If an entry doc cites a tip SHA, that SHA must equal `git rev-parse HEAD` on the locked tip (or the sentence must say “as of &lt;date&gt;” and be updated on the next docs pass).
+- Agent skills (**Documentation Operating System**, **Docs Freshness Audit**) mirror this file; when they disagree, **this file on the project tip/PR wins**, then skills are updated.
 
 ## Related
 
 - Agent skills (Documentation bot): **Documentation Operating System**, **Docs Freshness Audit**.
-- Active Clinical KB closeout: [`supabase-remediation-closeout-notes.md`](supabase-remediation-closeout-notes.md).
+- Active PsychSift / Clinical KB closeout: [`supabase-remediation-closeout-notes.md`](supabase-remediation-closeout-notes.md).
