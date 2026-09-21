@@ -207,6 +207,11 @@ export const BROWSER_LANE_PATTERNS = [
   /^scripts\/(?:run-playwright|playwright-base-url|playwright-browser-preflight|playwright-pr-shards|check-playwright-browser-revision)\.(?:mjs|ts)$/,
   /^scripts\/(?:run|check)-lighthouse-budget\.mjs$/,
   /^lighthouse-budget\.json$/,
+  // On Call's stored entries and its demo corpus, plus demo fixtures generally —
+  // the data every `ui-*.spec.ts` renders against in demo mode. Mirrors the two
+  // rules of the same shape in `ci-change-scope.mjs`; see the note there.
+  /^src\/lib\/on-call\//,
+  /^src\/lib\/(?:[\w-]+\/)*demo-[\w-]+\.tsx?$/,
   /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
 ];
 
