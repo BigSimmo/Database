@@ -480,7 +480,8 @@ try {
     }
     console.log(`Playwright build-only complete (${relativeRunRoot}); skipping servers/tests.`);
     cleanup();
-    process.exit(0);
+    // Propagate build status via childProcessExitCode (failures already threw above).
+    process.exit(childProcessExitCode({ status: 0, signal: null }));
   }
 
   console.log(`Starting isolated production Playwright server at ${baseUrl} (${relativeRunRoot})`);
