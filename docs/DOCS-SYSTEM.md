@@ -2,7 +2,7 @@
 
 How Documentation keeps project docs accurate, logged, and non-stale across Joshua’s repos. **Process doc — no product DDL.**
 
-_Owned by Documentation. Updated 2026-09-21 (adversarial harden)._ 
+_Owned by Documentation. Updated 2026-09-21 (adversarial harden)._
 
 ## Principles
 
@@ -20,25 +20,25 @@ _Owned by Documentation. Updated 2026-09-21 (adversarial harden)._
 Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One map improvement
 ```
 
-| Step | Do |
-| --- | --- |
-| Scope | Project + tip path/branch; list files; no drive-by WIP |
-| Read | Entry doc + any closeout/board; hunt duplicates |
-| Edit | Prefer short appends; fix relative links; scrub `file://` |
-| Ship | docs: commit on a docs/* branch; PR with Summary + Test plan |
-| Log | Agent memory (path, PR, ownership, TBDs); FYI sibling agents only if they own adjacent work |
-| Improve | One Start-here / archive / link / port-env fix if cheap |
+| Step    | Do                                                                                          |
+| ------- | ------------------------------------------------------------------------------------------- |
+| Scope   | Project + tip path/branch; list files; no drive-by WIP                                      |
+| Read    | Entry doc + any closeout/board; hunt duplicates                                             |
+| Edit    | Prefer short appends; fix relative links; scrub `file://`                                   |
+| Ship    | docs: commit on a docs/* branch; PR with Summary + Test plan                                |
+| Log     | Agent memory (path, PR, ownership, TBDs); FYI sibling agents only if they own adjacent work |
+| Improve | One Start-here / archive / link / port-env fix if cheap                                     |
 
 ## Doc classes
 
-| Class | Rule | Recheck when |
-| --- | --- | --- |
-| Entry (README, first-run) | Short, current, linked from root / docs README | Tip SHA / boot command / entry path changes |
-| Runbook | Imperative; restamp when operator state changes | Operator dashboard/CLI steps change |
-| Closeout / deferred | Short; deferred list + status; no secrets | Teammate reports phase done / deferred item moves |
-| Plan / playbook | Don’t duplicate live status — point at the board | Plan superseded or board moves |
-| Historical | Under an archive/ folder (+ stub if old path is linked) | Never “update” — supersede with a new dated note |
-| Generated | Don’t hand-edit | After regenerating indexes/inventories |
+| Class                     | Rule                                                    | Recheck when                                      |
+| ------------------------- | ------------------------------------------------------- | ------------------------------------------------- |
+| Entry (README, first-run) | Short, current, linked from root / docs README          | Tip SHA / boot command / entry path changes       |
+| Runbook                   | Imperative; restamp when operator state changes         | Operator dashboard/CLI steps change               |
+| Closeout / deferred       | Short; deferred list + status; no secrets               | Teammate reports phase done / deferred item moves |
+| Plan / playbook           | Don’t duplicate live status — point at the board        | Plan superseded or board moves                    |
+| Historical                | Under an archive/ folder (+ stub if old path is linked) | Never “update” — supersede with a new dated note  |
+| Generated                 | Don’t hand-edit                                         | After regenerating indexes/inventories            |
 
 ## Freshness
 
@@ -49,10 +49,10 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 
 ## Project registry
 
-| Project | Tip / repo | Entry docs | Doc check | Notes |
-| --- | --- | --- | --- | --- |
-| **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [PR #2959 closeout notes](https://github.com/BigSimmo/Database/pull/2959) (PR #2959) |
-| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | Ward Flow tip live set: README / LOCAL-FIRST-RUN / ARCHIVE-NOTE / STATUS (live under the tip docs/ward-flow tree; that folder layout is not on main) | Ward Flow tip only: script `ward:check-docs` (alias of `check:ward-doc-links`; not on main) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under dated-notes archive on the Ward Flow tip (not on main). Never stale worktrees / cloud / other paths unless Joshua names them |
+| Project                                  | Tip / repo                                                                     | Entry docs                                                                                                                                           | Doc check                                                                                    | Notes                                                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named                | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file                                                        | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [PR #2959 closeout notes](https://github.com/BigSimmo/Database/pull/2959) (PR #2959)                                           |
+| **Ward Flow**                            | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | Ward Flow tip live set: README / LOCAL-FIRST-RUN / ARCHIVE-NOTE / STATUS (live under the tip docs/ward-flow tree; that folder layout is not on main) | Ward Flow tip only: script `ward:check-docs` (alias of `check:ward-doc-links`; not on main)  | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under dated-notes archive on the Ward Flow tip (not on main). Never stale worktrees / cloud / other paths unless Joshua names them |
 
 Extend this table when a new product tip is confirmed — don’t invent paths.
 
