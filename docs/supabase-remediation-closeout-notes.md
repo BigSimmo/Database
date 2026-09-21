@@ -50,8 +50,9 @@ Deferred rows in §1 are queued as `docs/outstanding-issues-inbox/` **add** requ
 
 ## 3. Staging / prod apply status (operator)
 
-- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Both migrations applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`. Prod security WARNs cleared.
-- **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent).
+- **Prod (`sjrfecxgysukkwxsowpy`): DONE.** Initial pair applied — `revoke_site_content_definer_execute` `20260921065646` and `audit_logs_append_only` `20260921065653`.
+- **Forward correction (Supabase agent): DONE.** Authenticated `EXECUTE` restored on publish / retire / reconciliation; **anon still revoked**; `read_site_content_public_records` is **service_role-only**. Live versions: prod `20260921072938`, staging `20260921072945`. **3 intentional authenticated DEFINER WARNs** remain expected (not defects).
+- **Staging:** earlier applied `audit_logs_append_only` only; site-content revoke was not testable there (functions absent). Forward correction version `20260921072945` applied (see above).
 - **Phase 1 Auth: DONE.** Leaked-password protection **ON** (HaveIBeenPwned). Signup **ON**, confirm email **ON**. CAPTCHA **OFF by design** unless Joshua asks. Auth DB connections set to **Percentage 17% (10/60)** on staging + prod via Auth → Performance.
 - **DB pool (absolute):** staging 15/200 · prod 24/200.
 - **Phase 5:** weekday advisors routine created (quiet unless WARN).
@@ -76,4 +77,4 @@ Names-only check — **no values recorded.**
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md).
 
-_Updated 2026-09-21 — PsychSift product naming in title; Documentation owns._
+_Updated 2026-09-21 — forward correction (auth EXECUTE restore; anon still revoked); Documentation owns._
