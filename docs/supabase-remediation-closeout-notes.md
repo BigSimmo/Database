@@ -1,4 +1,4 @@
-# Clinical KB — Supabase remediation closeout notes
+# PsychSift / Clinical KB Database — Supabase remediation closeout notes
 
 Short deferred list after Codex PRs. **No DDL in this note.** Documentation owns this operational closeout; **deferred security/DB work is queued in the canonical outstanding-issues ledger** (inbox add-requests on this PR) so session-start and the issues report still surface it. This file is detail + link target — not a replacement for that checkpoint.
 
@@ -76,4 +76,4 @@ Names-only check — **no values recorded.**
 - No schema/DDL from this closeout file.
 - Auth dashboard CAPTCHA stays **OFF by design** unless Joshua asks; see [`multi-user-auth-setup.md`](multi-user-auth-setup.md).
 
-_Updated 2026-09-21 — queued deferred items into outstanding-issues inbox; Documentation owns._
+_Updated 2026-09-21 — PsychSift product naming in title; Documentation owns._
