@@ -475,6 +475,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
      */
     LIGHTHOUSE_LABEL: "false",
     SKIP_LIGHTHOUSE_LABEL: "false",
+    REFRESH_LIGHTHOUSE_BASELINE: "false",
     CONTAINER_CHANGED: "false",
     PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
@@ -621,6 +622,27 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     const lightDraft = runAggregate({ PR_DRAFT: "true" });
     expect(lightDraft.status).toBe(0);
     expect(lightDraft.output).not.toContain("heavy scope did not run");
+  });
+
+  it("accepts lighthouse-budget skip during baseline-refresh dispatch", () => {
+    // refresh_lighthouse_baseline forces PERF_CHANGED=true in classify while the
+    // lighthouse-budget job itself skips; requiring success would false-red every
+    // dedicated refresh run even when lighthouse-baseline-refresh succeeded.
+    expect(
+      runAggregate({
+        PERF_CHANGED: "true",
+        REFRESH_LIGHTHOUSE_BASELINE: "true",
+        EVENT_NAME: "workflow_dispatch",
+        LIGHTHOUSE_RESULT: "skipped",
+      }).status,
+    ).toBe(0);
+    expect(
+      runAggregate({
+        PERF_CHANGED: "true",
+        REFRESH_LIGHTHOUSE_BASELINE: "false",
+        LIGHTHOUSE_RESULT: "skipped",
+      }).status,
+    ).not.toBe(0);
   });
 
   it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
