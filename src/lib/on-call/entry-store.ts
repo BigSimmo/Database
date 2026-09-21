@@ -111,6 +111,10 @@ const useOnCallEntryCacheSnapshot = createBrowserStore(subscribeToCache, getCach
 const onCallEntriesResponseSchema = z.object({
   entries: z.array(z.unknown()),
   signedOut: z.boolean().default(false),
+  // The API sets this only in demo mode, where the corpus is served from
+  // memory and Supabase is never reached. Defaulted rather than required, so a
+  // live response (which omits it) parses unchanged.
+  demoMode: z.boolean().default(false),
 });
 
 export type OnCallEntriesState = {
@@ -131,6 +135,10 @@ export type OnCallEntriesState = {
    *  cache from a previous signed-in session can still be read while this
    *  is true. */
   signedOut: boolean;
+  /** True when the entries came from the in-memory demo corpus rather than the
+   *  database. Nothing in this mode can be written, so a control that offers to
+   *  is a control that can only fail. */
+  demoMode: boolean;
 };
 
 /**
@@ -146,6 +154,7 @@ export function useOnCallEntries(): OnCallEntriesState {
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
   const [signedOut, setSignedOut] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   // What the fetch returned, held in memory. The cache is the live source once
   // it works — edits write there and must be seen — but a browser blocking
   // site data makes every write a silent no-op, and reading only the cache
@@ -197,6 +206,7 @@ export function useOnCallEntries(): OnCallEntriesState {
         if (cancelled || peekOnCallEntrySessionEpoch() !== epochAtStart) return;
         setIsOffline(false);
         setSignedOut(parsedResponse.data.signedOut);
+        setDemoMode(parsedResponse.data.demoMode);
         setFetched(entries);
         // A signed-out response is cacheable now that it carries the shared entries rather
         // than an empty list (owner decision, 2026-09-04), so the old "skip when signedOut"
@@ -237,5 +247,6 @@ export function useOnCallEntries(): OnCallEntriesState {
     loading,
     isOffline,
     signedOut,
+    demoMode,
   };
 }

@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { OnCallDemoContentControl } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -266,7 +267,7 @@ function timeLabel(iso: string): string {
 }
 
 export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, cachedAt, signedOut, demoMode } = useOnCallEntries();
   const recent = useOnCallRecent();
 
   // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
@@ -311,6 +312,16 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // tries to serve both ends up telling a first-time reader about tags they have
   // nothing to tag yet.
   const hasEntries = entries.length > 0;
+  // Whether the example corpus is currently loaded into this account.
+  //
+  // A prefix test rather than the corpus's own slug list, on purpose: the list
+  // is ninety-four strings and this is the only thing the client needs to know
+  // about it, so shipping it here would put a kilobyte of fixture identity into
+  // a page that renders none of it. A false positive costs nothing — an owner
+  // who names a row `demo-…` themselves is offered a Remove control, and the
+  // DELETE behind it matches (section, slug) against the real corpus and so
+  // leaves their row alone.
+  const hasDemoContent = entries.some((entry) => entry.slug.startsWith("demo-"));
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -388,6 +399,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
+        {hasDemoContent ? (
+          <HomeModule id="on-call-home-example-content" label="Example content">
+            {/* Deliberately at the top of the page rather than tucked into a
+                menu. These rows are shared, so while they are loaded they are
+                on the page a stranger reads; the way out of that should be
+                where the reader already is, not somewhere they have to
+                remember to look. */}
+            <OnCallDemoContentControl mode="remove" signedOut={signedOut} demoMode={demoMode} />
+          </HomeModule>
+        ) : null}
+
         {!loading && !hasEntries ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
             <EmptyState
@@ -396,17 +418,20 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
               description="Adding and editing needs an account. Reading does not."
               actions={
-                <Link
-                  href={ON_CALL_SECTION_HREFS.contacts}
-                  className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
-                    "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-                    focusRing,
-                  )}
-                >
-                  Open Contacts
-                  <ChevronRight aria-hidden="true" className="size-icon-xs" />
-                </Link>
+                <div className="flex flex-col gap-3">
+                  <OnCallDemoContentControl mode="load" signedOut={signedOut} demoMode={demoMode} />
+                  <Link
+                    href={ON_CALL_SECTION_HREFS.contacts}
+                    className={cn(
+                      "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                      "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                      focusRing,
+                    )}
+                  >
+                    Open Contacts
+                    <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                  </Link>
+                </div>
               }
               testId="on-call-home-first-run-empty"
             />
