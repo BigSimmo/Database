@@ -1,7 +1,7 @@
 {
   "note": "sha256 of every migration this repository has shipped, with newlines normalised. An entry whose hash changes means an applied migration was edited, which cannot reach the live database. See scripts/check-migration-immutability.mjs.",
   "generator": "scripts/check-migration-immutability.mjs",
-  "sealed_at": "2026-09-21T07:28:35.590Z",
+  "sealed_at": "2026-09-21T07:31:21.568Z",
   "versions": {
     "20260527000000_bulk_ingestion.sql": "813e8e314064a6dcbaaa55e2765a8ce901d5783b304b4a7af7bb7417a07daf7c",
     "20260527001000_documents_policy_cleanup.sql": "559c26f3172bf75e545a41adef75538b2bf648ea7d53c8eb3d3ea7c244c65a48",
@@ -258,9 +258,11 @@
     "20260921065428_historical_version_placeholder.sql": "874aee26bc1dddb4830d2e8abf14073080b892b38f170d5a60071782369d811b",
     "20260921065646_revoke_site_content_definer_execute.sql": "ac02c483b898077ca03ce528ca8ccb1f60093bfbd31236aed34656b63b5ca041",
     "20260921065653_audit_logs_append_only.sql": "19e6339c38302cef0805c58f2e650056815cd503fc9177eb6c78ce910ab9a007",
-    "20260921140000_historical_version_placeholder.sql": "4894b9bafa7142790af7b83243cec76e7ca477fdabcaf2713c95a5ba7bd60b65",
     "20260921070422_historical_version_placeholder.sql": "3d8c4766e228b37e83c3e2447119a513e2308dfd60c55e33acc2e4f7bef75a57",
     "20260921070432_historical_version_placeholder.sql": "8d69d0636025f1b14cfcb9d2b1124b893bba05a662d33077e42d4d3773b9796b",
-    "20260921154500_restore_authenticated_site_content_mutation_execute.sql": "720603812704d99bd364e2c9f90e73b9d6be362c5043a41fc37681d767d80b4f"
+    "20260921072938_restore_authenticated_site_content_mutation_execute.sql": "e95412a0d90dafb7e01a8156d3c2ca0f745d9025760b3c7125006f6914ef05e5",
+    "20260921072945_historical_version_placeholder.sql": "a1d61fc606e368b38201735b8f8f8f9e6abfc25a851677b9ca93205099050223",
+    "20260921140000_historical_version_placeholder.sql": "4894b9bafa7142790af7b83243cec76e7ca477fdabcaf2713c95a5ba7bd60b65",
+    "20260921154500_historical_version_placeholder.sql": "5dfe8d519c2d3319eb100fce56b7894d36fb111eccfc0a6e39756c055a6a07f5"
   }
 }

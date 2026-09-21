@@ -3,6 +3,10 @@
 -- /api/site-content/publications using publicationClient). Revoking authenticated
 -- EXECUTE broke admin publish. Keep anon/public revoked; restore authenticated.
 -- read_site_content_public_records stays service_role-only.
+--
+-- Live prod apply_migration recorded this under version 20260921072938 (MCP could
+-- not mint the earlier repo stem 20260921154500). Staging recorded the same SQL
+-- under 20260921072945 (placeholder).
 
 DO $$
 BEGIN
