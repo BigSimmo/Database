@@ -5515,7 +5515,7 @@ BEGIN
 END;
 $$;
 
-revoke all on function public.audit_logs_prevent_mutation() from public;
+revoke all on function public.audit_logs_prevent_mutation() from public, anon, authenticated, service_role;
 grant execute on function public.audit_logs_prevent_mutation() to postgres;
 
 drop trigger if exists audit_logs_append_only on public.audit_logs;
