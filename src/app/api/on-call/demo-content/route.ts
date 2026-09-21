@@ -67,6 +67,15 @@ export const runtime = "nodejs";
  * request.
  */
 
+/**
+ * The same grouping `DELETE` walks, indexed for lookup. Derived from that one
+ * export rather than rebuilt, so the count and the delete cannot come to
+ * disagree about which (section, slug) pairs are the loader's.
+ */
+const DEMO_SLUGS_BY_SECTION = new Map(
+  ON_CALL_DEMO_SLUGS_BY_SECTION.map(([section, slugs]) => [section, new Set(slugs)] as const),
+);
+
 function demoModeRefusal() {
   // Demo mode already serves this corpus from memory and never reaches
   // Supabase for this mode, so there is nothing to load it into. Mirrors the
@@ -97,14 +106,23 @@ export async function GET(request: Request) {
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
 
-    const { count, error } = await supabase
+    // Narrow in the database on slug, then count on the PAIR, for the reason
+    // spelled out over `DELETE`: (owner_id, section, slug) is the unique key, so
+    // slug alone is half of it. Counting on the half would report an owner's own
+    // row as loaded example content whenever it shares a slug with an example
+    // row filed under a different section. Here that would only inflate a
+    // number, but the same mistake one handler down deletes the wrong row, and
+    // the two should not disagree about what an example row is.
+    const { data, error } = await supabase
       .from("on_call_entries")
-      .select("id", { count: "exact", head: true })
+      .select("section, slug")
       .eq("owner_id", user.id)
       .in("slug", ON_CALL_DEMO_SLUGS);
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ loaded: count ?? 0, total: ON_CALL_DEMO_ENTRY_COUNT });
+    const loaded = (data ?? []).filter((row) => DEMO_SLUGS_BY_SECTION.get(row.section)?.has(row.slug)).length;
+
+    return NextResponse.json({ loaded, total: ON_CALL_DEMO_ENTRY_COUNT });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
