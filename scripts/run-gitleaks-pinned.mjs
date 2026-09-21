@@ -16,8 +16,8 @@ const zeroSha = /^0{40}$/;
 
 /** Keep in lockstep with `.github/workflows/secret-scan.yml` env pins. */
 export const PINNED_GITLEAKS_LINUX_X64 = {
-  version: "8.24.3",
-  sha256: "9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c",
+  version: "8.30.1",
+  sha256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
 };
 
 export function resolveGitleaksScanRange({ eventName, pinnedBase, pinnedHead, checkedOutHead }) {

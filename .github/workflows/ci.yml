@@ -505,7 +505,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
-          deno-version: v2.x
+          deno-version: 2.9.7
 
       # A PR can only introduce a new (possibly-vulnerable) dependency when a
       # manifest/lockfile changes, so the audit blocks the merge gate only then
@@ -1358,6 +1358,8 @@ jobs:
           # that actually ran.
           LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') }}
           SKIP_LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') }}
+          # Bound through env (never interpolated into run:) — untrusted dispatch input.
+          REFRESH_LIGHTHOUSE_BASELINE: ${{ github.event.inputs.refresh_lighthouse_baseline }}
           CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
           PR_DRAFT: ${{ github.event.pull_request.draft == true }}
           EVENT_NAME: ${{ github.event_name }}
@@ -1499,7 +1501,19 @@ jobs:
             require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
           fi
 
-          require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          # Mirror lighthouse-budget's own `if:` for PR/merge_group: when perf is in
+          # scope (or opt-in label) and skip label is absent, require success. The skip
+          # label remains an explicit escape hatch. Drafts without the opt-in label stay
+          # skipped-ok (job itself does not run on drafts unless labeled).
+          # Baseline-refresh dispatch forces PERF_CHANGED=true while intentionally
+          # skipping lighthouse-budget (refresh job runs instead) — accept that skip.
+          if [ "$SKIP_LIGHTHOUSE_LABEL" = "true" ] || [ "$REFRESH_LIGHTHOUSE_BASELINE" = "true" ]; then
+            require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          elif [ "$LIGHTHOUSE_LABEL" = "true" ] || { [ "$PERF_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; }; then
+            require_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          else
+            require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          fi
 
           if [ "$DB_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "db-reset-verify" "$DB_RESULT"
