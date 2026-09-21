@@ -2665,6 +2665,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/DOCS-SYSTEM.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/reindex-runbook.md",
         "section": "root",
         "catalogued": true
