@@ -25,7 +25,7 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 | Scope | Project + tip path/branch; list files; no drive-by WIP |
 | Read | Entry doc + any closeout/board; hunt duplicates |
 | Edit | Prefer short appends; fix relative links; scrub `file://` |
-| Ship | `docs:` commit on `docs/*` branch; PR with Summary + Test plan |
+| Ship | docs: commit on a docs/* branch; PR with Summary + Test plan |
 | Log | Agent memory (path, PR, ownership, TBDs); FYI sibling agents only if they own adjacent work |
 | Improve | One Start-here / archive / link / port-env fix if cheap |
 
