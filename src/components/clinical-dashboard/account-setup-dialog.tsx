@@ -1,24 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
-import {
-  ArrowRight,
-  Clock3,
-  Heart,
-  Loader2,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-  SlidersHorizontal,
-  type LucideIcon,
-} from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Clock3, Heart, Loader2, ShieldCheck, SlidersHorizontal, type LucideIcon } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { EmailAuthForm } from "@/components/clinical-dashboard/email-auth-form";
 import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Sheet } from "@/components/ui/sheet";
-import { TextField } from "@/components/ui/text-field";
-import { AsyncButton, cn, floatingControl, InlineNotice, primaryControl } from "@/components/ui-primitives";
+import { cn, floatingControl, InlineNotice } from "@/components/ui-primitives";
 import { useAuthSession, type OAuthProvider } from "@/lib/supabase/client";
 
 const workspaceBenefits = [
@@ -65,8 +55,6 @@ export function AccountSetupDialog({
   intent?: "default" | "favourites";
 }) {
   const auth = useAuthSession();
-  const [email, setEmail] = useState("");
-  const [actionAttempted, setActionAttempted] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<SsoProvider | null>(null);
   const busy = auth.status === "loading";
   const actionBusy = busy || pendingProvider !== null;
@@ -74,22 +62,10 @@ export function AccountSetupDialog({
   const title = isFavouritesIntent ? "Sign up to save favourites" : "Continue to your workspace";
   const description = isFavouritesIntent
     ? "Sign in or create an account to save favourites and reopen them on any device."
-    : "Sign in or create an account in one step.";
-  const error = actionAttempted ? auth.error : null;
-  const notice = actionAttempted ? auth.notice : null;
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || actionBusy) return;
-    setPendingProvider(null);
-    setActionAttempted(true);
-    await auth.signInWithEmail(trimmedEmail);
-  }
+    : "Choose a provider or sign in with your email and password.";
 
   async function chooseProvider(provider: SsoProvider) {
     if (actionBusy) return;
-    setActionAttempted(true);
     setPendingProvider(provider);
     try {
       await auth.signInWithOAuth(providerId(provider));
@@ -114,10 +90,7 @@ export function AccountSetupDialog({
       <div className="grid min-h-0 lg:grid-cols-[minmax(20rem,0.84fr)_minmax(0,1.36fr)]">
         <AccountOrientationPanel />
 
-        <form
-          onSubmit={submit}
-          className="grid content-start gap-5 bg-[color:var(--surface)] p-5 pt-8 sm:p-8 lg:p-10 lg:pt-12"
-        >
+        <div className="grid content-start gap-5 bg-[color:var(--surface)] p-5 pt-8 sm:p-8 lg:p-10 lg:pt-12">
           <section aria-labelledby="account-provider-title" className="grid gap-5">
             <div className="max-w-[36rem] pr-10 sm:pr-8">
               <h2
@@ -150,44 +123,13 @@ export function AccountSetupDialog({
             <span className="h-px flex-1 bg-[color:var(--border)]" />
           </div>
 
-          <TextField
-            data-sheet-autofocus="true"
-            label="Work email"
-            icon={Mail}
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@clinic.com"
-            autoComplete="email"
-            inputMode="email"
-            enterKeyHint="go"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            required
-          />
+          <EmailAuthForm disabled={actionBusy} showAuthFeedback={false} />
 
-          <AsyncButton
-            type="submit"
-            busy={busy && pendingProvider === null}
-            busyLabel="Sending link…"
-            disabled={actionBusy || !email.trim()}
-            idleIcon={<LockKeyhole aria-hidden="true" className="h-4 w-4" />}
-            className={cn(primaryControl, "min-h-12 w-full")}
-          >
-            Continue securely
-          </AsyncButton>
-
-          <p className="flex items-center justify-center gap-2 text-center text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
-            <Mail aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
-            <span>We’ll email you a secure sign-in link. No password needed.</span>
-          </p>
-
-          {notice ? <InlineNotice tone="success">{notice}</InlineNotice> : null}
-          {error ? <InlineNotice tone="danger">{error}</InlineNotice> : null}
+          {auth.notice ? <InlineNotice tone="success">{auth.notice}</InlineNotice> : null}
+          {auth.error ? <InlineNotice tone="danger">{auth.error}</InlineNotice> : null}
 
           <PrivacyFooter className="border-t border-[color:var(--border)] pt-4 lg:hidden" />
-        </form>
+        </div>
       </div>
     </Sheet>
   );

@@ -81,15 +81,17 @@ Reuse the app image; only the environment variables differ.
 2. **Runtime secrets** (injected at deploy, never baked into the image) — all
    with **staging** values, distinct from production:
 
-   | Var                             | Value                      |
-   | ------------------------------- | -------------------------- |
-   | `SUPABASE_SERVICE_ROLE_KEY`     | staging `sb_secret_…`      |
-   | `SUPABASE_PROJECT_REF`          | `<staging-ref>`            |
-   | `SUPABASE_PROJECT_NAME`         | `Clinical KB Staging`      |
-   | `SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`            |
-   | `SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`      |
-   | `RAG_QUERY_HASH_SECRET`         | unique staging-only secret |
-   | `RAG_PROVIDER_MODE`             | `offline`                  |
+   | Var                                         | Value                      |
+   | ------------------------------------------- | -------------------------- |
+   | `SUPABASE_SERVICE_ROLE_KEY`                 | staging `sb_secret_…`      |
+   | `SUPABASE_PROJECT_REF`                      | `<staging-ref>`            |
+   | `SUPABASE_PROJECT_NAME`                     | `Clinical KB Staging`      |
+   | `SUPABASE_STAGING_PROJECT_REF`              | `<staging-ref>`            |
+   | `SUPABASE_STAGING_PROJECT_NAME`             | `Clinical KB Staging`      |
+   | `NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`            |
+   | `NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`      |
+   | `RAG_QUERY_HASH_SECRET`                     | unique staging-only secret |
+   | `RAG_PROVIDER_MODE`                         | `offline`                  |
 
    Do not set `OPENAI_API_KEY`, `OPENAI_ORG_ID`, or `OPENAI_PROJECT_ID` in the
    staging environment. Offline mode uses lexical retrieval and deterministic,

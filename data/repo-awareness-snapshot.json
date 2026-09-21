@@ -166,6 +166,11 @@
         "area": "product"
       },
       {
+        "path": "/auth/reset-password",
+        "file": "src/app/auth/reset-password/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"

@@ -209,15 +209,17 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/DocumentManagementActions.tsx",
-        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/search-results-header-band.tsx",
         "src/components/ui/error-state.tsx"
       ],
       "productImportFiles": [
         "src/components/DocumentManagementActions.tsx",
-        "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/search-results-header-band.tsx"
       ],
       "designSync": {
@@ -1142,7 +1144,9 @@
         "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-routines-page.tsx",
@@ -1155,7 +1159,9 @@
         "src/components/DocumentViewer.tsx",
         "src/components/clinical-dashboard/account-setup-dialog.tsx",
         "src/components/clinical-dashboard/auth-panel.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
         "src/components/clinical-dashboard/medication-considerations.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
         "src/components/cme/cme-routines-page.tsx",
@@ -2218,7 +2224,8 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
-        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
@@ -2227,7 +2234,8 @@
         "src/components/ui/catalogue-toolbar.tsx"
       ],
       "productImportFiles": [
-        "src/components/clinical-dashboard/account-setup-dialog.tsx",
+        "src/components/clinical-dashboard/email-auth-form.tsx",
+        "src/components/clinical-dashboard/password-recovery-form.tsx",
         "src/components/clinical-dashboard/patient-profile-panel.tsx",
         "src/components/clinical-dashboard/settings-dialog.tsx",
         "src/components/cme/cme-entry-form.tsx",
@@ -4072,6 +4080,7 @@
       "disposition": "owned",
       "documentedDisposition": null,
       "routes": [
+        "src/app/auth/reset-password/page.tsx",
         "src/app/privacy/page.tsx",
         "src/app/reference/colour-coding/page.tsx",
         "src/app/safety-plan/page.tsx"
@@ -4112,8 +4121,23 @@
         "files": []
       },
       "permittedComponentFamilies": ["controls", "feedback", "layout", "source"],
-      "sanctionedSpecialPatterns": ["ColourCodingReferencePage", "PatientSafetyPlan", "PrivacyPage"],
+      "sanctionedSpecialPatterns": [
+        "ColourCodingReferencePage",
+        "PasswordRecoveryForm",
+        "PatientSafetyPlan",
+        "PrivacyPage"
+      ],
       "roots": [
+        {
+          "file": "src/app/auth/reset-password/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": ["PasswordRecoveryForm"]
+        },
         {
           "file": "src/app/privacy/page.tsx",
           "exists": true,
@@ -4412,6 +4436,7 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/auth/reset-password/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
       "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
@@ -4516,6 +4541,7 @@
       "src/app/(search-app)/therapy-compass/review/page.tsx",
       "src/app/(search-app)/therapy-compass/search/page.tsx",
       "src/app/(search-app)/tools/page.tsx",
+      "src/app/auth/reset-password/page.tsx",
       "src/app/caring-contacts/guidance/page.tsx",
       "src/app/caring-contacts/intake/page.tsx",
       "src/app/caring-contacts/page.tsx",
@@ -4537,7 +4563,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 109,
+    "inheritedCkbV2RootCount": 110,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4546,8 +4572,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 45,
-    "rootCount": 110,
-    "productionRouteCount": 102,
-    "nextUiEntryCount": 167
+    "rootCount": 111,
+    "productionRouteCount": 103,
+    "nextUiEntryCount": 168
   }
 }
