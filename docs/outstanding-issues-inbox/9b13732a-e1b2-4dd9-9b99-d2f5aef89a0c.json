@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9b13732a-e1b2-4dd9-9b99-d2f5aef89a0c",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Regenerate supabase/drift-manifest.json before PR #2902 merges — it cannot be done in a cloud session",
+    "detail": "PR #2902 (CME mode) changes supabase/schema.sql, so supabase/drift-manifest.json is stale and tests/drift-detection.test.ts fails. That test was the ONLY failure in a full local verify:cheap run of 21,973 tests. The fix is one command, npm run drift:manifest, but it replays schema.sql into a pinned supabase/postgres container, and this cloud session's network policy returns 403 on the image pull (production.cloudfront.docker.com, connect_rejected), so the image cannot be fetched. The Docker daemon itself starts fine. The manifest was deliberately NOT hand-edited: it holds a real container-replayed snapshot of ACLs and view-definition hashes, so writing a fresh schema_sha256 without the matching snapshot would make check:drift pass while describing the wrong schema, which is precisely the silent-drift falsification the guard exists to catch. Pushes used the documented scoped override SKIP_DRIFT_GUARD=1, never git push --no-verify. check:drift is NOT a PR job (.github/workflows/live-drift.yml, post-merge), so PR CI is unaffected — but the post-merge live-drift run WILL fail against the live clinical database until this is done. Run it on any machine with Docker registry access and commit the result.",
+    "source": "verify:cheap run 2026-09-20; agent-proxy status showing the 403; AGENTS.md Supabase project safety",
+    "issueUlid": "01M2ZVS4VEEC6YGVS8K4QJV0AM"
+  }
+}

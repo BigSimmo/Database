@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   BookMarked,
+  CalendarDays,
   ClipboardCheck,
   ClipboardList,
   GitCompareArrows,
@@ -8,11 +9,14 @@ import {
   LibraryBig,
   ListChecks,
   Network,
+  NotebookPen,
+  Repeat,
   Printer,
   Search,
   Sparkles,
   Stethoscope,
   Scale,
+  Target,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -84,6 +88,16 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   compliance: ON_CALL_VIEW_ICONS.compliance,
   whoswho: ON_CALL_VIEW_ICONS["who-is-who"],
   card: Printer,
+  // CME. Matched to the glyphs the mode already uses for the same ideas
+  // (`cmeSections` in `cme/cme-nav-header.tsx`, and the dashboard's own module
+  // icons), so a destination wears one mark in the mode sheet and inside the
+  // page it opens.
+  year: CalendarDays,
+  log: NotebookPen,
+  routines: Repeat,
+  plan: Target,
+  programme: ClipboardList,
+  setup: ListChecks,
 };
 
 /**

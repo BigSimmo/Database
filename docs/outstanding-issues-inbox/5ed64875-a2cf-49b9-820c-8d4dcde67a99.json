@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "5ed64875-a2cf-49b9-820c-8d4dcde67a99",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "insertCmeEntry writes an entry and its allocations without a transaction, so a crash can leave a zero-hour entry",
+    "detail": "src/lib/cme/repository.ts inserts the cme_entries row, then the cme_allocations rows, with a best-effort delete of the entry if the second insert fails. There is no cross-table transaction. A process death between the two inserts, or during the cleanup delete, leaves an entry with zero allocations. Traced by review: it does NOT corrupt totals — totalAllocatedHours and evaluateYear both sum an empty allocation array to 0 without crashing — and there is no cross-tenant path, so it is inert clutter rather than a wrong number. Acceptable while nothing calls the route. The real fix is one plpgsql function wrapping both inserts in a single transaction, with ORDINARY invocation privileges rather than security definer, since there is no privilege gap to bridge. Ship it as its own migration once a route actually consumes this repository — adding an untested plpgsql function to a migration bound for the live clinical database, to prevent inert clutter, was the worse trade during the build.",
+    "source": "PR #2902 task-5 review by supabase-schema-guardian, 2026-09-20",
+    "issueUlid": "01M2ZVSZSHQWCGYRG4DJGZY34E"
+  }
+}

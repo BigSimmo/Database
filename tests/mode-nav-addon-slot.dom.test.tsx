@@ -77,6 +77,13 @@ describe("header addon slot ownership", () => {
     // `/on-call/search` no longer exists — the mode declares no search surface —
     // so nothing claims it.
     expect(isHeaderAddonSlotOwnedRoute("/on-call/search")).toBe(false);
+    // CME claims the slot on exactly the two pages that mount `CmeNavHeader`.
+    // Its other routes mount no header of their own, so they must stay out.
+    expect(isHeaderAddonSlotOwnedRoute("/cme/programme")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/setup")).toBe(true);
+    expect(isHeaderAddonSlotOwnedRoute("/cme")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/log")).toBe(false);
+    expect(isHeaderAddonSlotOwnedRoute("/cme/routines")).toBe(false);
     // Factsheet and medication detail, converted onto the shared header.
     expect(isHeaderAddonSlotOwnedRoute("/factsheets/sertraline")).toBe(true);
     expect(isHeaderAddonSlotOwnedRoute("/medications/sertraline")).toBe(true);
@@ -143,6 +150,8 @@ describe("header addon slot ownership", () => {
       "/on-call/orientation",
       "/on-call/education",
       "/on-call/logistics",
+      "/cme/programme",
+      "/cme/setup",
     ]) {
       expect(isHeaderAddonSlotOwnedRoute(pathname)).toBe(true);
       expect(hasLocalInformationPageNavigation(pathname)).toBe(true);
@@ -289,6 +298,10 @@ describe("header addon slot ownership", () => {
     expect(claimants.sort()).toEqual([
       "src/components/DocumentViewer.tsx",
       "src/components/clinical-dashboard/medication-nav-header.tsx",
+      // CME's Programme and Setup pages share one `*-nav-header.tsx` sibling
+      // (`cmeSections` is a superset the header narrows per render), so the
+      // whole mode's claim is registered in this one file.
+      "src/components/cme/cme-nav-header.tsx",
       "src/components/developer-area/developer-hub-nav-header.tsx",
       "src/components/dictionary/dictionary-catalogue-pages.tsx",
       "src/components/dictionary/dictionary-term-page.tsx",

@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-20"
+    "committed_at": "2026-09-21"
   },
   "routes": {
     "modes": [
@@ -15,6 +15,12 @@
         "id": "calculators",
         "label": "Calculators",
         "home": "/?mode=calculators",
+        "dev_only": false
+      },
+      {
+        "id": "cme",
+        "label": "CME",
+        "home": "/cme",
         "dev_only": false
       },
       {
@@ -178,6 +184,11 @@
         "path": "/mockups/calculators-search-page",
         "file": "src/app/mockups/calculators-search-page/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/programme",
+        "file": "src/app/(search-app)/cme/programme/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/services-filter-options",
@@ -415,6 +426,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/log/[id]",
+        "file": "src/app/(search-app)/cme/log/[id]/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/page.tsx",
         "area": "mockup"
@@ -488,6 +504,11 @@
         "path": "/mockups/specifier-record-directions",
         "file": "src/app/mockups/specifier-record-directions/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/customise",
+        "file": "src/app/(search-app)/cme/customise/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/ward-flow/delays",
@@ -740,6 +761,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/new",
+        "file": "src/app/(search-app)/cme/new/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/caring-contacts/plans/new",
         "file": "src/app/caring-contacts/plans/new/page.tsx",
         "area": "product"
@@ -758,6 +784,11 @@
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan/print",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/print/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme",
+        "file": "src/app/(search-app)/cme/page.tsx",
+        "area": "product"
       },
       {
         "path": "/therapy-compass/[slug]",
@@ -860,6 +891,11 @@
         "area": "product"
       },
       {
+        "path": "/cme/routines",
+        "file": "src/app/(search-app)/cme/routines/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/care-plan/patients/[patientId]/management-plan/print",
         "file": "src/app/mockups/care-plan/patients/[patientId]/management-plan/print/page.tsx",
         "area": "mockup"
@@ -888,6 +924,11 @@
         "path": "/mockups/therapy-recommend-popup-workbench",
         "file": "src/app/mockups/therapy-recommend-popup-workbench/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/log",
+        "file": "src/app/(search-app)/cme/log/page.tsx",
+        "area": "product"
       },
       {
         "path": "/caring-contacts/patients",
@@ -968,6 +1009,11 @@
         "path": "/mockups/therapy-navigation-rail",
         "file": "src/app/mockups/therapy-navigation-rail/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/plan",
+        "file": "src/app/(search-app)/cme/plan/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/care-plan/patients/[patientId]",
@@ -1177,6 +1223,11 @@
       {
         "path": "/caring-contacts",
         "file": "src/app/caring-contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/cme/setup",
+        "file": "src/app/(search-app)/cme/setup/page.tsx",
         "area": "product"
       },
       {
@@ -1455,6 +1506,10 @@
         "file": "src/app/api/eval-cases/route.ts"
       },
       {
+        "path": "/api/cme/entries/[id]",
+        "file": "src/app/api/cme/entries/[id]/route.ts"
+      },
+      {
         "path": "/api/documents/bulk/reindex",
         "file": "src/app/api/documents/bulk/reindex/route.ts"
       },
@@ -1639,6 +1694,10 @@
         "file": "src/app/api/caring-contacts/notification-preferences/route.ts"
       },
       {
+        "path": "/api/cme/year",
+        "file": "src/app/api/cme/year/route.ts"
+      },
+      {
         "path": "/api/documents/[id]/labels",
         "file": "src/app/api/documents/[id]/labels/route.ts"
       },
@@ -1669,6 +1728,10 @@
       {
         "path": "/api/documents/images/batch",
         "file": "src/app/api/documents/images/batch/route.ts"
+      },
+      {
+        "path": "/api/cme/entries",
+        "file": "src/app/api/cme/entries/route.ts"
       },
       {
         "path": "/api/documents/[id]/signed-url",
@@ -3357,6 +3420,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/superpowers/plans/2026-09-20-cme-mode-phase-1.md",
+        "section": "superpowers",
+        "catalogued": false
+      },
+      {
         "path": "docs/ward-flow/register/ward-lead-findings.md",
         "section": "ward-flow",
         "catalogued": false
@@ -3514,6 +3582,11 @@
       {
         "path": "docs/superpowers/specs/2026-08-30-ward-flow-community-hub-design.md",
         "section": "superpowers",
+        "catalogued": false
+      },
+      {
+        "path": "docs/cme/design/cme-design-decisions.md",
+        "section": "cme",
         "catalogued": false
       },
       {
@@ -6433,6 +6506,9 @@
       },
       {
         "name": "caring-contacts"
+      },
+      {
+        "name": "cme"
       },
       {
         "name": "codex"

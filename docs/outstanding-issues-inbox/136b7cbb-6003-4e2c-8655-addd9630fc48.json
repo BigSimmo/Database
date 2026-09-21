@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "136b7cbb-6003-4e2c-8655-addd9630fc48",
+  "createdOn": "2026-09-20",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CME entries accept documentId/routineId without checking the referenced row belongs to the same owner",
+    "detail": "POST and PATCH on /api/cme/entries accept documentId and routineId and write them without verifying the referenced row is the caller's. On Call has assertValidLinkedDocumentIds for exactly this; CME has no equivalent, and the database foreign keys do not enforce ownership. There is no live leak today: the UI shows only a boolean 'attached' flag and never resolves the id. It becomes a cross-tenant existence oracle the moment any screen resolves that id to show a document title or a link — an owner could attach another owner's document id and learn whether it exists, and then see its title. Deliberately not fixed in PR #2902 to avoid widening a seventy-file change; both acceptance points carry a comment stating what is unchecked, why it is safe today and what makes it unsafe. Fix before any screen resolves a linked document.",
+    "source": "PR #2902 task-6 review by supabase-schema-guardian, 2026-09-20",
+    "issueUlid": "01M2ZVSJPSTV9HG6GT4E0XP12K"
+  }
+}
