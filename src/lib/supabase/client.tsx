@@ -41,6 +41,18 @@ type AuthContextValue = {
 
 export const AUTH_EMAIL_STORAGE_KEY = "clinical.dashboard.lastAuthEmail";
 const AUTH_CALLBACK_PATH = "/auth/callback";
+const GENERIC_AUTH_ERROR = "Sign-in could not be completed. Please try again.";
+
+function safeCallbackError(value: string | null) {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "access_denied" || normalized?.includes("access denied")) {
+    return "Sign-in was cancelled. You can try again.";
+  }
+  if (normalized === "provider_disabled" || normalized?.includes("provider is not enabled")) {
+    return "This sign-in provider is unavailable. Try email sign-in or try again later.";
+  }
+  return GENERIC_AUTH_ERROR;
+}
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -197,16 +209,21 @@ function authCallbackRedirect(next?: string) {
   return next ? `${base}?next=${encodeURIComponent(next)}` : base;
 }
 
-/** Read and clear a `?auth_error=` param left by the /auth/callback route. */
+/** Consume route errors and Supabase's direct provider-error fragments without exposing diagnostics. */
 function consumeAuthErrorParam(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const hasProviderError = fragment.has("error") || fragment.has("error_code");
   const authError = params.get("auth_error");
-  if (!authError) return null;
+  if (!authError && !hasProviderError) return null;
   params.delete("auth_error");
   const query = params.toString();
-  window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
-  return authError;
+  // OAuth fragments can contain provider diagnostics and state. Remove the
+  // entire fragment instead of carrying those values into another URL.
+  const hash = hasProviderError ? "" : window.location.hash;
+  window.history.replaceState({}, "", `${window.location.pathname}${query ? `?${query}` : ""}${hash}`);
+  return safeCallbackError(authError ?? fragment.get("error_code") ?? fragment.get("error"));
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -215,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>(client ? "loading" : "unconfigured");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const callbackErrorRef = useRef<string | null | undefined>(undefined);
   const authRequestsRef = useRef(createAuthRequestLifecycle());
   const authFingerprintRef = useRef<string | null>(null);
   // Tracks the user id last published into context so onAuthStateChange can
@@ -241,7 +259,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Clear the URL param synchronously (no React state here — that would trip
     // react-hooks/set-state-in-effect); surface it after the async load below.
-    const callbackError = consumeAuthErrorParam();
+    // Keep the consumed message across Strict Mode's effect setup/cleanup replay.
+    if (callbackErrorRef.current === undefined) callbackErrorRef.current = consumeAuthErrorParam();
+    const callbackError = callbackErrorRef.current;
 
     const initializeSession = async () => {
       try {
@@ -276,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
-          setError(null);
+          setError(callbackError);
           setNotice(null);
         } else {
           // Initial signed-out must not wipe the guest answer-thread snapshot:
@@ -286,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearRecentQueries();
           clearSignedUrlCache();
           if (callbackError) {
-            setError(decodeURIComponent(callbackError));
+            setError(callbackError);
             setNotice(null);
           }
         }
@@ -362,10 +382,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
-      const { error: signInError } = await active.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: authCallbackRedirect(next) },
-      });
+      const { error: signInError } = await active.auth
+        .signInWithOtp({
+          email,
+          options: { emailRedirectTo: authCallbackRedirect(next) },
+        })
+        .catch(() => ({ error: { message: "network_error" } }));
       if (signInError) {
         setStatus("error");
         setError("Sign-in email could not be sent.");
@@ -384,10 +406,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
-      const { error: signInError } = await active.auth.signInWithPassword({ email, password });
+      const { error: signInError } = await active.auth
+        .signInWithPassword({ email, password })
+        .catch(() => ({ error: { message: "network_error" } }));
       if (signInError) {
         setStatus("error");
-        setError(signInError.message);
+        setError("Sign-in failed. Check your email and password, or confirm your email address.");
         return;
       }
       // onAuthStateChange flips status to "authenticated" on success.
@@ -402,14 +426,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
-      const { data, error: signUpError } = await active.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: authCallbackRedirect() },
-      });
+      const { data, error: signUpError } = await active.auth
+        .signUp({
+          email,
+          password,
+          options: { emailRedirectTo: authCallbackRedirect() },
+        })
+        .catch(() => ({ data: { session: null }, error: { message: "network_error" } }));
       if (signUpError) {
         setStatus("error");
-        setError(signUpError.message);
+        setError("Account creation could not be completed. Try signing in or request a recovery link.");
         return;
       }
       // With "Confirm email" ON, no session is returned until confirmation.
@@ -428,13 +454,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("loading");
       setError(null);
       setNotice(null);
-      const { error: oauthError } = await active.auth.signInWithOAuth({
-        provider,
-        options: { redirectTo: authCallbackRedirect(next) },
-      });
+      const { error: oauthError } = await active.auth
+        .signInWithOAuth({
+          provider,
+          options: {
+            redirectTo: authCallbackRedirect(next),
+            ...(provider === "azure" ? { scopes: "email" } : {}),
+          },
+        })
+        .catch(() => ({ error: { message: "network_error" } }));
       if (oauthError) {
         setStatus("error");
-        setError(oauthError.message);
+        setError("This sign-in provider is unavailable. Try email sign-in or try again later.");
         return;
       }
       // On success the browser is redirected to the provider.

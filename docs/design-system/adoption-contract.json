@@ -581,6 +581,7 @@
       "id": "privacy-safety-and-reference",
       "disposition": "owned",
       "routes": [
+        "src/app/auth/reset-password/page.tsx",
         "src/app/privacy/page.tsx",
         "src/app/reference/colour-coding/page.tsx",
         "src/app/safety-plan/page.tsx"
@@ -615,7 +616,12 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["PrivacyPage", "ColourCodingReferencePage", "PatientSafetyPlan"]
+      "sanctionedSpecialPatterns": [
+        "PasswordRecoveryForm",
+        "PrivacyPage",
+        "ColourCodingReferencePage",
+        "PatientSafetyPlan"
+      ]
     },
     {
       "id": "search-results-shared",
