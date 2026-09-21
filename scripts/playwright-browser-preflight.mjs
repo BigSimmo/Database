@@ -20,6 +20,8 @@ export const playwrightProjectNames = Object.freeze({
   chromiumCaringContactsSeeded: "chromium-caring-contacts-seeded",
   firefox: "firefox",
   webkit: "webkit",
+  mobileWebkit: "mobile-webkit",
+  mobilePwaStandalone: "mobile-pwa-standalone",
 });
 
 const DEFAULT_CONFIG_PROJECTS = Object.freeze({
@@ -29,6 +31,8 @@ const DEFAULT_CONFIG_PROJECTS = Object.freeze({
     playwrightProjectNames.chromiumCaringContactsSeeded,
     playwrightProjectNames.firefox,
     playwrightProjectNames.webkit,
+    playwrightProjectNames.mobileWebkit,
+    playwrightProjectNames.mobilePwaStandalone,
   ],
   "playwright.visual.config.ts": [playwrightProjectNames.chromiumArtifacts],
 });
@@ -40,6 +44,8 @@ const PROJECT_BROWSER_FAMILIES = Object.freeze({
   [playwrightProjectNames.chromiumCaringContactsSeeded]: "chromium",
   [playwrightProjectNames.firefox]: "firefox",
   [playwrightProjectNames.webkit]: "webkit",
+  [playwrightProjectNames.mobileWebkit]: "webkit",
+  [playwrightProjectNames.mobilePwaStandalone]: "webkit",
 });
 
 // Mirrors Playwright's chromium-headless-shell executable table for the
