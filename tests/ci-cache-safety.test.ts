@@ -48,10 +48,15 @@ describe("CI cache safety", () => {
     expect(prShardRunner).toContain('"@quarantine|@mockup"');
   });
 
-  it("starts the critical subset and required shards concurrently", () => {
+  it("starts the critical subset and required shards concurrently after the shared Next build", () => {
+    // Both lanes wait on ui-playwright-build, then fan out together — they must not
+    // serialize on each other (critical must not need the shard job or vice versa).
     const uiJob = /\n  ui-critical:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    expect(uiJob).toContain("needs: changes");
+    const uiFast = /\n  ui-critical-fast:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(uiJob).toContain("needs: [changes, ui-playwright-build]");
+    expect(uiFast).toContain("needs: [changes, ui-playwright-build]");
     expect(uiJob).not.toContain("ui-critical-fast");
+    expect(uiFast).not.toContain("ui-critical:");
   });
 
   it("routes the blocking ingestion scan through the required aggregate", () => {
@@ -482,6 +487,8 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     BUILD_RESULT: "skipped",
     CONTAINER_RESULT: "skipped",
     // Critical-first UI job (this PR); skipped when ui_changed is false.
+    // Shared Playwright Next build producer — same UI_CHANGED gate; bind with the consumers.
+    UI_BUILD_RESULT: "skipped",
     UI_FAST_RESULT: "skipped",
     UI_RESULT: "skipped",
     LIGHTHOUSE_RESULT: "skipped",
@@ -562,6 +569,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "skipped",
         PR_DRAFT: "true",
         UI_FAST_RESULT: "skipped",
         UI_RESULT: "skipped",
@@ -719,6 +727,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "success",
         UI_RESULT: "cancelled",
         // The ward lane runs on every UI pull request now, so it must be green here or this
@@ -729,6 +738,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "cancelled",
         UI_RESULT: "success",
         // The ward lane runs on every UI pull request now, so it must be green here or this
@@ -761,7 +771,12 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // the fixture leaves both skipped — so every in-scope case below carries them green. Without
     // that the ward result is not the variable under test and the "in scope and green" case fails
     // for an unrelated reason, which is exactly what this test caught while being written.
-    const uiPr = { UI_CHANGED: "true", UI_FAST_RESULT: "success", UI_RESULT: "success" } as const;
+    const uiPr = {
+      UI_CHANGED: "true",
+      UI_BUILD_RESULT: "success",
+      UI_FAST_RESULT: "success",
+      UI_RESULT: "success",
+    } as const;
 
     // In scope and red: the lane failed.
     expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "failure" }).status).not.toBe(0);
