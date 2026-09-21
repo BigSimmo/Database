@@ -52,7 +52,7 @@ Scope → Read tip → Edit (class-aware) → Stamp + PR → Memory/FYI → One 
 | Project | Tip / repo | Entry docs | Doc check | Notes |
 | --- | --- | --- | --- | --- |
 | **PsychSift** (repo `BigSimmo/Database`) | GitHub default `main`; local tips on Josh PC worktrees as named | Root `README.md`, `docs/README.md` (generated catalog — do not hand-edit), process: this file | `npm run docs:check-links`, `docs:check-scripts`, `docs:check-inventory`, `docs:check-index` | Product name is PsychSift; “Clinical KB” is the Supabase project label. Closeout: [`supabase-remediation-closeout-notes.md`](supabase-remediation-closeout-notes.md) (PR #2959) |
-| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | `docs/ward-flow/README.md`, `LOCAL-FIRST-RUN.md`, `ARCHIVE-NOTE.md`, `STATUS.md` | `npm run ward:check-docs` (= `check:ward-doc-links`) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under `docs/ward-flow/archive/dated-notes/`. Never stale worktrees / cloud / other paths unless Joshua names them |
+| **Ward Flow** | **Only** Josh PC `D:\Worktrees\Database\ward-lead` (confirm tip before acting) | `docs/ward-flow/README.md`, `LOCAL-FIRST-RUN.md`, `ARCHIVE-NOTE.md`, `STATUS.md` | Ward Flow tip only: script `ward:check-docs` (alias of `check:ward-doc-links`; not on main) | Port via `npm run ensure` / `stableProjectPort` — never hardcode. Dated notes under `docs/ward-flow/archive/dated-notes/`. Never stale worktrees / cloud / other paths unless Joshua names them |
 
 Extend this table when a new product tip is confirmed — don’t invent paths.
 
