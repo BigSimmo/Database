@@ -72,4 +72,4 @@ Verified against `origin/main` on 2026-09-21 unless noted. Tip-only claims are l
 ## Related
 
 - Agent skills (Documentation bot): **Documentation Operating System**, **Docs Freshness Audit**.
-- Active PsychSift / Clinical KB Database closeout PR: [#2959](https://github.com/BigSimmo/Database/pull/2959) (lands `docs/supabase-remediation-closeout-notes.md`).
+- Active PsychSift / Clinical KB Database closeout PR: [#2959](https://github.com/BigSimmo/Database/pull/2959) (lands the closeout notes on PR #2959).
