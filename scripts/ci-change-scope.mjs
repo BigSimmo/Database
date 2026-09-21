@@ -418,6 +418,22 @@ const uiPatterns = [
   // On Call's demo corpus supplies the populated production browser journeys.
   // Fixture-only edits can change visible groups and rows without touching a component.
   /^src\/lib\/on-call\//,
+  // The same hazard, generalised. A demo fixture is not "data the app happens to
+  // have" — it IS what the browser suite renders against, because every
+  // `ui-*.spec.ts` runs in demo mode. The rule above closed On Call after a
+  // measured miss: a change to `on-call/demo-entries.ts` alone reported
+  // ui_changed=false, so `Production UI` skipped and `npm run plan:browser`
+  // printed "nothing is being left unrun" — while that same change failed three
+  // assertions in ui-on-call-boards.spec.ts. Three sibling fixtures still had
+  // the gap, each of them named directly by a spec:
+  //   demo-data                        ui-route-coverage, ui-smoke, ui-tools
+  //   caring-contacts-server/demo-seed ui-caring-contacts-{activation,populated,workspace}
+  //   cme/demo-year                    ui-cme-phone
+  // Matched by shape rather than by a hand-list, for the reason recorded above
+  // for `tests/helpers/**`: a hand-list is what failed there. The cost of the
+  // shape is one extra UI run when a demo clock changes; the cost of the
+  // hand-list is a silent miss.
+  /^src\/lib\/(?:[\w-]+\/)*demo-[\w-]+\.tsx?$/,
   // The pre-merge Lighthouse budget and its inputs. Without these, enabling
   // enforcement, refreshing the baseline, or breaking the runner is not exercised
   // until some unrelated UI or build change happens to trigger the job.

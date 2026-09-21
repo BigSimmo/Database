@@ -1089,6 +1089,8 @@ const CLINICAL_QUALITY_REASON =
   "Administrator-gated cross-tenant governance aggregate. GET and PATCH call authorizeAndLimit before these helpers run and the response carries governance metadata only — never raw question, answer, excerpt, or patient text. Per-owner filtering would defeat the oversight purpose (tenancy review §6).";
 const ON_CALL_SHARED_READ_REASON =
   "Deliberately unscoped: On Call is a shared reference surface by owner decision (2026-09-04), so this read answers anonymous callers with no owner to filter by. Its tenancy control is not an owner predicate but two allow-lists that fail closed — PUBLIC_ON_CALL_SECTIONS (a seventh section is withheld until it is named on purpose) and rowMayBeComplianceRequirement (any `kind` on a `logistics` row, read from the raw row before parsing, so a malformed compliance requirement is withheld rather than published). Added 2026-09-20 after a security review found this file sat outside the scanner: tests/on-call-api-contract.test.ts forbids the route from querying the table directly, which moved every On Call query out of src/app/api — the only directory phase 1 reads. Pinned by tests/on-call-repository.test.ts.";
+const ON_CALL_DEMO_CONTENT_COLLISION_REASON =
+  "Deliberately cross-owner existence probe, and it has to be: the example corpus it guards is published to every reader. `fetchSharedOnCallEntries` returns `is_personal = false` rows across ALL owners, and the loader's upsert key is (owner_id, section, slug), so a second account loading the corpus would not collide with the first — it would put a second, undeduplicated copy of all ninety-four rows on the page of every visitor, signed in or not, and repeated loads would walk toward ON_CALL_MAX_ENTRIES on the shared read where they would crowd out real entries. An owner-scoped query cannot detect that, because the thing being detected is by definition another owner's rows. Narrowness is the control: it selects `slug` only — never `owner_id`, never content — filters to `is_personal = false` and to the fixed demo slug list, takes `.limit(1)`, and the handler reads nothing but whether a row came back. So the only fact it can disclose, to an authenticated caller, is that example content exists somewhere on a site that already shows that content to anonymous readers. It gates a write and never returns anyone's data. Added 2026-09-21 with the loader, after a Codex review found the duplicate-publication path.";
 const SETUP_STATUS_REASON =
   "Local-origin-gated setup/health existence probe. It returns status booleans and counts only, never owner rows, so a fresh deployment can diagnose missing setup before any corpus exists (tenancy review §3 / TEN-N1).";
 
@@ -1097,6 +1099,14 @@ const SETUP_STATUS_REASON =
  * query chain. Every entry names its proof; the mechanical kinds are re-checked in the AST.
  */
 export const SCOPE_EXEMPTIONS = [
+  {
+    file: "src/app/api/on-call/demo-content/route.ts",
+    table: "on_call_entries",
+    fn: "POST",
+    queries: 1,
+    proof: PROOF_KINDS.REVIEWED_INDIRECT,
+    reason: ON_CALL_DEMO_CONTENT_COLLISION_REASON,
+  },
   {
     file: "src/lib/on-call/repository.ts",
     table: "on_call_entries",

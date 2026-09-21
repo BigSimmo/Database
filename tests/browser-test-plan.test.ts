@@ -364,6 +364,8 @@ describe("browser test plan", () => {
       "scripts/run-playwright.mjs",
       "lighthouse-budget.json",
       "src/lib/app-modes.ts",
+      "src/lib/on-call/demo-entries.ts",
+      "src/lib/demo-data.ts",
       "src/app/api/answer/route.ts",
       "src/lib/rag/rag.ts",
       "docs/testing.md",

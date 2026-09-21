@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
@@ -26,6 +26,7 @@ const storeState = vi.hoisted(() => ({
   loading: false,
   isOffline: false,
   signedOut: false,
+  demoMode: false,
   cachedAt: null as string | null,
 }));
 
@@ -105,6 +106,8 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
 beforeEach(() => {
   storeState.entries = [];
   storeState.loading = false;
+  storeState.signedOut = false;
+  storeState.demoMode = false;
   recentState.items = [];
 });
 
@@ -333,5 +336,74 @@ describe("On Call home tiles for Admin and Compliance", () => {
     expect(tile).toHaveAttribute("href", "/on-call/compliance");
     expect(tile).toHaveTextContent("Compliance");
     expect(within(tile).getByText(String(compliance.length))).toBeInTheDocument();
+  });
+});
+
+describe("the example-content module", () => {
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo mode,
+  // so the module around it must not render either. The demo case is not
+  // hypothetical: in demo mode the example corpus IS the entries, so every slug
+  // carries the `demo-` prefix and the "is any example content loaded?" test is
+  // true for every reader. Gated on that alone, the public demo home — and the
+  // home every `ui-*.spec.ts` renders — grew an "Example content" heading with
+  // nothing underneath it.
+  it("is absent in demo mode, where the corpus is the content and there is nothing to remove", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.demoMode = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+    expect(screen.queryByText("Example content")).toBeNull();
+  });
+
+  it("is absent for a signed-out reader, who cannot remove anything either", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.signedOut = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+  });
+
+  it("is present for the signed-in owner whose account actually holds the rows", async () => {
+    // Guard the two tests above: if the module never rendered at all they would
+    // pass on a component that had simply been deleted.
+    //
+    // The owner-scoped answer has to be supplied, because that is now the only
+    // thing that decides this. The entries in view do not: the shared read
+    // returns every non-personal row across all accounts.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ loaded: DEMO_ON_CALL_ENTRIES.length, total: DEMO_ON_CALL_ENTRIES.length }),
+    }) as unknown as typeof fetch;
+
+    try {
+      render(<OnCallHome />);
+      expect(await screen.findByTestId("on-call-home-example-content")).toBeInTheDocument();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("stays absent while the owner-scoped answer is still unknown", async () => {
+    // A labelled HomeModule whose only child has decided to render nothing is
+    // a heading with an empty body. That shipped once already, caught before
+    // push; it is pinned here because the failure mode is invisible in the
+    // markup a component test usually asserts on.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("offline")) as unknown as typeof fetch;
+
+    try {
+      render(<OnCallHome />);
+      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+      expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+      expect(screen.queryByText("Example content")).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

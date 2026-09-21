@@ -1495,6 +1495,10 @@
         "file": "src/app/api/caring-contacts/intake/route.ts"
       },
       {
+        "path": "/api/on-call/demo-content",
+        "file": "src/app/api/on-call/demo-content/route.ts"
+      },
+      {
         "path": "/api/health",
         "file": "src/app/api/health/route.ts"
       },
@@ -20207,6 +20211,14 @@
         "scope": "PR #1614 post-merge RAG index restoration audit",
         "outcome": "Pass - guard-only migration, no DDL, no ranking/RPC change; pr-policy ragRanking=false so no eval-canary required; 1 P3 doc nit (#248 renumber note says 237->246, row is #248); supersedes 2026-08-06 row (ref column mistakenly held commit SHA instead of PR ref, breaking ledger:lookup per Devin/Sentry review on PR #1636)",
         "checks": "check:migration-role; npx vitest run tests/supabase-schema.test.ts (74 passed); check:outstanding-issues"
+      },
+      {
+        "date": "2026-09-21",
+        "ref": "claude/on-call-review-redesign-1yyqh0",
+        "head": "a25c454370c5f218d5e92f5852dfd05f37a78da5",
+        "scope": "prlanded",
+        "outcome": "PR #2900 merged 2026-09-20 18:06 UTC as merge commit a25c45437 (2 parents; PR head 9f0de7971 is an ancestor of main). Verified by content, not by trusting the merge: git show --remerge-diff is EMPTY, so nothing was dropped in the resolution, and all four post-review commits are ancestors of main (bd642d46f compliance-marker read predicate, 94a37401b clearWhenEmpty on five compliance fields, b57c0eab3 schema fail-closed read + deliberately narrower write stamp, 276d3ef5e On Call domain model out of the shared search header). Remote branch auto-deleted by GitHub on merge. NOT CLEANED UP LOCALLY and no deletion performed - none was requested.",
+        "checks": "Main CI run 35528014766 on a25c45437 is the FIRST completed run of this change: on the PR itself the suite was cancelled ten consecutive times by GitHub web-flow 'Update branch' commits every 10-15 min, so every red 'PR required' on #2900 was 'CANCELLED with no failing job' and verified nothing. On main: PR required SUCCESS; Production UI (1)(2)(3) SUCCESS; release-browser-matrix chromium SUCCESS; Unit coverage SUCCESS; Build + enforced bundle budget SUCCESS; Lighthouse budget SUCCESS (it had failed twice pre-merge); Static PR checks, Safety and config, Visual baselines, Caring Contacts DB all SUCCESS. FAILING, both pre-existing and NEITHER touching On Call: release-browser-matrix firefox 715 passed / 1 failed (ui-smoke.spec.ts:5636 document source-text accordion, a details element not opening on summary click), and webkit 707 passed / ~7 failed (ui-phone-scroll-page-owned:98, ui-phone-scroll:236, ui-route-coverage:554, ui-smoke:1693, ui-smoke:6025, ui-specifiers:181, ui-tools:2946). No ui-on-call-boards.spec.ts failure in any engine - the ~10 new Compliance and truncation cases passed on first real execution. Local before merge: verify:cheap green (1444 files, 21895 tests), tsc 0, eslint 0."
       },
       {
         "date": "2026-08-22",

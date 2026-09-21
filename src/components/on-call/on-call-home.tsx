@@ -25,6 +25,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
+import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
@@ -266,7 +267,7 @@ function timeLabel(iso: string): string {
 }
 
 export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, cachedAt, signedOut, demoMode } = useOnCallEntries();
   const recent = useOnCallRecent();
 
   // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
@@ -311,6 +312,24 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // tries to serve both ends up telling a first-time reader about tags they have
   // nothing to tag yet.
   const hasEntries = entries.length > 0;
+  // Whether this reader can act on example content at all.
+  //
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo
+  // mode, and the module around it must not outlive its own child. Demo mode
+  // is the case that bites rather than a hypothetical one: there the example
+  // corpus IS the entries, so a module gated on "are any example rows visible"
+  // would put an "Example content" heading with nothing under it on the home
+  // of the public demo — which is also the mode every `ui-*.spec.ts` renders.
+  //
+  // What is NOT decided here is whether the corpus is loaded. That question is
+  // about this account, and the entries in view are not: the shared read
+  // returns every non-personal row across all accounts. The control asks the
+  // owner-scoped endpoint instead.
+  // How much of the example corpus THIS account holds, or null while that is
+  // unknown — which also covers signed out and demo mode. The module below is
+  // gated on it, so a labelled heading can never appear above a control that
+  // has decided to render nothing.
+  const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -388,6 +407,24 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
+        {exampleContent ? (
+          <HomeModule id="on-call-home-example-content" label="Example content">
+            {/* Deliberately at the top of the page rather than tucked into a
+                menu. These rows are shared, so while they are loaded they are
+                on the page a stranger reads; the way out of that should be
+                where the reader already is, not somewhere they have to
+                remember to look.
+
+                The control renders nothing until it knows what this ACCOUNT
+                holds, and decides Load or Remove from that. It is not gated on
+                the entries in view: the shared read returns every non-personal
+                row across all accounts, so example rows another account loaded
+                are on this page too, and gating on them would offer Remove to
+                someone who owns none of them. */}
+            <OnCallDemoContentControl state={exampleContent} />
+          </HomeModule>
+        ) : null}
+
         {!loading && !hasEntries ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
             <EmptyState
@@ -396,17 +433,19 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               body="Nothing has been added yet. Contacts is the page a shift actually opens, so it is the one worth filling first."
               description="Adding and editing needs an account. Reading does not."
               actions={
-                <Link
-                  href={ON_CALL_SECTION_HREFS.contacts}
-                  className={cn(
-                    "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
-                    "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
-                    focusRing,
-                  )}
-                >
-                  Open Contacts
-                  <ChevronRight aria-hidden="true" className="size-icon-xs" />
-                </Link>
+                <div className="flex flex-col gap-3">
+                  <Link
+                    href={ON_CALL_SECTION_HREFS.contacts}
+                    className={cn(
+                      "inline-flex min-h-tap items-center gap-1.5 rounded-sm px-1.5 text-sm font-semibold no-underline",
+                      "text-[color:var(--text-heading)] transition-colors motion-reduce:transition-none hover:text-[color:var(--command)]",
+                      focusRing,
+                    )}
+                  >
+                    Open Contacts
+                    <ChevronRight aria-hidden="true" className="size-icon-xs" />
+                  </Link>
+                </div>
               }
               testId="on-call-home-first-run-empty"
             />
