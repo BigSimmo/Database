@@ -1241,23 +1241,20 @@ test.describe("PsychSift UI smoke coverage", () => {
     // matched; the focus owner is the pill border + accent halo, not the input outline.
     await expect
       .poll(async () => {
-        return universalInput.evaluate(
-          (element, resting) => {
-            const inputStyle = getComputedStyle(element);
-            const pill = element.closest(".answer-footer-search-pill");
-            const pillStyle = pill ? getComputedStyle(pill) : null;
-            const pillBorder = pillStyle?.borderColor ?? null;
-            const pillShadow = pillStyle?.boxShadow ?? null;
-            return {
-              inputOutline: inputStyle.outlineStyle,
-              inputShadow: inputStyle.boxShadow,
-              pillBorder,
-              pillShadow,
-              pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
-            };
-          },
-          restingPill,
-        );
+        return universalInput.evaluate((element, resting) => {
+          const inputStyle = getComputedStyle(element);
+          const pill = element.closest(".answer-footer-search-pill");
+          const pillStyle = pill ? getComputedStyle(pill) : null;
+          const pillBorder = pillStyle?.borderColor ?? null;
+          const pillShadow = pillStyle?.boxShadow ?? null;
+          return {
+            inputOutline: inputStyle.outlineStyle,
+            inputShadow: inputStyle.boxShadow,
+            pillBorder,
+            pillShadow,
+            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+          };
+        }, restingPill);
       })
       .toMatchObject({
         inputOutline: "none",
