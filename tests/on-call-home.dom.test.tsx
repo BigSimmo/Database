@@ -17,6 +17,11 @@ vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({ isAuthenticated: true, isSaved: () => false, setFavourite: vi.fn(async () => true) }),
 }));
 
+// The home asks the auth provider directly whether there is a session, because
+// the entries API's `signedOut` flag cannot answer when its own request failed.
+const authState = vi.hoisted(() => ({ status: "loading" as string }));
+vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => authState }));
+
 // The page menu drags in the whole navigation chrome, which is covered by its
 // own tests. This file is about what the home lays out, and in what order — but
 // the menu is also where the home's notification list is handed off, so the
@@ -113,6 +118,7 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
 }
 
 beforeEach(() => {
+  authState.status = "loading";
   storeState.entries = [];
   storeState.loading = false;
   storeState.signedOut = false;
@@ -476,5 +482,55 @@ describe("what the home raises on its own", () => {
     render(<OnCallHome now={pinned} />);
 
     expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
+  });
+});
+
+describe("the example-content module when the entries request fails", () => {
+  it("still offers the preview, because the browser knows there is no session", () => {
+    // The defect this exists for, found while Josh could not see the block on
+    // the live site. `useOnCallEntries().signedOut` starts false and is only
+    // ever set by a SUCCESSFUL response, so a request that fails — no signal, a
+    // rate limit, a 500 — leaves it false for good. The page then treats an
+    // anonymous reader as possibly signed in, asks the owner-scoped count
+    // endpoint, gets a 401, and renders nothing: no control and no
+    // explanation, on a page that is already empty.
+    //
+    // `AuthProvider` resolves the session locally and needs no network, and the
+    // preview it unlocks writes only to this device. Either source saying
+    // "signed out" is enough.
+    storeState.entries = [];
+    storeState.signedOut = false; // the server never got to say
+    storeState.isOffline = true;
+    authState.status = "signed_out";
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+  });
+
+  it("treats an expired session the same way", () => {
+    storeState.entries = [];
+    storeState.signedOut = false;
+    authState.status = "expired";
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+  });
+
+  it("does NOT guess while the session is still being resolved", () => {
+    // An unknown session must not be answered with a guess. `loading` and
+    // `error` leave the decision to the server's flag, which is what the
+    // signed-in reader's Load/Remove control is keyed on — offering a preview
+    // to someone who is about to turn out to be signed in would flip the
+    // control out from under them a moment later.
+    storeState.entries = [];
+    storeState.signedOut = false;
+    authState.status = "loading";
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-demo-preview-start")).toBeNull();
   });
 });

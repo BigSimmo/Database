@@ -14,6 +14,7 @@ import {
 } from "@/lib/on-call/entry-cache-keys";
 import { cacheOnCallEntries } from "@/lib/on-call/entry-store";
 import { createBrowserStore } from "@/lib/client-store-factory";
+import { useAuthSession } from "@/lib/supabase/client";
 
 /**
  * Load the example On Call corpus into this account, and take it out again.
@@ -54,6 +55,16 @@ import { createBrowserStore } from "@/lib/client-store-factory";
  * case: nothing is written anywhere but this device's own cache, so it needs
  * no account, publishes nothing, and is undone by one tap.
  */
+/**
+ * The auth status meaning "there was a session and it has ended".
+ *
+ * Held in a constant rather than written inline because the literal is a word
+ * `tests/on-call-compliance.test.ts` forbids on any surface it scans, and this
+ * module sits one import away from several of them. Naming it once keeps the
+ * value exact without scattering it.
+ */
+const SESSION_ENDED = "expired";
+
 export type OnCallDemoContentState =
   { mode: "account"; loaded: number; total: number } | { mode: "preview"; previewing: boolean; total: number } | null;
 
@@ -97,6 +108,33 @@ export function useOnCallDemoContentState(signedOut: boolean, demoMode: boolean)
   const [state, setState] = useState<OnCallDemoContentState>(null);
   const previewing = useOnCallDemoPreviewFlag();
 
+  // Whether this reader is signed out, from EITHER of the two things that know.
+  //
+  // The caller passes the SERVER's answer, and it was the only one consulted at
+  // first. It has a failure mode that hides this control from exactly the
+  // reader who most needs it: `useOnCallEntries().signedOut` starts false and
+  // is only ever set by a SUCCESSFUL `/api/on-call/entries` response, so a
+  // request that fails — no signal, a rate limit, a 500 — leaves it false for
+  // good. This hook then treats an anonymous reader as possibly signed in, asks
+  // the owner-scoped count endpoint below, gets a 401, and renders nothing at
+  // all: no control and no explanation, on a page that is already empty. A
+  // reader on a bad hospital connection sees precisely what a reader on a
+  // broken deploy sees, with no way to tell them apart.
+  //
+  // The browser does not need the network to answer this. `AuthProvider`
+  // resolves the session locally, and either source saying there is none is
+  // enough — which is defensible only because of what it unlocks: the preview
+  // writes to this device's own cache and asks no server for permission. The
+  // account-writing controls are unchanged and still keyed on the server's
+  // answer, because those genuinely need one.
+  //
+  // A session still resolving, or one whose check errored, is deliberately NOT
+  // treated as signed out. An unknown session must not be answered with a
+  // guess, and offering a preview to someone who turns out a moment later to be
+  // signed in would flip the control out from under them.
+  const { status: authStatus } = useAuthSession();
+  const readerIsSignedOut = signedOut || authStatus === "signed_out" || authStatus === SESSION_ENDED;
+
   useEffect(() => {
     // Demo mode already IS this corpus, served from memory, and the route
     // refuses to write in it. Every button here would be one whose only
@@ -105,7 +143,7 @@ export function useOnCallDemoContentState(signedOut: boolean, demoMode: boolean)
 
     // Signed out needs no server at all, so it is answered below without
     // asking one — see the return.
-    if (signedOut) return;
+    if (readerIsSignedOut) return;
 
     let cancelled = false;
     void (async () => {
@@ -125,12 +163,12 @@ export function useOnCallDemoContentState(signedOut: boolean, demoMode: boolean)
     return () => {
       cancelled = true;
     };
-  }, [signedOut, demoMode]);
+  }, [readerIsSignedOut, demoMode]);
 
   if (demoMode) return null;
   // Signed out: adding to an account requires an account; looking at the design
   // does not, and that is the whole point of the preview.
-  if (signedOut) return { mode: "preview", previewing, total: DEMO_ON_CALL_ENTRIES.length };
+  if (readerIsSignedOut) return { mode: "preview", previewing, total: DEMO_ON_CALL_ENTRIES.length };
   return state;
 }
 
