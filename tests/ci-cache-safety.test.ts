@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 
 import { describe, expect, it } from "vitest";
+import fullConfig from "../vitest.config.mjs";
+import shardConfig from "../vitest.coverage-shard.config.mjs";
 
 import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
@@ -20,7 +23,70 @@ const liveWebVitalsWorkflow = readFileSync(
 );
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
+describe("partitioned unit coverage verdict", () => {
+  const workflow = createRequire(import.meta.url)("js-yaml").load(
+    readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+  );
+  const partitions = workflow.jobs["coverage-shards"];
+  const aggregate = workflow.jobs.coverage;
+
+  it("keeps the full test inventory and defers only coverage reporting and thresholds", () => {
+    expect(shardConfig).toEqual({
+      ...fullConfig,
+      test: { ...fullConfig.test, coverage: { ...fullConfig.test.coverage, reporter: [], thresholds: undefined } },
+    });
+    expect(fullConfig.test.coverage.thresholds).toBeDefined();
+    expect(partitions.strategy.matrix.shard).toEqual([1, 2]);
+    expect(partitions.strategy["fail-fast"]).toBe(false);
+    expect(partitions["continue-on-error"]).toBeUndefined();
+    const run = partitions.steps.find((step: { run?: string }) => step.run?.includes("--shard="));
+    expect(run.run).toContain("--shard=${{ matrix.shard }}/2");
+    expect(run.run).toContain("--reporter=blob");
+    expect(run["continue-on-error"]).toBeUndefined();
+  });
+
+  it("fails the required aggregate on unsuccessful or missing partitions", () => {
+    expect(aggregate.needs).toContain("coverage-shards");
+    expect(aggregate.if).toContain("always()");
+    expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
+    expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
+    expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
+    const merge = aggregate.steps.find((step: { run?: string }) => step.run?.includes("--merge-reports="));
+    const presence = aggregate.steps.find((step: { name: string }) => step.name === "Require both coverage reports");
+    for (const shard of [1, 2]) expect(presence.run).toContain(`test -s .vitest-ci/coverage-${shard}.json`);
+    expect(aggregate.steps.indexOf(presence)).toBeLessThan(aggregate.steps.indexOf(merge));
+    expect(presence["continue-on-error"]).toBeUndefined();
+    expect(merge.run).toContain("npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default");
+    expect(merge.run).not.toContain("--config");
+    expect(merge["continue-on-error"]).toBeUndefined();
+    expect(workflow.jobs["pr-required"].needs).toContain("coverage");
+  });
+});
+
 describe("CI cache safety", () => {
+  it("supports job reruns without artifact collisions or losing prior diagnostics", () => {
+    const parsed = createRequire(import.meta.url)("js-yaml").load(workflow);
+    let uploads = 0;
+    for (const [jobId, job] of Object.entries(parsed.jobs)) {
+      for (const step of (job as { steps?: Array<{ uses?: string; with?: Record<string, unknown> }> }).steps ?? []) {
+        if (!step.uses?.startsWith("actions/upload-artifact@")) continue;
+        uploads += 1;
+        const inputs = step.with!;
+        if (!/(?:diagnostics|timings)-/.test(String(inputs.name))) {
+          // Keep download contracts stable for downstream jobs and operator
+          // tools such as adopt-visual-baselines, including failed-job reruns.
+          expect(inputs.overwrite, jobId).toBe(true);
+          expect(inputs.name, jobId).not.toContain("github.run_attempt");
+        } else {
+          // Diagnostic/timing reports retain each attempt's proof.
+          expect(inputs.name, jobId).toContain("${{ github.run_attempt }}");
+          expect(inputs.overwrite, jobId).not.toBe(true);
+        }
+      }
+    }
+    expect(uploads).toBeGreaterThan(0);
+  });
+
   it("preserves successful production shard reports for measured rebalancing", () => {
     const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-ward-journeys:");
     expect(timingStep).toContain("if: always()");
@@ -343,9 +409,7 @@ describe("CI cache safety", () => {
     // playwright.config.ts project is not assigned to an engine.
     expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
     expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
-    expect(releaseJob).toContain(
-      'webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone"',
-    );
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=$BROWSER_PROJECT"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {

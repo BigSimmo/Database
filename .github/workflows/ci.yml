@@ -553,12 +553,16 @@ jobs:
         if: needs.changes.outputs.rag_eval_changed == 'true'
         run: npm run eval:rag:adversarial:offline
 
-  coverage:
-    name: Unit coverage
+  coverage-shards:
+    name: Unit coverage partition
     needs: changes
     if: needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     env:
       FAST_CHECK_SEED: ${{ github.event_name == 'schedule' && github.run_id || '424242' }}
     steps:
@@ -578,8 +582,58 @@ jobs:
       - name: Install deterministic Python PDF test prerequisite
         run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
 
-      - name: Unit tests (with coverage gate)
-        run: npm run test:coverage
+      - name: Unit tests with partial coverage
+        run: >-
+          node scripts/run-vitest.mjs run --config=vitest.coverage-shard.config.mts
+          --coverage --shard=${{ matrix.shard }}/2 --reporter=default --reporter=blob
+          --outputFile.blob=.vitest-ci/coverage-${{ matrix.shard }}.json
+
+      - name: Preserve test and coverage results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unit-coverage-${{ github.run_id }}-${{ matrix.shard }}
+          overwrite: true
+          path: .vitest-ci/coverage-${{ matrix.shard }}.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
+
+  coverage:
+    name: Unit coverage
+    needs: [changes, coverage-shards]
+    if: >
+      always() && needs.changes.result == 'success' &&
+      needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require every unit partition to pass
+        env:
+          SHARD_RESULT: ${{ needs.coverage-shards.result }}
+        run: test "$SHARD_RESULT" = success
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Download both coverage partitions from this run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: unit-coverage-${{ github.run_id }}-*
+          path: .vitest-ci
+          merge-multiple: true
+
+      - name: Require both coverage reports
+        run: |
+          test -s .vitest-ci/coverage-1.json
+          test -s .vitest-ci/coverage-2.json
+
+      - name: Merge results and enforce the original coverage thresholds
+        run: npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default
 
       - name: Verify coverage inventory
         run: npm run check:coverage-inventory
@@ -734,6 +788,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-next-build-${{ github.run_id }}
+          overwrite: true
           path: .next-playwright/ci-${{ github.run_id }}
           # Dot-dir under .next-playwright is hidden; upload-artifact excludes by default
           # (same pattern as .local/eval-canary).
@@ -779,7 +834,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-critical-diagnostics-${{ github.run_id }}
+          name: production-ui-critical-diagnostics-${{ github.run_id }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
@@ -860,7 +915,7 @@ jobs:
         with:
           # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
           # shared name would make the second failing shard fail on upload.
-          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
+          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
@@ -870,7 +925,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}
+          name: production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
           path: test-results/playwright-results.json
           if-no-files-found: ignore
           retention-days: 7
@@ -976,7 +1031,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: advisory-ui-diagnostics-${{ github.run_id }}
+          name: advisory-ui-diagnostics-${{ github.run_id }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
@@ -1062,6 +1117,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: visual-baseline-${{ github.run_id }}
+          overwrite: true
           path: |
             test-results/
             tests/__screenshots__/
@@ -1151,6 +1207,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lighthouse-budget-${{ github.run_id }}
+          overwrite: true
           path: lighthouse/
           if-no-files-found: ignore
 
@@ -1211,6 +1268,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lighthouse-baseline-refresh-${{ github.run_id }}
+          overwrite: true
           path: |
             lighthouse-budget.json
             lighthouse/
@@ -1353,6 +1411,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: drift-manifest-${{ github.run_id }}
+          overwrite: true
           path: supabase/drift-manifest.json
           if-no-files-found: error
 
@@ -1743,21 +1802,20 @@ jobs:
       # remove.
       fail-fast: false
       matrix:
-        # Groups, not bare project names, because the fail-safe path below runs
-        # the COMPLETE project set and every project must land in exactly one
-        # group. `tests/ci-browser-matrix-coverage.test.ts` proves that union
-        # against playwright.config.ts and fails closed when a project is added.
-        engine: [chromium, firefox, webkit]
-        # Partition tests across runners while preserving one worker and zero
-        # retries inside each. WebKit was still timing out at 45 minutes.
-        shard: [1, 2, 3]
-        # Chromium already finished in under ten minutes in the audited run.
-        # Keep its complete suite on one runner; only the slow engines fan out.
-        exclude:
-          - engine: chromium
-            shard: 2
-          - engine: chromium
-            shard: 3
+        # Shard each WebKit project independently. Passing three equal-sized
+        # projects to --shard=1/3 gives one entire project to each runner.
+        # Keep every test, one worker, zero retries, and the existing timeout.
+        include:
+          - { engine: chromium, project: chromium-mockups, shard: 1, total: 1 }
+          - { engine: firefox, project: firefox, shard: 1, total: 3 }
+          - { engine: firefox, project: firefox, shard: 2, total: 3 }
+          - { engine: firefox, project: firefox, shard: 3, total: 3 }
+          - { engine: webkit, project: webkit, shard: 1, total: 2 }
+          - { engine: webkit, project: webkit, shard: 2, total: 2 }
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 2 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 2 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 2 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 2 }
 
     steps:
       - name: Checkout
@@ -1820,8 +1878,9 @@ jobs:
         id: e2e-matrix
         env:
           ENGINE: ${{ matrix.engine }}
+          BROWSER_PROJECT: ${{ matrix.project }}
           SHARD: ${{ matrix.shard }}
-          SHARD_TOTAL: ${{ matrix.engine == 'chromium' && 1 || 3 }}
+          SHARD_TOTAL: ${{ matrix.total }}
           PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
           # Firefox/WebKit use the producer's mockups-disabled build. Chromium
           # includes mockups, whose public flag is baked in, so it builds its own.
@@ -1840,7 +1899,7 @@ jobs:
             case "$ENGINE" in
               chromium) PROJECTS="--project=chromium-mockups" ;;
               firefox)  PROJECTS="--project=firefox" ;;
-              webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone" ;;
+              webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
             esac
           else
@@ -1849,7 +1908,7 @@ jobs:
             case "$ENGINE" in
               chromium) PROJECTS="--project=chromium --project=chromium-mockups --project=chromium-caring-contacts-seeded" ;;
               firefox)  PROJECTS="--project=firefox" ;;
-              webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone" ;;
+              webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
             esac
           fi
@@ -1857,19 +1916,30 @@ jobs:
           # Word-splitting is intended: $PROJECTS is a list of --project= flags
           # built above, never user input.
           # shellcheck disable=SC2086
-          npm run test:e2e -- $PROJECTS --shard="$SHARD/$SHARD_TOTAL"
+          # Finish inside the job cap so Playwright can write its failure report
+          # and the following upload steps can preserve timeout diagnostics.
+          npm run test:e2e -- $PROJECTS --shard="$SHARD/$SHARD_TOTAL" --global-timeout=1800000
 
       - name: Upload UI diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          # Per engine: a shared name makes the second failing engine fail on
+          # Per project/partition: a shared name makes another failing job fail on
           # upload, the same trap already documented on the Production UI shards.
-          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}-${{ matrix.shard }}
+          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.project }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+      - name: Preserve browser partition timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-ui-timings-${{ github.run_id }}-${{ matrix.project }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
+          path: test-results/playwright-results.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   # WHY THIS EXISTS. Every job above answers the question "is this change broken?". Nothing
   # answered "is `main` broken right now?", and the difference is not academic: `pr-required` is a

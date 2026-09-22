@@ -7,7 +7,7 @@ import { sourceFrom } from "./helpers/source-contract";
 import { projectsForPrUiShard } from "../scripts/playwright-pr-shards.mjs";
 
 /*
- * `release-browser-matrix` runs one job per browser engine.
+ * `release-browser-matrix` partitions Firefox and each WebKit project independently.
  *
  * Why that shape needs a guard of its own: before 2026-09-07 the job ran
  * chromium-mockups + firefox + webkit sequentially in ONE job under
@@ -71,7 +71,15 @@ function engineProjects(branch: "primary" | "failsafe"): Map<string, string[]> {
     if (!engine) continue;
     byEngine.set(
       engine[1],
-      [...line.matchAll(/--project=([\w-]+)/g)].map((match) => match[1]),
+      line.includes("--project=$BROWSER_PROJECT")
+        ? [
+            ...new Set<string>(
+              parsedWorkflow.jobs["release-browser-matrix"].strategy.matrix.include
+                .filter((job: { engine: string }) => job.engine === engine[1])
+                .map((job: { project: string }) => job.project),
+            ),
+          ]
+        : [...line.matchAll(/--project=([\w-]+)/g)].map((match) => match[1]),
     );
   }
   return byEngine;
@@ -79,7 +87,13 @@ function engineProjects(branch: "primary" | "failsafe"): Map<string, string[]> {
 
 describe("release-browser-matrix engine coverage", () => {
   it("declares one job per engine and does not buy time with a longer timeout", () => {
-    expect(releaseJob).toContain("engine: [chromium, firefox, webkit]");
+    expect(
+      new Set(
+        parsedWorkflow.jobs["release-browser-matrix"].strategy.matrix.include.map(
+          (job: { engine: string }) => job.engine,
+        ),
+      ),
+    ).toEqual(new Set(["chromium", "firefox", "webkit"]));
     expect(releaseJob).toContain("fail-fast: false");
 
     // A single-worker suite is not made faster by a longer cap. Raising this
@@ -128,26 +142,30 @@ describe("release-browser-matrix engine coverage", () => {
   });
 
   it("runs all partitions while keeping the shorter Chromium suite on one runner", () => {
-    const matrix = parsedWorkflow.jobs["release-browser-matrix"].strategy.matrix as {
-      engine: string[];
-      shard: number[];
-      exclude: Array<{ engine: string; shard: number }>;
-    };
-    const jobs = matrix.engine
-      .flatMap((engine) => matrix.shard.map((shard) => ({ engine, shard })))
-      .filter(
-        (job) => !matrix.exclude.some((excluded) => excluded.engine === job.engine && excluded.shard === job.shard),
-      );
-    expect(jobs).toHaveLength(7);
-    for (const engine of matrix.engine) {
-      expect(jobs.filter((job) => job.engine === engine).map((job) => job.shard)).toEqual(
-        engine === "chromium" ? [1] : [1, 2, 3],
+    const jobs = parsedWorkflow.jobs["release-browser-matrix"].strategy.matrix.include as Array<{
+      engine: string;
+      project: string;
+      shard: number;
+      total: number;
+    }>;
+    expect(jobs).toHaveLength(10);
+    for (const [project, engine, total] of [
+      ["chromium-mockups", "chromium", 1],
+      ["firefox", "firefox", 3],
+      ["webkit", "webkit", 2],
+      ["mobile-webkit", "webkit", 2],
+      ["mobile-pwa-standalone", "webkit", 2],
+    ] as const) {
+      expect(jobs.filter((job) => job.project === project)).toEqual(
+        Array.from({ length: total }, (_, index) => ({ project, engine, shard: index + 1, total })),
       );
     }
-    expect(releaseJob).toContain("shard: [1, 2, 3]");
+    expect(releaseJob).toContain("BROWSER_PROJECT: ${{ matrix.project }}");
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=$BROWSER_PROJECT"');
     expect(releaseJob).toContain("SHARD: ${{ matrix.shard }}");
-    expect(releaseJob).toContain("SHARD_TOTAL: ${{ matrix.engine == 'chromium' && 1 || 3 }}");
+    expect(releaseJob).toContain("SHARD_TOTAL: ${{ matrix.total }}");
     expect(releaseJob).toContain('npm run test:e2e -- $PROJECTS --shard="$SHARD/$SHARD_TOTAL"');
+    expect(releaseJob).toContain("--global-timeout=1800000");
   });
 
   it("keeps browser archives isolated by engine and installs that engine on cache hits too", () => {
@@ -190,11 +208,11 @@ describe("release-browser-matrix engine coverage", () => {
     expect(runner).toContain("is missing a usable Next build");
   });
 
-  it("uploads diagnostics under a per-engine artifact name", () => {
+  it("uploads diagnostics under a per-project and partition artifact name", () => {
     // A shared name makes the second failing engine fail on upload, so the
     // engine that failed second loses its trace exactly when it is needed.
     expect(releaseJob).toContain(
-      "release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}-${{ matrix.shard }}",
+      "release-ui-diagnostics-${{ github.run_id }}-${{ matrix.project }}-${{ matrix.shard }}",
     );
   });
 });
