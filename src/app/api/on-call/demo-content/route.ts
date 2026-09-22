@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   ON_CALL_DEMO_ENTRY_COUNT,
   ON_CALL_DEMO_SLUGS,
@@ -250,7 +251,14 @@ export async function DELETE(request: Request) {
         // Deliberately not in the response: that is what
         // `api-validation-contract` forbids, and the string is whatever
         // Postgres said about a failed statement.
-        console.error(`on-call demo-content: DELETE stopped at the ${section} section`, error);
+        console.error(
+          `on-call demo-content: DELETE stopped at the ${section} section`,
+          // Through the repository's redactor, never raw. A driver error can
+          // carry a URL, a file path, a credential-like token or an HTML body,
+          // and this line writes to durable application logs. `jsonError` and
+          // every other Supabase caller here go through the same helper.
+          safeErrorLogDetails(error),
+        );
         // Public errors must go through publicErrorResponse (api-validation-contract).
         // Keep the removed count in the message so the control can tell the reader
         // a half-finished delete happened — pressing Remove again is safe.

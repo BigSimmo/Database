@@ -3,7 +3,8 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { ON_CALL_SECTION_HREFS, ON_CALL_VIEW_HREFS } from "@/components/on-call/on-call-section-identity";
+import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { ON_CALL_VIEW_HREFS } from "@/components/on-call/on-call-section-identity";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { type OnCallNotification } from "@/lib/on-call/notifications";
 
@@ -91,13 +92,22 @@ export function OnCallNotificationsPanel({
 /**
  * Where a notification goes.
  *
- * Compliance is a VIEW rather than a stored section, so it is looked up in the
- * view map. Everything else is a real section and uses the section map — which
- * is why `deriveOnCallNotifications` returns a section and a kind rather than a
- * URL: the maps live here, under `src/components`, and the derivation must not
- * reach into the component tree to read them.
+ * Through `onCallViewForEntry`, always — never the entry's stored section, and
+ * never a special case on the notification's kind. Two of this mode's pages are
+ * views over a stored section, and the entry alone decides which page holds a
+ * row.
+ *
+ * The first version of this keyed on the kind: compliance items to the
+ * Compliance view, everything else to `ON_CALL_SECTION_HREFS[section]`. That
+ * is right only while a compliance row's date is what raised it. A requirement
+ * whose recorded date is still ahead but which nobody has confirmed in a year
+ * is raised as `never-verified`, fell through to the section map, and linked to
+ * Admin — which filters compliance rows out. The reader would have landed on a
+ * page not containing the thing they were just told about. Role explainers,
+ * stored as `contacts` but shown under Who's who, had the same fault.
+ *
+ * `ON_CALL_VIEW_HREFS` is a total map over every view, so this cannot miss.
  */
 function hrefFor(notification: OnCallNotification): string {
-  if (notification.kind === "compliance-date-passed") return ON_CALL_VIEW_HREFS.compliance;
-  return ON_CALL_SECTION_HREFS[notification.section];
+  return ON_CALL_VIEW_HREFS[onCallViewForEntry(notification.entry)];
 }

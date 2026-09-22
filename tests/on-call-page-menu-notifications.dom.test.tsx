@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { universalHeaderTrailingSlotId } from "@/lib/mode-home-composer";
+import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import { type OnCallNotification } from "@/lib/on-call/notifications";
 
 vi.mock("next/navigation", () => ({
@@ -26,12 +27,36 @@ vi.mock("next/navigation", () => ({
  *    would leave a reader with a list of problems and no way to act.
  */
 
+function entry(overrides: Partial<OnCallEntry> & { id: string }): OnCallEntry {
+  return {
+    slug: overrides.id,
+    section: "contacts",
+    title: "Row",
+    subtitle: null,
+    body: null,
+    details: {},
+    tags: [],
+    isPersonal: false,
+    sortOrder: 0,
+    lastVerifiedAt: null,
+    ...overrides,
+  } as unknown as OnCallEntry;
+}
+
+/** A compliance requirement: stored under `logistics`, shown under Compliance. */
+const COMPLIANCE_ENTRY = entry({
+  id: "bls",
+  title: "Basic life support",
+  section: "logistics",
+  details: { kind: "compliance", expiresOn: "2026-01-01" },
+});
+
 const NOTIFICATION: OnCallNotification = {
   id: "bls:compliance-date-passed",
   kind: "compliance-date-passed",
   title: "Basic life support",
   detail: "The date recorded for this was 2026-01-01, which has passed.",
-  section: "logistics",
+  entry: COMPLIANCE_ENTRY,
 };
 
 function notification(index: number): OnCallNotification {
@@ -104,13 +129,37 @@ describe("On Call page menu: notifications", () => {
     expect(row.getAttribute("href")).toBe("/on-call/compliance");
   });
 
-  it("sends a non-compliance notification to its own section", () => {
+  it("sends a plain section entry to its own section", () => {
+    const contact = entry({ id: "switch", title: "Switchboard" });
     render(
-      <OnCallPageMenu view="home" notifications={[{ ...NOTIFICATION, kind: "never-verified", section: "contacts" }]} />,
+      <OnCallPageMenu view="home" notifications={[{ ...NOTIFICATION, kind: "never-verified", entry: contact }]} />,
     );
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
 
     expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toBe("/on-call/contacts");
+  });
+
+  it("sends an UNCONFIRMED compliance requirement to Compliance, not to the Admin page it is filed under", () => {
+    // The regression this file exists for (Codex, 2026-09-22). The first
+    // version keyed the destination on the notification's KIND: compliance
+    // items to the Compliance view, everything else to the stored section. A
+    // requirement whose recorded date is still ahead but which nobody has
+    // confirmed in a year is raised as `never-verified`, so it fell through to
+    // `logistics` and linked to Admin — a page that filters compliance rows
+    // out. The reader would have landed somewhere not showing the row they
+    // were just told about.
+    const unconfirmed = entry({
+      id: "mand",
+      title: "Mandatory training",
+      section: "logistics",
+      details: { kind: "compliance", expiresOn: "2099-01-01" },
+    });
+    render(
+      <OnCallPageMenu view="home" notifications={[{ ...NOTIFICATION, kind: "never-verified", entry: unconfirmed }]} />,
+    );
+    fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
+
+    expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toBe("/on-call/compliance");
   });
 
   it("keeps Add an entry in the same sheet", () => {

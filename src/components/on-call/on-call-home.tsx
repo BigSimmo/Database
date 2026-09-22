@@ -327,9 +327,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
 
   // What the hub is raising on its own, derived from the entries already in
-  // hand. Memoised on the entries so opening and closing the sheet does not
-  // rebuild the list, and so two renders cannot disagree about the count.
-  const notifications = useMemo(() => deriveOnCallNotifications(entries, new Date()), [entries]);
+  // hand. Memoised so opening and closing the sheet does not rebuild the list,
+  // and so two renders cannot disagree about the count.
+  //
+  // It reads the page's OWN clock rather than calling `new Date()` here, for
+  // two reasons this had wrong on the first pass. A fresh `Date` ignored
+  // `pinnedNow` entirely, so a test standing at a chosen moment was silently
+  // answered from the process clock. And with `[entries]` alone the memo never
+  // re-ran on a page nobody is touching: the ward strip would move to the
+  // after-hours number on the next tick while the badge went on counting from
+  // whenever the page was opened. One clock, one answer.
+  const notifications = useMemo(() => deriveOnCallNotifications(entries, now), [entries, now]);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If

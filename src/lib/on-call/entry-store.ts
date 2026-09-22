@@ -10,6 +10,7 @@ import { createBrowserStore } from "@/lib/client-store-factory";
 // call sites are unchanged.
 import {
   clearOnCallEntryCache,
+  isOnCallDemoPreviewActive,
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
   peekOnCallEntrySessionEpoch,
@@ -220,7 +221,18 @@ export function useOnCallEntries(): OnCallEntriesState {
         // do it. A session expiring still drops the owner's own `is_personal` entries on the
         // next non-empty fetch, which is correct — those are the one thing a signed-out
         // caller is not shown.
-        if (entries.length > 0 || readCachedOnCallEntries() === null) {
+        //
+        // An ACTIVE on-device preview is the second thing an arriving response
+        // must not erase, and it fails the empty-response test above because
+        // the shared read is not empty. A signed-out reader who starts the
+        // preview on the home and then opens any section page mounts a fresh
+        // copy of this hook there; without this guard its successful shared
+        // response overwrites the example rows, so the destination shows the
+        // real (empty) hub while the home still offers "Clear the example
+        // preview" over data this device never wrote. The marker is only ever
+        // set by that control and is removed by `clearOnCallEntryCache`, which
+        // is also the sign-out path, so this cannot outlive the preview.
+        if (!isOnCallDemoPreviewActive() && (entries.length > 0 || readCachedOnCallEntries() === null)) {
           cacheOnCallEntries(entries);
         }
       } catch (error) {

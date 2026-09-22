@@ -4,7 +4,7 @@ import {
   partitionLogisticsEntries,
   recordedExpiryHasPassed,
 } from "@/lib/on-call/compliance";
-import { type OnCallEntry, type OnCallSection } from "@/lib/on-call/entry-model";
+import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import { summariseOnCallFreshness } from "@/lib/on-call/freshness-summary";
 
 /**
@@ -43,7 +43,19 @@ export interface OnCallNotification {
   title: string;
   /** One plain sentence. Never a claim about the reader's standing. */
   detail: string;
-  section: OnCallSection;
+  /**
+   * The row this is about, so the surface can resolve where to send a reader.
+   *
+   * The entry, not its `section`. Two of this mode's pages are VIEWS over a
+   * stored section rather than sections themselves — a compliance requirement
+   * is stored as `logistics`, a role explainer as `contacts` — and
+   * `onCallViewForEntry` is the one place allowed to decide which. Carrying the
+   * section instead sent a stale compliance requirement to the Admin page,
+   * which filters that row out: a notification navigating to a page that does
+   * not contain the thing it named. That function lives under `src/components`,
+   * so the entry travels and the surface resolves it.
+   */
+  entry: OnCallEntry;
 }
 
 /** Worst first. A date that has passed outranks a row nobody has confirmed,
@@ -83,7 +95,7 @@ export function deriveOnCallNotifications(
       detail: expiresOn
         ? `The date recorded for this was ${expiresOn}, which has passed. Worth checking whether the record needs updating.`
         : "The date recorded for this has passed. Worth checking whether the record needs updating.",
-      section: entry.section,
+      entry,
     });
   }
 
@@ -103,7 +115,7 @@ export function deriveOnCallNotifications(
       detail: neverVerified
         ? "Nobody has confirmed this is still right. Worth a look before the shift depends on it."
         : "This was last confirmed a long time ago. Worth checking it is still right.",
-      section: entry.section,
+      entry,
     });
   }
 

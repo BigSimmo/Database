@@ -4,6 +4,7 @@ import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
+import { setOnCallDemoPreviewActive } from "@/lib/on-call/entry-cache-keys";
 import {
   cacheOnCallEntries,
   clearOnCallEntryCache,
@@ -41,6 +42,32 @@ describe("useOnCallEntries", () => {
     cleanup();
     clearOnCallEntryCache();
     vi.restoreAllMocks();
+  });
+
+  it("leaves an active on-device preview alone when a NON-EMPTY shared response arrives", async () => {
+    // The defect this exists for (Codex, 2026-09-22). The empty-response guard
+    // below protects a shift whose session expired, but it tests emptiness —
+    // and the signed-out shared read is not empty. So a reader who started the
+    // example preview on the home and then opened a section page mounted a
+    // fresh copy of this hook there, its shared response overwrote the example
+    // rows, and the destination showed the real (empty) hub while the home
+    // still offered "Clear the example preview" over data this device never
+    // wrote. One tap, two pages disagreeing about what is on screen.
+    const preview = { ...contact, id: "33333333-3333-4333-8333-333333333333", slug: "demo-preview-row" };
+    setOnCallDemoPreviewActive(true);
+    cacheOnCallEntries([preview]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [contact], signedOut: true }));
+
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(readCachedOnCallEntries()?.entries).toEqual([preview]);
+    expect(result.current.entries).toEqual([preview]);
+
+    // And clearing the preview puts the hook straight back to normal: the
+    // marker and the cache go together, so nothing can outlive the preview.
+    clearOnCallEntryCache();
+    expect(readCachedOnCallEntries()).toBeNull();
   });
 
   it("writes the cache and records the save time on a successful fetch", async () => {
