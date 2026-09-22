@@ -21,6 +21,13 @@ const liveWebVitalsWorkflow = readFileSync(
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
+  it("preserves successful production shard reports for measured rebalancing", () => {
+    const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-ward-journeys:");
+    expect(timingStep).toContain("if: always()");
+    expect(timingStep).toContain("production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}");
+    expect(timingStep).toContain("path: test-results/playwright-results.json");
+    expect(timingStep).toContain("retention-days: 7");
+  });
   it("does not add a PR workflow that changes user-owned auto-merge state", () => {
     expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
   });
@@ -84,7 +91,9 @@ describe("CI cache safety", () => {
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
-    expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
+    expect(workflow).toMatch(
+      /cache-hit.*?install-deps "\$BROWSER_ENGINE"\n\s+npx playwright install "\$BROWSER_ENGINE"/s,
+    );
   });
 
   it("hardens Playwright browser and dependency installation against flaky Ubuntu mirrors and apt hangs", () => {
@@ -334,7 +343,9 @@ describe("CI cache safety", () => {
     // playwright.config.ts project is not assigned to an engine.
     expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
     expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
-    expect(releaseJob).toContain('webkit)   PROJECTS="--project=webkit"');
+    expect(releaseJob).toContain(
+      'webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone"',
+    );
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
@@ -927,7 +938,8 @@ describe("Lighthouse budget routing", () => {
     const classifyStep = sourceSegment(workflow, "name: Classify changed files", "sync-pr-policy-body:", {
       label: "CI change-scope classify step",
     });
-    const runScript = classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "";
+    // Stop at the next step: its env expressions are not shell interpolation.
+    const runScript = (classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "").split(/\n      - name:/)[0];
     expect(runScript, "could not read the classify step run script").not.toBe("");
     expect(classifyStep).toMatch(
       /REFRESH_LIGHTHOUSE_BASELINE:\s*\$\{\{\s*github\.event\.inputs\.refresh_lighthouse_baseline\s*\}\}/,
