@@ -432,6 +432,11 @@ const uiPatterns = [
   // or rendering lists. Editing these directly alters what the browser shell
   // and mode homes render without touching a component or route file (#0HFDWD).
   /^src\/lib\/(?:app-modes|app-mode-icons|search-route-ownership|ui-copy|mode-home-composer|mode-secondary-navigation|category-identity(?:-icons)?|brand-mark|brand-image|search-command-surface|search-navigation-context|search-scope-filter-chips|search-shell-props|document-flow-routes|document-viewer-navigation|differentials-navigation|therapy-compass-navigation|therapies)\.tsx?$/,
+  // Calculator fixtures, scoring, routing and evidence are browser-facing clinical
+  // content owned under src/lib (the component layer re-exports them). A wording,
+  // scoring or routing change here must run the UI lane — before this, a fixture
+  // edit reported ui_changed=false and reached no browser test (PS-02).
+  /^src\/lib\/calculators\//,
   // On Call's demo corpus supplies the populated production browser journeys.
   // Fixture-only edits can change visible groups and rows without touching a component.
   /^src\/lib\/on-call\//,
@@ -1437,6 +1442,10 @@ function selfTest() {
     source_changed: true,
   });
   assertScope("therapies-lib-triggers-ui", ["src/lib/therapies.ts"], {
+    ui_changed: true,
+    source_changed: true,
+  });
+  assertScope("calculators-lib-triggers-ui", ["src/lib/calculators/calculator-fixtures.ts"], {
     ui_changed: true,
     source_changed: true,
   });
