@@ -7,6 +7,7 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import {
   ON_CALL_DEMO_ENTRY_COUNT,
   ON_CALL_DEMO_SLUGS,
@@ -243,6 +244,21 @@ export async function DELETE(request: Request) {
       // finishes the job, because each delete is scoped to rows that still
       // match.
       if (error) {
+        // The driver's own message goes to the log and nowhere else. It is the
+        // only record of WHY a removal stopped, and `publicErrorResponse`
+        // defaults to `log: false`, so without this line a half-finished
+        // delete is reported to the reader and diagnosable by no one.
+        // Deliberately not in the response: that is what
+        // `api-validation-contract` forbids, and the string is whatever
+        // Postgres said about a failed statement.
+        console.error(
+          `on-call demo-content: DELETE stopped at the ${section} section`,
+          // Through the repository's redactor, never raw. A driver error can
+          // carry a URL, a file path, a credential-like token or an HTML body,
+          // and this line writes to durable application logs. `jsonError` and
+          // every other Supabase caller here go through the same helper.
+          safeErrorLogDetails(error),
+        );
         // Public errors must go through publicErrorResponse (api-validation-contract).
         // Keep the removed count in the message so the control can tell the reader
         // a half-finished delete happened — pressing Remove again is safe.

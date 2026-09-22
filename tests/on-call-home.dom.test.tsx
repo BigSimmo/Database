@@ -18,8 +18,17 @@ vi.mock("@/components/account-data-provider", () => ({
 }));
 
 // The page menu drags in the whole navigation chrome, which is covered by its
-// own tests. This file is about what the home lays out, and in what order.
-vi.mock("@/components/on-call/on-call-page-menu", () => ({ OnCallPageMenu: () => null }));
+// own tests. This file is about what the home lays out, and in what order — but
+// the menu is also where the home's notification list is handed off, so the
+// stub records the props it was given rather than discarding them. It still
+// renders nothing, so nothing else in this file changes.
+const menuProps = vi.hoisted(() => ({ last: null as { notifications?: readonly { title: string }[] } | null }));
+vi.mock("@/components/on-call/on-call-page-menu", () => ({
+  OnCallPageMenu: (props: { notifications?: readonly { title: string }[] }) => {
+    menuProps.last = props;
+    return null;
+  },
+}));
 
 const storeState = vi.hoisted(() => ({
   entries: [] as OnCallEntry[],
@@ -357,13 +366,23 @@ describe("the example-content module", () => {
     expect(screen.queryByText("Example content")).toBeNull();
   });
 
-  it("is absent for a signed-out reader, who cannot remove anything either", () => {
-    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+  it("offers a signed-out reader the on-device preview, because that is most readers", () => {
+    // Changed deliberately on 2026-09-22 (owner request). This module used to
+    // render nothing at all when signed out, which meant the overwhelmingly
+    // common case — someone opening the site without an account — saw an empty
+    // hub and no way to see what a filled one looks like. The preview needs no
+    // account and writes nothing to the server, so there is no reason to
+    // withhold it.
+    storeState.entries = [];
     storeState.signedOut = true;
 
     render(<OnCallHome />);
 
-    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+    // And it must not offer the account-writing controls, which would 401.
+    expect(screen.queryByTestId("on-call-demo-content-load")).toBeNull();
+    expect(screen.queryByTestId("on-call-demo-content-remove")).toBeNull();
   });
 
   it("is present for the signed-in owner whose account actually holds the rows", async () => {
@@ -405,5 +424,57 @@ describe("the example-content module", () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
+  });
+});
+
+describe("what the home raises on its own", () => {
+  function complianceRow(expiresOn: string, lastVerifiedAt: string): OnCallEntry {
+    return {
+      id: "bls",
+      slug: "bls",
+      section: "logistics",
+      title: "Basic life support",
+      subtitle: null,
+      body: null,
+      details: { kind: "compliance", expiresOn },
+      linkedDocumentIds: [],
+      tags: [],
+      isPersonal: true,
+      includeOnCard: false,
+      sortOrder: 0,
+      lastVerifiedAt,
+    } as unknown as OnCallEntry;
+  }
+
+  it("reads the page's own clock, so a pinned moment is honoured", () => {
+    // The defect this exists for (Codex, 2026-09-22). The list was derived with
+    // a fresh `new Date()` and memoised on `[entries]` alone. That ignored
+    // `pinnedNow` outright — a caller standing at a chosen moment was answered
+    // from the process clock — and it never re-ran on a page nobody is
+    // touching, so the ward strip could move to the after-hours number while
+    // the badge went on counting from whenever the page was opened.
+    //
+    // Pinned to 2025, a date recorded for 2026-01-01 has NOT passed. Derived
+    // from the real clock it has, and this row would be raised.
+    const pinned = new Date("2025-01-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2025-01-01T00:00:00.000Z")];
+    storeState.signedOut = false;
+
+    render(<OnCallHome now={pinned} />);
+
+    expect(menuProps.last?.notifications).toEqual([]);
+  });
+
+  it("raises a requirement whose recorded date has passed at that same moment", () => {
+    // The other half: with the clock moved past the recorded date, the same
+    // row IS raised. Without this, the test above would pass on a list that is
+    // simply always empty.
+    const pinned = new Date("2026-06-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2026-05-30T00:00:00.000Z")];
+    storeState.signedOut = false;
+
+    render(<OnCallHome now={pinned} />);
+
+    expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
   });
 });

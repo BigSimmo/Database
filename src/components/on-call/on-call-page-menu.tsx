@@ -7,11 +7,13 @@ import { useRef, useState } from "react";
 import { inPageActionRowClass } from "@/components/in-page-nav/in-page-nav-classes";
 import { UniversalHeaderTrailingPortal } from "@/components/clinical-dashboard/universal-header-trailing-portal";
 import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
+import { OnCallNotificationsPanel } from "@/components/on-call/on-call-notifications";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { type OnCallContactsOrder } from "@/components/on-call/on-call-contacts-section";
 import { ON_CALL_HOME_TAGS } from "@/lib/on-call/home-modules";
+import { type OnCallNotification } from "@/lib/on-call/notifications";
 
 /**
  * The page menu's rows, without a trigger or a sheet of its own.
@@ -189,6 +191,7 @@ export function OnCallPageMenu({
   onVerifyAll,
   staleCount = 0,
   summary,
+  notifications,
 }: {
   /** The page this menu belongs to, or `"home"` for the dashboard. */
   view: OnCallPageView | "home";
@@ -217,10 +220,20 @@ export function OnCallPageMenu({
    */
   onVerifyAll?: () => void;
   staleCount?: number;
+  /**
+   * What this hub is asking its owner to deal with, already derived.
+   *
+   * Passed in rather than computed here because this component has an entry
+   * COUNT, not the entries, and because a second `useOnCallEntries` mount would
+   * fetch `/api/on-call/entries` a second time on every page that renders this
+   * header. The caller already holds the list.
+   */
+  notifications?: readonly OnCallNotification[];
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const title = view === "home" ? "On Call" : ON_CALL_VIEW_TITLES[view];
+  const notificationCount = notifications?.length ?? 0;
   const description =
     summary ??
     (typeof entryCount === "number"
@@ -236,16 +249,34 @@ export function OnCallPageMenu({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-expanded={open}
-          aria-label={`Open ${title} actions`}
+          // The count is in the label, not only in the badge: a screen reader
+          // gets the number without having to reach a decorative dot.
+          aria-label={
+            notificationCount > 0
+              ? `Open ${title} actions. ${notificationCount} ${notificationCount === 1 ? "item needs" : "items need"} attention.`
+              : `Open ${title} actions`
+          }
           data-testid="on-call-page-menu-trigger"
           className={cn(
-            "universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-full",
+            "universal-header-icon-control relative inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-full",
             "border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition",
             "hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           )}
         >
           <Ellipsis aria-hidden="true" className="size-icon-lg" strokeWidth={2.25} />
+          {notificationCount > 0 ? (
+            <span
+              aria-hidden="true"
+              data-testid="on-call-page-menu-notification-count"
+              className={cn(
+                "absolute -right-0.5 -top-0.5 inline-flex min-w-5 items-center justify-center rounded-full px-1",
+                "bg-[color:var(--command)] text-3xs font-bold leading-4 text-[color:var(--command-contrast)]",
+              )}
+            >
+              {notificationCount > 9 ? "9+" : notificationCount}
+            </span>
+          ) : null}
         </button>
       </UniversalHeaderTrailingPortal>
 
@@ -259,6 +290,14 @@ export function OnCallPageMenu({
         portal
         testId="on-call-page-menu-sheet"
       >
+        {/* Above the actions, because it is the only thing in this sheet the
+            page is raising on its own rather than offering on request. */}
+        {notifications ? (
+          <div className="mb-4">
+            <OnCallNotificationsPanel notifications={notifications} onNavigate={() => setOpen(false)} />
+          </div>
+        ) : null}
+
         <OnCallPageMenuActions
           order={order}
           onOrderChange={onOrderChange}
