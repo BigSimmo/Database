@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8706a7e6-290c-4f86-ba99-94ea892feee9",
+  "createdOn": "2026-09-22",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "issue",
+    "summary": "Production deploys stopped landing for 27 hours on 2026-09-21 and the detector that caught it reported to nobody",
+    "detail": "Second occurrence of the Railway deploy-rollback failure mode first seen 2026-09-11..09-14 (24 consecutive rollbacks, documented in scripts/check-live-deployment-freshness.mjs and docs/deployment-architecture.md 'Readiness: what /api/health/ready may and may not ask'). Measured 2026-09-22 from GitHub deployment statuses: the Database service in the production environment last landed a deploy at 2026-09-21T05:59Z (3a43f808d) and did not land another until 2026-09-22T09:15Z (76bf29ffa, PR #2978). In between, four production deployments were created for ef257fa5c, f44ae5397, 56b123509 and 373046b76 and every one went in_progress -> inactive without ever reaching success. All four built cleanly in the Docker image build workflow, live-drift was green on the 2026-09-21 migrations, and Railway built PR preview environments normally throughout, so the integration, the image and the database are all ruled out. That leaves Railway-side deploy/start/healthcheck rejection, which is the documented mechanism: each healthcheck attempt gets ~10s against /api/health/ready and a container that cannot answer inside the window is discarded and rolled back, leaving the previous deploy serving. Confirming which of the four failed and why needs the Railway deployment logs for the production environment, which no agent session has had access to. Production recovered on its own and no fix was applied, so the trigger is unknown and can recur. Separately confirmed NOT a fault: nine main commits in the same window got a staging deploy but no production deploy at all - all nine touched no path matched by watchPatterns in railway.app.json, which is correct filtering. The durable defect is the alerting gap: scripts/check-live-deployment-freshness.mjs measures exactly the right thing (age of the oldest unshipped commit) and live-domain-monitor.yml has been failing on it since at least 2026-09-19T18:31Z, but nothing routes a red monitor run to anyone, so 27 hours of stale production was found only because a human went looking. Pairs with #HYSWAF (Railway deploys every main push without waiting for required checks) and #TN512M (three systems detect production failures and report to nobody): together they mean nobody is watching the deploy pipeline in either direction.",
+    "source": "Claude session 2026-09-22; GitHub deployment statuses for Database/production, docker-image.yml and live-domain-monitor.yml run history",
+    "issueUlid": "01M34HDQQKMSJT12GKQ48AM3HF"
+  }
+}
