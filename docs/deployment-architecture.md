@@ -312,8 +312,12 @@ An attempted extra containment step exposed a CLI scope trap: Railway CLI 5.27.0
 `service source disconnect --environment <preview>` disconnected the shared
 service source, including production. The environment selector did not isolate
 that mutation. Both production sources were restored to `BigSimmo/Database` on
-`main`. The two reconnect-triggered deployment attempts were **SKIPPED** by watch
-paths; the earlier app deployment `9717aa0d-9a9f-4023-b937-76b94eebf218` and worker
+`main`. Reconnection also attached `main` auto-deploy triggers to the retained
+preview; both were disabled using each preview service's dashboard **Disable**
+control. Global PR-environment creation and existing service auto-deploy triggers
+are separate controls: verify both. All four reconnect-triggered attempts (two
+production, two preview) were **SKIPPED** by watch paths; the earlier app
+deployment `9717aa0d-9a9f-4023-b937-76b94eebf218` and worker
 deployment `0d096830-d226-4611-b3b1-90bd18322d8e` remained **SUCCESS**. Do not use
 that CLI command as a preview-only containment control. The staged preview branch
 edit was discarded without deployment. Credentials, staging, Supabase settings
