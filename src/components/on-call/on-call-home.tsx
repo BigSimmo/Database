@@ -324,6 +324,17 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   //
   // The module below is gated on this value, so a labelled heading can never
   // appear above a control that has decided to render nothing.
+  // What this reader can do with the example corpus, or null while that is
+  // unknown.
+  //
+  // The signed-out decision is NOT made here. `useOnCallDemoContentState` takes
+  // the server's `signedOut` flag and reconciles it with what the browser
+  // already knows about the session, because the server's flag cannot answer
+  // when its own request failed — see that hook for the failure it closes. It
+  // lives there rather than in this file for a second reason: this file is one
+  // of the surfaces `tests/on-call-compliance.test.ts` scans for words a
+  // compliance page may never say, and two of the auth status values are
+  // exactly those words.
   const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
 
   // What the hub is raising on its own, derived from the entries already in
