@@ -44,6 +44,19 @@ describe("ci coverage — derived, not assumed", () => {
 });
 
 describe("ci coverage — evaluates step and job guards", () => {
+  it.each([
+    ["npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default", true],
+    ["npm run test:coverage -- --shard=1/2", false],
+    ["npm run test:coverage -- --testNamePattern=one", false],
+    ["echo npm run test:coverage", false],
+    ["npm run test:coverage -- --merge-reports=.vitest-ci || true", false],
+  ])("recognises complete report merging without treating subsets as full coverage: %s", (command, covered) => {
+    const ci = `jobs:\n  coverage:\n    steps:\n      - run: ${command}\n`;
+    const readFile = ((file: string) =>
+      String(file).endsWith("package.json") ? JSON.stringify({ scripts: {} }) : ci) as never;
+    expect(deriveCiCoverage(projectRoot, "test", { scope: {}, readFile }).covered).toBe(covered);
+  });
+
   // `lint` and `typecheck` are step-conditional on static_heavy_changed, `test:coverage`
   // is job-conditional on coverage_changed. A docs-only change satisfies neither, so CI
   // skips all three — and a name-only scan would wrongly call them covered.
