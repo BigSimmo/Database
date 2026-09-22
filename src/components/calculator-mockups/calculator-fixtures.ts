@@ -147,13 +147,13 @@ export const calculators: CalculatorFixture[] = [
         id: "p7",
         kind: "options",
         options: frequency0to3,
-        text: "Trouble concentrating on things, such as reading or watching television",
+        text: "Trouble concentrating on things, such as reading the newspaper or watching television",
       },
       {
         id: "p8",
         kind: "options",
         options: frequency0to3,
-        text: "Moving or speaking noticeably slowly — or the opposite, being unusually fidgety or restless",
+        text: "Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual",
       },
       {
         id: "p9",
