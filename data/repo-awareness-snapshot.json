@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-21"
+    "committed_at": "2026-09-22"
   },
   "routes": {
     "modes": [
@@ -6127,6 +6127,11 @@
         "path": "docs/ward-flow/design/referral-intake-implementation-plan.md",
         "section": "ward-flow",
         "catalogued": false
+      },
+      {
+        "path": "docs/agents/smart-agent-allocation.md",
+        "section": "agents",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
