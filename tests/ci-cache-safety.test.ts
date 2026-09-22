@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 
 import { describe, expect, it } from "vitest";
 
@@ -21,6 +22,29 @@ const liveWebVitalsWorkflow = readFileSync(
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
+  it("supports job reruns without artifact collisions or losing prior diagnostics", () => {
+    const parsed = createRequire(import.meta.url)("js-yaml").load(workflow);
+    let uploads = 0;
+    for (const [jobId, job] of Object.entries(parsed.jobs)) {
+      for (const step of (job as { steps?: Array<{ uses?: string; with?: Record<string, unknown> }> }).steps ?? []) {
+        if (!step.uses?.startsWith("actions/upload-artifact@")) continue;
+        uploads += 1;
+        const inputs = step.with!;
+        if (!/(?:diagnostics|timings)-/.test(String(inputs.name))) {
+          // Keep download contracts stable for downstream jobs and operator
+          // tools such as adopt-visual-baselines, including failed-job reruns.
+          expect(inputs.overwrite, jobId).toBe(true);
+          expect(inputs.name, jobId).not.toContain("github.run_attempt");
+        } else {
+          // Diagnostic/timing reports retain each attempt's proof.
+          expect(inputs.name, jobId).toContain("${{ github.run_attempt }}");
+          expect(inputs.overwrite, jobId).not.toBe(true);
+        }
+      }
+    }
+    expect(uploads).toBeGreaterThan(0);
+  });
+
   it("preserves successful production shard reports for measured rebalancing", () => {
     const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-ward-journeys:");
     expect(timingStep).toContain("if: always()");
@@ -343,9 +367,7 @@ describe("CI cache safety", () => {
     // playwright.config.ts project is not assigned to an engine.
     expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
     expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
-    expect(releaseJob).toContain(
-      'webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone"',
-    );
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=$BROWSER_PROJECT"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
