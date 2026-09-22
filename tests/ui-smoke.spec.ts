@@ -5315,10 +5315,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(previousHit).toHaveText("");
     await expect(nextHit).toHaveAttribute("title", "Next document search hit");
     await expect(nextHit).toHaveText("");
-    // Keyboard activation: Firefox pointer clicks on these controls can double-
-    // fire when exclusive-accordion open sync runs in the same turn; Enter is the
-    // same path a keyboard user takes and stays single-shot.
-    await activateFocusedControl(page, nextHit);
+    // Pointer activation is the regression this test pins: product-side moveHit
+    // coalescing + exclusive-accordion open sync must keep a single click from
+    // wrapping a two-hit search back to Hit 1 on Firefox. Keyboard coverage is
+    // separate (activateFocusedControl elsewhere); do not substitute it here.
+    await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
     await expect(nextActiveHit).toHaveJSProperty("open", true);
