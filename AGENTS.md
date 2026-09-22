@@ -76,6 +76,17 @@ task status in its existing checkpoint and historical evidence labelled as such.
 
 <!-- END:contextual-working-defaults -->
 
+## Smart agent allocation
+
+Whenever agents are requested or otherwise permitted, automatically follow
+[smart agent allocation](docs/agents/smart-agent-allocation.md) before dispatch.
+Choose each child's supported model and effort for its task; use bounded briefs,
+separate ownership, independent review and shared valid evidence. This applies to
+Desktop, CLI and Codex Cloud without needing private desktop files or a special
+"smart mode" phrase. It does not require agents on every task, change the user's
+main-chat model or override stricter project requirements. Missing hosted routing
+controls must be reported honestly, not worked around with paid API calls.
+
 # How these rules are organised
 
 This file is the always-loaded core. It carries the boundaries that prevent irreversible harm, and

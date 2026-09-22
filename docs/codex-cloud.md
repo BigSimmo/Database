@@ -10,6 +10,14 @@ WebKit Playwright browser matrix. The repository setup can prepare and validate 
 container. It cannot grant GitHub installation permissions, workspace RBAC, agent-network
 policy, or provider-account permissions; those are configured in Codex and each provider.
 
+For agent work, the root `AGENTS.md` points to the portable
+[smart agent allocation policy](agents/smart-agent-allocation.md). Apply it whenever
+agents are used, using only the model, effort and concurrency controls exposed in
+the current Cloud task. Publication to the selected branch and a fresh-task check
+are required before claiming Cloud adoption; local instructions alone do not
+establish it. This policy neither changes the main-chat model nor grants provider
+access. Its Cloud delivery section defines fallback and evidence requirements.
+
 ## Issues this setup resolves
 
 - Codex Cloud had no tracked setup or maintenance command on `main`.
