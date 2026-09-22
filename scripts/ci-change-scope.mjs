@@ -378,6 +378,20 @@ const workflowPatterns = [
 ];
 
 const uiPatterns = [
+  // These inputs can change hydration, styling, module resolution or the browser
+  // runtime without editing a component. A production build is not browser proof.
+  "package.json",
+  "package-lock.json",
+  ".npmrc",
+  ".nvmrc",
+  "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
+  "src/hooks",
+  /^src\/lib\/(?:[\w-]+\/)*use-[\w-]+\.tsx?$/,
+  "src/lib/theme.ts",
+  "src/lib/client-store-factory.ts",
+  "src/lib/supabase/client.tsx",
   "data",
   // A browser-environment action change must exercise the lane it controls,
   // while remaining light enough to avoid unrelated unit coverage.
@@ -391,6 +405,9 @@ const uiPatterns = [
   // lockstep with playwright.config.ts so an edited assertion cannot evade
   // the required UI job (Vitest does not collect *.spec.ts files).
   "tests/answer-progress-ui-smoke.spec.ts",
+  "tests/adaptive-answer-ui.spec.ts",
+  "tests/api-csrf-proxy.spec.ts",
+  "tests/dsm-ui-smoke.spec.ts",
   /^tests\/ui-.*\.spec\.ts$/,
   /^tests\/playwright-.*\.ts$/,
   // Shared Playwright fixtures. Three of the four files here back `ui-*.spec.ts`
@@ -986,6 +1003,30 @@ function assertBudgetRoutesAreQueryFree() {
 }
 
 function selfTest() {
+  for (const file of [
+    "tests/adaptive-answer-ui.spec.ts",
+    "tests/api-csrf-proxy.spec.ts",
+    "tests/dsm-ui-smoke.spec.ts",
+  ]) {
+    assertScope(`nonstandard-browser-spec:${file}`, [file], { ui_changed: true });
+  }
+  for (const file of [
+    "package.json",
+    "package-lock.json",
+    ".npmrc",
+    ".nvmrc",
+    "next.config.ts",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "src/hooks/use-mobile.ts",
+    "src/lib/use-registry-records.ts",
+    "src/lib/use-client-time.ts",
+    "src/lib/theme.ts",
+    "src/lib/client-store-factory.ts",
+    "src/lib/supabase/client.tsx",
+  ]) {
+    assertScope(`browser-runtime-input:${file}`, [file], { ui_changed: true });
+  }
   // #137: the advisory lane runs only when it has something to cover. All four
   // directions matter — a lane that silently never runs is the failure mode.
   assertScope("advisory-off-when-nothing-to-cover", ["src/components/clinical-dashboard/dashboard-nav.tsx"], {
