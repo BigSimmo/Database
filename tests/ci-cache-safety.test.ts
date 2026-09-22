@@ -3,6 +3,8 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 import { describe, expect, it } from "vitest";
+import fullConfig from "../vitest.config.mjs";
+import shardConfig from "../vitest.coverage-shard.config.mjs";
 
 import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
@@ -20,6 +22,46 @@ const liveWebVitalsWorkflow = readFileSync(
   "utf8",
 );
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
+
+describe("partitioned unit coverage verdict", () => {
+  const workflow = createRequire(import.meta.url)("js-yaml").load(
+    readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+  );
+  const partitions = workflow.jobs["coverage-shards"];
+  const aggregate = workflow.jobs.coverage;
+
+  it("keeps the full test inventory and defers only coverage reporting and thresholds", () => {
+    expect(shardConfig).toEqual({
+      ...fullConfig,
+      test: { ...fullConfig.test, coverage: { ...fullConfig.test.coverage, reporter: [], thresholds: undefined } },
+    });
+    expect(fullConfig.test.coverage.thresholds).toBeDefined();
+    expect(partitions.strategy.matrix.shard).toEqual([1, 2]);
+    expect(partitions.strategy["fail-fast"]).toBe(false);
+    expect(partitions["continue-on-error"]).toBeUndefined();
+    const run = partitions.steps.find((step: { run?: string }) => step.run?.includes("--shard="));
+    expect(run.run).toContain("--shard=${{ matrix.shard }}/2");
+    expect(run.run).toContain("--reporter=blob");
+    expect(run["continue-on-error"]).toBeUndefined();
+  });
+
+  it("fails the required aggregate on unsuccessful or missing partitions", () => {
+    expect(aggregate.needs).toContain("coverage-shards");
+    expect(aggregate.if).toContain("always()");
+    expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
+    expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
+    expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
+    const merge = aggregate.steps.find((step: { run?: string }) => step.run?.includes("--merge-reports="));
+    const presence = aggregate.steps.find((step: { name: string }) => step.name === "Require both coverage reports");
+    for (const shard of [1, 2]) expect(presence.run).toContain(`test -s .vitest-ci/coverage-${shard}.json`);
+    expect(aggregate.steps.indexOf(presence)).toBeLessThan(aggregate.steps.indexOf(merge));
+    expect(presence["continue-on-error"]).toBeUndefined();
+    expect(merge.run).toContain("npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default");
+    expect(merge.run).not.toContain("--config");
+    expect(merge["continue-on-error"]).toBeUndefined();
+    expect(workflow.jobs["pr-required"].needs).toContain("coverage");
+  });
+});
 
 describe("CI cache safety", () => {
   it("supports job reruns without artifact collisions or losing prior diagnostics", () => {
