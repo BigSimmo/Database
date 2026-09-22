@@ -148,5 +148,12 @@ jobs:
         # repository went from three automated reviewers to none without anyone
         # noticing for weeks. A warning annotation is visible on the run and in
         # the PR's checks panel, and blocks nothing.
+        #
+        # Use a block scalar. An inline `run: echo "... #NNAWDT."` is truncated by
+        # YAML at `#` (comment start), leaving an unclosed quote that fails the
+        # step with `unexpected EOF while looking for matching '"'` and paints
+        # the red X this workflow was meant to stop — measured 2026-09-22 on
+        # #2982 and codex/pr-ci-adaptive-audit after #2981 landed.
         if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' && steps.review.outcome == 'failure' }}
-        run: echo "::warning title=Claude review::The automated review did not run on this PR, so this PR has no Claude review. Advisory only; it does not block the merge. Read the review step's log above. If the OAuth token has lapsed, mint a new one with 'claude setup-token' and update the CLAUDE_CODE_OAUTH_TOKEN secret. Tracked as #NNAWDT."
+        run: |
+          echo "::warning title=Claude review::The automated review did not run on this PR, so this PR has no Claude review. Advisory only; it does not block the merge. Read the review step's log above. If the OAuth token has lapsed, mint a new one with 'claude setup-token' and update the CLAUDE_CODE_OAUTH_TOKEN secret. Tracked as #NNAWDT."
