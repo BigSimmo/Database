@@ -7,8 +7,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 it("allows indexing on public app routes while robots.txt stays crawlable", () => {
-  expect(robots()).toEqual({ rules: { userAgent: "*", allow: "/" } });
-  expect(robots()).not.toHaveProperty("sitemap");
+  const result = robots();
+  expect(result.rules).toEqual({ userAgent: "*", allow: "/" });
+  // The public-only sitemap is advertised only from a trusted canonical origin
+  // (NEXT_PUBLIC_SITE_URL or RAILWAY_PUBLIC_DOMAIN); without one the line is
+  // omitted rather than fabricated from an arbitrary or attacker-controlled host.
+  const sitemap = result.sitemap;
+  if (typeof sitemap === "string") {
+    expect(sitemap).toMatch(/^https?:\/\/[^/]+\/sitemap\.xml$/);
+  }
   expect(PUBLIC_APP_ROBOTS_METADATA).toMatchObject({
     index: true,
     follow: true,
