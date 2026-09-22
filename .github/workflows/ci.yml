@@ -120,6 +120,14 @@ jobs:
             node scripts/ci-change-scope.mjs
           fi
 
+      - name: Recommend tests for this PR
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
+        run: node scripts/browser-test-plan.mjs --ci-summary
+
   sync-pr-policy-body:
     name: Sync PR policy body
     needs: changes
@@ -857,6 +865,15 @@ jobs:
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+      - name: Preserve production shard timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}
+          path: test-results/playwright-results.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   # Quarantined production tests and mockup-only journeys share one advisory
   # install/server without weakening the required production-ui job above.
@@ -1701,8 +1718,9 @@ jobs:
       needs.changes.result == 'success' &&
       needs.static-pr.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.ui-playwright-build.result == 'success' || needs.ui-playwright-build.result == 'skipped') &&
       (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
-    needs: [changes, static-pr, build, ui-critical]
+    needs: [changes, static-pr, build, ui-playwright-build, ui-critical]
     runs-on: ubuntu-24.04
     # Per ENGINE, not for the whole matrix. Before 2026-09-07 one job ran
     # chromium-mockups + firefox + webkit sequentially under `workers: 1` /
@@ -1730,6 +1748,16 @@ jobs:
         # group. `tests/ci-browser-matrix-coverage.test.ts` proves that union
         # against playwright.config.ts and fails closed when a project is added.
         engine: [chromium, firefox, webkit]
+        # Partition tests across runners while preserving one worker and zero
+        # retries inside each. WebKit was still timing out at 45 minutes.
+        shard: [1, 2, 3]
+        # Chromium already finished in under ten minutes in the audited run.
+        # Keep its complete suite on one runner; only the slow engines fan out.
+        exclude:
+          - engine: chromium
+            shard: 2
+          - engine: chromium
+            shard: 3
 
     steps:
       - name: Checkout
@@ -1745,13 +1773,15 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          # Prefix fallback so a lockfile bump does not force a cold download of all
-          # four browsers; `playwright install` below still fetches any missing version.
+          key: playwright-engine-${{ matrix.engine }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Each job installs one engine. A shared immutable key would let the
+          # first completed engine populate the cache for all its siblings.
           restore-keys: |
-            playwright-${{ runner.os }}-
+            playwright-engine-${{ matrix.engine }}-${{ runner.os }}-
 
       - name: Install Playwright browsers
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
         run: |
           if command -v sudo >/dev/null 2>&1; then
             sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
@@ -1764,10 +1794,10 @@ jobs:
           fi
           install_browsers() {
             if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-              npx playwright install-deps
-              npx playwright install
+              npx playwright install-deps "$BROWSER_ENGINE"
+              npx playwright install "$BROWSER_ENGINE"
             else
-              npx playwright install --with-deps
+              npx playwright install --with-deps "$BROWSER_ENGINE"
             fi
           }
           for attempt in 1 2 3; do
@@ -1779,10 +1809,24 @@ jobs:
           done
           exit 1
 
+      - name: Download matching production browser build
+        if: matrix.engine != 'chromium' && needs.ui-playwright-build.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Full browser UI matrix
         id: e2e-matrix
         env:
           ENGINE: ${{ matrix.engine }}
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ matrix.engine == 'chromium' && 1 || 3 }}
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          # Firefox/WebKit use the producer's mockups-disabled build. Chromium
+          # includes mockups, whose public flag is baked in, so it builds its own.
+          # If the producer was out of scope, the wrapper also builds normally.
+          PLAYWRIGHT_REUSE_BUILD: ${{ matrix.engine != 'chromium' && needs.ui-playwright-build.result == 'success' }}
         run: |
           # Both paths below are exhaustive across playwright.config.ts projects
           # for their own path, and disjoint between engines. The fail-safe union
@@ -1796,7 +1840,7 @@ jobs:
             case "$ENGINE" in
               chromium) PROJECTS="--project=chromium-mockups" ;;
               firefox)  PROJECTS="--project=firefox" ;;
-              webkit)   PROJECTS="--project=webkit" ;;
+              webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
             esac
           else
@@ -1813,7 +1857,7 @@ jobs:
           # Word-splitting is intended: $PROJECTS is a list of --project= flags
           # built above, never user input.
           # shellcheck disable=SC2086
-          npm run test:e2e -- $PROJECTS
+          npm run test:e2e -- $PROJECTS --shard="$SHARD/$SHARD_TOTAL"
 
       - name: Upload UI diagnostics
         if: failure()
@@ -1821,7 +1865,7 @@ jobs:
         with:
           # Per engine: a shared name makes the second failing engine fail on
           # upload, the same trap already documented on the Production UI shards.
-          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}
+          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}-${{ matrix.shard }}
           path: |
             test-results/
             playwright-report/

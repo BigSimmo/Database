@@ -1229,11 +1229,38 @@ test.describe("PsychSift UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     const universalInput = visibleQuestionInput(page);
-    const restingPillBorder = await universalInput.evaluate((element) => {
+    const restingPill = await universalInput.evaluate((element) => {
       const pill = element.closest(".answer-footer-search-pill");
-      return pill ? getComputedStyle(pill).borderColor : null;
+      if (!pill) return { border: null, shadow: null };
+      const style = getComputedStyle(pill);
+      return { border: style.borderColor, shadow: style.boxShadow };
     });
     await universalInput.focus();
+    // Poll until the pill owns focus chrome. Firefox can still report the resting
+    // border for a frame after programmatic focus even when `:focus-within` has
+    // matched; the focus owner is the pill border + accent halo, not the input outline.
+    await expect
+      .poll(async () => {
+        return universalInput.evaluate((element, resting) => {
+          const inputStyle = getComputedStyle(element);
+          const pill = element.closest(".answer-footer-search-pill");
+          const pillStyle = pill ? getComputedStyle(pill) : null;
+          const pillBorder = pillStyle?.borderColor ?? null;
+          const pillShadow = pillStyle?.boxShadow ?? null;
+          return {
+            inputOutline: inputStyle.outlineStyle,
+            inputShadow: inputStyle.boxShadow,
+            pillBorder,
+            pillShadow,
+            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+          };
+        }, restingPill);
+      })
+      .toMatchObject({
+        inputOutline: "none",
+        inputShadow: "none",
+        pillChanged: true,
+      });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
       const pill = element.closest(".answer-footer-search-pill");
@@ -1245,10 +1272,9 @@ test.describe("PsychSift UI smoke coverage", () => {
         pillShadow: pillStyle?.boxShadow ?? null,
       };
     });
-    expect(universalFocus.inputOutline).toBe("none");
-    expect(universalFocus.inputShadow).toBe("none");
-    expect(universalFocus.pillBorder).not.toBe(restingPillBorder);
+    expect(universalFocus.pillBorder).not.toBe(restingPill.border);
     expect(universalFocus.pillShadow).not.toBe("none");
+    expect(universalFocus.pillShadow).not.toBe(restingPill.shadow);
 
     const menu = await openMobileClinicalGuideMenu(page);
     const closeMenu = menu.getByRole("button", { name: "Close PsychSift menu" });
@@ -5289,6 +5315,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(previousHit).toHaveText("");
     await expect(nextHit).toHaveAttribute("title", "Next document search hit");
     await expect(nextHit).toHaveText("");
+    // Pointer activation is the regression this test pins: product-side moveHit
+    // coalescing + exclusive-accordion open sync must keep a single click from
+    // wrapping a two-hit search back to Hit 1 on Firefox. Keyboard coverage is
+    // separate (activateFocusedControl elsewhere); do not substitute it here.
     await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');
