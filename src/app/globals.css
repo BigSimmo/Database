@@ -2019,22 +2019,25 @@ summary::-webkit-details-marker {
   }
 }
 
-@layer components {
-  .answer-footer-search-pill:hover {
-    border-color: var(--border-strong);
-    box-shadow:
-      0 1px 2px rgb(16 24 40 / 5%),
-      0 8px 20px rgb(16 24 40 / 9%),
-      0 24px 56px rgb(16 24 40 / 14%);
-  }
+/* Unlayered on purpose — same cascade home as `.chat-composer-shell-delta:focus-within`
+   and `.answer-footer-search-pill-open`. The resting pill surface is layered
+   (`@layer components`), and leaving focus/hover there let unlayered dock/base
+   border rules keep the resting colour after focus in Firefox even when the
+   input was `:focus` / `:focus-within`. */
+.answer-footer-search-pill:hover {
+  border-color: var(--border-strong);
+  box-shadow:
+    0 1px 2px rgb(16 24 40 / 5%),
+    0 8px 20px rgb(16 24 40 / 9%),
+    0 24px 56px rgb(16 24 40 / 14%);
+}
 
-  .answer-footer-search-pill:focus-within {
-    border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
-    box-shadow:
-      0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
-      0 8px 20px rgb(16 24 40 / 8%),
-      0 20px 48px rgb(16 24 40 / 12%);
-  }
+.answer-footer-search-pill:focus-within {
+  border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
+    0 8px 20px rgb(16 24 40 / 8%),
+    0 20px 48px rgb(16 24 40 / 12%);
 }
 
 .answer-footer-search-pill-open {
@@ -3419,6 +3422,7 @@ summary::-webkit-details-marker {
   }
 
   .answer-footer-search-dock .answer-footer-search-pill:focus-within {
+    border-color: color-mix(in srgb, var(--clinical-accent) 38%, var(--border-strong));
     box-shadow:
       0 0 0 3px color-mix(in srgb, var(--clinical-accent) 16%, transparent),
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
