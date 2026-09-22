@@ -4,6 +4,8 @@
 
 ## Codex productivity defaults
 
+- Whenever agents are requested or otherwise permitted, use [smart agent allocation](smart-agent-allocation.md): task-appropriate explicit model/effort, bounded briefs, separate ownership, independent review and reuse of valid evidence. Use the same policy in Cloud where supported; missing controls are a reported capability limit, not permission to invent routing or lower review requirements.
+
 - Treat terse prompts as workflow shortcuts when the intent is clear. If the user says `run`, execute `npm run ensure`, verify the project identity through that helper, and return the printed local URL without a long log dump.
 - For non-trivial changes, start from concrete repo state: branch, `git status`, relevant package scripts, recent failures, and sanitised local logs when runtime behavior is involved. Use `docs/agents-guide.md` for task navigation and `docs/codebase-index.md` for architecture (routes: `docs/site-map.md`). Do not substitute an old handoff or a successful command for current identity and ownership.
 - For UI, browser, styling, routing, accessibility, or screenshot work, run `npm run ensure` before opening the app, then use browser QA and the smallest relevant UI proof before broader gates.

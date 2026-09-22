@@ -76,6 +76,13 @@ task status in its existing checkpoint and historical evidence labelled as such.
 
 <!-- END:contextual-working-defaults -->
 
+## Smart agent allocation
+
+When agents are authorised, follow
+[`docs/agents/smart-agent-allocation.md`](docs/agents/smart-agent-allocation.md)
+before dispatch. Keep the user's main-chat model; report missing hosted routing
+honestly instead of paying for API workarounds.
+
 # How these rules are organised
 
 This file is the always-loaded core. It carries the boundaries that prevent irreversible harm, and
