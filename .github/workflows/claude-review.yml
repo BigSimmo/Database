@@ -16,10 +16,26 @@ name: Claude review
 #
 # Deliberately NOT a gate. Branch protection requires only the `pr-required`
 # aggregate in ci.yml, and this workflow is absent from its `needs:`, so it can
-# never block a merge. `continue-on-error` keeps a credential problem from
-# painting a red X that trains readers to ignore red. That is the standing rule
-# in AGENTS.md — never weaken a required check to compensate for review
-# coverage — read the other way round: adding review must not add a gate either.
+# never block a merge. That is the standing rule in AGENTS.md — never weaken a
+# required check to compensate for review coverage — read the other way round:
+# adding review must not add a gate either.
+#
+# Not a gate was not the same as not a red X, and for three days it was not.
+# This comment used to claim `continue-on-error` kept a credential problem from
+# "painting a red X that trains readers to ignore red". It did not, and the
+# claim is the reason nobody checked: at JOB level `continue-on-error` only
+# stops the failed job failing the WORKFLOW RUN. The job's own check run still
+# reports `failure`, and that is what a reader sees on the PR. Measured
+# 2026-09-22 on #2976, #2977, #2978 and #2979 — four unrelated diffs, four red
+# `Claude review` crosses, on a workflow that already carried the job-level
+# flag. Recorded as `#NNAWDT`.
+#
+# So the flag is on the review STEP now, where it does what the paragraph above
+# always claimed. A step that cannot run leaves the job green and posts a
+# warning annotation instead, which is the honest shape for an advisory check:
+# visible to anyone who looks, invisible to the merge button. The alternative —
+# leaving a permanent red X on every PR — is worse than no reviewer, because it
+# is exactly how a real red check comes to be ignored.
 #
 # Drafts are skipped, matching every heavy job in ci.yml. A draft cannot be
 # merged, undrafting fires `ready_for_review` which re-runs this, and a review
@@ -53,8 +69,6 @@ jobs:
       group: claude-review-${{ github.event.pull_request.number }}
       cancel-in-progress: true
     timeout-minutes: 20
-    # Advisory: a failure here is never this PR's problem to fix.
-    continue-on-error: true
     env:
       # Assigned to job env so a step-level `if` can detect an unconfigured
       # secret and skip gracefully instead of hard-failing. Authenticates
@@ -75,7 +89,12 @@ jobs:
           persist-credentials: false
 
       - name: Review the pull request
+        id: review
         if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        # Advisory: a failure here is never this PR's problem to fix, so it must
+        # not reach the PR as a red check. At STEP level this is what keeps the
+        # job green; at job level it did not. See the header.
+        continue-on-error: true
         uses: anthropics/claude-code-action@9cdae7f0d995e3ba7c33f226087fdf82a59cd520 # v1.0.223
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -122,3 +141,12 @@ jobs:
             Do not restate what the PR description already says, do not praise,
             and do not raise style where the repository's own linters are
             silent. If the diff is sound, say that in one line and stop.
+
+      - name: Report a review that could not run
+        # The other half of the step flag, and the part that stops "advisory"
+        # becoming "silent". A reviewer that quietly stops reviewing is how this
+        # repository went from three automated reviewers to none without anyone
+        # noticing for weeks. A warning annotation is visible on the run and in
+        # the PR's checks panel, and blocks nothing.
+        if: ${{ env.CLAUDE_CODE_OAUTH_TOKEN != '' && steps.review.outcome == 'failure' }}
+        run: echo "::warning title=Claude review::The automated review did not run on this PR, so this PR has no Claude review. Advisory only; it does not block the merge. Read the review step's log above. If the OAuth token has lapsed, mint a new one with 'claude setup-token' and update the CLAUDE_CODE_OAUTH_TOKEN secret. Tracked as #NNAWDT."
