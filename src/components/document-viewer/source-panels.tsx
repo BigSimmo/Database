@@ -17,6 +17,7 @@ import {
 import {
   memo,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1013,6 +1014,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     .join(" · ");
   const selectedPageText = selectedPage ? sourceTextForIndexedPage(selectedPage.text) : "";
   const topLevelDisclosureRef = useRef<HTMLDetailsElement>(null);
+  const hitMoveLockRef = useRef(false);
   const activeHitId = activeHit?.id;
   const autoOpenTargetId = activeHitId ?? selectedChunkId;
   const autoOpenDriver = activeHitId ? `search:${activeHitId}` : selectedChunkId ? `citation:${selectedChunkId}` : null;
@@ -1030,6 +1032,7 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   // panel revealed through exclusive-accordion closes. Citation deep-links alone
   // must not force-open — that stole the first viewport from the PDF.
   const forceReveal = Boolean(normalizedSearch) || revealRequest;
+  const panelShouldOpen = !compact || compactOpen || forceReveal;
   const previousForceRevealRef = useRef(forceReveal);
   useEffect(() => {
     if (forceReveal === previousForceRevealRef.current) return;
@@ -1052,6 +1055,16 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
   }
   const autoOpenSuppressed = Boolean(autoOpenDriver) && manualClosedDriver === autoOpenDriver;
 
+  // Gecko's exclusive `<details name>` can clear `.open` on a sibling without
+  // React seeing a prop change. When our controlled `open` still says true, the
+  // DOM stays closed until something else re-renders — which is how Firefox
+  // intermittently loses "Inspect indexed text" and search-hit navigation.
+  useLayoutEffect(() => {
+    const top = topLevelDisclosureRef.current;
+    if (!top || top.open === panelShouldOpen) return;
+    top.open = panelShouldOpen;
+  }, [panelShouldOpen]);
+
   useEffect(() => {
     if (!autoOpenDriver || !autoOpenTargetId || autoOpenSuppressed) return;
     const targetDisclosure = document.getElementById(`${idPrefix}-${autoOpenTargetId}`);
@@ -1060,14 +1073,29 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
     // Citation-only: leave the nested disclosure marked for when the user opens
     // the panel, but do not open/scroll the dump over the PDF.
     if (!forceReveal && !(top?.open || compactOpen)) return;
-    if (top) top.open = true;
+    // Do not imperatively toggle the top-level exclusive-accordion member here —
+    // React's controlled `open` + the layout sync above own that. Re-setting
+    // `.open` on the named details was retriggering Gecko toggle fights.
     const wasOpen = targetDisclosure.open;
     openNestedSourceDisclosure(top, targetDisclosure);
-    if (!wasOpen) targetDisclosure.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
+    if (!wasOpen) {
+      // Defer past the activating pointer gesture so scrollIntoView cannot
+      // synthesise a second activation on the hit controls in Firefox.
+      requestAnimationFrame(() => {
+        targetDisclosure.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
+      });
+    }
   }, [autoOpenDriver, autoOpenTargetId, autoOpenSuppressed, compactOpen, forceReveal, idPrefix, targetAvailability]);
 
   function moveHit(delta: number) {
-    if (visibleChunks.length === 0) return;
+    if (visibleChunks.length === 0 || hitMoveLockRef.current) return;
+    // One user gesture can deliver two click activations in Firefox (pointer +
+    // exclusive-accordion side effects). With exactly two hits, wrapping twice
+    // returns to Hit 1 and looks like a no-op — coalesce same-turn duplicates.
+    hitMoveLockRef.current = true;
+    queueMicrotask(() => {
+      hitMoveLockRef.current = false;
+    });
     setActiveHitIndex((current) => (current + delta + visibleChunks.length) % visibleChunks.length);
   }
 
@@ -1096,12 +1124,14 @@ export const IndexedTextPanel = memo(function IndexedTextPanel({
       ref={topLevelDisclosureRef}
       id={sectionId}
       name={compact ? "document-viewer-section" : undefined}
-      open={!compact || compactOpen || forceReveal}
+      open={panelShouldOpen}
       onToggle={(event) => {
         if (!compact) return;
         // Exclusive-accordion closes must not win over a deep-link/search reveal.
         // Re-open after the browser finishes the toggle (microtask), and bump a
-        // render so the controlled `open` prop stays authoritative.
+        // render so the controlled `open` prop stays authoritative. The layout
+        // sync above recovers the case where Gecko clears `.open` without a
+        // React prop change; this path still latches compactOpen for search.
         if (!event.currentTarget.open && forceReveal) {
           const disclosure = event.currentTarget;
           queueMicrotask(() => {
