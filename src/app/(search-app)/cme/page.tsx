@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CmeDashboardRoute } from "@/components/cme/cme-dashboard-route";
+import { CmeStateNotice } from "@/components/cme/cme-state-notice";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -22,13 +23,25 @@ function placeholderSet(year: number): CmeRequirementSet {
  * a redirect would send the reader to the one page a composer could reach them
  * on and then ignore whatever they typed.
  */
-export default async function CmeHomeRoute() {
-  const data = await loadCmePageData();
+export default async function CmeHomeRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+  const query = await searchParams;
+  const requestedYear = query.year ? Number(query.year) : undefined;
+  const data = await loadCmePageData(
+    Number.isInteger(requestedYear) && requestedYear! >= 2000 && requestedYear! <= 2100 ? requestedYear : undefined,
+  );
+  if (data.state !== "ready") {
+    return (
+      <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+        <CmeStateNotice state={data.state} year={data.year} />
+      </main>
+    );
+  }
   return (
     <CmeDashboardRoute
       set={data.set ?? placeholderSet(data.year)}
       entries={data.entries}
       nowIso={data.now.toISOString()}
+      routines={data.routines}
     />
   );
 }

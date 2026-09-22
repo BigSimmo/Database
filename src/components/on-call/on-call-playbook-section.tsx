@@ -1,5 +1,10 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
+import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+
 import { ClipboardList, FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -57,12 +62,6 @@ function parsePlaybookDetails(details: unknown): OnCallPlaybookDetails | null {
   return result.success ? (result.data as OnCallPlaybookDetails) : null;
 }
 
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
-}
-
 /** One tappable row inside a card — a linked guideline, or a referenced form. */
 const linkRow = cn(cardInteractive, "flex min-h-tap w-full items-center gap-3 rounded-lg p-3 text-left");
 
@@ -87,8 +86,12 @@ function LinkedGuidance({
     return (
       <EmptyState
         icon={Search}
-        title="No local guideline linked"
-        body="This scenario has no linked guideline in your document library. Search your documents to find and link one — this page never substitutes its own clinical advice."
+        title={linkedDocumentIds.length ? "Linked guideline unavailable" : "No local guideline linked"}
+        body={
+          linkedDocumentIds.length
+            ? "The linked source has not loaded. It may be offline, removed, or unavailable to your account. This page does not substitute clinical advice."
+            : "This scenario has no linked guideline in your document library. Search your documents to find and link one — this page never substitutes its own clinical advice."
+        }
         actions={
           <Link
             href="/documents/search"
@@ -191,6 +194,8 @@ function PlaybookCard({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
@@ -199,7 +204,7 @@ function PlaybookCard({
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
+          <h3 className="break-words text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
           {details?.trigger ? <p className={cn("mt-0.5 text-xs", textMuted)}>{details.trigger}</p> : null}
         </div>
         {/* Sibling to the card, never nested inside a link: the escalation
@@ -230,15 +235,26 @@ function PlaybookCard({
         {steps.length > 0 ? (
           <ol className="grid grid-cols-[minmax(0,1fr)] gap-2">
             {steps.map((step) => (
-              <li key={step.order}>
+              <li key={step.order} className="flex min-w-0 items-start gap-2">
                 <OnCallEntryRow
-                  icon={Phone}
+                  icon={onCallTelHref(step.phone) ? Phone : undefined}
                   title={`${step.order}. ${step.whoToCall}`}
                   subtitle={step.when}
-                  href={telHref(step.phone)}
+                  href={onCallTelHref(step.phone)}
                   onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
                   testId={`on-call-playbook-step-${entry.slug}-${step.order}`}
-                />
+                >
+                  {step.phone ? (
+                    <span className="break-words text-xs">
+                      {onCallTelHref(step.phone)
+                        ? step.phone
+                        : `Recorded number: ${step.phone} — use the hospital phone or switchboard`}
+                    </span>
+                  ) : null}
+                </OnCallEntryRow>
+                {step.phone ? (
+                  <OnCallCopyNumber value={step.phone} label={`Copy number for ${step.whoToCall}`} />
+                ) : null}
               </li>
             ))}
           </ol>

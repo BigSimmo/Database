@@ -246,6 +246,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/service",
+        "file": "src/app/(search-app)/on-call/service/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/medications/[slug]",
         "file": "src/app/(search-app)/medications/[slug]/page.tsx",
         "area": "product"
@@ -258,6 +263,11 @@
       {
         "path": "/caring-contacts/intake",
         "file": "src/app/caring-contacts/intake/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/cme/summary",
+        "file": "src/app/(search-app)/cme/summary/page.tsx",
         "area": "product"
       },
       {
@@ -1619,6 +1629,10 @@
         "file": "src/app/api/registry/records/[slug]/route.ts"
       },
       {
+        "path": "/api/cme/export",
+        "file": "src/app/api/cme/export/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
         "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
       },
@@ -1655,6 +1669,10 @@
         "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
+        "path": "/api/cme/entries/[id]/evidence",
+        "file": "src/app/api/cme/entries/[id]/evidence/route.ts"
+      },
+      {
         "path": "/api/webhooks/supabase/document-change",
         "file": "src/app/api/webhooks/supabase/document-change/route.ts"
       },
@@ -1667,6 +1685,10 @@
         "file": "src/app/api/setup-status/route.ts"
       },
       {
+        "path": "/api/cme/routines/[id]",
+        "file": "src/app/api/cme/routines/[id]/route.ts"
+      },
+      {
         "path": "/api/documents/bulk",
         "file": "src/app/api/documents/bulk/route.ts"
       },
@@ -1675,12 +1697,24 @@
         "file": "src/app/api/documents/[id]/search/route.ts"
       },
       {
+        "path": "/api/cme/routines",
+        "file": "src/app/api/cme/routines/route.ts"
+      },
+      {
+        "path": "/api/on-call/services/join",
+        "file": "src/app/api/on-call/services/join/route.ts"
+      },
+      {
         "path": "/api/account/favourites",
         "file": "src/app/api/account/favourites/route.ts"
       },
       {
         "path": "/api/ingestion/jobs",
         "file": "src/app/api/ingestion/jobs/route.ts"
+      },
+      {
+        "path": "/api/cme/entries/[id]/evidence/[evidenceId]",
+        "file": "src/app/api/cme/entries/[id]/evidence/[evidenceId]/route.ts"
       },
       {
         "path": "/api/caring-contacts/assignments/[planId]",
@@ -1723,6 +1757,10 @@
         "file": "src/app/api/on-call/entries/[id]/route.ts"
       },
       {
+        "path": "/api/on-call/services/[serviceId]",
+        "file": "src/app/api/on-call/services/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/plans",
         "file": "src/app/api/caring-contacts/plans/route.ts"
       },
@@ -1733,6 +1771,10 @@
       {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
+      },
+      {
+        "path": "/api/on-call/services",
+        "file": "src/app/api/on-call/services/route.ts"
       },
       {
         "path": "/api/documents/images/batch",

@@ -1,9 +1,19 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CmeRoutinesPage, type CmeRoutinesPageProps } from "@/components/cme/cme-routines-page";
+import { CmeRoutinesRoute } from "@/components/cme/cme-routines-route";
 import type { CmeRoutine } from "@/lib/cme/routines";
+
+const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  navigation.push.mockReset();
+  navigation.refresh.mockReset();
+});
 
 /** 28 September 2026, 10:00 Perth. */
 const NOW = new Date("2026-09-28T02:00:00Z");
@@ -54,6 +64,23 @@ function renderPage(overrides: Partial<CmeRoutinesPageProps> = {}) {
 }
 
 describe("Routines", () => {
+  it("saves a routine, then routes its Log action to the pre-filled entry form", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ routine: dueRoutine }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    await user.type(screen.getByLabelText(/routine name/i), "Supervision");
+    await user.click(screen.getByRole("button", { name: /save routine/i }));
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/cme/routines", expect.objectContaining({ method: "POST" }));
+    await user.click(screen.getByRole("button", { name: /log usual hours for supervision/i }));
+    expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
+  });
+
   it("puts a due routine at the top with a one-tap log button as the visual focus", () => {
     renderPage();
     const due = screen.getByTestId("cme-routines-due");

@@ -17,6 +17,7 @@ export const cmeCategoryLabels: Record<CmeCategory, string> = {
  * migration against the live clinical database.
  */
 export type CmeRequirementSpec =
+  | { shape: "credited-hours"; credit: "formal-peer-review"; minimumHours: number }
   | { shape: "hours-in-category"; category: CmeCategory; minimumHours: number }
   | {
       shape: "hours-across-categories";
@@ -42,6 +43,12 @@ export type CmeRequirement = {
 export type CmeAllocation = { readonly category: CmeCategory; readonly hours: number };
 
 export type CmeEntry = {
+  readonly archivedAt?: string | null;
+  readonly evidenceCount?: number;
+  /** A learning source link, not evidence of participation. */
+  readonly sourceUrl?: string | null;
+  /** Credit within reviewing hours, never extra hours added to the total. */
+  readonly formalPeerReviewHours?: number;
   readonly id: string;
   /** Perth calendar date, `YYYY-MM-DD`. */
   readonly date: string;
@@ -57,6 +64,7 @@ export type CmeEntry = {
 };
 
 export type CmeRequirementSet = {
+  readonly closedAt?: string | null;
   readonly year: number;
   /** When the owner confirmed these targets, and against what. Rendered on every screen showing a target. */
   readonly confirmedOn: string;

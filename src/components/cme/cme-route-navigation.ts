@@ -10,12 +10,9 @@ export const CME_NEW_ENTRY_ROUTE = "/cme/new";
  * structurally, and this href keeps it: it navigates to the entry form, where
  * the owner still has to press Save. Nothing on this path writes an entry.
  *
- * The routine's id travels in the query and nothing reads it yet. Phase 1's
- * `CmeEntryForm` takes only an `onSubmit` prop, so the form opens blank; the id
- * is carried so the task that adds a prefill prop has the routine to resolve it
- * from, rather than having to re-plumb the two call sites. Until then a Log tap
- * opens an empty form — visible and recoverable, unlike a control that appears
- * to do nothing.
+ * The routine id travels in the query. The server resolves only an owner-loaded
+ * routine and passes its title, usual hours and category split to the form; the
+ * owner still reviews every field and presses Save before an entry exists.
  */
 export function cmeRoutineLogHref(prefill: CmeRoutineLogPrefill): string {
   return `${CME_NEW_ENTRY_ROUTE}?routine=${encodeURIComponent(prefill.routineId)}`;

@@ -112,7 +112,10 @@ function makeChain(response: FakeResponse) {
     single: vi.fn(() => chain),
     maybeSingle: vi.fn(() => chain),
     then(resolve: (value: unknown) => unknown, reject?: (error: unknown) => unknown) {
-      return Promise.resolve(response).then(resolve, reject);
+      return Promise.resolve({ ...response, count: Array.isArray(response.data) ? response.data.length : null }).then(
+        resolve,
+        reject,
+      );
     },
   };
   return chain;
@@ -211,7 +214,7 @@ describe("fetchOwnerCmeEntries", () => {
   it("applies CME_MAX_ENTRIES as a .limit()", async () => {
     const client = fakeClient({ cme_entries: [{ data: [], error: null }] });
     await fetchOwnerCmeEntries(client as never, "owner-1", "year-1");
-    expect(client.calls[0].chain.limit).toHaveBeenCalledWith(CME_MAX_ENTRIES);
+    expect(client.calls[0].chain.limit).toHaveBeenCalledWith(CME_MAX_ENTRIES + 1);
   });
 
   it("refuses to run without an owner rather than returning another tenant's entries", async () => {
@@ -315,60 +318,40 @@ describe("insertCmeEntry", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("writes owner_id on both the entry row and every allocation row", async () => {
-    const client = fakeClient({
-      cme_entries: [entryRowResponse()],
-      cme_allocations: [
-        {
-          data: [
-            { category: "educational", hours: 2 },
-            { category: "reviewing", hours: 1 },
-          ],
-          error: null,
-        },
-      ],
-    });
-    const result = await insertCmeEntry(client as never, "owner-1", "year-1", ENTRY);
-
-    expect(client.calls[0].table).toBe("cme_entries");
-    expect(client.calls[0].chain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ owner_id: "owner-1", id: ENTRY.id }),
+  it("sends one owner-scoped transaction for entry and allocations", async () => {
+    const response = entryRowResponse({ cme_allocations: ENTRY.allocations });
+    const client = { rpc: vi.fn().mockResolvedValue(response), from: vi.fn() };
+    const result = await insertCmeEntry(client as never, "owner-1", "year-1", ENTRY, "request-1");
+    expect(client.rpc).toHaveBeenCalledWith(
+      "cme_save_entry",
+      expect.objectContaining({
+        p_owner_id: "owner-1",
+        p_year_id: "year-1",
+        p_entry_id: ENTRY.id,
+        p_create: true,
+        p_request_id: "request-1",
+        p_entry: expect.objectContaining({ allocations: ENTRY.allocations }),
+      }),
     );
-
-    expect(client.calls[1].table).toBe("cme_allocations");
-    expect(client.calls[1].chain.insert).toHaveBeenCalledWith([
-      expect.objectContaining({ owner_id: "owner-1", entry_id: ENTRY.id, category: "educational" }),
-      expect.objectContaining({ owner_id: "owner-1", entry_id: ENTRY.id, category: "reviewing" }),
-    ]);
-
-    expect(result.id).toBe(ENTRY.id);
+    expect(client.from).not.toHaveBeenCalled();
     expect(result.allocations).toEqual(ENTRY.allocations);
   });
-
-  it("deletes the just-created entry, owner-scoped, when the allocations insert fails", async () => {
-    const client = fakeClient({
-      cme_entries: [entryRowResponse(), { data: null, error: null }],
-      cme_allocations: [{ data: null, error: { message: "allocations insert failed" } }],
-    });
+  it("rejects transaction failure without issuing compensating writes", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "allocation insert failed" } }),
+      from: vi.fn(),
+    };
     await expect(insertCmeEntry(client as never, "owner-1", "year-1", ENTRY)).rejects.toThrow(
-      "allocations insert failed",
+      "CME storage operation failed.",
     );
-
-    expect(client.calls).toHaveLength(3);
-    const deleteCall = client.calls[2];
-    expect(deleteCall.table).toBe("cme_entries");
-    expect(deleteCall.chain.delete).toHaveBeenCalled();
-    expect(deleteCall.chain.eq).toHaveBeenCalledWith("owner_id", "owner-1");
-    expect(deleteCall.chain.eq).toHaveBeenCalledWith("id", ENTRY.id);
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.from).not.toHaveBeenCalled();
   });
-
-  it("surfaces both errors when the cleanup delete itself fails", async () => {
-    const client = fakeClient({
-      cme_entries: [entryRowResponse(), { data: null, error: { message: "delete failed" } }],
-      cme_allocations: [{ data: null, error: { message: "allocations insert failed" } }],
+  it("maps retry conflicts safely and retains the same request identity", async () => {
+    const client = { rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "cme_retry_conflict" } }) };
+    await expect(insertCmeEntry(client as never, "owner-1", "year-1", ENTRY, "same-request")).rejects.toMatchObject({
+      status: 409,
     });
-    await expect(insertCmeEntry(client as never, "owner-1", "year-1", ENTRY)).rejects.toThrow(
-      "allocations insert failed (cleanup also failed: delete failed)",
-    );
+    expect(client.rpc.mock.calls[0][1].p_request_id).toBe("same-request");
   });
 });

@@ -1,5 +1,7 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
 import { BookOpen, FileText, Pencil, User } from "lucide-react";
 import Link from "next/link";
 
@@ -60,6 +62,8 @@ function OrientationCard({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
@@ -126,7 +130,11 @@ function OrientationCard({
           ))}
         </div>
       ) : (
-        <p className={cn("text-sm", textMuted)}>No document linked yet.</p>
+        <p className={cn("text-sm", textMuted)}>
+          {entry.linkedDocumentIds.length
+            ? "Linked document unavailable. It may be offline, removed, or unavailable to your account."
+            : "No document linked yet."}
+        </p>
       )}
     </article>
   );

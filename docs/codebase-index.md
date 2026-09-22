@@ -418,6 +418,14 @@ being the one-tap "still correct today" action that resets the freshness clock.
 `authenticated`; reads and writes go through the service-role client at the API layer, the same
 application-layer ownership model as `clinical_registry_records`.
 
+**Invited service workspace.** `/on-call/service`, linked from the mode home, uses
+`service-model`, `service-repository` and `service-api` with the
+`/api/on-call/services` collection, service command route and invitation join route.
+The separate `on_call_service_*` tables enforce service/site membership, editor
+publishing, independent clinical/legal review, revision conflicts, correction reports
+and owner-private orientation completion. They never pool legacy entries or personal
+CME/compliance. `handbook-resources` holds linked official WA starting points.
+
 ---
 
 ### Continuing education (CME/CPD)
@@ -430,6 +438,14 @@ carrying the date he confirmed it and the document it came from; the mode comput
 against those numbers and never supplies one of its own. Nothing here may reduce a target for a
 working pattern — part-time work does not lower the requirement, and a tracker that quietly
 lowered it would be the most dangerous thing in the design.
+
+The setup route offers a versioned Australian/RANZCP starting preset for explicit owner
+confirmation. Private activity and routine routes save atomically. Activity archive and
+restore preserve history while excluding archived entries from active totals. The log
+links `/cme/summary?year=…` and `/api/cme/export?year=…` for print and CSV output.
+`evidence-model`, `evidence-upload` and `evidence-repository` serve private attachments
+through `/api/cme/entries/[id]/evidence`; learning sources remain separate. Handbook
+learning links prefill title/source in `/cme/new` and never save attendance automatically.
 
 | Module     | Role                                                                                                             |
 | ---------- | ---------------------------------------------------------------------------------------------------------------- |

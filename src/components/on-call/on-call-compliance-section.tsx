@@ -1,5 +1,7 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
 import { Info, Pencil } from "lucide-react";
 
 import { cardPadding, cardSurface } from "@/components/card-recipes";
@@ -326,6 +328,8 @@ function ComplianceRow({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       className={cn(cardSurface, cardPadding.standard, "grid grid-cols-[minmax(0,1fr)] gap-2")}
       data-testid={`on-call-compliance-row-${entry.slug}`}
     >

@@ -126,7 +126,7 @@ describe("On Call page menu: notifications", () => {
     expect(row.textContent).toContain("Basic life support");
     // Compliance is a VIEW over the logistics section, so a notification about
     // a requirement must not land on the Logistics list it is filed under.
-    expect(row.getAttribute("href")).toBe("/on-call/compliance");
+    expect(row.getAttribute("href")).toMatch(/^\/on-call\/compliance#on-call-entry-/);
   });
 
   it("sends a plain section entry to its own section", () => {
@@ -136,7 +136,9 @@ describe("On Call page menu: notifications", () => {
     );
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
 
-    expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toBe("/on-call/contacts");
+    expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toMatch(
+      /^\/on-call\/contacts#on-call-entry-/,
+    );
   });
 
   it("sends an UNCONFIRMED compliance requirement to Compliance, not to the Admin page it is filed under", () => {
@@ -159,7 +161,9 @@ describe("On Call page menu: notifications", () => {
     );
     fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
 
-    expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toBe("/on-call/compliance");
+    expect(screen.getByTestId("on-call-notification-never-verified").getAttribute("href")).toMatch(
+      /^\/on-call\/compliance#on-call-entry-/,
+    );
   });
 
   it("keeps Add an entry in the same sheet", () => {

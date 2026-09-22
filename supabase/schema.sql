@@ -18494,3 +18494,627 @@ grant select, insert, update, delete on table public.cme_allocations to service_
 drop policy if exists "cme_allocations service role all" on public.cme_allocations;
 create policy "cme_allocations service role all" on public.cme_allocations
   for all to service_role using (true) with check (true);
+
+
+-- CME core workflows: schema projection of 20260922163920.
+-- Prepared locally only. Requires owner-approved deployment; do not apply from a task.
+set search_path = public, pg_catalog, pg_temp;
+set lock_timeout = '5s';
+set statement_timeout = '60s';
+
+alter table public.cme_entries add column formal_peer_review_hours numeric(5,2) not null default 0 check (formal_peer_review_hours >= 0);
+alter table public.cme_entries add column request_id uuid;
+alter table public.cme_entries add column request_payload jsonb;
+create unique index cme_entries_owner_request on public.cme_entries(owner_id, request_id) where request_id is not null;
+alter table public.cme_years add constraint cme_years_id_owner_unique unique(id, owner_id);
+alter table public.cme_entries add constraint cme_entries_id_owner_unique unique(id, owner_id);
+alter table public.cme_routines add constraint cme_routines_id_owner_unique unique(id, owner_id);
+alter table public.cme_entries add constraint cme_entries_year_owner_fk foreign key(year_id, owner_id) references public.cme_years(id, owner_id) on delete cascade;
+alter table public.cme_requirements add constraint cme_requirements_year_owner_fk foreign key(year_id, owner_id) references public.cme_years(id, owner_id) on delete cascade;
+alter table public.cme_allocations add constraint cme_allocations_entry_owner_fk foreign key(entry_id, owner_id) references public.cme_entries(id, owner_id) on delete cascade;
+alter table public.cme_entries add constraint cme_entries_routine_owner_fk foreign key(routine_id, owner_id) references public.cme_routines(id, owner_id);
+
+-- Serialise mutations for one owner, including competing confirmation/create requests.
+-- Caller identity is derived from the authenticated session by server code. These RPCs
+-- are invoker functions with no privileges granted to anon/authenticated/public.
+create function public.cme_confirm_year(p_owner_id uuid, p_set jsonb) returns uuid
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_year public.cme_years; v_req jsonb; v_id uuid; v_order integer := 0; v_keep uuid[] := '{}';
+begin
+  if p_owner_id is null or jsonb_typeof(p_set->'requirements') is distinct from 'array' or jsonb_array_length(p_set->'requirements') not between 1 and 30 then raise exception 'cme_invalid_request'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_owner_id::text, 23092026));
+  select * into v_year from public.cme_years where owner_id=p_owner_id and year=(p_set->>'year')::smallint for update;
+  if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  insert into public.cme_years(owner_id,year,total_hours,confirmed_on,confirmed_source)
+  values(p_owner_id,(p_set->>'year')::smallint,(p_set->>'totalHours')::numeric,(p_set->>'confirmedOn')::date,p_set->>'confirmedSource')
+  on conflict(owner_id,year) do update set total_hours=excluded.total_hours,confirmed_on=excluded.confirmed_on,confirmed_source=excluded.confirmed_source
+  returning * into v_year;
+  for v_req in select value from jsonb_array_elements(p_set->'requirements') loop
+    v_id := null;
+    -- Only reuse identities already owned by this exact year. Stable client names
+    -- and foreign UUIDs are safely translated to new server-generated identities.
+    select id into v_id from public.cme_requirements where owner_id=p_owner_id and year_id=v_year.id and id::text=v_req->>'id';
+    if v_id is null then v_id:=gen_random_uuid(); end if;
+    insert into public.cme_requirements(id,owner_id,year_id,label,source,spec,completed_on,sort_order)
+    values(v_id,p_owner_id,v_year.id,v_req->>'label',v_req->>'source',v_req->'spec',(v_req->>'completedOn')::date,v_order)
+    on conflict(id) do update set label=excluded.label,source=excluded.source,spec=excluded.spec,completed_on=excluded.completed_on,sort_order=excluded.sort_order;
+    v_keep:=array_append(v_keep,v_id); v_order:=v_order+1;
+  end loop;
+  delete from public.cme_requirements where owner_id=p_owner_id and year_id=v_year.id and not(id=any(v_keep));
+  return v_year.id;
+end $$;
+
+create function public.cme_save_entry(p_owner_id uuid,p_year_id uuid,p_entry_id uuid,p_entry jsonb,p_create boolean,p_request_id uuid default null) returns jsonb
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_year public.cme_years; v_existing public.cme_entries; v_saved public.cme_entries;
+  v_routine public.cme_routines; v_alloc jsonb; v_review numeric; v_total numeric; v_count integer;
+begin
+  if p_owner_id is null then raise exception 'cme_invalid_request'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_owner_id::text, 23092026));
+  if p_create and p_request_id is not null then
+    select * into v_existing from public.cme_entries where owner_id=p_owner_id and request_id=p_request_id;
+    if found then
+      if v_existing.request_payload is distinct from p_entry then raise exception 'cme_retry_conflict'; end if;
+      return to_jsonb(v_existing) || jsonb_build_object('cme_allocations',(select coalesce(jsonb_agg(jsonb_build_object('category',category,'hours',hours)),'[]') from public.cme_allocations where owner_id=p_owner_id and entry_id=v_existing.id));
+    end if;
+  end if;
+  select * into v_year from public.cme_years where owner_id=p_owner_id and id=p_year_id for update;
+  if not found then raise exception 'cme_year_not_confirmed'; end if;
+  if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  if extract(year from (p_entry->>'date')::date) <> v_year.year then raise exception 'cme_invalid_request'; end if;
+  if not p_create then
+    select * into v_existing from public.cme_entries where owner_id=p_owner_id and id=p_entry_id for update;
+    if not found then raise exception 'cme_entry_not_found'; end if;
+    if exists(select 1 from public.cme_years where owner_id=p_owner_id and id=v_existing.year_id and closed_at is not null) then raise exception 'cme_year_closed'; end if;
+  end if;
+  if jsonb_typeof(p_entry->'allocations') is distinct from 'array' then raise exception 'cme_invalid_request'; end if;
+  select count(*),coalesce(sum((a->>'hours')::numeric),0),coalesce(sum((a->>'hours')::numeric) filter(where a->>'category'='reviewing'),0)
+    into v_count,v_total,v_review from jsonb_array_elements(p_entry->'allocations') a;
+  if v_count not between 1 and 3 or v_total > 24 or coalesce((p_entry->>'formalPeerReviewHours')::numeric,0) not between 0 and v_review then raise exception 'cme_invalid_request'; end if;
+  if p_entry->>'documentId' is not null and not exists(select 1 from public.documents where owner_id=p_owner_id and id=(p_entry->>'documentId')::uuid) then raise exception 'cme_invalid_link'; end if;
+  if p_entry->>'routineId' is not null then
+    select * into v_routine from public.cme_routines where owner_id=p_owner_id and id=(p_entry->>'routineId')::uuid for update;
+    if not found or (p_create and v_routine.archived_at is not null) then raise exception 'cme_invalid_link'; end if;
+  end if;
+  if p_create then
+    insert into public.cme_entries(id,owner_id,year_id,activity_date,title,reflection,cost_cents,routine_id,document_id,buckets,formal_peer_review_hours,request_id,request_payload)
+    values(p_entry_id,p_owner_id,p_year_id,(p_entry->>'date')::date,p_entry->>'title',p_entry->>'reflection',(p_entry->>'costCents')::integer,(p_entry->>'routineId')::uuid,(p_entry->>'documentId')::uuid,array(select jsonb_array_elements_text(p_entry->'buckets')),coalesce((p_entry->>'formalPeerReviewHours')::numeric,0),p_request_id,p_entry)
+    returning * into v_saved;
+  else
+    update public.cme_entries set year_id=p_year_id,activity_date=(p_entry->>'date')::date,title=p_entry->>'title',reflection=p_entry->>'reflection',cost_cents=(p_entry->>'costCents')::integer,routine_id=(p_entry->>'routineId')::uuid,document_id=(p_entry->>'documentId')::uuid,buckets=array(select jsonb_array_elements_text(p_entry->'buckets')),formal_peer_review_hours=coalesce((p_entry->>'formalPeerReviewHours')::numeric,0)
+    where owner_id=p_owner_id and id=p_entry_id returning * into v_saved;
+    delete from public.cme_allocations where owner_id=p_owner_id and entry_id=p_entry_id;
+  end if;
+  for v_alloc in select value from jsonb_array_elements(p_entry->'allocations') loop
+    insert into public.cme_allocations(owner_id,entry_id,category,hours) values(p_owner_id,p_entry_id,v_alloc->>'category',(v_alloc->>'hours')::numeric);
+  end loop;
+  -- A routine advances only after the complete entry is saved, in this same
+  -- transaction. An idempotent retry returns above and never advances twice.
+  if p_create and v_routine.id is not null and v_routine.next_due is not null and v_routine.next_due <= (p_entry->>'date')::date then
+    update public.cme_routines set next_due=((p_entry->>'date')::date + case v_routine.cadence when 'weekly' then interval '7 days' when 'monthly' then interval '1 month' else interval '3 months' end)::date where owner_id=p_owner_id and id=v_routine.id;
+  end if;
+  return to_jsonb(v_saved)||jsonb_build_object('cme_allocations',p_entry->'allocations');
+end $$;
+
+-- Guard other existing service-role entry mutations (copy stamp/delete), and
+-- ensure stored dates remain in their owner-scoped year. Locking the year also
+-- makes concurrent closure and entry mutation serial rather than check-then-write.
+create function public.cme_guard_entry() returns trigger
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare v_year public.cme_years;
+begin
+  if tg_op <> 'INSERT' then
+    select * into v_year from public.cme_years where id=old.year_id and owner_id=old.owner_id for update;
+    if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  select * into v_year from public.cme_years where id=new.year_id and owner_id=new.owner_id for update;
+  if not found or extract(year from new.activity_date)<>v_year.year then raise exception 'cme_invalid_request'; end if;
+  if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  if new.document_id is not null and not exists(select 1 from public.documents where id=new.document_id and owner_id=new.owner_id) then raise exception 'cme_invalid_link'; end if;
+  return new;
+end $$;
+create trigger cme_guard_entry before insert or update or delete on public.cme_entries for each row execute function public.cme_guard_entry();
+
+-- Deferred because replacing allocations has an intentionally incomplete
+-- intermediate state inside a transaction. Commit cannot persist invalid credit.
+create function public.cme_check_entry_allocations() returns trigger
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare v_id uuid; v_entry public.cme_entries; v_total numeric; v_review numeric; v_count integer;
+begin
+  if tg_table_name='cme_entries' then v_id:=coalesce(new.id,old.id); else v_id:=coalesce(new.entry_id,old.entry_id); end if;
+  select * into v_entry from public.cme_entries where id=v_id;
+  if not found then return null; end if;
+  select count(*),coalesce(sum(hours),0),coalesce(sum(hours) filter(where category='reviewing'),0) into v_count,v_total,v_review from public.cme_allocations where entry_id=v_id and owner_id=v_entry.owner_id;
+  if v_count not between 1 and 3 or v_total>24 or v_entry.formal_peer_review_hours>v_review then raise exception 'cme_invalid_allocations'; end if;
+  return null;
+end $$;
+create constraint trigger cme_entry_allocations_valid after insert or update on public.cme_entries deferrable initially deferred for each row execute function public.cme_check_entry_allocations();
+create constraint trigger cme_allocations_valid after insert or update or delete on public.cme_allocations deferrable initially deferred for each row execute function public.cme_check_entry_allocations();
+
+revoke all on function public.cme_confirm_year(uuid,jsonb), public.cme_save_entry(uuid,uuid,uuid,jsonb,boolean,uuid), public.cme_guard_entry(), public.cme_check_entry_allocations() from public, anon, authenticated;
+grant execute on function public.cme_confirm_year(uuid,jsonb), public.cme_save_entry(uuid,uuid,uuid,jsonb,boolean,uuid), public.cme_guard_entry(), public.cme_check_entry_allocations() to service_role;
+
+
+-- Projection: 20260922174716_on_call_service_handbooks.sql
+-- Local preparation. This is a new invited-service store, never a republication
+-- of public on_call_entries, private compliance, CME, or patient records.
+set search_path = public, pg_catalog, pg_temp;
+set lock_timeout = '5s';
+set statement_timeout = '60s';
+
+create table public.on_call_services (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (length(btrim(name)) between 1 and 160),
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create table public.on_call_service_sites (
+  id uuid primary key default gen_random_uuid(),
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  name text not null check (length(btrim(name)) between 1 and 160),
+  unique (id, service_id), unique(service_id, name)
+);
+create table public.on_call_service_members (
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null check(role in ('member','editor','admin')),
+  clinical_reviewer boolean not null default false,
+  joined_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  primary key(service_id,user_id)
+);
+create index on_call_service_members_actor on public.on_call_service_members(user_id,service_id) where revoked_at is null;
+create table public.on_call_service_invitations (
+  id uuid primary key default gen_random_uuid(),
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  token_hash text not null unique check(token_hash ~ '^[a-f0-9]{64}$'),
+  role text not null check(role in ('member','editor','admin')),
+  issued_by uuid references auth.users(id) on delete set null,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  used_at timestamptz,
+  used_by uuid references auth.users(id) on delete set null,
+  check(expires_at > created_at and expires_at <= created_at + interval '7 days')
+);
+create table public.on_call_service_entries (
+  id uuid primary key default gen_random_uuid(),
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  site_id uuid,
+  revision integer not null default 1 check(revision > 0),
+  content jsonb not null check(jsonb_typeof(content)='object'),
+  author_id uuid references auth.users(id) on delete set null,
+  status text not null check(status in ('draft','pending_review','published','withdrawn')),
+  published_content jsonb,
+  published_revision integer,
+  published_author_id uuid references auth.users(id) on delete set null,
+  published_reviewed_by uuid references auth.users(id) on delete set null,
+  published_reviewed_at timestamptz,
+  review_comment text not null default '',
+  updated_at timestamptz not null default now(),
+  unique(id,service_id),
+  foreign key(site_id,service_id) references public.on_call_service_sites(id,service_id),
+  check((published_content is null) = (published_revision is null)),
+  check(published_revision is null or published_revision <= revision)
+);
+create index on_call_service_entries_service on public.on_call_service_entries(service_id,site_id);
+create table public.on_call_service_reports (
+  id uuid primary key default gen_random_uuid(),
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  entry_id uuid not null,
+  reported_by uuid references auth.users(id) on delete set null,
+  reason text not null check(length(btrim(reason)) between 1 and 1500),
+  status text not null default 'open' check(status in ('open','resolved')),
+  resolution text not null default '',
+  resolved_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  foreign key(entry_id,service_id) references public.on_call_service_entries(id,service_id) on delete cascade
+);
+create table public.on_call_service_orientation (
+  service_id uuid not null references public.on_call_services(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  site_id uuid not null,
+  entry_id uuid not null,
+  rotation text not null check(length(btrim(rotation)) between 1 and 100),
+  revision integer not null check(revision > 0),
+  completed_at timestamptz not null default now(),
+  primary key(service_id,user_id,site_id,entry_id,rotation),
+  foreign key(site_id,service_id) references public.on_call_service_sites(id,service_id),
+  foreign key(entry_id,service_id) references public.on_call_service_entries(id,service_id) on delete cascade
+);
+
+-- Browser JWT roles have no direct table access. The invoker RPC is called only
+-- by authenticated server routes using service_role and session-derived actor ID.
+alter table public.on_call_services enable row level security;
+alter table public.on_call_service_sites enable row level security;
+alter table public.on_call_service_members enable row level security;
+alter table public.on_call_service_invitations enable row level security;
+alter table public.on_call_service_entries enable row level security;
+alter table public.on_call_service_reports enable row level security;
+alter table public.on_call_service_orientation enable row level security;
+revoke all on public.on_call_services,public.on_call_service_sites,public.on_call_service_members,public.on_call_service_invitations,public.on_call_service_entries,public.on_call_service_reports,public.on_call_service_orientation from public,anon,authenticated;
+grant select,insert,update,delete on public.on_call_services,public.on_call_service_sites,public.on_call_service_members,public.on_call_service_invitations,public.on_call_service_entries,public.on_call_service_reports,public.on_call_service_orientation to service_role;
+
+create function public.on_call_service_command(p_actor_id uuid,p_service_id uuid,p_action text,p_payload jsonb default '{}') returns jsonb
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_service public.on_call_services;
+  v_member public.on_call_service_members;
+  v_target public.on_call_service_members;
+  v_invite public.on_call_service_invitations;
+  v_entry public.on_call_service_entries;
+  v_report public.on_call_service_reports;
+  v_content jsonb;
+  v_result jsonb;
+  v_id uuid;
+  v_site uuid;
+  v_revision integer;
+  v_status text;
+  v_can_edit boolean;
+  v_can_draft boolean;
+  v_source jsonb;
+begin
+  -- API authentication verifies the actor; do not require service_role access to
+  -- auth.users. Membership checks below authorize every service operation.
+  if p_actor_id is null then raise exception 'service_auth_required'; end if;
+  if p_payload is null or jsonb_typeof(p_payload) <> 'object' then raise exception 'service_invalid_request'; end if;
+
+  if p_action='list' then
+    select jsonb_build_object('services',coalesce(jsonb_agg(jsonb_build_object(
+      'id',s.id,'name',s.name,'role',m.role,'clinicalReviewer',m.clinical_reviewer,
+      'sites',(select coalesce(jsonb_agg(jsonb_build_object('id',t.id,'name',t.name) order by t.name),'[]') from public.on_call_service_sites t where t.service_id=s.id)
+    ) order by s.name),'[]')) into v_result
+    from public.on_call_services s join public.on_call_service_members m on m.service_id=s.id
+    where m.user_id=p_actor_id and m.revoked_at is null;
+    return v_result;
+  end if;
+
+  if p_action='create' then
+    perform pg_advisory_xact_lock(hashtextextended(p_actor_id::text, 74816));
+    if (select count(*) from public.on_call_service_members where user_id=p_actor_id and revoked_at is null) >= 50 then raise exception 'service_limit'; end if;
+    insert into public.on_call_services(name,created_by) values(p_payload->>'name',p_actor_id) returning * into v_service;
+    insert into public.on_call_service_sites(service_id,name) values(v_service.id,p_payload->>'siteName') returning id into v_site;
+    insert into public.on_call_service_members(service_id,user_id,role) values(v_service.id,p_actor_id,'admin');
+    return jsonb_build_object('serviceId',v_service.id,'siteId',v_site);
+  end if;
+
+  if p_action='join' then
+    select service_id into p_service_id from public.on_call_service_invitations where token_hash=p_payload->>'tokenHash';
+    if p_service_id is null then raise exception 'service_invitation_invalid'; end if;
+  end if;
+  -- Shared lock order for reads and writes: service, membership, then target.
+  -- A read starting after revocation commits cannot return the removed service.
+  select * into v_service from public.on_call_services where id=p_service_id for update;
+  if not found then raise exception 'service_access_denied'; end if;
+
+  if p_action='join' then
+    select * into v_invite from public.on_call_service_invitations
+      where service_id=p_service_id and token_hash=p_payload->>'tokenHash' for update;
+    if not found or v_invite.revoked_at is not null or v_invite.used_at is not null or v_invite.expires_at <= now()
+      or not exists(select 1 from public.on_call_service_members where service_id=p_service_id and user_id=v_invite.issued_by and role='admin' and revoked_at is null)
+      then raise exception 'service_invitation_invalid'; end if;
+    if not exists(select 1 from public.on_call_service_members where service_id=p_service_id and user_id=p_actor_id and revoked_at is null) then
+      if (select count(*) from public.on_call_service_members where service_id=p_service_id and revoked_at is null) >= 500 then raise exception 'service_limit'; end if;
+      insert into public.on_call_service_members(service_id,user_id,role) values(p_service_id,p_actor_id,v_invite.role)
+        on conflict(service_id,user_id) do update set role=excluded.role,clinical_reviewer=false,revoked_at=null,joined_at=now();
+    end if;
+    update public.on_call_service_invitations set used_at=now(),used_by=p_actor_id where id=v_invite.id;
+    return jsonb_build_object('serviceId',p_service_id);
+  end if;
+
+  select * into v_member from public.on_call_service_members where service_id=p_service_id and user_id=p_actor_id and revoked_at is null;
+  if not found then raise exception 'service_access_denied'; end if;
+  v_can_edit := v_member.role in ('editor','admin');
+  v_can_draft := v_can_edit or v_member.clinical_reviewer;
+  v_site := nullif(p_payload->>'siteId','')::uuid;
+  if v_site is not null and not exists(select 1 from public.on_call_service_sites where id=v_site and service_id=p_service_id) then raise exception 'service_invalid_site'; end if;
+
+  if p_action='read' then
+    return jsonb_build_object(
+      'service',jsonb_build_object('id',v_service.id,'name',v_service.name),
+      'membership',jsonb_build_object('role',v_member.role,'clinicalReviewer',v_member.clinical_reviewer),
+      'sites',(select coalesce(jsonb_agg(jsonb_build_object('id',s.id,'name',s.name) order by s.name),'[]') from public.on_call_service_sites s where service_id=p_service_id),
+      'entries',(select coalesce(jsonb_agg(jsonb_build_object(
+        'id',e.id,'revision',case when v_can_draft then e.revision else e.published_revision end,
+        'publishedRevision',e.published_revision,
+        'content',case when v_can_draft then e.content else e.published_content end,
+        'publishedContent',e.published_content,
+        'status',case when v_can_draft then e.status else 'published' end,
+        'authorId',case when v_can_draft then e.author_id else e.published_author_id end,
+        'reviewedBy',e.published_reviewed_by,'reviewedAt',e.published_reviewed_at,'reviewComment',case when v_can_draft then e.review_comment else '' end,
+        'updatedAt',e.updated_at
+      ) order by e.updated_at desc),'[]') from public.on_call_service_entries e
+        where e.service_id=p_service_id and (v_can_draft or e.published_content is not null)
+        and (v_site is null or (case when v_can_draft then e.content else e.published_content end)->>'siteId' is null or (case when v_can_draft then e.content else e.published_content end)->>'siteId'=v_site::text)),
+      'members',case when v_member.role='admin' then (select coalesce(jsonb_agg(jsonb_build_object('id',m.user_id,'role',m.role,'clinicalReviewer',m.clinical_reviewer,'joinedAt',m.joined_at) order by m.joined_at),'[]') from public.on_call_service_members m where m.service_id=p_service_id and m.revoked_at is null) else '[]'::jsonb end,
+      'invitations',case when v_member.role='admin' then (select coalesce(jsonb_agg(jsonb_build_object('id',i.id,'role',i.role,'expiresAt',i.expires_at,'revokedAt',i.revoked_at,'usedAt',i.used_at) order by i.created_at desc),'[]') from public.on_call_service_invitations i where i.service_id=p_service_id) else '[]'::jsonb end,
+      'reports',case when v_can_edit then (select coalesce(jsonb_agg(jsonb_build_object('id',r.id,'entryId',r.entry_id,'reason',r.reason,'status',r.status,'resolution',r.resolution,'createdAt',r.created_at) order by r.created_at desc),'[]') from public.on_call_service_reports r where r.service_id=p_service_id) else '[]'::jsonb end,
+      'orientation',(select coalesce(jsonb_agg(jsonb_build_object('entryId',o.entry_id,'siteId',o.site_id,'rotation',o.rotation,'revision',o.revision,'completedAt',o.completed_at)),'[]') from public.on_call_service_orientation o where o.service_id=p_service_id and o.user_id=p_actor_id and o.site_id=v_site and o.rotation=p_payload->>'rotation')
+    );
+  end if;
+
+  if p_action in ('site.create','invitation.create','invitation.revoke','member.update','member.revoke') and v_member.role <> 'admin' then raise exception 'service_role_denied'; end if;
+  if p_action='site.create' then
+    if (select count(*) from public.on_call_service_sites where service_id=p_service_id) >= 100 then raise exception 'service_limit'; end if;
+    insert into public.on_call_service_sites(service_id,name) values(p_service_id,p_payload->>'name') returning id into v_id;
+    return jsonb_build_object('siteId',v_id);
+  elsif p_action='invitation.create' then
+    if (p_payload->>'expiresInDays')::integer not between 1 and 7 then raise exception 'service_invalid_request'; end if;
+    if (select count(*) from public.on_call_service_invitations where service_id=p_service_id and used_at is null and revoked_at is null and expires_at>now()) >= 100 then raise exception 'service_limit'; end if;
+    insert into public.on_call_service_invitations(service_id,token_hash,role,issued_by,expires_at)
+      values(p_service_id,p_payload->>'tokenHash',p_payload->>'role',p_actor_id,now()+make_interval(days=>(p_payload->>'expiresInDays')::integer)) returning * into v_invite;
+    return jsonb_build_object('invitationId',v_invite.id,'expiresAt',v_invite.expires_at);
+  elsif p_action='invitation.revoke' then
+    update public.on_call_service_invitations set revoked_at=now() where service_id=p_service_id and id=(p_payload->>'invitationId')::uuid;
+    if not found then raise exception 'service_not_found'; end if;
+    return jsonb_build_object('ok',true);
+  elsif p_action in ('member.update','member.revoke') then
+    select * into v_target from public.on_call_service_members where service_id=p_service_id and user_id=(p_payload->>'memberId')::uuid and revoked_at is null for update;
+    if not found then raise exception 'service_not_found'; end if;
+    if v_target.role='admin' and (p_action='member.revoke' or p_payload->>'role'<>'admin')
+      and (select count(*) from public.on_call_service_members where service_id=p_service_id and role='admin' and revoked_at is null)<=1 then raise exception 'service_last_admin'; end if;
+    if p_action='member.revoke' then
+      update public.on_call_service_members set revoked_at=now(),clinical_reviewer=false where service_id=p_service_id and user_id=v_target.user_id;
+      update public.on_call_service_invitations set revoked_at=now() where service_id=p_service_id and issued_by=v_target.user_id and used_at is null;
+    else
+      update public.on_call_service_members set role=p_payload->>'role',clinical_reviewer=(p_payload->>'clinicalReviewer')::boolean where service_id=p_service_id and user_id=v_target.user_id;
+    end if;
+    return jsonb_build_object('ok',true);
+  end if;
+
+  if p_action in ('entry.save','entry.withdraw','report.resolve') and not v_can_edit then raise exception 'service_role_denied'; end if;
+  if p_action='entry.save' then
+    v_content := p_payload - array['action','entryId','expectedRevision','publish'];
+    if v_content - array['siteId','section','kind','title','body','phone','sources','orientationPhase'] <> '{}'::jsonb
+      or not (v_content ?& array['siteId','section','kind','title','body','phone','sources','orientationPhase'])
+      or coalesce(v_content->>'section','') not in ('contacts','referrals','resources','documentation','orientation','teaching','admin')
+      or coalesce(v_content->>'kind','') not in ('operational','clinical','legal')
+      or coalesce(v_content->>'orientationPhase','') not in ('before_start','first_shift','first_week','ongoing','leaving')
+      or jsonb_typeof(v_content->'title') is distinct from 'string' or length(btrim(v_content->>'title')) not between 1 and 160
+      or jsonb_typeof(v_content->'body') is distinct from 'string' or length(v_content->>'body')>6000
+      or jsonb_typeof(v_content->'phone') is distinct from 'string' or length(v_content->>'phone')>80
+      or jsonb_typeof(v_content->'sources') is distinct from 'array'
+      or jsonb_typeof(p_payload->'publish') is distinct from 'boolean' then raise exception 'service_invalid_request'; end if;
+    if jsonb_array_length(v_content->'sources')>12 then raise exception 'service_invalid_request'; end if;
+    for v_source in select value from jsonb_array_elements(v_content->'sources') loop
+      if jsonb_typeof(v_source) is distinct from 'object' or v_source - array['label','url'] <> '{}'::jsonb
+        or jsonb_typeof(v_source->'label') is distinct from 'string' or length(btrim(v_source->>'label')) not between 1 and 160
+        or jsonb_typeof(v_source->'url') is distinct from 'string' or length(v_source->>'url')>2000
+        or coalesce(v_source->>'url','') !~ '^https://[^/@[:space:]]+(/|$)' then raise exception 'service_invalid_request'; end if;
+    end loop;
+    if v_content->>'kind'<>'operational' and jsonb_array_length(v_content->'sources')=0 then raise exception 'service_source_required'; end if;
+    v_id := nullif(p_payload->>'entryId','')::uuid;
+    if v_id is null then
+      if (select count(*) from public.on_call_service_entries where service_id=p_service_id)>=1000 then raise exception 'service_limit'; end if;
+      if p_payload ? 'expectedRevision' then raise exception 'service_revision_conflict'; end if;
+      v_revision := 1;
+    else
+      select * into v_entry from public.on_call_service_entries where id=v_id and service_id=p_service_id for update;
+      if not found then raise exception 'service_not_found'; end if;
+      if v_entry.revision is distinct from (p_payload->>'expectedRevision')::integer then raise exception 'service_revision_conflict'; end if;
+      v_revision := v_entry.revision+1;
+    end if;
+    v_status := case when (p_payload->>'publish')::boolean then case when v_content->>'kind'='operational' then 'published' else 'pending_review' end else 'draft' end;
+    -- Reclassification cannot evade independent review of an existing clinical/legal entry.
+    if v_entry.id is not null and (v_entry.content->>'kind'<>'operational' or v_entry.published_content->>'kind'<>'operational') and v_content->>'kind'='operational' then raise exception 'service_review_required'; end if;
+    if v_id is null then
+      insert into public.on_call_service_entries(service_id,site_id,content,author_id,status)
+        values(p_service_id,v_site,v_content,p_actor_id,v_status) returning id into v_id;
+    else
+      update public.on_call_service_entries set site_id=v_site,content=v_content,author_id=p_actor_id,status=v_status,revision=v_revision,review_comment='',updated_at=now() where id=v_id;
+    end if;
+    if v_status='published' then
+      update public.on_call_service_entries set published_content=v_content,published_revision=v_revision,published_author_id=p_actor_id,published_reviewed_by=null,published_reviewed_at=null where id=v_id;
+    end if;
+    return jsonb_build_object('entryId',v_id,'revision',v_revision,'status',v_status);
+  elsif p_action in ('entry.review','entry.withdraw','report.create','orientation.set') then
+    select * into v_entry from public.on_call_service_entries where id=(p_payload->>'entryId')::uuid and service_id=p_service_id for update;
+    if not found then raise exception 'service_not_found'; end if;
+    if p_action in ('entry.review','entry.withdraw') then
+      if v_entry.revision is distinct from (p_payload->>'expectedRevision')::integer then raise exception 'service_revision_conflict'; end if;
+      if p_action='entry.withdraw' then
+        update public.on_call_service_entries set status='withdrawn',revision=revision+1,published_content=null,published_revision=null,published_author_id=null,published_reviewed_by=null,published_reviewed_at=null,updated_at=now() where id=v_entry.id;
+      else
+        if not v_member.clinical_reviewer or v_entry.author_id=p_actor_id then raise exception 'service_review_denied'; end if;
+        if v_entry.status<>'pending_review' or v_entry.content->>'kind'='operational' then raise exception 'service_review_required'; end if;
+        if p_payload->>'decision'='approve' then
+          update public.on_call_service_entries set status='published',revision=revision+1,published_content=content,published_revision=revision+1,published_author_id=author_id,published_reviewed_by=p_actor_id,published_reviewed_at=now(),review_comment=p_payload->>'comment',updated_at=now() where id=v_entry.id;
+        elsif p_payload->>'decision'='return' then
+          update public.on_call_service_entries set status='draft',revision=revision+1,review_comment=p_payload->>'comment',updated_at=now() where id=v_entry.id;
+        else raise exception 'service_invalid_request'; end if;
+      end if;
+      return jsonb_build_object('ok',true);
+    elsif p_action='report.create' then
+      if v_entry.published_content is null then raise exception 'service_not_found'; end if;
+      if (select count(*) from public.on_call_service_reports where service_id=p_service_id and status='open')>=1000 then raise exception 'service_limit'; end if;
+      insert into public.on_call_service_reports(service_id,entry_id,reported_by,reason) values(p_service_id,v_entry.id,p_actor_id,p_payload->>'reason') returning id into v_id;
+      return jsonb_build_object('reportId',v_id);
+    else
+      if v_site is null or v_entry.published_content is null or v_entry.published_content->>'section'<>'orientation'
+        or (v_entry.published_content->>'siteId' is not null and v_entry.published_content->>'siteId'<>v_site::text) then raise exception 'service_invalid_orientation'; end if;
+      if (p_payload->>'completed')::boolean then
+        insert into public.on_call_service_orientation(service_id,user_id,site_id,entry_id,rotation,revision)
+          values(p_service_id,p_actor_id,v_site,v_entry.id,p_payload->>'rotation',v_entry.published_revision)
+          on conflict(service_id,user_id,site_id,entry_id,rotation) do update set revision=excluded.revision,completed_at=now();
+      else
+        delete from public.on_call_service_orientation where service_id=p_service_id and user_id=p_actor_id and site_id=v_site and entry_id=v_entry.id and rotation=p_payload->>'rotation';
+      end if;
+      return jsonb_build_object('ok',true);
+    end if;
+  elsif p_action='report.resolve' then
+    update public.on_call_service_reports set status='resolved',resolution=p_payload->>'resolution',resolved_by=p_actor_id,resolved_at=now()
+      where service_id=p_service_id and id=(p_payload->>'reportId')::uuid;
+    if not found then raise exception 'service_not_found'; end if;
+    return jsonb_build_object('ok',true);
+  end if;
+  raise exception 'service_invalid_request';
+end $$;
+revoke all on function public.on_call_service_command(uuid,uuid,text,jsonb) from public,anon,authenticated;
+grant execute on function public.on_call_service_command(uuid,uuid,text,jsonb) to service_role;
+
+
+-- Projection: 20260922174730_cme_archive_source.sql
+-- Reversible CME archives and learning source links. No evidence or record deletion.
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+alter table public.cme_entries add column archived_at timestamptz, add column source_url text;
+alter table public.cme_entries add constraint cme_entries_source_url_length check (source_url is null or char_length(source_url) between 1 and 2000);
+comment on column public.cme_entries.source_url is 'Learning source reference only; not evidence of participation.';
+
+create function public.cme_set_entry_archived(p_owner_id uuid,p_entry_id uuid,p_archived boolean) returns jsonb
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare v_entry public.cme_entries; v_year public.cme_years;
+begin
+  if p_owner_id is null or p_archived is null then raise exception 'cme_invalid_request'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_owner_id::text,23092026));
+  select * into v_entry from public.cme_entries where owner_id=p_owner_id and id=p_entry_id for update;
+  if not found then raise exception 'cme_entry_not_found'; end if;
+  select * into v_year from public.cme_years where owner_id=p_owner_id and id=v_entry.year_id for update;
+  if not found then raise exception 'cme_year_not_confirmed'; end if;
+  if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  if (v_entry.archived_at is not null) is distinct from p_archived then
+    update public.cme_entries set archived_at=case when p_archived then now() else null end
+    where owner_id=p_owner_id and id=p_entry_id returning * into v_entry;
+  end if;
+  return to_jsonb(v_entry)||jsonb_build_object('cme_allocations',(select coalesce(jsonb_agg(jsonb_build_object('category',category,'hours',hours)),'[]') from public.cme_allocations where owner_id=p_owner_id and entry_id=p_entry_id));
+end $$;
+revoke all on function public.cme_set_entry_archived(uuid,uuid,boolean) from public,anon,authenticated;
+grant execute on function public.cme_set_entry_archived(uuid,uuid,boolean) to service_role;
+
+create function public.cme_guard_archived_entry() returns trigger
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+begin
+  if old.archived_at is not null and new.archived_at is not null then raise exception 'cme_entry_archived'; end if;
+  return new;
+end $$;
+revoke all on function public.cme_guard_archived_entry() from public,anon,authenticated;
+grant execute on function public.cme_guard_archived_entry() to service_role;
+create trigger cme_archived_entry_guard before update on public.cme_entries for each row execute function public.cme_guard_archived_entry();
+
+create or replace function public.cme_save_entry(p_owner_id uuid,p_year_id uuid,p_entry_id uuid,p_entry jsonb,p_create boolean,p_request_id uuid default null) returns jsonb
+language plpgsql security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_year public.cme_years; v_existing public.cme_entries; v_saved public.cme_entries;
+  v_routine public.cme_routines; v_alloc jsonb; v_review numeric; v_total numeric; v_count integer;
+begin
+  if p_owner_id is null then raise exception 'cme_invalid_request'; end if;
+  perform pg_advisory_xact_lock(hashtextextended(p_owner_id::text, 23092026));
+  if p_create and p_request_id is not null then
+    select * into v_existing from public.cme_entries where owner_id=p_owner_id and request_id=p_request_id;
+    if found then
+      if v_existing.request_payload is distinct from p_entry then raise exception 'cme_retry_conflict'; end if;
+      return to_jsonb(v_existing) || jsonb_build_object('cme_allocations',(select coalesce(jsonb_agg(jsonb_build_object('category',category,'hours',hours)),'[]') from public.cme_allocations where owner_id=p_owner_id and entry_id=v_existing.id));
+    end if;
+  end if;
+  select * into v_year from public.cme_years where owner_id=p_owner_id and id=p_year_id for update;
+  if not found then raise exception 'cme_year_not_confirmed'; end if;
+  if v_year.closed_at is not null then raise exception 'cme_year_closed'; end if;
+  if extract(year from (p_entry->>'date')::date) <> v_year.year then raise exception 'cme_invalid_request'; end if;
+  if not p_create then
+    select * into v_existing from public.cme_entries where owner_id=p_owner_id and id=p_entry_id for update;
+    if not found then raise exception 'cme_entry_not_found'; end if;
+    if v_existing.archived_at is not null then raise exception 'cme_entry_archived'; end if;
+    if exists(select 1 from public.cme_years where owner_id=p_owner_id and id=v_existing.year_id and closed_at is not null) then raise exception 'cme_year_closed'; end if;
+  end if;
+  if jsonb_typeof(p_entry->'allocations') is distinct from 'array' then raise exception 'cme_invalid_request'; end if;
+  select count(*),coalesce(sum((a->>'hours')::numeric),0),coalesce(sum((a->>'hours')::numeric) filter(where a->>'category'='reviewing'),0)
+    into v_count,v_total,v_review from jsonb_array_elements(p_entry->'allocations') a;
+  if v_count not between 1 and 3 or v_total > 24 or coalesce((p_entry->>'formalPeerReviewHours')::numeric,0) not between 0 and v_review then raise exception 'cme_invalid_request'; end if;
+  if p_entry->>'documentId' is not null and not exists(select 1 from public.documents where owner_id=p_owner_id and id=(p_entry->>'documentId')::uuid) then raise exception 'cme_invalid_link'; end if;
+  if p_entry->>'routineId' is not null then
+    select * into v_routine from public.cme_routines where owner_id=p_owner_id and id=(p_entry->>'routineId')::uuid for update;
+    if not found or (p_create and v_routine.archived_at is not null) then raise exception 'cme_invalid_link'; end if;
+  end if;
+  if p_create then
+    insert into public.cme_entries(id,owner_id,year_id,activity_date,title,reflection,cost_cents,routine_id,document_id,buckets,formal_peer_review_hours,request_id,request_payload,source_url)
+    values(p_entry_id,p_owner_id,p_year_id,(p_entry->>'date')::date,p_entry->>'title',p_entry->>'reflection',(p_entry->>'costCents')::integer,(p_entry->>'routineId')::uuid,(p_entry->>'documentId')::uuid,array(select jsonb_array_elements_text(p_entry->'buckets')),coalesce((p_entry->>'formalPeerReviewHours')::numeric,0),p_request_id,p_entry,p_entry->>'sourceUrl')
+    returning * into v_saved;
+  else
+    update public.cme_entries set year_id=p_year_id,activity_date=(p_entry->>'date')::date,title=p_entry->>'title',reflection=p_entry->>'reflection',cost_cents=(p_entry->>'costCents')::integer,routine_id=(p_entry->>'routineId')::uuid,document_id=(p_entry->>'documentId')::uuid,buckets=array(select jsonb_array_elements_text(p_entry->'buckets')),formal_peer_review_hours=coalesce((p_entry->>'formalPeerReviewHours')::numeric,0),source_url=p_entry->>'sourceUrl'
+    where owner_id=p_owner_id and id=p_entry_id returning * into v_saved;
+    delete from public.cme_allocations where owner_id=p_owner_id and entry_id=p_entry_id;
+  end if;
+  for v_alloc in select value from jsonb_array_elements(p_entry->'allocations') loop
+    insert into public.cme_allocations(owner_id,entry_id,category,hours) values(p_owner_id,p_entry_id,v_alloc->>'category',(v_alloc->>'hours')::numeric);
+  end loop;
+  -- A routine advances only after the complete entry is saved, in this same
+  -- transaction. An idempotent retry returns above and never advances twice.
+  if p_create and v_routine.id is not null and v_routine.next_due is not null and v_routine.next_due <= (p_entry->>'date')::date then
+    update public.cme_routines set next_due=((p_entry->>'date')::date + case v_routine.cadence when 'weekly' then interval '7 days' when 'monthly' then interval '1 month' else interval '3 months' end)::date where owner_id=p_owner_id and id=v_routine.id;
+  end if;
+  return to_jsonb(v_saved)||jsonb_build_object('cme_allocations',p_entry->'allocations');
+end $$;
+
+
+-- Projection: 20260922175023_cme_private_evidence.sql
+-- Private portfolio evidence is separate from clinical ingestion and service handbooks.
+set local lock_timeout = '5s';
+set local statement_timeout = '30s';
+
+create table public.cme_evidence (
+  id uuid primary key,
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  entry_id uuid not null,
+  file_name text not null check (length(file_name) between 1 and 180),
+  content_type text not null check (content_type in ('application/pdf','image/jpeg','image/png')),
+  byte_size integer not null check (byte_size between 1 and 10485760),
+  sha256 text not null check (sha256 ~ '^[a-f0-9]{64}$'),
+  storage_path text not null unique,
+  kind text not null check (kind in ('certificate','receipt','assessment','other')),
+  redaction_confirmed boolean not null check (redaction_confirmed),
+  preview_confirmed boolean not null check (preview_confirmed),
+  uploaded_at timestamptz not null default now(),
+  unique (entry_id, sha256),
+  foreign key (entry_id, owner_id) references public.cme_entries(id, owner_id) on delete restrict,
+  check (storage_path = owner_id::text || '/' || entry_id::text || '/' || id::text)
+);
+create index cme_evidence_owner_entry_idx on public.cme_evidence(owner_id, entry_id);
+alter table public.cme_evidence enable row level security;
+revoke all on public.cme_evidence from public, anon, authenticated;
+grant select, insert on public.cme_evidence to service_role;
+
+create function public.cme_guard_evidence_insert() returns trigger
+language plpgsql security invoker set search_path = public, pg_temp as $$
+declare v_entry public.cme_entries%rowtype; v_closed timestamptz;
+begin
+  perform pg_advisory_xact_lock(hashtextextended(new.owner_id::text, 23092026));
+  select * into v_entry from public.cme_entries where id=new.entry_id and owner_id=new.owner_id;
+  if not found then raise exception 'cme_evidence_entry_not_found'; end if;
+  select closed_at into v_closed from public.cme_years where id=v_entry.year_id and owner_id=new.owner_id for update;
+  if not found or v_closed is not null or v_entry.archived_at is not null then
+    raise exception 'cme_evidence_entry_not_writable';
+  end if;
+  if (select count(*) from public.cme_evidence where owner_id=new.owner_id and entry_id=new.entry_id) >= 20 then
+    raise exception 'cme_evidence_limit';
+  end if;
+  return new;
+end $$;
+revoke execute on function public.cme_guard_evidence_insert() from public, anon, authenticated;
+grant execute on function public.cme_guard_evidence_insert() to service_role;
+create trigger cme_evidence_insert_guard before insert on public.cme_evidence
+  for each row execute function public.cme_guard_evidence_insert();
+
+create function public.cme_evidence_counts(p_owner_id uuid, p_year integer) returns jsonb
+language sql stable security invoker set search_path = public, pg_temp as $$
+  select coalesce(jsonb_object_agg(entry_id, evidence_count), '{}'::jsonb)
+  from (
+    select e.id as entry_id, count(a.id) as evidence_count
+    from public.cme_entries e join public.cme_years y on y.id=e.year_id and y.owner_id=p_owner_id
+    left join public.cme_evidence a on a.entry_id=e.id and a.owner_id=p_owner_id
+    where e.owner_id=p_owner_id and y.year=p_year group by e.id
+  ) counts
+$$;
+revoke execute on function public.cme_evidence_counts(uuid,integer) from public, anon, authenticated;
+grant execute on function public.cme_evidence_counts(uuid,integer) to service_role;
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values ('cme-private-evidence','cme-private-evidence',false,10485760,array['application/pdf','image/jpeg','image/png'])
+on conflict (id) do update set public=false, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+-- Even an unrelated permissive storage policy must not expose portfolio objects.
+create policy cme_evidence_no_direct_access on storage.objects as restrictive
+  for all to anon, authenticated
+  using (bucket_id <> 'cme-private-evidence') with check (bucket_id <> 'cme-private-evidence');

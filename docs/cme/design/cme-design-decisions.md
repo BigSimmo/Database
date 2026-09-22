@@ -1,7 +1,9 @@
 # CME mode — design decisions
 
-**Status: direction agreed, nothing built.** This is the decision record behind the screen
-boards. Where it and a drawing disagree, this file wins.
+**Status: core workflow implementation; broader portfolio and evidence features remain planned.**
+This is the decision record behind the screen boards. The 23 September 2026 owner decisions
+below supersede the earlier capture, peer-review and year-finalisation proposals. Written or
+locally checked code is not evidence that migrations have been applied or the app deployed.
 
 Boards: the canvas (21 screens, phone-first) and the earlier three-way home study in
 [`prototypes/cme-screens.html`](prototypes/cme-screens.html), kept for provenance — its
@@ -124,30 +126,15 @@ actually there, and a tracker that auto-filled attendance would be producing a f
 
 ## 6. Capture
 
-Three routes in, in descending order of how much typing they save:
+**Owner decision, 23 September 2026: explicit capture only.** The doctor opens an activity
+form, optionally prefilled from a routine or an explicitly selected source, checks duration
+and allocation, and saves. Opening a document never creates an activity or starts a timer.
+There is no passive reading history, automatic attendance or automatic daily draft.
 
-1. **What the app noticed.** It records **document titles and how long they were open**, on
-   this account, and offers a draft the owner confirms. One draft per day, not per document.
-2. **The guideline you just read.** The app already holds the clinical documents, so a "count
-   this" control on the document itself pre-fills the entry and links the evidence to the
-   document. No other CPD product can do this, because no other one knows what was read.
-3. **A certificate shared in from email.** A PDF arriving in the mail app is shared straight
-   into the vault and becomes a half-filled entry. Certificates are lost in exactly this gap.
-
-Constraints on the first two:
-
-- **Never the search text.** `src/lib/query-privacy.ts` stores a hash rather than the query,
-  and a durable record of what was typed would reverse a deliberate commitment.
-- Two-minute floor; measured minutes only; never counts time with the screen off; blind to
-  the CME mode itself.
-- A plain on/off switch beside the existing "save recent searches" control, and a plain
-  statement of what is recorded on the Drafts screen itself.
-
-**This still needs an explicit ruling.** It inverts all three conditions under which
-recording the owner's own activity was previously permitted here
-(`src/lib/on-call/recent-storage.ts`): never leaves the device, does not outlive the session,
-stores nothing identifying. It also makes the shipped privacy copy pinned by
-`tests/privacy-ui.test.ts` misleading, which must be corrected in the same change.
+Search text is never copied into a learning record. A source-document link means "what I
+read", not "evidence attached". Certificates and assessment uploads belong to the separately
+planned private vault, not the clinical upload/ingestion route. Until that vault exists,
+screens must not claim an attachment is present or offer a button that pretends to attach one.
 
 ## 7. Evidence, and what it cost
 
@@ -184,11 +171,11 @@ needs an activity rather than a tap — it says so instead of pretending. The sc
 unmissable line: this is the app's reading of his own record against his own confirmed
 targets, not advice, and not a statement of what a regulator would ask for.
 
-**Closing the year** is a distinct act with legal weight and it was missing from the first
-design. Closing locks every entry in the year against editing, produces the summary and the
-evidence bundle in one go, carries any unfinished plan goal into the next year, and opens the
-next year asking for the targets to be re-confirmed against the current guide. It cannot be
-undone, and the screen says so before the button.
+**Finalisation is planned separately from the core workflow.** The owner's 23 September 2026
+decision replaces an irreversible lock with an immutable snapshot and explicit, dated
+amendments carrying a reason. An amendment preserves the original and produces a revised
+export. The next year asks for targets to be confirmed again; unfinished goals may carry
+forward, but hours never do. Existing closed-year records remain protected from ordinary edits.
 
 Closing also accepts **a note explaining a shortfall** — leave, illness, anything. The note
 goes on the record, where an explanation belongs. It does not reduce the requirement, and the
@@ -309,18 +296,81 @@ not a coincidence. `15.0 + 8.0 + 2.0` is 25.0, which cannot coexist with a 32.5-
 pair the design uses to show one floor met and one not — forces educational to 22.5. Found
 while building the corpus, 2026-09-20.
 
-**Peer review is a count, not hours.** The drawings show "7.0 of 10", which read as hours
-would have to sit in _reviewing performance_ — the same category that is separately shown as
-8.0, and one figure cannot be both. It is modelled instead as attendance at a monthly peer
-group, 7 of 10 sessions from February to November: an `activity-count` requirement. This is
-the more honest shape anyway. A peer review group is a thing you attended or did not, and
-counting it in hours invites the arithmetic the drawings tripped over.
+**Correction, 23 September 2026: formal peer review is measured in hours.** The
+[RANZCP CPD overview](https://www.ranzcp.org/cpd-program-membership/cpd-program/cpd-overview),
+read directly on 22 September UTC, specifies at least 10 hours. Seven peer-review hours can
+be a subset of eight reviewing-performance hours; the earlier claim that these figures
+conflicted was incorrect. Qualifying hours contribute to the specialist requirement without
+adding to the activity's total a second time. Session attendance may be recorded as a routine,
+but a session count is not a replacement for the hours requirement.
+
+The starting preset covers the Australian baseline plus the psychiatry peer-review
+requirement. It is not the complete RANZCP CPD-home programme: the doctor must confirm any
+additional CPD-home requirements. Saved years are never silently replaced by a newer preset.
 
 Per this file's own rule, where it and a drawing disagree, this file wins. The boards carry
 the old figure and should be re-exported when they are next touched; nothing in the build
 reads them.
 
-Every other figure in the drawings is exact and is pinned by a test: 47 entries, 32.5 hours,
-three of four practice domains filled with _Ethical practice_ empty, the plan written on
-12 January, the self-evaluation not started, 9 entries with evidence and 3 without, and 14
-not yet transcribed into the college portal.
+The synthetic record retains 47 entries and 32.5 allocated hours. Earlier drawing labels
+claiming "evidence" from a document link are superseded: source links and private evidence
+attachments are separate facts. Current tests must assert the implemented record, not those
+obsolete labels. The artwork is historical design material, not evidence of functional or
+hosted acceptance.
+
+## 16. Core workflow repair, 23 September 2026
+
+The first implementation milestone completes requirement confirmation, private activity
+capture and correction, practice-domain selection, explicit routine attendance and
+previous-year access. Signed-out, unconfigured and unavailable records have separate
+states. A database outage must never appear as an empty year inviting replacement.
+Private server-rendered screens are bound to their verified owner: sign-out, unresolved
+authentication or a different account hides them immediately and resets local drafts.
+Source links are reading provenance; private evidence uploads remain separate future work.
+Routine archiving is available; activity archiving remains outstanding and is not claimed
+as part of this repair. The existing copy-to-CPD workflow is distinct from the planned
+spreadsheet, evidence-bundle and finalisation exports.
+
+Requirement confirmation and activity saves are transactions. An activity's qualifying
+peer-review credit is contained in its reviewing allocation, and retrying the same save
+does not create another activity or advance its routine twice. Closed years reject ordinary
+edits. Immutable finalisation and dated amendments remain a later milestone.
+
+The matching migration and schema projection have been replayed in a disposable local
+PostgreSQL database. Synthetic transaction checks cover rollback, retries, routine
+advancement, owner boundaries and closed-year rejection. This is local evidence only.
+The new completeness constraint rejects the earlier application's separate entry and
+allocation writes, so an owner-approved, coordinated application/schema rollout window is
+required. A rollback must likewise account for that writer incompatibility. Merging the
+migration into `main` applies it to production; no publication or merge is part of this
+local implementation milestone.
+
+The connected On call repair preserves the existing public/private model while fixing
+stale empty reads, legacy private browser-cache persistence, optional-field clearing,
+extension handling and exact-result navigation. It does not introduce service memberships
+or turn existing public entries into an invitation-only handbook. Source lookup uses the
+existing permission-checked document route. The public seven-day cache is not the proposed
+approved offline-pack feature.
+
+## 17. Records, evidence and connected learning, 23 September 2026
+
+The next implementation adds activity archive and restore, selected-year spreadsheet
+export and a printable annual summary. Archiving preserves the activity, allocations,
+source and evidence while excluding it from active totals and exports. Closed years
+reject archive, restore and new attachments. Exports fail explicitly when the complete
+owner-year record cannot be retrieved; they never silently export a truncated result.
+Finalisation snapshots, amendments and an evidence ZIP remain outside this addition.
+
+Evidence is owner-private PDF, JPEG or PNG in a dedicated private storage bucket, with
+bounded uploads, signature/type checks and explicit local preview and redaction
+confirmation. The app does not detect anonymity, OCR, index or process these documents
+with AI. A reading URL never counts as evidence. Downloads require an owner check and
+use a short-lived signed URL. Unknown upload completion preserves the object for
+reconciliation; compensation is limited to uploads known not to have committed metadata.
+There is no automatic deletion of personal evidence or offline evidence cache.
+
+Teaching and handbook resources offer an explicit learning link. It prefills the title
+and source only. The doctor supplies duration and allocations and saves deliberately;
+opening or reading a resource never implies attendance. Service membership gives no
+access to this private record. New schema changes are prepared locally; publication,
+owner-approved production merge and hosted acceptance remain separate actions.

@@ -1,9 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
-import { cn, textMuted } from "@/components/ui-primitives";
+import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import type { CmeRoutine } from "@/lib/cme/routines";
+import type { CmeRequirementSet } from "@/lib/cme/types";
 
 /**
  * Reads the message the API actually sent, so the form shows the reason rather
@@ -39,17 +42,47 @@ async function entrySaveError(response: Response): Promise<string> {
  * the form and tell the owner nothing — an activity they typed out, gone, with
  * no record made.
  */
-export function CmeNewEntryRoute() {
+export function CmeNewEntryRoute({
+  routine,
+  learningPrefill,
+  set,
+  demoMode = false,
+}: {
+  readonly learningPrefill?: import("@/lib/cme/learning-source").CmeLearningPrefill;
+  readonly routine?: CmeRoutine | null;
+  readonly set?: CmeRequirementSet | null;
+  readonly demoMode?: boolean;
+}) {
   const router = useRouter();
+  const [requestId] = useState(() => crypto.randomUUID());
+  const domains =
+    set?.requirements.flatMap((requirement) =>
+      requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
+    ) ?? [];
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" });
+  const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
+  const initialEntry = {
+    date: initialDate,
+    title: routine?.title ?? learningPrefill?.title ?? "",
+    sourceUrl: learningPrefill?.sourceUrl ?? null,
+    allocations: routine?.usualAllocations ?? [],
+    reflection: "",
+    costCents: null,
+    routineId: routine?.id ?? null,
+    documentId: null,
+    buckets: [],
+    formalPeerReviewHours: 0,
+  };
 
   async function saveEntry(entry: CmeEntryDraft) {
+    if (demoMode) throw new Error("Demo mode is read-only. Sign in to save this activity to a private CME record.");
     const response = await fetch("/api/cme/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entry),
+      body: JSON.stringify({ ...entry, requestId }),
     });
     if (!response.ok) throw new Error(await entrySaveError(response));
-    router.push("/cme/log");
+    router.push(`/cme/log?year=${entry.date.slice(0, 4)}`);
     router.refresh();
   }
 
@@ -61,8 +94,27 @@ export function CmeNewEntryRoute() {
         you save it.
       </p>
 
+      {learningPrefill?.title || learningPrefill?.sourceUrl ? (
+        <p className={cn(textMuted, "mt-3 text-sm")}>
+          Source details are prefilled. Confirm the time you actually spent and its allocation before saving. Opening
+          this form does not record an activity.
+        </p>
+      ) : null}
+      {demoMode ? (
+        <div className="mt-4" data-testid="cme-entry-demo-notice">
+          <InlineNotice tone="neutral">
+            Demo mode lets you inspect the form. Saving is available only in your signed-in private record.
+          </InlineNotice>
+        </div>
+      ) : null}
+
       <div className="mt-6">
-        <CmeEntryForm onSubmit={saveEntry} />
+        <CmeEntryForm
+          onSubmit={saveEntry}
+          initialEntry={initialEntry}
+          initialStatedHours={routine?.usualHours}
+          availableDomains={domains}
+        />
       </div>
     </main>
   );

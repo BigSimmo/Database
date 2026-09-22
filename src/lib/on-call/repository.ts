@@ -1,3 +1,4 @@
+import { isOnCallComplianceCategory, mayContainOnCallCompliance } from "@/lib/on-call/compliance";
 import {
   onCallDetailsSchemaFor,
   onCallEntrySchema,
@@ -15,13 +16,14 @@ export async function assertValidLinkedDocumentIds(
   supabase: AdminClient,
   documentIds: readonly string[] | string[],
   ownerId: string,
+  isPersonal = true,
 ): Promise<void> {
   const uniqueIds = Array.from(new Set(documentIds));
   if (uniqueIds.length === 0) return;
 
   const { data, error } = await withOwnerReadScope(
     supabase.from("documents").select("id").in("id", uniqueIds),
-    ownerId,
+    isPersonal ? ownerId : undefined,
   );
   if (error) throw new Error(error.message);
 
@@ -99,11 +101,12 @@ export function onCallEntryToRow(entry: OnCallEntry, ownerId: string) {
   // still shows, on rows the owner deliberately shared.
   //
   // So this asks the narrow question the editor's own taxonomy asks — does the
-  // row carry a `kind` at all — and the read asks the wide one. The rows in
-  // between (a compliance record that lost its `kind`, an import, a hand
-  // edit) are withheld from strangers without being rewritten behind the
-  // owner's back.
-  const isCompliance = detailsCarryComplianceKind(entry.details);
+  // row carry a `kind` or a compliance category — and the read additionally
+  // withholds malformed details and stranded compliance fields.
+  const isCompliance =
+    entry.section === "logistics" &&
+    (detailsCarryComplianceKind(entry.details) ||
+      isOnCallComplianceCategory((entry.details as { category?: unknown } | null)?.category));
   return {
     owner_id: ownerId,
     section: entry.section,
@@ -181,15 +184,7 @@ export const PUBLIC_ON_CALL_SECTIONS = [
  * `PUBLIC_ON_CALL_SECTIONS` above: a new field is withheld until somebody
  * decides on purpose that it may be published.
  */
-export const COMPLIANCE_MARKER_KEYS = [
-  "kind",
-  "consequence",
-  "expiresOn",
-  "leadTimeDays",
-  "issuingBody",
-  "evidenceUrl",
-  "provenance",
-] as const;
+export { COMPLIANCE_MARKER_KEYS } from "@/lib/on-call/compliance";
 
 /**
  * Whether a raw row is — or might be — a compliance requirement, and therefore
@@ -223,45 +218,12 @@ export const COMPLIANCE_MARKER_KEYS = [
  * also covers a row written before the fix, an import, or a direct database
  * edit.
  *
- * **What it cannot see.** It reads `details` and `section`, so a logistics row
- * that keeps compliance content in its `title`, `subtitle` or `body` while its
- * details say only `{ category: "Registration" }` is still published. No form
- * in this app can produce that — the compliance editor always writes `kind`
- * and always stores the row private — so it needs a direct API call, an
- * import or a hand edit. The cheapest real closure is that `category` itself:
- * the two taxonomies share no folder name, so a `logistics` row filed under
- * Registration, Indemnity, Training, Credentialing, CPD or Clearances is
- * compliance-shaped whatever else it says. That needs the category lists moved
- * out of `src/components` first (`tests/lib-layering.test.ts` forbids the
- * import), so it is filed rather than done here.
- *
- * It is also `logistics`-local. `PUBLIC_ON_CALL_SECTIONS` makes a new SECTION
- * deny-by-default and the field guard makes a new logistics FIELD
- * deny-by-default, but a second page hiding inside a different section would
- * be covered by neither.
+ * Compliance categories are also withheld, even if an older row lost its
+ * discriminator and kept personal information in the title or body.
+
  */
 export function rowMayBeComplianceRequirement(row: Record<string, unknown>): boolean {
-  if (row.section !== "logistics") return false;
-  const details = row.details;
-  // Not a plain object, so it cannot be read as an Admin row and is withheld
-  // rather than guessed at. `null` and an array are both named because
-  // `typeof` calls each of them "object".
-  if (typeof details !== "object" || details === null || Array.isArray(details)) return true;
-  // Details this section's own schema refuses. Without this line the
-  // docstring's "it fails closed" was not true of the commonest malformed
-  // shape: `{ category: "Registration", expires_on: "2027-03-12",
-  // evidence_url: "…/cert.pdf" }` is a plain object with no marker key —
-  // snake_case, or a typo, or a capital — so it slipped through and published
-  // the row's title and body. It costs nothing to withhold: `rowToOnCallEntry`
-  // nulls details that fail this same parse, so such a row already renders on
-  // the public page with nothing in it.
-  if (!onCallDetailsSchemaFor("logistics").safeParse(details).success) return true;
-  // `in`, not `hasOwnProperty`, and not `details[key] !== undefined`. Both of
-  // those are narrower: a marker key on the prototype, or one present with an
-  // explicit `undefined`, would be published. For a predicate whose job is to
-  // fail closed, the widest of the three is the correct one — so this is not
-  // the lint fix it looks like.
-  return COMPLIANCE_MARKER_KEYS.some((key) => key in details);
+  return mayContainOnCallCompliance(row.section, row.details);
 }
 
 /**

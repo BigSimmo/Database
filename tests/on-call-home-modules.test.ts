@@ -435,3 +435,16 @@ describe("msUntilOnCallHoursBoundary", () => {
     expect(isOnCallOutOfHours(next)).toBe(true);
   });
 });
+
+describe("external dialling safety", () => {
+  it.each(["0001", "1234", "ext 9224", "(08) 9224 8888 ext 1", "++61 8 9224 8888", "call 000"])(
+    "never dials an extension or ambiguous text: %s",
+    (raw) => {
+      expect(onCallTelHref(raw)).toBeUndefined();
+    },
+  );
+  it("preserves explicitly recorded emergency and national numbers", () => {
+    expect(onCallTelHref("000")).toBe("tel:000");
+    expect(onCallTelHref("13 11 14")).toBe("tel:131114");
+  });
+});

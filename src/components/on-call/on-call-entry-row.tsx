@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { LucideIcon } from "lucide-react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 
@@ -9,6 +11,8 @@ import { cn } from "@/components/ui-primitives";
 export interface OnCallEntryRowProps {
   /** Row heading — a role, a scenario name, a place. Section-agnostic on purpose. */
   title: string;
+  /** Give contact names a full line above their number on narrow screens. */
+  stackOnPhone?: boolean;
   subtitle?: string;
   icon?: LucideIcon;
   /** Metadata pills, freshness badge, section-specific detail — rendered below the heading. */
@@ -51,6 +55,7 @@ export interface OnCallEntryRowProps {
  */
 export function OnCallEntryRow({
   title,
+  stackOnPhone = false,
   subtitle,
   icon: Icon,
   children,
@@ -69,20 +74,18 @@ export function OnCallEntryRow({
       {Icon ? (
         <span
           aria-hidden
-          className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          className={cn(
+            "mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+            stackOnPhone && "hidden sm:grid",
+          )}
         >
           <Icon className="h-4 w-4" aria-hidden />
         </span>
       ) : null}
       <span className="min-w-0 flex-1 text-left">
-        {/* Wraps to two lines rather than truncating. The role IS the row —
-            "Demo bed management, after hours" cut to "Demo bed manage…" is the
-            one piece of information a reader came for, and a number wide
-            enough to squeeze it is ordinary. Still bounded, so a long title
-            cannot push the row past the edge. */}
-        <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">{title}</span>
+        <span className="block break-words text-sm font-semibold text-[color:var(--text)]">{title}</span>
         {subtitle ? (
-          <span className="mt-0.5 block truncate text-xs text-[color:var(--text-muted)]">{subtitle}</span>
+          <span className="mt-0.5 block break-words text-xs text-[color:var(--text-muted)]">{subtitle}</span>
         ) : null}
         {children ? <span className="mt-1.5 flex flex-wrap items-center gap-1.5">{children}</span> : null}
       </span>
@@ -101,7 +104,16 @@ export function OnCallEntryRow({
     cardInteractive,
     cardPadding.standard,
     "flex min-h-tap w-full min-w-0 items-start gap-3 text-left",
+    stackOnPhone && "flex-col sm:flex-row",
   );
+
+  if (href?.startsWith("/")) {
+    return (
+      <Link href={href} data-testid={testId} className={rowClassName} onClick={handleActivate} {...anchorProps}>
+        {content}
+      </Link>
+    );
+  }
 
   if (href) {
     return (

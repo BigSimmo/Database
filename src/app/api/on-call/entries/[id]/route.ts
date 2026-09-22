@@ -63,7 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const entry = onCallEntrySchema.parse({ ...parsedEntry.data, id, details: parsedDetails.data });
     const row = onCallEntryToRow(entry, user.id);
 
-    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id);
+    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id, row.is_personal);
 
     // Scoped by id AND owner_id on the same chain: a row that exists but belongs to another
     // owner returns no row here, identically to a row that does not exist at all — this
