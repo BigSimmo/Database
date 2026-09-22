@@ -35,6 +35,11 @@ vi.mock("@/lib/on-call/entry-cache-keys", () => ({
   setOnCallDemoPreviewActive: setPreviewMock,
 }));
 
+// The hook reconciles the server's `signedOut` flag with the session the
+// browser already knows about, so it reads the auth provider directly.
+const authState = vi.hoisted(() => ({ status: "loading" as string }));
+vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => authState }));
+
 const cacheEntriesMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/on-call/entry-store", () => ({ cacheOnCallEntries: cacheEntriesMock }));
 
@@ -65,6 +70,7 @@ beforeEach(() => {
   setPreviewMock.mockClear();
   cacheEntriesMock.mockClear();
   previewFlag.active = false;
+  authState.status = "loading";
   // jsdom has no navigation; the control reloads on success and would throw.
   Object.defineProperty(window, "location", {
     configurable: true,
