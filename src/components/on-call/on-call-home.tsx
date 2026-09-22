@@ -27,6 +27,7 @@ import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { OnCallDemoContentControl, useOnCallDemoContentState } from "@/components/on-call/on-call-demo-content-control";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
+import { deriveOnCallNotifications } from "@/lib/on-call/notifications";
 import { selectUpcomingTeachingSessions } from "@/lib/on-call/teaching-schedule";
 import { type OnCallEntry } from "@/lib/on-call/entry-model";
 import {
@@ -312,24 +313,23 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
   // tries to serve both ends up telling a first-time reader about tags they have
   // nothing to tag yet.
   const hasEntries = entries.length > 0;
-  // Whether this reader can act on example content at all.
+  // What this reader can do with the example corpus, or null while that is
+  // unknown — which also covers demo mode, where the corpus already IS the
+  // entries and every button would be one that can only fail.
   //
-  // `OnCallDemoContentControl` renders nothing when signed out or in demo
-  // mode, and the module around it must not outlive its own child. Demo mode
-  // is the case that bites rather than a hypothetical one: there the example
-  // corpus IS the entries, so a module gated on "are any example rows visible"
-  // would put an "Example content" heading with nothing under it on the home
-  // of the public demo — which is also the mode every `ui-*.spec.ts` renders.
+  // Signed out is NOT null: a signed-out reader gets the on-device preview,
+  // which needs no account and publishes nothing. That is the case most people
+  // opening this page are in, and offering them nothing was the reason the
+  // page looked unfinished.
   //
-  // What is NOT decided here is whether the corpus is loaded. That question is
-  // about this account, and the entries in view are not: the shared read
-  // returns every non-personal row across all accounts. The control asks the
-  // owner-scoped endpoint instead.
-  // How much of the example corpus THIS account holds, or null while that is
-  // unknown — which also covers signed out and demo mode. The module below is
-  // gated on it, so a labelled heading can never appear above a control that
-  // has decided to render nothing.
+  // The module below is gated on this value, so a labelled heading can never
+  // appear above a control that has decided to render nothing.
   const exampleContent = useOnCallDemoContentState(signedOut, demoMode);
+
+  // What the hub is raising on its own, derived from the entries already in
+  // hand. Memoised on the entries so opening and closing the sheet does not
+  // rebuild the list, and so two renders cannot disagree about the count.
+  const notifications = useMemo(() => deriveOnCallNotifications(entries, new Date()), [entries]);
   const homeIsUntagged = hasEntries && callFirst.length === 0 && !switchboard && wards.length === 0 && !pinned;
 
   // A Recent row names an entry the reader could see when they opened it. If
@@ -398,7 +398,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           grid names every page of the mode with its count — and the mode pill
           above opens the same list. A bar between them would be the third
           copy. */}
-      <OnCallPageMenu view="home" />
+      <OnCallPageMenu view="home" notifications={notifications} />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}

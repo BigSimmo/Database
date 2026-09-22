@@ -25,7 +25,18 @@ import { DEMO_ON_CALL_ENTRIES } from "@/lib/on-call/demo-entries";
 const originalFetch = globalThis.fetch;
 const clearCacheMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/on-call/entry-cache-keys", () => ({ clearOnCallEntryCache: clearCacheMock }));
+const previewFlag = vi.hoisted(() => ({ active: false }));
+const setPreviewMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/lib/on-call/entry-cache-keys", () => ({
+  clearOnCallEntryCache: clearCacheMock,
+  onCallEntryCacheChangedEvent: "clinical-kb-on-call-entries-cache-changed",
+  isOnCallDemoPreviewActive: () => previewFlag.active,
+  setOnCallDemoPreviewActive: setPreviewMock,
+}));
+
+const cacheEntriesMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/on-call/entry-store", () => ({ cacheOnCallEntries: cacheEntriesMock }));
 
 /**
  * The control asks `GET` what THIS account holds before it renders anything,
@@ -51,6 +62,9 @@ function mockFetch(owned: number, mutation: { ok?: boolean; payload?: unknown } 
 
 beforeEach(() => {
   clearCacheMock.mockClear();
+  setPreviewMock.mockClear();
+  cacheEntriesMock.mockClear();
+  previewFlag.active = false;
   // jsdom has no navigation; the control reloads on success and would throw.
   Object.defineProperty(window, "location", {
     configurable: true,
@@ -75,13 +89,48 @@ function Harness({ signedOut, demoMode }: { signedOut: boolean; demoMode: boolea
 }
 
 describe("the example-content control", () => {
-  it("offers nothing to a reader with no account, and asks the server nothing", async () => {
-    // Adding needs an account. A button whose only outcome is 401 is worse
-    // than no button — and there is no point asking what they own either.
+  it("offers a signed-out reader the preview, and still asks the server nothing", () => {
+    // Changed 2026-09-22 (owner request): this used to render nothing at all.
+    // The preview writes only to this device's cache, so it needs no account —
+    // and withholding it meant most readers saw an empty hub with no way to
+    // see the design. What it must NOT do is offer the account controls, which
+    // could only 401.
     const fetchMock = mockFetch(0);
     render(<Harness signedOut demoMode={false} />);
+
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
     expect(screen.queryByTestId("on-call-demo-content-load")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fills this device's cache on preview, and empties it again, without touching the server", () => {
+    const fetchMock = mockFetch(0);
+    const { unmount } = render(<Harness signedOut demoMode={false} />);
+
+    fireEvent.click(screen.getByTestId("on-call-demo-preview-start"));
+    expect(setPreviewMock).toHaveBeenCalledWith(true);
+    expect(cacheEntriesMock).toHaveBeenCalledTimes(1);
+    expect(cacheEntriesMock.mock.calls[0][0]).toHaveLength(DEMO_ON_CALL_ENTRIES.length);
+    expect(fetchMock, "a preview must never reach the server").not.toHaveBeenCalled();
+    unmount();
+
+    previewFlag.active = true;
+    render(<Harness signedOut demoMode={false} />);
+    fireEvent.click(screen.getByTestId("on-call-demo-preview-clear"));
+    expect(setPreviewMock).toHaveBeenLastCalledWith(false);
+    expect(clearCacheMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tells a signed-out reader the preview stays on their device", () => {
+    // The signed-in load publishes most of the corpus to every visitor, and
+    // this control says so. The preview publishes nothing, and saying so is
+    // what stops a reader assuming it carries the same consequence.
+    mockFetch(0);
+    render(<Harness signedOut demoMode={false} />);
+
+    expect(screen.getByText(/stays on this device/i)).toBeVisible();
+    expect(screen.getByText(/nothing is saved to the site/i)).toBeVisible();
   });
 
   it("offers nothing in demo mode", () => {

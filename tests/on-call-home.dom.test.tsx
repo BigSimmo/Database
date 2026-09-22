@@ -357,13 +357,23 @@ describe("the example-content module", () => {
     expect(screen.queryByText("Example content")).toBeNull();
   });
 
-  it("is absent for a signed-out reader, who cannot remove anything either", () => {
-    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+  it("offers a signed-out reader the on-device preview, because that is most readers", () => {
+    // Changed deliberately on 2026-09-22 (owner request). This module used to
+    // render nothing at all when signed out, which meant the overwhelmingly
+    // common case — someone opening the site without an account — saw an empty
+    // hub and no way to see what a filled one looks like. The preview needs no
+    // account and writes nothing to the server, so there is no reason to
+    // withhold it.
+    storeState.entries = [];
     storeState.signedOut = true;
 
     render(<OnCallHome />);
 
-    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+    // And it must not offer the account-writing controls, which would 401.
+    expect(screen.queryByTestId("on-call-demo-content-load")).toBeNull();
+    expect(screen.queryByTestId("on-call-demo-content-remove")).toBeNull();
   });
 
   it("is present for the signed-in owner whose account actually holds the rows", async () => {
