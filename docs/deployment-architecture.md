@@ -279,6 +279,56 @@ check and watch patterns rather than relying on dashboard defaults.
 }
 ```
 
+### Selective Railway PR previews
+
+Use **Focused PR Environments** for the Railway `Database` app so previews build
+the services affected by a PR, plus their dependencies. Keep production deployment
+from `main`. Use the existing `build.watchPatterns` in `railway.app.json` and
+`railway.worker.json` as the selection rules, rather than adding a second GitHub
+workflow that provisions the same services.
+
+| PR changes                                                            | Expected preview selection from the tracked watch paths |
+| --------------------------------------------------------------------- | ------------------------------------------------------ |
+| Documentation, agent instructions, ordinary tests, or CI-only files     | Skip both services                                     |
+| App UI, routes, styles, or public assets                                | App; worker only if required as a service dependency    |
+| Worker-only code or `Dockerfile.worker`                                 | Worker; app only if required as a service dependency    |
+| Shared runtime libraries, runtime data, package manifests, or lockfile   | Both services                                          |
+
+These are path-based rules, not a judgment about whether a PR is "small". A small
+dependency update can affect the running app and remains eligible for a preview.
+The worker's `tests/stubs/server-only.ts` is also a runtime build input, despite
+its location under `tests/`; retain that explicit watch path. Unwatched changes
+do not need a preview solely because a PR exists. When a specific review needs a
+skipped service, Railway supports manually deploying that service in the preview.
+
+**Activation is a Railway project setting, not a change made by this document.**
+The tracked watch paths already exist. The live Focused PR Environments setting
+has not been inspected or changed for this policy, and preview behaviour has not
+been verified. With explicit authority for Railway configuration:
+
+1. Open project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`), then
+   **Project Settings → Environments**.
+2. Confirm the preview base environment uses approved non-production database,
+   storage, provider and queue settings. A copied app environment does not isolate
+   an external Supabase database or ingestion queue by itself.
+3. Confirm the base app service loads `railway.app.json` and the worker loads
+   `railway.worker.json`; these filenames are not discovered automatically.
+4. Keep **PR Environments** enabled and turn on **Enable Focused PR Environments**.
+5. On subsequent authorised PRs, check Railway's preview comment and service
+   selection: documentation-only changes should skip both services; app-only
+   changes should select the app and any actual service dependencies. Record
+   observed behaviour before calling the setting verified.
+
+Railway includes service dependencies referenced through variables, so a service
+can legitimately deploy even when its own watch paths did not change. Do not
+remove valid dependencies to force a skip. Keep required CI and merge protections
+intact, and leave Supabase preview branching and migration controls unchanged.
+Rollback of the hosted selection setting is to turn off Focused PR Environments;
+that restores broader preview provisioning and can increase usage costs.
+
+Reference: [Railway Focused PR Environments](https://docs.railway.com/environments#focused-pr-environments)
+(documented as beta when checked on 2026-09-22).
+
 ### Readiness: what `/api/health/ready` may and may not ask
 
 **Readiness answers one question — can THIS CONTAINER serve requests?** Configuration is
