@@ -61,6 +61,14 @@ ARG MAX_UPLOAD_MB=
 # declares the matching build argument. This non-secret SHA keeps build-time
 # source maps and runtime Sentry events on the same release identity.
 ARG RAILWAY_GIT_COMMIT_SHA=
+# Same trap as above: `sitemap.ts`/`robots.ts` read these to build the
+# canonical origin they advertise, and an undeclared ARG means Railway's
+# service-level value never reaches this `npm run build`, silently baking an
+# empty origin into any prerendered output. Both routes also re-read
+# `process.env` at request time (see src/lib/crawler-policy.ts), so a
+# runtime-only Railway value still works even if these build args are unset.
+ARG NEXT_PUBLIC_SITE_URL=
+ARG RAILWAY_PUBLIC_DOMAIN=
 # Sentry source-map upload, inert until an operator supplies all three on the Railway service.
 # Declaring them here is not optional bookkeeping. A build argument the Dockerfile does not
 # declare is simply not in the build environment, so a value set on the Railway service cannot
@@ -83,6 +91,8 @@ ENV NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_REF=${NEXT_PUBLIC_SUPABASE_STAGING_PROJ
 ENV NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME=${NEXT_PUBLIC_SUPABASE_STAGING_PROJECT_NAME}
 ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 ENV RAILWAY_GIT_COMMIT_SHA=${RAILWAY_GIT_COMMIT_SHA}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+ENV RAILWAY_PUBLIC_DOMAIN=${RAILWAY_PUBLIC_DOMAIN}
 # The repo build script allocates an 8 GiB heap. Prefer builders with >= 10 GiB
 # locally (Docker Desktop hard-fails under the RAM guard by default). CI image
 # builds pass ALLOW_LOW_RAM_BUILD=1 because GitHub buildx runners report ~7–8 GiB
