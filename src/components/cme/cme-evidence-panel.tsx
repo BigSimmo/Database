@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { InlineNotice, cn, textMuted } from "@/components/ui-primitives";
 import {
@@ -29,7 +29,7 @@ export function CmeEvidencePanel({
   const [notice, setNotice] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [kind, setKind] = useState<CmeEvidenceKind>("certificate");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
   const [previewOpened, setPreviewOpened] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -67,21 +67,17 @@ export function CmeEvidencePanel({
   }, [entryId, demoMode]);
 
   useEffect(() => {
-    void load();
+    queueMicrotask(() => void load());
     return () => {
       loadAbort.current?.abort();
       uploadAbort.current?.abort();
     };
   }, [load]);
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   function chooseFile(next: File | null) {
     setError(null);

@@ -240,7 +240,13 @@ export function useOnCallEntries(): OnCallEntriesState {
   // "nothing to search", the card said "nothing is flagged". This is the
   // fallback for that browser, not a second source of truth.
   const [fetched, setFetched] = useState<OnCallEntry[] | null>(null);
-  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
+  // Stamped once, right when the fetch completes (an effect/event callback,
+  // never render), so the freshness check below never calls `Date.now()`
+  // while rendering (react-hooks/purity). `cacheFresh` is the render-safe
+  // read of "is `expiresAt` still in the future", recomputed in an effect and
+  // flipped off by a timer rather than by re-reading the clock on each render.
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [cacheFresh, setCacheFresh] = useState(false);
   // Advanced only when `clearOnCallEntryCache` runs (sign-out / account
   // switch). Restarting the fetch on that number, and tagging the in-flight
   // request with it, is what stops a late response from account A writing
@@ -292,7 +298,7 @@ export function useOnCallEntries(): OnCallEntriesState {
         setSignedOut(parsedResponse.data.signedOut);
         setDemoMode(parsedResponse.data.demoMode);
         setFetched(entries);
-        setFetchedAt(Date.now());
+        setExpiresAt(Date.now() + ON_CALL_CACHE_MAX_AGE_MS);
         // A successful empty response withdraws the previous rows. Only a failed
         // request may fall back to cache. Synthetic preview is an explicit,
         // separately marked choice and is not overwritten by real responses.
@@ -317,11 +323,23 @@ export function useOnCallEntries(): OnCallEntriesState {
     };
   }, [sessionEpoch]);
 
+  useEffect(() => {
+    if (expiresAt === null) {
+      queueMicrotask(() => setCacheFresh(false));
+      return;
+    }
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      queueMicrotask(() => setCacheFresh(false));
+      return;
+    }
+    queueMicrotask(() => setCacheFresh(true));
+    const timer = window.setTimeout(() => setCacheFresh(false), remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [expiresAt]);
+
   return {
-    entries:
-      cached?.entries ??
-      (fetchedAt !== null && Date.now() - fetchedAt < ON_CALL_CACHE_MAX_AGE_MS ? fetched : null) ??
-      [],
+    entries: cached?.entries ?? (cacheFresh ? fetched : null) ?? [],
     cachedAt: cached?.savedAt ?? null,
     loading,
     isOffline,

@@ -77,8 +77,7 @@ export function ServiceEntryEditor({
 }) {
   const [loadedEntry, setLoadedEntry] = useState(entry);
   const incomingKey = useRef(`${entry?.id ?? "new"}:${entry?.revision ?? 0}`);
-  const initialFingerprint = useRef(entryFingerprint(entry, defaultSiteId));
-  const dirty = useRef(false);
+  const [initialFingerprint, setInitialFingerprint] = useState(() => entryFingerprint(entry, defaultSiteId));
   const [section, setSection] = useState<EntrySaveAction["section"]>(entry?.content.section ?? "contacts");
   const [kind, setKind] = useState<EntrySaveAction["kind"]>(entry?.content.kind ?? "operational");
   const [siteId, setSiteId] = useState((entry ? entry.content.siteId : defaultSiteId) ?? "");
@@ -92,30 +91,33 @@ export function ServiceEntryEditor({
   const [busy, setBusy] = useState<"draft" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  dirty.current =
-    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources }) !==
-    initialFingerprint.current;
+  const dirty =
+    JSON.stringify({ section, kind, siteId, title, body, phone, orientationPhase, sources }) !== initialFingerprint;
 
   useEffect(() => {
     const nextKey = `${entry?.id ?? "new"}:${entry?.revision ?? 0}`;
     if (nextKey === incomingKey.current) return;
     incomingKey.current = nextKey;
-    if (dirty.current && !window.confirm("Discard this unsaved draft and open the selected entry?")) {
-      setError("Your unsaved draft remains open. Save or cancel it before editing another entry.");
+    if (dirty && !window.confirm("Discard this unsaved draft and open the selected entry?")) {
+      queueMicrotask(() =>
+        setError("Your unsaved draft remains open. Save or cancel it before editing another entry."),
+      );
       return;
     }
-    setLoadedEntry(entry);
-    initialFingerprint.current = entryFingerprint(entry, defaultSiteId);
-    setSection(entry?.content.section ?? "contacts");
-    setKind(entry?.content.kind ?? "operational");
-    setSiteId((entry ? entry.content.siteId : defaultSiteId) ?? "");
-    setTitle(entry?.content.title ?? "");
-    setBody(entry?.content.body ?? "");
-    setPhone(entry?.content.phone ?? "");
-    setOrientationPhase(entry?.content.orientationPhase ?? "first_shift");
-    setSources(initialSources(entry));
-    setError(null);
-  }, [entry, defaultSiteId]);
+    queueMicrotask(() => {
+      setLoadedEntry(entry);
+      setInitialFingerprint(entryFingerprint(entry, defaultSiteId));
+      setSection(entry?.content.section ?? "contacts");
+      setKind(entry?.content.kind ?? "operational");
+      setSiteId((entry ? entry.content.siteId : defaultSiteId) ?? "");
+      setTitle(entry?.content.title ?? "");
+      setBody(entry?.content.body ?? "");
+      setPhone(entry?.content.phone ?? "");
+      setOrientationPhase(entry?.content.orientationPhase ?? "first_shift");
+      setSources(initialSources(entry));
+      setError(null);
+    });
+  }, [entry, defaultSiteId, dirty]);
 
   async function submit(publish: boolean) {
     if (busy) return;

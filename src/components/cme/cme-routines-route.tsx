@@ -56,9 +56,9 @@ export function CmeRoutinesRoute({
     setError(null);
   }
   function openEdit(routine: CmeRoutine) {
-    const { id: _id, ...next } = routine;
+    const { id, ...next } = routine;
     setDraft(next);
-    setEditingId(routine.id);
+    setEditingId(id);
     setError(null);
   }
 

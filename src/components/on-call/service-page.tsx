@@ -289,30 +289,34 @@ export function ServicePage({
 
   useEffect(() => {
     if (demoMode) {
-      setSelectedServiceId(DEMO_SERVICE_ID);
-      setSelectedSiteId(DEMO_SITE_ID);
-      setState("ready");
+      queueMicrotask(() => {
+        setSelectedServiceId(DEMO_SERVICE_ID);
+        setSelectedSiteId(DEMO_SITE_ID);
+        setState("ready");
+      });
       return;
     }
-    setOwnedDetail(null);
-    setOwnedServices(null);
     editorSession.current += 1;
-    setEditingEntry(undefined);
-    setServiceName("");
-    setSiteName("");
-    setJoinCode("");
-    setRotationDraft(initialRotation);
-    setRotation(initialRotation);
-    setTab("handbook");
+    queueMicrotask(() => {
+      setOwnedDetail(null);
+      setOwnedServices(null);
+      setEditingEntry(undefined);
+      setServiceName("");
+      setSiteName("");
+      setJoinCode("");
+      setRotationDraft(initialRotation);
+      setRotation(initialRotation);
+      setTab("handbook");
+    });
     if (auth.status === "loading") {
-      setState("loading");
+      queueMicrotask(() => setState("loading"));
       return;
     }
     if (auth.status !== "authenticated") {
-      setState(auth.status === "error" ? "unavailable" : "signed-out");
+      queueMicrotask(() => setState(auth.status === "error" ? "unavailable" : "signed-out"));
       return;
     }
-    setState("loading");
+    queueMicrotask(() => setState("loading"));
     const ownerEpoch = auth.authEpoch;
     const controller = new AbortController();
     void loadServices(ownerEpoch, controller.signal).catch((cause: unknown) => {
@@ -328,27 +332,31 @@ export function ServicePage({
     if (demoMode) return;
     if (effectiveState !== "ready" || services.length === 0) {
       if (services.length === 0) {
-        setSelectedServiceId(null);
-        setSelectedSiteId(null);
-        setOwnedDetail(null);
+        queueMicrotask(() => {
+          setSelectedServiceId(null);
+          setSelectedSiteId(null);
+          setOwnedDetail(null);
+        });
       }
       return;
     }
     const service = services.find((item) => item.id === selectedServiceId) ?? services[0];
     if (service.id !== selectedServiceId) {
-      setSelectedServiceId(service.id);
+      queueMicrotask(() => setSelectedServiceId(service.id));
       return;
     }
     const site = service.sites.find((item) => item.id === selectedSiteId) ?? service.sites[0] ?? null;
     if ((site?.id ?? null) !== selectedSiteId) {
-      setSelectedSiteId(site?.id ?? null);
+      queueMicrotask(() => setSelectedSiteId(site?.id ?? null));
       return;
     }
     const requestedContextKey = `${auth.authEpoch}:${service.id}:${site?.id ?? ""}:${rotation}`;
     const controller = new AbortController();
-    setOwnedDetail(null);
-    closeEditor();
-    void loadDetail(service.id, site?.id ?? null, rotation, requestedContextKey, controller.signal);
+    queueMicrotask(() => {
+      setOwnedDetail(null);
+      closeEditor();
+      void loadDetail(service.id, site?.id ?? null, rotation, requestedContextKey, controller.signal);
+    });
     return () => controller.abort();
   }, [auth.authEpoch, demoMode, effectiveState, loadDetail, rotation, selectedServiceId, selectedSiteId, services]);
 
