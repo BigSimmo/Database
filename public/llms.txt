@@ -19,18 +19,20 @@ PsychSift indexes private clinical reference documents (text, OCR, and image cap
 
 ## Agent orientation
 
-- [`docs/codebase-index.md`](docs/codebase-index.md) — the deep map: module layout, APIs, Supabase, and the ingestion worker. Start here for any real code task.
-- [`docs/site-map.md`](docs/site-map.md) — the generated route index (regenerate with `npm run sitemap:update`).
-- [`docs/agents-guide.md`](docs/agents-guide.md) — agent onboarding, task navigation, and the tooling and documentation ownership map.
-- [`docs/design-system/README.md`](docs/design-system/README.md) — the design-system system of record; read before any UI work.
+These docs live in the repository, not on the served site — relative paths like `docs/codebase-index.md` resolve to `/docs/...` on the site and 404, so they are linked here as absolute GitHub URLs on `main`:
+
+- [`docs/codebase-index.md`](https://github.com/BigSimmo/Database/blob/main/docs/codebase-index.md) — the deep map: module layout, APIs, Supabase, and the ingestion worker. Start here for any real code task.
+- [`docs/site-map.md`](https://github.com/BigSimmo/Database/blob/main/docs/site-map.md) — the generated route index (regenerate with `npm run sitemap:update`).
+- [`docs/agents-guide.md`](https://github.com/BigSimmo/Database/blob/main/docs/agents-guide.md) — agent onboarding, task navigation, and the tooling and documentation ownership map.
+- [`docs/design-system/README.md`](https://github.com/BigSimmo/Database/blob/main/docs/design-system/README.md) — the design-system system of record; read before any UI work.
 
 ### Agent discovery
 
 An AI agent may use these public, session-free entry points to orient itself:
 
-- `public/llms.txt` — this file.
-- [`docs/codebase-index.md`](docs/codebase-index.md) — module and architecture map.
-- [`docs/site-map.md`](docs/site-map.md) — generated route inventory.
+- `/llms.txt` — this file.
+- [`docs/codebase-index.md`](https://github.com/BigSimmo/Database/blob/main/docs/codebase-index.md) — module and architecture map.
+- [`docs/site-map.md`](https://github.com/BigSimmo/Database/blob/main/docs/site-map.md) — generated route inventory.
 - `/tools-guide.md` — an AI-facing tool guide published at the site root (added by a separate change).
 
 ## Clinical-content guidance

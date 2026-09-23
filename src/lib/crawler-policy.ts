@@ -44,8 +44,6 @@ function publicSitemapUrl(): string | undefined {
   return base ? `${base.origin}/sitemap.xml` : undefined;
 }
 
-const PUBLIC_SITEMAP_URL = publicSitemapUrl();
-
 /**
  * The app-wide robots.txt. Compliant crawlers may fetch application routes so
  * they can observe per-route robots metadata (including noindex on private/demo
@@ -59,11 +57,21 @@ const PUBLIC_SITEMAP_URL = publicSitemapUrl();
  * routes, not an access-control or disclosure list. When no trusted canonical
  * origin is configured, the sitemap line is omitted rather than emitting an
  * origin the app cannot vouch for.
+ *
+ * Built by a function, not a module-level constant, so every `robots()` call
+ * re-reads `process.env` at request time. Railway sets `RAILWAY_PUBLIC_DOMAIN`
+ * (and any operator-configured `NEXT_PUBLIC_SITE_URL`) on the running
+ * container; a frozen module-level snapshot would keep whatever value was
+ * present when this module first loaded, which can be empty when an
+ * undeclared Docker build ARG left the value unset at build time.
  */
-export const PRIVATE_APP_ROBOTS_TXT = {
-  rules: {
-    userAgent: "*",
-    allow: "/",
-  },
-  ...(PUBLIC_SITEMAP_URL ? { sitemap: PUBLIC_SITEMAP_URL } : {}),
-} satisfies MetadataRoute.Robots;
+export function buildPrivateAppRobotsTxt(): MetadataRoute.Robots {
+  const sitemapUrl = publicSitemapUrl();
+  return {
+    rules: {
+      userAgent: "*",
+      allow: "/",
+    },
+    ...(sitemapUrl ? { sitemap: sitemapUrl } : {}),
+  } satisfies MetadataRoute.Robots;
+}

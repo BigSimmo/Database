@@ -12,6 +12,13 @@ import { publicKnowledgeToolCatalogIds } from "@/lib/tools-catalog";
  */
 const LAST_MODIFIED = "2026-09-23";
 
+// Undeclared Docker build ARGs never reach `npm run build` on Railway, so
+// `NEXT_PUBLIC_SITE_URL`/`RAILWAY_PUBLIC_DOMAIN` can be empty at build time
+// even when the running container has them set. `dynamic = "force-dynamic"`
+// keeps this route from being prerendered once and frozen with that empty
+// value; each request re-reads the container's current environment instead.
+export const dynamic = "force-dynamic";
+
 /**
  * Maps each public-knowledge tool id (`publicKnowledgeToolCatalogIds`) to the
  * `AppModeId` whose canonical home href (`appModeDefinitions[].href`) is its
