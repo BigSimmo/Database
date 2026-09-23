@@ -32,6 +32,7 @@ import { cmeCategories, cmeCategoryLabels, type CmeEntry, type CmeRequirementSet
  * screen for the same entry.
  */
 export function formatEntryForCpdHome(entry: CmeEntry, set: CmeRequirementSet): string {
+  if (entry.archivedAt) throw new Error("Restore this activity before copying it.");
   const hoursByCategory = new Map(
     entry.allocations.map((allocation) => [allocation.category, allocation.hours] as const),
   );

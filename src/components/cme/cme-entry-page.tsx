@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronLeft, FileQuestion, Paperclip, Repeat } from "lucide-react";
+import { ChevronLeft, FileQuestion, Pencil, Repeat } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { MissingValue } from "@/components/ui/missing-value";
 import { cn, EmptyState, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
 import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
-import { totalAllocatedHours } from "@/lib/cme/evaluate";
+import { normalizeCmeSourceUrl } from "@/lib/cme/learning-source";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
@@ -27,8 +27,10 @@ export type CmeEntryPageProps = {
    * success — a local-only flip would lie after refresh.
    */
   readonly onCopied?: (entryId: string) => void | Promise<void>;
-  /** Wired by a future task; Phase 1 has no evidence-attachment flow yet. */
-  readonly onAddEvidence?: (entryId: string) => void;
+  readonly editHref?: string;
+  readonly readOnly?: boolean;
+  readonly children?: ReactNode;
+  readonly actions?: ReactNode;
 };
 
 function noop() {}
@@ -54,10 +56,20 @@ function formatCostCents(cents: number): string {
  * and `clipboard.ts` deliberately excludes it from what reaches a CPD
  * portal — see that file's own comment for why.
  */
-export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvidence = noop }: CmeEntryPageProps) {
+export function CmeEntryPage({
+  entryId,
+  entries,
+  set,
+  onCopied = noop,
+  editHref,
+  readOnly = false,
+  children,
+  actions,
+}: CmeEntryPageProps) {
   const entry = entries.find((candidate) => candidate.id === entryId) ?? null;
   const [transcribed, setTranscribed] = useState(entry?.transcribed ?? false);
   const [copyFailed, setCopyFailed] = useState(false);
+  const [stampFailed, setStampFailed] = useState(false);
 
   if (!entry) {
     return (
@@ -70,7 +82,7 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
         />
         <div className="mt-4">
           <Link
-            href="/cme/log"
+            href={`/cme/log?year=${set.year}`}
             className="inline-flex min-h-tap items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]"
           >
             <ChevronLeft aria-hidden="true" className="size-icon-sm" />
@@ -85,25 +97,29 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
     // `entry` is narrowed non-null by the guard above, but that guard runs on
     // an earlier render than this closure captures — TypeScript cannot see
     // across the closure, so the null check is repeated rather than asserted.
-    if (!entry) return;
+    if (!entry || readOnly || entry.archivedAt) return;
     setCopyFailed(false);
+    setStampFailed(false);
     try {
       await copyTextToClipboard(formatEntryForCpdHome(entry, set));
-      // Copy first, persist second: a failed copy must never be recorded, and a
-      // failed persist must not claim success on a refresh either.
+    } catch {
+      setCopyFailed(true);
+      return;
+    }
+    try {
       await onCopied(entry.id);
       setTranscribed(true);
     } catch {
-      setCopyFailed(true);
+      setStampFailed(true);
     }
   }
 
-  const totalHours = totalAllocatedHours([entry]);
+  const totalHours = Math.round(entry.allocations.reduce((sum, allocation) => sum + allocation.hours, 0) * 100) / 100;
 
   return (
     <main data-testid="cme-entry-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <Link
-        href="/cme/log"
+        href={`/cme/log?year=${set.year}`}
         className="inline-flex min-h-tap items-center gap-1.5 text-sm font-semibold text-[color:var(--clinical-accent)]"
       >
         <ChevronLeft aria-hidden="true" className="size-icon-sm" />
@@ -114,6 +130,7 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
         <h1 className="text-lg font-semibold leading-snug text-[color:var(--text-heading)]">{entry.title}</h1>
         <p className={cn(textMuted, "text-sm")}>
           {formatCalendarDateLong(entry.date)} · {totalHours} hour{totalHours === 1 ? "" : "s"}
+          {entry.archivedAt ? " recorded · excluded from totals" : ""}
         </p>
         {entry.routineId ? (
           <span className="mt-1 inline-flex">
@@ -122,8 +139,18 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
             </Chip>
           </span>
         ) : null}
+        {editHref ? (
+          <Link
+            href={editHref}
+            className="mt-2 inline-flex min-h-tap items-center gap-2 self-start text-sm font-semibold text-[color:var(--clinical-accent)]"
+          >
+            <Pencil aria-hidden="true" className="size-icon-sm" />
+            Edit entry
+          </Link>
+        ) : null}
       </div>
 
+      {actions}
       <section data-testid="cme-entry-allocations" className="mt-5">
         <h2 className={eyebrowText}>Allocations</h2>
         <ul className="mt-2 flex flex-col gap-2">
@@ -152,26 +179,38 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
       </section>
 
       <section data-testid="cme-entry-evidence" className="mt-5">
-        <h2 className={eyebrowText}>Evidence</h2>
+        <h2 className={eyebrowText}>Source record</h2>
         {entry.documentId ? (
-          <div className={cn(cardSurface, "mt-2 flex items-center gap-2 p-3 text-sm text-[color:var(--text)]")}>
-            <Paperclip aria-hidden="true" className="size-icon-sm shrink-0" />
-            Attached to this entry.
+          <div className={cn(cardSurface, "mt-2 p-3 text-sm text-[color:var(--text)]")}>
+            A private source document is linked to this entry. This label records the link; it does not certify the
+            document as audit evidence.
           </div>
         ) : (
-          <div className="mt-2 flex flex-col gap-2">
+          <div className="mt-2">
             <EmptyState
               testId="cme-entry-evidence-empty"
-              title="Nothing attached yet."
-              body="An entry with its evidence is worth more than one without, if this record is ever audited."
+              title="No source is linked."
+              body="A learning source and evidence of your participation are separate. Manage supporting files below."
             />
-            <Button variant="secondary" icon={Paperclip} onClick={() => onAddEvidence(entry.id)}>
-              Attach a certificate or photo
-            </Button>
           </div>
         )}
       </section>
 
+      {entry.sourceUrl ? (
+        <p className="mt-3 break-all text-sm">
+          Learning source:{" "}
+          <a
+            href={normalizeCmeSourceUrl(entry.sourceUrl) ?? undefined}
+            rel="noreferrer"
+            target="_blank"
+            className="underline"
+          >
+            {entry.sourceUrl}
+          </a>
+          . This link is not evidence.
+        </p>
+      ) : null}
+      {children}
       <section data-testid="cme-entry-cost" className="mt-5">
         <h2 className={eyebrowText}>Cost</h2>
         <p className={cn(cardSurface, "mt-2 p-3 text-sm text-[color:var(--text)]")}>
@@ -182,7 +221,13 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
       <section data-testid="cme-entry-portal" className="mt-6">
         <h2 className={eyebrowText}>Your CPD home</h2>
         <div className="mt-2">
-          <Button variant="primary" size="lg" block onClick={() => void handleCopy()}>
+          <Button
+            variant="primary"
+            size="lg"
+            block
+            disabled={readOnly || Boolean(entry.archivedAt)}
+            onClick={() => void handleCopy()}
+          >
             Copy for your CPD home
           </Button>
         </div>
@@ -192,12 +237,14 @@ export function CmeEntryPage({ entryId, entries, set, onCopied = noop, onAddEvid
         <p data-testid="cme-entry-transcribed-status" className={cn(textMuted, "mt-2 text-center text-xs")}>
           {copyFailed
             ? "Could not copy — check clipboard permissions and try again."
-            : transcribed
-              ? "Copied to your CPD home."
-              : "Not yet copied to your CPD home."}
+            : stampFailed
+              ? "Copied to your clipboard, but this record could not be marked as copied."
+              : transcribed
+                ? "Copied to your clipboard for your CPD home."
+                : "Not yet copied for your CPD home."}
         </p>
         <p className={cn(textMuted, "mt-1 text-center text-2xs")}>
-          Puts every field on your clipboard in your CPD home&rsquo;s order, then marks this entry transcribed.
+          Puts the core activity details on your clipboard for transfer, then marks this entry copied.
         </p>
       </section>
     </main>

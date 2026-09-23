@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { setOnCallDemoPreviewActive } from "@/lib/on-call/entry-cache-keys";
 import {
+  onCallEntryCacheStorageKey,
   cacheOnCallEntries,
   clearOnCallEntryCache,
   readCachedOnCallEntries,
@@ -119,9 +120,8 @@ describe("useOnCallEntries", () => {
     expect(readCachedOnCallEntries()?.entries).toEqual([contact]);
   });
 
-  it("does not let an empty response erase a non-empty cache", async () => {
+  it("removes withdrawn rows on a successful empty response", async () => {
     cacheOnCallEntries([contact]);
-    const cachedBefore = readCachedOnCallEntries();
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [], signedOut: true }));
 
@@ -129,9 +129,37 @@ describe("useOnCallEntries", () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // The stale-but-real cache is still shown rather than blanked.
-    expect(result.current.entries).toEqual([contact]);
-    expect(readCachedOnCallEntries()).toEqual(cachedBefore);
+    // A successful response is authoritative; only a failed fetch uses old data.
+    expect(result.current.entries).toEqual([]);
+    expect(readCachedOnCallEntries()?.entries).toEqual([]);
+  });
+
+  it("drops private cached rows on a signed-out empty response", async () => {
+    cacheOnCallEntries([{ ...contact, isPersonal: true }]);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ entries: [], signedOut: true }));
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.entries).toEqual([]);
+    expect(readCachedOnCallEntries()?.entries).toEqual([]);
+  });
+
+  it("never persists personal or malformed compliance entries", () => {
+    cacheOnCallEntries([
+      contact,
+      { ...contact, isPersonal: true },
+      { ...contact, section: "logistics", details: { category: "Registration" } },
+    ]);
+    expect(JSON.parse(window.localStorage.getItem(onCallEntryCacheStorageKey)!).entries).toEqual([contact]);
+  });
+
+  it("invalidates private session memory when another tab signs out", async () => {
+    vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ entries: [{ ...contact, isPersonal: true }], signedOut: false }))
+      .mockResolvedValueOnce(jsonResponse({ entries: [], signedOut: true }));
+    const { result } = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    window.dispatchEvent(new StorageEvent("storage", { key: onCallEntryCacheStorageKey, newValue: null }));
+    await waitFor(() => expect(result.current.entries).toEqual([]));
   });
 
   it("clears on demand", () => {

@@ -605,3 +605,24 @@ describe("assertValidLinkedDocumentIds", () => {
     );
   });
 });
+
+describe("On call repair privacy boundaries", () => {
+  it.each(["Registration", " indemnity ", "TRAINING", "Credentialing", "CPD", "Clearances"])(
+    "withholds compliance category %s even without kind",
+    (category) => {
+      expect(rowMayBeComplianceRequirement({ section: "logistics", details: { category } })).toBe(true);
+    },
+  );
+  it("does not stamp a public role explainer private merely because it has a kind", () => {
+    const entry = rowToOnCallEntry({ ...SHARED_ROW, details: { role: "Registrar", kind: "role-explainer" } });
+    expect(onCallEntryToRow(entry, "owner-1").is_personal).toBe(false);
+  });
+  it("requires public documents for a shared entry, without widening document access", async () => {
+    const client = fakeDocumentClient([]);
+    await expect(
+      assertValidLinkedDocumentIds(client as never, [SHARED_ROW.id], "00000000-0000-4000-8000-000000000001", false),
+    ).rejects.toThrow(PublicApiError);
+    expect(client.chain.is).toHaveBeenCalledWith("owner_id", null);
+    expect(client.chain.or).not.toHaveBeenCalled();
+  });
+});

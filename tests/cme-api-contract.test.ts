@@ -1,8 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
-import { cmeEntryCreateSchema, cmeEntryUpdateSchema, cmeListQuerySchema } from "@/lib/cme/schemas";
+import {
+  cmeEntryCreateSchema,
+  cmeEntryUpdateSchema,
+  cmeListQuerySchema,
+  cmeYearConfirmSchema,
+} from "@/lib/cme/schemas";
 
 const routePaths = [
   "src/app/api/cme/entries/route.ts",
@@ -10,8 +14,8 @@ const routePaths = [
   "src/app/api/cme/year/route.ts",
 ] as const;
 
-const routes = routePaths.map((path) => ({ path, source: readFileSync(path, "utf8") }));
-const repository = readFileSync("src/lib/cme/repository.ts", "utf8");
+const routes = routePaths.map((path) => ({ path, source: readFileSync(path, "utf8").replace(/\r\n/g, "\n") }));
+const repository = readFileSync("src/lib/cme/repository.ts", "utf8").replace(/\r\n/g, "\n");
 const list = routes[0]!.source;
 const detail = routes[1]!.source;
 const year = routes[2]!.source;
@@ -127,7 +131,9 @@ describe("the CME API", () => {
   it("scopes allocation writes through the repository row payload (owner_id on each insert)", () => {
     expect(repository).toMatch(/owner_id: ownerId/);
     expect(repository).toMatch(/\.from\("cme_allocations"\)[\s\S]*?\.insert\(/);
-    expect(detail).toMatch(/replaceCmeAllocations\(/);
+    expect(detail).toMatch(/saveCmeEntry\(/);
+    expect(repository).toMatch(/rpc\("cme_save_entry",\s*\{\s*p_owner_id: ownerId/);
+    expect(repository).toMatch(/rpc\("cme_confirm_year",\s*\{\s*p_owner_id:\s*ownerId/);
   });
 });
 
@@ -138,7 +144,9 @@ describe("CME entry [id] route", () => {
     // fed by a query already scoped by id AND owner_id on the same chain. None of them ever
     // learns whether the id was missing or just belongs to another owner, so none of them can
     // leak that distinction to the caller as a 403-vs-404 oracle.
-    expect(detail.match(/CME entry not found\./g)?.length).toBe(3);
+    expect(detail.match(/CME entry not found\./g)?.length).toBe(1);
+    expect(detail).toContain("setCmeEntryArchived(supabase, user.id, id");
+    expect(repository).toContain("cme_entry_not_found");
   });
 
   it("never carries a 403 or a wrong-owner-specific status a caller could use to tell the two cases apart", () => {
@@ -152,15 +160,16 @@ describe("CME entry [id] route", () => {
     }
   });
 
-  it("persists transcribed_at through a narrow PATCH and replaces allocations with restore-on-failure", () => {
+  it("persists transcribed_at through a narrow PATCH and replaces allocations transactionally", () => {
     expect(detail).toMatch(/markCmeEntryTranscribed\(/);
-    expect(detail).toMatch(/replaceCmeAllocations\(/);
-    expect(detail).toMatch(/restoreCmeAllocations\(/);
+    expect(detail).toMatch(/saveCmeEntry\(/);
+    expect(repository).toMatch(/rpc\("cme_save_entry"/);
   });
 });
 
 describe("CME entry PATCH schema (cmeEntryUpdateSchema)", () => {
   const completeBody = {
+    formalPeerReviewHours: 0,
     date: "2026-03-01",
     title: "Grand round: catatonia",
     allocations: [{ category: "educational" as const, hours: 1.5 }],
@@ -295,46 +304,33 @@ describe("CME list query schema (cmeListQuerySchema, shared by GET on entries an
   });
 });
 
-describe("CME year route PUT schema (cmeYearConfirmSchema, local to the route)", () => {
-  // `cmeYearConfirmSchema` is deliberately declared inside `src/app/api/cme/year/route.ts`
-  // rather than exported from `@/lib/cme/schemas.ts` (see that route's own doc comment) — and it
-  // must stay that way: the export test above would fail the moment a route file re-exported it.
-  // This mirror reproduces the same constraints for accept/reject coverage; the fidelity test
-  // right after it checks the route's actual source text still declares exactly these
-  // constraints, so the mirror cannot silently drift from the real schema and end up testing a
-  // shape the route no longer uses.
-  const cmeYearConfirmSchemaMirror = z.object({
-    year: z.number().int().min(2000).max(2100),
-    totalHours: z.number().positive().max(500),
-    confirmedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a YYYY-MM-DD date."),
-    confirmedSource: z.string().trim().min(1).max(200),
-  });
-
+describe("CME complete year confirmation schema", () => {
   const validBody = {
     year: 2026,
-    totalHours: 40,
+    totalHours: 50,
     confirmedOn: "2026-01-01",
-    confirmedSource: "AHPRA CPD homepage",
+    confirmedSource: "Owner reviewed standard",
+    requirements: [
+      { id: "plan", label: "Development plan", source: "national", spec: { shape: "task" }, completedOn: null },
+    ],
   };
-
-  it("fidelity: the route's actual source still declares these same constraints", () => {
-    expect(year).toMatch(/year:\s*z\.number\(\)\.int\(\)\.min\(2000\)\.max\(2100\)/);
-    expect(year).toMatch(/totalHours:\s*z\.number\(\)\.positive\(\)\.max\(500\)/);
-    expect(year).toMatch(
-      /confirmedOn:\s*z\.string\(\)\.regex\(\/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/, "Use a YYYY-MM-DD date\."\)/,
-    );
-    expect(year).toMatch(/confirmedSource:\s*z\.string\(\)\.trim\(\)\.min\(1\)\.max\(200\)/);
+  it("uses the shared complete confirmation schema in the year route", () => {
+    expect(year).toContain("cmeYearConfirmSchema");
+    expect(year).toContain("confirmCmeYear(supabase, user.id, body)");
   });
-
   it("accepts a complete confirmation body", () => {
-    expect(cmeYearConfirmSchemaMirror.safeParse(validBody).success).toBe(true);
+    expect(cmeYearConfirmSchema.safeParse(validBody).success).toBe(true);
   });
-
-  it("rejects a year outside 2000-2100, non-positive or too-large total hours, a malformed date, and an empty source", () => {
-    expect(cmeYearConfirmSchemaMirror.safeParse({ ...validBody, year: 1999 }).success).toBe(false);
-    expect(cmeYearConfirmSchemaMirror.safeParse({ ...validBody, totalHours: 0 }).success).toBe(false);
-    expect(cmeYearConfirmSchemaMirror.safeParse({ ...validBody, totalHours: 501 }).success).toBe(false);
-    expect(cmeYearConfirmSchemaMirror.safeParse({ ...validBody, confirmedOn: "01/01/2026" }).success).toBe(false);
-    expect(cmeYearConfirmSchemaMirror.safeParse({ ...validBody, confirmedSource: "" }).success).toBe(false);
+  it("rejects invalid values and partial requirement confirmations", () => {
+    for (const change of [
+      { year: 1999 },
+      { totalHours: 0 },
+      { totalHours: 501 },
+      { confirmedOn: "2026-02-30" },
+      { confirmedSource: "" },
+      { requirements: [] },
+      { requirements: undefined },
+    ])
+      expect(cmeYearConfirmSchema.safeParse({ ...validBody, ...change }).success).toBe(false);
   });
 });

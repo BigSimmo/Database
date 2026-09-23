@@ -20,7 +20,7 @@ import {
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
 } from "@/components/on-call/on-call-section-identity";
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
@@ -125,12 +125,13 @@ function HomeModule({
  */
 function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
   const availability = onCallAvailability(entry);
-  if (!href || !number) return null;
+  if (!number) return null;
+  const Target = href ? "a" : Link;
   return (
-    <a
-      href={href}
+    <Target
+      href={href ?? onCallEntryHref(entry)}
       onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-call-${entry.slug}`}
       className={cn(
@@ -141,7 +142,11 @@ function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
       )}
     >
       <span className="flex items-center justify-between gap-2">
-        <Phone aria-hidden="true" className="size-icon-md" />
+        {href ? (
+          <Phone aria-hidden="true" className="size-icon-md" />
+        ) : (
+          <ChevronRight aria-hidden="true" className="size-icon-md" />
+        )}
         {/* Which of the contact's numbers this is. `onCallPrimaryNumber` became
             time-aware when the after-hours rule landed, so the same card shows a
             different line at 09:00 and at 22:00 — printing the digits without
@@ -154,17 +159,17 @@ function CallCard({ entry, now }: { entry: OnCallEntry; now: Date }) {
         <span className="nums text-lg-minus font-bold tracking-display">{number.value}</span>
         {availability ? <span className="text-3xs font-semibold opacity-80">{availability}</span> : null}
       </span>
-    </a>
+    </Target>
   );
 }
 
 function SwitchboardRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
   const content = (
     <>
       <span className="grid size-8 shrink-0 place-items-center rounded-sm border border-[color:var(--border)] bg-[color:var(--surface-subtle)]">
-        <Phone aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" />
+        {href ? <Phone aria-hidden="true" className="size-icon-sm text-[color:var(--text-muted)]" /> : null}
       </span>
       <span className="min-w-0 flex-1 grid gap-0.5 text-left">
         <span className="text-sm font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
@@ -206,11 +211,12 @@ function SwitchboardRow({ entry, now }: { entry: OnCallEntry; now: Date }) {
 
 function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
   const number = onCallPrimaryNumber(entry, now);
-  const href = onCallTelHref(number?.value);
-  if (!href || !number) return null;
+  const href = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
+  if (!number) return null;
+  const Target = href ? "a" : Link;
   return (
-    <a
-      href={href}
+    <Target
+      href={href ?? onCallEntryHref(entry)}
       onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
       data-testid={`on-call-home-ward-${entry.slug}`}
       className={cn(
@@ -223,7 +229,7 @@ function WardChip({ entry, now }: { entry: OnCallEntry; now: Date }) {
       <span className="truncate text-xs font-semibold text-[color:var(--text-heading)]">{entry.title}</span>
       <span className="nums text-sm font-bold text-[color:var(--text)]">{number.value}</span>
       <span className={cn(textMuted, "truncate text-3xs font-bold uppercase tracking-kicker")}>{number.label}</span>
-    </a>
+    </Target>
   );
 }
 
@@ -426,6 +432,25 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             reader who is not searching no vertical space at all. */}
         <OnCallSearchBox entries={entries} />
 
+        <HomeModule id="on-call-home-service" label="Your service">
+          <Link
+            href="/on-call/service"
+            className={cn(
+              cardSurface,
+              focusRing,
+              "flex min-h-tap min-w-0 items-center justify-between gap-3 p-4 no-underline",
+            )}
+          >
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-[color:var(--text-heading)]">Service handbook</span>
+              <span className={cn(textMuted, "mt-0.5 block break-words text-xs")}>
+                Choose your service and site for local contacts, referrals, orientation and corrections.
+              </span>
+            </span>
+            <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
+          </Link>
+        </HomeModule>
+
         {exampleContent ? (
           <HomeModule id="on-call-home-example-content" label="Example content">
             {/* Deliberately at the top of the page rather than tucked into a
@@ -520,7 +545,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 // Same private treatment Contacts uses: a personal number does
                 // not print on the home, even if the row itself is still named.
                 const number = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
-                const href = onCallTelHref(number?.value);
+                const href =
+                  number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
                 // By view, not by `entry.section`. Compliance and Who's who are
                 // views over `logistics` and `contacts`, so a section lookup
                 // sent a compliance requirement to the Admin page — a page that

@@ -201,7 +201,7 @@ describe("OnCallReferralsSection", () => {
     const user = userEvent.setup();
     render(<OnCallReferralsSection entries={[CRISIS_TEAM_REFERRAL]} now={NOW} />);
 
-    await user.click(screen.getByRole("button", { name: /Crisis and Emergency Response Team/ }));
+    await user.click(screen.getByRole("button", { name: /^Crisis and Emergency Response Team/, expanded: false }));
     const panel = screen.getByTestId(`on-call-referral-panel-${CRISIS_TEAM_REFERRAL.slug}`);
 
     // The label itself is a real text node, present regardless of colour.
@@ -220,7 +220,7 @@ describe("OnCallReferralsSection", () => {
   it("gives the phone number a tap-to-call row inside the expanded panel", async () => {
     const user = userEvent.setup();
     render(<OnCallReferralsSection entries={[CRISIS_TEAM_REFERRAL]} now={NOW} />);
-    await user.click(screen.getByRole("button", { name: /Crisis and Emergency Response Team/ }));
+    await user.click(screen.getByRole("button", { name: /^Crisis and Emergency Response Team/, expanded: false }));
     const phoneRow = screen.getByTestId(`on-call-referral-phone-${CRISIS_TEAM_REFERRAL.slug}`);
     expect(phoneRow).toHaveAttribute("href", "tel:1300555788");
   });

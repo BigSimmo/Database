@@ -1,12 +1,12 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import Link from "next/link";
 
 import { CmeNavHeader } from "@/components/cme/cme-nav-header";
 import { cardSurface } from "@/components/card-recipes";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ignoreUnavailableActivation } from "@/components/primitive-recipes/recipes";
 import { cn, floatingControl } from "@/components/ui-primitives";
 import { cpdYearBounds, formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import {
@@ -62,6 +62,15 @@ type TargetRow = { id: string; label: string; meta?: string; value: string };
 function targetRows(requirement: CmeRequirement): TargetRow[] {
   const spec = requirement.spec;
   switch (spec.shape) {
+    case "credited-hours":
+      return [
+        {
+          id: requirement.id,
+          label: requirement.label,
+          meta: "Credited within reviewing-performance hours",
+          value: formatHours(spec.minimumHours),
+        },
+      ];
     case "hours-in-category":
       return [
         { id: requirement.id, label: requirement.label, meta: "At least", value: formatHours(spec.minimumHours) },
@@ -194,21 +203,10 @@ export function CmeProgrammePage({
                 Add
               </button>
             ) : (
-              <button
-                type="button"
-                aria-disabled="true"
-                aria-describedby="cme-college-add-unavailable"
-                title="Adding a college extra is not available yet"
-                onClick={ignoreUnavailableActivation}
-                className={floatingControl}
-              >
+              <Link href={`/cme/setup?year=${set.year}#cme-setup-requirements-heading`} className={floatingControl}>
                 <Plus className="h-4 w-4 shrink-0" aria-hidden />
                 Add
-                <span id="cme-college-add-unavailable" className="sr-only">
-                  Adding a college-specific requirement is not built yet. The national baseline above still applies on
-                  its own.
-                </span>
-              </button>
+              </Link>
             )}
           </div>
           {collegeRows.length > 0 ? (
@@ -247,20 +245,9 @@ export function CmeProgrammePage({
               Re-confirm against this year&rsquo;s guide
             </button>
           ) : (
-            <button
-              type="button"
-              aria-disabled="true"
-              aria-describedby="cme-reconfirm-unavailable"
-              title="Re-confirm is not available yet"
-              onClick={ignoreUnavailableActivation}
-              className={cn(floatingControl, "w-full")}
-            >
+            <Link href={`/cme/setup?year=${set.year}`} className={cn(floatingControl, "w-full")}>
               Re-confirm against this year&rsquo;s guide
-              <span id="cme-reconfirm-unavailable" className="sr-only">
-                Re-confirming against this year&apos;s guide is not built yet. The numbers above stay exactly as you
-                last confirmed them.
-              </span>
-            </button>
+            </Link>
           )}
         </section>
 

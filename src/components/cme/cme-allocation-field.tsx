@@ -70,10 +70,21 @@ export type CmeAllocationFieldProps = {
   onChange: (allocations: readonly CmeAllocation[], totalHours: number) => void;
   /** Prefixes each row's input id. Defaults are unique enough for one field per page. */
   idPrefix?: string;
+  /** Existing or routine-provided split used when editing or pre-filling an entry. */
+  initialAllocations?: readonly CmeAllocation[];
 };
 
-export function CmeAllocationField({ statedHours, onChange, idPrefix = "cme-allocation" }: CmeAllocationFieldProps) {
-  const [text, setText] = useState<Record<CmeCategory, string>>({ educational: "", reviewing: "", measuring: "" });
+export function CmeAllocationField({
+  statedHours,
+  onChange,
+  idPrefix = "cme-allocation",
+  initialAllocations = [],
+}: CmeAllocationFieldProps) {
+  const [text, setText] = useState<Record<CmeCategory, string>>(() => ({
+    educational: String(initialAllocations.find((item) => item.category === "educational")?.hours ?? ""),
+    reviewing: String(initialAllocations.find((item) => item.category === "reviewing")?.hours ?? ""),
+    measuring: String(initialAllocations.find((item) => item.category === "measuring")?.hours ?? ""),
+  }));
   const allocations = deriveAllocations(text);
   const total = totalAllocatedHours(allocations);
   const balanced = isAllocationBalanced(total, statedHours);

@@ -1,3 +1,8 @@
+import { cmeEntryCreateSchema } from "@/lib/cme/schemas";
+import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
+import { randomUUID } from "node:crypto";
+import type { CmeRoutine, CmeRoutineCadence } from "@/lib/cme/routines";
+import type { Json } from "@/lib/supabase/database.types";
 import { PublicApiError } from "@/lib/http";
 import type {
   CmeAllocation,
@@ -36,6 +41,9 @@ export function cmeEntryToRow(entry: CmeEntry, ownerId: string, yearId: string):
   return {
     owner_id: ownerId,
     year_id: yearId,
+    formal_peer_review_hours: entry.formalPeerReviewHours ?? 0,
+    source_url: entry.sourceUrl ?? null,
+    archived_at: entry.archivedAt ?? null,
     activity_date: entry.date,
     title: entry.title,
     reflection: entry.reflection,
@@ -55,13 +63,18 @@ export function cmeEntryToRow(entry: CmeEntry, ownerId: string, yearId: string):
  *
  * `row` is untyped `Record<string, unknown>` rather than `CmeEntryRow` because every
  * caller in this module selects `cme_allocations` as a joined relation alongside it
- * (`select("*, cme_allocations(category, hours)")`), a shape the generated `Database`
+ * (`select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")`), a shape the generated `Database`
  * type does not describe. Allocations travel as a separate argument for the same reason
  * `src/lib/on-call/repository.ts` takes its joined shape apart before mapping it.
  */
 export function rowToCmeEntry(row: Record<string, unknown>, allocations: readonly CmeAllocation[]): CmeEntry {
   return {
     id: String(row.id),
+    ...(Number(row.formal_peer_review_hours ?? 0) > 0
+      ? { formalPeerReviewHours: Number(row.formal_peer_review_hours) }
+      : {}),
+    ...(row.archived_at ? { archivedAt: String(row.archived_at) } : {}),
+    ...(row.source_url ? { sourceUrl: String(row.source_url) } : {}),
     date: String(row.activity_date),
     title: String(row.title),
     allocations: allocations.map((allocation) => ({ ...allocation })),
@@ -108,6 +121,7 @@ function rowToCmeRequirementSet(
   return {
     id: yearRow.id,
     year: yearRow.year,
+    ...(yearRow.closed_at ? { closedAt: yearRow.closed_at } : {}),
     confirmedOn: yearRow.confirmed_on,
     confirmedSource: yearRow.confirmed_source,
     totalHours: yearRow.total_hours,
@@ -138,7 +152,7 @@ export async function fetchOwnerCmeYear(
     .eq("owner_id", ownerId)
     .eq("year", year)
     .maybeSingle();
-  if (yearError) throw new Error(yearError.message);
+  if (yearError) throw cmeRepositoryError(yearError);
   if (!yearRow) return null;
 
   const { data: requirementRows, error: requirementError } = await supabase
@@ -148,7 +162,7 @@ export async function fetchOwnerCmeYear(
     .eq("year_id", yearRow.id)
     .order("sort_order", { ascending: true })
     .limit(CME_MAX_ENTRIES);
-  if (requirementError) throw new Error(requirementError.message);
+  if (requirementError) throw cmeRepositoryError(requirementError);
 
   return rowToCmeRequirementSet(yearRow, requirementRows ?? []);
 }
@@ -158,110 +172,181 @@ export async function fetchOwnerCmeEntries(
   supabase: AdminClient,
   ownerId: string,
   yearId: string,
+  options: { includeArchived?: boolean } = {},
 ): Promise<CmeEntry[]> {
   if (!ownerId) throw new Error("CME entries were requested without an ownerId; refusing to run.");
 
   // The owner predicate rides the same chain as `.from()`. `npm run check:owner-scope`
   // cannot prove it in any other form, and this is the single regression class this
   // tenancy design is exposed to.
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from("cme_entries")
-    .select("*, cme_allocations(category, hours)")
+    .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)", { count: "exact" })
     .eq("owner_id", ownerId)
     .eq("year_id", yearId)
     .order("activity_date", { ascending: false })
-    .limit(CME_MAX_ENTRIES);
-  if (error) throw new Error(error.message);
-
-  return (data ?? []).map((entryRow) => {
-    // Cast once, through the index-signature type, rather than a second direct cast from
-    // the generated row type: the generated `Database` types carry no `Relationships` for
-    // these tables yet (see `cme_entries`/`cme_allocations` in database.types.ts), so
-    // supabase-js cannot resolve the joined `cme_allocations` embed's type and a second
-    // direct cast on the original row type is rejected as insufficiently overlapping.
-    const row = entryRow as Record<string, unknown>;
-    const joinedAllocations = (row.cme_allocations as { category: string; hours: number }[] | undefined) ?? [];
-    return rowToCmeEntry(
-      row,
-      joinedAllocations.map((allocation) => ({
-        category: allocation.category as CmeCategory,
-        hours: allocation.hours,
-      })),
+    .limit(CME_MAX_ENTRIES + 1);
+  if (error) throw cmeRepositoryError(error);
+  if (count === null || count === undefined || count !== (data?.length ?? 0) || count > CME_MAX_ENTRIES)
+    throw new PublicApiError(
+      "This year exceeds the supported entry limit. A complete record cannot be displayed or exported.",
+      409,
     );
-  });
+
+  return (data ?? [])
+    .filter((row) => options.includeArchived || !(row as Record<string, unknown>).archived_at)
+    .map((entryRow) => {
+      // Cast once, through the index-signature type, rather than a second direct cast from
+      // the generated row type: the generated `Database` types carry no `Relationships` for
+      // these tables yet (see `cme_entries`/`cme_allocations` in database.types.ts), so
+      // supabase-js cannot resolve the joined `cme_allocations` embed's type and a second
+      // direct cast on the original row type is rejected as insufficiently overlapping.
+      const row = entryRow as Record<string, unknown>;
+      const joinedAllocations = (row.cme_allocations as { category: string; hours: number }[] | undefined) ?? [];
+      return rowToCmeEntry(
+        row,
+        joinedAllocations.map((allocation) => ({
+          category: allocation.category as CmeCategory,
+          hours: allocation.hours,
+        })),
+      );
+    });
 }
 
 /**
- * Insert one CME entry and its allocations for an owner's CPD year, returning the entry as
- * stored.
+ * Insert one CME entry and its allocations atomically, returning the stored entry.
  *
- * `entry.id` is expected to already be set by the caller (the same convention
- * `src/app/api/on-call/entries/route.ts` uses: generate the id with `randomUUID()` before
- * building the value, so the identity a caller writes is decided once, outside the
- * database). `cme_entries` and `cme_allocations` are two separate inserts — this client
- * has no cross-table transaction — so if the second insert fails, the just-written entry
- * row is deleted rather than left behind with zero allocations, which no reader of this
- * table may ever see.
+ * The PostgreSQL RPC owns the transaction, owner checks, retry identity, and
+ * routine advancement. Failure rolls back the entire write.
  */
 export async function insertCmeEntry(
   supabase: AdminClient,
   ownerId: string,
   yearId: string,
   entry: CmeEntry,
+  requestId?: string,
 ): Promise<CmeEntry> {
-  if (!ownerId) throw new Error("A CME entry was submitted without an ownerId; refusing to run.");
-  if (entry.allocations.length === 0) {
-    throw new PublicApiError("A CME entry needs at least one category allocation.", 400);
-  }
-  const categories = entry.allocations.map((allocation) => allocation.category);
-  if (new Set(categories).size !== categories.length) {
-    throw new PublicApiError("A CME entry cannot allocate hours to the same category twice.", 400);
-  }
+  return saveCmeEntry(supabase, ownerId, yearId, entry, true, requestId);
+}
 
-  const row = cmeEntryToRow(entry, ownerId, yearId);
-  // `id` and `owner_id` are spelled out again here (already the same values inside `row`,
-  // set by `cmeEntryToRow`) so the row this owner creates carries an explicit,
-  // statically-visible identity and owner stamp on the insert call itself — a write is
-  // scoped by what it writes.
-  const { data: entryRow, error: entryError } = await supabase
+/** Coherent entry+allocation+routine save: PostgreSQL rolls back every step on failure. */
+export async function saveCmeEntry(
+  supabase: AdminClient,
+  ownerId: string,
+  yearId: string,
+  entry: CmeEntry,
+  create = false,
+  requestId?: string,
+): Promise<CmeEntry> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const parsed = cmeEntryCreateSchema.safeParse(entry);
+  if (!parsed.success) throw new PublicApiError("Invalid CME entry details or allocations.", 400);
+  const payload = parsed.data;
+  const { data, error } = await supabase.rpc("cme_save_entry", {
+    p_owner_id: ownerId,
+    p_year_id: yearId,
+    p_entry_id: entry.id,
+    p_entry: { ...payload, formalPeerReviewHours: entry.formalPeerReviewHours ?? 0 } as Json,
+    p_create: create,
+    p_request_id: requestId ?? null,
+  });
+  if (error) throw cmeRepositoryError(error);
+  return joinedEntry(data as Record<string, unknown>);
+}
+
+export function cmeRepositoryError(error: { message: string }): Error {
+  const safe: Record<string, [string, number]> = {
+    cme_entry_archived: ["Restore this archived entry before editing or copying it.", 409],
+    cme_year_closed: ["This CPD year is closed. Its records cannot be changed.", 409],
+    cme_year_not_confirmed: ["Confirm your CPD year before saving an entry.", 400],
+    cme_entry_not_found: ["CME entry not found.", 404],
+    cme_retry_conflict: [
+      "This save request was already used for different details. Reload the saved entry before editing it.",
+      409,
+    ],
+    cme_invalid_link: ["The selected source or routine is unavailable.", 400],
+    cme_invalid_request: ["Check the entry details and try again.", 400],
+    cme_invalid_allocations: ["Check the category hours and peer review credit.", 400],
+  };
+  const match = safe[error.message];
+  return match
+    ? new PublicApiError(match[0], match[1], { code: error.message })
+    : new Error("CME storage operation failed.");
+}
+
+function joinedEntry(row: Record<string, unknown>): CmeEntry {
+  return rowToCmeEntry(row, (row.cme_allocations ?? []) as CmeAllocation[]);
+}
+
+export async function confirmCmeYear(supabase: AdminClient, ownerId: string, set: CmeRequirementSet) {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { error } = await supabase.rpc("cme_confirm_year", {
+    p_owner_id: ownerId,
+    p_set: JSON.parse(JSON.stringify(set)) as Json,
+  });
+  if (error) throw cmeRepositoryError(error);
+  return fetchOwnerCmeYear(supabase, ownerId, set.year);
+}
+
+export async function fetchOwnerCmeEntry(supabase: AdminClient, ownerId: string, id: string): Promise<CmeEntry | null> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { data, error } = await supabase
     .from("cme_entries")
-    .insert({ ...row, id: entry.id, owner_id: ownerId })
+    .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
+    .eq("owner_id", ownerId)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw cmeRepositoryError(error);
+  return data ? joinedEntry(data as Record<string, unknown>) : null;
+}
+
+function rowToRoutine(row: Database["public"]["Tables"]["cme_routines"]["Row"]): CmeRoutine {
+  return {
+    id: row.id,
+    title: row.title,
+    cadence: row.cadence as CmeRoutineCadence,
+    usualHours: row.usual_hours,
+    usualAllocations: row.usual_allocations as CmeAllocation[],
+    nextDue: row.next_due,
+    archivedAt: row.archived_at,
+  };
+}
+export async function fetchOwnerCmeRoutines(supabase: AdminClient, ownerId: string): Promise<CmeRoutine[]> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { data, error } = await supabase
+    .from("cme_routines")
     .select("*")
-    .single();
-  if (entryError) throw new Error(entryError.message);
-
-  const allocationRows = entry.allocations.map((allocation) => ({
-    owner_id: ownerId,
-    entry_id: entryRow.id,
-    category: allocation.category,
-    hours: allocation.hours,
-  }));
-  const { data: insertedAllocations, error: allocationError } = await supabase
-    .from("cme_allocations")
-    .insert(allocationRows)
-    .select("category, hours");
-  if (allocationError) {
-    // Best-effort clean-up so a failed second insert never leaves an entry with zero
-    // allocations behind. If the clean-up itself fails, surface both errors together
-    // rather than silently swallowing the delete failure.
-    const { error: cleanupError } = await supabase
-      .from("cme_entries")
-      .delete()
-      .eq("owner_id", ownerId)
-      .eq("id", entryRow.id);
-    if (cleanupError) {
-      throw new Error(`${allocationError.message} (cleanup also failed: ${cleanupError.message})`);
-    }
-    throw new Error(allocationError.message);
-  }
-
-  return rowToCmeEntry(
-    entryRow as Record<string, unknown>,
-    (insertedAllocations ?? allocationRows).map((allocation) => ({
-      category: allocation.category as CmeCategory,
-      hours: allocation.hours,
-    })),
-  );
+    .eq("owner_id", ownerId)
+    .order("created_at", { ascending: true })
+    .limit(CME_MAX_ENTRIES);
+  if (error) throw cmeRepositoryError(error);
+  return (data ?? []).map(rowToRoutine);
+}
+export async function saveCmeRoutine(
+  supabase: AdminClient,
+  ownerId: string,
+  routine: Omit<CmeRoutine, "id">,
+  id?: string,
+): Promise<CmeRoutine> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const row = {
+    title: routine.title,
+    cadence: routine.cadence,
+    usual_hours: routine.usualHours,
+    usual_allocations: [...routine.usualAllocations] as Json,
+    next_due: routine.nextDue,
+    archived_at: routine.archivedAt,
+  };
+  const result = id
+    ? await supabase.from("cme_routines").update(row).eq("owner_id", ownerId).eq("id", id).select("*").maybeSingle()
+    : await supabase
+        .from("cme_routines")
+        .insert({ ...row, id: randomUUID(), owner_id: ownerId })
+        .select("*")
+        .single();
+  if (result.error) throw cmeRepositoryError(result.error);
+  if (!result.data) throw new PublicApiError("CME routine not found.", 404);
+  return rowToRoutine(result.data);
 }
 
 /**
@@ -320,21 +405,34 @@ export async function markCmeEntryTranscribed(
 
   const { data: existing, error: existingError } = await supabase
     .from("cme_entries")
-    .select("*, cme_allocations(category, hours)")
+    .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
     .eq("id", entryId)
     .eq("owner_id", ownerId)
     .maybeSingle();
   if (existingError) throw new Error(existingError.message);
   if (!existing) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
 
+  if ((existing as Record<string, unknown>).archived_at) throw cmeRepositoryError({ message: "cme_entry_archived" });
+  const confirmedYear = await fetchOwnerCmeYear(supabase, ownerId, Number(String(existing.activity_date).slice(0, 4)));
+  if (cmeYearConfigurationState(confirmedYear) === "unavailable") {
+    throw new PublicApiError("Your saved CPD targets could not be read. They have not been changed.", 503, {
+      code: "cme_year_unavailable",
+    });
+  }
+  if (cmeYearConfigurationState(confirmedYear) !== "ready") {
+    throw new PublicApiError("Confirm your complete CPD targets before updating this entry.", 400, {
+      code: "cme_year_not_confirmed",
+    });
+  }
+
   const { data: updated, error: updateError } = await supabase
     .from("cme_entries")
     .update({ transcribed_at: new Date().toISOString() })
     .eq("id", entryId)
     .eq("owner_id", ownerId)
-    .select("*, cme_allocations(category, hours)")
+    .select("*, cme_allocations!cme_allocations_entry_owner_fk(category, hours)")
     .maybeSingle();
-  if (updateError) throw new Error(updateError.message);
+  if (updateError) throw cmeRepositoryError(updateError);
   if (!updated) throw new PublicApiError("CME entry not found.", 404, { code: "cme_entry_not_found" });
 
   const row = updated as Record<string, unknown>;
@@ -446,4 +544,21 @@ export async function restoreCmeAllocations(
     })),
   );
   if (insertError) throw new Error(insertError.message);
+}
+
+/** Archive/restore is atomic and retains allocations, sources and evidence. */
+export async function setCmeEntryArchived(
+  supabase: AdminClient,
+  ownerId: string,
+  entryId: string,
+  archived: boolean,
+): Promise<CmeEntry> {
+  if (!ownerId) throw new Error("Missing CME owner.");
+  const { data, error } = await supabase.rpc("cme_set_entry_archived", {
+    p_owner_id: ownerId,
+    p_entry_id: entryId,
+    p_archived: archived,
+  });
+  if (error) throw cmeRepositoryError(error);
+  return joinedEntry(data as Record<string, unknown>);
 }

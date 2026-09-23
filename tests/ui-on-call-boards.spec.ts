@@ -46,6 +46,22 @@ const DESKTOP = 1280;
 /** This repository's production tap floor, in CSS pixels. */
 const TAP_FLOOR = 48;
 
+test("search opens and focuses the exact contact on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await page.goto("/on-call");
+  await page.getByRole("searchbox", { name: "Search On Call" }).fill("Demo Ward One");
+  const result = page.getByTestId("on-call-search-row-demo-ward-one");
+  await expect(result).toBeVisible();
+  const destination = await result.getAttribute("href");
+  expect(destination).toMatch(/^\/on-call\/contacts#on-call-entry-/);
+  await result.click();
+  await expect(page).toHaveURL(new RegExp(`${destination!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`));
+  const target = page.locator(`[id="${destination!.split("#")[1]}"]`);
+  await expect(target).toBeFocused();
+  await expect(target).toBeInViewport();
+  await expect(target).toContainText("Demo Ward One");
+});
+
 const ROUTES = {
   home: "/on-call",
   contacts: "/on-call/contacts",

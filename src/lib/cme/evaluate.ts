@@ -16,6 +16,7 @@ export type CmeYearStatus = {
 function hoursIn(entries: readonly CmeEntry[], category: CmeCategory): number {
   let total = 0;
   for (const entry of entries) {
+    if (entry.archivedAt) continue;
     for (const allocation of entry.allocations) {
       if (allocation.category === category) total += allocation.hours;
     }
@@ -32,7 +33,11 @@ function hoursWord(hours: number): string {
 }
 
 export function totalAllocatedHours(entries: readonly CmeEntry[]): number {
-  return round2(entries.reduce((sum, entry) => sum + entry.allocations.reduce((inner, a) => inner + a.hours, 0), 0));
+  return round2(
+    entries
+      .filter((entry) => !entry.archivedAt)
+      .reduce((sum, entry) => sum + entry.allocations.reduce((inner, a) => inner + a.hours, 0), 0),
+  );
 }
 
 /**
@@ -45,8 +50,24 @@ export function totalAllocatedHours(entries: readonly CmeEntry[]): number {
  * here.
  */
 export function evaluateRequirement(requirement: CmeRequirement, entries: readonly CmeEntry[]): CmeRequirementStatus {
+  entries = entries.filter((entry) => !entry.archivedAt);
   const spec = requirement.spec;
   switch (spec.shape) {
+    case "credited-hours": {
+      const value = round2(
+        entries.reduce(
+          (sum, entry) => sum + Math.min(entry.formalPeerReviewHours ?? 0, hoursIn([entry], "reviewing")),
+          0,
+        ),
+      );
+      const met = value >= spec.minimumHours;
+      return {
+        requirementId: requirement.id,
+        met,
+        progress: { value, target: spec.minimumHours },
+        summary: met ? "Met" : hoursWord(spec.minimumHours - value),
+      };
+    }
     case "hours-in-category": {
       const value = hoursIn(entries, spec.category);
       const met = value >= spec.minimumHours;

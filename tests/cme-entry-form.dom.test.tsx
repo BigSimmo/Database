@@ -47,4 +47,29 @@ describe("New entry", () => {
     await user.type(screen.getByLabelText(/reviewing performance/i), "1e10");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("0.0 of 1.0 allocated");
   });
+
+  it("rejects malformed formal peer-review credit instead of silently saving zero", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.type(screen.getByLabelText(/formal peer-review credit/i), "-1");
+    expect(screen.getByText(/positive plain number/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+  });
+
+  it("submits domain and peer-review credit inside the allocated reviewing hours", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<CmeEntryForm onSubmit={onSubmit} availableDomains={["Professionalism"]} />);
+    await user.type(screen.getByLabelText(/what was it/i), "Peer review meeting");
+    await user.type(screen.getByLabelText(/reviewing performance/i), "1");
+    await user.type(screen.getByLabelText(/formal peer-review credit/i), "1");
+    await user.click(screen.getByRole("checkbox", { name: "Professionalism" }));
+    await user.click(screen.getByRole("button", { name: /save entry/i }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formalPeerReviewHours: 1,
+        buckets: ["Professionalism"],
+      }),
+    );
+  });
 });

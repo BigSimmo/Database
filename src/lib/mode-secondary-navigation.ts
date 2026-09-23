@@ -146,6 +146,7 @@ export const modeSecondaryNavigationRegistry = {
     // against the live clinical database. See src/lib/on-call/compliance.ts.
     { id: "compliance", label: "Compliance", href: "/on-call/compliance" },
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
+    { id: "service", label: "Service", href: "/on-call/service" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
   ],
   // CME's destinations. Like On Call's, they are registered here so the mode
@@ -307,6 +308,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/logistics") return "logistics";
     if (pathname === "/on-call/compliance") return "compliance";
     if (pathname === "/on-call/who-is-who") return "whoswho";
+    if (pathname === "/on-call/service") return "service";
     if (pathname === "/on-call/card") return "card";
     // Exact match only. `/on-call` is the mode home now rather than a redirect
     // stub, and a prefix test here would mark Tonight current on every section

@@ -32,6 +32,7 @@ import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/dem
 import { cmeDashboardModuleLabels } from "@/lib/cme/module-order";
 import { cmeModuleOrderStorageKey } from "@/lib/cme/module-order-keys";
 import type { CmeRoutine } from "@/lib/cme/routines";
+import type { CmeRequirementSet } from "@/lib/cme/types";
 
 /**
  * Design decision §12, "What this deliberately does not do": "No red." — and,
@@ -228,7 +229,13 @@ describe("CME visual contract", () => {
     });
 
     it("says nothing at all — no sentence, no mark — before 28 days have elapsed", () => {
-      render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={new Date("2026-01-06T02:00:00Z")} />);
+      const earlyYearSet: CmeRequirementSet = {
+        ...DEMO_CME_YEAR,
+        requirements: DEMO_CME_YEAR.requirements.map((requirement) =>
+          requirement.id === "plan" ? { ...requirement, completedOn: null } : requirement,
+        ),
+      };
+      render(<CmeDashboard set={earlyYearSet} entries={DEMO_CME_ENTRIES} now={new Date("2026-01-06T02:00:00Z")} />);
       expect(screen.queryByTestId("cme-pace-sentence")).toBeNull();
       expect(screen.queryByTestId("progress-mark")).toBeNull();
       expect(screen.getByTestId("cme-next-action")).toHaveTextContent(/development plan/i);
@@ -248,7 +255,7 @@ describe("CME visual contract", () => {
     it("on the dashboard", () => {
       render(<CmeDashboard set={DEMO_CME_YEAR} entries={DEMO_CME_ENTRIES} now={DEMO_CME_INSTANT} />);
       const provenance = screen.getByTestId("cme-provenance");
-      expect(provenance).toHaveTextContent(/confirmed by you on/i);
+      expect(provenance).toHaveTextContent(/source recorded by you on/i);
       expect(provenance).toHaveTextContent(DEMO_CME_YEAR.confirmedSource);
     });
 

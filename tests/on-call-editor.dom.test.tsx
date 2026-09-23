@@ -1015,12 +1015,10 @@ describe("OnCallEntryEditor — clearing optional compliance values", () => {
   });
 });
 
-describe("OnCallEntryEditor — a box the owner emptied is still a stored value", () => {
-  // An empty text box means "the form said nothing", so the stored Location
-  // survives this save and a switch would still delete it. Reading the draft
-  // alone would drop it out of the warning at exactly the moment the owner
-  // stopped being able to see it.
-  it("keeps naming a field whose box has been emptied but whose stored value remains", async () => {
+describe("OnCallEntryEditor — clearing a previously stored value", () => {
+  // Before saving, a taxonomy switch can still warn about the old stored value.
+  // Saving the emptied control must then remove it rather than restore it.
+  it("warns about stored data before save, then persists an emptied field", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry: PAYROLL_OFFICE }));
     vi.stubGlobal("fetch", fetchMock);
@@ -1030,10 +1028,51 @@ describe("OnCallEntryEditor — a box the owner emptied is still a stored value"
     await user.clear(screen.getByLabelText("Location"));
     expect(screen.getByText(/are deleted/i)).toHaveTextContent(/Location/);
 
-    // And the stored value really is still there to be deleted: saving without
-    // switching sends it back untouched.
+    // Saving without switching persists the intentional clearing.
     await user.click(screen.getByTestId("on-call-entry-editor-save"));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(savedDetails(fetchMock).location).toBe("Level 2, Block B");
+    expect(savedDetails(fetchMock).location).toBeUndefined();
+  });
+});
+
+describe("On call optional field clearing", () => {
+  it.each([
+    {
+      section: "contacts" as const,
+      label: /^Direct phone/,
+      details: { role: "Registrar", phone: "0400 111 222" },
+      key: "phone",
+      expected: undefined,
+    },
+    {
+      section: "referrals" as const,
+      label: /^Accepts/,
+      details: { accepts: ["Adults"], exclusions: [] },
+      key: "accepts",
+      expected: [],
+    },
+    {
+      section: "playbook" as const,
+      label: /^Escalation steps/,
+      details: {
+        trigger: "Recorded trigger",
+        escalationSteps: [{ order: 1, whoToCall: "Registrar", when: "Recorded condition" }],
+      },
+      key: "escalationSteps",
+      expected: [],
+    },
+  ])("persists clearing $key while retaining unrelated details", async ({ section, label, details, key, expected }) => {
+    const user = userEvent.setup();
+    const entry = { ...ED_REGISTRAR, section, details };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ entry }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<OnCallEntryEditor open section={section} entry={entry} onSaved={vi.fn()} onClose={vi.fn()} />);
+    await user.clear(screen.getByLabelText(label));
+    await user.click(screen.getByTestId("on-call-entry-editor-save"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.details[key]).toEqual(expected);
+    expect(body.linkedDocumentIds).toEqual(entry.linkedDocumentIds);
+    expect(body.lastVerifiedAt).toBe(entry.lastVerifiedAt);
   });
 });

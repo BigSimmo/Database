@@ -3,8 +3,8 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
-import { ON_CALL_VIEW_HREFS } from "@/components/on-call/on-call-section-identity";
+import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
+import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { type OnCallNotification } from "@/lib/on-call/notifications";
 
@@ -66,7 +66,10 @@ export function OnCallNotificationsPanel({
             <li key={notification.id}>
               <Link
                 href={hrefFor(notification)}
-                onClick={onNavigate}
+                onClick={() => {
+                  onNavigate?.();
+                  requestAnimationFrame(focusOnCallEntryFromHash);
+                }}
                 data-testid={`on-call-notification-${notification.kind}`}
                 className={cn(
                   "flex min-h-tap items-start gap-2 rounded-md px-2 py-2 no-underline",
@@ -109,5 +112,5 @@ export function OnCallNotificationsPanel({
  * `ON_CALL_VIEW_HREFS` is a total map over every view, so this cannot miss.
  */
 function hrefFor(notification: OnCallNotification): string {
-  return ON_CALL_VIEW_HREFS[onCallViewForEntry(notification.entry)];
+  return onCallEntryHref(notification.entry);
 }

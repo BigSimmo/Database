@@ -418,6 +418,14 @@ being the one-tap "still correct today" action that resets the freshness clock.
 `authenticated`; reads and writes go through the service-role client at the API layer, the same
 application-layer ownership model as `clinical_registry_records`.
 
+**Invited service workspace.** `/on-call/service`, linked from the mode home, uses
+`service-model`, `service-repository` and `service-api` with the
+`/api/on-call/services` collection, service command route and invitation join route.
+The separate `on_call_service_*` tables enforce service/site membership, editor
+publishing, independent clinical/legal review, revision conflicts, correction reports
+and owner-private orientation completion. They never pool legacy entries or personal
+CME/compliance. `handbook-resources` holds linked official WA starting points.
+
 ---
 
 ### Continuing education (CME/CPD)
@@ -430,6 +438,14 @@ carrying the date he confirmed it and the document it came from; the mode comput
 against those numbers and never supplies one of its own. Nothing here may reduce a target for a
 working pattern — part-time work does not lower the requirement, and a tracker that quietly
 lowered it would be the most dangerous thing in the design.
+
+The setup route offers a versioned Australian/RANZCP starting preset for explicit owner
+confirmation. Private activity and routine routes save atomically. Activity archive and
+restore preserve history while excluding archived entries from active totals. The log
+links `/cme/summary?year=…` and `/api/cme/export?year=…` for print and CSV output.
+`evidence-model`, `evidence-upload` and `evidence-repository` serve private attachments
+through `/api/cme/entries/[id]/evidence`; learning sources remain separate. Handbook
+learning links prefill title/source in `/cme/new` and never save attendance automatically.
 
 | Module     | Role                                                                                                             |
 | ---------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -480,7 +496,7 @@ never in the repository, so production cannot silently fall back to synthetic da
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 

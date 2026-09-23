@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     });
     const row = onCallEntryToRow(entry, user.id);
 
-    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id);
+    await assertValidLinkedDocumentIds(supabase, entry.linkedDocumentIds, user.id, row.is_personal);
 
     // `owner_id` is spelled out again here (it is already the same value inside `row`, set by
     // onCallEntryToRow) so the row this owner creates carries an explicit, statically-visible

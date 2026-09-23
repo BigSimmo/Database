@@ -27,6 +27,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+
       graphql: {
         Args: {
           extensions?: Json;
@@ -46,6 +47,276 @@ export type Database = {
   };
   public: {
     Tables: {
+      on_call_services: {
+        Row: {
+          id: string;
+          name: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      on_call_service_sites: {
+        Row: {
+          id: string;
+          service_id: string;
+          name: string;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          name: string;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          name?: string;
+        };
+        Relationships: [];
+      };
+      on_call_service_members: {
+        Row: {
+          service_id: string;
+          user_id: string;
+          role: string;
+          clinical_reviewer: boolean;
+          joined_at: string;
+          revoked_at: string | null;
+        };
+        Insert: {
+          service_id: string;
+          user_id: string;
+          role: string;
+          clinical_reviewer?: boolean;
+          joined_at?: string;
+          revoked_at?: string | null;
+        };
+        Update: {
+          service_id?: string;
+          user_id?: string;
+          role?: string;
+          clinical_reviewer?: boolean;
+          joined_at?: string;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
+      on_call_service_invitations: {
+        Row: {
+          id: string;
+          service_id: string;
+          token_hash: string;
+          role: string;
+          issued_by: string | null;
+          expires_at: string;
+          created_at: string;
+          revoked_at: string | null;
+          used_at: string | null;
+          used_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          token_hash: string;
+          role: string;
+          issued_by?: string | null;
+          expires_at: string;
+          created_at?: string;
+          revoked_at?: string | null;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          token_hash?: string;
+          role?: string;
+          issued_by?: string | null;
+          expires_at?: string;
+          created_at?: string;
+          revoked_at?: string | null;
+          used_at?: string | null;
+          used_by?: string | null;
+        };
+        Relationships: [];
+      };
+      on_call_service_entries: {
+        Row: {
+          id: string;
+          service_id: string;
+          site_id: string | null;
+          revision: number;
+          content: Json;
+          author_id: string | null;
+          status: string;
+          published_content: Json | null;
+          published_revision: number | null;
+          published_author_id: string | null;
+          published_reviewed_by: string | null;
+          published_reviewed_at: string | null;
+          review_comment: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          site_id?: string | null;
+          revision?: number;
+          content: Json;
+          author_id?: string | null;
+          status: string;
+          published_content?: Json | null;
+          published_revision?: number | null;
+          published_author_id?: string | null;
+          published_reviewed_by?: string | null;
+          published_reviewed_at?: string | null;
+          review_comment?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          site_id?: string | null;
+          revision?: number;
+          content?: Json;
+          author_id?: string | null;
+          status?: string;
+          published_content?: Json | null;
+          published_revision?: number | null;
+          published_author_id?: string | null;
+          published_reviewed_by?: string | null;
+          published_reviewed_at?: string | null;
+          review_comment?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      on_call_service_reports: {
+        Row: {
+          id: string;
+          service_id: string;
+          entry_id: string;
+          reported_by: string | null;
+          reason: string;
+          status: string;
+          resolution: string;
+          resolved_by: string | null;
+          created_at: string;
+          resolved_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          service_id: string;
+          entry_id: string;
+          reported_by?: string | null;
+          reason: string;
+          status?: string;
+          resolution?: string;
+          resolved_by?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          service_id?: string;
+          entry_id?: string;
+          reported_by?: string | null;
+          reason?: string;
+          status?: string;
+          resolution?: string;
+          resolved_by?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+        };
+        Relationships: [];
+      };
+      on_call_service_orientation: {
+        Row: {
+          service_id: string;
+          user_id: string;
+          site_id: string;
+          entry_id: string;
+          rotation: string;
+          revision: number;
+          completed_at: string;
+        };
+        Insert: {
+          service_id: string;
+          user_id: string;
+          site_id: string;
+          entry_id: string;
+          rotation: string;
+          revision: number;
+          completed_at?: string;
+        };
+        Update: {
+          service_id?: string;
+          user_id?: string;
+          site_id?: string;
+          entry_id?: string;
+          rotation?: string;
+          revision?: number;
+          completed_at?: string;
+        };
+        Relationships: [];
+      };
+      cme_evidence: {
+        Row: {
+          id: string;
+          owner_id: string;
+          entry_id: string;
+          file_name: string;
+          content_type: string;
+          byte_size: number;
+          sha256: string;
+          storage_path: string;
+          kind: string;
+          redaction_confirmed: boolean;
+          preview_confirmed: boolean;
+          uploaded_at: string;
+        };
+        Insert: {
+          id: string;
+          owner_id: string;
+          entry_id: string;
+          file_name: string;
+          content_type: string;
+          byte_size: number;
+          sha256: string;
+          storage_path: string;
+          kind: string;
+          redaction_confirmed: boolean;
+          preview_confirmed: boolean;
+          uploaded_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          entry_id?: string;
+          file_name?: string;
+          content_type?: string;
+          byte_size?: number;
+          sha256?: string;
+          storage_path?: string;
+          kind?: string;
+          redaction_confirmed?: boolean;
+          preview_confirmed?: boolean;
+          uploaded_at?: string;
+        };
+        Relationships: [];
+      };
       api_rate_limit_subjects: {
         Row: {
           bucket: string;
@@ -2260,10 +2531,21 @@ export type Database = {
           id?: string;
           owner_id?: string;
         };
-        Relationships: [];
+        Relationships: [{
+          foreignKeyName: "cme_allocations_entry_owner_fk";
+          columns: ["entry_id", "owner_id"];
+          isOneToOne: false;
+          referencedRelation: "cme_entries";
+          referencedColumns: ["id", "owner_id"];
+        }];
       };
       cme_entries: {
         Row: {
+          archived_at: string | null;
+          source_url: string | null;
+          formal_peer_review_hours: number;
+          request_id: string | null;
+          request_payload: Json | null;
           activity_date: string;
           buckets: string[];
           cost_cents: number | null;
@@ -2279,6 +2561,11 @@ export type Database = {
           year_id: string;
         };
         Insert: {
+          archived_at?: string | null;
+          source_url?: string | null;
+          formal_peer_review_hours?: number;
+          request_id?: string | null;
+          request_payload?: Json | null;
           activity_date: string;
           buckets?: string[];
           cost_cents?: number | null;
@@ -2294,6 +2581,11 @@ export type Database = {
           year_id: string;
         };
         Update: {
+          archived_at?: string | null;
+          source_url?: string | null;
+          formal_peer_review_hours?: number;
+          request_id?: string | null;
+          request_payload?: Json | null;
           activity_date?: string;
           buckets?: string[];
           cost_cents?: number | null;
@@ -3213,6 +3505,13 @@ export type Database = {
       };
     };
     Functions: {
+      cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
+      cme_set_entry_archived: { Args: { p_owner_id: string; p_entry_id: string; p_archived: boolean }; Returns: Json };
+      cme_evidence_counts: { Args: { p_owner_id: string; p_year: number }; Returns: Json };
+      cme_guard_evidence_insert: { Args: never; Returns: unknown };
+      cme_guard_archived_entry: { Args: never; Returns: unknown };
+      on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };
+      cme_save_entry: { Args: { p_owner_id: string; p_year_id: string; p_entry_id: string; p_entry: Json; p_create: boolean; p_request_id?: string | null }; Returns: Json };
       analyze_rag_tables: { Args: never; Returns: undefined };
       assert_public_source_document_governance: {
         Args: {

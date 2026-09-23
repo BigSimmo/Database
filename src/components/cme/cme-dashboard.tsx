@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
@@ -133,7 +134,7 @@ export type CmeDashboardProps = {
 type ShortfallTier = 0 | 1 | 2;
 
 function shortfallTier(shape: CmeRequirementSpec["shape"]): ShortfallTier {
-  if (shape === "hours-in-category" || shape === "hours-across-categories") return 0;
+  if (shape === "hours-in-category" || shape === "hours-across-categories" || shape === "credited-hours") return 0;
   if (shape === "activity-count") return 1;
   return 2; // "task"
 }
@@ -184,21 +185,30 @@ function computeNextAction(args: {
   set: CmeRequirementSet;
   unmet: readonly CmeRequirementStatus[];
   now: Date;
+  totalHours: number;
 }): string {
-  const { set, unmet, now } = args;
+  const { set, unmet, now, totalHours } = args;
   const inRequestedYear = cpdYearOf(now) === set.year;
 
-  if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
-    return "Close the year: check every entry has its evidence attached, then generate your CPD summary before 31 December.";
+  if (unmet.length === 0 && totalHours >= set.totalHours) {
+    return "Every requirement is met for this year. Keep logging activities as you go.";
   }
 
-  if (inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS) {
-    return "It's early in the year for a pace projection — a good place to start is your development plan.";
+  if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
+    return "Close the year: check each entry against the source records you keep, then prepare your CPD summary before 31 December.";
+  }
+
+  const earlyTask = set.requirements.find(
+    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
+  );
+  if (inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask) {
+    return `It's early in the year for a pace projection — a good place to start is ${earlyTask.label.toLowerCase()}.`;
   }
 
   if (unmet.length === 0) {
-    return "Every requirement is met for this year. Keep logging activities as you go.";
+    return `Next: Total CPD hours — ${formatCmeHours(set.totalHours - totalHours)} hours short`;
   }
+
   const next = furthestFromMet(set, unmet)!;
   const label =
     set.requirements.find((requirement) => requirement.id === next.requirementId)?.label ?? "Next requirement";
@@ -244,8 +254,6 @@ export function CmeDashboard({
       }
     : undefined;
 
-  const nextAction = computeNextAction({ set, unmet, now });
-
   const today = perthCalendarDate(now);
   const loggedToday = entries.filter((entry) => entry.date === today);
   const loggedTodayHours = loggedToday.reduce(
@@ -253,6 +261,18 @@ export function CmeDashboard({
     0,
   );
   const dueRoutines = routinesDueOn(routines, now);
+  const dueNext = dueRoutines[0];
+  const nextRequirementStatus = furthestFromMet(set, unmet);
+  const nextRequirement = nextRequirementStatus
+    ? set.requirements.find((requirement) => requirement.id === nextRequirementStatus.requirementId)
+    : undefined;
+  const earlyTask = set.requirements.find(
+    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
+  );
+  const nextAction = dueNext
+    ? `Next: log ${dueNext.title} — review the pre-filled activity before saving.`
+    : computeNextAction({ set, unmet, now, totalHours });
+  const allTargetsMet = unmet.length === 0 && totalHours >= set.totalHours;
   // Stable sort: unmet first. Position is one of the three channels this mode uses for
   // shortfall instead of colour — see the file-level note above.
   const sortedStatuses = [...statuses].sort((a, b) => Number(a.met) - Number(b.met));
@@ -264,6 +284,48 @@ export function CmeDashboard({
   function handleLogRoutine(routine: CmeRoutine) {
     onLogRoutine(routineLogPrefill(routine, now));
   }
+
+  const nextActionControl = dueNext ? (
+    <Button testId="cme-next-action" variant="secondary" block onClick={() => handleLogRoutine(dueNext)}>
+      {nextAction}
+    </Button>
+  ) : allTargetsMet ? (
+    <p data-testid="cme-next-action" className="text-sm font-medium text-[color:var(--text)]">
+      {nextAction}
+    </p>
+  ) : inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/log?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(earlyTask.id)}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : nextRequirement?.spec.shape === "task" ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(nextRequirement.id)}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/new?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  );
 
   const moduleContent: Record<CmeDashboardModuleId, ReactNode> = {
     requirements: (
@@ -313,7 +375,8 @@ export function CmeDashboard({
     ),
     provenance: (
       <p className={cn(textMuted, "text-sm")}>
-        Confirmed by you on {formatRoutineDueDate(set.confirmedOn)}, against {set.confirmedSource}.
+        Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}: {set.confirmedSource}. This records what you
+        checked; it is not independent certification.
       </p>
     ),
   };
@@ -340,9 +403,7 @@ export function CmeDashboard({
             {paceSentence(pace, set.totalHours, endLabel)}
           </p>
         ) : null}
-        <p data-testid="cme-next-action" className="mt-3 text-sm font-medium text-[color:var(--text)]">
-          {nextAction}
-        </p>
+        <div className="mt-3">{nextActionControl}</div>
       </section>
 
       <div className="mt-6 space-y-6">

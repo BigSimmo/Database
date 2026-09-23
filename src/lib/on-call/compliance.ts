@@ -1,5 +1,6 @@
 import {
   ON_CALL_COMPLIANCE_CONSEQUENCES,
+  onCallDetailsSchemaFor,
   type OnCallComplianceConsequence,
   type OnCallEntry,
 } from "@/lib/on-call/entry-model";
@@ -30,6 +31,23 @@ import { onCallLocalDateKey } from "@/lib/on-call/local-date";
  * judgement to the person reading it. A clinical-governance review rejected an
  * earlier design for exactly this, and the wording is the control.
  */
+export const ON_CALL_ADMIN_CATEGORIES = ["Leave", "Rosters", "Pay", "Forms", "Access", "Facilities"] as const;
+export const ON_CALL_COMPLIANCE_CATEGORIES = [
+  "Registration",
+  "Indemnity",
+  "Training",
+  "Credentialing",
+  "CPD",
+  "Clearances",
+] as const;
+
+export function isOnCallComplianceCategory(category: unknown): boolean {
+  return (
+    typeof category === "string" &&
+    ON_CALL_COMPLIANCE_CATEGORIES.some((candidate) => candidate.toLowerCase() === category.trim().toLowerCase())
+  );
+}
+
 export const COMPLIANCE_KIND = "compliance";
 
 /**
@@ -147,4 +165,24 @@ export function sortComplianceEntries(entries: readonly OnCallEntry[]): OnCallEn
     }
     return a.title.localeCompare(b.title);
   });
+}
+
+/** Public reads and durable caches share the same fail-closed compliance boundary. */
+export const COMPLIANCE_MARKER_KEYS = [
+  "kind",
+  "consequence",
+  "expiresOn",
+  "leadTimeDays",
+  "issuingBody",
+  "evidenceUrl",
+  "provenance",
+] as const;
+export function mayContainOnCallCompliance(section: unknown, details: unknown): boolean {
+  if (section !== "logistics") return false;
+  if (!details || typeof details !== "object" || Array.isArray(details)) return true;
+  if (!onCallDetailsSchemaFor("logistics").safeParse(details).success) return true;
+  return (
+    isOnCallComplianceCategory((details as { category?: unknown }).category) ||
+    COMPLIANCE_MARKER_KEYS.some((key) => key in details)
+  );
 }

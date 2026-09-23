@@ -80,12 +80,12 @@ describe("OnCallSearchBox — results", () => {
     expect(screen.getByTestId("on-call-search-group-education")).toHaveTextContent("Teaching");
   });
 
-  it("makes a dialable contact row a one-tap tel: link showing the number", () => {
+  it("links to the exact contact while showing its recorded number", () => {
     render(<OnCallSearchBox entries={ENTRIES} />);
     type("registrar");
     const row = screen.getByTestId("on-call-search-row-ed-registrar");
     expect(row.tagName).toBe("A");
-    expect(row).toHaveAttribute("href", "tel:0892241000");
+    expect(row).toHaveAttribute("href", "/on-call/contacts#on-call-entry-ed-registrar");
     expect(row).toHaveTextContent("(08) 9224 1000");
     expect(row).toHaveTextContent("Emergency registrar");
   });
@@ -94,14 +94,14 @@ describe("OnCallSearchBox — results", () => {
     render(<OnCallSearchBox entries={ENTRIES} />);
     type("teaching");
     const row = screen.getByTestId("on-call-search-row-ward-teaching");
-    expect(row).toHaveAttribute("href", "/on-call/education");
+    expect(row).toHaveAttribute("href", "/on-call/education#on-call-entry-ward-teaching");
   });
 
   it("never prints a personal number, and links to the section instead", () => {
     render(<OnCallSearchBox entries={[PRIVATE]} />);
     type("okafor");
     const row = screen.getByTestId("on-call-search-row-okafor");
-    expect(row).toHaveAttribute("href", "/on-call/contacts");
+    expect(row).toHaveAttribute("href", "/on-call/contacts#on-call-entry-okafor");
     expect(row).toHaveTextContent("Dr M. Okafor — ward direct");
     expect(screen.queryByText(/0412 000 111/)).not.toBeInTheDocument();
   });
@@ -201,7 +201,7 @@ function expectRowFiledUnder(slug: string, view: OnCallPageView) {
   expect(group).toHaveTextContent(ON_CALL_VIEW_TITLES[view]);
   const row = screen.getByTestId(`on-call-search-row-${slug}`);
   expect(group).toContainElement(row);
-  expect(row).toHaveAttribute("href", ON_CALL_VIEW_HREFS[view]);
+  expect(row).toHaveAttribute("href", `${ON_CALL_VIEW_HREFS[view]}#on-call-entry-${slug}`);
 }
 
 /**

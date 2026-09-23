@@ -1,3 +1,4 @@
+import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeCategory, CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
 /**
@@ -28,11 +29,8 @@ import type { CmeCategory, CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
  *   and a self-evaluation.
  * - `measuring` and `peer-review` are the college overlay: extra requirements
  *   this owner has added on top of the national baseline.
- * - `peer-review` is counted by attendance at monthly sessions
- *   (`activity-count`), not by hours — a monthly peer review group logically
- *   tracks by session, not by the clock, and this also keeps its count
- *   independent of `hoursIn("reviewing")`, which every hours-shaped
- *   requirement touching that category is pinned to by construction.
+ * - Formal peer review is credited within reviewing-performance allocations.
+ *   It is measured in hours and never adds hours to the total.
  *
  * `totalAllocatedHours` is the sum of every allocation across all three
  * categories, so it is arithmetically forced to equal
@@ -52,6 +50,7 @@ type DemoEntryInput = {
   readonly id: string;
   readonly date: string;
   readonly title: string;
+  readonly formalPeerReviewHours?: number;
   readonly category: CmeCategory;
   readonly hours: number;
   readonly reflection: string;
@@ -65,6 +64,7 @@ function entry(input: DemoEntryInput): CmeEntry {
   return {
     id: input.id,
     date: input.date,
+    formalPeerReviewHours: input.formalPeerReviewHours ?? 0,
     title: input.title,
     allocations: [{ category: input.category, hours: input.hours }],
     reflection: input.reflection,
@@ -130,6 +130,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-006",
     date: "2026-02-12",
     title: "Peer review group — February session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — February"],
@@ -169,6 +170,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-010",
     date: "2026-03-12",
     title: "Peer review group — March session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — March"],
@@ -210,6 +212,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-014",
     date: "2026-04-09",
     title: "Peer review group — April session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — April"],
@@ -258,6 +261,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-019",
     date: "2026-05-14",
     title: "Peer review group — May session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — May"],
@@ -300,6 +304,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-023",
     date: "2026-06-11",
     title: "Peer review group — June session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — June"],
@@ -339,6 +344,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-027",
     date: "2026-07-09",
     title: "Peer review group — July session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — July"],
@@ -390,6 +396,7 @@ export const DEMO_CME_ENTRIES: readonly CmeEntry[] = [
     id: "cme-2026-032",
     date: "2026-08-13",
     title: "Peer review group — August session",
+    formalPeerReviewHours: 0.5,
     category: "reviewing",
     hours: 0.5,
     buckets: ["Peer review — August"],
@@ -552,19 +559,6 @@ const PRACTICE_DOMAINS = [
   "Ethical practice",
 ] as const;
 
-const PEER_REVIEW_MONTHS = [
-  "Peer review — February",
-  "Peer review — March",
-  "Peer review — April",
-  "Peer review — May",
-  "Peer review — June",
-  "Peer review — July",
-  "Peer review — August",
-  "Peer review — September",
-  "Peer review — October",
-  "Peer review — November",
-] as const;
-
 export const DEMO_CME_YEAR: CmeRequirementSet = {
   year: 2026,
   // Deliberately NOT the name of a real regulator's real standard. This string is
@@ -625,10 +619,23 @@ export const DEMO_CME_YEAR: CmeRequirementSet = {
     },
     {
       id: "peer-review",
-      label: "Peer review sessions",
+      label: "Formal peer review",
       source: "college",
       completedOn: null,
-      spec: { shape: "activity-count", buckets: PEER_REVIEW_MONTHS, minimumPerBucket: 1 },
+      spec: { shape: "credited-hours", credit: "formal-peer-review", minimumHours: 10 },
     },
   ],
 };
+
+/** Synthetic demonstration only; a routine is never attendance evidence. */
+export const DEMO_CME_ROUTINES: readonly CmeRoutine[] = [
+  {
+    id: "00000000-0000-4000-8000-000000000101",
+    title: "Demo journal club",
+    cadence: "monthly",
+    usualHours: 1,
+    usualAllocations: [{ category: "educational", hours: 1 }],
+    nextDue: "2026-09-15",
+    archivedAt: null,
+  },
+];

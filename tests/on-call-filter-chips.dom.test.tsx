@@ -30,8 +30,12 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
   } as unknown as OnCallEntry;
 }
 
-const ED = contact("ed-registrar", "ED registrar", ["Emergency"], "5107");
-const WARD = contact("ward-4b", "Ward 4B nurses' station", ["Wards"], "5210");
+// Full switchboard-reachable direct numbers, not internal extensions: `onCallTelHref` (added
+// alongside the "external dialling safety" tests in home-modules.ts) deliberately refuses a
+// short digit string as ambiguous with an extension or pager ID, so a fixture testing the
+// dialable `<a href="tel:">` row must use a number that clears that floor.
+const ED = contact("ed-registrar", "ED registrar", ["Emergency"], "93459107");
+const WARD = contact("ward-4b", "Ward 4B nurses' station", ["Wards"], "93459210");
 
 describe("OnCallFilterChips", () => {
   it("renders nothing when there is nothing to choose between", () => {

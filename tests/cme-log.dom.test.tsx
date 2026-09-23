@@ -128,6 +128,14 @@ describe("Log", () => {
     expect(within(plainRow as HTMLElement).queryByText("Routine")).toBeNull();
   });
 
+  it("labels a linked document as a source link, not as evidence", () => {
+    render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
+    const linkedRow = screen.getByTestId("cme-log-row-fx-2").closest("li");
+    expect(linkedRow).not.toBeNull();
+    expect(within(linkedRow as HTMLElement).getByText("Source link")).toBeInTheDocument();
+    expect(within(linkedRow as HTMLElement).queryByText("Evidence")).toBeNull();
+  });
+
   it("links every row to its own entry screen", () => {
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
     expect(screen.getByTestId("cme-log-row-fx-1")).toHaveAttribute("href", "/cme/log/fx-1");
@@ -136,7 +144,7 @@ describe("Log", () => {
 
   it("keeps the board's closing call to action — a standing way to add a new entry", () => {
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
-    expect(screen.getByTestId("cme-log-new-entry")).toHaveAttribute("href", "/cme/new");
+    expect(screen.getByTestId("cme-log-new-entry")).toHaveAttribute("href", "/cme/new?year=2026");
   });
 
   it("shows a guided empty state rather than a blank list when the year has nothing logged", () => {
@@ -172,6 +180,29 @@ function removeClipboard() {
   Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true, writable: true });
 }
 
+describe("Server-backed year navigation", () => {
+  it("uses the server-selected year after query navigation instead of retaining the previous client year", () => {
+    const { rerender } = render(
+      <CmeLogPage
+        entries={fixtureEntries.filter((entry) => entry.date.startsWith("2026"))}
+        set={fixtureSet}
+        navigationYears={[2026, 2025]}
+      />,
+    );
+    expect(screen.getByText(/Journal club — treatment-resistant depression/i)).toBeInTheDocument();
+    const set2025 = { ...fixtureSet, year: 2025 };
+    rerender(
+      <CmeLogPage
+        entries={fixtureEntries.filter((entry) => entry.date.startsWith("2025"))}
+        set={set2025}
+        navigationYears={[2026, 2025]}
+      />,
+    );
+    expect(screen.getByText(/Audit — discharge planning review/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Journal club — treatment-resistant depression/i)).toBeNull();
+  });
+});
+
 describe("One entry", () => {
   afterEach(removeClipboard);
 
@@ -194,7 +225,7 @@ describe("One entry", () => {
 
   it("shows the evidence row, attached or not", () => {
     render(<CmeEntryPage entryId="fx-2" entries={fixtureEntries} set={fixtureSet} />);
-    expect(screen.getByTestId("cme-entry-evidence")).toHaveTextContent(/attached/i);
+    expect(screen.getByTestId("cme-entry-evidence")).toHaveTextContent(/source document is linked/i);
 
     cleanup();
     render(<CmeEntryPage entryId="fx-1" entries={fixtureEntries} set={fixtureSet} />);
@@ -221,7 +252,9 @@ describe("One entry", () => {
     await user.click(screen.getByRole("button", { name: /copy for your cpd home/i }));
 
     await waitFor(() =>
-      expect(screen.getByTestId("cme-entry-transcribed-status")).toHaveTextContent(/^copied to your cpd home\.$/i),
+      expect(screen.getByTestId("cme-entry-transcribed-status")).toHaveTextContent(
+        /copied to your clipboard for your cpd home/i,
+      ),
     );
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Date: 2026-09-16"));
     expect(onCopied).toHaveBeenCalledWith("fx-1");
@@ -237,6 +270,25 @@ describe("One entry", () => {
     await waitFor(() => expect(writeText).toHaveBeenCalled());
     const copiedText = writeText.mock.calls[0]?.[0] as string;
     expect(copiedText).not.toMatch(/50\.00|cost/i);
+  });
+
+  it("distinguishes a successful clipboard copy from a failed persisted copy stamp", async () => {
+    const user = userEvent.setup();
+    stubClipboard(vi.fn().mockResolvedValue(undefined));
+    render(
+      <CmeEntryPage
+        entryId="fx-1"
+        entries={fixtureEntries}
+        set={fixtureSet}
+        onCopied={vi.fn().mockRejectedValue(new Error("offline"))}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /copy for your cpd home/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId("cme-entry-transcribed-status")).toHaveTextContent(
+        /copied to your clipboard, but this record could not be marked/i,
+      ),
+    );
   });
 
   it("says plainly when an entry cannot be found, rather than crashing", () => {

@@ -1,5 +1,9 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+
 import { BriefcaseBusiness, FileText, Lock, MapPinned, Pencil, Phone, type LucideIcon } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
@@ -40,12 +44,6 @@ function parseLogisticsDetails(details: unknown): OnCallLogisticsDetails | null 
   return result.success ? (result.data as OnCallLogisticsDetails) : null;
 }
 
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
-}
-
 /**
  * The glyph a row wears, which follows what the row IS rather than what this
  * section used to be called.
@@ -76,11 +74,11 @@ function LogisticsRow({
 }) {
   const details = parseLogisticsDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
-  const href = telHref(details?.phone);
+  const href = onCallTelHref(details?.phone);
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-1.5" id={onCallEntryAnchorId(entry.id)} tabIndex={-1}>
       <div className="flex items-stretch gap-2">
         <div className="min-w-0 flex-1">
           <OnCallEntryRow

@@ -1,8 +1,10 @@
 "use client";
 
+import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
+
 import { Plus } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
@@ -188,10 +190,16 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // contacts-backed views by `details.kind` as well — so the page hands over the
   // whole set rather than seven near-identical slices.
   const sectionEntries = entries;
-  // Only Playbook and Orientation display linked documents; the hook is cheap
-  // and returns an empty map on any failure, so it runs unconditionally rather
-  // than behind a check that would break the rules of hooks.
-  const linkedDocuments = useOnCallLinkedDocuments();
+  useEffect(() => {
+    focusOnCallEntryFromHash();
+    window.addEventListener("hashchange", focusOnCallEntryFromHash);
+    return () => window.removeEventListener("hashchange", focusOnCallEntryFromHash);
+  }, [view, entries]);
+  const sourceIds =
+    view === "playbook" || view === "orientation"
+      ? entries.filter((entry) => entry.section === view).flatMap((entry) => entry.linkedDocumentIds)
+      : [];
+  const linkedDocuments = useOnCallLinkedDocuments(sourceIds);
   // The page's own groups, for the header's jump list. Declared from the same
   // entries the list below renders, then narrowed to whichever anchors actually
   // appear — so a flat page resolves to none and the header is just a title.

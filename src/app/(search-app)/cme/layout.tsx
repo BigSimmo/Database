@@ -1,9 +1,30 @@
 import type { ReactNode } from "react";
+import { CmeOwnerBoundary } from "@/components/cme/cme-owner-boundary";
+import { isDemoMode } from "@/lib/env";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-/**
- * A pass-through. It exists to give the CME namespace a route boundary of its
- * own — nothing more; every screen in the mode owns its own frame.
- */
-export default function CmeLayout({ children }: { children: ReactNode }) {
-  return children;
+/** Bind server-rendered private records to the owner verified for this response. */
+export default async function CmeLayout({ children }: { children: ReactNode }) {
+  const demoMode = isDemoMode();
+  let serverOwnerId: string | null = null;
+  let serverAuthVerified = false;
+  if (!demoMode) {
+    try {
+      const client = await createSupabaseServerClient();
+      const result = client ? await client.auth.getUser() : null;
+      if (result && !result.error) {
+        serverOwnerId = result.data.user?.id ?? null;
+        serverAuthVerified = true;
+      } else if (result?.error?.name === "AuthSessionMissingError") {
+        serverAuthVerified = true;
+      }
+    } catch {
+      // Fail closed. Client identity must never grant access to stale server children.
+    }
+  }
+  return (
+    <CmeOwnerBoundary serverOwnerId={serverOwnerId} serverAuthVerified={serverAuthVerified} demoMode={demoMode}>
+      {children}
+    </CmeOwnerBoundary>
+  );
 }
