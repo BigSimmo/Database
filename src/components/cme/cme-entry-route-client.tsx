@@ -22,7 +22,9 @@ async function responseError(response: Response): Promise<string> {
     const payload = (await response.json()) as { error?: unknown; message?: unknown };
     if (typeof payload.message === "string") return payload.message;
     if (typeof payload.error === "string") return payload.error;
-  } catch {}
+  } catch {
+    // Not JSON. Fall through to the status line below.
+  }
   return `Could not update this entry (${response.status}).`;
 }
 

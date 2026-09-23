@@ -156,11 +156,16 @@ begin
     if not found or v_invite.revoked_at is not null or v_invite.used_at is not null or v_invite.expires_at <= now()
       or not exists(select 1 from public.on_call_service_members where service_id=p_service_id and user_id=v_invite.issued_by and role='admin' and revoked_at is null)
       then raise exception 'service_invitation_invalid'; end if;
-    if not exists(select 1 from public.on_call_service_members where service_id=p_service_id and user_id=p_actor_id and revoked_at is null) then
-      if (select count(*) from public.on_call_service_members where service_id=p_service_id and revoked_at is null) >= 500 then raise exception 'service_limit'; end if;
-      insert into public.on_call_service_members(service_id,user_id,role) values(p_service_id,p_actor_id,v_invite.role)
-        on conflict(service_id,user_id) do update set role=excluded.role,clinical_reviewer=false,revoked_at=null,joined_at=now();
+    -- An already-active member consumes nothing: the invitation stays usable for whoever it
+    -- was actually issued to reach, and no membership row changes. Reject before the invite
+    -- is marked used, not after — marking it used unconditionally here was Codex P2 (a
+    -- redeemable invite silently being burned by a no-op join).
+    if exists(select 1 from public.on_call_service_members where service_id=p_service_id and user_id=p_actor_id and revoked_at is null) then
+      raise exception 'service_already_member';
     end if;
+    if (select count(*) from public.on_call_service_members where service_id=p_service_id and revoked_at is null) >= 500 then raise exception 'service_limit'; end if;
+    insert into public.on_call_service_members(service_id,user_id,role) values(p_service_id,p_actor_id,v_invite.role)
+      on conflict(service_id,user_id) do update set role=excluded.role,clinical_reviewer=false,revoked_at=null,joined_at=now();
     update public.on_call_service_invitations set used_at=now(),used_by=p_actor_id where id=v_invite.id;
     return jsonb_build_object('serviceId',p_service_id);
   end if;

@@ -18,6 +18,7 @@ const serviceErrors: Record<string, { status: number; message: string }> = {
   service_revision_conflict: { status: 409, message: "This entry changed. Reload the current revision before saving." },
   service_last_admin: { status: 409, message: "Assign another administrator before removing the last administrator." },
   service_invitation_invalid: { status: 400, message: "This invitation is invalid, expired, revoked or already used." },
+  service_already_member: { status: 409, message: "You already belong to this service." },
   service_invalid_site: { status: 400, message: "Choose a site belonging to this service." },
   service_invalid_orientation: { status: 400, message: "Choose a published orientation item for this site." },
   service_not_found: { status: 404, message: "This service item is unavailable." },

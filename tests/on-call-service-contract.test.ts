@@ -100,9 +100,33 @@ describe("invited service request boundary", () => {
     expect(sent).not.toHaveProperty("code");
     expect(JSON.stringify(sent)).not.toContain(parsed.code);
   });
-  it.each(["service_revision_conflict", "service_last_admin"])("maps %s to recoverable conflict", async (message) => {
-    rpc.mockResolvedValue({ data: null, error: { message } });
-    await expect(serviceCommand(createAdminClient(), id, id, "member.revoke")).rejects.toMatchObject({ status: 409 });
+  it.each(["service_revision_conflict", "service_last_admin", "service_already_member"])(
+    "maps %s to recoverable conflict",
+    async (message) => {
+      rpc.mockResolvedValue({ data: null, error: { message } });
+      await expect(serviceCommand(createAdminClient(), id, id, "member.revoke")).rejects.toMatchObject({
+        status: 409,
+      });
+    },
+  );
+  it("rejects an already-active member's join BEFORE the invitation is consumed (Codex P2)", () => {
+    // Regression for a bug where an already-active member's join marked the invitation
+    // `used_at` even though membership was left untouched, silently burning a redeemable
+    // invite. The fix must raise before the `update ... set used_at=now()` statement runs,
+    // never after it, so the exception actually prevents the write rather than racing it.
+    const sql = readFileSync("supabase/migrations/20260922174716_on_call_service_handbooks.sql", "utf8");
+    const joinBlock = sql.slice(sql.indexOf("if p_action='join' then", sql.indexOf("for update;")));
+    const alreadyMemberCheck = joinBlock.indexOf("service_already_member");
+    const consumeInvite = joinBlock.indexOf("set used_at=now()");
+    expect(alreadyMemberCheck).toBeGreaterThan(-1);
+    expect(consumeInvite).toBeGreaterThan(-1);
+    expect(alreadyMemberCheck).toBeLessThan(consumeInvite);
+    // The rejection must come from an `exists(...)` on an ACTIVE membership (revoked_at is
+    // null), not the inverted `not exists(...)` this bug shipped with — that guarded the
+    // insert/reactivate branch instead of the invite consumption.
+    expect(joinBlock).toMatch(
+      /if exists\(select 1 from public\.on_call_service_members where service_id=p_service_id and user_id=p_actor_id and revoked_at is null\) then\s*\n\s*raise exception 'service_already_member';/,
+    );
   });
   it("does not read or republish the legacy or private stores", () => {
     const sql = readFileSync("supabase/migrations/20260922174716_on_call_service_handbooks.sql", "utf8");

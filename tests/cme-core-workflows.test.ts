@@ -212,7 +212,9 @@ describe("CME joined allocation relation", () => {
     const source = readFileSync("src/lib/cme/repository.ts", "utf8");
     expect(source).not.toContain('.select("*, cme_allocations(category, hours)")');
     expect(
-      source.match(/\.select\("\*, cme_allocations!cme_allocations_entry_owner_fk\(category, hours\)"\)/g)?.length,
+      source.match(
+        /\.select\("\*, cme_allocations!cme_allocations_entry_owner_fk\(category, hours\)"(?:, \{ count: "exact" \})?\)/g,
+      )?.length,
     ).toBe(4);
   });
 });

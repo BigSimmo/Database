@@ -1466,7 +1466,7 @@ describe("design-system adoption manifest", () => {
     // 102 -> 103 on 2026-09-21: `/auth/reset-password` adds the password-recovery
     // destination used by the PKCE email callback. It is a real production route
     // and is declared in `adoption-contract.json`.
-    expect(manifest.routeCoverage.discovered).toHaveLength(103);
+    expect(manifest.routeCoverage.discovered).toHaveLength(105);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);
