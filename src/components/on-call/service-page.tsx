@@ -211,11 +211,10 @@ export function ServicePage({
   activeAuthEpoch.current = auth.authEpoch;
   activeContextKey.current = contextKey;
 
-  const services = demoMode
-    ? [demoServiceSummary]
-    : ownedServices?.authEpoch === auth.authEpoch
-      ? ownedServices.items
-      : [];
+  const services = useMemo(
+    () => (demoMode ? [demoServiceSummary] : ownedServices?.authEpoch === auth.authEpoch ? ownedServices.items : []),
+    [auth.authEpoch, demoMode, ownedServices],
+  );
   const detail = demoMode ? demoServiceDetail : ownedDetail?.contextKey === contextKey ? ownedDetail.value : null;
   const effectiveState: LoadState = demoMode
     ? "ready"
