@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 
 import { mayContainOnCallCompliance } from "@/lib/on-call/compliance";
@@ -210,6 +210,13 @@ export type OnCallEntriesState = {
   /** True when the most recent fetch attempt failed, so `entries` (if any)
    *  are being served from the offline cache rather than the network. */
   isOffline: boolean;
+  /** Why the most recent fetch failed, or null when it did not. "offline"
+   *  only when the browser reports no network; anything else (a server
+   *  error, a malformed reply) is "failed", so a 500 is never described to
+   *  the reader as their own lost signal. */
+  loadError: "offline" | "failed" | null;
+  /** Fetch again after a failure. */
+  retry: () => void;
   /** Mirrors the API's `signedOut` flag from the most recent successful
    *  fetch. Signed-out responses replace the cache with public entries only. */
   signedOut: boolean;
@@ -231,6 +238,9 @@ export function useOnCallEntries(): OnCallEntriesState {
   const cached = useMemo(() => parseCachedPayload(cacheSnapshot || null), [cacheSnapshot]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [loadError, setLoadError] = useState<"offline" | "failed" | null>(null);
+  // Bumped by `retry`; restarting the fetch effect on it is the whole retry.
+  const [attempt, setAttempt] = useState(0);
   const [signedOut, setSignedOut] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
   // What the fetch returned, held in memory. The cache is the live source once
@@ -295,6 +305,7 @@ export function useOnCallEntries(): OnCallEntriesState {
 
         if (cancelled || peekOnCallEntrySessionEpoch() !== epochAtStart) return;
         setIsOffline(false);
+        setLoadError(null);
         setSignedOut(parsedResponse.data.signedOut);
         setDemoMode(parsedResponse.data.demoMode);
         setFetched(entries);
@@ -312,6 +323,7 @@ export function useOnCallEntries(): OnCallEntriesState {
         // Offline, server error, or a malformed payload: fall back to
         // whatever is already cached rather than surfacing a blank state.
         setIsOffline(true);
+        setLoadError(typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "failed");
       } finally {
         if (!cancelled && peekOnCallEntrySessionEpoch() === epochAtStart) setLoading(false);
       }
@@ -321,7 +333,12 @@ export function useOnCallEntries(): OnCallEntriesState {
       cancelled = true;
       controller.abort();
     };
-  }, [sessionEpoch]);
+  }, [sessionEpoch, attempt]);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (expiresAt === null) {
@@ -343,6 +360,8 @@ export function useOnCallEntries(): OnCallEntriesState {
     cachedAt: cached?.savedAt ?? null,
     loading,
     isOffline,
+    loadError,
+    retry,
     signedOut,
     demoMode,
   };

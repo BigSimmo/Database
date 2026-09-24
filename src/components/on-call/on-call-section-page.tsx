@@ -24,6 +24,7 @@ import {
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { onCallViewStorageSection } from "@/components/on-call/on-call-entry-view";
+import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
@@ -185,7 +186,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   });
   const title = ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
   // contacts-backed views by `details.kind` as well — so the page hands over the
   // whole set rather than seven near-identical slices.
@@ -438,7 +439,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
               </Button>
             ) : null}
           </div>
-          {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+          {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
           {verifyAllState.error ? (
             <p role="alert" className="text-sm font-semibold text-[color:var(--danger)]">
               {verifyAllState.error}
@@ -454,6 +455,8 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
               body="Fetching the entries saved to this section."
               testId={`on-call-${view}-loading`}
             />
+          ) : isOffline && entries.length === 0 ? (
+            <OnCallLoadFailed reason={loadError} onRetry={retry} />
           ) : (
             renderSectionList()
           )}

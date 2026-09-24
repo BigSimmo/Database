@@ -8,6 +8,9 @@ import { formatClinicalDate } from "@/lib/source-metadata";
 export interface OnCallOfflineBannerProps {
   /** ISO timestamp of when the shown copy was cached, or `null` if unknown. */
   savedAt: string | null;
+  /** Why the live copy could not be fetched. A server error is not the
+   *  reader's lost signal, so it is not called "offline". */
+  reason?: "offline" | "failed" | null;
   testId?: string;
 }
 
@@ -23,9 +26,16 @@ export interface OnCallOfflineBannerProps {
  * screen-reader user actually needs: a spoken heads-up that this is not
  * live data.
  */
-export function OnCallOfflineBanner({ savedAt, testId = "on-call-offline-banner" }: OnCallOfflineBannerProps) {
+export function OnCallOfflineBanner({
+  savedAt,
+  reason = "offline",
+  testId = "on-call-offline-banner",
+}: OnCallOfflineBannerProps) {
   const savedLabel = savedAt ? formatClinicalDate(savedAt) : "an earlier date";
-  const message = `You are offline. Showing a saved copy from ${savedLabel}.`;
+  const message =
+    reason === "failed"
+      ? `Couldn't reach the server. Showing a saved copy from ${savedLabel}.`
+      : `You are offline. Showing a saved copy from ${savedLabel}.`;
 
   return (
     <>
@@ -35,7 +45,7 @@ export function OnCallOfflineBanner({ savedAt, testId = "on-call-offline-banner"
           "flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm font-semibold text-[color:var(--warning)]",
         )}
       >
-        <CloudOff className="h-4 w-4 shrink-0" aria-hidden />
+        <CloudOff className="size-icon-sm shrink-0" aria-hidden />
         <span>{message}</span>
       </div>
       <span data-testid={`${testId}-announcement`} role="status" aria-live="polite" className="sr-only">

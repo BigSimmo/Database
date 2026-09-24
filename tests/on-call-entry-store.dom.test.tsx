@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
@@ -103,6 +103,28 @@ describe("useOnCallEntries", () => {
     expect(result.current.entries).toEqual([contact]);
     // The saved date is available to the UI even though the network is down.
     expect(result.current.cachedAt).toBe(savedAt);
+  });
+
+  // Regression, 2026-09-24: every failure was called "offline", so a server
+  // error told a reader with full signal that they had lost it.
+  it("calls a failure 'offline' only when the browser has no network", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("500"));
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    const first = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    expect(first.result.current.loadError).toBe("failed");
+    first.unmount();
+
+    onLine.mockReturnValue(false);
+    const second = renderHook(() => useOnCallEntries());
+    await waitFor(() => expect(second.result.current.loading).toBe(false));
+    expect(second.result.current.loadError).toBe("offline");
+
+    // Retrying fetches again, and a success clears the error.
+    fetchSpy.mockResolvedValue(new Response(JSON.stringify({ entries: [contact], signedOut: false }), { status: 200 }));
+    act(() => second.result.current.retry());
+    await waitFor(() => expect(second.result.current.loadError).toBeNull());
+    onLine.mockRestore();
   });
 
   // On Call entries became readable by any visitor on 2026-09-04, so a signed-out response

@@ -39,6 +39,8 @@ const storeState = vi.hoisted(() => ({
   entries: [] as OnCallEntry[],
   loading: false,
   isOffline: false,
+  loadError: null as "offline" | "failed" | null,
+  retry: vi.fn(),
   signedOut: false,
   demoMode: false,
   cachedAt: null as string | null,
@@ -121,6 +123,8 @@ beforeEach(() => {
   authState.status = "loading";
   storeState.entries = [];
   storeState.loading = false;
+  storeState.isOffline = false;
+  storeState.loadError = null;
   storeState.signedOut = false;
   storeState.demoMode = false;
   recentState.items = [];
@@ -167,6 +171,20 @@ describe("On Call home layout", () => {
     storeState.loading = true;
     render(<OnCallHome />);
     expect(screen.queryByTestId("on-call-home-call-first-empty")).toBeNull();
+  });
+
+  // Regression, 2026-09-24: a failed fetch with nothing saved on the device
+  // showed "Your On Call hub is empty", as if the reader's numbers were gone.
+  it("says the entries could not be loaded, with a retry, instead of calling the hub empty", () => {
+    storeState.entries = [];
+    storeState.isOffline = true;
+    storeState.loadError = "failed";
+    render(<OnCallHome />);
+    const failed = screen.getByTestId("on-call-load-failed");
+    expect(failed).toHaveTextContent(/couldn't load/i);
+    expect(screen.queryByTestId("on-call-home-first-run")).toBeNull();
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(storeState.retry).toHaveBeenCalled();
   });
 
   it("names the remaining home tags once there are entries but nothing is tagged", () => {
