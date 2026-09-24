@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet } from "@/lib/cme/types";
@@ -56,7 +57,7 @@ export function CmeAnnualSummary({
         {(costs / 100).toFixed(2)}
       </p>
       <p className="mt-2 text-sm">
-        Targets confirmed {set.confirmedOn}: {set.confirmedSource}
+        Targets confirmed {formatCalendarDateLong(set.confirmedOn)}: {set.confirmedSource}
       </p>
       <p className="mt-2 text-sm">
         Archived entries are excluded. Formal peer review is a subset of reviewing hours. Source links identify learning
@@ -75,7 +76,7 @@ export function CmeAnnualSummary({
       {active.map((entry) => (
         <section key={entry.id} className="mt-4 border-t border-[color:var(--border)] pt-3">
           <h3 className="font-semibold">
-            {entry.date} — {entry.title}
+            {formatCalendarDateLong(entry.date)} — {entry.title}
           </h3>
           <p>{entry.allocations.map((a) => `${cmeCategoryLabels[a.category]}: ${a.hours} h`).join(" · ")}</p>
           <p>Formal peer review: {entry.formalPeerReviewHours ?? 0} h (within reviewing)</p>

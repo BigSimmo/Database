@@ -374,7 +374,7 @@ export function CmeDashboard({
       </p>
     ),
     provenance: (
-      <p className={cn(textMuted, "text-sm")}>
+      <p className={cn(textMuted, "break-words text-sm")}>
         Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}: {set.confirmedSource}. This records what you
         checked; it is not independent certification.
       </p>
