@@ -85,6 +85,34 @@ describe("Private evidence attachment journey", () => {
     expect(screen.queryByText("Attach evidence")).toBeNull();
   });
 
+  it("removes a file only with a reason, even on an archived record, and keeps the reason as the record", async () => {
+    const user = userEvent.setup();
+    const fetcher = vi.mocked(fetch);
+    fetcher.mockResolvedValueOnce(json({ evidence: [evidence] })).mockResolvedValueOnce(
+      json({
+        evidence: {
+          ...evidence,
+          fileName: "Removed file",
+          removedAt: "2026-09-24T01:00:00Z",
+          removalReason: "Shows a patient name",
+        },
+      }),
+    );
+    render(<CmeEvidencePanel entryId={entryId} readOnly />);
+    await user.click(await screen.findByRole("button", { name: `Remove ${evidence.fileName}` }));
+    const confirm = screen.getByRole("button", { name: "Remove file" });
+    expect(confirm).toBeDisabled();
+    await user.type(screen.getByLabelText(/why are you removing this file/i), "Shows a patient name");
+    await user.click(confirm);
+    expect(await screen.findByText(/File removed on 24 September 2026/)).toBeInTheDocument();
+    expect(screen.getByText("Reason: Shows a patient name")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /download/i })).toBeNull();
+    const [url, init] = fetcher.mock.calls[1];
+    expect(url).toBe(`/api/cme/entries/${entryId}/evidence/${evidence.id}`);
+    expect(init?.method).toBe("DELETE");
+    expect(JSON.parse(String(init?.body))).toEqual({ reason: "Shows a patient name" });
+  });
+
   it("does not request personal evidence in a demo", async () => {
     render(<CmeEvidencePanel entryId={entryId} demoMode />);
     await waitFor(() => expect(screen.getByText("Demo evidence is not stored.")).toBeInTheDocument());
