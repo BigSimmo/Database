@@ -393,14 +393,28 @@ describe("OnCallEntryEditor — accessible name", () => {
   // Contacts") instead of the page the reader was adding to.
   it("names the Compliance page, not Admin, when adding a requirement", () => {
     render(
-      <OnCallEntryEditor open section="logistics" createAsCompliance entry={null} onSaved={vi.fn()} onClose={vi.fn()} />,
+      <OnCallEntryEditor
+        open
+        section="logistics"
+        createAsCompliance
+        entry={null}
+        onSaved={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     expect(screen.getByRole("dialog", { name: "Add to Compliance" })).toBeInTheDocument();
   });
 
   it("names Who's who, not Contacts, when adding a role", () => {
     render(
-      <OnCallEntryEditor open section="contacts" createAsRoleExplainer entry={null} onSaved={vi.fn()} onClose={vi.fn()} />,
+      <OnCallEntryEditor
+        open
+        section="contacts"
+        createAsRoleExplainer
+        entry={null}
+        onSaved={vi.fn()}
+        onClose={vi.fn()}
+      />,
     );
     expect(screen.getByRole("dialog", { name: "Add to Who's who" })).toBeInTheDocument();
   });
