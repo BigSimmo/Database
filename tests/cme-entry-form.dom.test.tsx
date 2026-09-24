@@ -73,3 +73,18 @@ describe("New entry", () => {
     );
   });
 });
+
+describe("allocation hours display", () => {
+  // Regression, 2026-09-24: the total showed one decimal while balance is
+  // checked to two, so a quarter hour always looked wrong ("0.7 of 0.8").
+  it("shows quarter hours at the precision the balance check uses", async () => {
+    const { formatAllocationHours } = await import("@/components/cme/cme-allocation-field");
+    expect(formatAllocationHours(0.75)).toBe("0.75");
+    expect(formatAllocationHours(0.7)).toBe("0.7");
+    expect(formatAllocationHours(1)).toBe("1.0");
+    expect(formatAllocationHours(0.05)).toBe("0.05");
+    expect(formatAllocationHours(1.5)).toBe("1.5");
+    expect(formatAllocationHours(1.1)).toBe("1.1");
+    expect(formatAllocationHours(0.1 + 0.2)).toBe("0.3");
+  });
+});
