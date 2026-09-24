@@ -1,3 +1,4 @@
+import { formatCalendarDateLong } from "@/lib/cme/cpd-year";
 import {
   cmeCategoryLabels,
   type CmeCategory,
@@ -113,12 +114,12 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
       };
     }
     case "task": {
-      const met = requirement.completedOn !== null;
+      const completedOn = requirement.completedOn;
       return {
         requirementId: requirement.id,
-        met,
+        met: completedOn !== null,
         progress: null,
-        summary: met ? `Done ${requirement.completedOn}` : "Not started",
+        summary: completedOn !== null ? `Done ${formatCalendarDateLong(completedOn)}` : "Not started",
       };
     }
   }

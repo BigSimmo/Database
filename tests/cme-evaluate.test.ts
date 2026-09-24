@@ -137,6 +137,8 @@ describe("the other three shapes", () => {
     };
     expect(evaluateRequirement(base, []).met).toBe(false);
     expect(evaluateRequirement({ ...base, completedOn: "2026-01-12" }, []).met).toBe(true);
+    // Written the way the rest of the mode writes dates, not as ISO.
+    expect(evaluateRequirement({ ...base, completedOn: "2026-01-12" }, []).summary).toBe("Done 12 January 2026");
   });
 });
 

@@ -362,7 +362,7 @@ export function CmeDashboard({
       loggedToday.length > 0 ? (
         <p className="text-sm text-[color:var(--text)]">
           {loggedToday.length} {loggedToday.length === 1 ? "activity" : "activities"} logged today,{" "}
-          {formatCmeHours(loggedTodayHours)} hours.
+          {formatCmeHours(loggedTodayHours)} {loggedTodayHours === 1 ? "hour" : "hours"}.
         </p>
       ) : (
         <p className={cn(textMuted, "text-sm")}>Nothing logged yet today.</p>
