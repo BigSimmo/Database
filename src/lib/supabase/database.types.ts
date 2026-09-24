@@ -286,6 +286,8 @@ export type Database = {
           redaction_confirmed: boolean;
           preview_confirmed: boolean;
           uploaded_at: string;
+          removed_at: string | null;
+          removal_reason: string | null;
         };
         Insert: {
           id: string;
@@ -300,6 +302,8 @@ export type Database = {
           redaction_confirmed: boolean;
           preview_confirmed: boolean;
           uploaded_at?: string;
+          removed_at?: string | null;
+          removal_reason?: string | null;
         };
         Update: {
           id?: string;
@@ -314,6 +318,8 @@ export type Database = {
           redaction_confirmed?: boolean;
           preview_confirmed?: boolean;
           uploaded_at?: string;
+          removed_at?: string | null;
+          removal_reason?: string | null;
         };
         Relationships: [];
       };
@@ -3508,6 +3514,10 @@ export type Database = {
       cme_confirm_year: { Args: { p_owner_id: string; p_set: Json }; Returns: string };
       cme_set_entry_archived: { Args: { p_owner_id: string; p_entry_id: string; p_archived: boolean }; Returns: Json };
       cme_evidence_counts: { Args: { p_owner_id: string; p_year: number }; Returns: Json };
+      cme_remove_evidence: {
+        Args: { p_owner_id: string; p_evidence_id: string; p_reason: string };
+        Returns: Database["public"]["Tables"]["cme_evidence"]["Row"];
+      };
       cme_guard_evidence_insert: { Args: never; Returns: unknown };
       cme_guard_archived_entry: { Args: never; Returns: unknown };
       on_call_service_command: { Args: { p_actor_id: string; p_service_id: string | null; p_action: string; p_payload: Json }; Returns: Json };

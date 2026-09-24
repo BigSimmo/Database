@@ -1086,6 +1086,7 @@
       "entryExported": true,
       "directImportFiles": [
         "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",
@@ -1097,6 +1098,7 @@
       ],
       "productImportFiles": [
         "src/components/cme/cme-entry-form.tsx",
+        "src/components/cme/cme-evidence-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
         "src/components/on-call/service-admin-panel.tsx",
         "src/components/on-call/service-entry-editor.tsx",

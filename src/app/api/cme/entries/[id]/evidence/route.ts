@@ -92,6 +92,7 @@ export async function POST(request: Request, { params }: Context) {
       .eq("owner_id", user.id)
       .eq("entry_id", id)
       .eq("sha256", sha256)
+      .is("removed_at", null)
       .maybeSingle();
     if (lookupError) throw new PublicApiError("Evidence could not be checked. Try again.", 503);
     if (existing)
@@ -100,7 +101,8 @@ export async function POST(request: Request, { params }: Context) {
       .from("cme_evidence")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .eq("entry_id", id);
+      .eq("entry_id", id)
+      .is("removed_at", null);
     if (countError) throw new PublicApiError("Evidence could not be checked. Try again.", 503);
     if ((count ?? 0) >= CME_EVIDENCE_LIMIT)
       throw new PublicApiError("This activity already has 20 evidence files.", 409);
@@ -168,6 +170,7 @@ export async function POST(request: Request, { params }: Context) {
         .eq("owner_id", user.id)
         .eq("entry_id", id)
         .eq("sha256", sha256)
+        .is("removed_at", null)
         .maybeSingle();
       if (duplicate)
         return NextResponse.json(

@@ -1073,7 +1073,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `FieldError`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |               9 |
+| `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              10 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              23 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
