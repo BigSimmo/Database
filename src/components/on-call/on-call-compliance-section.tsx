@@ -29,6 +29,7 @@ import {
   type OnCallComplianceConsequence,
   type OnCallComplianceProvenance,
   type OnCallEntry,
+  onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 
@@ -475,7 +476,7 @@ function ComplianceRow({
         // indexes a document and sends it to a provider, and a registration
         // certificate is identity data with no business in the clinical corpus.
         // Marked as leaving the app by `ExternalTextLink`, never a bare anchor.
-        <ExternalTextLink href={details.evidenceUrl} className="text-xs">
+        <ExternalTextLink href={details.evidenceUrl} className="min-h-tap items-center text-xs">
           Your evidence
         </ExternalTextLink>
       ) : null}
@@ -605,8 +606,8 @@ export function OnCallComplianceSection({
                 key={entry.id}
                 entry={entry}
                 now={now}
-                onEditEntry={onEditEntry}
-                onVerified={onVerified}
+                onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
                 privacyStatedOnPage={allPrivate}
               />
             ))}

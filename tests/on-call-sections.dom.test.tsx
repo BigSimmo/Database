@@ -154,6 +154,16 @@ describe("OnCallPlaybookSection", () => {
     expect(within(card).queryByTestId(`on-call-playbook-no-guideline-${ACUTE_AGITATION.slug}`)).toBeNull();
   });
 
+  // Regression, 2026-09-24: while the linked documents were still loading,
+  // every card said its guideline was "unavailable" and sat under Unlinked.
+  it("says a linked guideline is loading, not unavailable, while the lookup runs", () => {
+    render(<OnCallPlaybookSection entries={[ACUTE_AGITATION]} documents={{}} documentsLoading now={NOW} />);
+    const card = screen.getByTestId("on-call-playbook-card-acute-agitation");
+    expect(within(card).getByTestId(`on-call-playbook-guidance-loading-${ACUTE_AGITATION.slug}`)).toBeInTheDocument();
+    expect(within(card).queryByText(/linked guideline unavailable/i)).toBeNull();
+    expect(screen.queryByTestId("on-call-playbook-group-no-guideline")).toBeNull();
+  });
+
   it("renders a real EmptyState offering a Documents search when no guideline is linked, with no clinical text at all", () => {
     render(<OnCallPlaybookSection entries={[UNLINKED_SCENARIO]} now={NOW} />);
     const card = screen.getByTestId("on-call-playbook-card-scenario-with-no-linked-guideline");

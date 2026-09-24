@@ -273,14 +273,17 @@ export async function fetchVisibleOnCallEntries(
   viewerOwnerId: string | undefined,
   options: { section?: OnCallSection } = {},
 ) {
-  const shared = await fetchSharedOnCallEntries(supabase, options);
+  // `isOwn` is derived from WHICH query returned a row, not from an `owner_id` column: the shared
+  // read's column list is part of a reviewed tenancy declaration and stays as narrow as it is.
+  // A shared row the viewer owns also comes back from the owner query, and that copy wins below.
+  const shared = (await fetchSharedOnCallEntries(supabase, options)).map((entry) => ({ ...entry, isOwn: false }));
   if (!viewerOwnerId) return shared;
 
   const own = await fetchOwnerOnCallEntries(supabase, viewerOwnerId, options);
   const byId = new Map(shared.map((entry) => [entry.id, entry]));
   // The owner's own copy wins on collision: it is the same row, and this keeps one identity per
   // entry rather than two objects a renderer would key twice.
-  for (const entry of own) byId.set(entry.id, entry);
+  for (const entry of own) byId.set(entry.id, { ...entry, isOwn: true });
   return [...byId.values()].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 

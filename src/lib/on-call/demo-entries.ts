@@ -1140,7 +1140,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     body: null,
     details: {
       recurrence: "Weekly in term",
-      nextOccurrence: "Next week, 08:00",
+      nextOccurrence: "08:00",
       nextOccurrenceDate: demoDateKey(3),
       location: "Demo seminar room",
       presenter: "Demo presenter",
@@ -1161,7 +1161,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     body: null,
     details: {
       recurrence: "Monthly",
-      nextOccurrence: "Later this month, 13:00",
+      nextOccurrence: "13:00",
       nextOccurrenceDate: demoDateKey(12),
       location: "Demo seminar room",
     },
@@ -1189,7 +1189,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     body: null,
     details: {
       recurrence: "Weekly in term, except the first week back",
-      nextOccurrence: "This week, 12:30",
+      nextOccurrence: "12:30",
       nextOccurrenceDate: demoDateKey(1),
       recurrenceRule: { frequency: "weekly" },
       location: "Demo seminar room",
@@ -1212,7 +1212,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     body: null,
     details: {
       recurrence: "Fortnightly",
-      nextOccurrence: "Next fortnight, 17:00",
+      nextOccurrence: "17:00",
       nextOccurrenceDate: demoDateKey(8),
       recurrenceRule: { frequency: "fortnightly" },
       location: "Demo tutorial room",
@@ -1236,7 +1236,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     // from a location and has to be seen next to one.
     details: {
       recurrence: "Monthly",
-      nextOccurrence: "Later this month, 12:00",
+      nextOccurrence: "12:00",
       nextOccurrenceDate: demoDateKey(18),
       recurrenceRule: { frequency: "monthly" },
       location: "Demo lecture theatre",
@@ -1263,7 +1263,7 @@ export const DEMO_ON_CALL_ENTRIES: readonly OnCallEntry[] = [
     // the behaviour the rule exists to distinguish, and it needs a row.
     details: {
       recurrence: "Once a term",
-      nextOccurrence: "Later in the term, 13:00",
+      nextOccurrence: "13:00",
       nextOccurrenceDate: demoDateKey(40),
       location: "Demo simulation suite",
       presenter: "Demo presenter",

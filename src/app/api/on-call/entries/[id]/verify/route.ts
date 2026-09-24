@@ -55,7 +55,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error) throw new Error(error.message);
     if (!data) return publicErrorResponse("On Call entry not found.", 404, { code: "on_call_entry_not_found" });
 
-    return NextResponse.json({ entry: rowToOnCallEntry(data as Record<string, unknown>) });
+    return NextResponse.json({ entry: { ...rowToOnCallEntry(data as Record<string, unknown>), isOwn: true } });
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

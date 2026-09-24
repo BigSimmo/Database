@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { cardPadding, cardSurface, focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
+import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSearchBox } from "@/components/on-call/on-call-search-box";
@@ -274,7 +275,8 @@ function timeLabel(iso: string): string {
 }
 
 export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, cachedAt, signedOut, demoMode } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt, signedOut, demoMode } = useOnCallEntries();
+  const loadFailed = !loading && isOffline && entries.length === 0;
   const recent = useOnCallRecent();
 
   // One clock for the whole page. `onCallPrimaryNumber` became time-aware when
@@ -426,7 +428,8 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
       <OnCallPageMenu view="home" notifications={notifications} />
       <InformationPageShell testId="on-call-home-main">
         <h1 className="sr-only">On Call</h1>
-        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
+        {loadFailed ? <OnCallLoadFailed reason={loadError} onRetry={retry} /> : null}
 
         {/* Renders nothing but the field until something is typed, so it costs a
             reader who is not searching no vertical space at all. */}
@@ -469,7 +472,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           </HomeModule>
         ) : null}
 
-        {!loading && !hasEntries ? (
+        {!loading && !hasEntries && !loadFailed ? (
           <HomeModule id="on-call-home-first-run" label="Getting started">
             <EmptyState
               icon={ON_CALL_HOME_ICON}
@@ -500,7 +503,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           {/* While the first load is in flight the tile grid below carries the
               loading state; saying "Nothing pinned" here would be a claim about
               entries that have not arrived yet. */}
-          {loading && entries.length === 0 ? null : callFirst.length === 0 ? (
+          {(loading && entries.length === 0) || loadFailed ? null : callFirst.length === 0 ? (
             <EmptyState
               icon={Phone}
               title="Nothing pinned to call first"
@@ -560,8 +563,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 const target = href ?? ON_CALL_VIEW_HREFS[view];
                 const at = timeLabel(item.at);
                 const RecentIcon = ON_CALL_VIEW_ICONS[view];
+                // Internal targets go through the router (no full page reload);
+                // a phone number stays a plain `tel:` anchor.
+                const RecentLink = target.startsWith("/") ? Link : "a";
                 return (
-                  <a
+                  <RecentLink
                     key={item.id}
                     href={target}
                     onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
@@ -609,7 +615,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                         className="size-icon-sm shrink-0 text-[color:var(--text-muted)]"
                       />
                     )}
-                  </a>
+                  </RecentLink>
                 );
               })}
             </div>

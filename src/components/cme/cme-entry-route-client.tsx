@@ -2,6 +2,7 @@
 
 import { CmeEvidencePanel } from "@/components/cme/cme-evidence-panel";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -49,6 +50,7 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRout
   const [archivePending, setArchivePending] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
   const [archiveOverride, setArchiveOverride] = useState<boolean | null>(null);
+  const [confirmArchiveOpen, setConfirmArchiveOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const domains = set.requirements.flatMap((requirement) =>
     requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
@@ -108,6 +110,20 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRout
     );
   }
 
+  async function setArchived(next: boolean) {
+    setArchivePending(true);
+    setArchiveError(null);
+    try {
+      await patchEntry({ archived: next });
+      setArchiveOverride(next);
+      router.refresh();
+    } catch (error) {
+      setArchiveError(error instanceof Error ? error.message : "Could not change archive status.");
+    } finally {
+      setArchivePending(false);
+    }
+  }
+
   return (
     <CmeEntryPage
       entryId={loadedEntry.id}
@@ -126,22 +142,25 @@ export function CmeEntryRouteClient({ entry, set, edit, demoMode }: CmeEntryRout
           ) : null}
           <Button
             disabled={demoMode || Boolean(set.closedAt) || archivePending}
-            onClick={async () => {
-              setArchivePending(true);
-              setArchiveError(null);
-              try {
-                await patchEntry({ archived: !archived });
-                setArchiveOverride(!archived);
-                router.refresh();
-              } catch (error) {
-                setArchiveError(error instanceof Error ? error.message : "Could not change archive status.");
-              } finally {
-                setArchivePending(false);
-              }
-            }}
+            // Archiving asks first; restoring does not. Both are reversible,
+            // but archiving takes the activity out of this year's totals and
+            // was one stray tap away from the top of the page.
+            onClick={() => (archived ? void setArchived(false) : setConfirmArchiveOpen(true))}
           >
             {archivePending ? "Saving…" : archived ? "Restore entry" : "Archive entry"}
           </Button>
+          <ConfirmDialog
+            open={confirmArchiveOpen}
+            onCancel={() => setConfirmArchiveOpen(false)}
+            onConfirm={() => {
+              setConfirmArchiveOpen(false);
+              void setArchived(true);
+            }}
+            title="Archive this activity?"
+            description="It stops counting toward this year's hours and is left out of copies, exports and the annual summary. Its sources and evidence are kept, and you can restore it at any time."
+            confirmLabel="Archive activity"
+            tone="primary"
+          />
           {archiveError ? (
             <p role="alert" className="mt-2 text-sm">
               {archiveError}

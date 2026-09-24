@@ -19,7 +19,12 @@ import {
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { ON_CALL_HOME_TAGS, onCallPrimaryNumber, onCallTelHref } from "@/lib/on-call/home-modules";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
@@ -386,7 +391,13 @@ export function OnCallContactsSection({
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="on-call-contacts-group-needs-checking">
             {sortEntries(needsChecking).map((entry) => (
-              <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+              <ContactRow
+                key={entry.id}
+                entry={entry}
+                now={now}
+                onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+              />
             ))}
           </div>
         </section>
@@ -427,7 +438,13 @@ export function OnCallContactsSection({
                 </div>
                 <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${slug}`}>
                   {group.entries.map((entry) => (
-                    <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+                    <ContactRow
+                      key={entry.id}
+                      entry={entry}
+                      now={now}
+                      onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+                    />
                   ))}
                 </div>
               </section>
@@ -441,7 +458,13 @@ export function OnCallContactsSection({
     return (
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${variant}`}>
         {list.map((entry) => (
-          <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+          <ContactRow
+            key={entry.id}
+            entry={entry}
+            now={now}
+            onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+            onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+          />
         ))}
       </div>
     );

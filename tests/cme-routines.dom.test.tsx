@@ -81,6 +81,17 @@ describe("Routines", () => {
     expect(navigation.push).toHaveBeenCalledWith("/cme/new?routine=r1");
   });
 
+  // Regression, 2026-09-24: the form opened above the list, out of sight on a
+  // phone, with a second h1. It now takes focus when it opens.
+  it("moves focus to the routine form when it opens, under the page's one h1", async () => {
+    const user = userEvent.setup();
+    render(<CmeRoutinesRoute nowIso={NOW.toISOString()} initialRoutines={[]} demoMode={false} />);
+    await user.click(screen.getByRole("button", { name: /new routine/i }));
+    const heading = screen.getByRole("heading", { level: 2, name: "New routine" });
+    expect(heading).toHaveFocus();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
   it("puts a due routine at the top with a one-tap log button as the visual focus", () => {
     renderPage();
     const due = screen.getByTestId("cme-routines-due");

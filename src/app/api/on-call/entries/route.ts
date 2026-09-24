@@ -145,7 +145,10 @@ export async function POST(request: Request) {
       .single();
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ entry: rowToOnCallEntry(data as Record<string, unknown>) }, { status: 201 });
+    return NextResponse.json(
+      { entry: { ...rowToOnCallEntry(data as Record<string, unknown>), isOwn: true } },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();

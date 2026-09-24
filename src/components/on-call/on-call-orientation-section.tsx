@@ -19,13 +19,20 @@ import {
 } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallOrientationSectionProps {
   entries: readonly OnCallEntry[];
   /** The owner's own documents that `linkedDocumentIds` may point at, keyed by id. */
   documents?: Readonly<Record<string, OnCallLinkedDocument>>;
+  /** True while linked documents are still being looked up; see the Playbook's prop of the same name. */
+  documentsLoading?: boolean;
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
@@ -40,12 +47,14 @@ const documentLinkRow = cn(cardInteractive, "flex min-h-tap w-full items-center 
 function OrientationCard({
   entry,
   documents,
+  documentsLoading,
   now,
   onEditEntry,
   onVerified,
 }: {
   entry: OnCallEntry;
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
+  documentsLoading: boolean;
   now: Date;
   onEditEntry?: (entry: OnCallEntry) => void;
   onVerified?: (entry: OnCallEntry) => void;
@@ -132,7 +141,9 @@ function OrientationCard({
       ) : (
         <p className={cn("text-sm", textMuted)}>
           {entry.linkedDocumentIds.length
-            ? "Linked document unavailable. It may be offline, removed, or unavailable to your account."
+            ? documentsLoading
+              ? "Loading the linked document…"
+              : "Linked document unavailable. It may be offline, removed, or unavailable to your account."
             : "No document linked yet."}
         </p>
       )}
@@ -150,6 +161,7 @@ function OrientationCard({
 export function OnCallOrientationSection({
   entries,
   documents = {},
+  documentsLoading = false,
   now = new Date(),
   testId = "on-call-orientation-section",
   onEditEntry,
@@ -187,9 +199,10 @@ export function OnCallOrientationSection({
       key={entry.id}
       entry={entry}
       documents={documents}
+      documentsLoading={documentsLoading}
       now={now}
-      onEditEntry={onEditEntry}
-      onVerified={onVerified}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
     />
   );
 

@@ -17,7 +17,12 @@ import { ExternalTextLink } from "@/components/ui/link";
 import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallTagFacet } from "@/lib/on-call/entry-filters";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallReferralsSectionProps {
@@ -102,7 +107,7 @@ function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCall
         </div>
       ) : null}
       {details.referralFormUrl ? (
-        <ExternalTextLink href={details.referralFormUrl} className="text-sm">
+        <ExternalTextLink href={details.referralFormUrl} className="min-h-tap items-center text-sm">
           Referral form
         </ExternalTextLink>
       ) : null}
@@ -146,7 +151,13 @@ export function OnCallReferralsSection({
   const groups = onCallEntryGroups(sorted, onCallTagFacet, "Other services");
 
   const disclosureFor = (entry: OnCallEntry) => (
-    <ReferralDisclosure key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+    <ReferralDisclosure
+      key={entry.id}
+      entry={entry}
+      now={now}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+    />
   );
 
   return (

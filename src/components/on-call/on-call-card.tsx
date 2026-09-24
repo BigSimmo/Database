@@ -4,12 +4,14 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { Phone } from "lucide-react";
 
-import { InformationPageHeader, InformationPageShell } from "@/components/information-page-shell";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { OnCallCardNavHeader } from "@/components/on-call/on-call-nav-header";
 import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
 import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
+import { cn, textMuted } from "@/components/ui-primitives";
 import { PrintOutput, PrintSection } from "@/components/ui/print-output";
 import { selectCardEntries } from "@/lib/on-call/card-selection";
 import { onCallTelHref } from "@/lib/on-call/home-modules";
@@ -106,7 +108,7 @@ function formatPrintedAt(now: Date): string {
  * and `tests/mode-nav-addon-slot.dom.test.tsx` holds it to one claimant.
  */
 export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
   // Read the clock once per mount. A `new Date()` default parameter re-reads it
   // on every render, so the printed timestamp and the staleness cut-off could
   // both move underneath a page the owner is in the middle of printing.
@@ -136,13 +138,16 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
     <>
       <OnCallCardNavHeader />
       <InformationPageShell testId="on-call-card-main" width="narrow">
-        <InformationPageHeader
-          eyebrow="On Call"
-          title="Pocket card"
-          subtitle="Only entries flagged for the card. Personal numbers, compliance requirements, Who's who explainers and anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a printed copy."
-        />
+        {/* The header bar above already names the page, so the title is not
+            printed a second time; the page keeps its one h1 for assistive tech. */}
+        <h1 className="sr-only">Pocket card</h1>
+        <p className={cn(textMuted, "text-sm")}>
+          Only entries flagged for the card. Personal numbers, compliance requirements, Who&rsquo;s who explainers and
+          anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a
+          printed copy.
+        </p>
 
-        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+        {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
 
         {loading && entries.length === 0 ? (
           // Nothing cached yet and the first fetch still in flight. Asserting
@@ -154,6 +159,8 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             body="Fetching the entries flagged for this card."
             testId="on-call-card-loading"
           />
+        ) : isOffline && entries.length === 0 ? (
+          <OnCallLoadFailed reason={loadError} onRetry={retry} />
         ) : groups.length === 0 ? (
           <EmptyState
             icon={Phone}
@@ -204,7 +211,10 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                                 return (
                                   <li key={number.label} className="text-sm text-[color:var(--text)]">
                                     {href ? (
-                                      <a href={href} className="hover:underline">
+                                      <a
+                                        href={href}
+                                        className="inline-flex min-h-tap items-center hover:underline print:min-h-0"
+                                      >
                                         {label}
                                       </a>
                                     ) : (
