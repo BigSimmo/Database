@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c6003be8-da4e-413a-83b0-84207424cd67",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call Teaching: the 'Next' pill prints the calculated date beside the owner's typed phrase, which goes stale ('Tue 6 Oct 2026, Later this month' seen on 24 Sep)",
+    "detail": "on-call-education-section.tsx joins the rolled-forward date with free-text nextOccurrence. Once a computed date exists show only it (and the time); the free text also drives occurrenceSortKey via new Date(freeText), which entry-model.ts forbids.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PP84V1RYR4DJC2389TPP"
+  }
+}
