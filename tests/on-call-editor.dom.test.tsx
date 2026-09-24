@@ -387,6 +387,23 @@ describe("OnCallEntryEditor — accessible name", () => {
     render(<OnCallEntryEditor open section="contacts" entry={null} onSaved={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByRole("dialog", { name: "Add to Contacts" })).toBeInTheDocument();
   });
+
+  // Regression, 2026-09-24: both pages below write another page's stored
+  // section, and the sheet used to name that section ("Add to Admin", "Add to
+  // Contacts") instead of the page the reader was adding to.
+  it("names the Compliance page, not Admin, when adding a requirement", () => {
+    render(
+      <OnCallEntryEditor open section="logistics" createAsCompliance entry={null} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByRole("dialog", { name: "Add to Compliance" })).toBeInTheDocument();
+  });
+
+  it("names Who's who, not Contacts, when adding a role", () => {
+    render(
+      <OnCallEntryEditor open section="contacts" createAsRoleExplainer entry={null} onSaved={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByRole("dialog", { name: "Add to Who's who" })).toBeInTheDocument();
+  });
 });
 
 const JOURNAL_CLUB: OnCallEntry = {
