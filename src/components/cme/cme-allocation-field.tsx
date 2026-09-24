@@ -136,11 +136,13 @@ export function CmeAllocationField({
         {formatAllocationHours(total)} of {formatAllocationHours(statedHours)} allocated
       </p>
       <p className={cn("mt-1 text-xs", textMuted)}>
-        {balanced
-          ? "Matches the hours you said this took."
-          : remaining > 0
-            ? `${formatAllocationHours(remaining)} hour${remaining === 1 ? "" : "s"} still to place.`
-            : `${formatAllocationHours(Math.abs(remaining))} hour${Math.abs(remaining) === 1 ? "" : "s"} over — take that back out of a category.`}
+        {statedHours <= 0
+          ? "Enter how many hours this took, then split them here."
+          : balanced
+            ? "Matches the hours you said this took."
+            : remaining > 0
+              ? `${formatAllocationHours(remaining)} hour${remaining === 1 ? "" : "s"} still to place.`
+              : `${formatAllocationHours(Math.abs(remaining))} hour${Math.abs(remaining) === 1 ? "" : "s"} over — take that back out of a category.`}
       </p>
     </div>
   );

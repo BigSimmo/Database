@@ -19,6 +19,19 @@ describe("New entry", () => {
     expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
   });
 
+  // Regression, 2026-09-24: Save sat disabled with nothing saying why.
+  it("says what is stopping a save, and stops saying it once the entry can save", async () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/add what the activity was/i);
+    await user.type(screen.getByLabelText(/what was it/i), "Peer review group");
+    await user.click(screen.getByRole("button", { name: "1.5" }));
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/split/i);
+    await user.type(screen.getByLabelText(/reviewing performance/i), "1.5");
+    expect(screen.queryByTestId("cme-entry-save-blocked")).toBeNull();
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+  });
+
   it("labels the reflection without asking a question", () => {
     render(<CmeEntryForm onSubmit={vi.fn()} />);
     const reflection = screen.getByLabelText(/reflection/i);
