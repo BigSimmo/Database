@@ -42,10 +42,14 @@ describe("Archive, annual record and learning journeys", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: "Try again" }), { status: 503 }))
       .mockResolvedValue(new Response(JSON.stringify({ entry: { ...entry, archivedAt: "now" } })));
     render(<CmeEntryRouteClient entry={entry} set={set} edit={false} demoMode={false} />);
+    // Archiving asks first (2026-09-24): nothing is sent until it is confirmed.
     await user.click(screen.getByRole("button", { name: "Archive entry" }));
+    expect(fetcher).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Archive activity" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Try again");
     expect(screen.getByRole("link", { name: "Edit entry" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Archive entry" }));
+    await user.click(screen.getByRole("button", { name: "Archive activity" }));
     await screen.findByRole("button", { name: "Restore entry" });
     expect(screen.queryByRole("link", { name: "Edit entry" })).toBeNull();
     expect(screen.getByRole("button", { name: "Copy for your CPD home" })).toBeDisabled();

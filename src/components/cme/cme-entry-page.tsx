@@ -150,7 +150,6 @@ export function CmeEntryPage({
         ) : null}
       </div>
 
-      {actions}
       <section data-testid="cme-entry-allocations" className="mt-5">
         <h2 className={eyebrowText}>Allocations</h2>
         <ul className="mt-2 flex flex-col gap-2">
@@ -252,6 +251,9 @@ export function CmeEntryPage({
           Puts the core activity details on your clipboard for transfer, then marks this entry copied.
         </p>
       </section>
+      {/* Last, below the record: archiving sat straight under the title,
+          above the details, where it was the easiest thing to tap by mistake. */}
+      {actions}
     </main>
   );
 }

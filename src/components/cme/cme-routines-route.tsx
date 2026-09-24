@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
 import { CmeRoutinesPage } from "@/components/cme/cme-routines-page";
@@ -49,6 +49,16 @@ export function CmeRoutinesRoute({
   const [draft, setDraft] = useState<RoutineDraft>(emptyDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The form renders above the list, so on a phone tapping Edit on a routine
+  // further down opened it out of sight and looked like nothing happened.
+  // Bring it into view and move focus to its heading each time it opens.
+  const formHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!editingId) return;
+    const heading = formHeadingRef.current;
+    heading?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    heading?.focus({ preventScroll: true });
+  }, [editingId]);
 
   function openNew() {
     setDraft(emptyDraft);
@@ -129,9 +139,14 @@ export function CmeRoutinesRoute({
           data-testid="cme-routine-form"
         >
           <form onSubmit={(event) => void save(event)} className={cn(cardSurface, "space-y-4 p-4")}>
-            <h1 className="text-lg font-semibold text-[color:var(--text-heading)]">
+            {/* h2: the page's own "Routines" heading below is its one h1. */}
+            <h2
+              ref={formHeadingRef}
+              tabIndex={-1}
+              className="scroll-mt-24 text-lg font-semibold text-[color:var(--text-heading)] focus:outline-none"
+            >
               {editingId === "new" ? "New routine" : "Edit routine"}
-            </h1>
+            </h2>
             {demoMode ? (
               <InlineNotice tone="neutral">Demo mode shows the full routine form but cannot save it.</InlineNotice>
             ) : null}
