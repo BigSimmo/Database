@@ -476,7 +476,7 @@ function ComplianceRow({
         // indexes a document and sends it to a provider, and a registration
         // certificate is identity data with no business in the clinical corpus.
         // Marked as leaving the app by `ExternalTextLink`, never a bare anchor.
-        <ExternalTextLink href={details.evidenceUrl} className="text-xs">
+        <ExternalTextLink href={details.evidenceUrl} className="min-h-tap items-center text-xs">
           Your evidence
         </ExternalTextLink>
       ) : null}

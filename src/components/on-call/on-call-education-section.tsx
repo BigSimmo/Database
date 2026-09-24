@@ -158,7 +158,7 @@ function EducationCard({
         // Marked as leaving the app: `ExternalTextLink` is the one component
         // that carries the visible glyph, the sr-only "(opens in a new tab)",
         // and `rel="noopener noreferrer"` together — never a bare anchor.
-        <ExternalTextLink href={details.recordingUrl} className="text-sm">
+        <ExternalTextLink href={details.recordingUrl} className="min-h-tap items-center text-sm">
           Watch recording
         </ExternalTextLink>
       ) : null}

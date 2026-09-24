@@ -563,8 +563,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                 const target = href ?? ON_CALL_VIEW_HREFS[view];
                 const at = timeLabel(item.at);
                 const RecentIcon = ON_CALL_VIEW_ICONS[view];
+                // Internal targets go through the router (no full page reload);
+                // a phone number stays a plain `tel:` anchor.
+                const RecentLink = target.startsWith("/") ? Link : "a";
                 return (
-                  <a
+                  <RecentLink
                     key={item.id}
                     href={target}
                     onClick={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
@@ -612,7 +615,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
                         className="size-icon-sm shrink-0 text-[color:var(--text-muted)]"
                       />
                     )}
-                  </a>
+                  </RecentLink>
                 );
               })}
             </div>

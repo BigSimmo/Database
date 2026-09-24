@@ -107,7 +107,7 @@ function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCall
         </div>
       ) : null}
       {details.referralFormUrl ? (
-        <ExternalTextLink href={details.referralFormUrl} className="text-sm">
+        <ExternalTextLink href={details.referralFormUrl} className="min-h-tap items-center text-sm">
           Referral form
         </ExternalTextLink>
       ) : null}

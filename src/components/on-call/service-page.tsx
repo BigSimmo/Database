@@ -486,6 +486,7 @@ export function ServicePage({
   if (effectiveState === "loading") {
     return (
       <InformationPageShell testId="service-page-loading" width="narrow">
+        <h1 className="sr-only">Service handbook</h1>
         <p className={cn(textMuted, "text-sm")}>Loading your service handbook…</p>
       </InformationPageShell>
     );
@@ -494,6 +495,7 @@ export function ServicePage({
   if (effectiveState === "signed-out") {
     return (
       <InformationPageShell testId="service-page-signed-out" width="narrow">
+        <h1 className="sr-only">Service handbook</h1>
         <EmptyState
           icon={Building2}
           title="Sign in to open a service handbook"
@@ -512,6 +514,7 @@ export function ServicePage({
   if (effectiveState === "unavailable") {
     return (
       <InformationPageShell testId="service-page-unavailable" width="narrow">
+        <h1 className="sr-only">Service handbook</h1>
         <EmptyState
           icon={Building2}
           title="Your service handbooks are temporarily unavailable"
