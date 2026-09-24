@@ -9,6 +9,7 @@ import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { CME_PRESET_SOURCES, CME_PRESET_VERSION, createAustralianRanzcpPreset } from "@/lib/cme/presets";
 import {
@@ -240,7 +241,12 @@ export function CmeSetupPage({
             hint="Keep the guide title, version or URL that you personally checked."
           />
 
-          <section aria-labelledby="cme-setup-requirements-heading" data-testid="cme-setup-steps">
+          <section
+            id="cme-setup-steps"
+            aria-labelledby="cme-setup-requirements-heading"
+            data-testid="cme-setup-steps"
+            className={inPageAnchor}
+          >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2

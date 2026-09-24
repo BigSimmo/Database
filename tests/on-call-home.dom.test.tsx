@@ -161,6 +161,14 @@ describe("On Call home layout", () => {
     expect(screen.queryByTestId("on-call-home-first-run")).toBeNull();
   });
 
+  // Regression, 2026-09-24: "Nothing pinned to call first" showed during the
+  // first load, before any entry had arrived to be pinned or not.
+  it("does not claim nothing is pinned while the hub is still loading", () => {
+    storeState.loading = true;
+    render(<OnCallHome />);
+    expect(screen.queryByTestId("on-call-home-call-first-empty")).toBeNull();
+  });
+
   it("names the remaining home tags once there are entries but nothing is tagged", () => {
     storeState.entries = [contact("switch", "Switchboard", [], "9224 2000")];
 
@@ -185,7 +193,7 @@ describe("On Call home layout", () => {
 
     render(<OnCallHome />);
 
-    expect(screen.getByRole("link", { name: /Printable card/i })).toHaveAttribute("href", "/on-call/card");
+    expect(screen.getByRole("link", { name: /Pocket card/i })).toHaveAttribute("href", "/on-call/card");
   });
 
   it("carries a search box, which stays out of the way until it is used", () => {

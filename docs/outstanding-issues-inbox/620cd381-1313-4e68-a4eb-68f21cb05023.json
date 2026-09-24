@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "620cd381-1313-4e68-a4eb-68f21cb05023",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "On Call Playbook: every unlinked scenario repeats a full 'No local guideline linked' block, and every card briefly says its guideline is unavailable while loading",
+    "detail": "on-call-playbook-section.tsx:86-105 renders an EmptyState with a Search documents button per scenario (6 in demo, page is 4000px tall at 390px). useOnCallLinkedDocuments (lib/on-call/linked-documents.ts) returns {} with no loading flag, so all cards read 'unavailable' and file under Unlinked until lookups finish; Orientation has the same flash. The date shown is updated_at, not the guideline's review date.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PNR4YME1RTZ2001JNNY9"
+  }
+}

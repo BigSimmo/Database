@@ -150,7 +150,11 @@ export function OnCallWhoIsWhoSection({
       <EmptyState
         icon={Users}
         title="No roles explained yet"
-        body="What each role does, when it is reasonable to call them, and what the local acronyms mean. Add these as contacts and mark them as a role explainer."
+        body={
+          onEditEntry
+            ? "What each role does, when it is reasonable to call them, and what the local acronyms mean. Add one from this page."
+            : "What each role does, when it is reasonable to call them, and what the local acronyms mean. Sign in to add the roles at your service."
+        }
         testId="on-call-who-is-who-empty"
       />
     );

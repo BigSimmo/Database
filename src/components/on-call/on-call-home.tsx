@@ -497,7 +497,10 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         ) : null}
 
         <HomeModule id="on-call-home-call-first" label="Call first">
-          {callFirst.length === 0 ? (
+          {/* While the first load is in flight the tile grid below carries the
+              loading state; saying "Nothing pinned" here would be a claim about
+              entries that have not arrived yet. */}
+          {loading && entries.length === 0 ? null : callFirst.length === 0 ? (
             <EmptyState
               icon={Phone}
               title="Nothing pinned to call first"
@@ -662,7 +665,7 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           action={
             <Link href="/on-call/card" className={moduleAction}>
               <Printer aria-hidden="true" className="size-icon-xs" />
-              Printable card
+              Pocket card
             </Link>
           }
         >

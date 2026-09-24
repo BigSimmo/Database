@@ -41,10 +41,24 @@ export function CmePlanPage() {
       </div>
 
       <div className="mt-6">
-        <Link href="/cme/new" className={cn(primaryControl, "w-full")}>
+        <Link
+          href={`/cme/new?title=${encodeURIComponent("Writing my professional development plan")}`}
+          className={cn(primaryControl, "w-full")}
+        >
           Log the time you spent on it
         </Link>
       </div>
+
+      <p className={cn(textMuted, "mt-4 text-sm")}>
+        Once your plan is written, record the date you finished it on{" "}
+        <Link
+          href="/cme/setup#cme-setup-steps"
+          className="inline-flex min-h-tap items-center font-semibold text-[color:var(--clinical-accent)]"
+        >
+          the setup page
+        </Link>{" "}
+        so the dashboard counts it as done.
+      </p>
     </main>
   );
 }

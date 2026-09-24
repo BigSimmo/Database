@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, buttonFaceClass } from "@/components/ui/button";
-import { InlineNotice, cn, textMuted } from "@/components/ui-primitives";
+import { InlineNotice, cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import {
   CME_EVIDENCE_MAX_BYTES,
   cmeEvidenceKinds,
@@ -144,12 +144,14 @@ export function CmeEvidencePanel({
 
   return (
     <section
-      className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-8 sm:px-6"
+      // Sits inside the entry page's own padded column, so it adds no width
+      // or side padding of its own (it used to, doubling the phone gutter).
+      className="mt-5 space-y-3"
       data-testid="cme-evidence-panel"
       aria-labelledby="cme-evidence-heading"
     >
       <div>
-        <h2 id="cme-evidence-heading" className="text-lg font-semibold text-[color:var(--text)]">
+        <h2 id="cme-evidence-heading" className={eyebrowText}>
           Private evidence
         </h2>
         <p className={cn(textMuted, "mt-1 text-sm")}>
@@ -185,7 +187,9 @@ export function CmeEvidencePanel({
           ))}
         </ul>
       ) : !error ? (
-        <p className={textMuted}>{demoMode ? "Demo evidence is not stored." : "No evidence attached yet."}</p>
+        <p className={cn(textMuted, "text-sm")}>
+          {demoMode ? "Demo evidence is not stored." : "No evidence attached yet."}
+        </p>
       ) : null}
       {error ? (
         <InlineNotice tone="neutral">

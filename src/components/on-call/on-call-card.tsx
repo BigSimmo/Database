@@ -12,6 +12,7 @@ import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { PrintOutput, PrintSection } from "@/components/ui/print-output";
 import { selectCardEntries } from "@/lib/on-call/card-selection";
+import { onCallTelHref } from "@/lib/on-call/home-modules";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { ON_CALL_SECTIONS, type OnCallEntry } from "@/lib/on-call/entry-model";
 
@@ -47,9 +48,17 @@ function cardEntryNumbers(details: unknown): Array<{ label: string; value: strin
   });
 }
 
-function telHref(raw: string): string | undefined {
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
+/**
+ * Only a direct or after-hours number is a tap-to-call link. A pager ID, a ward
+ * extension or a fax number is printed but never dialled: until 2026-09-24 this
+ * file had its own `telHref` that linked any digits, so tapping "Ext: 4410" on
+ * the card rang 4410 on the public network. `onCallTelHref` is the mode's one
+ * dialling rule and refuses short extensions on its own.
+ */
+const DIALLABLE_CARD_LABELS = new Set(["Direct", "After hours"]);
+
+function cardTelHref(label: string, raw: string): string | undefined {
+  return DIALLABLE_CARD_LABELS.has(label) ? onCallTelHref(raw) : undefined;
 }
 
 function sortCardEntries(entries: OnCallEntry[]): OnCallEntry[] {
@@ -129,7 +138,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
       <InformationPageShell testId="on-call-card-main" width="narrow">
         <InformationPageHeader
           eyebrow="On Call"
-          title="Essentials card"
+          title="Pocket card"
           subtitle="Only entries flagged for the card. Personal numbers, compliance requirements, Who's who explainers and anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a printed copy."
         />
 
@@ -166,7 +175,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             monochrome
             confidential
             printedAt={formatPrintedAt(now)}
-            provenance="PsychSift On Call — essentials card. Confirm against the live app before relying on a printed copy; paper cannot show its own age."
+            provenance="PsychSift On Call — pocket card. Confirm against the live app before relying on a printed copy; paper cannot show its own age."
           >
             <div className="grid gap-5">
               {groups.map((group) => (
@@ -190,7 +199,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                           {numbers.length > 0 ? (
                             <ul className="mt-1 grid gap-0.5">
                               {numbers.map((number) => {
-                                const href = telHref(number.value);
+                                const href = cardTelHref(number.label, number.value);
                                 const label = `${number.label}: ${number.value}`;
                                 return (
                                   <li key={number.label} className="text-sm text-[color:var(--text)]">

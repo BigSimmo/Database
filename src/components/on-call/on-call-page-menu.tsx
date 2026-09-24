@@ -158,7 +158,7 @@ export function OnCallPageMenuActions({
         <span className="grid gap-0.5">
           <span className="font-bold">What the home shows</span>
           <span className={cn(textMuted, "text-xs")}>
-            {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
+            {`Tag a contact "${ON_CALL_HOME_TAGS.callFirst}", "${ON_CALL_HOME_TAGS.switchboard}" or "${ON_CALL_HOME_TAGS.ward}", or a playbook scenario "${ON_CALL_HOME_TAGS.pinned}", to put it on the home.`}
           </span>
         </span>
       </div>

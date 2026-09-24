@@ -124,6 +124,28 @@ export function CmeEntryForm({
   if (initialEntry?.documentId) draft.documentId = initialEntry.documentId;
   const parsedDraft = cmeEntryCreateSchema.safeParse(draft);
   const canSave = balanced && allocations.length > 0 && costValid && formalPeerReviewValid && parsedDraft.success;
+  // Save used to sit greyed out with nothing saying why. Name the first thing
+  // standing in the way, in the order the fields appear on the form.
+  const firstDraftIssue = parsedDraft.success ? null : parsedDraft.error.issues[0]?.path[0];
+  const saveBlockedReason = canSave
+    ? null
+    : !draft.title
+      ? "Add what the activity was to save it."
+      : firstDraftIssue === "date"
+        ? "Choose a valid date to save it."
+        : statedHours <= 0 || allocations.length === 0
+          ? "Enter the hours and split them across the categories to save it."
+          : !balanced
+            ? "Split every hour across the categories to save it."
+            : !formalPeerReviewValid
+              ? "Peer-review credit cannot be more than the reviewing-performance hours."
+              : firstDraftIssue === "reflection"
+                ? "Shorten the reflection to 2000 characters to save it."
+                : firstDraftIssue === "sourceUrl"
+                  ? "Check the learning source link, or leave it blank."
+                  : !costValid
+                    ? "Fix the cost, or leave it blank."
+                    : "Check the details above to save it.";
   const initialFingerprint = useMemo(
     () =>
       JSON.stringify({
@@ -356,9 +378,26 @@ export function CmeEntryForm({
         )}
       </FormField>
 
-      <Button type="submit" variant="primary" disabled={!canSave} busy={saving} busyLabel="Saving…" block>
+      <Button
+        type="submit"
+        variant="primary"
+        disabled={!canSave}
+        busy={saving}
+        busyLabel="Saving…"
+        block
+        aria-describedby={saveBlockedReason ? "cme-entry-save-blocked" : undefined}
+      >
         {submitLabel}
       </Button>
+      {saveBlockedReason ? (
+        <p
+          id="cme-entry-save-blocked"
+          data-testid="cme-entry-save-blocked"
+          className={cn("-mt-2 text-center text-xs", textMuted)}
+        >
+          {saveBlockedReason}
+        </p>
+      ) : null}
     </form>
   );
 }

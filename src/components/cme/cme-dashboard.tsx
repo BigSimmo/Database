@@ -362,7 +362,7 @@ export function CmeDashboard({
       loggedToday.length > 0 ? (
         <p className="text-sm text-[color:var(--text)]">
           {loggedToday.length} {loggedToday.length === 1 ? "activity" : "activities"} logged today,{" "}
-          {formatCmeHours(loggedTodayHours)} hours.
+          {formatCmeHours(loggedTodayHours)} {loggedTodayHours === 1 ? "hour" : "hours"}.
         </p>
       ) : (
         <p className={cn(textMuted, "text-sm")}>Nothing logged yet today.</p>
@@ -374,7 +374,7 @@ export function CmeDashboard({
       </p>
     ),
     provenance: (
-      <p className={cn(textMuted, "text-sm")}>
+      <p className={cn(textMuted, "break-words text-sm")}>
         Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}: {set.confirmedSource}. This records what you
         checked; it is not independent certification.
       </p>

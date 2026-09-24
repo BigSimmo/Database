@@ -3,7 +3,7 @@
 import { CircleCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
@@ -691,6 +691,16 @@ export function OnCallEntryEditor({
   const [draft, setDraft] = useState<DraftState>(() =>
     buildInitialDraft(section, entry, createAsRoleExplainer, createAsCompliance),
   );
+  // The page the new entry is being added to, not the stored section it is
+  // written to: "Add requirement" on Compliance and "Add role" on Who's who
+  // both write another page's section, and titled the sheet "Add to Admin" and
+  // "Add to Contacts" until 2026-09-24 (the #NB4SHF class of bug).
+  const creatingView: OnCallPageView =
+    createAsCompliance && section === "logistics"
+      ? "compliance"
+      : createAsRoleExplainer && section === "contacts"
+        ? "who-is-who"
+        : section;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"saving" | "deleting" | null>(null);
@@ -1059,7 +1069,7 @@ export function OnCallEntryEditor({
       <Sheet
         open={open}
         onClose={onClose}
-        title={entry ? `Edit ${entry.title}` : `Add to ${ON_CALL_SECTION_TITLES[section]}`}
+        title={entry ? `Edit ${entry.title}` : `Add to ${ON_CALL_VIEW_TITLES[creatingView]}`}
         mobilePlacement="bottom"
         testId="on-call-entry-editor"
         footer={

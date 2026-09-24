@@ -279,7 +279,7 @@ export function OnCallContactsSection({
       className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]"
     >
       <Printer className="h-4 w-4 shrink-0" aria-hidden />
-      Printable card
+      Pocket card
     </Link>
   );
 

@@ -19,6 +19,19 @@ describe("New entry", () => {
     expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
   });
 
+  // Regression, 2026-09-24: Save sat disabled with nothing saying why.
+  it("says what is stopping a save, and stops saying it once the entry can save", async () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/add what the activity was/i);
+    await user.type(screen.getByLabelText(/what was it/i), "Peer review group");
+    await user.click(screen.getByRole("button", { name: "1.5" }));
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/split/i);
+    await user.type(screen.getByLabelText(/reviewing performance/i), "1.5");
+    expect(screen.queryByTestId("cme-entry-save-blocked")).toBeNull();
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+  });
+
   it("labels the reflection without asking a question", () => {
     render(<CmeEntryForm onSubmit={vi.fn()} />);
     const reflection = screen.getByLabelText(/reflection/i);
@@ -71,5 +84,20 @@ describe("New entry", () => {
         buckets: ["Professionalism"],
       }),
     );
+  });
+});
+
+describe("allocation hours display", () => {
+  // Regression, 2026-09-24: the total showed one decimal while balance is
+  // checked to two, so a quarter hour always looked wrong ("0.7 of 0.8").
+  it("shows quarter hours at the precision the balance check uses", async () => {
+    const { formatAllocationHours } = await import("@/components/cme/cme-allocation-field");
+    expect(formatAllocationHours(0.75)).toBe("0.75");
+    expect(formatAllocationHours(0.7)).toBe("0.7");
+    expect(formatAllocationHours(1)).toBe("1.0");
+    expect(formatAllocationHours(0.05)).toBe("0.05");
+    expect(formatAllocationHours(1.5)).toBe("1.5");
+    expect(formatAllocationHours(1.1)).toBe("1.1");
+    expect(formatAllocationHours(0.1 + 0.2)).toBe("0.3");
   });
 });

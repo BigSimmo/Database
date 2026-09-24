@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "120e34e7-3a87-46f2-a70a-0a51bdc65418",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "CME: an uploaded evidence file can never be removed, including one uploaded with patient identifiers by mistake",
+    "detail": "api/cme/entries/[id]/evidence/[evidenceId] has GET only and cme-design-decisions.md says no deletion. Needs an owner decision on a remove (or redact-and-replace) path; privacy risk.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PNC8VWWZDPWWQ98XF9DZ"
+  }
+}

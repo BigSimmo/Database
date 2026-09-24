@@ -98,6 +98,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             <span>{formatCalendarDateShort(entry.date)}</span>
             <span aria-hidden="true">·</span>
             <span>{categoryNames(entry)}</span>
+            <span aria-hidden="true">·</span>
             <span>
               {entry.evidenceCount ?? 0} evidence file{entry.evidenceCount === 1 ? "" : "s"}
             </span>
@@ -130,7 +131,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             activates the same one link the title does — the whole card is
             one tap target, not a title-shaped tap target beside a dead strip. */}
         <span className="shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
-          {entry.archivedAt ? "Archived" : totalAllocatedHours([entry])}
+          {entry.archivedAt ? "Archived" : `${totalAllocatedHours([entry])} h`}
         </span>
         <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
       </div>

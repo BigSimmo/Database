@@ -234,7 +234,7 @@ export function CmeProgrammePage({
           )}
         >
           <p className="text-sm font-extrabold text-[color:var(--text-heading)]">These are your numbers, not ours</p>
-          <p className="text-sm leading-relaxed text-[color:var(--text)]">
+          <p className="break-words text-sm leading-relaxed text-[color:var(--text)]">
             Confirmed by you on {formatCalendarDateLong(set.confirmedOn)}, against {set.confirmedSource}.
           </p>
           <p data-testid="cme-no-lookup" className="text-xs leading-relaxed text-[color:var(--text-muted)]">

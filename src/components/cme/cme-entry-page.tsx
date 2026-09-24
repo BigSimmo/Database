@@ -168,7 +168,12 @@ export function CmeEntryPage({
       <section data-testid="cme-entry-reflection" className="mt-5">
         <h2 className={eyebrowText}>Reflection</h2>
         {entry.reflection.trim().length > 0 ? (
-          <p className={cn(cardSurface, "mt-2 p-3 text-sm leading-relaxed text-[color:var(--text)]")}>
+          <p
+            className={cn(
+              cardSurface,
+              "mt-2 whitespace-pre-wrap break-words p-3 text-sm leading-relaxed text-[color:var(--text)]",
+            )}
+          >
             {entry.reflection}
           </p>
         ) : (

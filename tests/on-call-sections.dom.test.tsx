@@ -333,6 +333,20 @@ describe("OnCallEducationSection", () => {
     ]);
   });
 
+  // Regression, 2026-09-24: two undated sessions compared as NaN, so they kept
+  // whatever order they arrived in instead of sorting by title.
+  it("sorts undated sessions alphabetically among themselves", () => {
+    const zebra = entry("education", {
+      id: "ffffffff-0000-0000-0000-000000000005",
+      slug: "zebra-club",
+      title: "Zebra club",
+      details: { topics: [] },
+    });
+    render(<OnCallEducationSection entries={[zebra, AD_HOC_WORKSHOP]} now={NOW} />);
+    const cards = screen.getAllByTestId(/^on-call-education-card-/).map((card) => card.getAttribute("data-testid"));
+    expect(cards).toEqual(["on-call-education-card-ad-hoc-workshop", "on-call-education-card-zebra-club"]);
+  });
+
   it("marks a recording link as leaving the app", () => {
     render(<OnCallEducationSection entries={[GRAND_ROUNDS]} now={NOW} />);
     const card = screen.getByTestId("on-call-education-card-grand-rounds");
@@ -393,6 +407,8 @@ describe("OnCallLogisticsSection", () => {
     const itGroup = screen.getByTestId("on-call-logistics-group-it");
     const itRow = within(itGroup).getByTestId("on-call-logistics-row-it-helpdesk");
     expect(itRow).toHaveAttribute("href", "tel:1800111222");
+    // Regression, 2026-09-24: a dialable row used to hide the number it rang.
+    expect(itRow).toHaveTextContent("1800 111 222");
   });
 
   it("renders a real empty state when there are no logistics entries", () => {
