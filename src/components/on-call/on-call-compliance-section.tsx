@@ -537,7 +537,14 @@ export function OnCallComplianceSection({
         <EmptyState
           icon={ON_CALL_VIEW_ICONS.compliance}
           title="No requirements recorded yet"
-          body="Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
+          // `onEditEntry` is passed only to a signed-in reader, and compliance
+          // rows are never shared, so a signed-out reader always lands here and
+          // cannot add anything: tell them what would let them.
+          body={
+            onEditEntry
+              ? "Registration, indemnity, credentialing, mandatory training and CPD. Add one from this page and it appears here, grouped by what happens if it lapses — with the date you recorded, and where you recorded it from."
+              : "Registration, indemnity, credentialing, mandatory training and CPD. These are private to your account, so sign in to record yours and see them here, grouped by what happens if it lapses."
+          }
           testId="on-call-compliance-empty"
         />
       </div>
