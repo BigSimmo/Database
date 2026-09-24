@@ -195,7 +195,10 @@ function computeNextAction(args: {
   }
 
   if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
-    return "Close the year: check each entry against the source records you keep, then prepare your CPD summary before 31 December.";
+    // There is no "close the year" step in the app yet (finalisation is a
+    // later milestone), so this must not tell the owner to do one. It names
+    // what can actually be done here: check, then open the printable summary.
+    return "Year end: check each entry against the records you keep, then open your annual summary before 31 December.";
   }
 
   const earlyTask = set.requirements.find(
@@ -261,7 +264,6 @@ export function CmeDashboard({
     0,
   );
   const dueRoutines = routinesDueOn(routines, now);
-  const dueNext = dueRoutines[0];
   const nextRequirementStatus = furthestFromMet(set, unmet);
   const nextRequirement = nextRequirementStatus
     ? set.requirements.find((requirement) => requirement.id === nextRequirementStatus.requirementId)
@@ -269,9 +271,10 @@ export function CmeDashboard({
   const earlyTask = set.requirements.find(
     (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
   );
-  const nextAction = dueNext
-    ? `Next: log ${dueNext.title} — review the pre-filled activity before saving.`
-    : computeNextAction({ set, unmet, now, totalHours });
+  // A due routine is listed, with its own Log button, in the "Routines due"
+  // module. It used to take this slot too, which hid the requirement gap and
+  // the year-end reminder whenever anything recurring was due.
+  const nextAction = computeNextAction({ set, unmet, now, totalHours });
   const allTargetsMet = unmet.length === 0 && totalHours >= set.totalHours;
   // Stable sort: unmet first. Position is one of the three channels this mode uses for
   // shortfall instead of colour — see the file-level note above.
@@ -285,18 +288,14 @@ export function CmeDashboard({
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
-  const nextActionControl = dueNext ? (
-    <Button testId="cme-next-action" variant="secondary" block onClick={() => handleLogRoutine(dueNext)}>
-      {nextAction}
-    </Button>
-  ) : allTargetsMet ? (
+  const nextActionControl = allTargetsMet ? (
     <p data-testid="cme-next-action" className="text-sm font-medium text-[color:var(--text)]">
       {nextAction}
     </p>
   ) : inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS ? (
     <Link
       data-testid="cme-next-action"
-      href={`/cme/log?year=${set.year}`}
+      href={`/cme/summary?year=${set.year}`}
       className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
     >
       {nextAction}

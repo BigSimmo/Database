@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -58,7 +58,7 @@ const FURTHEST_FROM_MET_ENTRIES: readonly CmeEntry[] = [
 ];
 
 describe("the dashboard", () => {
-  it("opens an overdue routine as a pre-filled activity from the Next control", async () => {
+  it("opens an overdue routine as a pre-filled activity from the Routines due module", async () => {
     const user = userEvent.setup();
     const onLogRoutine = vi.fn();
     const routine: CmeRoutine = {
@@ -79,10 +79,14 @@ describe("the dashboard", () => {
         onLogRoutine={onLogRoutine}
       />,
     );
-    const next = screen.getByTestId("cme-next-action");
-    expect(next).toHaveTextContent(/log peer review group/i);
-    expect(next.className).toMatch(/min-h-(?:12|tap)/);
-    await user.click(next);
+    // Changed 2026-09-24: a due routine no longer takes the single Next slot,
+    // which hid the requirement gap and the year-end reminder. It is logged
+    // from its own row in the Routines due module.
+    expect(screen.getByTestId("cme-next-action")).not.toHaveTextContent(/peer review group/i);
+    const due = screen.getByTestId("cme-routines-due");
+    const log = within(due).getByRole("button", { name: /log/i });
+    expect(log.className).toMatch(/min-h-(?:12|tap)/);
+    await user.click(log);
     expect(onLogRoutine).toHaveBeenCalledWith({
       routineId: "routine-due",
       date: "2026-09-19",
@@ -115,7 +119,11 @@ describe("the dashboard", () => {
 
   it("turns into the year-end checklist in the last fortnight", () => {
     renderAt("2026-12-28T02:00:00Z");
-    expect(screen.getByTestId("cme-next-action")).toHaveTextContent(/close the year/i);
+    const next = screen.getByTestId("cme-next-action");
+    expect(next).toHaveTextContent(/year end/i);
+    // There is no close-the-year step to send anyone to; it opens the summary.
+    expect(next).not.toHaveTextContent(/close the year/i);
+    expect(next).toHaveAttribute("href", "/cme/summary?year=2026");
   });
 
   it("shows a legitimate zero as a zero", () => {
