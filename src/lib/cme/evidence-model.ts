@@ -14,5 +14,11 @@ export const cmeEvidenceSchema = z.object({
   byteSize: z.number().int().positive(),
   kind: cmeEvidenceKindSchema,
   uploadedAt: z.string(),
+  /** Set when the owner removed the file; the row stays as a record of when and why. */
+  removedAt: z.string().nullable().default(null),
+  removalReason: z.string().nullable().default(null),
 });
+
+/** The reason the owner gives for removing a file. Kept; the file itself is deleted. */
+export const cmeEvidenceRemovalSchema = z.object({ reason: z.string().trim().min(3).max(500) }).strict();
 export type CmeEvidence = z.infer<typeof cmeEvidenceSchema>;

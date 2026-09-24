@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, buttonFaceClass } from "@/components/ui/button";
-import { InlineNotice, cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { FormField } from "@/components/ui/form-field";
+import { InlineNotice, cn, eyebrowText, fieldControlPlain, textMuted } from "@/components/ui-primitives";
 import {
   CME_EVIDENCE_MAX_BYTES,
   cmeEvidenceKinds,
@@ -166,24 +167,19 @@ export function CmeEvidencePanel({
       ) : files.length ? (
         <ul className="divide-y divide-[color:var(--border)] rounded-xl border border-[color:var(--border)]">
           {files.map((item) => (
-            <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
-              <div className="min-w-0 flex-1 break-words">
-                <p className="font-medium">{item.fileName}</p>
-                <p className={cn(textMuted, "text-sm")}>
-                  {item.kind} · {Math.ceil(item.byteSize / 1024)} KB
-                </p>
-              </div>
-              <Link
-                prefetch={false}
-                href={`/api/cme/entries/${entryId}/evidence/${item.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonFaceClass({ variant: "toolbar" })}
-                aria-label={`Download ${item.fileName}`}
-              >
-                Download
-              </Link>
-            </li>
+            <EvidenceFileRow
+              key={item.id}
+              entryId={entryId}
+              item={item}
+              canRemove={!demoMode}
+              onRemoved={(updated) =>
+                setResult((current) =>
+                  current && current.entryId === entryId
+                    ? { entryId, files: current.files.map((f) => (f.id === updated.id ? updated : f)) }
+                    : current,
+                )
+              }
+            />
           ))}
         </ul>
       ) : !error ? (
@@ -292,4 +288,156 @@ export function CmeEvidencePanel({
       )}
     </section>
   );
+}
+
+/**
+ * One attached file. A file can be removed at any time, including in a closed
+ * year or on an archived activity, because the reason to remove one is
+ * usually privacy (a certificate still showing a patient identifier). The
+ * reason is kept as the record; the stored file is deleted.
+ */
+function EvidenceFileRow({
+  entryId,
+  item,
+  canRemove,
+  onRemoved,
+}: {
+  entryId: string;
+  item: CmeEvidence;
+  canRemove: boolean;
+  onRemoved: (updated: CmeEvidence) => void;
+}) {
+  const [removing, setRemoving] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const reasonId = `cme-evidence-remove-reason-${item.id}`;
+  const reasonValid = reason.trim().length >= 3 && reason.trim().length <= 500;
+
+  if (item.removedAt) {
+    return (
+      <li className="grid gap-0.5 p-3" data-testid={`cme-evidence-removed-${item.id}`}>
+        <p className={cn(textMuted, "text-sm font-medium")}>File removed on {formatRemovedDate(item.removedAt)}</p>
+        <p className={cn(textMuted, "break-words text-xs")}>Reason: {item.removalReason}</p>
+      </li>
+    );
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cme/entries/${entryId}/evidence/${item.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { evidence?: unknown; message?: string };
+      if (!response.ok) throw new Error(body.message ?? "The file could not be removed. Try again.");
+      onRemoved(cmeEvidenceSchema.parse(body.evidence));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The file could not be removed. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className="grid gap-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0 flex-1 break-words">
+          <p className="font-medium">{item.fileName}</p>
+          <p className={cn(textMuted, "text-sm")}>
+            {cmeEvidenceKindLabel(item.kind)} · {Math.ceil(item.byteSize / 1024)} KB
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            prefetch={false}
+            href={`/api/cme/entries/${entryId}/evidence/${item.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={buttonFaceClass({ variant: "toolbar" })}
+            aria-label={`Download ${item.fileName}`}
+          >
+            Download
+          </Link>
+          {canRemove && !removing ? (
+            <Button
+              type="button"
+              variant="toolbar"
+              onClick={() => setRemoving(true)}
+              aria-label={`Remove ${item.fileName}`}
+            >
+              Remove
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      {removing ? (
+        <div
+          className="grid gap-2 rounded-lg border border-[color:var(--border)] p-3"
+          data-testid={`cme-evidence-remove-${item.id}`}
+        >
+          <FormField
+            label="Why are you removing this file?"
+            id={reasonId}
+            hint="The file is deleted. The date and your reason are kept on this activity as the record. Don't include patient details in the reason."
+          >
+            {(field) => (
+              <textarea
+                id={field.id}
+                aria-describedby={field.describedBy}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                maxLength={500}
+                rows={2}
+                className={cn(fieldControlPlain, "h-auto min-h-16 resize-y py-2 leading-6")}
+              />
+            )}
+          </FormField>
+          {error ? (
+            <p role="alert" className="text-sm">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="danger"
+              disabled={!reasonValid || busy}
+              busy={busy}
+              busyLabel="Removing…"
+              onClick={() => void remove()}
+            >
+              Remove file
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setRemoving(false);
+                setReason("");
+                setError(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function cmeEvidenceKindLabel(kind: CmeEvidenceKind): string {
+  return kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+function formatRemovedDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "Australia/Perth" });
 }

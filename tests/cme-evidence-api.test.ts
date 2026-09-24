@@ -18,11 +18,13 @@ const mocks = vi.hoisted(() => ({
   validate: vi.fn(),
   release: vi.fn(),
   storageBucket: vi.fn(),
+  rpc: vi.fn(),
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: mocks.from,
+    rpc: mocks.rpc,
     storage: {
       from: (bucket: string) => {
         mocks.storageBucket(bucket);
@@ -50,7 +52,7 @@ vi.mock("@/lib/cme/evidence-upload", () => ({
 }));
 
 import { GET as list, POST as upload } from "@/app/api/cme/entries/[id]/evidence/route";
-import { GET as download } from "@/app/api/cme/entries/[id]/evidence/[evidenceId]/route";
+import { DELETE as remove, GET as download } from "@/app/api/cme/entries/[id]/evidence/[evidenceId]/route";
 import { AuthenticationError } from "@/lib/supabase/auth";
 import { CME_EVIDENCE_BUCKET } from "@/lib/cme/evidence-model";
 
@@ -126,6 +128,7 @@ beforeEach(() => {
     const query = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       insert: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn(settle),
@@ -301,5 +304,68 @@ describe("private CME evidence API", () => {
     expect((await download(request(), downloadContext)).status).toBe(404);
     expect(mocks.signed).not.toHaveBeenCalled();
     assertOwnerScope();
+  });
+});
+
+describe("removing a CME evidence file", () => {
+  function removeRequest(body: unknown) {
+    return new Request(`https://example.org/api/cme/entries/${entryId}/evidence/${evidenceId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+  const removedRow = {
+    ...evidence,
+    file_name: "Removed file",
+    removed_at: "2026-09-24T01:00:00Z",
+    removal_reason: "Contains a patient name",
+  };
+
+  it("records the reason, deletes the stored file, and returns the tombstone", async () => {
+    results.push({ data: entry, error: null }, { data: { ...evidence, removed_at: null }, error: null });
+    mocks.rpc.mockResolvedValue({ data: removedRow, error: null });
+    const response = await remove(removeRequest({ reason: "Contains a patient name" }), downloadContext);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.evidence).toMatchObject({ removalReason: "Contains a patient name", fileName: "Removed file" });
+    expect(mocks.rpc).toHaveBeenCalledWith("cme_remove_evidence", {
+      p_owner_id: ownerId,
+      p_evidence_id: evidenceId,
+      p_reason: "Contains a patient name",
+    });
+    expect(mocks.remove).toHaveBeenCalledWith([evidence.storage_path]);
+    assertOwnerScope();
+  });
+
+  it("refuses a removal without a reason, before touching the record", async () => {
+    const response = await remove(removeRequest({ reason: " " }), downloadContext);
+    expect(response.status).toBe(400);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+  });
+
+  it("works in a closed year, because removal is for privacy", async () => {
+    // No year lookup happens for a removal: assertEvidenceEntry is called read-only.
+    results.push(
+      { data: { ...entry, archived_at: "2026-09-01T00:00:00Z" }, error: null },
+      { data: evidence, error: null },
+    );
+    mocks.rpc.mockResolvedValue({ data: removedRow, error: null });
+    expect((await remove(removeRequest({ reason: "Wrong file uploaded" }), downloadContext)).status).toBe(200);
+  });
+
+  it("queues cleanup when storage does not answer, and still reports success", async () => {
+    results.push({ data: entry, error: null }, { data: evidence, error: null }, { data: null, error: null });
+    mocks.rpc.mockResolvedValue({ data: removedRow, error: null });
+    mocks.remove.mockResolvedValue({ data: null, error: { message: "storage down" } });
+    expect((await remove(removeRequest({ reason: "Wrong file uploaded" }), downloadContext)).status).toBe(200);
+    expect(queries.at(-1)?.table).toBe("storage_cleanup_jobs");
+  });
+
+  it("says not found for a file already removed or owned by someone else", async () => {
+    results.push({ data: entry, error: null }, { data: null, error: null });
+    expect((await remove(removeRequest({ reason: "Wrong file uploaded" }), downloadContext)).status).toBe(404);
+    expect(mocks.rpc).not.toHaveBeenCalled();
   });
 });
