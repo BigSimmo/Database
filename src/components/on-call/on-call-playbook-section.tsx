@@ -22,6 +22,7 @@ import {
   onCallEntryFreshness,
   type OnCallEntry,
   type OnCallLinkedDocument,
+  onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { playbookFormReferences } from "@/lib/on-call/playbook-forms";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
@@ -318,8 +319,8 @@ export function OnCallPlaybookSection({
       entry={entry}
       documents={documents}
       now={now}
-      onEditEntry={onEditEntry}
-      onVerified={onVerified}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
     />
   );
 

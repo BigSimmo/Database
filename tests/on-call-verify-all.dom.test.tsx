@@ -157,6 +157,26 @@ describe("Mark all as still correct", () => {
     expect(lastWrite.find((entry) => entry.id === "three")?.lastVerifiedAt).toBe(STALE_AT);
   });
 
+  // Regression, 2026-09-24: shared rows from other accounts were included,
+  // the server refused them, and the loop stopped at the first one.
+  it("confirms only the reader's own overdue rows, never another account's", async () => {
+    storeState.entries = THREE_STALE.map((entry) => (entry.id === "two" ? { ...entry, isOwn: false } : entry));
+    render(<OnCallSectionPage view="contacts" />);
+    await openMenuAndVerifyAll();
+    await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch)).not.toHaveBeenCalledWith("/api/on-call/entries/two/verify", { method: "POST" });
+    expect(screen.getAllByRole("button", { name: /^Edit / }).length).toBeGreaterThan(0);
+  });
+
+  it("shows no edit or verify control on a row another account shared", () => {
+    storeState.entries = THREE_STALE.map((entry) => ({ ...entry, isOwn: false }));
+    render(<OnCallSectionPage view="contacts" />);
+    expect(screen.queryByRole("button", { name: /^Edit / })).toBeNull();
+    expect(screen.queryByRole("button", { name: /still correct/i })).toBeNull();
+    fireEvent.click(screen.getByTestId("on-call-page-menu-trigger"));
+    expect(screen.queryByTestId("on-call-page-menu-verify-all")).not.toBeInTheDocument();
+  });
+
   it("offers nothing to confirm when nothing is overdue", () => {
     storeState.entries = THREE_STALE.map((entry) => ({ ...entry, lastVerifiedAt: "2026-09-01T00:00:00.000Z" }));
     render(<OnCallSectionPage view="contacts" />);

@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
 import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
@@ -217,7 +217,11 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // section: a bulk write is only defensible when the reader can see
   // everything it touches, which is exactly what `onCallVisibleEntries`
   // returns.
-  const staleEntries = visibleEntries.filter((entry) => onCallEntryFreshness(entry).state === "stale");
+  // Only rows this reader owns: the verify route refuses anyone else's, and
+  // the bulk loop used to stop at the first shared row it met.
+  const staleEntries = visibleEntries.filter(
+    (entry) => onCallEntryIsEditable(entry) && onCallEntryFreshness(entry).state === "stale",
+  );
 
   /**
    * Whether this view offers the bulk "mark all as still correct" control at

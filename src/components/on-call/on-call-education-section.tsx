@@ -10,7 +10,12 @@ import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { onCallLocalDateKey } from "@/lib/on-call/local-date";
 import { onCallTeachingDate, onCallTeachingDateLabel } from "@/lib/on-call/teaching-schedule";
 
@@ -211,8 +216,8 @@ export function OnCallEducationSection({
           entry={entry}
           now={now}
           today={today}
-          onEditEntry={onEditEntry}
-          onVerified={onVerified}
+          onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+          onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
         />
       ))}
     </div>

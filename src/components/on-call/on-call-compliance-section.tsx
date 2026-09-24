@@ -29,6 +29,7 @@ import {
   type OnCallComplianceConsequence,
   type OnCallComplianceProvenance,
   type OnCallEntry,
+  onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 
@@ -605,8 +606,8 @@ export function OnCallComplianceSection({
                 key={entry.id}
                 entry={entry}
                 now={now}
-                onEditEntry={onEditEntry}
-                onVerified={onVerified}
+                onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
                 privacyStatedOnPage={allPrivate}
               />
             ))}

@@ -11,7 +11,12 @@ import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cardPadding, cardSurface } from "@/components/card-recipes";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 export interface OnCallWhoIsWhoSectionProps {
@@ -189,7 +194,13 @@ export function OnCallWhoIsWhoSection({
           testId={`on-call-who-is-who-group-${group.slug}`}
         >
           {group.entries.map((entry) => (
-            <RoleCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+            <RoleCard
+              key={entry.id}
+              entry={entry}
+              now={now}
+              onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+              onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+            />
           ))}
         </OnCallGroupSection>
       ))}

@@ -19,7 +19,12 @@ import {
 } from "@/components/on-call/on-call-page-sections";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { formatClinicalDate } from "@/lib/source-metadata";
 
 export interface OnCallOrientationSectionProps {
@@ -188,8 +193,8 @@ export function OnCallOrientationSection({
       entry={entry}
       documents={documents}
       now={now}
-      onEditEntry={onEditEntry}
-      onVerified={onVerified}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
     />
   );
 

@@ -17,7 +17,12 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallLogisticsSectionProps {
@@ -252,8 +257,8 @@ export function OnCallLogisticsSection({
                   key={entry.id}
                   entry={entry}
                   now={now}
-                  onEditEntry={onEditEntry}
-                  onVerified={onVerified}
+                  onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                  onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
                 />
               ))}
             </div>
