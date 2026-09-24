@@ -195,8 +195,10 @@ export function OnCallEducationSection({
   const sorted = [...educationEntries].sort((a, b) => {
     const aKey = resolvedOccurrence(parseEducationDetails(a.details), a, today).sortKey;
     const bKey = resolvedOccurrence(parseEducationDetails(b.details), b, today).sortKey;
-    const byOccurrence = aKey - bKey;
-    if (byOccurrence !== 0) return byOccurrence;
+    // Compared, not subtracted: two undated sessions both key to Infinity, and
+    // Infinity - Infinity is NaN, which sort() treats as "equal" and so skipped
+    // the alphabetical tiebreak the comment on `occurrenceSortKey` promises.
+    if (aKey !== bKey) return aKey < bKey ? -1 : 1;
     return a.title.localeCompare(b.title);
   });
 

@@ -92,8 +92,11 @@ function LogisticsRow({
             {details?.hours ? (
               <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.hours}</span>
             ) : null}
-            {details?.phone && !href ? (
-              <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
+            {/* Printed whether or not the row dials it. Until 2026-09-24 a
+                dialable number turned the row into a call link and was never
+                shown, so a tap rang a number the reader had not seen. */}
+            {details?.phone ? (
+              <span className={cn(metadataPillDensity.standard, "rounded-full tabular-nums")}>{details.phone}</span>
             ) : null}
             {entry.isPersonal ? <OnCallPrivateFlag compact /> : null}
             <OnCallStaleFlag freshness={freshness} />
@@ -124,7 +127,7 @@ function LogisticsRow({
         // row itself is a `tel:` anchor, an interactive link inside it would
         // be invalid markup (an anchor inside an anchor) and unreachable by
         // keyboard in a predictable order.
-        <ExternalTextLink href={details.url} className="ml-1 text-xs">
+        <ExternalTextLink href={details.url} className="ml-1 inline-flex min-h-tap items-center text-xs">
           More info
         </ExternalTextLink>
       ) : null}
