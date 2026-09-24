@@ -19,7 +19,10 @@ vi.mock("@/components/account-data-provider", () => ({
 }));
 
 vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({ AccountSetupDialog: () => null }));
-vi.mock("@/lib/on-call/linked-documents", () => ({ useOnCallLinkedDocuments: () => ({}) }));
+vi.mock("@/lib/on-call/linked-documents", () => ({
+  useOnCallLinkedDocuments: () => ({}),
+  useOnCallLinkedDocumentsState: () => ({ documents: {}, loading: false }),
+}));
 
 const storeState = vi.hoisted(() => ({
   entries: [] as OnCallEntry[],

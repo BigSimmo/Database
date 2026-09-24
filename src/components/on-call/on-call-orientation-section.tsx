@@ -31,6 +31,8 @@ export interface OnCallOrientationSectionProps {
   entries: readonly OnCallEntry[];
   /** The owner's own documents that `linkedDocumentIds` may point at, keyed by id. */
   documents?: Readonly<Record<string, OnCallLinkedDocument>>;
+  /** True while linked documents are still being looked up; see the Playbook's prop of the same name. */
+  documentsLoading?: boolean;
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
@@ -45,12 +47,14 @@ const documentLinkRow = cn(cardInteractive, "flex min-h-tap w-full items-center 
 function OrientationCard({
   entry,
   documents,
+  documentsLoading,
   now,
   onEditEntry,
   onVerified,
 }: {
   entry: OnCallEntry;
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
+  documentsLoading: boolean;
   now: Date;
   onEditEntry?: (entry: OnCallEntry) => void;
   onVerified?: (entry: OnCallEntry) => void;
@@ -137,7 +141,9 @@ function OrientationCard({
       ) : (
         <p className={cn("text-sm", textMuted)}>
           {entry.linkedDocumentIds.length
-            ? "Linked document unavailable. It may be offline, removed, or unavailable to your account."
+            ? documentsLoading
+              ? "Loading the linked document…"
+              : "Linked document unavailable. It may be offline, removed, or unavailable to your account."
             : "No document linked yet."}
         </p>
       )}
@@ -155,6 +161,7 @@ function OrientationCard({
 export function OnCallOrientationSection({
   entries,
   documents = {},
+  documentsLoading = false,
   now = new Date(),
   testId = "on-call-orientation-section",
   onEditEntry,
@@ -192,6 +199,7 @@ export function OnCallOrientationSection({
       key={entry.id}
       entry={entry}
       documents={documents}
+      documentsLoading={documentsLoading}
       now={now}
       onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
       onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}

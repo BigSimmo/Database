@@ -33,7 +33,7 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
-import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
+import { useOnCallLinkedDocumentsState } from "@/lib/on-call/linked-documents";
 import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
@@ -200,7 +200,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
     view === "playbook" || view === "orientation"
       ? entries.filter((entry) => entry.section === view).flatMap((entry) => entry.linkedDocumentIds)
       : [];
-  const linkedDocuments = useOnCallLinkedDocuments(sourceIds);
+  const { documents: linkedDocuments, loading: linkedDocumentsLoading } = useOnCallLinkedDocumentsState(sourceIds);
   // The page's own groups, for the header's jump list. Declared from the same
   // entries the list below renders, then narrowed to whichever anchors actually
   // appear — so a flat page resolves to none and the header is just a title.
@@ -351,11 +351,19 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
           />
         );
       case "playbook":
-        return <OnCallPlaybookSection {...listProps} documents={linkedDocuments} />;
+        return (
+          <OnCallPlaybookSection {...listProps} documents={linkedDocuments} documentsLoading={linkedDocumentsLoading} />
+        );
       case "referrals":
         return <OnCallReferralsSection {...listProps} />;
       case "orientation":
-        return <OnCallOrientationSection {...listProps} documents={linkedDocuments} />;
+        return (
+          <OnCallOrientationSection
+            {...listProps}
+            documents={linkedDocuments}
+            documentsLoading={linkedDocumentsLoading}
+          />
+        );
       case "education":
         return <OnCallEducationSection {...listProps} />;
       case "logistics":

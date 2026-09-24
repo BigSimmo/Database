@@ -19,6 +19,19 @@ const documentResponseSchema = z.object({
  * No library-wide fetch, private-source promotion, or persistent document cache.
  */
 export function useOnCallLinkedDocuments(ids: readonly string[] = []): Readonly<Record<string, OnCallLinkedDocument>> {
+  return useOnCallLinkedDocumentsState(ids).documents;
+}
+
+/**
+ * The same lookup, plus whether it is still running. Until a lookup settles
+ * the documents map is empty, and a page reading only the map told the reader
+ * every linked guideline was "unavailable" and filed every scenario as
+ * unlinked for as long as the requests took.
+ */
+export function useOnCallLinkedDocumentsState(ids: readonly string[] = []): {
+  documents: Readonly<Record<string, OnCallLinkedDocument>>;
+  loading: boolean;
+} {
   const key = [...new Set(ids)].sort().join(",");
   const [result, setResult] = useState<{
     key: string;
@@ -60,5 +73,8 @@ export function useOnCallLinkedDocuments(ids: readonly string[] = []): Readonly<
     });
     return () => controller.abort();
   }, [key, epoch]);
-  return result?.key === key && result.epoch === epoch ? result.documents : {};
+  const settled = result?.key === key && result.epoch === epoch;
+  return { documents: settled ? result.documents : EMPTY_DOCUMENTS, loading: Boolean(key) && !settled };
 }
+
+const EMPTY_DOCUMENTS: Readonly<Record<string, OnCallLinkedDocument>> = Object.freeze({});
