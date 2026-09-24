@@ -138,7 +138,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
       <InformationPageShell testId="on-call-card-main" width="narrow">
         <InformationPageHeader
           eyebrow="On Call"
-          title="Essentials card"
+          title="Pocket card"
           subtitle="Only entries flagged for the card. Personal numbers, compliance requirements, Who's who explainers and anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a printed copy."
         />
 
@@ -175,7 +175,7 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             monochrome
             confidential
             printedAt={formatPrintedAt(now)}
-            provenance="PsychSift On Call — essentials card. Confirm against the live app before relying on a printed copy; paper cannot show its own age."
+            provenance="PsychSift On Call — pocket card. Confirm against the live app before relying on a printed copy; paper cannot show its own age."
           >
             <div className="grid gap-5">
               {groups.map((group) => (
