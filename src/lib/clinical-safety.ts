@@ -93,14 +93,18 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // a drug that "transfers into breast milk" or is "transferred across the
     // placenta" is pharmacokinetics, not an instruction to move the patient,
     // so those passages get no Escalation chip. Decision 16 narrowed the
-    // exclusion to the drug-passage objects only -- into (the) (breast) milk,
-    // across the placenta, (trans)placental transfer, into / to / across the
-    // fetus or foetus, across the blood-brain barrier, into the CSF. Any other
-    // "transfer into ICU" or "transferred across to the ward" is a patient
-    // transfer and keeps Escalation. The trailing `\b` stops the optional
-    // suffix backtracking round the lookahead ("transfer|red into").
+    // exclusion to the drug-passage OBJECTS only: (breast / human) milk, the
+    // placenta, the fetus or foetus, the CSF and the blood-brain barrier,
+    // reached by into / across / via / to, optionally through "transfer of
+    // <one to three words>" ("Transfer of lithium across the placenta"), plus
+    // (trans)placental transfer. Any other object -- "transfer into ICU",
+    // "transfer of care to the community team" -- is a patient transfer and
+    // keeps Escalation. The trailing `\b` stops the optional suffix
+    // backtracking round the lookahead ("transfer|red into"). The lookahead
+    // stays linear: the word count is bounded and `[\w-]` and `\s` are
+    // disjoint, so each word has exactly one way to match.
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:into\s+(?:the\s+)?(?:(?:breast\s+)?milk|csf|fo?etus)|to\s+(?:the\s+)?fo?etus|across\s+(?:the\s+)?(?:placenta|fo?etus|blood[-\s]brain\s+barrier))\b))\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human)\s+)?(?:milk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b))\b/i,
   },
   {
     kind: "dose_limit",
@@ -314,6 +318,16 @@ function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] 
   }
 
   return kept;
+}
+
+/**
+ * The label the pattern list alone gives `text`, with none of the extractor's
+ * trimming. Tests only: `extractSafetyFindings` cuts every passage to 260
+ * characters first, so it cannot hand a pattern the hostile input a
+ * linear-time guard needs.
+ */
+export function __safetyPatternLabelForTests(text: string): string | undefined {
+  return safetyPatterns.find((item) => item.pattern.test(text))?.label;
 }
 
 export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefined, limit = 5): SafetyFinding[] {

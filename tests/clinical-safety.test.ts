@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  __safetyPatternLabelForTests,
   collapseDuplicateSafetyFindings,
   extractSafetyFindings,
   groupSafetyFindingsByKind,
@@ -895,6 +896,55 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Transferred to the medical ward.")).toBe("Escalation");
     // The exclusion is whole-word: "intolerance" is not "into".
     expect(labelFor("Transferred given intolerance of the ward.")).toBe("Escalation");
+  });
+
+  it("also excludes `transfer of <drug> across the placenta`, `via` and human milk, and keeps patient transfers (#GHC4XZ, owner decision 16, 2026-09-25)", () => {
+    // A clinical reviewer's battery found three drug-passage phrasings the first cut of decision 16
+    // still painted Escalation: a named drug between "transfer of" and the preposition, the
+    // preposition "via", and "human milk". Each is pharmacokinetics, not a patient move.
+    expect(labelFor("Transfer of lithium across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Transfer of lithium carbonate across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Transfer of the drug into breast milk is low.")).toBeUndefined();
+    expect(labelFor("Transfer of sertraline into human milk is low.")).toBeUndefined();
+    expect(labelFor("Transfer of valproate to the fetus is expected.")).toBeUndefined();
+    expect(labelFor("Transfer of lithium into the foetus is expected.")).toBeUndefined();
+    expect(labelFor("Transfer of clozapine across the blood-brain barrier is rapid.")).toBeUndefined();
+    expect(labelFor("Transfer of the drug into the CSF is limited.")).toBeUndefined();
+    expect(labelFor("The drug is transferred into human milk.")).toBeUndefined();
+    expect(labelFor("Valproate is transferred via the placenta.")).toBeUndefined();
+    expect(labelFor("Sertraline transfers via breast milk to the infant.")).toBeUndefined();
+    // Patient transfers keep Escalation, including "transfer of" followed by a patient or care.
+    expect(labelFor("Transfer into ICU.")).toBe("Escalation");
+    expect(labelFor("The patient was transferred to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transfer the patient into the care of the on-call team.")).toBe("Escalation");
+    expect(labelFor("Transfer from oral to depot risperidone.")).toBe("Escalation");
+    expect(labelFor("Transfer of care to the community team.")).toBe("Escalation");
+    expect(labelFor("Arrange transfer of the patient to ED.")).toBe("Escalation");
+    // Urgency still outranks it.
+    expect(labelFor("Patients who deteriorate should be transferred urgently.")).toBe("Red flag");
+    expect(labelFor("Transfer to the ED immediately.")).toBe("Red flag");
+    // The suffix group still refuses the longer words.
+    expect(labelFor("Check serum iron, transferrin and ferritin.")).toBeUndefined();
+    expect(labelFor("Transference and countertransference should be explored in supervision.")).toBeUndefined();
+  });
+
+  it("keeps the transfer exclusion linear-time on hostile input (#GHC4XZ)", () => {
+    // The `transfer of <1-3 words>` lookahead is bounded and its word and space classes are
+    // disjoint, so no input can make it backtrack super-linearly. Pin that with inputs shaped
+    // to hurt it: one enormous word after "transfer of", and a long run of near-miss phrases.
+    // This calls the pattern list directly: `extractSafetyFindings` cuts a passage to 260
+    // characters before any pattern runs, so it could never hand a pattern hostile input.
+    const hostile = [
+      `transfer of ${"a".repeat(200_000)}`,
+      "transfer of a b c d ".repeat(10_000),
+      `transfer${" ".repeat(200_000)}x`,
+      "transferred of the the the into ".repeat(6_000),
+    ];
+    for (const content of hostile) {
+      const started = performance.now();
+      __safetyPatternLabelForTests(content);
+      expect(performance.now() - started).toBeLessThan(500);
+    }
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {
