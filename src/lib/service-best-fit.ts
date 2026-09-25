@@ -78,16 +78,30 @@ export function bestFitQueryTokens(query: string): string[] {
 }
 
 /**
- * True when every non-stopword token of `query` appears somewhere in the service's own
- * searchable text (title, tags, catchments, contacts, criteria, etc — the same field
- * set `rankServiceRecords` searches). An empty/all-stopword query has nothing to
- * contradict, so it is treated as matching — that leaves browse-mode (no query) display
- * unchanged and only withholds the badge when the query names something the record
- * genuinely does not carry.
+ * Strips a trailing "s"/"es" so "disorders" and "disorder" (or a query token and a
+ * record's own word) compare equal. Deliberately light — a fixed-length suffix rule,
+ * not a real stemmer — because this only has to bridge plain plural/singular pairs in
+ * short clinical phrases, not handle English morphology in general.
+ */
+function stripTrailingPlural(word: string): string {
+  if (word.length > 4 && word.endsWith("es")) return word.slice(0, -2);
+  if (word.length > 3 && word.endsWith("s")) return word.slice(0, -1);
+  return word;
+}
+
+/**
+ * True when every non-stopword token of `query` appears, word-for-word (plural/singular
+ * forms treated as equal), somewhere in the service's own searchable text (title, tags,
+ * catchments, contacts, criteria, etc — the same field set `rankServiceRecords`
+ * searches). Word-level, not substring: "disorder" matching inside an unrelated longer
+ * word would be a false claim of fit, not an honesty check. An empty/all-stopword query
+ * has nothing to contradict, so it is treated as matching — that leaves browse-mode (no
+ * query) display unchanged and only withholds the badge when the query names something
+ * the record genuinely does not carry.
  */
 export function serviceMatchesEveryQueryToken(service: ServiceRecord, query: string): boolean {
   const tokens = bestFitQueryTokens(query);
   if (tokens.length === 0) return true;
-  const haystack = serviceRecordSearchText(service);
-  return tokens.every((token) => haystack.includes(token));
+  const haystackWords = new Set(serviceRecordSearchText(service).split(/\s+/).filter(Boolean).map(stripTrailingPlural));
+  return tokens.every((token) => haystackWords.has(stripTrailingPlural(token)));
 }

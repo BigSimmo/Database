@@ -134,10 +134,65 @@ describe("detectClockTimeUrgency — clock time vs WACHS regional clinic hours (
     ["noon", "daytime"],
     ["midday", "daytime"],
     ["07:30", "after_hours"],
-    ["2230", "after_hours"],
+    ["2230hrs", "after_hours"],
+    ["2230 hrs", "after_hours"],
+    ["2230h", "after_hours"],
+    // A bare four-digit number with no "h"/"hrs"/"hours" marker is not read as a
+    // time at all — see the "referral dated 14/03/2026" regression below, where
+    // "2026" alone must not be misread as 20:26.
+    ["2230", "unknown"],
+    ["2026", "unknown"],
     ["no time mentioned at all", "unknown"],
   ] as const)("classifies %j as %s", (phrase, expected) => {
     expect(detectClockTimeUrgency(`crisis at ${phrase} please help`)).toBe(expected);
+  });
+});
+
+describe("bare four-digit numbers must not be misread as military time (#reviewer-finding-1)", () => {
+  it("does not lose the daytime WACHS pin to a year written in a referral date", () => {
+    const intents = detectServiceUrgentIntents("Kununurra crisis, referral dated 14/03/2026");
+    expect(intents).toContain("regional_daytime");
+    expect(intents[0]).toBe("regional_daytime");
+
+    expect(titles("Kununurra crisis, referral dated 14/03/2026", 8)[0]).toBe(
+      "WACHS Kimberley Adult Mental Health Service",
+    );
+  });
+
+  it("still reads an explicitly marked military time as after-hours", () => {
+    const intents = detectServiceUrgentIntents("Kununurra crisis 2230hrs");
+    expect(intents).not.toContain("regional_daytime");
+    expect(intents).toContain("regional_after_hours");
+
+    expect(titles("Kununurra crisis 2230hrs", 8)[0]).toBe("Rurallink");
+  });
+});
+
+describe("family violence detection is symmetric (#reviewer-finding-2)", () => {
+  it.each([["abused by her partner"], ["assaulted by her husband"], ["my ex keeps threatening me"]] as const)(
+    "detects family violence in %j regardless of word order",
+    (query) => {
+      expect(detectServiceUrgentIntents(query)).toContain("family_violence");
+    },
+  );
+});
+
+describe("strangulation/choking is an immediate-danger emergency (#reviewer-finding-3)", () => {
+  it("pins emergency first and family_violence second for a strangulation-in-progress query", () => {
+    const intents = detectServiceUrgentIntents("partner strangling her, can't breathe");
+    expect(intents.slice(0, 2)).toEqual(["emergency", "family_violence"]);
+
+    expect(titles("partner strangling her, can't breathe", 8)[0]).toBe("Emergency services");
+  });
+});
+
+describe("aod_urgent requires a real urgency signal, not just a generic help word (#reviewer-finding-5)", () => {
+  it("does not pin the AOD line for a routine, non-urgent request", () => {
+    expect(detectServiceUrgentIntents("alcohol counselling referral")).not.toContain("aod_urgent");
+  });
+
+  it("pins the AOD line for a genuine withdrawal in progress", () => {
+    expect(detectServiceUrgentIntents("withdrawing from alcohol, shaking")).toContain("aod_urgent");
   });
 });
 

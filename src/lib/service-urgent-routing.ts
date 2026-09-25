@@ -15,7 +15,7 @@ export type ServiceUrgentIntent =
 
 const CRISIS = /\b(?:suicid\w*|crisis|acute|unsafe|self[- ]?harm|mental health emergency)\b/i;
 const IMMEDIATE_DANGER =
-  /\b(?:actively suicidal|immediate danger|life[- ]?threatening|severe injury|overdose|about to (?:kill|harm)|cannot keep (?:myself|them|him|her|the patient) safe|emergency (?:now|in progress))\b/i;
+  /\b(?:actively suicidal|immediate danger|life[- ]?threatening|severe injury|overdose|about to (?:kill|harm)|cannot keep (?:myself|them|him|her|the patient) safe|emergency (?:now|in progress)|strangl\w*|chok(?:ing|ed)?|can[’']?t breathe|cannot breathe)\b/i;
 const CHILD_OR_YOUTH =
   /\b(?:child|teen(?:ager)?|adolescent|young person|(?:[0-9]|1[0-7])\s*[- ]?\s*(?:year|yr)s?[- ]?old)\b/i;
 const REGIONAL_WA =
@@ -33,10 +33,23 @@ const POSTVENTION =
 const ABORIGINAL = /\b(?:aboriginal|torres strait islander|atsi|indigenous|first nations)\b/i;
 const AOD_TERMS =
   /\b(?:alcohol|drink(?:ing)?|drunk|intoxicated|substance (?:use|abuse)|drugs?|ice|meth(?:amphetamine)?|opioid|overdose|detox(?:ification)?)\b/i;
-const AOD_HELP_SEEKING = /\b(?:advice|help|support|counsel(?:ling)?|navigat\w*|withdrawal|rehab(?:ilitation)?)\b/i;
+// Requires a specific urgency signal, not just any help-seeking word — "alcohol
+// counselling referral" is routine, not urgent, so a bare AOD term plus a generic
+// word like "advice"/"support"/"counselling" is no longer enough on its own.
+const AOD_URGENCY =
+  /\b(?:crisis|urgent(?:ly)?|emergency|withdrawal|withdrawing|detox(?:ification)?|overdose|od|can[’']?t stop|seizure)\b/i;
 const FAMILY_VIOLENCE_NAMED = /\b(?:domestic violence|family violence|intimate partner violence|dfv|fdv)\b/i;
-const FAMILY_VIOLENCE_DESCRIBED =
-  /\b(?:partner|husband|wife|boyfriend|girlfriend|ex[- ]?partner)\b[\s\S]{0,40}\b(?:hit(?:ting)?|hits|assault\w*|abus\w*|violent|violence|threat\w*|control(?:ling)?|strangl\w*|chok(?:ing|ed))\b/i;
+const FAMILY_VIOLENCE_RELATION = "partner|husband|wife|boyfriend|girlfriend|ex[- ]?partner|ex";
+const FAMILY_VIOLENCE_ACT =
+  "hit(?:ting)?|hits|assault\\w*|abus\\w*|violent|violence|threat\\w*|control(?:ling)?|strangl\\w*|chok(?:ing|ed)";
+// Symmetric: "partner hitting her" (relation, then act) and "abused by her partner"
+// (act, then relation) must both match — a relation term can be named either before
+// or after the description of what is happening.
+const FAMILY_VIOLENCE_DESCRIBED = new RegExp(
+  `\\b(?:${FAMILY_VIOLENCE_RELATION})\\b[\\s\\S]{0,40}\\b(?:${FAMILY_VIOLENCE_ACT})\\b|` +
+    `\\b(?:${FAMILY_VIOLENCE_ACT})\\b[\\s\\S]{0,40}\\b(?:${FAMILY_VIOLENCE_RELATION})\\b`,
+  "i",
+);
 const SEXUAL_ASSAULT = /\b(?:raped?|sexual(?:ly)?\s*assault(?:ed)?|molested|non[- ]?consensual)\b/i;
 
 // WACHS regional clinics publish 8.30am-4.30pm weekday hours (see the SVC-REG-* records'
@@ -46,20 +59,26 @@ const DAYTIME_START_MINUTE = 8 * 60 + 30; // 8:30am
 const AFTER_HOURS_START_MINUTE = 16 * 60 + 30; // 4:30pm
 
 const CLOCK_TIME_AMPM = /\b(1[0-2]|0?[1-9])(?::([0-5][0-9]))?\s*([ap])\.?\s*m\.?\b/i;
-// A bare 24-hour clock time, either "HH:MM" or four-digit military ("2230"). Checked
-// only when no am/pm marker is present, since "0730" military and "7:30" (no am/pm,
-// read as 24-hour) are otherwise ambiguous with a plain am/pm time already handled above.
-const CLOCK_TIME_24H = /\b([01][0-9]|2[0-3]):([0-5][0-9])\b|\b([01][0-9]|2[0-3])([0-5][0-9])\b/;
+// "HH:MM" 24-hour time — unambiguous, the colon can't mean anything else.
+const CLOCK_TIME_24H_COLON = /\b([01][0-9]|2[0-3]):([0-5][0-9])\b/;
+// Four-digit military time ("2230") is NOT matched bare — a bare four-digit number
+// is a year, a postcode fragment, or a date component far more often than it is a
+// time ("referral dated 14/03/2026" must not read as 20:26 and lose the daytime
+// route). It only counts as a clock time when explicitly marked with "h"/"hrs"/
+// "hours" ("2230h", "2230hrs", "2230 hours").
+const CLOCK_TIME_24H_MILITARY = /\b([01][0-9]|2[0-3])([0-5][0-9])\s?(?:hours?|hrs?|h)\b/i;
 
 function minutesToUrgency(totalMinutes: number): "after_hours" | "daytime" {
   return totalMinutes >= DAYTIME_START_MINUTE && totalMinutes < AFTER_HOURS_START_MINUTE ? "daytime" : "after_hours";
 }
 
 /**
- * Classifies a stated clock time (12-hour "11pm"/"4:45pm"/"7am", 24-hour "07:30", four-digit
- * military "2230", or the words "noon"/"midday"/"midnight") against WACHS regional clinic
- * hours (8.30am to 4.30pm weekdays). Returns "unknown" when the query names no clock time at
- * all — callers must not treat "unknown" as either daytime or after-hours.
+ * Classifies a stated clock time (12-hour "11pm"/"4:45pm"/"7am", 24-hour "07:30", explicitly
+ * marked military "2230hrs", or the words "noon"/"midday"/"midnight") against WACHS regional
+ * clinic hours (8.30am to 4.30pm weekdays). A bare four-digit number ("2026", "6000") is never
+ * read as a time — it is far more often a year or postcode — so military time requires an
+ * "h"/"hrs"/"hours" marker. Returns "unknown" when the query names no clock time at all —
+ * callers must not treat "unknown" as either daytime or after-hours.
  */
 export function detectClockTimeUrgency(query: string): "after_hours" | "daytime" | "unknown" {
   const text = query.toLowerCase();
@@ -80,10 +99,17 @@ export function detectClockTimeUrgency(query: string): "after_hours" | "daytime"
     return minutesToUrgency(hour * 60 + minute);
   }
 
-  const clock24 = text.match(CLOCK_TIME_24H);
-  if (clock24) {
-    const hour = Number.parseInt(clock24[1] ?? clock24[3], 10);
-    const minute = Number.parseInt(clock24[2] ?? clock24[4], 10);
+  const colon = text.match(CLOCK_TIME_24H_COLON);
+  if (colon) {
+    const hour = Number.parseInt(colon[1], 10);
+    const minute = Number.parseInt(colon[2], 10);
+    return minutesToUrgency(hour * 60 + minute);
+  }
+
+  const military = text.match(CLOCK_TIME_24H_MILITARY);
+  if (military) {
+    const hour = Number.parseInt(military[1], 10);
+    const minute = Number.parseInt(military[2], 10);
     return minutesToUrgency(hour * 60 + minute);
   }
 
@@ -165,7 +191,7 @@ export function detectServiceUrgentIntents(query: string): ServiceUrgentIntent[]
   if (crisis && !childOrYouth && (ADULT.test(clean) || METRO_OR_PEEL.test(clean))) {
     intents.push("adult_metro_crisis");
   }
-  if (AOD_TERMS.test(clean) && AOD_HELP_SEEKING.test(clean)) intents.push("aod_urgent");
+  if (AOD_TERMS.test(clean) && AOD_URGENCY.test(clean)) intents.push("aod_urgent");
   if (!immediateDanger && !postvention && AFTERCARE.test(clean)) intents.push("suicide_aftercare");
   if (postvention) intents.push("suicide_postvention");
 

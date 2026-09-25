@@ -40,4 +40,15 @@ describe("service-best-fit token coverage", () => {
     // "eating" is covered, "waitlist" is not — every token must match, not just some.
     expect(serviceMatchesEveryQueryToken(eatingDisorderService!, "eating disorder waitlist")).toBe(false);
   });
+
+  it("treats a plural query token as matching the record's singular word, and vice versa (#reviewer-finding-4)", () => {
+    const eatingDisorderService = serviceRecords.find((service) => /eating disorder/i.test(service.title));
+    expect(eatingDisorderService).toBeTruthy();
+
+    // The record's own title/text says "disorders" (plural) — a plural query must
+    // still get credit for the match, not be penalised for the exact word form.
+    expect(serviceMatchesEveryQueryToken(eatingDisorderService!, "eating disorders")).toBe(true);
+    // And the reverse still holds: an unrelated word must still fail to match.
+    expect(serviceMatchesEveryQueryToken(eatingDisorderService!, "panic disorder")).toBe(false);
+  });
 });
