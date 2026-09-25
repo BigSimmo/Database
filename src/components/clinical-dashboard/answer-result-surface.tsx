@@ -206,12 +206,15 @@ function StagedAnswerResultSurfaceImpl({
   // side card ever showed the difference, so a "medium" answer - which includes
   // the case of a high-risk claim resting on unreviewed-authority evidence - read
   // exactly like a fully verified one. Wording lives in AnswerCard.
+  // The word follows `supportLabelTrust`, which differs from `trust` only when a high-trust
+  // answer has claims not all direct on approved or locally reviewed sources, or none at all
+  // (#WGMB4Z decision 17): it then reads "Supported". Strong and supported share one tone.
   const answerSupport: AnswerSupportStrength =
-    renderModel.trust === "high"
+    renderModel.supportLabelTrust === "high"
       ? "strong"
-      : renderModel.trust === "medium"
+      : renderModel.supportLabelTrust === "medium"
         ? "supported"
-        : renderModel.trust === "low"
+        : renderModel.supportLabelTrust === "low"
           ? "limited"
           : "unassessed";
   const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);

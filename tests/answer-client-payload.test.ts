@@ -266,7 +266,7 @@ describe("toClientAnswerPayload", () => {
       expect(projectClientAnswerPayload(input, true)).toBeNull();
     }
   });
-  it.each(["retrievalGateBlocked", "authorityTrustCapRequired"])(
+  it.each(["retrievalGateBlocked", "authorityTrustCapRequired", "strongSupportLabelCapped"])(
     "FR4 rejects malformed optional safety boolean %s in both modes",
     (field) => {
       for (const strict of [false, true]) {
@@ -694,6 +694,8 @@ describe("toClientAnswerPayload", () => {
       sources: [],
       retrievalGateBlocked: false,
       authorityTrustCapRequired: false,
+      // #WGMB4Z decision 17: no assessed claims never earns the "Strong support" label.
+      strongSupportLabelCapped: true,
     });
     expect(toClientAnswerPayload(empty)).not.toBe(empty);
   });

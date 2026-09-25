@@ -987,12 +987,13 @@ export function compactEvidenceSummary(
   sourceSummary?: EvidenceSummary,
   renderModel?: AnswerRenderModel,
 ) {
+  // Label-only cap (#WGMB4Z decision 17): the word follows supportLabelTrust, not trust.
   const support =
-    renderModel?.trust === "high"
+    renderModel?.supportLabelTrust === "high"
       ? "Strong support"
-      : renderModel?.trust === "medium"
+      : renderModel?.supportLabelTrust === "medium"
         ? "Supported"
-        : renderModel?.trust === "low"
+        : renderModel?.supportLabelTrust === "low"
           ? "Limited support"
           : "Review support";
   const claimCount = renderModel?.evidenceRows.length || answer.answerSections?.length || answer.citations.length;

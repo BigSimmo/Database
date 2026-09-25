@@ -394,6 +394,145 @@ describe("answer render policy", () => {
     expect(model.trust).toBe("high");
   });
 
+  // #WGMB4Z (owner decisions 3, 10 and 17, Josh, 2026-09-25): the all-claims rule is LABEL
+  // ONLY. "Strong support" shows only when every claim is direct with approved or locally
+  // reviewed authority, and never when there are no assessed claims; everything else the
+  // render model decides (trust, quote cards, related documents, tables, source and row caps,
+  // warnings, copy text) stays exactly as main derives it. An explicit "false" opts the label
+  // back to following trust. The flag is computed when the payload is projected, so build it
+  // inside the env stub.
+  describe("strong-support label cap (#WGMB4Z decision 17)", () => {
+    type Claims = NonNullable<RagAnswer["supportedClaims"]>;
+    type Authority = "unverified" | "locally_reviewed" | "approved";
+    const claimsAnswer = (
+      claims: Claims | undefined,
+      authority: Authority = "unverified",
+      overrides: Partial<RagAnswer> = {},
+    ) =>
+      clientAnswer({
+        supportedClaims: claims,
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority,
+            currency: "current",
+            extractionQuality: "good",
+          },
+        },
+        ...overrides,
+      });
+    const routine = (supportStatus: "direct" | "partial" = "direct"): Claims => [
+      {
+        claimId: "claim-1",
+        text: "Document the review date.",
+        riskClass: "routine",
+        supportingChunkIds: ["chunk-1"],
+        supportStatus,
+      },
+    ];
+    const withEnv = <T>(value: string | undefined, run: () => T): T => {
+      vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", value);
+      try {
+        return run();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    };
+    const withoutLabel = (model: ReturnType<typeof buildAnswerRenderModel>) => ({
+      ...model,
+      supportLabelTrust: "ignored",
+    });
+
+    it.each([
+      ["no supportedClaims", undefined, "unverified"],
+      ["empty supportedClaims", [] as Claims, "unverified"],
+      ["a routine claim on unverified evidence", routine(), "unverified"],
+      ["a partial routine claim on approved evidence", routine("partial"), "approved"],
+    ] as const)(
+      "keeps trust high and every render cap as main for %s, but lowers only the label",
+      (_label, claims, authority) => {
+        const capped = withEnv(undefined, () => claimsAnswer(claims as Claims | undefined, authority));
+        const optedOut = withEnv("false", () => claimsAnswer(claims as Claims | undefined, authority));
+        expect(capped.authorityTrustCapRequired).toBe(false);
+        expect(capped.strongSupportLabelCapped).toBe(true);
+        expect(optedOut.strongSupportLabelCapped).toBe(false);
+
+        const model = buildAnswerRenderModel(capped, { includeDebugReasons: true });
+        expect(model.trust).toBe("high");
+        expect(model.supportLabelTrust).toBe("medium");
+        // Same quote cards, related documents and visual evidence main gives a high-trust answer.
+        expect(model.quoteCards).toHaveLength(1);
+        expect(model.relatedDocuments).toHaveLength(1);
+        expect(model.visualEvidence).toHaveLength(1);
+        expect(model.allowedBlocks).toEqual(expect.arrayContaining(["quoteCards", "relatedDocuments"]));
+        expect(model.copyText).toContain("Render trust: high");
+        // Nothing but the label differs from the opted-out (main) model.
+        const mainModel = buildAnswerRenderModel(optedOut, { includeDebugReasons: true });
+        expect(mainModel.supportLabelTrust).toBe("high");
+        expect(withoutLabel(model)).toEqual(withoutLabel(mainModel));
+      },
+    );
+
+    it.each(["locally_reviewed", "approved"] as const)(
+      "keeps Strong support when every claim is direct on %s evidence",
+      (authority) => {
+        const payload = withEnv(undefined, () => claimsAnswer(routine(), authority));
+        expect(payload.strongSupportLabelCapped).toBe(false);
+        const model = buildAnswerRenderModel(payload);
+        expect(model.trust).toBe("high");
+        expect(model.supportLabelTrust).toBe("high");
+      },
+    );
+
+    it.each(["", "0", "off", "False", "true"])(
+      'keeps the label cap on for a D5 value that is not exactly "false" (%j)',
+      (value) => {
+        const payload = withEnv(value, () => claimsAnswer(routine(), "unverified"));
+        expect(payload.strongSupportLabelCapped).toBe(true);
+        expect(buildAnswerRenderModel(payload).supportLabelTrust).not.toBe("high");
+      },
+    );
+
+    it('lets the label follow trust when the D5 flag is explicitly "false"', () => {
+      for (const claims of [undefined, [] as Claims, routine()]) {
+        const payload = withEnv("false", () => claimsAnswer(claims, "unverified"));
+        expect(payload.strongSupportLabelCapped).toBe(false);
+        const model = buildAnswerRenderModel(payload);
+        expect(model.trust).toBe("high");
+        expect(model.supportLabelTrust).toBe("high");
+      }
+    });
+
+    it("never raises the label above trust, and leaves medium, low and unsupported answers alone", () => {
+      withEnv(undefined, () => {
+        for (const [overrides, trust] of [
+          [{ confidence: "medium" }, "medium"],
+          [{ confidence: "low" }, "low"],
+          [{ grounded: false }, "unsupported"],
+        ] as const) {
+          const model = buildAnswerRenderModel(claimsAnswer([], "unverified", overrides));
+          expect(model.trust).toBe(trust);
+          expect(model.supportLabelTrust).toBe(trust);
+        }
+        const reviewedMedium = buildAnswerRenderModel(
+          claimsAnswer(routine(), "locally_reviewed", { confidence: "medium" }),
+        );
+        expect(reviewedMedium.supportLabelTrust).toBe("medium");
+      });
+    });
+
+    it("treats a stored payload without the label field as main did (label follows trust)", () => {
+      // Saved or restored answers produced before this field existed carry no flag. They keep
+      // main's behaviour rather than guessing; the stored-thread label is queued separately.
+      const legacy = withEnv(undefined, () => claimsAnswer(routine(), "unverified"));
+      delete (legacy as { strongSupportLabelCapped?: boolean }).strongSupportLabelCapped;
+      const model = buildAnswerRenderModel(legacy);
+      expect(model.trust).toBe("high");
+      expect(model.supportLabelTrust).toBe("high");
+    });
+  });
+
   it("caps trust for ANY claim on unverified evidence when NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is on (D5)", () => {
     vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
     try {
