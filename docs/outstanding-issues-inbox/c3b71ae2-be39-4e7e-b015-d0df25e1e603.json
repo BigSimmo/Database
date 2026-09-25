@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "c3b71ae2-be39-4e7e-b015-d0df25e1e603",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#EKB6XR",
+    "outcome": "Resolved 2026-09-25 (ledger review). The 2026-09-20 visual/UX audit drove real clicks at 1440 and 390 px and saw no premature close; b0e6e944e fixed the adjacent stray-backdrop click with jsdom tests. Residual is a P3 test gap only (no elementFromPoint hit-test over the PHQ-9 controls), not a live defect.",
+    "baseRowFingerprint": "d9856c162db21fb32e2205b1a8c7a59bc36f54bb96eefb9ffa14e76dfc1d52ca"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "36196052-d71f-45e5-8445-e82852959162",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#4DFNHJ",
+    "summary": "Six corrected ledger sources were reset to unverified and need a fresh owner review, not a re-attestation",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): PR #2815 (5b1a8cf8f) reset all six to validationStatus unverified; only two records in src/data/source-acquisitions.json are still locally_reviewed, and they are other Chief Psychiatrist sources. The six now sit in the Sources sign-off queue as ordinary candidates. PRIOR DETAIL: IMPLEMENTED 2026-09-16 by commit 2f7072e43: the six publisher-page corrections (RANZCP mood guideline documentStatus outdated; five Chief Psychiatrist guidelines publicationDate 2015-12-01 and version December 2025 revision) are applied. Residual only: all six remain validationStatus locally_reviewed from the owner's 2026-09-06 sign-off, which predates the corrections, so each still needs owner re-attestation rather than another agent edit. CORRECTION to the original claim that wrong publication dates overstated Currency by about ten years: Currency is scored from documentStatus alone in src/lib/sources/catalogue-core.ts; publicationDate contributes only a boolean to traceability. Measured: the five Chief Psychiatrist guidelines score 91 band A both before and after; only the RANZCP documentStatus change moved a score (band A to B, 89 to 74). Verify with npm run check:source-acquisitions.",
+    "baseRowFingerprint": "1ae031b9d8c3df9a9e287a3c1ff8b7ec281364f4783ee0a5d71cbd0ab90b1ff2"
+  }
+}

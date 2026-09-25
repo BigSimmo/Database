@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ff69f9b7-1a1c-4426-a466-fd4916ebddc1",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#5AA5CD",
+    "outcome": "Resolved 2026-09-25 (ledger review). Merged into #HTZPQ8. The blocking read is done (live still served e4a1dd29, initialized=false); what remains is the standing STOP (never regenerate the freeze; use the publication pipeline), now carried in #HTZPQ8.",
+    "baseRowFingerprint": "16344a561c01cf2b930de69d161d3d2d0b42c66e540cc857dcecef7c76ee36a8"
+  }
+}

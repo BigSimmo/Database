@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ab197b36-0cce-4f4d-bcd6-d4bf8db526db",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#4WR2XZ",
+    "outcome": "Resolved 2026-09-25 (ledger review). Merged into #GJHKYC. Cause fixed on main by PR #2810 (db7432a9b; 459ef625a, 3239982b5). The only remaining action is the operator re-index, which #GJHKYC sequences.",
+    "baseRowFingerprint": "a40f834bd7afe27e101f5840997780c849decff5510e21571f0ba55535e94cdc"
+  }
+}

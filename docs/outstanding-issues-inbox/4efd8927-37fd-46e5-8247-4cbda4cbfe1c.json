@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "4efd8927-37fd-46e5-8247-4cbda4cbfe1c",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#WY625D",
+    "summary": "Twenty-one dictionary sources need a publication date",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Dispositions now show 40 held and 18 admitted (row said 41 held). The 'publisher registered, date still required' blocker applies to 12 sources, not 17. The AIHW premise is stale: PR #2819 (8cdadc445) read the AIHW pages; AIHW-OAT-2026 is admitted, and AOD, NASS and SUICIDE are held because the publisher gives only an update stamp or undated page, not because of a 403. The count of 21 needing a date is correct. PRIOR DETAIL: After the 2026-09-16 register work, 41 of the 58 dictionary-handover sources remain held and the binding constraint is now a date rather than governance. None of the 41 carries a publication or review date in the handover. Seventeen have a publisher that is now registered and need only a date read from the publisher's own page. Four AIHW pages (alcohol and other drug treatment glossary, suicide and self-harm monitoring glossary, ambulance attendances, opioid agonist therapy in the prisons report) returned HTTP 403 to automated fetch; AIHW is registered and ledger-eligible, so a release date is the only thing missing for all four. A WA Health PDF and the national recovery framework also need a browser read. Per-source blockers and next actions are in src/data/dictionary-source-dispositions.json.",
+    "baseRowFingerprint": "1e202cab3211f30c98ec519b7f5e3842cdfb5fc0a9f83437d3a9cab40570554f"
+  }
+}

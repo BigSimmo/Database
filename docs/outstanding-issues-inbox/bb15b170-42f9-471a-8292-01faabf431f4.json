@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "bb15b170-42f9-471a-8292-01faabf431f4",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "9b13732a-e1b2-4dd9-9b99-d2f5aef89a0c",
+    "reason": "Stale on review 2026-09-25: already fixed on main. PR #2902 merged (3a43f808d); drift manifest regenerated (b4b03be1c, 4dfbf2e11); tests/drift-detection.test.ts passes 21/21."
+  }
+}

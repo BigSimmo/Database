@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c7a4d64d-13e3-49ca-8cad-a68567d75729",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "136b7cbb-6003-4e2c-8655-addd9630fc48",
+    "reason": "Stale on review 2026-09-25: already fixed on main. Owner check landed in src/lib/cme/repository.ts plus a cme_save_entry re-check, pinned by 72fb1622d tests."
+  }
+}

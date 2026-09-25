@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2a36a030-3a5a-4eac-a4de-cfbcb2bcb945",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#VKH7N1",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): No newly approved paid dispatch is needed. The weekly scheduled canary has run at least five times since 2026-08-18, and npm run eval:trend -- --case neuroleptic-side-effect-escalation reads downloaded artifacts offline (retention 30 days, so the original run is gone). Next action: one GitHub read of the retained artifacts (owner go-ahead, no spend); close if there is no repeat. PRIOR DETAIL: Run 32111839806 (canary pair 32100681177 -> 32111839806, otherwise green): strong generation took 20.2 s on neuroleptic-side-effect-escalation, flagged as a non-blocking latency advisory. Answer was still grounded via the source-backed extractive fallback. Watch on subsequent canaries; escalate only if it repeats or worsens. PARKED 2026-09-18: closing this needs a provider-backed eval-canary dispatch (roughly 1-2 US dollars) which is never automatic and needs explicit owner approval, and there is nothing to fix until a second sighting shows it is not a one-off. TO UNBLOCK: approve one canary pair and compare the neuroleptic-side-effect-escalation latency against the 20 s advisory.",
+    "baseRowFingerprint": "eb52258e1b7dcd08387f7f036522bb2561d381da9e38075362dc8d16552f402d"
+  }
+}

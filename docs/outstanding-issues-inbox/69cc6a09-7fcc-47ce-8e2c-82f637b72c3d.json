@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "69cc6a09-7fcc-47ce-8e2c-82f637b72c3d",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "task",
+    "summary": "CME adoption contract still cites shared evidence for dark, forced-colours and print although CME-specific tests now exist",
+    "detail": "Narrowed on review 2026-09-25: tests/ui-cme-phone.spec.ts (13a1f2eee) now has CME-specific dark, forced-colours and print checks, but docs/design-system/adoption-contract.json still cites only the shared evidence files for the CME routes (now 12 CME routes, plus 15 On Call routes in the same group). Remaining: a manifest edit pointing at the CME captures, noting the forced-colours check covers /cme/setup only.",
+    "source": "PR #2902 task-16 report 2026-09-20; narrowed by ledger review 2026-09-25",
+    "issueUlid": "01M3CB4CJ2BSFZ238TE3DNM7EV"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "id": "e2dd5692-58eb-49e7-bb53-98ea63fb1507",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#6GR6B8",
+    "pri": "P3",
+    "summary": "Tablet: owner confirmation of intended cross-mode search behaviour (the forms-blank defect is fixed)",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The only defect (forms transport search blank) shipped in PR #2887. What remains is owner confirmation of cross-mode behaviour; code matches the row's reading (activeIndex starts at -1, pinned top hit reads 'Also in <Mode>', chip aria-label 'Search \"<q>\" in <Mode>'). The '#SZA102 is NOT closed' framing is obsolete; #SZA102 is fixed. PRIOR DETAIL: PARTIAL 2026-09-18 (PR #2887, merged). (1) FORMS BLANK FIXED, and it was not a missing index — 'transport' is indexed six ways over in form-register.ts and is an explicit broad term in form-ranker.ts. Two mechanisms could empty the list in forms-search-results-page.tsx: registry records not yet arrived (loading, unauthorised and error all rendered as null, which reads as 'no results'), and a stale category= or risk= filter carried in the URL. Loading now renders a skeleton; unauthorised and error render a degraded empty state that says which of the three it is and offers a route to clear a filter that is hiding everything. (2) AND (3) SERTRALINE AND AKATHISIA ARE NOT MISROUTES — they are the cross-mode feature working as designed, which is why the phone paths differed (the dropdown never renders below 640px or without a fine pointer). Every mode-leaving option is labelled where it is offered: the section prints a visible 'Search \"<query>\" in' lead before the destination chips, the pinned top hit carries 'Also in <Mode>', and activeIndex initialises to -1 so Enter runs the ordinary search — only a deliberate click or arrow-key selection navigates away. STATED PLAINLY: that was established by reading the source, NOT by driving the dropdown in a browser. This row stays open for the owner to confirm against real use before it closes. One real gap found while doing so, fixed separately in PR #2895: each cross-mode chip's accessible name was the mode label alone, because the 'Search ... in' lead sits outside every role=option.",
+    "baseRowFingerprint": "2f0ab0ae167f5268f1b08fc37b474b8ab8659511eac48f22a19bc7abffdbf871"
+  }
+}

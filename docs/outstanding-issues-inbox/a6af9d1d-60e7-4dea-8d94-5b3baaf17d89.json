@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "a6af9d1d-60e7-4dea-8d94-5b3baaf17d89",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "0570ff91-02ef-43fe-b7f8-d5a42b9fe4a4",
+    "reason": "Stale on review 2026-09-25: already fixed on main. Routines are real: New routine opens the in-page editor and Log a routine pre-fills id, title and usual allocations."
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "fbc6b071-6668-42a5-8473-942285c82bbb",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#QCNE6N",
+    "outcome": "Resolved 2026-09-25 (ledger review). 22673c184 (PR #2889) made check:chain-mirror-parity --strict blocking in ci.yml. The only remaining blind spot, comment stripping inside def_hash, is tracked as #81A3YJ.",
+    "baseRowFingerprint": "a30ecd0340f701ef4e4fb781905ed593b7ba32e37e0802e0db1b050280156fbb"
+  }
+}

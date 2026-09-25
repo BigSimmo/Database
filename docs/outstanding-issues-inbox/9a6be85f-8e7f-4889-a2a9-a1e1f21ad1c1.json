@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "9a6be85f-8e7f-4889-a2a9-a1e1f21ad1c1",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#SXPQ0A",
+    "outcome": "Resolved 2026-09-25 (ledger review). Merged into #J8SJQ9. 'Nothing tracks it' was obsolete since PR #2884. The three failing canary cases (clozapine-monitoring, clozapine-monitoring-paraphrase, nocc-requirements) are the same failure family and first diagnostic step as #J8SJQ9.",
+    "baseRowFingerprint": "fadca1525cd6fb3d06d6ab27502a5f8bbce00feeb4b80c471dc93078addbf4ff"
+  }
+}

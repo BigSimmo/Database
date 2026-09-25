@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "fa40025e-241e-40c9-85f6-2099b3705cf7",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "cc90bdc8-765f-4dc5-94ea-b0edbf354535",
+    "reason": "Stale on review 2026-09-25: already fixed on main. Same migration 20260925064000 adds cme_close_year, snapshot and amendment tables, immutability triggers and closed-year guards."
+  }
+}

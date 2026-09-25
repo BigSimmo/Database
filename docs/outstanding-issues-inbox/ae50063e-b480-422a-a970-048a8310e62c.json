@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "ae50063e-b480-422a-a970-048a8310e62c",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#CNCAFV",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Reproduced offline: searchServiceRecords keeps any record scoring > 0 on any term (catalog-search.ts:211-295). 'panic disorder' returns 23 results with five eating-disorder or attention-disorder services in the top 5; 'panic disorder criteria' returns 206. 'Best fit' is ranks 1-2 (services-navigator-page.tsx). Correction: catalog-search.ts and service-ranker.ts are not in ragRankingPatterns and the retrieval eval-canary does not exercise catalogue search, so replace 'flag and canary before editing' with a requirement for catalogue-search unit tests. PRIOR DETAIL: 'panic disorder' returns eating-disorder services in positions 1-5, top two badged 'Best fit'. Counts: services empty 244, nonsense 0, 'panic disorder criteria' 206 of 244, 'lithium' 0. Therapy Compass: empty 205, 'panic disorder criteria' 105. The badge is the part that lies; an unranked list would be honest. Ranking surface: flag and canary before editing.",
+    "baseRowFingerprint": "dedf692cc637b83298233d6d6414fb860d0c119913df597234296ed801c71f68"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "c8875daf-dbaf-4f71-b347-696ee143a641",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "488d135f-1e74-46f4-9107-de6e3d918278",
+    "reason": "Replaced on review 2026-09-25 by a narrowed request: CME-specific dark, forced-colours and print browser tests now exist."
+  }
+}
