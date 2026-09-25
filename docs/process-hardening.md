@@ -303,6 +303,46 @@ API rather than estimated:
   works, and it encodes undocumented scheduler behaviour into filenames where the next reader
   cannot see it.
 
+## CI waste on red and superseded runs, measured (2026-09-25)
+
+Read from the Actions API for PR runs `36110977826`, `36113010077`, `36107996148` and main run
+`36116008648`. Two changes shipped; the rest are recorded here as measured, not yet acted on.
+
+- **Shipped — browser lanes wait for `static-pr`.** `static-pr` and `ui-playwright-build` finished
+  within seconds of each other (5.2m/5.2m, 5.4m/5.3m, 4.4m/5.0m), so the three browser lanes now
+  also `need` it. A green run waits for nothing; a lint, typecheck, format, snapshot or contract
+  failure no longer books ~30 runner-minutes of browser tests on a head that must be re-pushed.
+  `pr-required` stays red on the static failure and reports the skipped lanes as deferred.
+  The producer deliberately does not wait: gating the build would add ~5 minutes to every run.
+- **Shipped — the Playwright build artifact no longer carries the webpack cache.** Measured
+  locally, the build root was ~2.2 GB of which `dist/cache/webpack` was ~2.0 GB; the hosted
+  artifact was 336,815,208 bytes compressed. Upload took ~40 s on the critical path and each of
+  the five consumers spent ~13 s downloading it. Consumers only `next start` a finished build.
+  Only `cache/webpack` is excluded — `cache/fetch-cache` is runtime data. Hosted timing of the
+  smaller artifact is not yet measured; read it from the first UI-scope PR run after this lands.
+- **Not acted on — main re-runs the whole PR suite.** Every push to `main` repeats static,
+  coverage, build, Lighthouse and the three Chromium shards (~70 runner-minutes) that the merged
+  PR already ran, then ~200 runner-minutes of Firefox/WebKit (`release-browser-matrix`), which was
+  red on 7 of the last 8 pushes. Until that matrix is green (`#T82ND3`) those minutes buy no
+  signal. Skipping the repeated Chromium work on `main` would reverse the 2026-08-18 decision above
+  that `main` is always verified, so it needs an owner decision, not an agent edit.
+- **Shipped — shard rebalance, and a correction.** Per-file timings from the retained
+  `production-ui-timings-*` artifacts of PR runs `36113010077` and `36135682519` put the three
+  post-critical groups at about 421s / 378s / 436s of tests: shard 3 is heaviest by roughly
+  20–40 seconds, not ~2 minutes. Job-step times alone overstated it, because a single run
+  varies by up to ~100 seconds per shard (the same shard ran 6.0m on one run and 6.8m on the
+  next). The profile in `scripts/playwright-pr-shards.mjs` now carries those means, and
+  `ui-sources` and `ui-stress` moved to shard 2, giving estimates of 414s / 409s / 413s
+  post-critical. Shard 3 also boots the seeded Caring Contacts server, which the profile does
+  not model.
+- **Not acted on — unit coverage partitions.** Vitest `--shard` splits by file count, and the two
+  partitions ran 8.1m vs 6.6m and 8.4m vs 7.0m. For a code change without UI scope this is the
+  critical path.
+- **Churn, not configuration.** 11 of the last 30 PR runs were cancelled by a newer push, and
+  many of the rest follow a `Merge branch 'main' into …` commit. On 2026-09-25 four Dependabot
+  PRs were brought up to date in the same minute, booking four full runs at once. The
+  branch-sync rule in `AGENTS.md` (sync once, when otherwise ready) is the lever here.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the ordinary pre-PR local gate: `check:installed-lock-parity`, then lint, typecheck, and the full offline unit suite. Nothing else. Run it freely — it is meant to be cheap enough not to think about. The parity step stays because it is sub-second and, without it, the other three would happily report green against a stale `node_modules`.

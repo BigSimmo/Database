@@ -126,10 +126,22 @@ describe("CI cache safety", () => {
     // serialize on each other (critical must not need the shard job or vice versa).
     const uiJob = /\n  ui-critical:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
     const uiFast = /\n  ui-critical-fast:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    expect(uiJob).toContain("needs: [changes, ui-playwright-build]");
-    expect(uiFast).toContain("needs: [changes, ui-playwright-build]");
+    expect(uiJob).toContain("needs: [changes, static-pr, ui-playwright-build]");
+    expect(uiFast).toContain("needs: [changes, static-pr, ui-playwright-build]");
     expect(uiJob).not.toContain("ui-critical-fast");
     expect(uiFast).not.toContain("ui-critical:");
+  });
+
+  it("skips the browser lanes when static-pr fails, instead of running them on a head that must be re-pushed", () => {
+    // static-pr and the Playwright build finish within seconds of each other on hosted runs,
+    // so waiting on static-pr costs a green run nothing and saves ~30 runner-minutes on a red
+    // one. All three browser lanes must carry it, or a static failure still books that lane.
+    const ward = /\n  ui-ward-journeys:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(ward).toContain("needs: [changes, static-pr, ui-playwright-build]");
+    // The producer must NOT wait on static-pr: that would serialise the build behind it and
+    // add ~5 minutes to every green UI run.
+    const producer = /\n  ui-playwright-build:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(producer).toMatch(/\n    needs: changes\n/);
   });
 
   it("routes the blocking ingestion scan through the required aggregate", () => {
@@ -885,6 +897,34 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // Out of scope: no UI change, and drafts. Skipped is correct and must not fail the aggregate.
     expect(runAggregate({ UI_CHANGED: "false", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
     expect(runAggregate({ ...uiPr, PR_DRAFT: "true", WARD_JOURNEYS_RESULT: "skipped" }).status).toBe(0);
+  });
+
+  it("stays red on a static failure and reports the browser lanes it skipped as deferred, not failed", () => {
+    // The browser lanes need static-pr, so a static failure skips them. The aggregate must stay
+    // red on the static failure itself, and must not add three "result was skipped" lines that
+    // say nothing about the diff.
+    const staticRed = {
+      UI_CHANGED: "true",
+      STATIC_RESULT: "failure",
+      UI_BUILD_RESULT: "success",
+      UI_FAST_RESULT: "skipped",
+      UI_RESULT: "skipped",
+      WARD_JOURNEYS_RESULT: "skipped",
+    } as const;
+    const red = runAggregate(staticRed);
+    expect(red.status).not.toBe(0);
+    expect(red.output).toContain("static-pr result was failure");
+    expect(red.output).not.toContain("production-ui result was skipped");
+    expect(red.output).not.toContain("production-ui-critical result was skipped");
+    expect(red.output).not.toContain("ward-flow-journeys result was skipped");
+    expect(red.output).toContain("Browser tests deferred");
+    // A lane that somehow ran and failed is still reported as a failure.
+    expect(runAggregate({ ...staticRed, UI_RESULT: "failure" }).output).toContain("production-ui result was failure");
+    // With static green, a skipped browser lane is still a failure — the deferral is only for a red static-pr.
+    expect(runAggregate({ ...staticRed, STATIC_RESULT: "success" }).status).not.toBe(0);
+    expect(runAggregate({ ...staticRed, STATIC_RESULT: "success" }).output).toContain(
+      "production-ui result was skipped",
+    );
   });
 
   it("never puts a status-check function anywhere but an `if:` condition", () => {

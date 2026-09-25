@@ -100,6 +100,21 @@ const SECTION_LIST_TEST_IDS: Record<string, string> = {
 async function openBoard(page: Page, route: string, width = BOARD_WIDTH) {
   await page.setViewportSize({ width, height: BOARD_HEIGHT });
   await page.goto(route, { waitUntil: "domcontentloaded" });
+  // Every On Call route streams through the `(search-app)` group's `loading.tsx`
+  // Suspense boundary, so React parks a second, hidden copy of the page in a
+  // `<div hidden id="S:n">` staging container at the end of `<body>` until its
+  // deferred reveal (`$RC` -> `$RV`, scheduled on a frame) removes it. Until
+  // then every testid below resolves to two elements — the live one and the
+  // staged orphan — and a strict locator fails on the pair rather than on
+  // anything being wrong with the board. CI caught exactly that on the hub:
+  // `on-call-home-sections` once inside `mobile-composer-reserve-pad`, once in
+  // the staging copy. Wait for the document to settle to ONE copy, as the ward
+  // journeys do, rather than relaxing the locators to `.first()` — that would
+  // leave them free to assert against the inert staged copy.
+  await expect(
+    page.locator('div[hidden][id^="S:"]'),
+    "React's streamed content is still staged, so the whole page is duplicated in the document",
+  ).toHaveCount(0, { timeout: 20_000 });
   // The entry store fetches on the client, so every board below waits on data
   // rather than on the shell. The hub has no page header, so the two wait on
   // different things: the hub on its tile grid, a section page on its header.
