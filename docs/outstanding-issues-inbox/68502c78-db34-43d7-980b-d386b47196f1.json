@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "68502c78-db34-43d7-980b-d386b47196f1",
+  "createdOn": "2026-09-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Clinical KB: PROXY_AUTH dedicated secret in quiet change window",
+    "detail": "Introduce a dedicated PROXY_AUTH / signing secret (not on Railway by name today). Quiet change window only. See docs/supabase-remediation-closeout-notes.md §1.5 (PR #2959).",
+    "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
+    "issueUlid": "01M31F4Y1H789SD7DBX940FYMC"
+  }
+}

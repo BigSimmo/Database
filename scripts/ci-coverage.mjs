@@ -20,7 +20,10 @@ import path from "node:path";
  * Anchored the same way `check-gate-manifest.mjs` anchors it, so a comment
  * mentioning `run: npm run X` cannot masquerade as an executed step.
  */
-const npmRunScript = (line) => line.match(/^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)\s*(?:#.*)?$/)?.[1];
+const npmRunScript = (line) =>
+  line.match(
+    /^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)(?:\s+--\s+--merge-reports=[\w./-]+(?:\s+--reporter=default)?)?\s*(?:#.*)?$/,
+  )?.[1];
 
 /** A `run: |` or `run: >` block opener; its body is the following more-indented lines. */
 const isRunBlockOpener = (line) => /^\s*(?:-\s*)?run:\s*[|>][-+]?\s*$/.test(line);

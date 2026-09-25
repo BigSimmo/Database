@@ -48,7 +48,12 @@ const OWNER_SCOPED_API_TABLES = new Set([
   // contains — an aspirational entry here would make the guard pass over a
   // table no route has ever been checked against.
   "cme_entries",
-  "cme_years",
+  // Evidence attachments, queried directly by the evidence upload/download routes
+  // (`src/app/api/cme/entries/[id]/evidence/**`). `cme_years` moved OFF this list: it is
+  // reached only through `src/lib/cme/repository.ts` and `evidence-repository.ts` now, never
+  // directly by an API route, so keeping it here would make the guard pass over a table no
+  // route has been checked against.
+  "cme_evidence",
   "document_index_quality",
   "document_labels",
   "document_summaries",
@@ -444,9 +449,23 @@ describe("tenancy table tiers", () => {
     for (const table of derived) expect(tiers.derived.has(table), `${table} is not a derived-tier table`).toBe(true);
     expect(direct.length + userKeyed.length + derived.length).toBeGreaterThan(0);
 
-    // The user-keyed tier is small and fully enumerated: withOwnerReadScope cannot be used
-    // on it (it filters owner_id), so every call site hand-rolls .eq("user_id", …).
-    expect([...tiers.userKeyed].sort()).toEqual(["user_favourite_sets", "user_favourites", "user_preferences"]);
+    // The full column-derived user-keyed tier, independent of whether anything under
+    // src/app/api or SCANNED_LIB_MODULES queries a table directly. `on_call_service_members`
+    // and `on_call_service_orientation` carry a `user_id` column (supabase/migrations/
+    // 20260922174716_on_call_service_handbooks.sql) and so classify into this tier by shape —
+    // but every read/write against them goes through `on_call_service_command`, the single
+    // security-invoker RPC, never a direct `.from()` in a scanned file. That is why they
+    // appear here and NOT in the queried-tables assertion below.
+    expect([...tiers.userKeyed].sort()).toEqual([
+      "on_call_service_members",
+      "on_call_service_orientation",
+      "user_favourite_sets",
+      "user_favourites",
+      "user_preferences",
+    ]);
+    // The user-keyed tier ACTUALLY QUERIED by scanned files is small and fully enumerated:
+    // withOwnerReadScope cannot be used on it (it filters owner_id), so every call site
+    // hand-rolls .eq("user_id", …).
     expect(userKeyed).toEqual(["user_favourite_sets", "user_favourites", "user_preferences"]);
   });
 });

@@ -1,7 +1,10 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 
 import { describe, expect, it } from "vitest";
+import fullConfig from "../vitest.config.mjs";
+import shardConfig from "../vitest.coverage-shard.config.mjs";
 
 import { selectedScripts } from "../scripts/verify-pr-local.mjs";
 import { sourceFrom, sourceSegment } from "./helpers/source-contract";
@@ -20,7 +23,77 @@ const liveWebVitalsWorkflow = readFileSync(
 );
 const opsDigestWorkflow = readFileSync(new URL("../.github/workflows/ops-digest.yml", import.meta.url), "utf8");
 
+describe("partitioned unit coverage verdict", () => {
+  const workflow = createRequire(import.meta.url)("js-yaml").load(
+    readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
+  );
+  const partitions = workflow.jobs["coverage-shards"];
+  const aggregate = workflow.jobs.coverage;
+
+  it("keeps the full test inventory and defers only coverage reporting and thresholds", () => {
+    expect(shardConfig).toEqual({
+      ...fullConfig,
+      test: { ...fullConfig.test, coverage: { ...fullConfig.test.coverage, reporter: [], thresholds: undefined } },
+    });
+    expect(fullConfig.test.coverage.thresholds).toBeDefined();
+    expect(partitions.strategy.matrix.shard).toEqual([1, 2]);
+    expect(partitions.strategy["fail-fast"]).toBe(false);
+    expect(partitions["continue-on-error"]).toBeUndefined();
+    const run = partitions.steps.find((step: { run?: string }) => step.run?.includes("--shard="));
+    expect(run.run).toContain("--shard=${{ matrix.shard }}/2");
+    expect(run.run).toContain("--reporter=blob");
+    expect(run["continue-on-error"]).toBeUndefined();
+  });
+
+  it("fails the required aggregate on unsuccessful or missing partitions", () => {
+    expect(aggregate.needs).toContain("coverage-shards");
+    expect(aggregate.if).toContain("always()");
+    expect(aggregate.steps[0].env.SHARD_RESULT).toBe("${{ needs.coverage-shards.result }}");
+    expect(aggregate.steps[0].run).toBe('test "$SHARD_RESULT" = success');
+    expect(aggregate.steps[0]["continue-on-error"]).toBeUndefined();
+    const merge = aggregate.steps.find((step: { run?: string }) => step.run?.includes("--merge-reports="));
+    const presence = aggregate.steps.find((step: { name: string }) => step.name === "Require both coverage reports");
+    for (const shard of [1, 2]) expect(presence.run).toContain(`test -s .vitest-ci/coverage-${shard}.json`);
+    expect(aggregate.steps.indexOf(presence)).toBeLessThan(aggregate.steps.indexOf(merge));
+    expect(presence["continue-on-error"]).toBeUndefined();
+    expect(merge.run).toContain("npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default");
+    expect(merge.run).not.toContain("--config");
+    expect(merge["continue-on-error"]).toBeUndefined();
+    expect(workflow.jobs["pr-required"].needs).toContain("coverage");
+  });
+});
+
 describe("CI cache safety", () => {
+  it("supports job reruns without artifact collisions or losing prior diagnostics", () => {
+    const parsed = createRequire(import.meta.url)("js-yaml").load(workflow);
+    let uploads = 0;
+    for (const [jobId, job] of Object.entries(parsed.jobs)) {
+      for (const step of (job as { steps?: Array<{ uses?: string; with?: Record<string, unknown> }> }).steps ?? []) {
+        if (!step.uses?.startsWith("actions/upload-artifact@")) continue;
+        uploads += 1;
+        const inputs = step.with!;
+        if (!/(?:diagnostics|timings)-/.test(String(inputs.name))) {
+          // Keep download contracts stable for downstream jobs and operator
+          // tools such as adopt-visual-baselines, including failed-job reruns.
+          expect(inputs.overwrite, jobId).toBe(true);
+          expect(inputs.name, jobId).not.toContain("github.run_attempt");
+        } else {
+          // Diagnostic/timing reports retain each attempt's proof.
+          expect(inputs.name, jobId).toContain("${{ github.run_attempt }}");
+          expect(inputs.overwrite, jobId).not.toBe(true);
+        }
+      }
+    }
+    expect(uploads).toBeGreaterThan(0);
+  });
+
+  it("preserves successful production shard reports for measured rebalancing", () => {
+    const timingStep = sourceSegment(workflow, "name: Preserve production shard timings", "  ui-ward-journeys:");
+    expect(timingStep).toContain("if: always()");
+    expect(timingStep).toContain("production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}");
+    expect(timingStep).toContain("path: test-results/playwright-results.json");
+    expect(timingStep).toContain("retention-days: 7");
+  });
   it("does not add a PR workflow that changes user-owned auto-merge state", () => {
     expect(existsSync(new URL("../.github/workflows/keep-pr-auto-merge.yml", import.meta.url))).toBe(false);
   });
@@ -48,10 +121,15 @@ describe("CI cache safety", () => {
     expect(prShardRunner).toContain('"@quarantine|@mockup"');
   });
 
-  it("starts the critical subset and required shards concurrently", () => {
+  it("starts the critical subset and required shards concurrently after the shared Next build", () => {
+    // Both lanes wait on ui-playwright-build, then fan out together — they must not
+    // serialize on each other (critical must not need the shard job or vice versa).
     const uiJob = /\n  ui-critical:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
-    expect(uiJob).toContain("needs: changes");
+    const uiFast = /\n  ui-critical-fast:\n([\s\S]*?)(?=\n  [a-z][\w-]*:\n)/.exec(workflow)?.[1] ?? "";
+    expect(uiJob).toContain("needs: [changes, ui-playwright-build]");
+    expect(uiFast).toContain("needs: [changes, ui-playwright-build]");
     expect(uiJob).not.toContain("ui-critical-fast");
+    expect(uiFast).not.toContain("ui-critical:");
   });
 
   it("routes the blocking ingestion scan through the required aggregate", () => {
@@ -79,7 +157,9 @@ describe("CI cache safety", () => {
   it("installs Playwright system dependencies when browser caches hit", () => {
     expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
     expect(lighthouseChromiumSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
-    expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
+    expect(workflow).toMatch(
+      /cache-hit.*?install-deps "\$BROWSER_ENGINE"\n\s+npx playwright install "\$BROWSER_ENGINE"/s,
+    );
   });
 
   it("hardens Playwright browser and dependency installation against flaky Ubuntu mirrors and apt hangs", () => {
@@ -329,7 +409,7 @@ describe("CI cache safety", () => {
     // playwright.config.ts project is not assigned to an engine.
     expect(releaseJob).toContain('chromium) PROJECTS="--project=chromium-mockups"');
     expect(releaseJob).toContain('firefox)  PROJECTS="--project=firefox"');
-    expect(releaseJob).toContain('webkit)   PROJECTS="--project=webkit"');
+    expect(releaseJob).toContain('webkit)   PROJECTS="--project=$BROWSER_PROJECT"');
   });
 
   it("scopes the main-branch release backstop to UI, performance, or lockfile risk", () => {
@@ -470,6 +550,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
      */
     LIGHTHOUSE_LABEL: "false",
     SKIP_LIGHTHOUSE_LABEL: "false",
+    REFRESH_LIGHTHOUSE_BASELINE: "false",
     CONTAINER_CHANGED: "false",
     PR_DRAFT: "false",
     EVENT_NAME: "pull_request",
@@ -482,6 +563,8 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     BUILD_RESULT: "skipped",
     CONTAINER_RESULT: "skipped",
     // Critical-first UI job (this PR); skipped when ui_changed is false.
+    // Shared Playwright Next build producer — same UI_CHANGED gate; bind with the consumers.
+    UI_BUILD_RESULT: "skipped",
     UI_FAST_RESULT: "skipped",
     UI_RESULT: "skipped",
     LIGHTHOUSE_RESULT: "skipped",
@@ -562,6 +645,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "skipped",
         PR_DRAFT: "true",
         UI_FAST_RESULT: "skipped",
         UI_RESULT: "skipped",
@@ -613,6 +697,27 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     const lightDraft = runAggregate({ PR_DRAFT: "true" });
     expect(lightDraft.status).toBe(0);
     expect(lightDraft.output).not.toContain("heavy scope did not run");
+  });
+
+  it("accepts lighthouse-budget skip during baseline-refresh dispatch", () => {
+    // refresh_lighthouse_baseline forces PERF_CHANGED=true in classify while the
+    // lighthouse-budget job itself skips; requiring success would false-red every
+    // dedicated refresh run even when lighthouse-baseline-refresh succeeded.
+    expect(
+      runAggregate({
+        PERF_CHANGED: "true",
+        REFRESH_LIGHTHOUSE_BASELINE: "true",
+        EVENT_NAME: "workflow_dispatch",
+        LIGHTHOUSE_RESULT: "skipped",
+      }).status,
+    ).toBe(0);
+    expect(
+      runAggregate({
+        PERF_CHANGED: "true",
+        REFRESH_LIGHTHOUSE_BASELINE: "false",
+        LIGHTHOUSE_RESULT: "skipped",
+      }).status,
+    ).not.toBe(0);
   });
 
   it("still requires heavy jobs on a ready-for-review PR even though it once was a draft", () => {
@@ -719,6 +824,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "success",
         UI_RESULT: "cancelled",
         // The ward lane runs on every UI pull request now, so it must be green here or this
@@ -729,6 +835,7 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     expect(
       runAggregate({
         UI_CHANGED: "true",
+        UI_BUILD_RESULT: "success",
         UI_FAST_RESULT: "cancelled",
         UI_RESULT: "success",
         // The ward lane runs on every UI pull request now, so it must be green here or this
@@ -761,7 +868,12 @@ describe.skipIf(process.platform === "win32")("PR required aggregate — cancell
     // the fixture leaves both skipped — so every in-scope case below carries them green. Without
     // that the ward result is not the variable under test and the "in scope and green" case fails
     // for an unrelated reason, which is exactly what this test caught while being written.
-    const uiPr = { UI_CHANGED: "true", UI_FAST_RESULT: "success", UI_RESULT: "success" } as const;
+    const uiPr = {
+      UI_CHANGED: "true",
+      UI_BUILD_RESULT: "success",
+      UI_FAST_RESULT: "success",
+      UI_RESULT: "success",
+    } as const;
 
     // In scope and red: the lane failed.
     expect(runAggregate({ ...uiPr, WARD_JOURNEYS_RESULT: "failure" }).status).not.toBe(0);
@@ -890,7 +1002,8 @@ describe("Lighthouse budget routing", () => {
     const classifyStep = sourceSegment(workflow, "name: Classify changed files", "sync-pr-policy-body:", {
       label: "CI change-scope classify step",
     });
-    const runScript = classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "";
+    // Stop at the next step: its env expressions are not shell interpolation.
+    const runScript = (classifyStep.split(/\n\s+run:\s*\|\n/)[1] ?? "").split(/\n      - name:/)[0];
     expect(runScript, "could not read the classify step run script").not.toBe("");
     expect(classifyStep).toMatch(
       /REFRESH_LIGHTHOUSE_BASELINE:\s*\$\{\{\s*github\.event\.inputs\.refresh_lighthouse_baseline\s*\}\}/,

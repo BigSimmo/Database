@@ -35,12 +35,9 @@ const SCHEMA_PATH = process.argv[2] ?? "supabase/schema.sql";
 
 // SECURITY DEFINER functions intentionally left without a dedicated revoke.
 // Add an entry ONLY with a concrete reason (prefer fixing over allowlisting).
-const ALLOWLIST = new Map([
-  [
-    "read_site_content_public_records",
-    "Ownerless, audit-column-free canonical public projection; exact anon/auth parity is the product contract.",
-  ],
-]);
+// Empty: site-content public projection RPCs are service_role-only after
+// 20260921140000_revoke_site_content_definer_execute (no anon/authenticated EXECUTE).
+const ALLOWLIST = new Map([]);
 
 function fail(message) {
   console.error(`check:function-grants: FAIL — ${message}`);

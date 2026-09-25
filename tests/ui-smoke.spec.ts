@@ -1032,8 +1032,8 @@ async function expectMobileSettingsLayout(settings: Locator) {
 async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Continue to your workspace" })).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Your workspace, wherever you work." })).toBeVisible();
-  await expect(setup.getByLabel("Work email")).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Continue securely" })).toBeVisible();
+  await expect(setup.getByLabel("Email address")).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue with Apple" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
   await expect(setup.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
@@ -1229,11 +1229,38 @@ test.describe("PsychSift UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
 
     const universalInput = visibleQuestionInput(page);
-    const restingPillBorder = await universalInput.evaluate((element) => {
+    const restingPill = await universalInput.evaluate((element) => {
       const pill = element.closest(".answer-footer-search-pill");
-      return pill ? getComputedStyle(pill).borderColor : null;
+      if (!pill) return { border: null, shadow: null };
+      const style = getComputedStyle(pill);
+      return { border: style.borderColor, shadow: style.boxShadow };
     });
     await universalInput.focus();
+    // Poll until the pill owns focus chrome. Firefox can still report the resting
+    // border for a frame after programmatic focus even when `:focus-within` has
+    // matched; the focus owner is the pill border + accent halo, not the input outline.
+    await expect
+      .poll(async () => {
+        return universalInput.evaluate((element, resting) => {
+          const inputStyle = getComputedStyle(element);
+          const pill = element.closest(".answer-footer-search-pill");
+          const pillStyle = pill ? getComputedStyle(pill) : null;
+          const pillBorder = pillStyle?.borderColor ?? null;
+          const pillShadow = pillStyle?.boxShadow ?? null;
+          return {
+            inputOutline: inputStyle.outlineStyle,
+            inputShadow: inputStyle.boxShadow,
+            pillBorder,
+            pillShadow,
+            pillChanged: pillBorder !== resting.border || pillShadow !== resting.shadow,
+          };
+        }, restingPill);
+      })
+      .toMatchObject({
+        inputOutline: "none",
+        inputShadow: "none",
+        pillChanged: true,
+      });
     const universalFocus = await universalInput.evaluate((element) => {
       const inputStyle = getComputedStyle(element);
       const pill = element.closest(".answer-footer-search-pill");
@@ -1245,10 +1272,9 @@ test.describe("PsychSift UI smoke coverage", () => {
         pillShadow: pillStyle?.boxShadow ?? null,
       };
     });
-    expect(universalFocus.inputOutline).toBe("none");
-    expect(universalFocus.inputShadow).toBe("none");
-    expect(universalFocus.pillBorder).not.toBe(restingPillBorder);
+    expect(universalFocus.pillBorder).not.toBe(restingPill.border);
     expect(universalFocus.pillShadow).not.toBe("none");
+    expect(universalFocus.pillShadow).not.toBe(restingPill.shadow);
 
     const menu = await openMobileClinicalGuideMenu(page);
     const closeMenu = menu.getByRole("button", { name: "Close PsychSift menu" });
@@ -1768,7 +1794,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(setup).toBeVisible();
     await expectAccountSetupSurface(setup);
     await expectAccountProviderLayout(setup, "stack");
-    await expect(setup.getByLabel("Work email")).toBeFocused();
+    await expect(setup.getByLabel("Email address")).toBeFocused();
     const setupClose = setup.getByRole("button", { name: "Close account setup" });
     const workspaceMark = setup.getByTestId("account-workspace-mark");
     await expectControlsBelowPhoneTopSafeArea(page, [setupClose, workspaceMark]);
@@ -1789,10 +1815,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     }
 
     await page.setViewportSize({ width: 320, height: 700 });
-    const setupEmail = setup.getByLabel("Work email");
+    const setupEmail = setup.getByLabel("Email address");
     await setupEmail.scrollIntoViewIfNeeded();
     await expect(setupEmail).toBeInViewport();
-    await expect(setup.getByRole("button", { name: "Continue securely" })).toBeInViewport();
+    await expect(setup.getByRole("button", { name: "Sign in with email" })).toBeInViewport();
     await expect(setupClose).toBeInViewport();
     await expectNoPageHorizontalOverflow(page);
 
@@ -5259,8 +5285,15 @@ test.describe("PsychSift UI smoke coverage", () => {
     );
     // Citation landing keeps the indexed dump collapsed so the PDF stays primary.
     await expect(page.locator("#source-text")).toHaveJSProperty("open", false);
-    await page.getByTestId("inspect-indexed-text").click();
-    await expect(page.locator("#source-text")).toHaveJSProperty("open", true);
+    // A click that lands before hydration is dropped (Firefox, release matrix 2026-09-25).
+    // Re-click only while the indexed-text disclosure is still closed.
+    const indexedTextPanel = page.locator("#source-text");
+    await expect(async () => {
+      if (!(await indexedTextPanel.evaluate((node) => (node as HTMLDetailsElement).open))) {
+        await page.getByTestId("inspect-indexed-text").click();
+      }
+      await expect(indexedTextPanel).toHaveJSProperty("open", true, { timeout: 2_000 });
+    }).toPass({ timeout: 15_000 });
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
@@ -5289,6 +5322,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(previousHit).toHaveText("");
     await expect(nextHit).toHaveAttribute("title", "Next document search hit");
     await expect(nextHit).toHaveText("");
+    // Pointer activation is the regression this test pins: product-side moveHit
+    // coalescing + exclusive-accordion open sync must keep a single click from
+    // wrapping a two-hit search back to Hit 1 on Firefox. Keyboard coverage is
+    // separate (activateFocusedControl elsewhere); do not substitute it here.
     await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
     const nextActiveHit = desktopTextPanel.locator('details[data-source-active-hit="true"]');

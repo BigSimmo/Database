@@ -398,6 +398,32 @@ describe("fetchVisibleOnCallEntries", () => {
     expect(entries.map((entry) => entry.title).sort()).toEqual(["Consultant mobile", "Switchboard"]);
   });
 
+  // The shared read returns every account's non-personal rows, and only the
+  // owner may edit or verify one, so each row says which query it came from.
+  it("marks the viewer's own rows as theirs and everyone else's as not", async () => {
+    const OTHER_ROW = { ...SHARED_ROW, id: "33333333-3333-4333-8333-333333333333", slug: "s3", title: "Ward" };
+    const chain = {
+      select: vi.fn(() => chain),
+      eq: vi.fn(() => chain),
+      in: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      limit: vi
+        .fn()
+        // First the shared read (both rows), then the owner read (only SHARED_ROW).
+        .mockResolvedValueOnce({ data: [SHARED_ROW, OTHER_ROW], error: null })
+        .mockResolvedValueOnce({ data: [SHARED_ROW], error: null }),
+    };
+    const client = { from: vi.fn(() => chain), chain };
+    const entries = await fetchVisibleOnCallEntries(client as never, "owner-1");
+    const byTitle = Object.fromEntries(entries.map((entry) => [entry.title, entry.isOwn]));
+    expect(byTitle).toEqual({ Switchboard: true, Ward: false });
+  });
+
+  it("marks every row as not the reader's when nobody is signed in", async () => {
+    const entries = await fetchVisibleOnCallEntries(fakeClient([SHARED_ROW]) as never, undefined);
+    expect(entries.every((entry) => entry.isOwn === false)).toBe(true);
+  });
+
   it("returns one object per entry when both reads see the same row", async () => {
     const client = fakeClient([SHARED_ROW]);
     const entries = await fetchVisibleOnCallEntries(client as never, "owner-1");
@@ -603,5 +629,26 @@ describe("assertValidLinkedDocumentIds", () => {
     await expect(assertValidLinkedDocumentIds(client as never, [doc1], callerOwnerId)).rejects.toThrow(
       "Database connection failed",
     );
+  });
+});
+
+describe("On call repair privacy boundaries", () => {
+  it.each(["Registration", " indemnity ", "TRAINING", "Credentialing", "CPD", "Clearances"])(
+    "withholds compliance category %s even without kind",
+    (category) => {
+      expect(rowMayBeComplianceRequirement({ section: "logistics", details: { category } })).toBe(true);
+    },
+  );
+  it("does not stamp a public role explainer private merely because it has a kind", () => {
+    const entry = rowToOnCallEntry({ ...SHARED_ROW, details: { role: "Registrar", kind: "role-explainer" } });
+    expect(onCallEntryToRow(entry, "owner-1").is_personal).toBe(false);
+  });
+  it("requires public documents for a shared entry, without widening document access", async () => {
+    const client = fakeDocumentClient([]);
+    await expect(
+      assertValidLinkedDocumentIds(client as never, [SHARED_ROW.id], "00000000-0000-4000-8000-000000000001", false),
+    ).rejects.toThrow(PublicApiError);
+    expect(client.chain.is).toHaveBeenCalledWith("owner_id", null);
+    expect(client.chain.or).not.toHaveBeenCalled();
   });
 });

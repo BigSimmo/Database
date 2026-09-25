@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   BookMarked,
+  Building2,
   CalendarDays,
   ClipboardCheck,
   ClipboardList,
@@ -87,6 +88,7 @@ export const iconByItemId: Record<RoutedModeSecondaryNavigationId, LucideIcon> =
   // which is that the page may never render a verdict on anything it lists.
   compliance: ON_CALL_VIEW_ICONS.compliance,
   whoswho: ON_CALL_VIEW_ICONS["who-is-who"],
+  service: Building2,
   card: Printer,
   // CME. Matched to the glyphs the mode already uses for the same ideas
   // (`cmeSections` in `cme/cme-nav-header.tsx`, and the dashboard's own module

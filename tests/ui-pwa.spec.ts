@@ -523,3 +523,35 @@ test.describe("PsychSift PWA", () => {
     }
   });
 });
+
+// The two iPhone projects start with the iOS "Add to Home Screen" hint already dismissed (see
+// `iosInstallHintDismissed` in playwright.config.ts), because on a fresh context the sheet covers
+// the home composer and every unrelated journey would have to dismiss it first. This is the one
+// place that starts from a first visit instead, so hiding it elsewhere cannot hide it breaking.
+test.describe("PsychSift iOS install hint", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("shows once on an iPhone, dismisses, and stays dismissed after a reload", async ({ page }) => {
+    test.skip(
+      !["mobile-webkit", "mobile-pwa-standalone"].includes(test.info().project.name),
+      "Only an iPhone user agent is offered the manual Add to Home Screen hint.",
+    );
+    await page.route("**/api/**", (route) => route.abort("blockedbyclient"));
+
+    await page.goto("/?mode=answer&pwa-dev=0", { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
+
+    const hint = page.getByRole("region", { name: "Install PsychSift" });
+    await expect(hint).toBeVisible({ timeout: 20_000 });
+    await expect(hint).toContainText("Add to Home Screen");
+
+    await hint.getByRole("button", { name: "Dismiss install hint" }).click();
+    await expect(hint).toBeHidden();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.documentElement.dataset.pwaDisplayMode === "browser");
+    // The hint is deferred a tick after hydration; give it the chance to (wrongly) return.
+    await page.waitForTimeout(1_000);
+    await expect(page.getByRole("region", { name: "Install PsychSift" })).toHaveCount(0);
+  });
+});

@@ -76,6 +76,13 @@ task status in its existing checkpoint and historical evidence labelled as such.
 
 <!-- END:contextual-working-defaults -->
 
+## Smart agent allocation
+
+When agents are authorised, follow
+[`docs/agents/smart-agent-allocation.md`](docs/agents/smart-agent-allocation.md)
+before dispatch. Keep the user's main-chat model; report missing hosted routing
+honestly instead of paying for API workarounds.
+
 # How these rules are organised
 
 This file is the always-loaded core. It carries the boundaries that prevent irreversible harm, and
@@ -328,7 +335,9 @@ Retrieval/ranking behaviour is live-validated and safeguarded. Before touching a
 surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approaches → safeguards).
 
 - **Flag it.** Any task that will touch `src/lib/rag/**`, clinical-search, retrieval-selection,
-  released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
+  released-search-order, ranking-config, evidence/result-sort/answer-ranking,
+  evidence-relevance/semantic-rerank/eval-document-matching, the source-authority tiering
+  (`src/lib/source-authority-registry.ts`, `src/lib/australian-source-priority.ts`), the eval harness
   (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
   tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
   editing, even when the change looks incidental (refactor, rename, "just a comment"). The same
@@ -340,6 +349,15 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
   whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
   of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
+  The other retrieval inputs are covered too (added 2026-09-25): retrieval RPC version choice
+  and scoring helpers (`src/lib/retrieval-rpc-rollout.ts`, `clinical-evidence-haystack.ts`,
+  `cross-document-synthesis.ts`, `corpus-grounding.ts`, `keyword-query.ts`), and the producers of
+  enrichment, image-caption, embedding-field, table-fact and assertion rows
+  (`src/lib/document-enrichment.ts`, `visual-intelligence.ts`, `image-filtering.ts`,
+  `worker/embedding-fields.ts`, `worker/table-facts.ts`, `worker/assertion-tagging.ts`).
+  The authoritative list is `ragRankingPatterns` in `scripts/pr-policy.mjs`, which also protects
+  the ranking contract tests; where this sentence and that list ever differ, flag everything
+  either names (aligned 2026-09-25).
 - **PR nudge (advisory since 2026-09-17).** PRs touching those surfaces get a `pr-policy`
   **warning** — not a block — when the body has no explicit `RAG impact:` line. Still write one,
   because it is the fastest way to tell a reviewer whether ordering moved: either
@@ -369,6 +387,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
 - Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
+- **Safe, fast iteration.** Keep automatic Railway PR Environments disabled. Iterate locally with focused checks, use an explicitly requested isolated app preview when useful, and keep production deployment from protected `main`. Never copy production database/provider credentials or an ingestion worker into a routine PR preview. Any future automatic previews require an isolated base and Focused PR Environments, using the existing service watch paths. Follow [the preview policy and verified settings](docs/deployment-architecture.md#selective-railway-pr-previews); keep required CI and Supabase controls intact.
 
 <!-- END:railway-project-safety -->
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { cardInteractive, focusRing, stretchedRowLinkClass } from "@/components/card-recipes";
+import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { buttonFaceClass } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
@@ -26,6 +27,11 @@ export type CmeLogPageProps = {
   readonly entries: readonly CmeEntry[];
   /** The confirmed programme — only its `year` is required for the year tabs. */
   readonly set: CmeRequirementSet;
+  /** Server-backed year destinations. Omit in isolated component tests with a multi-year entry fixture. */
+  readonly navigationYears?: readonly number[];
+  /** Set by the new-entry page after a save, so the owner sees it landed. */
+  readonly justSaved?: boolean;
+  readonly demoMode?: boolean;
 };
 
 type CategoryFilter = "all" | CmeCategory;
@@ -96,10 +102,14 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             <span>{formatCalendarDateShort(entry.date)}</span>
             <span aria-hidden="true">·</span>
             <span>{categoryNames(entry)}</span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {entry.evidenceCount ?? 0} evidence file{entry.evidenceCount === 1 ? "" : "s"}
+            </span>
             {entry.documentId ? (
               <span className="inline-flex items-center gap-0.5">
                 <Paperclip aria-hidden="true" className="size-icon-xs" />
-                Evidence
+                Source link
               </span>
             ) : null}
             {entry.transcribed ? (
@@ -125,7 +135,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
             activates the same one link the title does — the whole card is
             one tap target, not a title-shaped tap target beside a dead strip. */}
         <span className="shrink-0 text-right text-sm font-bold tabular-nums text-[color:var(--text-heading)]">
-          {totalAllocatedHours([entry])}
+          {entry.archivedAt ? "Archived" : `${totalAllocatedHours([entry])} h`}
         </span>
         <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
       </div>
@@ -156,7 +166,7 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
  * standing way to add to the log, not only something reached from the
  * dashboard.
  */
-export function CmeLogPage({ entries, set }: CmeLogPageProps) {
+export function CmeLogPage({ entries, set, navigationYears, justSaved = false, demoMode = false }: CmeLogPageProps) {
   const availableYears = useMemo(() => {
     const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
     years.add(set.year);
@@ -166,12 +176,18 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
   const [selectedYear, setSelectedYear] = useState<number>(() =>
     availableYears.includes(set.year) ? set.year : (availableYears[0] ?? set.year),
   );
+  const effectiveYear = navigationYears ? set.year : selectedYear;
+  const [missingEvidence, setMissingEvidence] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
   const yearEntries = useMemo(
-    () => entries.filter((entry) => entry.date.startsWith(`${selectedYear}-`)),
-    [entries, selectedYear],
+    () =>
+      entries.filter(
+        (entry) => entry.date.startsWith(`${effectiveYear}-`) && Boolean(entry.archivedAt) === showArchived,
+      ),
+    [entries, effectiveYear, showArchived],
   );
 
   const trimmedQuery = query.trim().toLowerCase();
@@ -184,9 +200,12 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
   }, [yearEntries, trimmedQuery]);
 
   const filtered = useMemo(() => {
-    if (categoryFilter === "all") return searched;
-    return searched.filter((entry) => entry.allocations.some((allocation) => allocation.category === categoryFilter));
-  }, [searched, categoryFilter]);
+    return searched.filter(
+      (entry) =>
+        (!missingEvidence || (entry.evidenceCount ?? 0) === 0) &&
+        (categoryFilter === "all" || entry.allocations.some((allocation) => allocation.category === categoryFilter)),
+    );
+  }, [searched, categoryFilter, missingEvidence]);
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered]);
   const groups = useMemo(() => groupByMonth(sorted), [sorted]);
@@ -197,11 +216,39 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
   ];
 
   return (
-    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main data-testid="cme-log-page" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
+      <div role="status" data-testid="cme-log-saved">
+        {justSaved ? (
+          <p className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)]">
+            <Check aria-hidden="true" className="size-icon-sm" />
+            Saved to your log.
+          </p>
+        ) : null}
+      </div>
 
-      {availableYears.length > 1 ? (
+      {navigationYears && navigationYears.length > 1 ? (
+        <nav aria-label="Select year" data-testid="cme-log-year-tabs" className="mt-4 flex flex-wrap gap-2">
+          {[...new Set(navigationYears)]
+            .sort((a, b) => b - a)
+            .map((year) => (
+              <Link
+                key={year}
+                href={`/cme/log?year=${year}`}
+                aria-current={year === set.year ? "page" : undefined}
+                className={cn(
+                  "inline-flex min-h-tap items-center rounded-lg border px-4 text-sm font-semibold",
+                  year === set.year
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] text-[color:var(--text)]",
+                )}
+              >
+                {year}
+              </Link>
+            ))}
+        </nav>
+      ) : availableYears.length > 1 ? (
         <div data-testid="cme-log-year-tabs" className="mt-4">
           <Tabs
             label="Select year"
@@ -212,6 +259,72 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
         </div>
       ) : null}
 
+      {navigationYears ? (
+        <form
+          action="/cme/log"
+          method="get"
+          className="mt-3 flex flex-wrap items-end gap-2"
+          data-testid="cme-log-year-jump"
+        >
+          <label className="text-sm font-medium text-[color:var(--text)]" htmlFor="cme-log-year-input">
+            Open another year
+            <input
+              key={set.year}
+              id="cme-log-year-input"
+              name="year"
+              type="number"
+              min="2000"
+              max="2100"
+              defaultValue={set.year}
+              className="mt-1 block min-h-tap w-32 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+            />
+          </label>
+          <button
+            type="submit"
+            className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
+          >
+            Open year
+          </button>
+        </form>
+      ) : null}
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        <button
+          type="button"
+          className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
+          aria-pressed={showArchived}
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          {showArchived ? "Show active entries" : "Show archived entries"}
+        </button>
+        <button
+          type="button"
+          className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
+          aria-pressed={missingEvidence}
+          onClick={() => setMissingEvidence(!missingEvidence)}
+        >
+          Missing evidence
+        </button>
+        <a
+          href={`/api/cme/export?year=${effectiveYear}`}
+          download
+          className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
+        >
+          Download CSV
+        </a>
+        <Link
+          href={`/cme/summary?year=${effectiveYear}`}
+          className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
+        >
+          Annual summary
+        </Link>
+      </div>
+      {showArchived ? (
+        <p className={cn(textMuted, "mt-2 text-sm")}>
+          Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
+          summaries. Open an entry to restore it.
+        </p>
+      ) : null}
       <div data-testid="cme-log-search" className="mt-4">
         <SearchField
           label="Search your log"
@@ -240,7 +353,7 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
             testId="cme-log-empty"
             title={
               yearEntries.length === 0
-                ? `Nothing logged for ${selectedYear} yet.`
+                ? `Nothing logged for ${effectiveYear} yet.`
                 : "Nothing matched your search and filter."
             }
             body={
@@ -271,11 +384,16 @@ export function CmeLogPage({ entries, set }: CmeLogPageProps) {
       </div>
 
       <div className="mt-6 flex justify-center">
-        <Link href="/cme/new" data-testid="cme-log-new-entry" className={cn(buttonFaceClass({ variant: "primary" }))}>
+        <Link
+          href={`/cme/new?year=${set.year}`}
+          data-testid="cme-log-new-entry"
+          className={cn(buttonFaceClass({ variant: "primary" }))}
+        >
           <Plus aria-hidden="true" className="size-icon-md shrink-0" />
           <span>New entry</span>
         </Link>
       </div>
+      {set.totalHours > 0 ? <CmeQuickLog set={set} demoMode={demoMode} /> : null}
     </main>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, GraduationCap, ListChecks, Repeat, Radar, ShieldCheck } from "lucide-react";
+import { CalendarDays, ClipboardList, GraduationCap, ListChecks, Repeat, ShieldCheck } from "lucide-react";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
@@ -17,7 +17,7 @@ import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-sectio
  * here, and nowhere else, exactly as the rule requires.
  *
  * The declaration below is a SUPERSET: Programme's four sections and Setup's
- * three sit in one array, and `useResolvedPageSections` (which
+ * two sit in one array, and `useResolvedPageSections` (which
  * `useInPageSectionNav` composes) narrows it, per render, to whichever
  * anchors actually exist in the DOM — the same "declare unconditionally,
  * resolve to what's rendered" pattern the docs describe for a phone/desktop
@@ -29,9 +29,8 @@ export const cmeSections: readonly PageSection[] = [
   { id: "cme-college-extras", label: "College", icon: GraduationCap },
   { id: "cme-provenance", label: "Confirmed", icon: ShieldCheck },
   { id: "cme-year-shape", label: "Year", icon: CalendarDays },
-  { id: "cme-setup-steps", label: "Steps", icon: ListChecks },
+  { id: "cme-setup-steps", label: "Requirements", icon: ListChecks },
   { id: "cme-setup-routines", label: "Routines", icon: Repeat },
-  { id: "cme-setup-capture", label: "Capture", icon: Radar },
 ];
 
 /**

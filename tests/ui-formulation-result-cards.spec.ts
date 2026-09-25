@@ -42,7 +42,8 @@ test("separates mechanism cards and keeps the primary actions on the card header
     await gotoApp(page, "/formulation?q=What+if+something+goes+wrong&run=1");
 
     const cards = page.locator("[data-formulation-result-card]");
-    const topMatch = page.getByTestId("formulation-top-match");
+    // WebKit can stream a hidden duplicate of the page root (#093).
+    const topMatch = page.getByTestId("formulation-top-match").filter({ visible: true });
     const actionGroup = topMatch.locator("[data-formulation-card-action]");
     const action = actionGroup.getByRole("link", { name: "Open Worry" });
     const secondaryAction = actionGroup.getByRole("link", { name: "Use Worry in formulation" });

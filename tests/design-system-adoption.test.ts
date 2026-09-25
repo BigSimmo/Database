@@ -1462,7 +1462,11 @@ describe("design-system adoption manifest", () => {
     // `/cme/**` (dashboard, log, log/[id], new, routines, plan, programme, setup,
     // customise) landed on the same catalogue surface. Bumped deliberately, with
     // the routes named, because a bump with no name is how this census stops being one.
-    expect(manifest.routeCoverage.discovered).toHaveLength(102);
+    //
+    // 102 -> 103 on 2026-09-21: `/auth/reset-password` adds the password-recovery
+    // destination used by the PKCE email callback. It is a real production route
+    // and is declared in `adoption-contract.json`.
+    expect(manifest.routeCoverage.discovered).toHaveLength(105);
     expect(manifest.routeCoverage.declared).toEqual(manifest.routeCoverage.discovered);
     expect(manifest.routeCoverage.undeclared).toEqual([]);
     expect(manifest.routeCoverage.missing).toEqual([]);

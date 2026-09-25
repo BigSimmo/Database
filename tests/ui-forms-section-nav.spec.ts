@@ -132,9 +132,16 @@ test.describe("Forms section navigation", () => {
 
       const panelId = await trigger.getAttribute("aria-controls");
       if (!panelId) throw new Error("Disclosure trigger is missing aria-controls");
-      await trigger.click();
+      // A click that lands before hydration is dropped (Firefox, release matrix 2026-09-25),
+      // leaving the panel display:none and measured at left 0. Re-click only while collapsed.
+      await expect(async () => {
+        if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+        await expect(trigger).toHaveAttribute("aria-expanded", "true", { timeout: 2_000 });
+      }).toPass({ timeout: 15_000 });
+      const body = page.locator(`[id="${panelId}"] p`);
+      await expect(body).toBeVisible();
 
-      const expanded = await page.locator(`[id="${panelId}"] p`).evaluate((node) => {
+      const expanded = await body.evaluate((node) => {
         const style = getComputedStyle(node);
         return {
           left: node.getBoundingClientRect().left,

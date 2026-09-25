@@ -1,5 +1,10 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
+import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+
 import { ClipboardList, FileText, ListChecks, Pencil, Phone, Search } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -17,6 +22,7 @@ import {
   onCallEntryFreshness,
   type OnCallEntry,
   type OnCallLinkedDocument,
+  onCallEntryIsEditable,
 } from "@/lib/on-call/entry-model";
 import { playbookFormReferences } from "@/lib/on-call/playbook-forms";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
@@ -33,6 +39,12 @@ export interface OnCallPlaybookSectionProps {
    * silently promoting a scenario to "has guidance" when it does not.
    */
   documents?: Readonly<Record<string, OnCallLinkedDocument>>;
+  /**
+   * True while the linked documents are still being looked up. Until then an
+   * absent document means "not yet known", not "unavailable", so a card says
+   * it is loading and stays out of the Unlinked group.
+   */
+  documentsLoading?: boolean;
   /** Injectable for deterministic tests; defaults to the real clock. */
   now?: Date;
   testId?: string;
@@ -57,48 +69,64 @@ function parsePlaybookDetails(details: unknown): OnCallPlaybookDetails | null {
   return result.success ? (result.data as OnCallPlaybookDetails) : null;
 }
 
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
-}
-
 /** One tappable row inside a card — a linked guideline, or a referenced form. */
 const linkRow = cn(cardInteractive, "flex min-h-tap w-full items-center gap-3 rounded-lg p-3 text-left");
 
 function LinkedGuidance({
   linkedDocumentIds,
   documents,
+  documentsLoading,
   slug,
 }: {
   linkedDocumentIds: readonly string[];
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
+  documentsLoading: boolean;
   slug: string;
 }) {
   const resolved = linkedDocumentIds
     .map((id) => documents[id])
     .filter((doc): doc is OnCallLinkedDocument => Boolean(doc));
 
+  if (resolved.length === 0 && documentsLoading && linkedDocumentIds.length > 0) {
+    return (
+      <p data-testid={`on-call-playbook-guidance-loading-${slug}`} className={cn("text-sm", textMuted)}>
+        Loading the linked guideline…
+      </p>
+    );
+  }
+
   if (resolved.length === 0) {
     // THE PLAYBOOK RULE: no local guideline means no substitute guidance of any
     // kind — never a generated step, a dose, a threshold, or a "typically you
     // would…" sentence. State the gap plainly and point at the one place a real
     // answer can come from: the owner's own document library.
+    //
+    // A compact row, not a full EmptyState: every unlinked scenario carries
+    // one, and six stacked empty-state panels made the page mostly repetition
+    // (audit, 2026-09-24).
     return (
-      <EmptyState
-        icon={Search}
-        title="No local guideline linked"
-        body="This scenario has no linked guideline in your document library. Search your documents to find and link one — this page never substitutes its own clinical advice."
-        actions={
+      <div
+        data-testid={`on-call-playbook-no-guideline-${slug}`}
+        className="grid gap-0.5 rounded-lg border border-dashed border-[color:var(--border)] px-3 py-1.5"
+      >
+        <div className="flex flex-wrap items-center gap-x-3">
+          <p className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-[color:var(--text)]">
+            <Search aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+            {linkedDocumentIds.length ? "Linked guideline unavailable" : "No local guideline linked"}
+          </p>
           <Link
             href="/documents/search"
-            className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-tap items-center text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             Search documents
           </Link>
-        }
-        testId={`on-call-playbook-no-guideline-${slug}`}
-      />
+        </div>
+        <p className={cn("text-xs", textMuted)}>
+          {linkedDocumentIds.length
+            ? "It may be offline, removed, or not shared with your account. This page never substitutes clinical advice."
+            : "Link one from your document library. This page never substitutes its own clinical advice."}
+        </p>
+      </div>
     );
   }
 
@@ -174,12 +202,14 @@ function formTestIdPart(code: string) {
 function PlaybookCard({
   entry,
   documents,
+  documentsLoading,
   now,
   onEditEntry,
   onVerified,
 }: {
   entry: OnCallEntry;
   documents: Readonly<Record<string, OnCallLinkedDocument>>;
+  documentsLoading: boolean;
   now: Date;
   onEditEntry?: (entry: OnCallEntry) => void;
   onVerified?: (entry: OnCallEntry) => void;
@@ -191,6 +221,8 @@ function PlaybookCard({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       // The shared recipe, not a hand-rolled copy of it: these three had every
       // class right except `forced-colors:border`, so in Windows High Contrast
       // the card edge disappeared.
@@ -199,7 +231,7 @@ function PlaybookCard({
     >
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
+          <h3 className="break-words text-sm font-semibold text-[color:var(--text)]">{entry.title}</h3>
           {details?.trigger ? <p className={cn("mt-0.5 text-xs", textMuted)}>{details.trigger}</p> : null}
         </div>
         {/* Sibling to the card, never nested inside a link: the escalation
@@ -230,15 +262,26 @@ function PlaybookCard({
         {steps.length > 0 ? (
           <ol className="grid grid-cols-[minmax(0,1fr)] gap-2">
             {steps.map((step) => (
-              <li key={step.order}>
+              <li key={step.order} className="flex min-w-0 items-start gap-2">
                 <OnCallEntryRow
-                  icon={Phone}
+                  icon={onCallTelHref(step.phone) ? Phone : undefined}
                   title={`${step.order}. ${step.whoToCall}`}
                   subtitle={step.when}
-                  href={telHref(step.phone)}
+                  href={onCallTelHref(step.phone)}
                   onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
                   testId={`on-call-playbook-step-${entry.slug}-${step.order}`}
-                />
+                >
+                  {step.phone ? (
+                    <span className="break-words text-xs">
+                      {onCallTelHref(step.phone)
+                        ? step.phone
+                        : `Recorded number: ${step.phone} — use the hospital phone or switchboard`}
+                    </span>
+                  ) : null}
+                </OnCallEntryRow>
+                {step.phone ? (
+                  <OnCallCopyNumber value={step.phone} label={`Copy number for ${step.whoToCall}`} />
+                ) : null}
               </li>
             ))}
           </ol>
@@ -251,7 +294,12 @@ function PlaybookCard({
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2">
         <h4 className={eyebrowText}>Local guidance</h4>
-        <LinkedGuidance linkedDocumentIds={entry.linkedDocumentIds} documents={documents} slug={entry.slug} />
+        <LinkedGuidance
+          linkedDocumentIds={entry.linkedDocumentIds}
+          documents={documents}
+          documentsLoading={documentsLoading}
+          slug={entry.slug}
+        />
       </div>
     </article>
   );
@@ -269,6 +317,7 @@ function PlaybookCard({
 export function OnCallPlaybookSection({
   entries,
   documents = {},
+  documentsLoading = false,
   now = new Date(),
   testId = "on-call-playbook-section",
   onEditEntry,
@@ -293,17 +342,22 @@ export function OnCallPlaybookSection({
   // group at the foot. Not cosmetic: a scenario whose local guideline is
   // missing is the one an owner needs to see and fix, and left in place among
   // the complete ones it is invisible until someone happens to scroll past it.
-  const linked = sorted.filter((entry) => hasResolvedGuidance(entry, documents));
-  const unlinked = sorted.filter((entry) => !hasResolvedGuidance(entry, documents));
+  // While the lookup runs, a scenario with links is presumed linked: filing it
+  // under Unlinked and then moving it back is a jump the reader sees.
+  const isLinked = (entry: OnCallEntry) =>
+    documentsLoading ? entry.linkedDocumentIds.length > 0 : hasResolvedGuidance(entry, documents);
+  const linked = sorted.filter(isLinked);
+  const unlinked = sorted.filter((entry) => !isLinked(entry));
 
   const card = (entry: OnCallEntry) => (
     <PlaybookCard
       key={entry.id}
       entry={entry}
       documents={documents}
+      documentsLoading={documentsLoading}
       now={now}
-      onEditEntry={onEditEntry}
-      onVerified={onVerified}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
     />
   );
 
