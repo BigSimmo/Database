@@ -68,18 +68,22 @@ describe("source governance reviewer attribution", () => {
       expect(isRecordMarkedReviewed({ reviewStatus: "reviewed" })).toEqual({
         isReviewed: true,
         rawStatus: "reviewed",
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({ review_status: "Reviewed" })).toEqual({
         isReviewed: true,
         rawStatus: "Reviewed",
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({ metadata: { reviewStatus: "reviewed" } })).toEqual({
         isReviewed: true,
         rawStatus: "reviewed",
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({ metadata: { review_status: "REVIEWED" } })).toEqual({
         isReviewed: true,
         rawStatus: "REVIEWED",
+        unrecognisedStatus: null,
       });
     });
 
@@ -87,18 +91,88 @@ describe("source governance reviewer attribution", () => {
       expect(isRecordMarkedReviewed({ reviewStatus: "needs_review" })).toEqual({
         isReviewed: false,
         rawStatus: null,
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({ reviewStatus: "Pending review" })).toEqual({
         isReviewed: false,
         rawStatus: null,
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({ reviewStatus: "Pending qualified clinician review" })).toEqual({
         isReviewed: false,
         rawStatus: null,
+        unrecognisedStatus: null,
       });
       expect(isRecordMarkedReviewed({})).toEqual({
         isReviewed: false,
         rawStatus: null,
+        unrecognisedStatus: null,
+      });
+    });
+
+    // THE 2026-09-25 LIVE RUN. The audit reported "clinical_validation_status:
+    // locally_reviewed × 1935" and, in the same report, "reviewed_record_count:
+    // 0" over 3,907 records — because this function read `review_status` only
+    // and matched the exact string "reviewed". The 1,935 documents showing
+    // "Locally reviewed" to clinicians were never examined for a reviewer.
+    it("treats the clinical_validation_status vocabulary as a review claim", () => {
+      expect(isRecordMarkedReviewed({ metadata: { clinical_validation_status: "locally_reviewed" } })).toEqual({
+        isReviewed: true,
+        rawStatus: "locally_reviewed",
+        unrecognisedStatus: null,
+      });
+      expect(isRecordMarkedReviewed({ metadata: { clinical_validation_status: "approved" } })).toEqual({
+        isReviewed: true,
+        rawStatus: "approved",
+        unrecognisedStatus: null,
+      });
+      expect(isRecordMarkedReviewed({ clinical_validation_status: "Locally_Reviewed" })).toEqual({
+        isReviewed: true,
+        rawStatus: "Locally_Reviewed",
+        unrecognisedStatus: null,
+      });
+      // `unverified` is the opposite claim and must never count as a review.
+      expect(isRecordMarkedReviewed({ metadata: { clinical_validation_status: "unverified" } })).toEqual({
+        isReviewed: false,
+        rawStatus: null,
+        unrecognisedStatus: null,
+      });
+    });
+
+    // The sign-off value settled for the specifier catalogue on 2026-09-18. The
+    // exact-match test would have missed it, so the first signed specifier would
+    // have gone unexamined in exactly the same way.
+    it("recognises the specifier catalogue sign-off value", () => {
+      expect(isRecordMarkedReviewed({ reviewStatus: "clinician-reviewed-approved" })).toEqual({
+        isReviewed: true,
+        rawStatus: "clinician-reviewed-approved",
+        unrecognisedStatus: null,
+      });
+      expect(isRecordMarkedReviewed({ reviewStatus: "clinician-review-pending" })).toEqual({
+        isReviewed: false,
+        rawStatus: null,
+        unrecognisedStatus: null,
+      });
+    });
+
+    // "This gate does not know what this value means" and "this record was not
+    // reviewed" are different findings, and only one of them is safe to pass.
+    it("reports a status neither vocabulary claims instead of assuming it is unreviewed", () => {
+      expect(isRecordMarkedReviewed({ reviewStatus: "signed_off_by_committee" })).toEqual({
+        isReviewed: false,
+        rawStatus: null,
+        unrecognisedStatus: "signed_off_by_committee",
+      });
+      // An explicit review claim elsewhere on the record still decides the answer.
+      expect(
+        isRecordMarkedReviewed({
+          reviewStatus: "signed_off_by_committee",
+          metadata: { clinical_validation_status: "locally_reviewed" },
+        }),
+      ).toEqual({
+        isReviewed: true,
+        rawStatus: "locally_reviewed",
+        unrecognisedStatus: null,
       });
     });
   });
@@ -289,6 +363,56 @@ describe("source governance reviewer attribution", () => {
         passed: true,
         violations: [],
       });
+    });
+
+    it("fails the gate and names any review status neither vocabulary claims", () => {
+      const records: AuditableRecord[] = [
+        {
+          record: { slug: "a", reviewStatus: "signed_off_by_committee" },
+          recordType: "therapy",
+          identifier: "a",
+          title: "A",
+          source: "src/data/therapies-source.json",
+        },
+        {
+          record: { slug: "b", reviewStatus: "signed_off_by_committee" },
+          recordType: "therapy",
+          identifier: "b",
+          title: "B",
+          source: "src/data/therapies-source.json",
+        },
+      ];
+
+      const report = auditReviewAttribution(records);
+      // No violations, because no record claims a review this gate understands —
+      // and that is precisely why it must not report a pass.
+      expect(report.violations).toEqual([]);
+      expect(report.unattributed_reviewed_record_count).toBe(0);
+      expect(report.unrecognised_review_status_counts).toEqual({ signed_off_by_committee: 2 });
+      expect(report.passed).toBe(false);
+    });
+
+    // The live shape of the 2026-09-25 finding, in miniature: a document marked
+    // locally reviewed with nobody recorded against it.
+    it("catches a document marked locally_reviewed with no reviewer named", () => {
+      const records: AuditableRecord[] = [
+        {
+          record: {
+            id: "doc-1",
+            metadata: { clinical_validation_status: "locally_reviewed", clinical_validation_evidence: {} },
+          },
+          recordType: "document",
+          identifier: "doc-1",
+          title: "Depression in adults",
+          source: "Depression in adults.pdf",
+        },
+      ];
+
+      const report = auditReviewAttribution(records);
+      expect(report.reviewed_record_count).toBe(1);
+      expect(report.unattributed_reviewed_record_count).toBe(1);
+      expect(report.passed).toBe(false);
+      expect(report.violations[0]?.review_status).toBe("locally_reviewed");
     });
 
     it("detects governance violations when reviewed records lack attribution", () => {
