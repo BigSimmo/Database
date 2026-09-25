@@ -816,6 +816,11 @@
         "area": "mockup"
       },
       {
+        "path": "/forms/act",
+        "file": "src/app/(search-app)/forms/act/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/care-plan/patients/[patientId]/safety-plan/print",
         "file": "src/app/mockups/care-plan/patients/[patientId]/safety-plan/print/page.tsx",
         "area": "mockup"
@@ -1555,6 +1560,10 @@
         "file": "src/app/api/eval-cases/route.ts"
       },
       {
+        "path": "/api/cme/plan",
+        "file": "src/app/api/cme/plan/route.ts"
+      },
+      {
         "path": "/api/cme/entries/[id]",
         "file": "src/app/api/cme/entries/[id]/route.ts"
       },
@@ -1753,6 +1762,10 @@
       {
         "path": "/api/caring-contacts/assignments/[planId]",
         "file": "src/app/api/caring-contacts/assignments/[planId]/route.ts"
+      },
+      {
+        "path": "/api/cme/entries/[id]/goal",
+        "file": "src/app/api/cme/entries/[id]/goal/route.ts"
       },
       {
         "path": "/api/caring-contacts/training",
@@ -2483,6 +2496,11 @@
         "path": "docs/operator-supabase-branching-cap.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/superpowers/plans/2026-09-25-wa-psychiatry-build.md",
+        "section": "superpowers",
+        "catalogued": false
       },
       {
         "path": "docs/audit/tenancy-defense-in-depth-review.md",
@@ -6478,6 +6496,11 @@
         "path": "docs/ward-flow/owner-rulings-2026-09-04.md",
         "section": "ward-flow",
         "catalogued": false
+      },
+      {
+        "path": "docs/clinical-sign-off-how-to.md",
+        "section": "root",
+        "catalogued": true
       },
       {
         "path": "docs/ward-flow-phase-3-workspace/task-10-brief.md",

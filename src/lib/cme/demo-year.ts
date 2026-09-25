@@ -1,3 +1,4 @@
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeCategory, CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
@@ -638,4 +639,10 @@ export const DEMO_CME_ROUTINES: readonly CmeRoutine[] = [
     nextDue: "2026-09-15",
     archivedAt: null,
   },
+];
+
+/** Synthetic demonstration only: an obviously invented plan for the demo year. */
+export const DEMO_CME_PLAN_GOALS: readonly CmePlanGoal[] = [
+  { id: "00000000-0000-4000-8000-000000000201", goal: "Demo goal: keep up with a demo topic", sortOrder: 0 },
+  { id: "00000000-0000-4000-8000-000000000202", goal: "Demo goal: review my own demo outcomes", sortOrder: 1 },
 ];

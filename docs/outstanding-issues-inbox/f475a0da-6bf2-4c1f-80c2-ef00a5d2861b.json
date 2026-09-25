@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f475a0da-6bf2-4c1f-80c2-ef00a5d2861b",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#A6WAES",
+    "detail": "UPDATE 2026-09-25 (PR #3019): the sign-off tool now exists — npm run clinical:review -- --write --walk --kind form, guide docs/clinical-sign-off-how-to.md (sign on a dated clinical-signoff-<date> branch cut from main). Recommended order 3C, 10B, 10E, 11B, 11E, 6C, then the rest. If the owner already pushed sign-offs to the frozen claude/sweet-carson-e7ur0s-wa-signoff branch, merge data/forms-content-review.json from it into main first (form pins carry over unchanged). Only the owner may sign.",
+    "baseRowFingerprint": "032ba41d526cf2d2dc2c93ef5a7cc4b7999fa43766290028591dcfd6113f7162"
+  }
+}

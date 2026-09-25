@@ -859,7 +859,6 @@
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/cme/cme-entry-page.tsx",
         "src/components/cme/cme-log-page.tsx",
-        "src/components/cme/cme-plan-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
@@ -882,7 +881,6 @@
         "src/components/clinical-dashboard/visual-evidence.tsx",
         "src/components/cme/cme-entry-page.tsx",
         "src/components/cme/cme-log-page.tsx",
-        "src/components/cme/cme-plan-page.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-state-notice.tsx",
         "src/components/document-viewer/document-visuals-panel.tsx",
@@ -1204,6 +1202,7 @@
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
         "src/components/cme/cme-new-entry-route.tsx",
+        "src/components/cme/cme-plan-page.tsx",
         "src/components/cme/cme-quick-log.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
@@ -1232,6 +1231,7 @@
         "src/components/cme/cme-entry-route-client.tsx",
         "src/components/cme/cme-evidence-panel.tsx",
         "src/components/cme/cme-new-entry-route.tsx",
+        "src/components/cme/cme-plan-page.tsx",
         "src/components/cme/cme-quick-log.tsx",
         "src/components/cme/cme-routines-page.tsx",
         "src/components/cme/cme-routines-route.tsx",
@@ -2677,6 +2677,7 @@
         "src/app/(search-app)/factsheets/search/page.tsx",
         "src/app/(search-app)/factsheets/topics/page.tsx",
         "src/app/(search-app)/forms/[slug]/page.tsx",
+        "src/app/(search-app)/forms/act/page.tsx",
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
@@ -2821,7 +2822,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["CmePage"]
         },
         {
           "file": "src/app/(search-app)/cme/programme/page.tsx",
@@ -3035,6 +3036,16 @@
         },
         {
           "file": "src/app/(search-app)/forms/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/forms/act/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -4582,6 +4593,7 @@
       "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
+      "src/app/(search-app)/forms/act/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
       "src/app/(search-app)/forms/search/page.tsx",
       "src/app/(search-app)/formulation/[slug]/page.tsx",
@@ -4695,6 +4707,7 @@
       "src/app/(search-app)/factsheets/topics/page.tsx",
       "src/app/(search-app)/favourites/page.tsx",
       "src/app/(search-app)/forms/[slug]/page.tsx",
+      "src/app/(search-app)/forms/act/page.tsx",
       "src/app/(search-app)/forms/page.tsx",
       "src/app/(search-app)/forms/search/page.tsx",
       "src/app/(search-app)/formulation/[slug]/page.tsx",
@@ -4768,7 +4781,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 118,
+    "inheritedCkbV2RootCount": 119,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 15,
     "declaredV2SurfaceCount": 15
@@ -4777,8 +4790,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 119,
-    "productionRouteCount": 111,
-    "nextUiEntryCount": 176
+    "rootCount": 120,
+    "productionRouteCount": 112,
+    "nextUiEntryCount": 177
   }
 }

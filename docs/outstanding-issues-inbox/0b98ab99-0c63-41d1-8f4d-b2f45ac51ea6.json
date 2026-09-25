@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "0b98ab99-0c63-41d1-8f4d-b2f45ac51ea6",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Agent/crawler readiness: canonical tags, JSON-LD and Markdown discovery are missing on the public surface (audit F26)",
+    "detail": "Audit agent-readiness review found missing canonical/JSON-LD/Markdown-discovery features and a JS-heavy public surface. Park until clinical, security and release priorities are done. Not verified offline.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC3QZ28ECMGWJHETGNTXD"
+  }
+}

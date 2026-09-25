@@ -3,6 +3,7 @@
 import {
   Bookmark,
   BookmarkCheck,
+  CalendarClock,
   CalendarDays,
   ChevronRight,
   CircleCheck,
@@ -45,9 +46,11 @@ import type { PageSection } from "@/components/in-page-nav/page-section-index";
 import { useInPageSectionNav } from "@/components/in-page-nav/use-in-page-section-nav";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { PriorityFactsSection } from "@/components/forms/form-priority-facts-section";
+import { MhaTimelinePanel } from "@/components/forms/mha-timeline-panel";
 import { DisclosureGroup, disclosureBodyText } from "@/components/ui/disclosure";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
+import { hasMhaTimeline } from "@/lib/mha-timeline";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
 
@@ -59,6 +62,25 @@ function hasText(value: string | null | undefined): value is string {
 
 function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
+}
+
+/**
+ * The catalogue's `sourceNote` as a display fallback, unless the form has already
+ * been clinically reviewed and the note is only the pre-review "awaiting clinical
+ * review" caveat — that caveat is shown elsewhere while the form is drafted, and
+ * once a form is reviewed the note text itself (pinned in data/forms-catalog.json,
+ * not edited by this component) would otherwise keep reading "Awaiting clinical
+ * review" indefinitely.
+ */
+export function reviewedSourceNote(
+  details: { sourceNote?: string | null; contentReviewStatus?: string } | null | undefined,
+): string | undefined {
+  const note = details?.sourceNote;
+  if (!hasText(note)) return undefined;
+  if (details?.contentReviewStatus === "reviewed" && note.includes("Awaiting clinical review")) {
+    return undefined;
+  }
+  return note;
 }
 
 async function copyText(value: string) {
@@ -492,7 +514,9 @@ function PathwayContextCard({
             </div>
             <div>
               <dt className="font-bold uppercase text-[color:var(--text-muted)]">Act / cue</dt>
-              <dd className={textMuted}>{displayText(details?.sourceFacts?.sectionCue, details?.sourceNote)}</dd>
+              <dd className={textMuted}>
+                {displayText(details?.sourceFacts?.sectionCue, reviewedSourceNote(details))}
+              </dd>
             </div>
           </dl>
         </div>
@@ -583,6 +607,9 @@ export const formNavSections: readonly PageSection[] = [
     fragmentId: "form-decision-context",
   },
   { id: "form-priority-facts", label: "Priority facts", icon: ClipboardList },
+  // Rendered only for forms with a quoted Mental Health Act time limit; `useResolvedPageSections`
+  // drops the entry everywhere else.
+  { id: "form-timeline", label: "Timeline", icon: CalendarClock },
   { id: "form-legal-boundary", label: "Legal boundary", icon: Scale },
   { id: "form-information", label: "Form information", icon: FileText },
   {
@@ -940,6 +967,8 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </section>
 
             <PriorityFactsSection form={form} cards={summaryCards} />
+
+            {details?.form && hasMhaTimeline(details.form) ? <MhaTimelinePanel formCode={details.form} /> : null}
 
             <section
               id="form-legal-boundary"

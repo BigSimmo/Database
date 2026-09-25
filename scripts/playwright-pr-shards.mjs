@@ -36,88 +36,91 @@ export const seededSpecFilePattern = /^ui-caring-contacts-(activation|populated)
 export const SEEDED_PR_UI_PROJECT = "chromium-caring-contacts-seeded";
 
 /**
- * Timings: successful production Chromium reports from CI run 35737796786
- * (2026-09-22), including critical tests. Group longest files first by their
- * post-critical duration; keep seeded journeys together to share one server.
+ * Timings: mean of the successful post-critical production Chromium reports from
+ * PR CI runs 36113010077 and 36135682519 (2026-09-25, the `production-ui-timings-*`
+ * artifacts), plus each file's criticalSeconds, which those runs exclude. Files
+ * absent from both reports (critical-only) keep their 2026-09-22 values from run
+ * 35737796786. Group longest files first by their post-critical duration; keep
+ * seeded journeys together to share one server.
  * These measurements guide grouping, never test omission or passing status.
  */
 export const prUiSpecProfiles = Object.freeze([
   {
     file: "tests/adaptive-answer-ui.spec.ts",
     shard: 3,
-    fullSeconds: 18.4,
+    fullSeconds: 19,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-smoke.spec.ts",
     shard: 3,
-    fullSeconds: 155,
+    fullSeconds: 167,
     criticalSeconds: 17.7,
   },
   {
     file: "tests/ui-mode-nav-density.spec.ts",
     shard: 1,
-    fullSeconds: 40.6,
+    fullSeconds: 45.5,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-cme-phone.spec.ts",
     shard: 3,
-    fullSeconds: 3.4,
+    fullSeconds: 15.6,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-on-call-boards.spec.ts",
     shard: 1,
-    fullSeconds: 31,
+    fullSeconds: 34.8,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-on-call-service.spec.ts",
     shard: 1,
-    fullSeconds: 6.5,
+    fullSeconds: 4.2,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-phone-scroll-page-owned.spec.ts",
     shard: 2,
-    fullSeconds: 35.8,
+    fullSeconds: 34.8,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-accessibility.spec.ts",
     shard: 1,
-    fullSeconds: 26,
+    fullSeconds: 22.9,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-route-coverage.spec.ts",
     shard: 1,
-    fullSeconds: 17.5,
+    fullSeconds: 18,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-formulation.spec.ts",
     shard: 1,
-    fullSeconds: 13.5,
+    fullSeconds: 12,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-dictionary.spec.ts",
     shard: 2,
-    fullSeconds: 19.1,
+    fullSeconds: 19.8,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-sources.spec.ts",
-    shard: 3,
-    fullSeconds: 24.8,
+    shard: 2,
+    fullSeconds: 28,
     criticalSeconds: 4.9,
   },
   {
     file: "tests/ui-token-layer-resolution.spec.ts",
     shard: 1,
-    fullSeconds: 2.1,
+    fullSeconds: 2.4,
     criticalSeconds: 0,
   },
   {
@@ -135,153 +138,153 @@ export const prUiSpecProfiles = Object.freeze([
   {
     file: "tests/api-csrf-proxy.spec.ts",
     shard: 2,
-    fullSeconds: 0.1,
+    fullSeconds: 0.2,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-phone-motion.spec.ts",
     shard: 3,
-    fullSeconds: 14.4,
+    fullSeconds: 14.9,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-therapy-pathways.spec.ts",
     shard: 3,
-    fullSeconds: 3.7,
+    fullSeconds: 3.9,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-patient-number-field.spec.ts",
     shard: 2,
-    fullSeconds: 6.2,
+    fullSeconds: 5.9,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-caring-contacts-activation.spec.ts",
     shard: 3,
-    fullSeconds: 4.3,
+    fullSeconds: 4.4,
     criticalSeconds: 0,
     project: "chromium-caring-contacts-seeded",
   },
   {
     file: "tests/ui-caring-contacts-populated.spec.ts",
     shard: 3,
-    fullSeconds: 21.4,
+    fullSeconds: 24,
     criticalSeconds: 0,
     project: "chromium-caring-contacts-seeded",
   },
   {
     file: "tests/ui-phone-scroll-routes.spec.ts",
     shard: 2,
-    fullSeconds: 155.2,
+    fullSeconds: 151.8,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-phone-scroll.spec.ts",
     shard: 1,
-    fullSeconds: 183.2,
+    fullSeconds: 178.2,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-universal-search.spec.ts",
     shard: 2,
-    fullSeconds: 29.9,
+    fullSeconds: 25.2,
     criticalSeconds: 0,
   },
   {
     file: "tests/dsm-ui-smoke.spec.ts",
     shard: 3,
-    fullSeconds: 4.2,
+    fullSeconds: 3,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-caring-contacts-workspace.spec.ts",
     shard: 3,
-    fullSeconds: 153.9,
+    fullSeconds: 135.3,
     criticalSeconds: 0,
   },
   {
     file: "tests/answer-progress-ui-smoke.spec.ts",
     shard: 3,
-    fullSeconds: 33,
+    fullSeconds: 32,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-tools.spec.ts",
     shard: 2,
-    fullSeconds: 122,
+    fullSeconds: 97.1,
     criticalSeconds: 4,
   },
   {
     file: "tests/ui-chrome-scroll.spec.ts",
     shard: 1,
-    fullSeconds: 68.9,
+    fullSeconds: 64.8,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-overlap.spec.ts",
     shard: 2,
-    fullSeconds: 25.5,
+    fullSeconds: 19.7,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-stress.spec.ts",
-    shard: 1,
-    fullSeconds: 8.2,
+    shard: 2,
+    fullSeconds: 7.2,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-specifiers.spec.ts",
     shard: 1,
-    fullSeconds: 22.8,
+    fullSeconds: 19.5,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-formulation-result-cards.spec.ts",
     shard: 3,
-    fullSeconds: 2.6,
+    fullSeconds: 2.3,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-style-contract.spec.ts",
     shard: 2,
-    fullSeconds: 14.7,
+    fullSeconds: 11.4,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-hydration.spec.ts",
     shard: 2,
-    fullSeconds: 3.9,
+    fullSeconds: 3.6,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-pwa.spec.ts",
     shard: 3,
-    fullSeconds: 10.1,
+    fullSeconds: 9.1,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-phone-scroll-document-rail.spec.ts",
     shard: 1,
-    fullSeconds: 3.5,
+    fullSeconds: 3.3,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-visual-artifacts.spec.ts",
     shard: 1,
-    fullSeconds: 4.2,
+    fullSeconds: 3.7,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-forms-section-nav.spec.ts",
     shard: 2,
-    fullSeconds: 12.1,
+    fullSeconds: 9,
     criticalSeconds: 0,
   },
   {
     file: "tests/ui-therapy-nav-scroll.spec.ts",
     shard: 2,
-    fullSeconds: 3.6,
+    fullSeconds: 3.2,
     criticalSeconds: 0,
   },
   {

@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "878e668e-b2ff-492f-b771-11b67e07f2af",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P1",
+    "type": "task",
+    "summary": "Clinical eval battery misses high-risk scenarios: no hepatic, older-adult, interaction or false-premise cases (audit F14 + F15)",
+    "detail": "Verified offline by topic count over src/lib/rag/rag-eval-cases.ts (101 cases): hepatic 0, older adult/elderly 0, drug interaction 0, unsafe/false premise 0, Mental Health Act 1, QTc 2, pregnancy 3, paediatric 2. Owner recommendation (2026-09-25): start with ~20 clinician-reviewed cases (3 pregnancy/breastfeeding, 3 renal/hepatic, 2 older adults, 2 QTc, 2 lithium/clozapine monitoring, 2 overdose, 2 interactions, 2 MHA, 2 false-premise where the right answer corrects the premise); engineering drafts expected key facts + source, owner reviews. Adding golden cases touches the eval harness (RAG-protected surface): flag before editing, and live canary dispatches need approval.",
+    "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+    "issueUlid": "01M3CHC1RJM5MHK24FH5ZEAWWW"
+  }
+}

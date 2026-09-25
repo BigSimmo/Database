@@ -61,6 +61,8 @@ export type CmeEntry = {
   readonly documentId: string | null;
   /** Free-text buckets this entry counts toward, for `activity-count` requirements. */
   readonly buckets: readonly string[];
+  /** The development-plan goal this activity served, if the owner chose one. */
+  readonly goalId?: string | null;
 };
 
 export type CmeRequirementSet = {

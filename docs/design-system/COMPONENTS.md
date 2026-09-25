@@ -1067,7 +1067,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `DoseLine`               | answer   | yes   | yes                | no                    | yes            | no                 |               0 |
 | `DownloadLink`           | controls | yes   | yes                | no                    | yes            | no                 |               0 |
-| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              21 |
+| `EmptyState`             | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              20 |
 | `ErrorState`             | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ErrorSummary`           | feedback | yes   | yes                | no                    | yes            | no                 |               0 |
 | `ExternalTextLink`       | controls | yes   | yes                | inherited-global-root | yes            | no                 |               6 |
@@ -1075,7 +1075,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `FieldHint`              | feedback | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `FormField`              | controls | yes   | yes                | inherited-global-root | yes            | no                 |              12 |
 | `IconButton`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
-| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              25 |
+| `InlineNotice`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              26 |
 | `LinkAction`             | controls | yes   | yes                | no                    | yes            | no                 |               0 |
 | `LoadingPanel`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
 | `MissingValue`           | feedback | yes   | yes                | inherited-global-root | yes            | no                 |              11 |

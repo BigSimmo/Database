@@ -596,6 +596,47 @@
             "val": "Source Check - Buvidal ARTG/PI, Sublocade Australian PI, and PBS buprenorphine modified-release injection search checked 2026-05-10 for this entry."
           }
         ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CPOP Authorisation",
+            "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Becoming a CPOP Prescriber",
+            "val": "Prescribers must complete the Community Pharmacotherapy Program's approved training before authorisation, which lasts 3 years and is renewable; a sole prescriber is capped at 50 CPOP clients in a metropolitan practice or 25 in a regional one, unless the CEO authorises more. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Authorisation",
+            "val": "Each patient must be individually authorised by the CEO to receive opioid substitution therapy and is recorded as a Drug Dependent Person as a condition of that authorisation; authorisation is specific to the prescriber, patient and OST type, so a new application is needed to change medicine, treating practice or practitioner. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Continuing Treatment in Hospital",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Depot Storage",
+            "val": "Prescribers who administer buprenorphine depot formulations (Buvidal, Sublocade) must store the S8 medicine in a compliant safe, or arrange delivery to coincide with administration and promptly return any unused product to the pharmacy. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          }
+        ]
       }
     ],
     "quick": [
@@ -917,6 +958,42 @@
           {
             "key": "Source Review",
             "val": "Source Check - SUBOXONE ARTG 211117, Suboxone Film Australian PI, and PBS Suboxone search checked 2026-05-10 for this entry."
+          }
+        ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CPOP Authorisation",
+            "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Becoming a CPOP Prescriber",
+            "val": "Prescribers must complete the Community Pharmacotherapy Program's approved training before authorisation, which lasts 3 years and is renewable; a sole prescriber is capped at 50 CPOP clients in a metropolitan practice or 25 in a regional one, unless the CEO authorises more. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Authorisation",
+            "val": "Each patient must be individually authorised by the CEO to receive opioid substitution therapy and is recorded as a Drug Dependent Person as a condition of that authorisation; authorisation is specific to the prescriber, patient and OST type, so a new application is needed to change medicine, treating practice or practitioner. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Continuing Treatment in Hospital",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
           }
         ]
       }
@@ -1914,6 +1991,42 @@
           {
             "key": "Source Review",
             "val": "Source Check — Physeptone Australian PI, PBS item 13334T, and Australian MATOD guidelines checked 2026-05-10 for this entry."
+          }
+        ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CPOP Authorisation",
+            "val": "Methadone and buprenorphine for opioid dependence may only be prescribed within WA's Community Program for Opioid Pharmacotherapy (CPOP): a practitioner cannot prescribe or administer them for dependence without the CEO's prior permission, and treatment must be by an authorised CPOP prescriber, an authorised dispenser, and an authorised patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Becoming a CPOP Prescriber",
+            "val": "Prescribers must complete the Community Pharmacotherapy Program's approved training before authorisation, which lasts 3 years and is renewable; a sole prescriber is capped at 50 CPOP clients in a metropolitan practice or 25 in a regional one, unless the CEO authorises more. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Authorisation",
+            "val": "Each patient must be individually authorised by the CEO to receive opioid substitution therapy and is recorded as a Drug Dependent Person as a condition of that authorisation; authorisation is specific to the prescriber, patient and OST type, so a new application is needed to change medicine, treating practice or practitioner. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Continuing Treatment in Hospital",
+            "val": "A medical practitioner who is not an authorised CPOP prescriber may prescribe continuing OST for a patient in custody or as a hospital inpatient, for up to one month, provided the patient is a current CPOP participant with a valid authorisation on admission, the OST is prescribed in accordance with that authorisation, and the practitioner is satisfied it is safe to do so; authorisation is required outside these conditions. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Opioid substitution treatments are Schedule 8 medicines tracked on ScriptCheckWA; CPOP and S8 prescribing and dispensing history can be checked there or through the Department's S8 Prescriber Information Service. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
           }
         ]
       }
@@ -62291,6 +62404,32 @@
             "val": "Source Check - NEURONTIN/GABAPENTIN SANDOZ ARTG/PI and PBS search checked 2026-05-10 for mood-stabiliser/anticonvulsant batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
           }
         ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from ScriptCheckWA and Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "Schedule 4 Monitored Medicine",
+            "val": "WA Health lists gabapentin and pregabalin among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA, alongside other higher-risk S4 drugs such as benzodiazepines, quetiapine and tramadol. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "tags": []
+          },
+          {
+            "key": "No CEO Authorisation, But Document Risk",
+            "val": "CEO authorisation is not required to prescribe gabapentin or pregabalin, but prescribers are strongly advised to check ScriptCheckWA first, and must document a harm-mitigation plan when the patient is recorded as Drug Dependent or Oversupplied, is a current CPOP participant, takes concurrent opioids with a benzodiazepine, is prescribed monitored medicines by multiple prescribers, is treated off-label, or is dosed above the approved product information. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA Registration",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. Checking it is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          }
+        ]
       }
     ],
     "quick": [
@@ -63336,7 +63475,7 @@
           },
           {
             "key": "Bottom Line",
-            "val": "Pregabalin is effective for neuropathic pain, generalised anxiety, and fibromyalgia, but is now Schedule 8 due to high misuse and dependence potential and causes significant dizziness and weight gain.",
+            "val": "Pregabalin is effective for neuropathic pain, generalised anxiety, and fibromyalgia, but causes significant dizziness and weight gain.",
             "tags": []
           }
         ]
@@ -63531,6 +63670,32 @@
             "val": "Source Check - PREGABALIN SANDOZ ARTG/PI and PBS search checked 2026-05-10 for mood-stabiliser/anticonvulsant batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
           }
         ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from ScriptCheckWA and Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "Schedule 4 Monitored Medicine",
+            "val": "WA Health lists gabapentin and pregabalin among the Schedule 4 Monitored Medicines tracked on ScriptCheckWA, alongside other higher-risk S4 drugs such as benzodiazepines, quetiapine and tramadol. (ScriptCheckWA; source: wa-health-scriptcheckwa)",
+            "tags": []
+          },
+          {
+            "key": "No CEO Authorisation, But Document Risk",
+            "val": "CEO authorisation is not required to prescribe gabapentin or pregabalin, but prescribers are strongly advised to check ScriptCheckWA first, and must document a harm-mitigation plan when the patient is recorded as Drug Dependent or Oversupplied, is a current CPOP participant, takes concurrent opioids with a benzodiazepine, is prescribed monitored medicines by multiple prescribers, is treated off-label, or is dosed above the approved product information. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA Registration",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying any Monitored Medicine in WA, including S4 monitored medicines such as gabapentin and pregabalin. Checking it is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          }
+        ]
       }
     ],
     "quick": [
@@ -63552,7 +63717,7 @@
       },
       {
         "label": "Best Uses",
-        "value": "Pregabalin is effective for neuropathic pain, generalised anxiety, and fibromyalgia, but is now Schedule 8 due to high misuse and dependence potential and causes significant dizziness and weight gain."
+        "value": "Pregabalin is effective for neuropathic pain, generalised anxiety, and fibromyalgia, but causes significant dizziness and weight gain."
       },
       {
         "label": "Avoid / Cautions",
@@ -64602,7 +64767,7 @@
           },
           {
             "key": "Clinical Focus",
-            "val": "Up-scheduled to S8 in Australia due to massive abuse. Prescribing on the ward is extremely restricted and generally avoided.",
+            "val": "Up-scheduled to S8 in Australia due to massive abuse.",
             "tags": []
           },
           {
@@ -64660,7 +64825,7 @@
           },
           {
             "key": "Prescribing & PBS",
-            "val": "Highly Restricted (S8). Private script only in most states.",
+            "val": "Highly Restricted (S8).",
             "tags": []
           }
         ]
@@ -64741,7 +64906,7 @@
           },
           {
             "key": "The S8 Status",
-            "val": "Due to intense street value and abuse, you cannot legally prescribe this on discharge in WA without an S8 permit, unless continuing an existing verified specialist regimen.",
+            "val": "WA lets a treating team prescribe up to a 14-day supply of alprazolam from an emergency department or on hospital discharge without CEO authorisation, provided it is tied to that episode of care and the patient is not recorded as Drug Dependent or Oversupplied; any longer supply, or any alprazolam script outside those settings, needs written CEO authorisation under the Monitored Medicines Prescribing Code, supported by a Relevant Specialist (e.g. psychiatrist). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
             "tags": []
           }
         ]
@@ -64779,6 +64944,32 @@
           {
             "key": "Source Review",
             "val": "Source Check - KALMA/ALPRAX ARTG/PI and PBS search checked 2026-05-12 for sedative/acute-calming batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
+          }
+        ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CEO Authorisation",
+            "val": "Written CEO authorisation is always required before prescribing S8 benzodiazepines (alprazolam, flunitrazepam) in WA, except for administering them to a hospital inpatient, or a 14-day supply from an emergency department or on hospital discharge that is tied to that episode of care and where the patient is not recorded as Drug Dependent or Oversupplied. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Support",
+            "val": "An authorisation application must be submitted by, or supported by, a Relevant Specialist — an AHPRA specialist relevant to the diagnosis, e.g. a psychiatrist for anxiety treated with alprazolam, the Code's own example — and that support is valid for up to three years, or three months if it is a recent hospital discharge summary. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Alprazolam is a Schedule 8 medicine tracked on ScriptCheckWA. Registration is mandatory before prescribing, dispensing or supplying a Monitored Medicine; checking ScriptCheckWA is strongly recommended before any prescription, and is required before prescribing to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
           }
         ]
       }
@@ -68092,6 +68283,62 @@
             "val": "Source Check - ASPEN DEXAMFETAMINE ARTG/PI and PBS search checked 2026-05-10 for ADHD/stimulant batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
           }
         ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CEO Authorisation",
+            "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Approved Prescribers",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A medical practitioner or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model only if the prescribing (including medication name, formulation, and dose) is consistent with the Approved Specialist's written instructions or the latest prescription on ScriptCheckWA for the S8 stimulant medicine, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Stimulant-Induced Psychosis",
+            "val": "A psychiatrist who diagnoses stimulant-induced psychosis must notify the CEO in writing within 72 hours of the diagnosis, and written CEO authorisation is then required before any further S8 stimulant or medicinal cannabis product is prescribed for that patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Age",
+            "val": "For CEO-authorisation-free prescribing, the patient must be at least 4 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, dexamfetamine must not exceed 60 mg/day (1 mg/kg/day up to that same maximum for a patient under 18); the same 60 mg/day dexamfetamine-equivalent limit (1 mg/kg/day under 18) applies to the combined dose if another S8 stimulant is added. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by an Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          }
+        ]
       }
     ],
     "quick": [
@@ -68674,6 +68921,62 @@
             "val": "Source Check - VYVANSE ARTG/PI, TGA safety update, and PBS search checked 2026-05-10 for ADHD/stimulant batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
           }
         ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CEO Authorisation",
+            "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Approved Prescribers",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A medical practitioner or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model only if the prescribing (including medication name, formulation, and dose) is consistent with the Approved Specialist's written instructions or the latest prescription on ScriptCheckWA for the S8 stimulant medicine, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Stimulant-Induced Psychosis",
+            "val": "A psychiatrist who diagnoses stimulant-induced psychosis must notify the CEO in writing within 72 hours of the diagnosis, and written CEO authorisation is then required before any further S8 stimulant or medicinal cannabis product is prescribed for that patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Age",
+            "val": "For CEO-authorisation-free prescribing, the patient must be at least 6 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, lisdexamfetamine must not exceed 70 mg/day; it is not dosed by bodyweight, and treatment from age 6 is commenced at 30 mg/day. If combined with another S8 stimulant, the combined dose converted to a dexamfetamine equivalent must not exceed 60 mg/day (1 mg/kg/day for a patient under 18). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by an Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          }
+        ]
       }
     ],
     "quick": [
@@ -68990,6 +69293,62 @@
           {
             "key": "Source Review",
             "val": "Source Check - RITALIN/CONCERTA ARTG/PI and PBS search checked 2026-05-10 for ADHD/stimulant batch appraisal: identity/access, indication, dosing, contraindications/populations, interactions, monitoring, pregnancy/lactation, patient-context metadata, and source-row status."
+          }
+        ]
+      },
+      {
+        "title": "WA prescribing",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Monitored Medicines Prescribing Code; awaiting clinical review.",
+            "tags": []
+          },
+          {
+            "key": "CEO Authorisation",
+            "val": "S8 stimulants (dexamfetamine, methylphenidate, lisdexamfetamine) can be prescribed without written CEO authorisation only when the Prescriber, Patient, Product and Review criteria in Part 3 of WA's Monitored Medicines Prescribing Code are all met; if any is not met, written CEO authorisation is required before prescribing. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Approved Prescribers",
+            "val": "Prescribing without CEO authorisation is limited to an Approved Specialist treating the diagnosis their AHPRA specialty is approved for under Table 3 of the Code: Neurology or Paediatric Neurology for Acquired Brain Injury, ADHD or Narcolepsy; Paediatrics and Child Health for ADHD; Psychiatry for Acquired Brain Injury, ADHD, Moderate-to-Severe Binge Eating Disorder in an adult (lisdexamfetamine only) or Depression; Rehabilitation Medicine or Paediatric Rehabilitation Medicine for Acquired Brain Injury only; or Respiratory and Sleep Medicine for Narcolepsy only. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Shared Care Limits",
+            "val": "A medical practitioner or nurse practitioner may continue an Approved Specialist's stimulant treatment under a documented Shared Care Model only if the prescribing (including medication name, formulation, and dose) is consistent with the Approved Specialist's written instructions or the latest prescription on ScriptCheckWA for the S8 stimulant medicine, but — in the Code's own words — is “not permitted to” initiate an S8 stimulant medicine, alter an S8 stimulant dose without the Approved Specialist's written authority, prescribe for a patient who has an authority displayed on ScriptCheckWA, or alter the S8 stimulant type or formulation. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Stimulant-Induced Psychosis",
+            "val": "A psychiatrist who diagnoses stimulant-induced psychosis must notify the CEO in writing within 72 hours of the diagnosis, and written CEO authorisation is then required before any further S8 stimulant or medicinal cannabis product is prescribed for that patient. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "ScriptCheckWA",
+            "val": "Registration with ScriptCheckWA is mandatory before prescribing, dispensing or supplying a Monitored Medicine in WA. Checking it is strongly recommended before any prescription, and is required before prescribing an S8 stimulant to a new or unknown patient, to validate their prescribing history and previous supply. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Age",
+            "val": "For CEO-authorisation-free prescribing, the patient must be at least 4 years old; treatment of any patient under 2 years old with an S8 stimulant is not permitted at all. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Patient Exclusions",
+            "val": "For CEO-authorisation-free prescribing, the patient must not have a history of stimulant-induced psychosis, a history of psychosis or bipolar disorder, a history of substance abuse, diversion or misuse of drugs of addiction or Schedule 9 poisons within the previous 5 years, a record of Drug Dependence or Oversupply, or be a current CPOP participant. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Maximum Doses",
+            "val": "For CEO-authorisation-free prescribing, methylphenidate must not exceed 120 mg/day (2 mg/kg/day up to that same maximum for a patient under 18); if combined with another S8 stimulant, the combined dose converted to a dexamfetamine equivalent must not exceed 60 mg/day (1 mg/kg/day for a patient under 18). (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
+          },
+          {
+            "key": "Specialist Review Frequency",
+            "val": "To keep prescribing without CEO authorisation, a patient under 18 years old, or with any of the listed comorbidities, must be reviewed by an Approved Specialist on an annual basis; a patient 18 or older without a listed comorbidity must have been reviewed within the last 3 years. (Monitored Medicines Prescribing Code; source: wa-monitored-medicines-prescribing-code)",
+            "tags": []
           }
         ]
       }
@@ -78908,6 +79267,267 @@
             "key": "Half-life",
             "val": "12-16 hours. Metabolised primarily by **CYP1A2**.",
             "tags": []
+          }
+        ]
+      },
+      {
+        "title": "Clozapine reference (quoted)",
+        "type": "wa",
+        "rows": [
+          {
+            "key": "Status",
+            "val": "Drafted from Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system (WA Department of Health, Version 2, June 2024); awaiting clinical review.",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Source statement",
+            "val": "Every row in this section is quoted or closely transcribed from the Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system (WA Department of Health, Version 2, June 2024). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Chart purpose (s5.1)",
+            "val": "The WA Clozapine Initiation and Titration Chart (Appendix 1.1) facilitates clinical handover and prescription for the safe management of patients initiated or re-titrated on clozapine. Decision support regarding titration is provided on the chart. This chart meets the minimum standards for clozapine titration and is intended to be used as a record of the prescribing, monitoring, and administration of clozapine titration for all patients in inpatient settings. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community vs inpatient titration (s5.2)",
+            "val": "For inpatient settings, the WA Clozapine Initiation and Titration Chart outlines a suggested titration schedule, but slower titrations may be utilised. Patients commenced in the community must follow a slower titration due to reduced monitoring. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration setting",
+            "val": "In the outpatient setting, it is up to the individual Health Service Provider to determine the process for documenting, prescribing and ordering clozapine initiation and titration. Slower titrations and altered monitoring should be followed (see Appendix 5). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration monitoring key",
+            "val": "A = Pulse, postural BP, temperature should be taken before the dose and ideally, between 30 minutes and 6 hours after the dose. Enquire about side effects. B = Mental state, weight, review and actively manage side effects. Consider troponin, CRP, beta-natriuretic peptide. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Inpatient vital signs (s5.3)",
+            "val": "Once clozapine is taken, monitoring of vital signs must take place hourly for six hours, and then 6-hourly for the first 24 hours (during waking hours). For subsequent doses, observations of patients should be taken at least twice daily for the first week of titration then daily for inpatients thereafter (more frequently if clinically required). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community vital signs (s5.3)",
+            "val": "Patients initiated on clozapine in the community should be monitored for the first 3 hours, then daily during clinic business hours when patients are reviewed for the first two weeks then twice weekly for the third week, then weekly from week 4 at weekly reviews and at each monthly review once the initial 18 weeks is finished (increase monitoring if required). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 1",
+            "val": "AM dose 6.25 mg, PM dose 6.25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 2",
+            "val": "AM dose 6.25 mg, PM dose 6.25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 3",
+            "val": "AM dose 6.25 mg, PM dose 6.25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 4",
+            "val": "AM dose 6.25 mg, PM dose 12.5 mg. Monitoring: A, B, FBC. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 5",
+            "val": "AM dose 12.5 mg, PM dose 12.5 mg. Monitoring: A. Check results from day 4. Remind patient of out of hours arrangements and weekend. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 6",
+            "val": "AM dose 12.5 mg, PM dose 12.5 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 7",
+            "val": "AM dose 12.5 mg, PM dose 12.5 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 8",
+            "val": "AM dose 12.5 mg, PM dose 25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 9",
+            "val": "AM dose 12.5 mg, PM dose 25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 10",
+            "val": "AM dose 25 mg, PM dose 25 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 11",
+            "val": "AM dose 25 mg, PM dose 37.5 mg. Monitoring: A, B, FBC. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 12",
+            "val": "AM dose 25 mg, PM dose 37.5 mg. Monitoring: A. Check results from day 1. Remind patient of out of hours arrangements and weekend. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 13",
+            "val": "AM dose 25 mg, PM dose 37.5 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 14",
+            "val": "AM dose 25 mg, PM dose 37.5 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 15",
+            "val": "AM dose 37.5 mg, PM dose 37.5 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 16",
+            "val": "AM dose 37.5 mg, PM dose 37.5 mg. Monitoring: Not seen unless problems. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 17",
+            "val": "AM dose 37.5 mg, PM dose 50 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 18",
+            "val": "AM dose 37.5 mg, PM dose 50 mg. Monitoring: Not seen unless problems. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 19",
+            "val": "AM dose 50 mg, PM dose 50 mg. Monitoring: A, B, FBC. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 20",
+            "val": "AM dose 50 mg, PM dose 50 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 21",
+            "val": "AM dose 50 mg, PM dose 50 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 22",
+            "val": "AM dose 50 mg, PM dose 75 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 23",
+            "val": "AM dose 50 mg, PM dose 75 mg. Monitoring: Not seen unless problems. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 24",
+            "val": "AM dose 75 mg, PM dose 75 mg. Monitoring: A. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 25",
+            "val": "AM dose 75 mg, PM dose 75 mg. Monitoring: Not seen unless problems. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 26",
+            "val": "AM dose 75 mg, PM dose 100 mg. Monitoring: A, B, FBC. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 27",
+            "val": "AM dose 75 mg, PM dose 100 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Day 28",
+            "val": "AM dose 75 mg, PM dose 100 mg. Monitoring: No routine monitoring unless clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community titration Ongoing",
+            "val": "Ongoing: As clinically indicated. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Titration principle",
+            "val": "Commencement should take place early in the week to allow for adequate staffing and monitoring. Dose increments (not exceeding 25-50mg per increase per week) until target dose is reached (use plasma level). Dose increases should only occur during the week and not at weekends. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Appendix 5 attribution",
+            "val": "*Adapted from The Maudsley Prescribing Guidelines in Psychiatry 14th Edition (2021). [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Interruption: 48 hours or less since last dose",
+            "val": "No change to dosage. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Interruption: more than 48 hours since last dose",
+            "val": "Obtain psychiatric review prior to recommencing. Recommence on 12.5 mg once or twice a day on the first day. If this dose is tolerated, it may be feasible to titrate the dose to the therapeutic level more quickly than is recommended for initial treatment. This is a guide only, for further dosing options refer to the treating psychiatrist. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Restart safety principle",
+            "val": "If clozapine therapy is temporarily interrupted, the following table outlines suggested re-titration rate. If more rapid titrations are undertaken, a thorough risk assessment must weigh up risks of adverse effect versus benefit. Dose increases must not occur unless the previous dose is tolerated. Vital observation monitoring is key. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Notify monitoring service after interruption",
+            "val": "Notification of treatment interruption or treatment cessation must be submitted to the relevant clozapine monitoring service by the treating team. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Blood monitoring after interruption (Table 3)",
+            "val": "Table 3: Full Blood Count test monitoring after interruption of therapy. Less than or equal to 48 hours: No change to monitoring frequency. Greater than 48 hours and less than or equal to 72 hours: No change to monitoring frequency. Greater than 72 hours and less than or equal to 28 days: The six-week rule applies. For weekly monitored patients: Weekly monitoring for six weeks or for as long as needed to ensure a total of 18 weeks; whichever is the greatest. For four-weekly monitored patients: Weekly monitoring for six weeks. If no abnormality, resume four-weekly monitoring. Greater than 28 days: Weekly monitoring for 18 weeks. The patient must be re-registered with the monitoring service if the period of cessation is 3 months or greater. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Myocarditis monitoring - Days 7, 14, 21, 28",
+            "val": "Measurement of CRP, troponin, and eosinophils (as part of FBC) and ECG are recommended to be taken at baseline, Day 7, Day 14, Day 21 and Day 28 of clozapine initiation and as clinically indicated thereafter. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Myocarditis typical onset",
+            "val": "Myocarditis typically occurs in the first month of therapy with the median occurring at 15-20 days (although it may occur at other times). The characteristic clinical findings of myocarditis include increased CRP, increased Troponin levels and Eosinophilia. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community protocol (Appendix 4): baseline testing",
+            "val": "Baseline: Troponin I or T. CRP. Echocardiography. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community protocol (Appendix 4): vital signs, first 28 days",
+            "val": "At least every second day for the first 28 days: Blood Pressure (lying and standing), Pulse (HR), Body Temperature, Respiration rate. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community protocol (Appendix 4): symptom watch",
+            "val": "Ask patients (and advise carers if outpatients) to report feeling unwell and any symptoms of illness including fever, cough, chest pain, shortness of breath, diarrhoea, vomiting, nausea, sore throat, myalgia, headache, sweatiness, and urinary discomfort or frequency. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community protocol (Appendix 4): mild or unclear findings",
+            "val": "If the patient develops signs or symptoms of unidentified illness, OR HR is greater than or equal to 120bpm or greater than 30 bpm above patient's normal range, OR CRP 50 to 100 mg/L, OR mild elevation in troponin and CRP: Continue clozapine with increased monitoring. Check troponin and CRP daily and monitor patient for developing illness until features normalise. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
+          },
+          {
+            "key": "Community protocol (Appendix 4): marked abnormality",
+            "val": "If the patient develops troponin greater than twice the upper limit of normal, OR CRP greater than 100 mg/L: Cease clozapine. Repeat echocardiography. Consult a cardiologist. [Guidelines for the Safe and Quality Use of Clozapine Therapy in the WA health system - WA Department of Health, Version 2, June 2024]",
+            "tags": ["source:wa-health-clozapine-guideline-2024"]
           }
         ]
       },
