@@ -326,9 +326,15 @@ Read from the Actions API for PR runs `36110977826`, `36113010077`, `36107996148
   red on 7 of the last 8 pushes. Until that matrix is green (`#T82ND3`) those minutes buy no
   signal. Skipping the repeated Chromium work on `main` would reverse the 2026-08-18 decision above
   that `main` is always verified, so it needs an owner decision, not an agent edit.
-- **Not acted on — shard drift.** The 2026-08-09 profile predicted equal Production UI groups;
-  on 2026-09-25 they ran 6.3–6.4m / 7.6–7.9m / 8.2–8.8m of tests. Shard 3 is now the long pole by
-  ~2 minutes. Re-measure and rebalance with `node scripts/playwright-pr-shards.mjs --validate`.
+- **Shipped — shard rebalance, and a correction.** Per-file timings from the retained
+  `production-ui-timings-*` artifacts of PR runs `36113010077` and `36135682519` put the three
+  post-critical groups at about 421s / 378s / 436s of tests: shard 3 is heaviest by roughly
+  20–40 seconds, not ~2 minutes. Job-step times alone overstated it, because a single run
+  varies by up to ~100 seconds per shard (the same shard ran 6.0m on one run and 6.8m on the
+  next). The profile in `scripts/playwright-pr-shards.mjs` now carries those means, and
+  `ui-sources` and `ui-stress` moved to shard 2, giving estimates of 414s / 409s / 413s
+  post-critical. Shard 3 also boots the seeded Caring Contacts server, which the profile does
+  not model.
 - **Not acted on — unit coverage partitions.** Vitest `--shard` splits by file count, and the two
   partitions ran 8.1m vs 6.6m and 8.4m vs 7.0m. For a code change without UI scope this is the
   critical path.
