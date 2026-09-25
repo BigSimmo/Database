@@ -46,6 +46,7 @@ export const GOVERNED_SOURCE_HOSTS = [
   "www.openarms.gov.au",
   "www.psychiatry.org",
   "www.ranzcp.org",
+  "www.tisnational.gov.au",
   "www.wa.gov.au",
   "www.wacountry.health.wa.gov.au",
   "www.who.int",
