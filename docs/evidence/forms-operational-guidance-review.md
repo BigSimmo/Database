@@ -29,7 +29,7 @@ Official register: <https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legi
 
 **Operational sections** s 26 (Referral for examination at authorised hospital or other place); s 36 (Referral for examination at authorised hospital); s 40; s 41 (Form of referral); s 42 (Providing information contained in referral to person referred); s 43; s 44
 
-**Contextual sections** s 25; s 31 (Revoking referral); s 37 (Revoking referral); s 39; s 45 (Extending referral made outside metropolitan area); s 46 (Changing place where examination will be conducted); s 547
+**Contextual sections** s 25 (Criteria for involuntary treatment order); s 31 (Revoking referral); s 37 (Revoking referral); s 39; s 45 (Extending referral made outside metropolitan area); s 46 (Changing place where examination will be conducted); s 547
 
 **Purpose**
 
@@ -224,7 +224,7 @@ Drafted from Mental Health Act 2014 (WA) s 45, s 46 with s 26, s 41, s 44 as con
 
 **Operational sections** s 34 (Person in charge of ward may order assessment); s 35 (Revoking order for assessment)
 
-**Contextual sections** s 25; s 36 (Referral for examination at authorised hospital)
+**Contextual sections** s 25 (Criteria for involuntary treatment order); s 36 (Referral for examination at authorised hospital)
 
 **Purpose**
 
@@ -934,7 +934,7 @@ Drafted from Mental Health Act 2014 (WA) s 557 with s 551 as context, and from t
 
 **Operational sections** s 55 (What psychiatrist must do on completing examination); s 56 (Effect of order for continuation of detention); s 61 (What psychiatrist must do on completing examination); s 72 (What psychiatrist must do on completing examination); s 75 (What psychiatrist may do on completing examination); s 76 (Confirmation of community treatment order)
 
-**Contextual sections** s 25; s 114; s 115; s 116; s 117; s 120 (What supervising psychiatrist may do after examination); s 123 (Making inpatient treatment order or revoking community treatment order); s 131 (Other action that may be taken if non-compliance)
+**Contextual sections** s 25 (Criteria for involuntary treatment order); s 114 (Things psychiatrist must be satisfied of before making order); s 115 (Terms of order); s 116 (Duration of order); s 117; s 120 (What supervising psychiatrist may do after examination); s 123 (Making inpatient treatment order or revoking community treatment order); s 131 (Other action that may be taken if non-compliance)
 
 **Purpose**
 
@@ -1064,7 +1064,7 @@ Drafted from Mental Health Act 2014 (WA) s 121 with s 118, s 120 as context, and
 
 **Operational sections** s 122 (Varying order)
 
-**Contextual sections** s 115; s 135 (Change of supervising psychiatrist); s 137 (Change of treating practitioner)
+**Contextual sections** s 115 (Terms of order); s 135 (Change of supervising psychiatrist); s 137 (Change of treating practitioner)
 
 **Purpose**
 
@@ -1322,7 +1322,7 @@ Drafted from Mental Health Act 2014 (WA) s 128 with s 127, s 129 as context, and
 
 **Operational sections** s 55 (What psychiatrist must do on completing examination); s 56 (Effect of order for continuation of detention); s 72 (What psychiatrist must do on completing examination); s 87
 
-**Contextual sections** s 25; s 89 (Examination before end of each detention period); s 90 (Changing involuntary inpatient’s status); s 120 (What supervising psychiatrist may do after examination); s 123 (Making inpatient treatment order or revoking community treatment order); s 131 (Other action that may be taken if non-compliance)
+**Contextual sections** s 25 (Criteria for involuntary treatment order); s 89 (Examination before end of each detention period); s 90 (Changing involuntary inpatient’s status); s 120 (What supervising psychiatrist may do after examination); s 123 (Making inpatient treatment order or revoking community treatment order); s 131 (Other action that may be taken if non-compliance)
 
 **Purpose**
 
@@ -3441,7 +3441,7 @@ Drafted from Mental Health Act 2014 (WA) s 262 with s 261 as context, and from t
 
 **Operational sections** s 201 (Statistics about ECT)
 
-**Contextual sections** s 199
+**Contextual sections** s 199 (Emergency ECT on adult involuntary patient or supervised person)
 
 **Purpose**
 
