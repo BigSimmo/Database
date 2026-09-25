@@ -42,6 +42,18 @@ Code and ground truth whose edits change (or re-measure) retrieval/ranking behav
   on PR #2832 pointed out that gating raw chunk extraction alone left the structured-evidence
   producers open. The re-index note above applies here too: index units change only when
   documents are re-ingested.
+- `src/lib/retrieval-rpc-rollout.ts`, `src/lib/clinical-evidence-haystack.ts`,
+  `src/lib/cross-document-synthesis.ts`, `src/lib/corpus-grounding.ts`, `src/lib/keyword-query.ts`
+  — retrieval inputs outside `src/lib/rag/**`: which RPC version the fan-out calls, the image
+  evidence haystack `clinical-search` scores against, the synthesis read by
+  `retrieval-selection` and the context pack, the classifier fallback's grounding verdict, and
+  the lexical query and stop-word set. Added 2026-09-25 after a codebase survey found them
+  unprotected.
+- `src/lib/document-enrichment.ts`, `src/lib/visual-intelligence.ts`, `src/lib/image-filtering.ts`,
+  `worker/embedding-fields.ts`, `worker/table-facts.ts`, `worker/assertion-tagging.ts` — the
+  remaining producers of rows the retrieval RPCs query (enrichment, image captions, embedding
+  fields, table facts, assertion tags). Added 2026-09-25. `worker/main.ts` stays out: it
+  orchestrates these producers rather than deciding their content. The re-index note applies.
 - `scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`,
   `scripts/lib/ranking-tuning.ts`, `scripts/lib/ranking-snapshot-builder.ts`,
   `scripts/build-ranking-snapshot.ts`, `scripts/tune-search-weights.ts`

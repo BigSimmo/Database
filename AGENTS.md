@@ -349,6 +349,12 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
   whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
   of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
+  The other retrieval inputs are covered too (added 2026-09-25): retrieval RPC version choice
+  and scoring helpers (`src/lib/retrieval-rpc-rollout.ts`, `clinical-evidence-haystack.ts`,
+  `cross-document-synthesis.ts`, `corpus-grounding.ts`, `keyword-query.ts`), and the producers of
+  enrichment, image-caption, embedding-field, table-fact and assertion rows
+  (`src/lib/document-enrichment.ts`, `visual-intelligence.ts`, `image-filtering.ts`,
+  `worker/embedding-fields.ts`, `worker/table-facts.ts`, `worker/assertion-tagging.ts`).
   The authoritative list is `ragRankingPatterns` in `scripts/pr-policy.mjs`, which also protects
   the ranking contract tests; where this sentence and that list ever differ, flag everything
   either names (aligned 2026-09-25).
