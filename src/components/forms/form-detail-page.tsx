@@ -64,6 +64,25 @@ function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
 }
 
+/**
+ * The catalogue's `sourceNote` as a display fallback, unless the form has already
+ * been clinically reviewed and the note is only the pre-review "awaiting clinical
+ * review" caveat — that caveat is shown elsewhere while the form is drafted, and
+ * once a form is reviewed the note text itself (pinned in data/forms-catalog.json,
+ * not edited by this component) would otherwise keep reading "Awaiting clinical
+ * review" indefinitely.
+ */
+export function reviewedSourceNote(
+  details: { sourceNote?: string | null; contentReviewStatus?: string } | null | undefined,
+): string | undefined {
+  const note = details?.sourceNote;
+  if (!hasText(note)) return undefined;
+  if (details?.contentReviewStatus === "reviewed" && note.includes("Awaiting clinical review")) {
+    return undefined;
+  }
+  return note;
+}
+
 async function copyText(value: string) {
   if (navigator.clipboard?.writeText) {
     try {
@@ -495,7 +514,9 @@ function PathwayContextCard({
             </div>
             <div>
               <dt className="font-bold uppercase text-[color:var(--text-muted)]">Act / cue</dt>
-              <dd className={textMuted}>{displayText(details?.sourceFacts?.sectionCue, details?.sourceNote)}</dd>
+              <dd className={textMuted}>
+                {displayText(details?.sourceFacts?.sectionCue, reviewedSourceNote(details))}
+              </dd>
             </div>
           </dl>
         </div>

@@ -5,6 +5,7 @@ import formsContentReview from "../data/forms-content-review.json";
 import { buildSheet } from "../scripts/build-forms-content-review-sheet";
 import { finalizeClinicalReview, reviewProblems } from "../scripts/lib/clinical-record-review-contract.mjs";
 
+import { reviewedSourceNote } from "@/components/forms/form-detail-page";
 import { FORMS_AWAITING_REVIEW_NOTE, formCatalogDetails, formContentReviewStatus } from "@/lib/form-catalog";
 import { formRecords, getFormRecord } from "@/lib/forms";
 
@@ -24,7 +25,7 @@ import { formRecords, getFormRecord } from "@/lib/forms";
  * clinician sign-off, exactly as the Act-section summaries do.
  */
 
-type CatalogForm = { form: string; purpose?: string; maker?: string; safetyPearl?: string };
+type CatalogForm = { form: string; purpose?: string; maker?: string; safetyPearl?: string; sourceNote?: string };
 const catalogForms = (formsCatalog as { forms: CatalogForm[] }).forms;
 
 const INDEXING_SCAFFOLD = {
@@ -94,6 +95,41 @@ describe("forms catalogue operational content", () => {
       expect(notes.includes(FORMS_AWAITING_REVIEW_NOTE), details!.form).toBe(isDrafted);
       expect(FORMS_AWAITING_REVIEW_NOTE.toLowerCase()).toContain("awaiting clinical review");
     }
+  });
+
+  /**
+   * Seven forms' catalogue sourceNote is only the pre-review caveat: "Operational guidance
+   * drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical
+   * review." (pinned in data/forms-catalog.json; never edited by this component). The Act/cue
+   * row on the form's Source info tab falls back to sourceNote whenever the form has no
+   * sourceFacts.sectionCue, so that caveat would otherwise keep showing forever, even after
+   * the form is clinically reviewed. reviewedSourceNote suppresses it, and only it, once
+   * contentReviewStatus is "reviewed" — any other sourceNote text is unaffected.
+   */
+  it("stops showing the 'awaiting clinical review' sourceNote once a form is reviewed, but leaves every other sourceNote alone", () => {
+    const AWAITING =
+      "Operational guidance drafted from the Mental Health Act 2014 (WA) and the approved form. Awaiting clinical review.";
+    const affected = catalogForms.filter((entry) => entry.sourceNote === AWAITING).map((entry) => entry.form);
+    expect(affected).toEqual(PREVIOUSLY_UNCOVERED);
+
+    // Drafted (today's real state for all seven): the caveat still shows.
+    expect(reviewedSourceNote({ sourceNote: AWAITING, contentReviewStatus: "drafted" })).toBe(AWAITING);
+    expect(reviewedSourceNote({ sourceNote: AWAITING })).toBe(AWAITING);
+
+    // Reviewed: the caveat is suppressed so the row falls through to "Not listed" rather than
+    // a stale "awaiting review" claim about signed-off guidance.
+    expect(reviewedSourceNote({ sourceNote: AWAITING, contentReviewStatus: "reviewed" })).toBeUndefined();
+
+    // A genuinely informative sourceNote (unrelated to the review caveat) is never suppressed,
+    // reviewed or not.
+    const realNote = "Official title and availability checked against the Office of the Chief Psychiatrist register.";
+    expect(reviewedSourceNote({ sourceNote: realNote, contentReviewStatus: "reviewed" })).toBe(realNote);
+    expect(reviewedSourceNote({ sourceNote: realNote, contentReviewStatus: "drafted" })).toBe(realNote);
+
+    // No sourceNote at all: nothing to suppress, nothing to show.
+    expect(reviewedSourceNote({ contentReviewStatus: "reviewed" })).toBeUndefined();
+    expect(reviewedSourceNote(null)).toBeUndefined();
+    expect(reviewedSourceNote(undefined)).toBeUndefined();
   });
 
   /**
