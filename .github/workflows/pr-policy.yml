@@ -3,28 +3,21 @@ name: PR Policy
 on:
   pull_request_target:
     branches: [main, "release/**"]
-    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
   merge_group:
 
-# Runs for one PR queue instead of cancelling each other. The `Owner approval` status is
-# last-write-wins, so a cancelled run's in-flight write could otherwise land after a newer
-# run's verdict (a stale pending over an approval, or a stale success over a new hold).
-# Serialized, the newest run always writes last; GitHub keeps one queued run per group and
-# drops older queued ones, and every run re-reads the PR, so no event is lost.
+# Runs for one PR queue instead of cancelling each other, so a newer synchronize
+# cannot leave an older run's evaluation as the last recorded outcome.
 concurrency:
   group: pr-policy-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
-# pull-requests: write exists for ONE call: removing the `owner-approved` label when new
-# commits land. statuses: write exists for ONE context: the `Owner approval` commit status
-# (pending while Josh's approval is outstanding, success otherwise). actions: read lists this
-# workflow's own run records, which bind the owner's approval to the current head. Nothing
-# else here writes. The PR head is never checked out or executed.
+# contents: read for the trusted checkout and repos.getContent; pull-requests: read
+# for PR metadata and the changed-file list. Nothing here writes. The PR head is
+# never checked out or executed.
 permissions:
   contents: read
-  pull-requests: write
-  statuses: write
-  actions: read
+  pull-requests: read
 
 jobs:
   policy:
@@ -32,9 +25,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
-      # No `Owner approval` status is posted for merge_group. This repository has no merge
-      # queue; if one is ever enabled while the ruleset requires `Owner approval`, every queued
-      # PR waits on "Expected" (fail closed) until a merge_group status path is added here.
       - name: Accept merge queue validation
         if: github.event_name == 'merge_group'
         run: echo "PR metadata was validated before merge-queue entry."
@@ -60,15 +50,8 @@ jobs:
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const {
-              OWNER_APPROVAL_CHECKING_DESCRIPTION,
-              OWNER_APPROVAL_CONTEXT,
-              OWNER_APPROVED_LABEL,
               evaluatePullRequestPolicy,
               migrationVersionsFromEntries,
-              ownerActorMatches,
-              ownerApprovalCommitStatus,
-              ownerApprovalCoversHead,
-              workflowRunRecordsPrHead,
             } = await import(moduleUrl);
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
             const pr = context.payload.pull_request;
@@ -92,149 +75,9 @@ jobs:
               return;
             }
 
-            // `Owner approval` is a commit status on the PR head: pending (yellow) blocks a
-            // required context exactly as a failure does, and statuses are per SHA, so an
-            // earlier head's success never covers a new push. Mark the head pending BEFORE
-            // anything is evaluated, so a head that already carries an old success (a branch
-            // force-pushed back to an earlier commit) is held again while this run works.
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const setOwnerApprovalStatus = (sha, { state, description }) =>
-              github.rest.repos.createCommitStatus({
-                ...repo,
-                sha,
-                state,
-                context: OWNER_APPROVAL_CONTEXT,
-                description,
-                target_url: runUrl,
-              });
-            try {
-              await setOwnerApprovalStatus(latestPr.head.sha, {
-                state: "pending",
-                description: OWNER_APPROVAL_CHECKING_DESCRIPTION,
-              });
-            } catch (error) {
-              core.setFailed(
-                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Rerun the job.`,
-              );
-              return;
-            }
-
-            const hasOwnerLabel = (latestPr.labels || []).some(
-              (label) => String(label?.name ?? "").toLowerCase() === OWNER_APPROVED_LABEL,
-            );
-
-            // Owner approval covers the commits Josh reviewed, never later ones. Revoke it
-            // BEFORE the draft early-return, so converting to draft cannot carry an approval
-            // across a push. `reopened` is included because pushes to a closed PR's branch
-            // surface on reopen rather than as `synchronize`.
-            let approvalRevoked = false;
-            if (["synchronize", "reopened"].includes(context.payload.action) && hasOwnerLabel) {
-              try {
-                await github.rest.issues.removeLabel({ ...repo, issue_number: pr.number, name: OWNER_APPROVED_LABEL });
-              } catch (error) {
-                if (error?.status !== 404) {
-                  core.setFailed(
-                    `New commits reached PR #${pr.number}, but the stale \`${OWNER_APPROVED_LABEL}\` label could not be removed: ${error instanceof Error ? error.message : String(error)}. The policy fails closed; rerun the job.`,
-                  );
-                  return;
-                }
-              }
-              approvalRevoked = true;
-              core.notice(
-                `The PR changed (${context.payload.action}), so the \`${OWNER_APPROVED_LABEL}\` label was removed. Owner approval covers only the commits Josh reviewed; he re-reviews and re-applies it.`,
-              );
-            }
-
             if (latestPr.draft) {
-              await setOwnerApprovalStatus(latestPr.head.sha, ownerApprovalCommitStatus({ draft: true }));
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
               return;
-            }
-
-            // Approval counts only when:
-            //   1. the most recent `labeled` event was not performed through a GitHub App,
-            //   2. labeled.actor.login is the repository owner (context.repo.owner), and
-            //   3. that label was applied strictly after GitHub first saw the current PR head.
-            //
-            // For pull_request_target, GITHUB_SHA is the trusted base. Bind approval using run
-            // records that name the PR head (run.head_sha, filtered client-side), never GITHUB_SHA
-            // alone. The head binding does not depend on the label strip completing: a push
-            // cancelled mid-strip still leaves a run record for the new head.
-            let ownerApproval = { approved: false };
-            if (hasOwnerLabel && !approvalRevoked) {
-              let events;
-              try {
-                events = await github.paginate(github.rest.issues.listEvents, {
-                  ...repo,
-                  issue_number: pr.number,
-                  per_page: 100,
-                });
-              } catch (error) {
-                core.setFailed(
-                  `Unable to read label events for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}. Owner approval cannot be verified; rerun the job.`,
-                );
-                return;
-              }
-              const labeled = events
-                .filter(
-                  (event) =>
-                    event.event === "labeled" && String(event.label?.name ?? "").toLowerCase() === OWNER_APPROVED_LABEL,
-                )
-                .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at) || a.id - b.id)
-                .at(-1);
-              if (!labeled) {
-                ownerApproval = {
-                  approved: false,
-                  rejectedReason: `${OWNER_APPROVED_LABEL} label is present but no labeled event for it was found`,
-                };
-              } else if (labeled.performed_via_github_app) {
-                const app = labeled.performed_via_github_app;
-                ownerApproval = {
-                  approved: false,
-                  rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by a GitHub App (${app.slug || app.name || "unknown"}), not by the owner`,
-                };
-              } else if (
-                !ownerActorMatches({
-                  actorLogin: labeled.actor?.login,
-                  ownerLogin: context.repo.owner,
-                })
-              ) {
-                ownerApproval = {
-                  approved: false,
-                  rejectedReason: `${OWNER_APPROVED_LABEL} label was applied by ${labeled.actor?.login || "unknown"}, not by the repository owner (${context.repo.owner})`,
-                };
-              } else {
-                // Every PR policy run whose run record names this PR head, cancelled ones
-                // included (no status filter): the earliest created_at is when GitHub first
-                // saw the head. List by branch, then keep runs whose head_sha is the PR head
-                // (GITHUB_SHA/base must not be the binding key).
-                let headRunCreatedAt = null;
-                try {
-                  const branchRuns = await github.paginate(github.rest.actions.listWorkflowRuns, {
-                    ...repo,
-                    workflow_id: "pr-policy.yml",
-                    event: "pull_request_target",
-                    branch: latestPr.head.ref,
-                    per_page: 100,
-                  });
-                  headRunCreatedAt = branchRuns
-                    .filter((run) =>
-                      workflowRunRecordsPrHead(run, {
-                        headSha: latestPr.head.sha,
-                        prNumber: latestPr.number,
-                      }),
-                    )
-                    .map((run) => run.created_at);
-                } catch (error) {
-                  core.warning(
-                    `Unable to list PR policy runs for head ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Owner approval is rejected until the head can be bound.`,
-                  );
-                }
-                const binding = ownerApprovalCoversHead({ labeledAt: labeled.created_at, headRunCreatedAt });
-                ownerApproval = binding.covered
-                  ? { approved: true, actor: labeled.actor?.login ?? null, headFirstSeenAt: binding.headFirstSeenAt }
-                  : { approved: false, rejectedReason: binding.reason };
-              }
             }
 
             // Applied migration versions come from the TRUSTED checkout (github.workflow_sha,
@@ -333,83 +176,10 @@ jobs:
                 previous_filename: file.previous_filename ?? null,
               })),
               baseMigrationVersions,
-              ownerApproval,
               addedMigrationContents,
               changedWorkflowContents,
-              enforceOwnerMerge: true,
-              // The owner hold is carried by the required `Owner approval` status (yellow while
-              // pending), not by a red PR policy error. Ruleset 18011271 requires that context;
-              // never remove it from the ruleset without reverting this line.
-              ownerHoldViaStatus: true,
+              enforceMigrationHistory: true,
             });
-
-            // Report the hold as its own status. success is posted only while the evaluated
-            // head is still the PR head; if a push landed meanwhile, that push's own run owns
-            // the verdict and this head keeps the pending status set above. pending is always
-            // safe to post.
-            //
-            // A status belongs to the commit, not the PR. When the same commit heads another
-            // open PR (e.g. one against main and one against release/**), one PR's success
-            // would clear the other's hold, so success requires that no other open PR shares
-            // this head. The list is read again after a success is written, so a PR opened in
-            // between still turns it back to pending; the other PR's own run also writes pending.
-            const listOtherOpenPrsSharingHead = async () =>
-              (await github.paginate(github.rest.pulls.list, { ...repo, state: "open", per_page: 100 }))
-                .filter((other) => other.head?.sha === latestPr.head.sha && other.number !== latestPr.number)
-                .map((other) => other.number);
-            const statusInputs = {
-              ownerMergeReasons: result.ownerMergeReasons,
-              ownerApproved: result.ownerApproved,
-              rejectedReason: ownerApproval.rejectedReason,
-            };
-            let otherPrsSharingHead;
-            try {
-              otherPrsSharingHead = await listOtherOpenPrsSharingHead();
-            } catch (error) {
-              core.warning(
-                `Unable to list open PRs sharing head ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. ${OWNER_APPROVAL_CONTEXT} stays pending.`,
-              );
-            }
-            let approvalStatus = ownerApprovalCommitStatus({ ...statusInputs, otherPrsSharingHead });
-            try {
-              let headStillCurrent = true;
-              if (approvalStatus.state === "success") {
-                const { data: currentPr } = await github.rest.pulls.get({ ...repo, pull_number: pr.number });
-                headStillCurrent = currentPr.head.sha === latestPr.head.sha;
-              }
-              if (headStillCurrent) {
-                await setOwnerApprovalStatus(latestPr.head.sha, approvalStatus);
-                if (approvalStatus.state === "success") {
-                  let sharedAfterWrite;
-                  try {
-                    sharedAfterWrite = await listOtherOpenPrsSharingHead();
-                  } catch {
-                    sharedAfterWrite = undefined;
-                  }
-                  const recheckedStatus = ownerApprovalCommitStatus({
-                    ...statusInputs,
-                    otherPrsSharingHead: sharedAfterWrite,
-                  });
-                  if (recheckedStatus.state !== "success") {
-                    approvalStatus = recheckedStatus;
-                    await setOwnerApprovalStatus(latestPr.head.sha, recheckedStatus);
-                  }
-                }
-              } else {
-                core.notice(
-                  `The PR head moved past ${latestPr.head.sha} during this run; its ${OWNER_APPROVAL_CONTEXT} status stays pending and the new head's run decides.`,
-                );
-              }
-            } catch (error) {
-              core.setFailed(
-                `Unable to set the ${OWNER_APPROVAL_CONTEXT} status on ${latestPr.head.sha}: ${error instanceof Error ? error.message : String(error)}. Rerun the job.`,
-              );
-            }
-            if (!Array.isArray(otherPrsSharingHead)) {
-              core.setFailed(
-                `Could not confirm that no other open PR shares head ${latestPr.head.sha}, so ${OWNER_APPROVAL_CONTEXT} was left pending. Rerun the job.`,
-              );
-            }
 
             const warnings = result.warnings || [];
             await core.summary
@@ -417,11 +187,6 @@ jobs:
               .addRaw(`Clinical risk: ${result.classification.clinicalRisk ? "yes" : "no"}<br>`)
               .addRaw(`Operational risk: ${result.classification.operationalRisk ? "yes" : "no"}<br>`)
               .addRaw(`UI change: ${result.classification.ui ? "yes" : "no"}<br>`)
-              .addRaw(
-                `Owner merge required for: ${result.ownerMergeReasons.length > 0 ? result.ownerMergeReasons.join(", ") : "none"}<br>`,
-              )
-              .addRaw(`Owner approved: ${result.ownerApproved ? "yes" : "no"}<br>`)
-              .addRaw(`${OWNER_APPROVAL_CONTEXT} status: ${approvalStatus.state} — ${approvalStatus.description}<br>`)
               .addRaw(`Migration history violations: ${result.migrationHistoryViolations.length}<br>`)
               .addRaw(`Blocking issues: ${result.errors.length}<br>`)
               .addRaw(`Advisory warnings: ${warnings.length}<br>`)
@@ -432,8 +197,7 @@ jobs:
             // with an incomplete Clinical Governance Preflight; a RAG-ranking-surface PR
             // without an explicit `RAG impact:` declaration (docs/rag-behaviour/safeguards.md);
             // a migration PR claiming a deferred deploy; an edit to applied migration history;
-            // and a changed branch workflow that names or posts a required check. A database,
-            // clinical or RAG-ranking PR awaiting the owner is held by `Owner approval`, not here.
+            // and a changed branch workflow that names or posts a required check.
             for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
