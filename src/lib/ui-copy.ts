@@ -28,7 +28,7 @@ export type SharedHomePresentation = {
  * drives the mode-specific hero title and subtitle on that page.
  *
  * Titles here provide full descriptive clinical labels (e.g. "Clinical Services",
- * "Differential Diagnosis", "Medication Guidance", "Patient Factsheets",
+ * "Differential Diagnosis", "Medication Reference", "Patient Factsheets",
  * "Clinical Dictionary") while standalone mode surfaces and workspaces
  * (`*-home-page.tsx`, `medication-prescribing-workspace.tsx`, etc.) present
  * concise mode titles ("Services", "Differentials", "Medication", "Factsheets",
@@ -81,7 +81,7 @@ export const sharedHomePresentation = {
     suggestions: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
   },
   prescribing: {
-    title: "Medication Guidance",
+    title: "Medication Reference",
     subtitle: "Medication dosing and safety.",
     suggestions: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
   },

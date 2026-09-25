@@ -67,7 +67,7 @@ const expectedPresentations = [
   },
   {
     modeId: "prescribing",
-    title: "Medication Guidance",
+    title: "Medication Reference",
     subtitle: "Medication dosing and safety.",
     iconClass: "lucide-pill",
   },

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "a71fa637-63eb-4baa-81a8-dbf5bd603053",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#GHC4XZ",
+    "outcome": "Fixed in 10c9b9fe9, 1f0dd0852, a1816938b, dc1dea242, 64bb60f86 and 24a7ec4d3 (owner sign-off, Josh, 2026-09-25: red_flag matches urgent(?:ly)? and seizures?, escalation matches transfer(?:s|red|ring)?; decision 9 as narrowed by decision 16 excludes only drug-passage phrases - transfer into (the) (breast) milk, across the placenta, (trans)placental transfer, into/to/across the fetus or foetus, across the blood-brain barrier, into the CSF - so 'Sertraline transfers into breast milk' and 'Lithium is transferred across the placenta' get no Escalation chip, while 'Transfer into ICU was arranged', 'transferred into the care of the inpatient team' and 'Transferring the patient across to the medical ward' keep Escalation (Red flag when urgently matches first); transferrin, transference, countertransference, transferase and transferable stay unlabelled; the nine measured tier movements are pinned; SAFETY-CHIP-VOCABULARY residualRisk corrected and the hazard snapshot regenerated, digests not re-sealed). review/exclude/consider/caution inflections deliberately left unwidened by the same decision ('widen only the urgent patterns'). Pinned by tests/clinical-safety.test.ts.",
+    "baseRowFingerprint": "cd134a3098c280fe0cfd31e047e0cf20bda0a9091788aea8e78722349afbb6d5"
+  }
+}
