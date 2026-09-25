@@ -155,9 +155,10 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
             <ChevronLeft aria-hidden="true" className="size-icon-sm" />
           </button>
           <div className="flex min-w-0 flex-col items-center">
-            <h2 aria-live="polite" className="text-base font-semibold text-[color:var(--text)]">
+            <h2 className="text-base font-semibold text-[color:var(--text)]">{monthLabel(month)}</h2>
+            <p aria-live="polite" className="sr-only">
               {monthLabel(month)}
-            </h2>
+            </p>
             {monthKeyOf(today) !== month ? (
               <button
                 type="button"
@@ -216,7 +217,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
                       "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       day.inMonth ? "text-[color:var(--text)]" : "text-[color:var(--text-muted)] opacity-60",
                       isSelected
-                        ? "bg-[color:var(--command)] text-[color:var(--command-contrast)] opacity-100"
+                        ? "bg-[color:var(--clinical-accent-soft)] font-semibold text-[color:var(--clinical-accent)] opacity-100 ring-2 ring-inset ring-[color:var(--clinical-accent)]"
                         : "hover:bg-[color:var(--surface-subtle)]",
                     )}
                   >
@@ -232,10 +233,7 @@ export function CalendarView({ events, today, exportName, exportEvents, testId =
                       {dayEvents.slice(0, 3).map((event) => (
                         <span
                           key={event.occurrenceKey}
-                          className={cn(
-                            "size-1.5 rounded-full forced-colors:bg-[CanvasText]",
-                            isSelected ? "bg-[color:var(--command-contrast)]" : KIND_DOT[event.kind],
-                          )}
+                          className={cn("size-1.5 rounded-full forced-colors:bg-[CanvasText]", KIND_DOT[event.kind])}
                         />
                       ))}
                     </span>
