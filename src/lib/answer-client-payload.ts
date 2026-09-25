@@ -897,7 +897,12 @@ export function authorityTrustCapRequired(answer: RagAnswer): boolean {
   const gatedClaims = capAllClaims
     ? (answer.supportedClaims ?? [])
     : (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
-  if (gatedClaims.length === 0) return false;
+  // Owner decision 10 (#WGMB4Z, 2026-09-25): with every claim gated, an answer
+  // with no assessed claims has nothing showing its sources are approved or
+  // locally reviewed, so it is capped ("Supported" at most, never "Strong
+  // support"). Under the explicit "false" opt-out, no high-risk claims still
+  // means no cap.
+  if (gatedClaims.length === 0) return capAllClaims;
   return !gatedClaims.every(
     (claim) =>
       claim.supportStatus === "direct" &&

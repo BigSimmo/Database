@@ -464,6 +464,53 @@ describe("answer render policy", () => {
     }
   });
 
+  // #WGMB4Z, owner decision 10 (Josh, 2026-09-25): with the cap on every claim, an answer
+  // with NO assessed claims has nothing to show its sources are approved or locally reviewed,
+  // so it never reaches "Strong support" (trust "high"); "Supported" (medium) is the ceiling.
+  // Only an explicit "false" restores the old high-risk-only gate, under which no claims
+  // meant no cap.
+  it.each([
+    ["empty", [] as NonNullable<RagAnswer["supportedClaims"]>],
+    ["undefined", undefined],
+  ])("caps a high-confidence answer with %s supportedClaims at medium with the D5 flag unset", (_label, claims) => {
+    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
+    try {
+      const payload = clientAnswer({ confidence: "high", supportedClaims: claims });
+      expect(payload.authorityTrustCapRequired).toBe(true);
+      expect(buildAnswerRenderModel(payload).trust).toBe("medium");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it.each([
+    ["empty", [] as NonNullable<RagAnswer["supportedClaims"]>],
+    ["undefined", undefined],
+  ])(
+    'keeps high trust for an answer with %s supportedClaims when the D5 flag is explicitly "false"',
+    (_label, claims) => {
+      vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "false");
+      try {
+        const payload = clientAnswer({ confidence: "high", supportedClaims: claims });
+        expect(payload.authorityTrustCapRequired).toBe(false);
+        expect(buildAnswerRenderModel(payload).trust).toBe("high");
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    },
+  );
+
+  it("leaves the low and unsupported paths unchanged for an answer with no assessed claims", () => {
+    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", undefined);
+    try {
+      expect(buildAnswerRenderModel(clientAnswer({ confidence: "low", supportedClaims: [] })).trust).toBe("low");
+      expect(buildAnswerRenderModel(clientAnswer({ confidence: "medium", supportedClaims: [] })).trust).toBe("medium");
+      expect(buildAnswerRenderModel(clientAnswer({ grounded: false, supportedClaims: [] })).trust).toBe("unsupported");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("caps trust for ANY claim on unverified evidence when NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is on (D5)", () => {
     vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
     try {

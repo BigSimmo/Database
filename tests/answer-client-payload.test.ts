@@ -633,7 +633,9 @@ describe("toClientAnswerPayload", () => {
       citations: [],
       sources: [],
       retrievalGateBlocked: false,
-      authorityTrustCapRequired: false,
+      // #WGMB4Z decision 10 (2026-09-25): no assessed claims under the default all-claims cap
+      // means nothing shows the sources are approved, so the display trust cap is required.
+      authorityTrustCapRequired: true,
     });
     expect(toClientAnswerPayload(empty)).not.toBe(empty);
   });
