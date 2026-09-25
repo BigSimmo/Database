@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 
+import { mayContainOnCallCompliance } from "@/lib/on-call/compliance";
 import { createBrowserStore } from "@/lib/client-store-factory";
 // The key, its event and the clear function live in a module that imports
 // nothing, so the auth provider can clear this cache without pulling the On
@@ -10,6 +11,7 @@ import { createBrowserStore } from "@/lib/client-store-factory";
 // call sites are unchanged.
 import {
   clearOnCallEntryCache,
+  isOnCallDemoPreviewActive,
   onCallEntryCacheChangedEvent,
   onCallEntryCacheStorageKey,
   peekOnCallEntrySessionEpoch,
@@ -21,8 +23,8 @@ export { clearOnCallEntryCache, onCallEntryCacheChangedEvent, onCallEntryCacheSt
 /**
  * On-device offline cache for On Call entries (`src/lib/on-call/entry-model.ts`).
  * A junior doctor reading this in a hospital basement with no signal needs the
- * last-known phone numbers, not a spinner — so every entry the app has ever
- * successfully fetched for this owner is kept here until sign-out.
+ * last-known phone numbers, not a spinner — public entries are kept for at most seven days. Private entries stay in
+ * session memory and are dropped on sign-out or an account change.
  *
  * Follows `src/lib/saved-registry-storage.ts` for the storage shape and
  * `src/components/clinical-dashboard/use-sidebar-pins.ts` for wiring a
@@ -37,6 +39,11 @@ export type CachedOnCallEntries = {
   savedAt: string;
 };
 
+export const ON_CALL_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// Private entries belong to the current session, never durable device storage.
+let sessionCache: string | null = null;
+let sessionCacheEpoch = peekOnCallEntrySessionEpoch();
+
 const cachedEntriesSchema = z
   .object({
     entries: z.array(onCallEntrySchema),
@@ -48,7 +55,10 @@ function parseCachedPayload(raw: string | null): CachedOnCallEntries | null {
   if (!raw) return null;
   try {
     const parsed = cachedEntriesSchema.safeParse(JSON.parse(raw));
-    return parsed.success ? parsed.data : null;
+    if (!parsed.success) return null;
+    const age = Date.now() - Date.parse(parsed.data.savedAt);
+    if (!Number.isFinite(age) || age < 0 || age >= ON_CALL_CACHE_MAX_AGE_MS) return null;
+    return parsed.data;
   } catch {
     return null;
   }
@@ -62,7 +72,8 @@ function parseCachedPayload(raw: string | null): CachedOnCallEntries | null {
 export function readCachedOnCallEntries(): CachedOnCallEntries | null {
   if (typeof window === "undefined") return null;
   try {
-    return parseCachedPayload(window.localStorage.getItem(onCallEntryCacheStorageKey));
+    scrubPersistedOnCallCache();
+    return parseCachedPayload(getCacheSnapshot());
   } catch {
     return null;
   }
@@ -77,7 +88,17 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
   if (typeof window === "undefined") return false;
   try {
     const payload: CachedOnCallEntries = { entries, savedAt: new Date().toISOString() };
-    window.localStorage.setItem(onCallEntryCacheStorageKey, JSON.stringify(payload));
+    sessionCache = JSON.stringify(payload);
+    sessionCacheEpoch = peekOnCallEntrySessionEpoch();
+    window.localStorage.setItem(
+      onCallEntryCacheStorageKey,
+      JSON.stringify({
+        ...payload,
+        entries: entries.filter(
+          (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
+        ),
+      }),
+    );
     window.dispatchEvent(new Event(onCallEntryCacheChangedEvent));
     return true;
   } catch {
@@ -87,19 +108,78 @@ export function cacheOnCallEntries(entries: OnCallEntry[]): boolean {
   }
 }
 
-function getCacheSnapshot(): string {
+function scrubPersistedOnCallCache(): void {
   try {
-    return window.localStorage.getItem(onCallEntryCacheStorageKey) ?? "";
+    const raw = window.localStorage.getItem(onCallEntryCacheStorageKey);
+    const persisted = parseCachedPayload(raw);
+    if (!persisted) {
+      if (raw !== null) window.localStorage.removeItem(onCallEntryCacheStorageKey);
+      return;
+    }
+    // Retire legacy durable private rows on first read, even while offline.
+    const safe = JSON.stringify({
+      ...persisted,
+      entries: persisted.entries.filter(
+        (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
+      ),
+    });
+    if (safe !== raw) {
+      try {
+        window.localStorage.setItem(onCallEntryCacheStorageKey, safe);
+      } catch {
+        try {
+          window.localStorage.removeItem(onCallEntryCacheStorageKey);
+        } catch {
+          /* Storage denied; only safe data is returned. */
+        }
+      }
+    }
+  } catch {
+    /* Denied storage remains inaccessible; rendering still filters private rows. */
+  }
+}
+
+function getCacheSnapshot(): string {
+  if (sessionCacheEpoch !== peekOnCallEntrySessionEpoch()) {
+    sessionCache = null;
+    sessionCacheEpoch = peekOnCallEntrySessionEpoch();
+  }
+  if (sessionCache !== null) return parseCachedPayload(sessionCache) ? sessionCache : "";
+  try {
+    const persisted = parseCachedPayload(window.localStorage.getItem(onCallEntryCacheStorageKey));
+    return persisted
+      ? JSON.stringify({
+          ...persisted,
+          entries: persisted.entries.filter(
+            (entry) => !entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details),
+          ),
+        })
+      : "";
   } catch {
     return "";
   }
 }
 
 function subscribeToCache(onChange: () => void) {
-  window.addEventListener("storage", onChange);
+  // Subscription runs after render, keeping the external-store snapshot pure.
+  scrubPersistedOnCallCache();
+  function onFocus() {
+    scrubPersistedOnCallCache();
+    onChange();
+  }
+  function onStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== onCallEntryCacheStorageKey) return;
+    // Another tab's sign-out must also invalidate this tab's in-memory rows.
+    if (event.newValue === null) clearOnCallEntryCache();
+    else sessionCache = null;
+    onChange();
+  }
+  window.addEventListener("storage", onStorage);
+  window.addEventListener("focus", onFocus);
   window.addEventListener(onCallEntryCacheChangedEvent, onChange);
   return () => {
-    window.removeEventListener("storage", onChange);
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener("focus", onFocus);
     window.removeEventListener(onCallEntryCacheChangedEvent, onChange);
   };
 }
@@ -111,6 +191,10 @@ const useOnCallEntryCacheSnapshot = createBrowserStore(subscribeToCache, getCach
 const onCallEntriesResponseSchema = z.object({
   entries: z.array(z.unknown()),
   signedOut: z.boolean().default(false),
+  // The API sets this only in demo mode, where the corpus is served from
+  // memory and Supabase is never reached. Defaulted rather than required, so a
+  // live response (which omits it) parses unchanged.
+  demoMode: z.boolean().default(false),
 });
 
 export type OnCallEntriesState = {
@@ -126,11 +210,20 @@ export type OnCallEntriesState = {
   /** True when the most recent fetch attempt failed, so `entries` (if any)
    *  are being served from the offline cache rather than the network. */
   isOffline: boolean;
+  /** Why the most recent fetch failed, or null when it did not. "offline"
+   *  only when the browser reports no network; anything else (a server
+   *  error, a malformed reply) is "failed", so a 500 is never described to
+   *  the reader as their own lost signal. */
+  loadError: "offline" | "failed" | null;
+  /** Fetch again after a failure. */
+  retry: () => void;
   /** Mirrors the API's `signedOut` flag from the most recent successful
-   *  fetch. A signed-out response is never written to the cache, so a stale
-   *  cache from a previous signed-in session can still be read while this
-   *  is true. */
+   *  fetch. Signed-out responses replace the cache with public entries only. */
   signedOut: boolean;
+  /** True when the entries came from the in-memory demo corpus rather than the
+   *  database. Nothing in this mode can be written, so a control that offers to
+   *  is a control that can only fail. */
+  demoMode: boolean;
 };
 
 /**
@@ -145,7 +238,11 @@ export function useOnCallEntries(): OnCallEntriesState {
   const cached = useMemo(() => parseCachedPayload(cacheSnapshot || null), [cacheSnapshot]);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [loadError, setLoadError] = useState<"offline" | "failed" | null>(null);
+  // Bumped by `retry`; restarting the fetch effect on it is the whole retry.
+  const [attempt, setAttempt] = useState(0);
   const [signedOut, setSignedOut] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
   // What the fetch returned, held in memory. The cache is the live source once
   // it works — edits write there and must be seen — but a browser blocking
   // site data makes every write a silent no-op, and reading only the cache
@@ -153,6 +250,13 @@ export function useOnCallEntries(): OnCallEntriesState {
   // "nothing to search", the card said "nothing is flagged". This is the
   // fallback for that browser, not a second source of truth.
   const [fetched, setFetched] = useState<OnCallEntry[] | null>(null);
+  // Stamped once, right when the fetch completes (an effect/event callback,
+  // never render), so the freshness check below never calls `Date.now()`
+  // while rendering (react-hooks/purity). `cacheFresh` is the render-safe
+  // read of "is `expiresAt` still in the future", recomputed in an effect and
+  // flipped off by a timer rather than by re-reading the clock on each render.
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [cacheFresh, setCacheFresh] = useState(false);
   // Advanced only when `clearOnCallEntryCache` runs (sign-out / account
   // switch). Restarting the fetch on that number, and tagging the in-flight
   // request with it, is what stops a late response from account A writing
@@ -192,25 +296,24 @@ export function useOnCallEntries(): OnCallEntriesState {
         const entries = parsedResponse.data.entries
           .map((entry) => onCallEntrySchema.safeParse(entry))
           .filter((result): result is { success: true; data: OnCallEntry } => result.success)
-          .map((result) => result.data);
+          .map((result) => result.data)
+          .filter(
+            (entry) =>
+              !parsedResponse.data.signedOut ||
+              (!entry.isPersonal && !mayContainOnCallCompliance(entry.section, entry.details)),
+          );
 
         if (cancelled || peekOnCallEntrySessionEpoch() !== epochAtStart) return;
         setIsOffline(false);
+        setLoadError(null);
         setSignedOut(parsedResponse.data.signedOut);
+        setDemoMode(parsedResponse.data.demoMode);
         setFetched(entries);
-        // A signed-out response is cacheable now that it carries the shared entries rather
-        // than an empty list (owner decision, 2026-09-04), so the old "skip when signedOut"
-        // guard would throw away good data.
-        //
-        // Its underlying reason still stands, restated against what actually matters: an
-        // EMPTY response must not erase a non-empty cache. That is what protected a shift
-        // when a session expired, and it now also covers the server returning nothing for
-        // any other reason. Deliberate clearing has its own path (`clearOnCallEntryCache`,
-        // called on sign-out and account switch), so nothing depends on an empty fetch to
-        // do it. A session expiring still drops the owner's own `is_personal` entries on the
-        // next non-empty fetch, which is correct — those are the one thing a signed-out
-        // caller is not shown.
-        if (entries.length > 0 || readCachedOnCallEntries() === null) {
+        setExpiresAt(Date.now() + ON_CALL_CACHE_MAX_AGE_MS);
+        // A successful empty response withdraws the previous rows. Only a failed
+        // request may fall back to cache. Synthetic preview is an explicit,
+        // separately marked choice and is not overwritten by real responses.
+        if (!isOnCallDemoPreviewActive()) {
           cacheOnCallEntries(entries);
         }
       } catch (error) {
@@ -220,6 +323,7 @@ export function useOnCallEntries(): OnCallEntriesState {
         // Offline, server error, or a malformed payload: fall back to
         // whatever is already cached rather than surfacing a blank state.
         setIsOffline(true);
+        setLoadError(typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "failed");
       } finally {
         if (!cancelled && peekOnCallEntrySessionEpoch() === epochAtStart) setLoading(false);
       }
@@ -229,13 +333,36 @@ export function useOnCallEntries(): OnCallEntriesState {
       cancelled = true;
       controller.abort();
     };
-  }, [sessionEpoch]);
+  }, [sessionEpoch, attempt]);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    setAttempt((current) => current + 1);
+  }, []);
+
+  useEffect(() => {
+    if (expiresAt === null) {
+      queueMicrotask(() => setCacheFresh(false));
+      return;
+    }
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      queueMicrotask(() => setCacheFresh(false));
+      return;
+    }
+    queueMicrotask(() => setCacheFresh(true));
+    const timer = window.setTimeout(() => setCacheFresh(false), remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [expiresAt]);
 
   return {
-    entries: cached?.entries ?? fetched ?? [],
+    entries: cached?.entries ?? (cacheFresh ? fetched : null) ?? [],
     cachedAt: cached?.savedAt ?? null,
     loading,
     isOffline,
+    loadError,
+    retry,
     signedOut,
+    demoMode,
   };
 }

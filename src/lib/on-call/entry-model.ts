@@ -332,8 +332,27 @@ export const onCallEntrySchema = z
     includeOnCard: z.boolean().default(false),
     sortOrder: z.number().int().default(0),
     lastVerifiedAt: z.string().nullable().default(null),
+    /**
+     * Whether the signed-in reader owns this row, set by the server on read
+     * and write responses — never stored, never accepted from a client (the
+     * create/update schemas omit it). Shared reads return every account's
+     * non-personal rows, and only the owner may edit or verify one, so the
+     * page needs this to stop offering controls the server will refuse.
+     * Optional so a cache written before the field existed still parses;
+     * `onCallEntryIsEditable` treats "unknown" as editable, and the server
+     * remains the authority either way.
+     */
+    isOwn: z.boolean().optional(),
   })
   .strict();
+
+/**
+ * Whether the page may offer edit and verify on this row. `false` only when
+ * the server has said the row belongs to another account.
+ */
+export function onCallEntryIsEditable(entry: Pick<OnCallEntry, "isOwn">): boolean {
+  return entry.isOwn !== false;
+}
 
 export type OnCallEntry = z.infer<typeof onCallEntrySchema>;
 

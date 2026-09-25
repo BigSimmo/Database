@@ -115,7 +115,18 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
       }
     } else {
       await expect(page.getByTestId("smart-search-intent-cue")).toContainText("Smart search");
-      await expect(page.getByRole("listbox")).toBeVisible();
+      // The command panel is a desktop enhancement: `commandDropdownCanDisplay` in
+      // src/lib/search-command-surface.ts opens it only from 1024px on the mode-home composer and
+      // only for a fine pointer (or no touch hardware). Phones never get it, so demanding it made
+      // this journey fail on both iPhone projects. Where it cannot open there is no list to hold
+      // an excluded mode, and the absence checks below still run against the whole page.
+      const commandPanelCanOpen = await page.evaluate(
+        () =>
+          window.matchMedia("(min-width: 1024px)").matches &&
+          (window.matchMedia("(hover: hover) and (pointer: fine)").matches || navigator.maxTouchPoints === 0),
+      );
+      if (commandPanelCanOpen) await expect(page.getByRole("listbox")).toBeVisible();
+      else await expect(page.getByRole("listbox")).toHaveCount(0);
       for (const excludedMode of ["Documents", "Answer", "Favourites"]) {
         await expect(page.getByRole("option", { name: excludedMode, exact: true })).toHaveCount(0);
         await expect(page.getByRole("option", { name: crossModeChipName(excludedMode) })).toHaveCount(0);
@@ -136,7 +147,7 @@ test("@critical keeps local-only Smart search within five catalogue modes", asyn
         (mode !== "prescribing" || url.searchParams.get("mode") === "prescribing")
       );
     });
-    await expect(page.getByText(expectedResult, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(expectedResult, { exact: true }).filter({ visible: true }).first()).toBeVisible();
     if (mode === "tools") {
       for (const title of ["PsychSift Search", "Documents", "Favourites"]) {
         await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);

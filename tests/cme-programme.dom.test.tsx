@@ -43,14 +43,12 @@ describe("Programme", () => {
 
   it("offers a re-confirm control rather than silently ageing", () => {
     render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
-    expect(screen.getByRole("button", { name: /re-confirm/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /re-confirm/i })).toBeInTheDocument();
   });
 
-  it("marks Add and Re-confirm unavailable when no handlers are wired", () => {
+  it("links Add and Re-confirm to the real setup editor when callbacks are not supplied", () => {
     render(<CmeProgrammePage set={DEMO_CME_YEAR} />);
-    const add = screen.getByRole("button", { name: /add/i });
-    const reconfirm = screen.getByRole("button", { name: /re-confirm/i });
-    expect(add).toHaveAttribute("aria-disabled", "true");
-    expect(reconfirm).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("link", { name: /add/i })).toHaveAttribute("href", expect.stringContaining("/cme/setup"));
+    expect(screen.getByRole("link", { name: /re-confirm/i })).toHaveAttribute("href", "/cme/setup?year=2026");
   });
 });

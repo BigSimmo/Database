@@ -162,4 +162,27 @@ describe("the printed essentials card", () => {
     expect(screen.queryByTestId("on-call-card-empty")).toBeNull();
     expect(screen.getByTestId("on-call-card-loading")).toBeTruthy();
   });
+
+  /**
+   * Regression, 2026-09-24. The card linked every number with its own
+   * `tel:` helper, so a pager ID, a ward extension and a fax number were all
+   * tap-to-call links that would ring the digits on the public network. Only
+   * a direct or after-hours number may be dialled from the on-screen card.
+   */
+  it("never makes a pager, extension or fax number a tap-to-call link", () => {
+    renderCard([
+      entry({
+        id: "a",
+        slug: "reg",
+        title: "Psychiatry registrar",
+        details: { phone: "0891112222", pager: "4410", extension: "5521", fax: "0893334444" },
+      }),
+    ]);
+    const row = screen.getByTestId("on-call-card-entry-reg");
+    const hrefs = [...row.querySelectorAll("a[href^='tel:']")].map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(["tel:0891112222"]);
+    expect(row.textContent).toContain("Pager: 4410");
+    expect(row.textContent).toContain("Ext: 5521");
+    expect(row.textContent).toContain("Fax: 0893334444");
+  });
 });

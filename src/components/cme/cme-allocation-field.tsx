@@ -26,6 +26,16 @@ import { cmeCategories, cmeCategoryLabels, type CmeAllocation, type CmeCategory 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /**
+ * Hours at the same hundredth precision `isAllocationBalanced` checks, with at
+ * least one decimal: "1.0", "0.75". One decimal alone showed 0.75 stated and
+ * 0.7 placed as "0.7 of 0.8 allocated · 0.1 hours still to place".
+ */
+export function formatAllocationHours(value: number): string {
+  const twoPlaces = round2(value).toFixed(2);
+  return twoPlaces.endsWith("0") ? twoPlaces.slice(0, -1) : twoPlaces;
+}
+
+/**
  * Whether a split adds up to the hours the owner said the activity took, to
  * a hundredth-of-an-hour (36-second) precision — enough to absorb ordinary
  * floating-point noise from summing several typed numbers without ever
@@ -70,10 +80,21 @@ export type CmeAllocationFieldProps = {
   onChange: (allocations: readonly CmeAllocation[], totalHours: number) => void;
   /** Prefixes each row's input id. Defaults are unique enough for one field per page. */
   idPrefix?: string;
+  /** Existing or routine-provided split used when editing or pre-filling an entry. */
+  initialAllocations?: readonly CmeAllocation[];
 };
 
-export function CmeAllocationField({ statedHours, onChange, idPrefix = "cme-allocation" }: CmeAllocationFieldProps) {
-  const [text, setText] = useState<Record<CmeCategory, string>>({ educational: "", reviewing: "", measuring: "" });
+export function CmeAllocationField({
+  statedHours,
+  onChange,
+  idPrefix = "cme-allocation",
+  initialAllocations = [],
+}: CmeAllocationFieldProps) {
+  const [text, setText] = useState<Record<CmeCategory, string>>(() => ({
+    educational: String(initialAllocations.find((item) => item.category === "educational")?.hours ?? ""),
+    reviewing: String(initialAllocations.find((item) => item.category === "reviewing")?.hours ?? ""),
+    measuring: String(initialAllocations.find((item) => item.category === "measuring")?.hours ?? ""),
+  }));
   const allocations = deriveAllocations(text);
   const total = totalAllocatedHours(allocations);
   const balanced = isAllocationBalanced(total, statedHours);
@@ -112,14 +133,16 @@ export function CmeAllocationField({ statedHours, onChange, idPrefix = "cme-allo
       </div>
       {/* Position, weight and words carry the shortfall — never colour. */}
       <p data-testid="cme-allocation-total" className="mt-3 text-sm font-semibold text-[color:var(--text)]">
-        {total.toFixed(1)} of {statedHours.toFixed(1)} allocated
+        {formatAllocationHours(total)} of {formatAllocationHours(statedHours)} allocated
       </p>
       <p className={cn("mt-1 text-xs", textMuted)}>
-        {balanced
-          ? "Matches the hours you said this took."
-          : remaining > 0
-            ? `${remaining.toFixed(1)} hour${remaining === 1 ? "" : "s"} still to place.`
-            : `${Math.abs(remaining).toFixed(1)} hour${Math.abs(remaining) === 1 ? "" : "s"} over — take that back out of a category.`}
+        {statedHours <= 0
+          ? "Enter how many hours this took, then split them here."
+          : balanced
+            ? "Matches the hours you said this took."
+            : remaining > 0
+              ? `${formatAllocationHours(remaining)} hour${remaining === 1 ? "" : "s"} still to place.`
+              : `${formatAllocationHours(Math.abs(remaining))} hour${Math.abs(remaining) === 1 ? "" : "s"} over — take that back out of a category.`}
       </p>
     </div>
   );

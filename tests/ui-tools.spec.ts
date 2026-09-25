@@ -2959,8 +2959,8 @@ test.describe("PsychSift tools directory and legacy launcher", () => {
     await gotoLauncher(page, "/differentials/compare?ids=wernicke-encephalopathy&q=Pain");
     await expect(page).toHaveURL(/\/differentials\/compare/);
     await expect(page).toHaveURL(/ids=wernicke-encephalopathy/);
-    const queue = page.getByTestId("differential-compare-queue");
-    await expect(queue).toBeVisible({ timeout: 30_000 });
+    // A hidden streaming clone of the page root can coexist briefly in WebKit (#093).
+    const queue = await expectSingleSettledOwner(page.getByTestId("differential-compare-queue"), { timeout: 30_000 });
     await expect(page.getByRole("heading", { level: 1, name: "1 diagnosis selected" })).toBeVisible();
     await expect(queue.getByRole("link", { name: "Wernicke encephalopathy", exact: true })).toBeVisible();
     await page.getByTestId("differential-compare-edit-selection").click();

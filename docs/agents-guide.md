@@ -18,6 +18,11 @@ and acceptance evidence belong to their current task; historical reports are lea
 
 ## Find the instructions for the job
 
+Whenever agents are used, apply [smart agent allocation](agents/smart-agent-allocation.md)
+for model/effort selection, ownership, independent review and Cloud capability limits.
+
+Also see [DOCS-SYSTEM.md](DOCS-SYSTEM.md) for the documentation operating system (pipeline, stamps, recheck triggers, PsychSift + Ward Flow registry).
+
 | Task or concern                                              | Authoritative reference                                                                                                                                                                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Select verification, reuse evidence, choose browser coverage | [Verification gates](../AGENTS.md#process-hardening-phases)                                                                                                                                                                     |

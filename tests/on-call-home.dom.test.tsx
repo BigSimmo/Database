@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
@@ -17,15 +17,32 @@ vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({ isAuthenticated: true, isSaved: () => false, setFavourite: vi.fn(async () => true) }),
 }));
 
+// The home asks the auth provider directly whether there is a session, because
+// the entries API's `signedOut` flag cannot answer when its own request failed.
+const authState = vi.hoisted(() => ({ status: "loading" as string }));
+vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => authState }));
+
 // The page menu drags in the whole navigation chrome, which is covered by its
-// own tests. This file is about what the home lays out, and in what order.
-vi.mock("@/components/on-call/on-call-page-menu", () => ({ OnCallPageMenu: () => null }));
+// own tests. This file is about what the home lays out, and in what order — but
+// the menu is also where the home's notification list is handed off, so the
+// stub records the props it was given rather than discarding them. It still
+// renders nothing, so nothing else in this file changes.
+const menuProps = vi.hoisted(() => ({ last: null as { notifications?: readonly { title: string }[] } | null }));
+vi.mock("@/components/on-call/on-call-page-menu", () => ({
+  OnCallPageMenu: (props: { notifications?: readonly { title: string }[] }) => {
+    menuProps.last = props;
+    return null;
+  },
+}));
 
 const storeState = vi.hoisted(() => ({
   entries: [] as OnCallEntry[],
   loading: false,
   isOffline: false,
+  loadError: null as "offline" | "failed" | null,
+  retry: vi.fn(),
   signedOut: false,
+  demoMode: false,
   cachedAt: null as string | null,
 }));
 
@@ -103,8 +120,13 @@ function contact(slug: string, title: string, tags: string[], phone: string): On
 }
 
 beforeEach(() => {
+  authState.status = "loading";
   storeState.entries = [];
   storeState.loading = false;
+  storeState.isOffline = false;
+  storeState.loadError = null;
+  storeState.signedOut = false;
+  storeState.demoMode = false;
   recentState.items = [];
 });
 
@@ -143,6 +165,28 @@ describe("On Call home layout", () => {
     expect(screen.queryByTestId("on-call-home-first-run")).toBeNull();
   });
 
+  // Regression, 2026-09-24: "Nothing pinned to call first" showed during the
+  // first load, before any entry had arrived to be pinned or not.
+  it("does not claim nothing is pinned while the hub is still loading", () => {
+    storeState.loading = true;
+    render(<OnCallHome />);
+    expect(screen.queryByTestId("on-call-home-call-first-empty")).toBeNull();
+  });
+
+  // Regression, 2026-09-24: a failed fetch with nothing saved on the device
+  // showed "Your On Call hub is empty", as if the reader's numbers were gone.
+  it("says the entries could not be loaded, with a retry, instead of calling the hub empty", () => {
+    storeState.entries = [];
+    storeState.isOffline = true;
+    storeState.loadError = "failed";
+    render(<OnCallHome />);
+    const failed = screen.getByTestId("on-call-load-failed");
+    expect(failed).toHaveTextContent(/couldn't load/i);
+    expect(screen.queryByTestId("on-call-home-first-run")).toBeNull();
+    screen.getByRole("button", { name: /try again/i }).click();
+    expect(storeState.retry).toHaveBeenCalled();
+  });
+
   it("names the remaining home tags once there are entries but nothing is tagged", () => {
     storeState.entries = [contact("switch", "Switchboard", [], "9224 2000")];
 
@@ -167,7 +211,7 @@ describe("On Call home layout", () => {
 
     render(<OnCallHome />);
 
-    expect(screen.getByRole("link", { name: /Printable card/i })).toHaveAttribute("href", "/on-call/card");
+    expect(screen.getByRole("link", { name: /Pocket card/i })).toHaveAttribute("href", "/on-call/card");
   });
 
   it("carries a search box, which stays out of the way until it is used", () => {
@@ -333,5 +377,186 @@ describe("On Call home tiles for Admin and Compliance", () => {
     expect(tile).toHaveAttribute("href", "/on-call/compliance");
     expect(tile).toHaveTextContent("Compliance");
     expect(within(tile).getByText(String(compliance.length))).toBeInTheDocument();
+  });
+});
+
+describe("the example-content module", () => {
+  // `OnCallDemoContentControl` renders nothing when signed out or in demo mode,
+  // so the module around it must not render either. The demo case is not
+  // hypothetical: in demo mode the example corpus IS the entries, so every slug
+  // carries the `demo-` prefix and the "is any example content loaded?" test is
+  // true for every reader. Gated on that alone, the public demo home — and the
+  // home every `ui-*.spec.ts` renders — grew an "Example content" heading with
+  // nothing underneath it.
+  it("is absent in demo mode, where the corpus is the content and there is nothing to remove", () => {
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    storeState.demoMode = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+    expect(screen.queryByText("Example content")).toBeNull();
+  });
+
+  it("offers a signed-out reader the on-device preview, because that is most readers", () => {
+    // Changed deliberately on 2026-09-22 (owner request). This module used to
+    // render nothing at all when signed out, which meant the overwhelmingly
+    // common case — someone opening the site without an account — saw an empty
+    // hub and no way to see what a filled one looks like. The preview needs no
+    // account and writes nothing to the server, so there is no reason to
+    // withhold it.
+    storeState.entries = [];
+    storeState.signedOut = true;
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+    // And it must not offer the account-writing controls, which would 401.
+    expect(screen.queryByTestId("on-call-demo-content-load")).toBeNull();
+    expect(screen.queryByTestId("on-call-demo-content-remove")).toBeNull();
+  });
+
+  it("is present for the signed-in owner whose account actually holds the rows", async () => {
+    // Guard the two tests above: if the module never rendered at all they would
+    // pass on a component that had simply been deleted.
+    //
+    // The owner-scoped answer has to be supplied, because that is now the only
+    // thing that decides this. The entries in view do not: the shared read
+    // returns every non-personal row across all accounts.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ loaded: DEMO_ON_CALL_ENTRIES.length, total: DEMO_ON_CALL_ENTRIES.length }),
+    }) as unknown as typeof fetch;
+
+    try {
+      render(<OnCallHome />);
+      expect(await screen.findByTestId("on-call-home-example-content")).toBeInTheDocument();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("stays absent while the owner-scoped answer is still unknown", async () => {
+    // A labelled HomeModule whose only child has decided to render nothing is
+    // a heading with an empty body. That shipped once already, caught before
+    // push; it is pinned here because the failure mode is invisible in the
+    // markup a component test usually asserts on.
+    storeState.entries = [...DEMO_ON_CALL_ENTRIES];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("offline")) as unknown as typeof fetch;
+
+    try {
+      render(<OnCallHome />);
+      await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+      expect(screen.queryByTestId("on-call-home-example-content")).toBeNull();
+      expect(screen.queryByText("Example content")).toBeNull();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("what the home raises on its own", () => {
+  function complianceRow(expiresOn: string, lastVerifiedAt: string): OnCallEntry {
+    return {
+      id: "bls",
+      slug: "bls",
+      section: "logistics",
+      title: "Basic life support",
+      subtitle: null,
+      body: null,
+      details: { kind: "compliance", expiresOn },
+      linkedDocumentIds: [],
+      tags: [],
+      isPersonal: true,
+      includeOnCard: false,
+      sortOrder: 0,
+      lastVerifiedAt,
+    } as unknown as OnCallEntry;
+  }
+
+  it("reads the page's own clock, so a pinned moment is honoured", () => {
+    // The defect this exists for (Codex, 2026-09-22). The list was derived with
+    // a fresh `new Date()` and memoised on `[entries]` alone. That ignored
+    // `pinnedNow` outright — a caller standing at a chosen moment was answered
+    // from the process clock — and it never re-ran on a page nobody is
+    // touching, so the ward strip could move to the after-hours number while
+    // the badge went on counting from whenever the page was opened.
+    //
+    // Pinned to 2025, a date recorded for 2026-01-01 has NOT passed. Derived
+    // from the real clock it has, and this row would be raised.
+    const pinned = new Date("2025-01-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2025-01-01T00:00:00.000Z")];
+    storeState.signedOut = false;
+
+    render(<OnCallHome now={pinned} />);
+
+    expect(menuProps.last?.notifications).toEqual([]);
+  });
+
+  it("raises a requirement whose recorded date has passed at that same moment", () => {
+    // The other half: with the clock moved past the recorded date, the same
+    // row IS raised. Without this, the test above would pass on a list that is
+    // simply always empty.
+    const pinned = new Date("2026-06-01T09:00:00+08:00");
+    storeState.entries = [complianceRow("2026-01-01", "2026-05-30T00:00:00.000Z")];
+    storeState.signedOut = false;
+
+    render(<OnCallHome now={pinned} />);
+
+    expect(menuProps.last?.notifications?.map((item) => item.title)).toEqual(["Basic life support"]);
+  });
+});
+
+describe("the example-content module when the entries request fails", () => {
+  it("still offers the preview, because the browser knows there is no session", () => {
+    // The defect this exists for, found while Josh could not see the block on
+    // the live site. `useOnCallEntries().signedOut` starts false and is only
+    // ever set by a SUCCESSFUL response, so a request that fails — no signal, a
+    // rate limit, a 500 — leaves it false for good. The page then treats an
+    // anonymous reader as possibly signed in, asks the owner-scoped count
+    // endpoint, gets a 401, and renders nothing: no control and no
+    // explanation, on a page that is already empty.
+    //
+    // `AuthProvider` resolves the session locally and needs no network, and the
+    // preview it unlocks writes only to this device. Either source saying
+    // "signed out" is enough.
+    storeState.entries = [];
+    storeState.signedOut = false; // the server never got to say
+    storeState.isOffline = true;
+    authState.status = "signed_out";
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-home-example-content")).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+  });
+
+  it("treats an expired session the same way", () => {
+    storeState.entries = [];
+    storeState.signedOut = false;
+    authState.status = "expired";
+
+    render(<OnCallHome />);
+
+    expect(screen.getByTestId("on-call-demo-preview-start")).toBeVisible();
+  });
+
+  it("does NOT guess while the session is still being resolved", () => {
+    // An unknown session must not be answered with a guess. `loading` and
+    // `error` leave the decision to the server's flag, which is what the
+    // signed-in reader's Load/Remove control is keyed on — offering a preview
+    // to someone who is about to turn out to be signed in would flip the
+    // control out from under them a moment later.
+    storeState.entries = [];
+    storeState.signedOut = false;
+    authState.status = "loading";
+
+    render(<OnCallHome />);
+
+    expect(screen.queryByTestId("on-call-demo-preview-start")).toBeNull();
   });
 });

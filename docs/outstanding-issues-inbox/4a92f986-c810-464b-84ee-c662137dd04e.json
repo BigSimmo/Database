@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "4a92f986-c810-464b-84ee-c662137dd04e",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call/CME smaller items left after the 2026-09-24 audit",
+    "detail": "(1) Contact rows have ragged right columns and ~150px stale rows (on-call-contacts-section.tsx ContactRow). (2) Three date styles across the modes (formatClinicalDate 14/08/2026, compliance '12 Mar 2027', CME '12 March 2026'). (3) Both modes use the mode-home loading skeleton for every sub-route and have no error.tsx. (4) CME entry dates are not checked against the year or today, so a future-dated entry counts toward totals. (5) CME dashboard module order is per device (localStorage), not per account, and not cleared on account switch. (6) On Call lastVerifiedAt is accepted from the client on POST/PATCH, so a direct API call can set a future date; editing a number does not refresh it. (7) No browser test for /on-call/card or /cme/log/[id]; On Call is missing from the phone scroll-hide sweep. (8) Two college extras in the CME preset (10 h formal peer review; one activity per practice domain) should be checked against the current RANZCP handbook.",
+    "source": "On Call + CME audit 2026-09-24, round 2 (branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M39RGQKHVKE5R34Z47MWR10R"
+  }
+}

@@ -45,6 +45,10 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Admin",
     "Compliance",
     "Who's who",
+    // The invited multi-clinician service handbook, not the private On Call
+    // entries above it — a separate store (`on_call_services` and friends),
+    // reached at `/on-call/service`.
+    "Service",
     "Pocket card",
   ],
   cme: ["This year", "Log", "Routines", "Plan", "Programme", "Set up"],

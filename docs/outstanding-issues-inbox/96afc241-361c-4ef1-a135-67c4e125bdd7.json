@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "96afc241-361c-4ef1-a135-67c4e125bdd7",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "On Call: edit, verify and 'Mark all as still correct' show on other accounts' shared rows, and the server refuses them",
+    "detail": "GET /api/on-call/entries returns every account's shared rows but OnCallEntry has no owner field, so on-call-section-page.tsx offers edit/verify on all rows to any signed-in reader. Verify/PATCH filter on owner_id and 404; bulk verify stops at the first foreign row. Fix: return an is-yours flag from the API and gate the controls on it. No test covers a second account.",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PN60XVV7JZ2BAS191XZX"
+  }
+}

@@ -19,6 +19,8 @@ describe("playwright browser preflight", () => {
       playwrightProjectNames.chromiumCaringContactsSeeded,
       playwrightProjectNames.firefox,
       playwrightProjectNames.webkit,
+      playwrightProjectNames.mobileWebkit,
+      playwrightProjectNames.mobilePwaStandalone,
     ];
     expect(requestedPlaywrightBrowserProjects([])).toEqual(configuredProjects);
     expect(requestedPlaywrightBrowserProjects(["tests/ui-smoke.spec.ts"])).toEqual(configuredProjects);
@@ -44,6 +46,17 @@ describe("playwright browser preflight", () => {
       "firefox",
       "webkit",
     ]);
+  });
+
+  it("maps the mobile Safari projects to the shared WebKit browser", () => {
+    const result = playwrightBrowserPreflight(["--project=mobile-webkit", "--project=mobile-pwa-standalone"]);
+
+    expect(result.projects).toEqual([playwrightProjectNames.mobileWebkit, playwrightProjectNames.mobilePwaStandalone]);
+    expect(result.checked).toHaveLength(1);
+    expect(result.checked[0]?.family).toBe("webkit");
+    expect(
+      result.missing?.some((entry: { source: string }) => entry.source.startsWith("unmapped Playwright project")),
+    ).not.toBe(true);
   });
 
   it("derives the headless-shell binary Playwright launches by default", () => {

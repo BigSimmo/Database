@@ -1,7 +1,12 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+
 import { Pencil, Phone, Repeat } from "lucide-react";
 
+import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { onCallEntryGroups } from "@/components/on-call/on-call-entry-groups";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
@@ -12,7 +17,12 @@ import { ExternalTextLink } from "@/components/ui/link";
 import { Disclosure } from "@/components/ui/disclosure";
 import { cn, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { onCallTagFacet } from "@/lib/on-call/entry-filters";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallReferralsSectionProps {
@@ -40,12 +50,6 @@ interface OnCallReferralsDetails {
 function parseReferralsDetails(details: unknown): OnCallReferralsDetails | null {
   const result = onCallDetailsSchemaFor("referrals").safeParse(details);
   return result.success ? (result.data as OnCallReferralsDetails) : null;
-}
-
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
 }
 
 /**
@@ -88,17 +92,22 @@ function ReferralPanel({ entry, details }: { entry: OnCallEntry; details: OnCall
       {details.howToRefer ? <FactRow label="How to refer" value={details.howToRefer} /> : null}
       {details.fax ? <FactRow label="Fax" value={details.fax} /> : null}
       {details.phone ? (
-        <OnCallEntryRow
-          icon={Phone}
-          title="Call to refer"
-          subtitle={details.phone}
-          href={telHref(details.phone)}
-          onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
-          testId={`on-call-referral-phone-${entry.slug}`}
-        />
+        <div className="flex min-w-0 items-start gap-2">
+          <OnCallEntryRow
+            icon={onCallTelHref(details.phone) ? Phone : undefined}
+            title={
+              onCallTelHref(details.phone) ? "Call to refer" : "Recorded number — use the hospital phone or switchboard"
+            }
+            subtitle={details.phone}
+            href={onCallTelHref(details.phone)}
+            onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
+            testId={`on-call-referral-phone-${entry.slug}`}
+          />
+          <OnCallCopyNumber value={details.phone} label={`Copy referral number for ${entry.title}`} />
+        </div>
       ) : null}
       {details.referralFormUrl ? (
-        <ExternalTextLink href={details.referralFormUrl} className="text-sm">
+        <ExternalTextLink href={details.referralFormUrl} className="min-h-tap items-center text-sm">
           Referral form
         </ExternalTextLink>
       ) : null}
@@ -142,7 +151,13 @@ export function OnCallReferralsSection({
   const groups = onCallEntryGroups(sorted, onCallTagFacet, "Other services");
 
   const disclosureFor = (entry: OnCallEntry) => (
-    <ReferralDisclosure key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+    <ReferralDisclosure
+      key={entry.id}
+      entry={entry}
+      now={now}
+      onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+    />
   );
 
   return (
@@ -182,52 +197,54 @@ function ReferralDisclosure({
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
-    <Disclosure
-      title={entry.title}
-      description={entry.subtitle ?? undefined}
-      // A WARNING belongs in the collapsed header; a reassurance does not. The
-      // badge started inside the panel, so a referral nobody had confirmed in
-      // over a year looked current until someone expanded it — the one surface
-      // in the mode where staleness was hidden by default. Hoisting it fixed
-      // that and introduced the opposite fault: "Checked 14/08/2026" on every
-      // current row, a pill wider than the service's own name, so the name
-      // truncated at 390px to make room for the news that nothing is wrong.
-      //
-      // So the collapsed row carries it only when it is stale. The date a
-      // current service was last confirmed is still on the page, in the panel,
-      // where a reader who wants it goes looking.
-      meta={freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : undefined}
-    >
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
-        {/* Sibling to the panel content, never inside the disclosure's own
+    <div id={onCallEntryAnchorId(entry.id)} tabIndex={-1}>
+      <Disclosure
+        title={entry.title}
+        description={entry.subtitle ?? undefined}
+        // A WARNING belongs in the collapsed header; a reassurance does not. The
+        // badge started inside the panel, so a referral nobody had confirmed in
+        // over a year looked current until someone expanded it — the one surface
+        // in the mode where staleness was hidden by default. Hoisting it fixed
+        // that and introduced the opposite fault: "Checked 14/08/2026" on every
+        // current row, a pill wider than the service's own name, so the name
+        // truncated at 390px to make room for the news that nothing is wrong.
+        //
+        // So the collapsed row carries it only when it is stale. The date a
+        // current service was last confirmed is still on the page, in the panel,
+        // where a reader who wants it goes looking.
+        meta={freshness.state === "stale" ? <OnCallFreshnessBadge freshness={freshness} /> : undefined}
+      >
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+          {/* Sibling to the panel content, never inside the disclosure's own
             trigger `<button>` above: a button nested inside another button is
             invalid, duplicate-interactive markup. */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* The reassuring half of the freshness pair. */}
-          {freshness.state === "fresh" ? <OnCallFreshnessBadge freshness={freshness} /> : <span />}
-          {showVerify || onEditEntry ? (
-            <div className="flex shrink-0 items-center gap-1.5">
-              {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
-              {onEditEntry ? (
-                <button
-                  type="button"
-                  onClick={() => onEditEntry(entry)}
-                  aria-label={`Edit ${entry.title}`}
-                  data-testid={`on-call-referrals-edit-${entry.slug}`}
-                  className={cn(toolbarButton, "shrink-0")}
-                >
-                  <Pencil aria-hidden className="h-4 w-4" />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* The reassuring half of the freshness pair. */}
+            {freshness.state === "fresh" ? <OnCallFreshnessBadge freshness={freshness} /> : <span />}
+            {showVerify || onEditEntry ? (
+              <div className="flex shrink-0 items-center gap-1.5">
+                {showVerify && onVerified ? <OnCallVerifyButton entry={entry} onVerified={onVerified} /> : null}
+                {onEditEntry ? (
+                  <button
+                    type="button"
+                    onClick={() => onEditEntry(entry)}
+                    aria-label={`Edit ${entry.title}`}
+                    data-testid={`on-call-referrals-edit-${entry.slug}`}
+                    className={cn(toolbarButton, "shrink-0")}
+                  >
+                    <Pencil aria-hidden className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {details ? (
+            <ReferralPanel entry={entry} details={details} />
+          ) : (
+            <p className={cn("text-sm", textMuted)}>No referral details recorded yet.</p>
+          )}
         </div>
-        {details ? (
-          <ReferralPanel entry={entry} details={details} />
-        ) : (
-          <p className={cn("text-sm", textMuted)}>No referral details recorded yet.</p>
-        )}
-      </div>
-    </Disclosure>
+      </Disclosure>
+    </div>
   );
 }

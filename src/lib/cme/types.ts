@@ -17,6 +17,7 @@ export const cmeCategoryLabels: Record<CmeCategory, string> = {
  * migration against the live clinical database.
  */
 export type CmeRequirementSpec =
+  | { shape: "credited-hours"; credit: "formal-peer-review"; minimumHours: number }
   | { shape: "hours-in-category"; category: CmeCategory; minimumHours: number }
   | {
       shape: "hours-across-categories";
@@ -42,6 +43,12 @@ export type CmeRequirement = {
 export type CmeAllocation = { readonly category: CmeCategory; readonly hours: number };
 
 export type CmeEntry = {
+  readonly archivedAt?: string | null;
+  readonly evidenceCount?: number;
+  /** A learning source link, not evidence of participation. */
+  readonly sourceUrl?: string | null;
+  /** Credit within reviewing hours, never extra hours added to the total. */
+  readonly formalPeerReviewHours?: number;
   readonly id: string;
   /** Perth calendar date, `YYYY-MM-DD`. */
   readonly date: string;
@@ -57,6 +64,7 @@ export type CmeEntry = {
 };
 
 export type CmeRequirementSet = {
+  readonly closedAt?: string | null;
   readonly year: number;
   /** When the owner confirmed these targets, and against what. Rendered on every screen showing a target. */
   readonly confirmedOn: string;
@@ -72,4 +80,43 @@ export type CmeRequirementStatus = {
   readonly progress: { readonly value: number; readonly target: number } | null;
   /** One plain sentence: "Met", "3 hours short", "Ethical practice has nothing against it yet". */
   readonly summary: string;
+};
+
+/** One requirement as the app read it at the moment a year was closed. */
+export type CmeClosedRequirementStatus = {
+  readonly requirementId: string;
+  readonly label: string;
+  readonly met: boolean;
+  readonly summary: string;
+};
+
+/** What the owner sees before and after an amendment to one activity in a closed year. */
+export type CmeAmendedEntryVersion = {
+  readonly date: string;
+  readonly title: string;
+  readonly allocations: readonly CmeAllocation[];
+};
+
+/** A dated, reasoned change to an activity in a closed year. The original is kept beside it. */
+export type CmeYearAmendment = {
+  readonly id: string;
+  readonly entryId: string;
+  readonly amendedAt: string;
+  readonly reason: string;
+  readonly before: CmeAmendedEntryVersion;
+  readonly after: CmeAmendedEntryVersion;
+};
+
+/**
+ * A closed year: the snapshot taken at closing, never changed afterwards, plus every
+ * amendment made since. Current totals are read from the live record, which includes them.
+ */
+export type CmeYearClose = {
+  readonly closedAt: string;
+  readonly shortfallNote: string | null;
+  readonly totalHours: number;
+  readonly targetHours: number;
+  readonly entryCount: number;
+  readonly requirements: readonly CmeClosedRequirementStatus[];
+  readonly amendments: readonly CmeYearAmendment[];
 };

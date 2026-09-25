@@ -1,8 +1,10 @@
 "use client";
 
+import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
+
 import { Plus } from "lucide-react";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
@@ -22,6 +24,7 @@ import {
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
 import { onCallViewStorageSection } from "@/components/on-call/on-call-entry-view";
+import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { OnCallPageMenu } from "@/components/on-call/on-call-page-menu";
 import { OnCallSectionNavHeader } from "@/components/on-call/on-call-nav-header";
@@ -30,8 +33,8 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
 import { cacheOnCallEntries, useOnCallEntries } from "@/lib/on-call/entry-store";
-import { useOnCallLinkedDocuments } from "@/lib/on-call/linked-documents";
-import { onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import { useOnCallLinkedDocumentsState } from "@/lib/on-call/linked-documents";
+import { onCallEntryFreshness, type OnCallEntry, onCallEntryIsEditable } from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
@@ -183,15 +186,21 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   });
   const title = ON_CALL_VIEW_TITLES[view];
   const Icon = ON_CALL_VIEW_ICONS[view];
-  const { entries, loading, isOffline, cachedAt } = useOnCallEntries();
+  const { entries, loading, isOffline, loadError, retry, cachedAt } = useOnCallEntries();
   // Each list component filters `entries` itself — by section, and for the two
   // contacts-backed views by `details.kind` as well — so the page hands over the
   // whole set rather than seven near-identical slices.
   const sectionEntries = entries;
-  // Only Playbook and Orientation display linked documents; the hook is cheap
-  // and returns an empty map on any failure, so it runs unconditionally rather
-  // than behind a check that would break the rules of hooks.
-  const linkedDocuments = useOnCallLinkedDocuments();
+  useEffect(() => {
+    focusOnCallEntryFromHash();
+    window.addEventListener("hashchange", focusOnCallEntryFromHash);
+    return () => window.removeEventListener("hashchange", focusOnCallEntryFromHash);
+  }, [view, entries]);
+  const sourceIds =
+    view === "playbook" || view === "orientation"
+      ? entries.filter((entry) => entry.section === view).flatMap((entry) => entry.linkedDocumentIds)
+      : [];
+  const { documents: linkedDocuments, loading: linkedDocumentsLoading } = useOnCallLinkedDocumentsState(sourceIds);
   // The page's own groups, for the header's jump list. Declared from the same
   // entries the list below renders, then narrowed to whichever anchors actually
   // appear — so a flat page resolves to none and the header is just a title.
@@ -209,7 +218,11 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
   // section: a bulk write is only defensible when the reader can see
   // everything it touches, which is exactly what `onCallVisibleEntries`
   // returns.
-  const staleEntries = visibleEntries.filter((entry) => onCallEntryFreshness(entry).state === "stale");
+  // Only rows this reader owns: the verify route refuses anyone else's, and
+  // the bulk loop used to stop at the first shared row it met.
+  const staleEntries = visibleEntries.filter(
+    (entry) => onCallEntryIsEditable(entry) && onCallEntryFreshness(entry).state === "stale",
+  );
 
   /**
    * Whether this view offers the bulk "mark all as still correct" control at
@@ -338,11 +351,19 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
           />
         );
       case "playbook":
-        return <OnCallPlaybookSection {...listProps} documents={linkedDocuments} />;
+        return (
+          <OnCallPlaybookSection {...listProps} documents={linkedDocuments} documentsLoading={linkedDocumentsLoading} />
+        );
       case "referrals":
         return <OnCallReferralsSection {...listProps} />;
       case "orientation":
-        return <OnCallOrientationSection {...listProps} documents={linkedDocuments} />;
+        return (
+          <OnCallOrientationSection
+            {...listProps}
+            documents={linkedDocuments}
+            documentsLoading={linkedDocumentsLoading}
+          />
+        );
       case "education":
         return <OnCallEducationSection {...listProps} />;
       case "logistics":
@@ -426,7 +447,7 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
               </Button>
             ) : null}
           </div>
-          {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} /> : null}
+          {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
           {verifyAllState.error ? (
             <p role="alert" className="text-sm font-semibold text-[color:var(--danger)]">
               {verifyAllState.error}
@@ -442,6 +463,8 @@ export function OnCallSectionPage({ view }: { view: OnCallPageView }) {
               body="Fetching the entries saved to this section."
               testId={`on-call-${view}-loading`}
             />
+          ) : isOffline && entries.length === 0 ? (
+            <OnCallLoadFailed reason={loadError} onRetry={retry} />
           ) : (
             renderSectionList()
           )}

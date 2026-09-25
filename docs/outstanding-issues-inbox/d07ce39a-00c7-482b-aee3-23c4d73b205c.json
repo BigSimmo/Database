@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "d07ce39a-00c7-482b-aee3-23c4d73b205c",
+  "createdOn": "2026-09-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Clinical KB: FORCE RLS on six force_rls=false control-plane tables",
+    "detail": "Tables: clinical_quality_feedback_triage, clinical_quality_feedback_triage_events, document_corpus_access_snapshots, document_corpus_access_state, public_source_activation_guards, public_source_cleanup_mutation_guards. Deferred post-Codex. See docs/supabase-remediation-closeout-notes.md §1.3 / §2 (PR #2959).",
+    "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
+    "issueUlid": "01M31F4Y1HAD3F5B71KTWJH3NQ"
+  }
+}

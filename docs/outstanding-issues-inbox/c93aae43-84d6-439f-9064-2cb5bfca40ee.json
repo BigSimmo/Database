@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "c93aae43-84d6-439f-9064-2cb5bfca40ee",
+  "createdOn": "2026-09-21",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "Clinical KB: confirm ingestion-worker fully gone (Vault cron JWT leftovers)",
+    "detail": "Cron already absent; Vault leftovers cron_ingestion_jwt / cron_ingestion_jw remain. Confirm fully removed after PR1. See docs/supabase-remediation-closeout-notes.md §1.1 (PR #2959).",
+    "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
+    "issueUlid": "01M31F4Y1HTCT5ZM9TK95Y2T8H"
+  }
+}

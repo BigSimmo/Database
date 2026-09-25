@@ -12,32 +12,15 @@ import { expect, test, type Locator, type Page } from "playwright/test";
  * at the wrong page are both clinical failures, so they need a gate that reads
  * pixels back.
  *
- * ## Why this skips in some containers, and why that is not a silent green
+ * ## Older browsers
  *
- * `pdfjs-dist@6` calls `Map.prototype.getOrInsertComputed` (a 2026 TC39
- * addition) from its core rendering path. That method ships in Chromium 151 —
- * which is what CI runs (`HeadlessChrome/151.0.0.0`, recorded in
- * `lighthouse-budget.json`) and what this repository's pinned Playwright build
- * carries (`playwright-core/browsers.json` revision 1234 → 151.0.7922.34). Some
- * sandboxed containers pre-bake an OLDER browser and pin lookup to it with
- * `PLAYWRIGHT_BROWSERS_PATH`, so pdf.js dies there with
- * `getOrInsertComputed is not a function` before a single pixel is drawn. That
- * is a property of the container, not of the product (ledger `#279`).
- *
- * The guard below therefore does two different things depending on where it
- * runs, and the asymmetry is the whole point:
- *
- * - **Locally, without `CI`:** skip, with a reason naming the browser version.
- * - **In CI:** a missing engine feature **fails**. A gate that can quietly skip
- *   itself on the machine that gates the merge is worse than no gate at all.
- *
- * Do not "fix" a local skip by bumping the pinned Playwright build, pinning
- * `pdfjs-dist` down, or running `playwright install` — all three were measured
- * and refuted on 2026-08-09. Run it on a host with the pinned browser instead:
- *
- *     npm ci --include=dev && npx playwright install chromium
- *     npm run ensure
- *     npm run test:e2e -- tests/ui-document-canvas.spec.ts --project=chromium
+ * The default `pdfjs-dist@6` build calls `Map.prototype.getOrInsertComputed`,
+ * which only Chromium 151+ has, so on an older browser pdf.js died with
+ * `getOrInsertComputed is not a function` before a single pixel was drawn. That
+ * was a product defect for any reader on an older phone or managed desktop, not
+ * only a container quirk. The viewer now loads the pdf.js legacy build, which
+ * polyfills it, so this journey runs, and must pass, on any Chromium the suite
+ * can launch. There is deliberately no engine probe that skips it.
  */
 
 // The 2-page demo document: page 1 is the monitoring protocol text, page 2 is
@@ -129,38 +112,10 @@ async function readCanvas(canvas: Locator): Promise<CanvasReading> {
   });
 }
 
-/**
- * Fail in CI, skip with a reason anywhere else, when the browser cannot run
- * pdf.js 6 at all. Never returns quietly on an unsupported engine.
- */
-async function requirePdfRasterEngine(page: Page): Promise<void> {
-  const supported = await page.evaluate(
-    () => typeof (Map.prototype as unknown as Record<string, unknown>).getOrInsertComputed === "function",
-  );
-  if (supported) return;
-
-  const version = page.context().browser()?.version() ?? "unknown";
-  const reason =
-    `This browser (${version}) has no Map.prototype.getOrInsertComputed, which pdfjs-dist@6 calls from its ` +
-    "render path, so no page can raster here. CI and the pinned Playwright build (browsers.json revision 1234, " +
-    "Chromium 151.0.7922.34) both have it. Run this spec against the pinned browser rather than weakening it — " +
-    "see the file header and ledger #279.";
-
-  // In CI a missing engine feature is a real failure: the merge gate must never
-  // be able to skip itself green.
-  expect(
-    Boolean(process.env.CI),
-    `${reason} Refusing to skip because CI is set — this is the environment the gate exists to protect.`,
-  ).toBe(false);
-
-  test.skip(true, reason);
-}
-
 /** Open the document route and settle the reader's first page. */
 async function openCanvasDocument(page: Page): Promise<Locator> {
   await page.goto(CANVAS_DOCUMENT, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 20_000 });
-  await requirePdfRasterEngine(page);
 
   const holder = page.locator('[data-testid="pdf-canvas-scroll"]:visible').first();
   await expect(holder).toBeVisible({ timeout: 20_000 });

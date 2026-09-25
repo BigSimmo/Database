@@ -279,6 +279,106 @@ check and watch patterns rather than relying on dashboard defaults.
 }
 ```
 
+### Selective Railway PR previews
+
+**Default: automatic PR Environments off.** Iterate locally with the smallest
+relevant checks, publish coherent changes for required GitHub CI, and use an
+explicitly requested isolated app preview when a hosted review adds value. Keep
+production deployment from protected `main`. A PR does not need a second copy of
+the app and ingestion worker merely to exist, including PRs opened by agents.
+
+#### Verified review and containment, 2026-09-22
+
+The live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`)
+had automatic PR Environments enabled, **production** selected as its base,
+bot previews enabled, and Focused PR Environments disabled. Opening the
+documentation-only PR #2987 started both app and worker builds. Its worker
+subsequently waited for the app deployment; this was dependency waiting, not
+GitHub CI waiting (`source.checkSuites` was false).
+
+Both services in previews #2985 and #2987 pointed at the production Supabase
+project and had service-role and OpenAI credentials configured. Only target
+identifiers and credential-presence booleans were retained; no secret values were
+recorded. Separate Railway containers did **not** isolate that external database
+or ingestion queue. No database-content or provider-usage audit was performed,
+so this review does not establish whether the previews processed live jobs.
+
+Under the owner's explicit fix request, automatic PR Environments were disabled,
+and the four preview deployments were stopped. The retained #2987 preview showed
+auto-deploy disabled. No preview environment was manually deleted; Railway removed
+#2985 after that PR was independently merged during the review.
+
+An attempted extra containment step exposed a CLI scope trap: Railway CLI 5.27.0
+`service source disconnect --environment <preview>` disconnected the shared
+service source, including production. The environment selector did not isolate
+that mutation. Both production sources were restored to `BigSimmo/Database` on
+`main`. Reconnection also attached `main` auto-deploy triggers to the retained
+preview; both were disabled using each preview service's dashboard **Disable**
+control. Global PR-environment creation and existing service auto-deploy triggers
+are separate controls: verify both. All four reconnect-triggered attempts (two
+production, two preview) were **SKIPPED** by watch paths; the earlier app
+deployment `9717aa0d-9a9f-4023-b937-76b94eebf218` and worker
+deployment `0d096830-d226-4611-b3b1-90bd18322d8e` remained **SUCCESS**. Do not use
+that CLI command as a preview-only containment control. The staged preview branch
+edit was discarded without deployment. Credentials, staging, Supabase settings
+and required GitHub checks were not changed.
+
+The original PR added documentation only; it did not enable Railway previews.
+The actor and time of the earlier setting change have not been established.
+This is a dated observation, not proof that future settings remain unchanged.
+
+#### Fast iteration without weakening release checks
+
+1. While editing, use the project-safe local server and focused checks for the
+   affected behaviour. Keep ordinary preview work provider-free.
+2. Batch a coherent correction before pushing. Preserve required CI, avoid
+   cancelling useful in-flight checks, and reuse evidence only while its inputs
+   remain valid. Do not rerun full local suites that add no new coverage.
+3. Request a hosted app preview only when needed for review. Before starting it,
+   verify non-production database, storage and auth targets, synthetic data,
+   `RAG_PROVIDER_MODE=offline`, and no paid-provider credentials. Routine app
+   previews must not start ingestion workers. An ingestion preview needs its own
+   isolated queue/storage and explicit provider authority.
+4. Keep merge and production deployment gates intact. A preview is feedback,
+   not evidence that required CI or clinical/provider acceptance passed.
+
+The existing staging app was observed using the separate staging Supabase
+project, offline AI and no OpenAI key. However, the staging environment also
+contains `worker-5g6o`, which has an OpenAI key and no service-specific config file.
+Do not copy that whole environment as a supposedly safe preview template. An
+app-only template and its data/access controls still need explicit verification.
+
+If automatic previews are requested later, first prepare that isolated app-only
+base, then enable **Focused PR Environments** in **Project Settings → Environments**.
+Preserve the existing app's `railway.app.json` watch paths. For a new preview
+service, verify Railway's supported configuration mechanism rather than assuming
+a new service can opt into legacy config-as-code. Documentation, ordinary tests
+and CI-only changes should skip previews;
+runtime code, assets, build inputs and dependency updates should remain eligible.
+Bot previews can follow the same isolation and path rules if requested. Leave
+preview Wait for CI off only after isolation is established, so preview builds
+can run alongside CI; do not remove required merge checks to speed them up.
+
+Railway can include referenced service dependencies even when their own files
+did not change. Verify selection on the next authorised documentation-only and
+app-only PRs rather than assuming the toggle proves it. Check effective deployment
+configuration: config-as-code can override older dashboard watch paths. Retain
+runtime build inputs such as `tests/stubs/server-only.ts` when a worker preview
+is explicitly commissioned. Do not create a duplicate GitHub deploy workflow.
+
+Do not enable cross-environment **Skipped Builds** for this Next.js app: its
+`NEXT_PUBLIC_*` values are baked into the browser bundle, and Railway's skipped
+build reuse does not account for changed environment variables. Preserve normal
+Docker caching instead. If preview isolation or selection fails, disable automatic
+previews and stop the affected preview deployment; never fall back to production
+credentials. Re-enabling the retained previews is not a safe rollback while those
+credentials remain inherited.
+
+References: [Railway PR environments](https://docs.railway.com/guides/preview-deployments-with-pr-environments),
+[Focused PR Environments](https://docs.railway.com/environments#focused-pr-environments),
+and [Skipped Builds](https://docs.railway.com/builds/skipped-builds)
+(checked 2026-09-22). Hosted settings are separate from this documentation PR.
+
 ### Readiness: what `/api/health/ready` may and may not ask
 
 **Readiness answers one question — can THIS CONTAINER serve requests?** Configuration is

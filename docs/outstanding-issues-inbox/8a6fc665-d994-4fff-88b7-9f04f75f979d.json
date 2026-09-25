@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "8a6fc665-d994-4fff-88b7-9f04f75f979d",
+  "createdOn": "2026-09-22",
+  "action": "update",
+  "payload": {
+    "id": "#TWS2GD",
+    "detail": "ESCALATED TO CHROMIUM 2026-09-21, on PR #2974 (run 35617385067, job 106393570799, Production UI shard 3). Same test, same signature this row already describes: tests/ui-tools.spec.ts 'differentials compare queue launches presentation comparison' fails with 'strict mode violation: getByTestId(\"differential-compare-queue\") resolved to 2 elements', disambiguated by Playwright as getByTestId('mobile-composer-reserve-pad').getByTestId('differential-compare-queue') and .nth(1). This row recorded it as WebKit-only and stated 'Chromium passes this test, including in the required Production UI shards', while flagging the likelier reading as a shell branch rendering children twice that only WebKit timing surfaced. That prediction has now come true in Chromium, which is the required lane. IT IS INTERMITTENT IN CHROMIUM: the identical shard passed on the next run of the same PR (run 35622362243, job 106412267329), so it will present as a flaky required check rather than a stable failure - do not read a green shard as evidence the double render is gone. WHAT THIS CHANGES: the defect is no longer confined to a non-blocking engine, so it can now redden a required lane on unrelated PRs. NOT INVESTIGATED HERE and still the right next step, unchanged from this row: render /differentials/compare at 390x844 and count <main> elements; the trace exists (playwright.config.ts sets trace: retain-on-failure) and its After-DOM snapshot answers this in minutes. Two <main> landmarks on one document is also an accessibility defect in its own right. Found while driving PR #2974; that PR touches no Differentials or shell files, so it neither caused nor fixed this.",
+    "source": "PR #2974 CI, 2026-09-21 — Production UI shard 3 failed then passed on the same head; diff touches no Differentials or shell files",
+    "baseRowFingerprint": "942b3f897b2647c50600668f22585295b1243b0c010ed8b8f2e8baf2d5bcfe6c"
+  }
+}

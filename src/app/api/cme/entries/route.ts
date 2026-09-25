@@ -10,6 +10,7 @@ import { cpdYearOf } from "@/lib/cme/cpd-year";
 import { DEMO_CME_ENTRIES, DEMO_CME_INSTANT, DEMO_CME_YEAR } from "@/lib/cme/demo-year";
 import { assertValidCmeLinkedIds, fetchOwnerCmeEntries, fetchOwnerCmeYear, insertCmeEntry } from "@/lib/cme/repository";
 import { cmeEntryCreateSchema, cmeListQuerySchema } from "@/lib/cme/schemas";
+import { cmeYearConfigurationState } from "@/lib/cme/year-configuration";
 import type { CmeEntry } from "@/lib/cme/types";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, publicErrorResponse } from "@/lib/http";
@@ -100,7 +101,12 @@ export async function POST(request: Request) {
     // off that string, never recomputed from a timestamp.
     const targetYear = Number(body.date.slice(0, 4));
     const yearRow = await fetchOwnerCmeYear(supabase, user.id, targetYear);
-    if (!yearRow) {
+    if (cmeYearConfigurationState(yearRow) === "unavailable") {
+      return publicErrorResponse("Your saved CPD targets could not be read. They have not been changed.", 503, {
+        code: "cme_year_unavailable",
+      });
+    }
+    if (!yearRow || cmeYearConfigurationState(yearRow) !== "ready") {
       return publicErrorResponse(`Confirm your CPD targets for ${targetYear} before logging an entry.`, 400, {
         code: "cme_year_not_confirmed",
       });
@@ -118,7 +124,9 @@ export async function POST(request: Request) {
       transcribed: false,
       routineId: body.routineId,
       documentId: body.documentId,
+      sourceUrl: body.sourceUrl ?? null,
       buckets: body.buckets,
+      formalPeerReviewHours: body.formalPeerReviewHours,
     };
 
     await assertValidCmeLinkedIds(supabase, user.id, {
@@ -126,7 +134,7 @@ export async function POST(request: Request) {
       documentId: entry.documentId,
     });
 
-    const created = await insertCmeEntry(supabase, user.id, yearRow.id, entry);
+    const created = await insertCmeEntry(supabase, user.id, yearRow.id, entry, body.requestId);
     return NextResponse.json({ entry: created }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {

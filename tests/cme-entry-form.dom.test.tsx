@@ -11,11 +11,27 @@ describe("New entry", () => {
     const user = userEvent.setup();
     await user.type(screen.getByLabelText(/what was it/i), "Peer review group — September");
     await user.click(screen.getByRole("button", { name: "1.5" }));
+    await user.click(screen.getByRole("button", { name: "Split hours" }));
     await user.type(screen.getByLabelText(/reviewing performance/i), "1");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("1.0 of 1.5 allocated");
     expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
     await user.type(screen.getByLabelText(/measuring outcomes/i), "0.5");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("1.5 of 1.5 allocated");
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
+  });
+
+  // Regression, 2026-09-24: Save sat disabled with nothing saying why.
+  it("says what is stopping a save, and stops saying it once the entry can save", async () => {
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    const user = userEvent.setup();
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/add what the activity was/i);
+    await user.type(screen.getByLabelText(/what was it/i), "Peer review group");
+    await user.click(screen.getByRole("button", { name: "1.5" }));
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/which category/i);
+    await user.click(screen.getByRole("button", { name: "Split hours" }));
+    expect(screen.getByTestId("cme-entry-save-blocked")).toHaveTextContent(/split/i);
+    await user.type(screen.getByLabelText(/reviewing performance/i), "1.5");
+    expect(screen.queryByTestId("cme-entry-save-blocked")).toBeNull();
     expect(screen.getByRole("button", { name: /save entry/i })).toBeEnabled();
   });
 
@@ -44,7 +60,151 @@ describe("New entry", () => {
   it("rejects exponent notation in an allocation field instead of counting it as hours", async () => {
     const user = userEvent.setup();
     render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.click(screen.getByRole("button", { name: "Split hours" }));
     await user.type(screen.getByLabelText(/reviewing performance/i), "1e10");
     expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("0.0 of 1.0 allocated");
+  });
+
+  it("rejects malformed formal peer-review credit instead of silently saving zero", async () => {
+    const user = userEvent.setup();
+    render(<CmeEntryForm onSubmit={vi.fn()} />);
+    await user.type(screen.getByLabelText(/formal peer-review credit/i), "-1");
+    expect(screen.getByText(/positive plain number/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /save entry/i })).toBeDisabled();
+  });
+
+  it("submits domain and peer-review credit inside the allocated reviewing hours", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<CmeEntryForm onSubmit={onSubmit} availableDomains={["Professionalism"]} />);
+    await user.type(screen.getByLabelText(/what was it/i), "Peer review meeting");
+    await user.click(screen.getByRole("button", { name: "Reviewing" }));
+    await user.click(screen.getByText("More details"));
+    await user.type(screen.getByLabelText(/formal peer-review credit/i), "1");
+    await user.click(screen.getByRole("checkbox", { name: "Professionalism" }));
+    await user.click(screen.getByRole("button", { name: /save entry/i }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formalPeerReviewHours: 1,
+        buckets: ["Professionalism"],
+      }),
+    );
+  });
+});
+
+describe("one-tap category", () => {
+  it("puts every stated hour in the chosen category without asking for a split", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(<CmeEntryForm onSubmit={onSubmit} />);
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText(/what was it/i), "Grand round");
+    await user.click(screen.getByRole("button", { name: "2" }));
+    expect(screen.queryByTestId("cme-allocation-total")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Educational" }));
+    expect(screen.getByRole("button", { name: "Educational" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: /save entry/i }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Grand round", allocations: [{ category: "educational", hours: 2 }] }),
+    );
+  });
+
+  it("opens an existing single-category entry on that category, and a split entry on the split", () => {
+    const base = {
+      date: "2026-03-01",
+      title: "Journal club",
+      reflection: "",
+      costCents: null,
+      routineId: null,
+      documentId: null,
+      sourceUrl: null,
+      buckets: [],
+      formalPeerReviewHours: 0,
+    };
+    const { unmount } = render(
+      <CmeEntryForm
+        onSubmit={vi.fn()}
+        initialEntry={{ ...base, allocations: [{ category: "reviewing", hours: 1 }] }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Reviewing" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId("cme-allocation-total")).toBeNull();
+    unmount();
+    render(
+      <CmeEntryForm
+        onSubmit={vi.fn()}
+        initialEntry={{
+          ...base,
+          allocations: [
+            { category: "reviewing", hours: 1 },
+            { category: "measuring", hours: 0.5 },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Split hours" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("cme-allocation-total")).toHaveTextContent("1.5 of 1.5 allocated");
+  });
+});
+
+describe("unsaved draft", () => {
+  it("keeps an unsaved new entry for this tab and restores it, with a way to start again", async () => {
+    window.sessionStorage.clear();
+    const user = userEvent.setup();
+    const { unmount } = render(<CmeEntryForm onSubmit={vi.fn()} draftStorageKey="cme-test-draft" />);
+    await user.type(screen.getByLabelText(/what was it/i), "Half-typed course");
+    await user.click(screen.getByRole("button", { name: "Outcomes" }));
+    unmount();
+
+    render(<CmeEntryForm onSubmit={vi.fn()} draftStorageKey="cme-test-draft" />);
+    expect(await screen.findByTestId("cme-entry-draft-restored")).toBeInTheDocument();
+    expect(screen.getByLabelText(/what was it/i)).toHaveValue("Half-typed course");
+    expect(screen.getByRole("button", { name: "Outcomes" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Start again" }));
+    expect(screen.getByLabelText(/what was it/i)).toHaveValue("");
+    expect(window.sessionStorage.getItem("cme-test-draft")).toBeNull();
+  });
+
+  it("never lets a stored draft replace a prefilled title", async () => {
+    window.sessionStorage.setItem(
+      "cme-test-draft",
+      JSON.stringify({ title: "Old draft", date: "2026-01-02", mode: null, allocations: [] }),
+    );
+    render(
+      <CmeEntryForm
+        onSubmit={vi.fn()}
+        draftStorageKey="cme-test-draft"
+        initialEntry={{
+          date: "2026-03-01",
+          title: "Monthly journal club",
+          allocations: [{ category: "educational", hours: 1 }],
+          reflection: "",
+          costCents: null,
+          routineId: null,
+          documentId: null,
+          sourceUrl: null,
+          buckets: [],
+          formalPeerReviewHours: 0,
+        }}
+      />,
+    );
+    expect(screen.getByLabelText(/what was it/i)).toHaveValue("Monthly journal club");
+    expect(screen.queryByTestId("cme-entry-draft-restored")).toBeNull();
+    window.sessionStorage.clear();
+  });
+});
+
+describe("allocation hours display", () => {
+  // Regression, 2026-09-24: the total showed one decimal while balance is
+  // checked to two, so a quarter hour always looked wrong ("0.7 of 0.8").
+  it("shows quarter hours at the precision the balance check uses", async () => {
+    const { formatAllocationHours } = await import("@/components/cme/cme-allocation-field");
+    expect(formatAllocationHours(0.75)).toBe("0.75");
+    expect(formatAllocationHours(0.7)).toBe("0.7");
+    expect(formatAllocationHours(1)).toBe("1.0");
+    expect(formatAllocationHours(0.05)).toBe("0.05");
+    expect(formatAllocationHours(1.5)).toBe("1.5");
+    expect(formatAllocationHours(1.1)).toBe("1.1");
+    expect(formatAllocationHours(0.1 + 0.2)).toBe("0.3");
   });
 });

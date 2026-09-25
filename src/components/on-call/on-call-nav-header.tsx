@@ -41,7 +41,7 @@ export function OnCallCardNavHeader() {
   return (
     <InPageNavHeader
       back={{ href: "/on-call", label: "On Call" }}
-      title="Essentials card"
+      title="Pocket card"
       testIdPrefix="on-call-card"
       actionsTitle="Card actions"
       actionsDescription="Print the numbers flagged for this card."

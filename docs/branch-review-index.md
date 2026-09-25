@@ -15,13 +15,16 @@ Retention and rotation: [`branch-review-archival-policy.md`](branch-review-archi
 
 ## Summary
 
-- Records: 662
-- Distinct ref cells: 420
-- Distinct reviewed heads: 645
-- Date range: `2026-08-12` to `2026-09-13`
+- Records: 667
+- Distinct ref cells: 425
+- Distinct reviewed heads: 650
+- Date range: `2026-08-12` to `2026-09-21`
 
 Records per date, newest first:
 
+- `2026-09-21` — 1 record
+- `2026-09-19` — 1 record
+- `2026-09-17` — 2 records
 - `2026-09-13` — 4 records
 - `2026-09-12` — 3 records
 - `2026-09-11` — 1 record
@@ -29,7 +32,7 @@ Records per date, newest first:
 - `2026-09-09` — 1 record
 - `2026-09-08` — 1 record
 - `2026-09-07` — 9 records
-- `2026-09-06` — 14 records
+- `2026-09-06` — 15 records
 - `2026-09-05` — 3 records
 - `2026-09-04` — 5 records
 - `2026-09-03` — 12 records
@@ -62,6 +65,10 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 
 | Date | Ref | Scope | Outcome | Record |
 | --- | --- | --- | --- | --- |
+| 2026-09-21 | claude/on-call-review-redesign-1yyqh0 | prlanded | PR #2900 merged 2026-09-20 18:06 UTC as merge commit a25c45437 (2 pare… | [9fc9b53a](branch-review-records/9fc9b53a3eebb51933c0efffc8ffb6a7a743db008b9310c96655883d20695870.record.md) |
+| 2026-09-19 | claude/intelligent-albattani-aid2kl-governance | prlanded | PR #2901 merged by owner 2026-09-19T16:59:56Z as merge commit 4960c6f7… | [ca58af11](branch-review-records/ca58af110d8a1b8ab10a9c1fa082d8defadeb171378fb2c83fa7bdb1bacc0fb6.record.md) |
+| 2026-09-17 | claude/gracious-hawking-7jsjz8 | prlanded | PR #2838 squash-merged to main by the owner at 2026-09-17T08:33:49Z. C… | [bf56b8e1](branch-review-records/bf56b8e13de5f83642504f6dd10aa30c2cc174f46a40467a5989f33c5035c408.record.md) |
+| 2026-09-17 | claude/charming-newton-xbp799 | prlanded | PR #2860 landed correctly. Squash merge (single parent 95785dddc); squ… | [f17e9874](branch-review-records/f17e9874c3f9a16a24fbf559ba5df65a3d7180b5f928a529a1ad80832730887b.record.md) |
 | 2026-09-13 | codex/clinical-governance-signoff | clinical catalogue governance sign-offs: #FYSQGK, #018, #Z3GZ5P, #SBKXZ7 | Early sign-off completed: (1) #FYSQGK 15 single-select group labels co… | [5a8ec99e](branch-review-records/5a8ec99e80bb49e04cbfe7b520b115233e9434f7fbd4a4c5da8c75ae8774ce09.record.md) |
 | 2026-09-13 | codex/rag-readiness-fix-20260913 | readiness materialized operational base schema security review | Independent Astra High schema review: no blocking defects; statement-l… | [8f84ab2d](branch-review-records/8f84ab2d2b7873a14d5a01de0690c2976a3dfd72cddd0ea9f0b924060fa1019b.record.md) |
 | 2026-09-13 | HEAD | PR2790 baseline block medication-section binding correction | CLEAR: independent clinical review of uncommitted two-file correction… | [9cfc2df2](branch-review-records/9cfc2df2145e5061eca22850010e2e966b49b8c564c2ff90939d01fa17058404.record.md) |
@@ -85,6 +92,7 @@ Scope and outcome are truncated; follow the record link for the full six-cell ro
 | 2026-09-06 | claude/friendly-fermi-2cesis (PR #2664) | Run PR sweep: CI flake + drift | Required-checks aggregate failed solely on Lighthouse budget: a deskto… | [04a48633](branch-review-records/04a48633217e0ae2220057766222675a893a5ca2d8aabb94c5287b54c1dc6dcf.record.md) |
 | 2026-09-06 | claude/vibrant-heisenberg-u9sadb (PR #2663) | Run PR sweep (pass 2): conflict resync | Stale mergeability check only, not a real conflict. Dry-run merge chec… | [056a706d](branch-review-records/056a706d295b74bbb5acba46b0d4b000f43a2810dc02edacfc90eb19646d20dd.record.md) |
 | 2026-09-06 | codex/services-specialist-facets (PR #2655) | Run PR sweep: CI fix | Unit coverage / PR required were failing: tests/registry-service-facet… | [067e3613](branch-review-records/067e3613d58b7901a8b3207838cbbe964dc6ab372925d9b788a17d0dde560145.record.md) |
+| 2026-09-06 | dependabot/pip/eval/docling/docling-python-55e33de552 (PR #2646) | Run PR sweep: CI fix | Unit coverage failure fixed: dependabot bumped docling to 2.124.0 in e… | [09d340be](branch-review-records/09d340beb81a67179975ddab52b91aa1e92e2466ece6da6bedea1b2a574d245f.record.md) |
 | 2026-09-06 | claude/confident-allen-8ek1fi (PR #2689) | Run PR sweep (pass 2): first triage | Real merge conflict against main (GitHub mergeable_state dirty), confi… | [0a96d32f](branch-review-records/0a96d32f8a84bdc0c10887230d1d5e014fac2abff1db72b32fd980528e8cbaec.record.md) |
 | 2026-09-06 | claude/staging-db-shutdown-safety-aoabrp (PR #2678) | Run PR sweep (pass 2): ledger reconciliation gap | Fixed check:ledger-write-discipline failure: 5 new outstanding-issues-… | [19b24b5f](branch-review-records/19b24b5fbe7b19e1be9baaa4f5a11c95968057724b0f2cc40df3c10994c6c359.record.md) |
 | 2026-09-06 | claude/blissful-keller-fekk8o (PR #2671) | Run PR sweep: drift only | All required checks were already green (Advisory UI failure ignored pe… | [6d900123](branch-review-records/6d900123b4377f1f2370b3299f44540b41dab0fa44ee4303fbe64b38289f014a.record.md) |
