@@ -283,6 +283,25 @@
         var MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
         var MAX_CONTACTS = 40;
         var MAX_LADDERS = 12;
+        // Same rule as the printed pocket card (onCallEntryFreshness and
+        // selectCardEntries): an entry never checked, or not checked within
+        // this many months, is left off. A screen read with no signal cannot
+        // be cross-checked, so an old number is the worst thing it could show.
+        var REVIEW_INTERVAL_MONTHS = 12;
+
+        function checkedWithinInterval(value) {
+          if (typeof value !== "string" || !value) return false;
+          var due = new Date(value);
+          if (isNaN(due.getTime())) return false;
+          var dayOfMonth = due.getUTCDate();
+          due.setUTCMonth(due.getUTCMonth() + REVIEW_INTERVAL_MONTHS);
+          if (due.getUTCDate() !== dayOfMonth) due.setUTCDate(0);
+          return due.getTime() > Date.now();
+        }
+
+        function checkedLabel(value) {
+          return "checked " + new Date(value).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
+        }
 
         function read() {
           try {
@@ -343,7 +362,13 @@
         var saved = read();
         if (!saved) return;
         var shared = saved.entries.filter(function (entry) {
-          return entry && typeof entry === "object" && entry.isPersonal !== true && text(entry.title);
+          return (
+            entry &&
+            typeof entry === "object" &&
+            entry.isPersonal !== true &&
+            text(entry.title) &&
+            checkedWithinInterval(entry.lastVerifiedAt)
+          );
         });
 
         var contacts = shared
@@ -391,6 +416,7 @@
                   text(details.extension) && "ext " + text(details.extension),
                   text(details.pager) && "pager " + text(details.pager),
                   text(details.availability),
+                  checkedLabel(entry.lastVerifiedAt),
                 ],
                 [callButton("Call", details.phone), callButton("After hours", details.afterHoursPhone)],
               ),
@@ -403,6 +429,7 @@
           lists.appendChild(el("h3", "", "Escalation"));
           ladders.forEach(function (entry) {
             lists.appendChild(el("p", "name", text(entry.title)));
+            lists.appendChild(el("span", "meta", checkedLabel(entry.lastVerifiedAt)));
             var steps = el("ol");
             steps.setAttribute("data-testid", "on-call-offline-ladder");
             entry.details.escalationSteps

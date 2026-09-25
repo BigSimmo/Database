@@ -464,7 +464,14 @@ test.describe("PsychSift PWA", () => {
     await openControlledPwa(page);
     // The shape src/lib/on-call/entry-store.ts writes: shared rows only, saved now.
     await page.evaluate(() => {
-      const base = { subtitle: null, body: null, linkedDocumentIds: [], tags: [], lastVerifiedAt: null, sortOrder: 0 };
+      const base = {
+        subtitle: null,
+        body: null,
+        linkedDocumentIds: [],
+        tags: [],
+        lastVerifiedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        sortOrder: 0,
+      };
       window.localStorage.setItem(
         "clinical-kb-on-call-entries-cache",
         JSON.stringify({

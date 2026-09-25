@@ -31,7 +31,7 @@ function entry(overrides: Record<string, unknown>) {
     isPersonal: false,
     includeOnCard: false,
     sortOrder: 0,
-    lastVerifiedAt: null,
+    lastVerifiedAt: "2026-03-01T00:00:00Z",
     ...overrides,
   };
 }
@@ -126,6 +126,29 @@ describe("offline On Call essentials", () => {
     window.localStorage.clear();
     window.localStorage.setItem(CACHE_KEY, "{not json");
     expect(run().hidden).toBe(true);
+  });
+
+  it("leaves off any entry never checked or not checked within 12 months, like the pocket card", () => {
+    save([
+      entry({ title: "Never checked", lastVerifiedAt: null }),
+      entry({ title: "Checked 13 months ago", lastVerifiedAt: "2025-08-20T00:00:00Z" }),
+      entry({ title: "Unreadable date", lastVerifiedAt: "not a date" }),
+      entry({ title: "Checked in March", lastVerifiedAt: "2026-03-01T00:00:00Z" }),
+    ]);
+    const names = [...run().querySelectorAll(".name")].map((n) => n.textContent);
+    expect(names).toEqual(["Checked in March"]);
+    expect(document.querySelector('[data-testid="on-call-offline-contacts"] .meta')!.textContent).toContain(
+      "checked Mar 2026",
+    );
+  });
+
+  it("uses the same limits as the app: seven days for the saved copy, twelve months for a check", () => {
+    const store = readFileSync(join(process.cwd(), "src/lib/on-call/entry-store.ts"), "utf8");
+    const model = readFileSync(join(process.cwd(), "src/lib/on-call/entry-model.ts"), "utf8");
+    expect(store).toContain("ON_CALL_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;");
+    expect(script).toContain("var MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;");
+    expect(model).toContain("ON_CALL_REVIEW_INTERVAL_MONTHS = 12;");
+    expect(script).toContain("var REVIEW_INTERVAL_MONTHS = 12;");
   });
 
   it("treats saved text as text, never markup, and drops a call link with no real number", () => {
