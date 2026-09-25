@@ -176,6 +176,26 @@ function parseMedicationDetailResponse(value: unknown): MedicationDetailResponse
   return optionalBoolean(candidate.demoMode) ? (candidate as unknown as MedicationDetailResponse) : null;
 }
 
+/** A non-OK API response. Keeps the status and the API's machine-readable `code`. */
+class MedicationRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+  ) {
+    super(`Request failed (${status})`);
+    this.name = "MedicationRequestError";
+  }
+}
+
+async function responseErrorCode(response: Response): Promise<string | null> {
+  try {
+    const body = jsonObject(await response.json());
+    return typeof body?.code === "string" ? body.code : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchJson<T>(
   url: string,
   headers: HeadersInit | undefined,
@@ -189,7 +209,7 @@ async function fetchJson<T>(
   // registry/differential hooks, which also fetch with the default cache mode.
   const response = await fetch(url, { headers, signal });
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
+    throw new MedicationRequestError(response.status, await responseErrorCode(response));
   }
   const parsed = parse(await response.json());
   if (!parsed) throw new Error("The medication catalogue returned an unexpected response.");
@@ -279,22 +299,42 @@ export function useMedicationCatalog(
   return state;
 }
 
-export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailResponse> {
+export type MedicationDetailState = AsyncState<MedicationDetailResponse> & {
+  /**
+   * True only when the API answered `medication_not_found` for the current auth
+   * header, after sign-in resolved. Any other failure (401, 429, 5xx, a bare 404)
+   * stays in `error`, so an outage never reads as "that drug is not here".
+   */
+  notFound: boolean;
+};
+
+// Auth states in which the request carried the credential the user will keep. While
+// sign-in is loading (or errored/expired) an owner-only record can 404 for the
+// anonymous fetch, which must not be reported as the record not existing.
+const resolvedAuthStatuses = new Set(["authenticated", "signed_out", "unconfigured"]);
+
+export function useMedicationDetail(slug?: string): MedicationDetailState {
   const normalized = slug?.trim().toLowerCase() ?? "";
-  const { authorizationHeader } = useAuthSession();
+  const { authorizationHeader, status: authStatus } = useAuthSession();
   const [prevSlug, setPrevSlug] = useState(normalized);
-  const [state, setState] = useState<AsyncState<MedicationDetailResponse>>(() => ({
+  const [prevAuthorizationHeader, setPrevAuthorizationHeader] = useState(authorizationHeader);
+  const [state, setState] = useState<AsyncState<MedicationDetailResponse> & { notFoundCode: boolean }>(() => ({
     data: null,
     loading: !!normalized,
     error: null,
+    notFoundCode: false,
   }));
 
-  if (normalized !== prevSlug) {
+  // A new slug or a new credential starts from a clean slate: a 404 from the
+  // anonymous pre-sign-in fetch must never stand for the owner's record.
+  if (normalized !== prevSlug || authorizationHeader !== prevAuthorizationHeader) {
     setPrevSlug(normalized);
+    setPrevAuthorizationHeader(authorizationHeader);
     setState({
       data: null,
       loading: !!normalized,
       error: null,
+      notFoundCode: false,
     });
   }
 
@@ -310,7 +350,7 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
       parseMedicationDetailResponse,
     )
       .then((data) => {
-        if (!controller.signal.aborted) setState({ data, loading: false, error: null });
+        if (!controller.signal.aborted) setState({ data, loading: false, error: null, notFoundCode: false });
       })
       .catch((error) => {
         if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
@@ -318,6 +358,8 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
           data: null,
           loading: false,
           error: error instanceof Error ? error.message : "Could not load medication.",
+          notFoundCode:
+            error instanceof MedicationRequestError && error.status === 404 && error.code === "medication_not_found",
         });
       });
     return () => {
@@ -325,5 +367,6 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
     };
   }, [normalized, authorizationHeader]);
 
-  return state;
+  const { notFoundCode, ...asyncState } = state;
+  return { ...asyncState, notFound: notFoundCode && resolvedAuthStatuses.has(authStatus) };
 }
