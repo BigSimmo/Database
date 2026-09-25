@@ -133,8 +133,8 @@
       /* On Call essentials: shown only when this browser already holds a fresh,
          shared (never personal) copy of the On Call entries. */
       .on-call {
-        margin-top: 1.5rem;
-        padding-top: 1.25rem;
+        margin-top: 1.25rem;
+        padding: 1.25rem 0 0.25rem;
         border-top: 1px solid var(--page-border);
       }
       .on-call[hidden] {
@@ -253,6 +253,11 @@
       <!-- brand-mark:end -->
       <h1 id="offline-title">PsychSift is offline</h1>
       <p>Reconnect to search, generate answers, or open private clinical documents and account data.</p>
+      <section class="on-call" id="on-call-offline" aria-labelledby="on-call-offline-title" hidden>
+        <h2 id="on-call-offline-title">On Call, saved on this phone</h2>
+        <p class="warning" id="on-call-offline-saved"></p>
+        <div id="on-call-offline-lists"></div>
+      </section>
       <p class="privacy-note">
         For privacy, the PWA cache stores only this offline screen and public application assets. It does not store or
         replay clinical queries, answers, documents, uploads, signed URLs, or API responses. If you use On Call, this
@@ -260,11 +265,6 @@
         personal entries; they are cleared when you sign out.
       </p>
       <a href="/">Try again</a>
-      <section class="on-call" id="on-call-offline" aria-labelledby="on-call-offline-title" hidden>
-        <h2 id="on-call-offline-title">On Call, saved on this phone</h2>
-        <p class="warning" id="on-call-offline-saved"></p>
-        <div id="on-call-offline-lists"></div>
-      </section>
     </main>
     <script>
       // On Call essentials with no signal.
