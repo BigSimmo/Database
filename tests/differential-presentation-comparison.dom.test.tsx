@@ -121,3 +121,50 @@ describe("Highest urgency callout (#0FT00E)", () => {
     }
   });
 });
+
+describe("emergency diagnoses on a phone and past three (#0FT00E follow-up)", () => {
+  const selectedEmergencies = selectedSlugs.filter(
+    (candidateSlug) => getDifferentialRecord(candidateSlug)!.status === "emergent",
+  );
+
+  function mobileComparison() {
+    // The phone view is the `md:hidden` section; jsdom applies no media queries, so DOM
+    // presence inside it is what a phone renders.
+    return within(screen.getByRole("region", { name: "Mobile differential comparison" }));
+  }
+
+  it("is exercised with more than three selected emergencies", () => {
+    expect(selectedEmergencies.length).toBeGreaterThan(3);
+  });
+
+  it("lists every unselected emergency diagnosis in the phone comparison, marked Not selected", () => {
+    render(<DifferentialPresentationWorkflowPage presentationSlug={slug} />);
+    const phone = mobileComparison();
+    const block = within(phone.getByTestId("differential-unselected-emergencies-mobile"));
+    for (const candidateSlug of unselectedEmergencies) {
+      expect(block.getByRole("link", { name: `Open diagnosis: ${titleOf(candidateSlug)}` })).toBeInTheDocument();
+    }
+    expect(block.getByText("Not selected")).toBeInTheDocument();
+    expect(block.getByText("Emergency")).toBeInTheDocument();
+  });
+
+  it("leaves the phone emergency block out when every emergency is selected", () => {
+    render(
+      <DifferentialPresentationWorkflowPage
+        presentationSlug={slug}
+        selectedIds={[...selectedEmergencies, ...unselectedEmergencies]}
+      />,
+    );
+    expect(mobileComparison().queryByTestId("differential-unselected-emergencies-mobile")).toBeNull();
+  });
+
+  it("lists every selected emergency in the Highest urgency callout, with no silent cap of three", () => {
+    render(<DifferentialPresentationWorkflowPage presentationSlug={slug} />);
+    for (const heading of screen.getAllByRole("heading", { name: "Highest urgency" })) {
+      const panel = within(heading.closest("section")!);
+      for (const candidateSlug of selectedEmergencies) {
+        expect(panel.getByRole("link", { name: `Open diagnosis: ${titleOf(candidateSlug)}` })).toBeInTheDocument();
+      }
+    }
+  });
+});

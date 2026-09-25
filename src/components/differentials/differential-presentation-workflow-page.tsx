@@ -535,14 +535,10 @@ function HighestUrgencyPanel({
   workflow: DifferentialPresentationWorkflow;
   candidates: CandidateView[];
 }) {
+  // Every selected emergency is listed: an earlier `slice(0, 3)` silently
+  // dropped the fourth (post-ictal state on acute confusion) with no cue
+  // (#0FT00E follow-up).
   const emergent = candidates.filter((candidate) => candidate.selected && candidate.record.status === "emergent");
-  // Emergencies left out of the selection are listed too, and never truncated
-  // (#0FT00E). Their table columns sit after the selected ones, where on a
-  // desktop they scroll out of view; this panel does not scroll, so an
-  // unselected emergency such as Wernicke encephalopathy stays on screen.
-  const unselectedEmergent = candidates.filter(
-    (candidate) => !candidate.selected && candidate.record.status === "emergent",
-  );
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">Highest urgency</h2>
@@ -550,7 +546,7 @@ function HighestUrgencyPanel({
       <div className="mt-3 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3">
         <EmergencyBadge status="emergent" />
         <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
-          {emergent.slice(0, 3).map((candidate) => (
+          {emergent.map((candidate) => (
             <li key={candidate.record.slug}>
               <UrgentDiagnosisLink candidate={candidate} />
             </li>
@@ -558,25 +554,52 @@ function HighestUrgencyPanel({
         </ul>
         <p className="mt-3 text-sm font-semibold text-[color:var(--text-muted)]">{workflow.highestUrgencyNote}</p>
       </div>
-      {unselectedEmergent.length > 0 ? (
-        <div
-          data-testid="differential-unselected-emergencies"
-          className="mt-3 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3"
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <EmergencyBadge status="emergent" />
-            <NotSelectedMarker />
-          </div>
-          <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
-            {unselectedEmergent.map((candidate) => (
-              <li key={candidate.record.slug}>
-                <UrgentDiagnosisLink candidate={candidate} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <UnselectedEmergencies candidates={candidates} testId="differential-unselected-emergencies" className="mt-3" />
     </section>
+  );
+}
+
+/**
+ * Emergencies left out of the selection, listed in full and never truncated
+ * (#0FT00E). Their desktop table columns sit after the selected ones, where
+ * they scroll out of view, and the phone view renders only the selected cards,
+ * so without this block an unselected emergency such as Wernicke
+ * encephalopathy would be on no non-scrolling surface at all. Rendered in the
+ * Highest urgency callout (tablet and desktop) and in the phone comparison.
+ */
+function UnselectedEmergencies({
+  candidates,
+  testId,
+  className,
+}: {
+  candidates: CandidateView[];
+  testId: string;
+  className?: string;
+}) {
+  const unselectedEmergent = candidates.filter(
+    (candidate) => !candidate.selected && candidate.record.status === "emergent",
+  );
+  if (unselectedEmergent.length === 0) return null;
+  return (
+    <div
+      data-testid={testId}
+      className={cn(
+        "rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]/80 p-3",
+        className,
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <EmergencyBadge status="emergent" />
+        <NotSelectedMarker />
+      </div>
+      <ul className="mt-3 grid gap-1.5 text-sm font-semibold text-[color:var(--text-heading)]">
+        {unselectedEmergent.map((candidate) => (
+          <li key={candidate.record.slug}>
+            <UrgentDiagnosisLink candidate={candidate} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -847,6 +870,7 @@ function MobileComparison({
         </Link>
       </div>
       <SafetySnapshot workflow={workflow} diagnosisLinks={diagnosisLinks} />
+      <UnselectedEmergencies candidates={candidates} testId="differential-unselected-emergencies-mobile" />
       <GroupScopedCriteria workflow={workflow} candidates={selected} diagnosisLinks={diagnosisLinks} />
       <div className="grid gap-3">
         {selected.map((candidate, index) => (
