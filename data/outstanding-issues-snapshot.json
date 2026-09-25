@@ -4,13 +4,13 @@
     "committed_at": "2026-09-25"
   },
   "counts": {
-    "open": 180,
-    "p1": 34,
-    "p2": 89,
-    "p3": 57,
+    "open": 167,
+    "p1": 32,
+    "p2": 80,
+    "p3": 55,
     "queued": 6,
     "pending": 0,
-    "resolved": 627
+    "resolved": 642
   },
   "queue": [
     {
@@ -446,7 +446,7 @@
       "priority": "P2",
       "type": "task",
       "summary": "Audit remediation leftovers: calculator governance link, stale Docling pin references, unrecorded Docling model treeDigest",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Three of the four original leftovers are done. Still open: (1) the governance link in data/calculators/evidence.json is a private github.com blob and needs an owner decision; (2) stale docling==2.120.2 in eval/docling/README.md and docs/worker-deploy-runbook.md (leave the gate-b decision record alone, it is historical); (3) eval/docling/model-artifacts.json has treeDigest null, so the model pin only warns; one operator Docker build records it. PRIOR DETAIL: PARTLY DONE 2026-09-19 in PR #2920: three of the four leftovers landed, and the CACHE_VERSION half was already done before this session (public/sw.js read 2026-09-12-v1, not the 2026-08-28-v1 this row quoted). (1) FONTS: public/brand/preview.html and its docs/ twin now load vendored WOFF2 files instead of calling fonts.googleapis.com at render. Kept byte-identical because tests/developer-hub-panels.test.ts pins them to one SHA-256 so the Developer Hub link cannot show a retired mark. (2) DOCLING: the remedy this row recorded is IMPOSSIBLE -- docling-tools has no --revision flag. Replaced with a recorded artifact digest verified in the same RUN layer as the download, failing the image build on any added/removed/changed file. It warns rather than failing while the manifest is empty, because the digest can only be learned by running the download; the first build prints a block to paste back. Also corrected two false comments: both Dockerfiles claimed docling 2.120.2 while the hashed lock has pinned 2.124.0 since 284f813c9, and eval/docling/Dockerfile claimed the weights were pinned by the hash-locked requirement. (3) OFFLINE MARK: public/offline.html now draws the real BrandMark SVG, generated from src/lib/brand-mark.ts by the existing brand:check generator rather than hand-copied, with CACHE_VERSION bumped to 2026-09-19-v1. STILL OPEN: the calculator governance link (data/calculators/evidence.json:9 points at a private github.com blob a clinician cannot open). Investigated and deliberately stopped: url is required on the source type, no in-app pattern exists to reuse, and the target document is an engineering spec containing lines like 'SAD PERSONS -- Remove from active clinical decision support' that read very differently to a clinician. Needs two owner decisions: in-app or public, and what it should say. ALSO LEFT: stale docling 2.120.2 still in eval/docling/README.md and docs/worker-deploy-runbook.md.",
+      "detail": "PARTLY FIXED 2026-09-25: (1) the calculator governance reference now renders as plain text, not a link, per the owner decision (8465d2e97, search-detail.tsx; pinned by tests/calculators-clinical-safety.dom.test.tsx). The url in data/calculators/evidence.json is unchanged. (2) eval/docling/README.md and docs/worker-deploy-runbook.md now name the version pinned in eval/docling/requirements.txt instead of the stale docling==2.120.2 (7bd62e845; pinned by tests/docling-model-artifacts.test.ts); the Gate B decision record was left alone as history. STILL OPEN: (3) eval/docling/model-artifacts.json has treeDigest null, so the model pin only warns; one operator Docker build records it. Earlier history: PR #2920 (2026-09-19) landed vendored brand fonts, the Docling artifact-digest check and the real offline BrandMark; CACHE_VERSION was already done.",
       "source": "Codex review PR #2701 discussion_r3946596430; corrects #4BE39H",
       "added": "2026-09-07"
     },
@@ -575,15 +575,6 @@
       "detail": "REPORTING HALF SHIPPED 2026-09-18 (PR #2884, merged). A red CI run on a main push now opens or updates a rolling GitHub issue, copying the find-or-create step eval-canary.yml already had rather than inventing one. It is report-only by construction: check-github-action-pins.mjs bans workflow-authored branch mutation, so it cannot commit, push or self-heal. WHAT THIS ROW STILL CARRIES: the reporting is unconfirmed against a real failure — it was verified by the workflow tests (test:ci-workflows), not by watching it fire. Main is currently red for exactly one known reason (#9Z197J, the Firefox/WebKit release-browser-matrix), so the first issue it opens will most likely be that one; treat that as the mechanism working, not a new fault. Close this row once a real red main has produced an issue that reached a person.",
       "source": "Claude Code session 2026-09-15 (session_01Fj3ue1Dv89wSgzZWVQ6v3L), deploy-rollback incident audit; branch claude/review-and-implement-mzd0t5",
       "added": "2026-09-15"
-    },
-    {
-      "id": "#6GR6B8",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Tablet: owner confirmation of intended cross-mode search behaviour (the forms-blank defect is fixed)",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The only defect (forms transport search blank) shipped in PR #2887. What remains is owner confirmation of cross-mode behaviour; code matches the row's reading (activeIndex starts at -1, pinned top hit reads 'Also in <Mode>', chip aria-label 'Search \"<q>\" in <Mode>'). The '#SZA102 is NOT closed' framing is obsolete; #SZA102 is fixed. PRIOR DETAIL: PARTIAL 2026-09-18 (PR #2887, merged). (1) FORMS BLANK FIXED, and it was not a missing index — 'transport' is indexed six ways over in form-register.ts and is an explicit broad term in form-ranker.ts. Two mechanisms could empty the list in forms-search-results-page.tsx: registry records not yet arrived (loading, unauthorised and error all rendered as null, which reads as 'no results'), and a stale category= or risk= filter carried in the URL. Loading now renders a skeleton; unauthorised and error render a degraded empty state that says which of the three it is and offers a route to clear a filter that is hiding everything. (2) AND (3) SERTRALINE AND AKATHISIA ARE NOT MISROUTES — they are the cross-mode feature working as designed, which is why the phone paths differed (the dropdown never renders below 640px or without a fine pointer). Every mode-leaving option is labelled where it is offered: the section prints a visible 'Search \"<query>\" in' lead before the destination chips, the pinned top hit carries 'Also in <Mode>', and activeIndex initialises to -1 so Enter runs the ordinary search — only a deliberate click or arrow-key selection navigates away. STATED PLAINLY: that was established by reading the source, NOT by driving the dropdown in a browser. This row stays open for the owner to confirm against real use before it closes. One real gap found while doing so, fixed separately in PR #2895: each cross-mode chip's accessible name was the mode label alone, because the 'Search ... in' lead sits outside every role=option.",
-      "source": "session 2026-09-13 tablet live QA; master ledger LQA-T-01/02/03",
-      "added": "2026-09-13"
     },
     {
       "id": "#9V1TJ5",
@@ -874,15 +865,6 @@
       "added": "2026-09-17"
     },
     {
-      "id": "#GHC4XZ",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Safety chips still miss word endings (urgently, seizures, reviewed, excluded, considered, cautious, transferring); widening red_flag needs owner approval",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The two headline defects were fixed in 64db243a9 (2026-09-18): clinical-safety.ts now matches immediate(ly), cease/ceased/ceasing, withhold, hold-the-dose, boxed warning and anaphylaxis. Still bare-word patterns: urgent and seizure (red_flag), transfer, review, exclude, consider, caution. tests/clinical-safety.test.ts pins 'Urgently reassess the patient.' as unlabelled. PRIOR DETAIL: NEW FINDING 2026-09-19 while fixing #9XRDF7, needs the owner and NOT fixed. The word-boundary defect is still live one severity tier UP, on the danger colour: \\burgent\\b misses 'urgently', so 'Urgently reassess the patient.' produces no finding at all today. The same gap exists for review/reviewed, exclude/excluded, consider/considered, caution/cautious, transfer/transferring and seizure/seizures. urgent and seizure sit in red_flag, so widening them paints passages with the stop tone and danger colour -- beyond the approval given for escalate and monitor. Pinned as an explicitly-labelled unfixed gap in tests/clinical-safety.test.ts so it stops being invisible. SEPARATELY, correcting an assumption this row implied: widening a mid-array entry does not only add findings where nothing matched. safetyPatterns.find returns the first match in severity order, so it TAKES passages from every tier below it; seven label-to-label movements were measured for escalate/monitor alone (Dose limit, Monitoring, Exclusion and Caveat all lose passages to Escalation; Exclusion and Caveat lose to Monitoring). Recorded because it changes how any future vocabulary widening must be assessed. Read alongside the 2026-09-19 finding above that the headline-position question is moot: with answerSupportPriority unrendered, a label change moves which chip a clinician sees, not what they read first.",
-      "source": "tests/clinical-safety.test.ts precision cases added in PR #2860; code read of src/lib/clinical-safety.ts and evidence-panels.tsx at origin/main 6f0a3d444; session 01B5auxdz8JsfzSnDezMWz1n, 2026-09-17.",
-      "added": "2026-09-17"
-    },
-    {
       "id": "#ES3KTG",
       "priority": "P2",
       "type": "issue",
@@ -935,15 +917,6 @@
       "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Reproduced (31 presentations + 201 diagnoses, three collisions: substance-intoxication, substance-withdrawal, depression). Guard test in place and the row itself says no surface loses records today, so P3. PRIOR DETAIL: GUARDED 2026-09-19 in PR #2920, naming decision deferred by the owner. tests/differential-identifier-collisions.test.ts lists substance-intoxication, substance-withdrawal and depression as a documented baseline, pins per-family uniqueness, pins the flattened arithmetic (232 total, 229 distinct) so the loss is measured rather than described, and fails on a FOURTH collision with a message saying not to widen the baseline. The real fix stays in scripts/import-differentials-export.ts, which cannot run outside the owner's Windows machine (DEFAULT_ZIP at line 8 is a hardcoded local path). Also established: no surface loses records today -- sign-off-queue.ts is the only consumer that flattens both families and it already namespaces its keys.",
       "source": "Found and independently reproduced during the 2026-09-18 outstanding-issues session; workaround shipped in PR #2883",
       "added": "2026-09-18"
-    },
-    {
-      "id": "#51975R",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "The answer support card and its priority function are unreachable, and a clinical decision was escalated on their behaviour",
-      "detail": "answerSupportPriority and AnswerSupportSummaryCard in src/components/clinical-dashboard/evidence-panels.tsx have ZERO callers in src/. The support card was removed from the answer surface on 2026-08-31 and replaced by the Key points rail; tests/answer-support-priority.dom.test.tsx pins that removal with expect(surface).not.toContain('<AnswerSupportSummaryCard'). COST ALREADY INCURRED: their behaviour (a safety finding returned ahead of the 'Review source match' caution) was cited on 2026-09-17/18 as the reason #GHC4XZ could not be fixed, and was written into docs/clinical-hazard-controls.json SAFETY-CHIP-VOCABULARY as an open clinical decision needing a clinician. Both were corrected on 2026-09-19 once the dead reachability was verified. DO NOT DELETE ON REACHABILITY ALONE: node scripts/check-dead-code-candidate.mjs --symbol answerSupportPriority --file src/components/clinical-dashboard/evidence-panels.tsx REFUSES, because two committed tests pin it (tests/answer-support-priority.dom.test.tsx, tests/clinical-safety.test.ts) and three documents describe it (docs/answer-page-redesign-handover.md, docs/design-system/ADOPTION.md, docs/outstanding-issues.md), and evidence-panels.tsx exports 18 other live symbols so the file must stay. TO UNBLOCK: decide whether the support card is genuinely retired; if so retire the two symbols and their tests together, and update the three documents in the same change, so the next reader does not mistake a dead display rule for a live clinical one.",
-      "source": "verified 2026-09-19 against main",
-      "added": "2026-09-19"
     },
     {
       "id": "#W4E78P",
@@ -1112,7 +1085,7 @@
       "priority": "P3",
       "type": "rec",
       "summary": "Copy and naming inconsistencies that undercut the product's own safety vocabulary",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): All named inconsistencies still present. Recount over diagnosis records: 86 of 374 multi-item sections use a space-joined summary (1,200 sections total), not 87 of 556; re-derive or drop the figure. PRIOR DETAIL: ui-copy.ts:84 titles the prescribing mode 'Medication Guidance' in a product whose banners read 'not clinical guidance' and 'not validated decision support'; suggest 'Medication Reference'. ui-copy.ts:65 gives Differentials the subtitle 'Match your catalogue to your library.', which says nothing about differential diagnosis. A conservative refusal still advertises 'CITED DOCUMENTS - 3 cited'; suggest 'Documents searched'. A 'DO NOW' card numbers four teaching observations as if they were actions, and 87 of 556 multi-item sections have a summary that is a space-join of their items with no punctuation. All clinical wording - for a human.",
+      "detail": "UPDATE 2026-09-25: the prescribing mode is now titled 'Medication Reference' (c6b74fb93, pinned by tests/ui-copy.test.ts, tests/shared-home-empty-state.dom.test.tsx and the /?mode=prescribing heading in tests/ui-tools.spec.ts). STILL OPEN: (1) 'Cited documents' -> 'Documents searched' on refusals is approved wording but NOT done: the client payload carries no refusal flag, and the candidate triggers (grounded === false, answerState kind 'no_answer' or 'ungrounded', fallbackReasonCode such as coverage_gap/no_candidates/low_signal) each cover different answers, so which answers count as a refusal needs an owner decision before the source-rail heading (answer-source-rail.tsx) can switch. (2) The Differentials subtitle 'Match your catalogue to your library.' (ui-copy.ts) says nothing about differential diagnosis. (3) A 'Do now' card numbers teaching observations as if they were actions. (4) 86 of 374 multi-item diagnosis sections (1,200 sections total) have a summary that is a space-join of their items with no punctuation. Items 2-4 are clinical wording for a human.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1121,7 +1094,7 @@
       "priority": "P2",
       "type": "issue",
       "summary": "Fixed-width and fixed-character-count elements truncate clinical text at every viewport",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Ward chip w-32 still present (now on-call-home.tsx:243). The services 150-character compactText cap is still present. The acamprosate case is a deliberate <details> disclosure (medication-record-page.tsx) that expands in place, so it is dropped from this row. /on-call/contacts not re-verified; On Call changed heavily since 2026-09-22. PRIOR DETAIL: Three instances sharing one cause. on-call-home.tsx:211 ward chips are a hard w-32 at every viewport, truncating 'Demo Emergenc...' at 320 through 1920 where ~1180px of the row is empty. services-navigator-page.tsx:160-166 applies a 150-character cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement. /on-call/contacts squeezes the name column to two words at 390. Also /medications/acamprosate clamps dose strings (dose, frequency and daily total) to two lines.",
+      "detail": "PARTLY FIXED 2026-09-25: the On Call ward chip is fixed in 626cb241e (min-w-32 max-w-60 instead of w-32, title wraps instead of truncating; pinned by tests/on-call-home.dom.test.tsx). STILL OPEN: services-navigator-page.tsx applies a 150-character compactText cap identically at 320 and 1920; on the 13YARN crisis line the cut lands on 'Immedia...', removing the availability statement (owned by the services/search PR). /on-call/contacts squeezing the name column to two words at 390 was not re-verified. The acamprosate dose clamp was dropped from this row: it is a deliberate <details> disclosure that expands in place.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1132,24 +1105,6 @@
       "summary": "A compliance row whose stored details fail their schema is filed under On Call Admin, unlabelled",
       "detail": "rowToOnCallEntry (src/lib/on-call/repository.ts) sets details to null when stored details fail the section schema. isComplianceEntry (src/lib/on-call/compliance.ts) then reads entry.details, answers false, and partitionLogisticsEntries puts the row in the Admin list with nothing to say it is a compliance requirement. THE TWO DANGEROUS CONSEQUENCES ARE ALREADY CLOSED and must not be re-reported: the row is not published, because fetchSharedOnCallEntries filters on the RAW row via rowMayBeComplianceRequirement, which fails closed on unreadable details; and a later save no longer destroys the stored details, because of salvageExistingDetails in src/lib/on-call/editor-details.ts. What remains is the misfiling. Closing it means either carrying the raw details alongside the parsed ones on OnCallEntry, or giving isComplianceEntry the raw-row reading that rowMayBeComplianceRequirement already has. Either way a type that every consumer in the mode reads changes, and it changes for a row no editor in this app can produce, because the API validates against the same strict schema on write -- reachable only by a direct database edit, an import, or a row written before the current write path. Deferred on that cost against that benefit. NEXT ACTION: decide whether OnCallEntry should carry raw details at all; if the On Call view refactor lands first, make the decision there rather than as a separate type change.",
       "source": "Session 2026-09-20, On Call Compliance page clinical-governance review",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#0FT00E",
-      "priority": "P1",
-      "type": "issue",
-      "summary": "Differentials presentation comparison claims 4 of 7 columns while rendering 7 and hiding two EMERGENCY rows",
-      "detail": "On /differentials/presentations/acute-confusion-encephalopathy the banner reads '4 of 7 diagnoses compared' and the rail '+3 not selected', but all seven columns render identically styled. .polished-scroll measures scrollWidth 1344 vs clientWidth 902 at 1440 - 442px hidden with no scrollbar, edge fade or cue - concealing the Must-not-miss cells for Wernicke encephalopathy and hepatic encephalopathy, both tagged EMERGENCY, on the presentation where Wernicke is the classic miss. Secondary: the sticky CRITERIA column is transparent, so scrolled text bleeds through the red-flag row labels.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#03ARD6",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "The collapsed sidebar's active indicator points at the 'More modes' menu, not the current mode",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Logic unchanged (ClinicalSidebar.tsx). CME became a mode (ac89ba18e), so with the default 6 of 16 pinnable modes, 10 of 16 light only 'More modes' (not 9 of 15). Calculators and favourites cannot be pinned. PRIOR DETAIL: On 9 of 15 modes the only lit rail item is the generic four-square More modes opener (ClinicalSidebar.tsx:333-349); on /?mode=calculators nothing is lit at all. Default pin set is 6 of 15 (use-sidebar-pins.ts:10-29). Confirmed at 768 and 1440. The rail is the one element surviving every route change, so it is the natural 'where am I' anchor and for most modes it answers with a menu button.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
     {
@@ -1171,15 +1126,6 @@
       "added": "2026-09-20"
     },
     {
-      "id": "#358YM0",
-      "priority": "P3",
-      "type": "issue",
-      "summary": "Demo mode's Favourites fixtures are not labelled as examples (production never shows them)",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The premise was wrong for production: prototype items and 'Today 08:44' are used only when demoMode is true (favourites-command-library-page.tsx, favourites-hub.tsx, universal-search-command-surface.tsx), gated since #871 (541da7b4e), and the page resolves demoMode with authUnavailableFallback false. The audit almost certainly ran in local demo mode. Residual: label demo favourites as examples. PRIOR DETAIL: favourites-prototype-data.ts is imported by the production favourites-hub.tsx:31 and favourites-command-library-page.tsx:46, not only by mockups. The page asserts '5 favourites' and 'last opened Today 08:44' with no demo label. 'Last opened' is a factual claim about the clinician's own behaviour. Needs one line of owner confirmation on whether this is an accepted prototype surface.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
       "id": "#N8REV9",
       "priority": "P3",
       "type": "issue",
@@ -1193,25 +1139,7 @@
       "priority": "P3",
       "type": "issue",
       "summary": "A silent HTTP 400 on long or single-character queries, and a unit-less creatinine range message",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Long-query half confirmed (limit in the universal search route; use-universal-search.ts turns a non-OK response into empty results). The single-character half is wrong: the client never sends a query under 2 characters (minQueryLength = 2), so users never see that 400; dropped. Creatinine NumberField still has no unit while CrCl passes mL/min. The two halves are unrelated and could be split. PRIOR DETAIL: (a) api/search/universal/route.ts:36 is z.string().trim().min(2).max(200); a 614-char query 400s with no message anywhere on screen, and a single character 400s the same way. (b) The Serum creatinine field rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one. Carried forward from the refutation of #WFARS3.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#M3XZV0",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Sheets do not return focus to their trigger on two of three surfaces",
-      "detail": "Measured at +100/400/1000/2500ms after Escape. /documents/search Filter sheet leaves focus on body though the trigger is still in the DOM. /calculators/search PHQ-9 drops ?calculator=phq9 on close, the list re-renders and the trigger node is destroyed, so restore targets a detached node. The document-actions sheet restores correctly, so ui/sheet.tsx:43-46,108-110,181 is sound - these are call-site failures. After closing PHQ-9, reaching GAD-7 takes ~20 Tab presses from the top. WCAG F85 against SC 2.4.3.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#1M22X5",
-      "priority": "P1",
-      "type": "issue",
-      "summary": "Document search shows a match percentage that measures nothing, and a nearby-only result can never display honestly",
-      "detail": "relevance-score.ts:5-7 returns hard-coded constants per verdict (direct 96, partial 84, nearby 78); document-search-results.tsx:241 gates on 'verdict === partial || percent >= 75', so the nearby constant of 78 always trips the Relevant branch and the honest Related/% nearby branch at :244 is unreachable. Observed: API returned verdict nearby, matchedTerms [], score 0.063, isSourceBacked false; UI rendered 'Best match', 'Relevant', '78% related'. The honest label already exists in relevanceChipLabel(). RAG-ranking presentation: flag and follow the approval path before editing.",
+      "detail": "PARTLY FIXED 2026-09-25 in eb55cf1a2: (a) use-universal-search.ts now reports a query over 200 characters as a distinct too-long state (no fetch), and a non-OK or network failure as an error that is never cached; aborted requests stay silent. The command surface shows a one-line notice for each (pinned by tests/use-universal-search-stream.dom.test.tsx and tests/universal-search-command-notice.dom.test.tsx). The API route is unchanged. The single-character half was dropped earlier (the client never sends a query under 2 characters). STILL OPEN: (b) the Serum creatinine NumberField rejects 1.02 with 'Enter 15-3000.' - the only numeric field whose range message carries no unit (CrCl says mL/min, QTc says ms). 1.02 is an ordinary mg/dL value and the bound shown is the umol/L one.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1230,33 +1158,6 @@
       "type": "issue",
       "summary": "Catalogue search ORs query tokens, so services search returns the wrong specialty badged 'Best fit'",
       "detail": "UPDATE 2026-09-25 (PR #3019): the dishonest badge is fixed — Best fit now shows only when every non-stopword query token (plural-normalised) matches the record (src/lib/service-best-fit.ts). Ranking was deliberately not touched (src/lib/catalog-search.ts is a flagged ranking surface), so an eating-disorder record can still appear for panic disorder, unbadged. Remaining: the OR-token ranking itself, which needs the ranking-protection process and a canary.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#8FXXVE",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Tools truncation: the description clamp and six-column launcher grid are still present",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Both remain (tools-search-results-page.tsx line-clamp-2; applications-launcher-page.tsx xl:grid-cols-6). Provenance correction: the clamp existed when the file was created in c0364b790; PR #2317 moved it rather than reintroducing it. PRIOR DETAIL: Two distinct instances. (a) tools-search-results-page.tsx:141 line-clamp-2 on tool descriptions, added by PR #2317 on 2026-08-23, five weeks after the July audit removed exactly that clamp; bites at 320/390. (b) applications-launcher-page.tsx:287 xl:grid-cols-6 packs six category tiles into a ~780px column at 1440/1920, truncating titles ('Ask evi...', 'Prescri...') and breaking descriptions mid-word ('prescribin/g'); clean at 768. Dropping the xl step fixes (b).",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#ASVM8H",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "A focused control on phone document search is completely covered by the composer dock",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The proposed fix already exists: globals.css gives focusable elements in .phone-scroll-surface a bottom scroll margin equal to the composer reserve, and ClinicalDashboard sets a bottom scroll padding. The question is why that rule does not take effect on the global-search-shell /documents/search page when the document itself is the scroller. PRIOR DETAIL: /documents/search?q=lithium&run=1 at 390x844: tabbing to the third result's action row puts focus on a button at box [13, 790, 121, 48] in an 844px viewport with scrollY 0, entirely behind the fixed composer; elementsFromPoint at its centre returns the composer input. The page does not scroll to clear it. Three occluded tab stops. This is SPEC 9.4's 'sticky elements not covering focused content', previously never checked against a rendered page. Fix candidate: scroll-padding-bottom equal to the composer reserve.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#WGMB4Z",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "'Strong support' is derived from model confidence, not source governance, and contradicts the same card",
-      "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): Core claim holds (trust 'high' comes from answer.confidence, answer-render-policy.ts; 'Strong support' wording in answer-card.tsx). 'Does not consider governance at all' is overstated: authorityTrustCapRequired (answer-client-payload.ts) caps trust at medium when a high-risk claim cites unapproved authority, for all claims only if NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is set. The gap is answers without high-risk claims. PRIOR DETAIL: answer-render-policy.ts:144-162 reaches trust 'high' from answer.confidence plus source-backing and no faithfulness warning; it does not consider whether any cited document's governance status is current or validated. The same card shows 'Status unknown' on every cited row and a limitations dialog saying the sources are not locally validated. The clipboard output states both: 'Render trust: high' and 'Validation: Not locally validated'. In psychiatry 'strong support' is the language of evidence strength. Wording at answer-card.tsx:67-72.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1288,39 +1189,12 @@
       "added": "2026-09-20"
     },
     {
-      "id": "#7J47R1",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Two contrast failures on live controls: document section-nav subtitle and the shared Show-all chip",
-      "detail": "axe color-contrast. (a) section-nav.tsx:183-185 'Long sections collapsed' computes 3.13:1 at 10px (fg #5291ca on bg #f2f8fe) in BOTH themes; it is a live control, so the inert-control exemption does not apply. (b) show-all-chip.tsx:39-40 computes 4.23:1 at 13px (fg #1d6fb8 on bg #dde9f4) in LIGHT ONLY, passing in dark. Light theme carries three axe violations to dark's one.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#KZDNNX",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Differentials badges dress reference-bullet counts as clinical assessment states",
-      "detail": "differential-detail.ts:110-124 maps section tone to a suffix (fit->present, warning->possible, question->positive, action->pending) and appends it to the item count, rendering green '2 present' with a tick, '8 possible', '1 positive', '5 pending'. Nothing patient-specific has been entered. The DSM sibling gets this right ('0 of 5 recorded'). Clinical wording - report for a human, do not reword unilaterally.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
       "id": "#WR6FAW",
       "priority": "P2",
       "type": "issue",
       "summary": "verify:phone-chrome and verify:ui cannot go green in a cloud sandbox: three failures are the unpinned Chromium, not the code",
       "detail": "Established 2026-09-20 by running the three failures against a clean origin/main worktree (aef181f55) with the same environment, and reading the saved failure snapshots. They reproduce identically on main, so they are a property of the sandbox, not of any branch. ROOT CAUSE, found rather than guessed: the only installable browser here is /opt/pw-browsers/chromium = chromium-1194 = Chromium 141.0.7390.37, because cdn.playwright.dev is 403 under the egress policy and the revision Playwright 1.63.0 pins is 1243 / Chromium 153. (1) tests/ui-smoke.spec.ts \"document frame stretches the canvas owner at phone and desktop\" and \"document viewer puts the PDF preview first with pinned evidence after it on mobile\" both fail with getByTestId(pdf-canvas-scroll).locator(canvas) \"element(s) not found\". The error-context snapshot shows the viewer in its error state with the text \"this[#re].getOrInsertComputed is not a function\" and a Retry preview button. pdfjs-dist@6.3.289 calls Map.prototype.getOrInsertComputed, a V8 addition Chromium 141 does not have, so pdf.js throws during load and no canvas is ever created. The demo PDFs and cover images are all present; nothing is missing from the fixture. (2) tests/ui-pwa.spec.ts \"has a browser-valid manifest, installable icons, and a root worker\" fails with installability error \"in-incognito\" — Chromium refusing because every Playwright BrowserContext is off-the-record. Every other assertion in that test (manifest URL, manifest contents, all icon probes, service-worker scope/state/controller) passes first. CONSEQUENCE FOR AGENTS: three failures out of ~798 passing is the FLOOR for a chromium browser gate in this environment, on any branch. Do not read it as a branch signal, and do not \"fix\" a test to make it pass here. CI runs the pinned browser and the Production UI chromium shards are green on recent main (7936c3f9, cfb5ed90, and shard 3 on aef181f55). NOT ESTABLISHED: per-test CI granularity, because gh run view --log is Forbidden here (results-receiver.actions.githubusercontent.com); only job-level green was read. That Chromium 153 stops reporting in-incognito is an inference from CI being green, not a direct observation. TO UNBLOCK: either allowlist cdn.playwright.dev so the pinned revision installs, or teach the browser gate to recognise this known trio and report them as environment-floor rather than failures.",
       "source": "Claude Code session 2026-09-20 (session_01VE1C4eJidBwMdfHV4nUJgL); reproduced on a clean origin/main worktree with the same runner and environment",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#W0T66R",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "/medications/<unknown-slug> renders a bare 'Request failed (404)' instead of a not-found",
-      "detail": "use-medication-catalog.ts:192 throws 'Request failed (status)' and the record page renders that message. The breadcrumb still reads 'Medications / ZZZ' and the tab title 'Medication | PsychSift', implying the slug is a real drug record. Every other catalogue gives a named not-found with a route back. A stale bookmark reads as 'the system is broken' rather than 'that drug is not here'.",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
     {
@@ -1338,15 +1212,6 @@
       "type": "issue",
       "summary": "next dev is OOM-killed after compiling roughly 55-60 routes in sequence",
       "detail": "Reproduced three times at ~13.6 GB RSS in a 16 GB container, each time around the same point in a sequential route sweep; a --max-old-space-size cap did not help. The visual audit had to build and serve production instead. Not a product defect, but it costs anyone doing sustained local work across many routes, and a whole sweep going blank looks like an app failure (the 2026-08-06 audit recorded exactly that misreading).",
-      "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
-      "added": "2026-09-20"
-    },
-    {
-      "id": "#Q80S8B",
-      "priority": "P2",
-      "type": "issue",
-      "summary": "Description lists are malformed on three routes, breaking term/definition association",
-      "detail": "axe definition-list plus dlitem (12 nodes each on two routes). Shape is dl > div > div > dt/dd; HTML permits one wrapper, not two. colour-coding-reference-content.tsx:121-138, source-method-reference-content.tsx:89-94, service-detail-page.tsx:391. A screen reader reads paired data as plain prose. The correct single-div shape already exists at source-method-reference-content.tsx:254-262. WCAG 1.3.1.",
       "source": "docs/audit/2026-09-20-visual-ux-audit.md (PR #2939)",
       "added": "2026-09-20"
     },
@@ -1603,6 +1468,15 @@
       "added": "2026-09-25"
     },
     {
+      "id": "#747FC0",
+      "priority": "P3",
+      "type": "issue",
+      "summary": "extractSafetyFindings takes about 89 seconds on a single 200,000-character passage, in the 260-character trimming step before any pattern runs",
+      "detail": "Found 2026-09-25 while adding a linear-time guard for the #GHC4XZ transfer pattern (PR B). The patterns themselves are linear (four 200k-character hostile inputs each under 500 ms via a tests-only hook), but extractSafetyFindings in src/lib/clinical-safety.ts spent about 89 s on one 200k-character passage in its trimming step. Real passages are chunk-sized, so this is unlikely to bite in normal use, but any caller that passes whole-document text would stall the thread. Not measured: which input sizes real callers pass. Likely fix: bound the input before trimming and add a timing test.",
+      "source": "PR B build 2026-09-25",
+      "added": "2026-09-25"
+    },
+    {
       "id": "#F3SGCM",
       "priority": "P2",
       "type": "task",
@@ -1681,6 +1555,15 @@
       "summary": "Release reporting should make per-case canary evidence first-class so an aggregate green cannot hide a failing case (audit F24)",
       "detail": "Historical issue #628 kept a residual case open despite an aggregate green run; #2947 reinforces it. Next action: surface each eval case's verdict in the release/canary report, not only the aggregate thresholds. Not verified offline.",
       "source": "Ultimate Audit Master Report 2026-09-25 (owner-supplied .docx), reviewed offline against main 955996146 in session claude/review-assessment-4s1w86; no provider access",
+      "added": "2026-09-25"
+    },
+    {
+      "id": "#1A1H9N",
+      "priority": "P2",
+      "type": "issue",
+      "summary": "Saved answers keep the support label they were stored with, so the 'Strong support' label rule does not apply to answers cached before it shipped",
+      "detail": "Found in PR B review 2026-09-25 (#WGMB4Z, owner decisions 3, 10 and 17). The label cap (strongSupportLabelCapped) is computed on the server when the answer is projected for the client, and the client payload carries only the boolean, not supportedClaims or evidenceAssessments, so the browser cannot recompute it. A stored payload without the field keeps main behaviour (not capped). The restored answer thread (src/lib/answer-thread-storage.ts, sessionStorage, 12-hour TTL) replays the stored payload, so an answer saved before the rule shipped can still read 'Strong support' after deploy, in the same tab, for up to 12 hours. Server-side cached answers are re-projected on every response, so they pick up the rule (read from the answer routes, not tested). Not checked: whether any other store (saved or exported answers) keeps a client payload. Likely fix: bump the stored-thread schema version when a trust or label rule changes so older threads are discarded, and pin it with a test in tests/answer-thread-storage.test.ts.",
+      "source": "PR B review 2026-09-25",
       "added": "2026-09-25"
     },
     {
