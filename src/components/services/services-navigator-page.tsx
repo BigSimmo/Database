@@ -90,7 +90,7 @@ function serviceChipLabel(chip: ServiceStatusChip) {
 function ServiceCard({
   service,
   index,
-  relevanceRank,
+  bestFit,
   selected,
   onToggleSelected,
   saved,
@@ -101,7 +101,7 @@ function ServiceCard({
 }: {
   service: ServiceRecord;
   index: number;
-  relevanceRank: number | null;
+  bestFit: boolean;
   selected: boolean;
   onToggleSelected: (slug: string) => void;
   saved: boolean;
@@ -113,7 +113,7 @@ function ServiceCard({
   savePending: boolean;
   onToggleSaved: (slug: string) => void;
 }) {
-  const showBestFit = relevanceRank !== null && relevanceRank <= 2;
+  const showBestFit = bestFit;
 
   return (
     <article
@@ -434,12 +434,27 @@ export function ServicesNavigatorPage() {
   const registryReady = registry.status === "ready" || registry.status === "refetching";
   const registryBlocked = registry.status === "unauthorized" || registry.status === "error";
   const searchableRecords = useMemo(() => (registryReady ? registry.records : []), [registry.records, registryReady]);
-  const rankedMatches = useMemo(() => {
-    if (!query.trim()) return searchableRecords;
-    const ranked = rankServiceRecords(searchableRecords, deferredQuery, searchableRecords.length, [], true);
-    if (ranked.length) return ranked.map((match) => match.service);
-    return [];
+  const rankedSearch = useMemo(() => {
+    if (!query.trim()) return null;
+    return rankServiceRecords(searchableRecords, deferredQuery, searchableRecords.length, [], true);
   }, [deferredQuery, query, searchableRecords]);
+  const rankedMatches = useMemo(
+    () => (rankedSearch ? rankedSearch.map((match) => match.service) : searchableRecords),
+    [rankedSearch, searchableRecords],
+  );
+  // "Best fit" is a claim about the query, so it needs one: no query, no badge.
+  // Among the top two, only a record that covers every distinctive query term
+  // earns it; a shared generic word such as "disorder" does not (#CNCAFV).
+  const bestFitSlugs = useMemo(
+    () =>
+      new Set(
+        (rankedSearch ?? [])
+          .slice(0, 2)
+          .filter((match) => match.coversQuery)
+          .map((match) => match.service.slug),
+      ),
+    [rankedSearch],
+  );
   const groupedMatches = useMemo(
     () => rankedMatches.filter((service) => serviceMatchesCoreGroupSelection(service, activeGroupSelection)),
     [activeGroupSelection, rankedMatches],
@@ -488,11 +503,6 @@ export function ServicesNavigatorPage() {
     (substanceLens === "all" ? 0 : 1) +
     (resultScope === "all" ? 1 : 0) +
     activeGroupSelection.size;
-  const relevanceRankMap = useMemo(() => {
-    const map = new Map<string, number>();
-    rankedMatches.forEach((service, index) => map.set(service.slug, index + 1));
-    return map;
-  }, [rankedMatches]);
   // Group-agnostic base for the group facet's own "how many if I also ticked
   // this" counts — `facetBaseMatches` cannot be reused here because it is
   // already narrowed by `activeGroupSelection`, which would make every
@@ -1028,7 +1038,7 @@ export function ServicesNavigatorPage() {
                 key={service.slug}
                 service={service}
                 index={index}
-                relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
+                bestFit={sortValue !== "alpha" && bestFitSlugs.has(service.slug)}
                 selected={selectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
                 saved={accountData.isSaved("service", service.slug)}

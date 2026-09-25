@@ -107,6 +107,8 @@ export function rankServiceUrgentRoutes(records: readonly ServiceRecord[], query
       service,
       score: 1_000_000 - index,
       reasons: ["urgent route", intent.replace(/_/g, " ")],
+      // Pinned because the query named this urgent need, so it fits by definition.
+      coversQuery: true,
     });
   });
 
