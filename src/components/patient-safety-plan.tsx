@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 import {
   cn,
   clinicalDivider,
@@ -52,6 +53,24 @@ import {
  * (en-AU) voice. All chrome is token-driven so light/dark, reduced-motion and
  * forced-colors follow the shared design system.
  */
+
+// Every crisis number here is read from the one shared module (@/lib/crisis-contacts)
+// rather than retyped, so a number can never drift between this tool, the Care Plan
+// mockups, and any other surface that prints it. Looked up by id, not array index, so
+// a later reorder of WA_CRISIS_CONTACTS cannot silently swap which number prints where.
+function crisisContact(id: (typeof WA_CRISIS_CONTACTS)[number]["id"]) {
+  const contact = WA_CRISIS_CONTACTS.find((candidate) => candidate.id === id);
+  if (!contact) throw new Error(`missing crisis contact ${id}`);
+  return contact;
+}
+const EMERGENCY_CONTACT = crisisContact("SYN-CRISIS-CONTACT-001");
+const MHERL_METRO_CONTACT = crisisContact("SYN-CRISIS-CONTACT-002");
+const MHERL_PEEL_CONTACT = crisisContact("SYN-CRISIS-CONTACT-003");
+const RURALLINK_CONTACT = crisisContact("SYN-CRISIS-CONTACT-004");
+const LIFELINE_CONTACT = crisisContact("SYN-CRISIS-CONTACT-005");
+const SCBS_CONTACT = crisisContact("SYN-CRISIS-CONTACT-006");
+const THIRTEEN_YARN_CONTACT = crisisContact("SYN-CRISIS-CONTACT-007");
+const WA_REGIONAL_CRISIS_CONTACTS = [MHERL_METRO_CONTACT, MHERL_PEEL_CONTACT, RURALLINK_CONTACT];
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -563,8 +582,17 @@ export function PatientSafetyPlan() {
       for (const reason of reasons) lines.push(`   • ${reason.primary}`);
       lines.push("");
     }
-    lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
-    lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
+    lines.push(
+      `In an emergency: call ${EMERGENCY_CONTACT.telephoneDisplay} or go to your nearest Emergency Department.`,
+    );
+    lines.push(
+      `24/7 support: ${LIFELINE_CONTACT.name} ${LIFELINE_CONTACT.telephoneDisplay} · ${SCBS_CONTACT.name} ${SCBS_CONTACT.telephoneDisplay} · ${THIRTEEN_YARN_CONTACT.name} ${THIRTEEN_YARN_CONTACT.telephoneDisplay}.`,
+    );
+    lines.push(
+      `Western Australia crisis lines: ${WA_REGIONAL_CRISIS_CONTACTS.map(
+        (contact) => `${contact.name} ${contact.telephoneDisplay}`,
+      ).join(" · ")} (${RURALLINK_CONTACT.name} hours: ${RURALLINK_CONTACT.availability}).`,
+    );
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
   }, [entries, exampleActive, planDate, ready, reasons]);
 
@@ -983,7 +1011,7 @@ export function PatientSafetyPlan() {
                 </span>
               </div>
               <a
-                href="tel:000"
+                href={`tel:${EMERGENCY_CONTACT.telephoneUri}`}
                 className={cn(
                   "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 py-3 text-[color:var(--clinical-accent-contrast)] shadow-[var(--e1)] transition hover:bg-[color:var(--clinical-accent-hover)]",
                   focusRing,
@@ -991,7 +1019,9 @@ export function PatientSafetyPlan() {
               >
                 <Phone className="size-icon-lg" aria-hidden="true" />
                 <span className="min-w-0">
-                  <span className="block text-lg-minus font-extrabold leading-tight">Call 000</span>
+                  <span className="block text-lg-minus font-extrabold leading-tight">
+                    Call {EMERGENCY_CONTACT.telephoneDisplay}
+                  </span>
                   <span className="block text-2xs font-semibold opacity-90">
                     or go to my nearest Emergency Department
                   </span>
@@ -1000,10 +1030,21 @@ export function PatientSafetyPlan() {
               <p className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                 <PhoneCall className="size-icon-sm text-[color:var(--clinical-accent)]" aria-hidden="true" />
                 <span>
-                  24/7 support — <span className="font-extrabold">Lifeline 13 11 14</span> · Suicide Call Back Service
-                  1300 659 467
+                  24/7 support —{" "}
+                  <span className="font-extrabold">
+                    {LIFELINE_CONTACT.name} {LIFELINE_CONTACT.telephoneDisplay}
+                  </span>{" "}
+                  · {SCBS_CONTACT.name} {SCBS_CONTACT.telephoneDisplay} · {THIRTEEN_YARN_CONTACT.name}{" "}
+                  {THIRTEEN_YARN_CONTACT.telephoneDisplay}
                 </span>
               </p>
+              <ul className="grid gap-1 pl-6 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+                {WA_REGIONAL_CRISIS_CONTACTS.map((contact) => (
+                  <li key={contact.id}>
+                    {contact.name} — {contact.telephoneDisplay} ({contact.availability})
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <footer className={cn("grid gap-1 pt-1", clinicalDivider, "border-t pt-3")}>

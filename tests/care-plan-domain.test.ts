@@ -468,15 +468,7 @@ describe("Care Plan contact actions", () => {
     // added silently. "131114" and "139276" (Lifeline, 13YARN) never match the scanning
     // regex below (it requires a 1300/1800 prefix) but are listed anyway so this
     // allowlist stays the complete set of `publicCrisisContacts` numbers.
-    const authorisedPublicNumbers = [
-      "000",
-      "1300555788",
-      "1800676822",
-      "1800552002",
-      "131114",
-      "1300659467",
-      "139276",
-    ];
+    const authorisedPublicNumbers = ["000", "1300555788", "1800676822", "1800552002", "131114", "1300659467", "139276"];
 
     const found = (serialisedFixtures.match(/\+61[\d\s]{6,}|\b0[2-9][\s\d]{7,}|\b1[38]00[\s\d]{5,}/g) ?? []).map(
       (match) => match.replace(/\s/g, "").replace(/^\+61/, "0"),

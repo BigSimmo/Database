@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { PatientSafetyPlan } from "@/components/patient-safety-plan";
+import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 
 // The tool header renders a NavigationBackButton that reads the router/pathname.
 vi.mock("next/navigation", () => ({
@@ -213,6 +214,32 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     } finally {
       vi.useRealTimers();
       vi.restoreAllMocks();
+    }
+  });
+
+  it("prints every WA/national crisis number from the shared module, on screen and in the copied plan", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<PatientSafetyPlan />);
+
+    // Every one of the seven numbers appears exactly as WA_CRISIS_CONTACTS holds it.
+    for (const contact of WA_CRISIS_CONTACTS) {
+      expect(screen.getAllByText(new RegExp(contact.telephoneDisplay.replace(/\s/g, "\\s"))).length).toBeGreaterThan(0);
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const copied = String(writeText.mock.calls[0]?.[0] ?? "");
+    for (const contact of WA_CRISIS_CONTACTS) {
+      expect(copied, `${contact.name} (${contact.telephoneDisplay}) is missing from the copied plan`).toContain(
+        contact.telephoneDisplay,
+      );
     }
   });
 });

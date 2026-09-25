@@ -1040,15 +1040,7 @@ describe("Patient Plan resources", () => {
     // real number can never be quietly changed here.
     const realNumbers = real.map((resource) => resource.contact);
     expect(new Set(realNumbers)).toEqual(
-      new Set([
-        "000",
-        "1300 555 788",
-        "1800 676 822",
-        "1800 552 002",
-        "13 11 14",
-        "1300 659 467",
-        "13 92 76",
-      ]),
+      new Set(["000", "1300 555 788", "1800 676 822", "1800 552 002", "13 11 14", "1300 659 467", "13 92 76"]),
     );
     for (const resource of invented) {
       expect(realNumbers.includes(resource.contact), `${resource.name} carries a real telephone number`).toBe(false);
