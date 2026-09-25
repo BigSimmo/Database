@@ -506,6 +506,19 @@ never in the repository, so production cannot silently fall back to synthetic da
 
 ---
 
+### Calendar (shared)
+
+`src/lib/calendar/` is the provider-neutral calendar model used by CME and On Call. `CalendarEvent`
+holds a Perth date (plus an optional Perth wall-clock start) and an optional repeat rule;
+`expandEvents` lays repeats out over a range. Adapters turn events into an iCalendar file (`ics.ts`,
+built on the device and downloaded), or into Google Calendar and Outlook "add event" links
+(`provider-links.ts`), which send the event to that provider only when the owner taps them.
+`month-grid.ts` lays a month out Monday-first. `CalendarSource` is the seam for a later two-way
+Google or Outlook sync; no account is connected today. The phone calendar view is in
+`src/components/calendar/`.
+
+---
+
 ## Supabase
 
 ### Config and schema

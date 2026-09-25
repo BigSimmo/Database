@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 
 import { CmeDashboardRoute } from "@/components/cme/cme-dashboard-route";
 import { CmeStateNotice } from "@/components/cme/cme-state-notice";
+import type { CmeReportingReminder } from "@/components/cme/cme-dashboard";
+import { cmeReportingCloseDate } from "@/lib/cme/calendar-events";
+import { cpdYearOf, perthCalendarDate } from "@/lib/cme/cpd-year";
 import { loadCmePageData } from "@/lib/cme/load-cme-page-data";
 import type { CmeRequirementSet } from "@/lib/cme/types";
 
@@ -23,6 +26,23 @@ function placeholderSet(year: number): CmeRequirementSet {
  * a redirect would send the reader to the one page a composer could reach them
  * on and then ignore whatever they typed.
  */
+/**
+ * From 1 January until the college's reporting date, the dashboard for the new
+ * year also counts last year's activities not yet copied to MyCPD. Only for a
+ * last year the owner confirmed against the RANZCP preset, which is where that
+ * date comes from; any failure simply shows no reminder.
+ */
+async function loadReportingReminder(now: Date, shownYear: number): Promise<CmeReportingReminder | null> {
+  const currentYear = cpdYearOf(now);
+  if (shownYear !== currentYear) return null;
+  const previous = await loadCmePageData(currentYear - 1);
+  if (previous.state !== "ready" || !previous.set) return null;
+  const closesOn = cmeReportingCloseDate(previous.set);
+  if (!closesOn || perthCalendarDate(now) > closesOn) return null;
+  const notCopied = previous.entries.filter((entry) => !entry.archivedAt && !entry.transcribed).length;
+  return notCopied > 0 ? { year: currentYear - 1, notCopied, closesOn } : null;
+}
+
 export default async function CmeHomeRoute({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
   const query = await searchParams;
   const requestedYear = query.year ? Number(query.year) : undefined;
@@ -38,6 +58,7 @@ export default async function CmeHomeRoute({ searchParams }: { searchParams: Pro
   }
   return (
     <CmeDashboardRoute
+      reportingReminder={await loadReportingReminder(data.now, data.year)}
       set={data.set ?? placeholderSet(data.year)}
       entries={data.entries}
       nowIso={data.now.toISOString()}

@@ -12,7 +12,8 @@ import { OnCallLoadFailed } from "@/components/on-call/on-call-load-failed";
 import { OnCallOfflineBanner } from "@/components/on-call/on-call-offline-banner";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cn, textMuted } from "@/components/ui-primitives";
-import { PrintOutput, PrintSection } from "@/components/ui/print-output";
+import { BrowserPrintButton, PrintOutput, PrintSection } from "@/components/ui/print-output";
+import { formatClinicalDate } from "@/lib/source-metadata";
 import { selectCardEntries } from "@/lib/on-call/card-selection";
 import { onCallTelHref } from "@/lib/on-call/home-modules";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
@@ -146,6 +147,11 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
           anything overdue for checking are all left off. Confirm against the live On Call sections before relying on a
           printed copy.
         </p>
+        {groups.length > 0 ? (
+          <div className="mt-3 print:hidden" data-testid="on-call-card-print">
+            <BrowserPrintButton label="Print card" />
+          </div>
+        ) : null}
 
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
 
@@ -184,12 +190,12 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
             printedAt={formatPrintedAt(now)}
             provenance="PsychSift On Call — pocket card. Confirm against the live app before relying on a printed copy; paper cannot show its own age."
           >
-            <div className="grid gap-5">
+            <div className="grid gap-5 sm:grid-cols-2 print:grid-cols-2 print:gap-4">
               {groups.map((group) => (
                 <PrintSection
                   key={group.section}
                   testId={`on-call-card-group-${group.section}`}
-                  className="border-b border-[color:var(--border)] pb-4 last:border-b-0"
+                  className="break-inside-avoid border-b border-[color:var(--border)] pb-4 last:border-b-0"
                 >
                   <h2 className="text-xs font-extrabold uppercase tracking-kicker text-[color:var(--text-muted)]">
                     {ON_CALL_SECTION_TITLES[group.section]}
@@ -209,7 +215,10 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                                 const href = cardTelHref(number.label, number.value);
                                 const label = `${number.label}: ${number.value}`;
                                 return (
-                                  <li key={number.label} className="text-sm text-[color:var(--text)]">
+                                  <li
+                                    key={number.label}
+                                    className="nums text-base font-semibold text-[color:var(--text)]"
+                                  >
                                     {href ? (
                                       <a
                                         href={href}
@@ -231,6 +240,11 @@ export function OnCallCard({ now: nowProp }: { now?: Date } = {}) {
                             // file" against those read as a fault in the card
                             // rather than the shape of the entry.
                             <p className="mt-1 whitespace-pre-line text-sm text-[color:var(--text)]">{entry.body}</p>
+                          ) : null}
+                          {entry.lastVerifiedAt ? (
+                            <p className="mt-0.5 text-2xs text-[color:var(--text-muted)]">
+                              Checked {formatClinicalDate(entry.lastVerifiedAt)}
+                            </p>
                           ) : null}
                         </li>
                       );

@@ -84,7 +84,7 @@ describe("Archive, annual record and learning journeys", () => {
       />,
     );
     expect(screen.queryByText("Archived record")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Missing evidence" }));
+    await user.click(screen.getByRole("button", { name: /^Missing evidence/ }));
     expect(screen.queryByText("With evidence")).toBeNull();
     expect(screen.getByText("Synthetic activity")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Show archived entries" }));
