@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "96e82858-a172-407a-93dd-fd6ac5edb27c",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#1M22X5",
+    "outcome": "Resolved 2026-09-25 by PR #3021. Document search no longer shows a numeric match percentage; the relevance chip shows the verdict only (direct/partial/nearby) with its wording from relevanceChipLabel, so a nearby-only result displays honestly. Pinned by tests/document-search-results.dom.test.tsx.",
+    "baseRowFingerprint": "836486ed0ae400ca6e069710ae8ce19d6b2daa411121f5898f12778db4763e68"
+  }
+}

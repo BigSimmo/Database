@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "2bc20234-809f-46f0-baa5-56c4c9465a24",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#0FT00E",
+    "outcome": "Resolved 2026-09-25 by PR #3021. The presentation comparison now renders every diagnosis column with emergent ones first, labels unselected columns 'Not selected', states 'N of M diagnoses selected · all M shown below', gives sticky rows an opaque background so EMERGENCY rows are no longer hidden, and shows a scroll cue. Pinned by tests/differential-presentation-canonical.dom.test.tsx.",
+    "baseRowFingerprint": "bfdcb009abe912cd3cca226620c04a96d3d2ef91299df671e4bd33e794d08953"
+  }
+}
