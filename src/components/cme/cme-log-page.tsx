@@ -32,7 +32,18 @@ export type CmeLogPageProps = {
   /** Set by the new-entry page after a save, so the owner sees it landed. */
   readonly justSaved?: boolean;
   readonly demoMode?: boolean;
+  /** Opens the log already narrowed to activities needing one kind of attention (from the year check). */
+  readonly initialAttention?: CmeLogAttention | null;
 };
+
+/** The three things an audit asks for per activity, as log filters. */
+export type CmeLogAttention = "evidence" | "reflection" | "copy";
+
+const ATTENTION_FILTERS: readonly { value: CmeLogAttention; label: string; matches: (entry: CmeEntry) => boolean }[] = [
+  { value: "evidence", label: "Missing evidence", matches: (entry) => (entry.evidenceCount ?? 0) === 0 },
+  { value: "reflection", label: "No reflection", matches: (entry) => entry.reflection.trim() === "" },
+  { value: "copy", label: "Not copied to MyCPD", matches: (entry) => !entry.transcribed },
+];
 
 type CategoryFilter = "all" | CmeCategory;
 
@@ -166,7 +177,14 @@ function EntryRow({ entry }: { entry: CmeEntry }) {
  * standing way to add to the log, not only something reached from the
  * dashboard.
  */
-export function CmeLogPage({ entries, set, navigationYears, justSaved = false, demoMode = false }: CmeLogPageProps) {
+export function CmeLogPage({
+  entries,
+  set,
+  navigationYears,
+  justSaved = false,
+  demoMode = false,
+  initialAttention = null,
+}: CmeLogPageProps) {
   const availableYears = useMemo(() => {
     const years = new Set<number>(entries.map((entry) => Number(entry.date.slice(0, 4))));
     years.add(set.year);
@@ -177,7 +195,8 @@ export function CmeLogPage({ entries, set, navigationYears, justSaved = false, d
     availableYears.includes(set.year) ? set.year : (availableYears[0] ?? set.year),
   );
   const effectiveYear = navigationYears ? set.year : selectedYear;
-  const [missingEvidence, setMissingEvidence] = useState(false);
+  const [attention, setAttention] = useState<CmeLogAttention | null>(initialAttention);
+  const attentionFilter = ATTENTION_FILTERS.find((filter) => filter.value === attention) ?? null;
   const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
@@ -202,10 +221,10 @@ export function CmeLogPage({ entries, set, navigationYears, justSaved = false, d
   const filtered = useMemo(() => {
     return searched.filter(
       (entry) =>
-        (!missingEvidence || (entry.evidenceCount ?? 0) === 0) &&
+        (!attentionFilter || attentionFilter.matches(entry)) &&
         (categoryFilter === "all" || entry.allocations.some((allocation) => allocation.category === categoryFilter)),
     );
-  }, [searched, categoryFilter, missingEvidence]);
+  }, [searched, categoryFilter, attentionFilter]);
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered]);
   const groups = useMemo(() => groupByMonth(sorted), [sorted]);
@@ -297,14 +316,6 @@ export function CmeLogPage({ entries, set, navigationYears, justSaved = false, d
         >
           {showArchived ? "Show active entries" : "Show archived entries"}
         </button>
-        <button
-          type="button"
-          className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
-          aria-pressed={missingEvidence}
-          onClick={() => setMissingEvidence(!missingEvidence)}
-        >
-          Missing evidence
-        </button>
         <a
           href={`/api/cme/export?year=${effectiveYear}`}
           download
@@ -319,6 +330,43 @@ export function CmeLogPage({ entries, set, navigationYears, justSaved = false, d
           Annual summary
         </Link>
       </div>
+      {!showArchived ? (
+        <div
+          role="group"
+          aria-label="Needs attention"
+          data-testid="cme-log-attention"
+          className="mt-3 flex flex-wrap gap-2"
+        >
+          {ATTENTION_FILTERS.map((filter) => {
+            const count = yearEntries.filter(filter.matches).length;
+            const pressed = attention === filter.value;
+            return (
+              <button
+                key={filter.value}
+                type="button"
+                aria-pressed={pressed}
+                data-testid={`cme-log-attention-${filter.value}`}
+                onClick={() => setAttention(pressed ? null : filter.value)}
+                className={cn(
+                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold",
+                  pressed
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "border-[color:var(--border)] text-[color:var(--text)]",
+                )}
+              >
+                {filter.label}
+                <span className="nums text-xs font-medium opacity-80">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {attention === "copy" ? (
+        <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
+          Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into MyCPD.
+          Each is ticked off here as you copy it.
+        </p>
+      ) : null}
       {showArchived ? (
         <p className={cn(textMuted, "mt-2 text-sm")}>
           Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
