@@ -19,7 +19,10 @@ import {
   type ModeActionSetId,
 } from "@/components/clinical-dashboard/mode-action-popup";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
-import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
+import {
+  universalSearchMaxQueryLength,
+  useUniversalSearch,
+} from "@/components/clinical-dashboard/use-universal-search";
 import {
   favouriteItems,
   favouriteSets,
@@ -323,6 +326,7 @@ function CommandDropdown({
   sections,
   showSafetyBanner,
   interpretationLabel,
+  universalNotice,
   universalPending,
   onHoverItem,
   placement,
@@ -334,6 +338,8 @@ function CommandDropdown({
   sections: Array<{ key: string; heading?: string; layout?: "list" | "chips"; items: DropdownItem[] }>;
   showSafetyBanner: boolean;
   interpretationLabel: string | null;
+  /** Why cross-entity matches are missing (query too long, request failed); null when they are not. */
+  universalNotice: string | null;
   universalPending: boolean;
   onHoverItem: (id: string) => void;
   placement: CommandSurfacePlacement;
@@ -367,6 +373,16 @@ function CommandDropdown({
         <div className="flex items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)]">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
           <span className="min-w-0 truncate">{interpretationLabel}</span>
+        </div>
+      ) : null}
+
+      {universalNotice ? (
+        <div
+          role="status"
+          className="flex items-start gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-xs font-semibold leading-5 text-[color:var(--text-muted)]"
+        >
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--warning)]" aria-hidden />
+          <span className="min-w-0">{universalNotice}</span>
         </div>
       ) : null}
 
@@ -1212,6 +1228,11 @@ export function UniversalSearchCommandSurface({
             sections={sections}
             showSafetyBanner={showSafetyBanner}
             interpretationLabel={interpretationLabel}
+            universalNotice={
+              universal.tooLong
+                ? `This search is longer than ${universalSearchMaxQueryLength} characters, so it can’t be matched across PsychSift. Shorten it to see matches.`
+                : (universal.error ?? null)
+            }
             universalPending={universal.loading && Boolean(trimmedQuery)}
             placement={placement}
             onHoverItem={(id) => {
