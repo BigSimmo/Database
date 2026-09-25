@@ -1,8 +1,8 @@
 # How to sign off clinical content
 
 This guide is for the clinical owner. It explains, step by step, how to read and sign off
-the guidance for the WA Mental Health Act 2014 forms and the plain-English Act-section
-summaries. You do it on your own computer. Nothing is sent anywhere until the last step.
+the guidance for the WA Mental Health Act 2014 forms, the plain-English Act-section
+summaries and the Act deadlines on each form's Timeline. You do it on your own computer. Nothing is sent anywhere until the last step.
 
 Only you can sign off. Claude and other tools are blocked from doing it: the sign-off tool
 refuses to write anything unless a person is typing at a real terminal.
@@ -45,16 +45,23 @@ Type each command below exactly as shown, then press Enter.
    git fetch origin
    ```
 
-3. Switch to the version that has the sign-off tool (still the live working branch kept for
-   your sign-off — it will not be rewritten while you are using it):
+3. Switch to the main version of the project, which has the sign-off tool, and bring it up
+   to date. Type these one at a time:
 
    ```bash
-   git switch claude/sweet-carson-e7ur0s-wa-signoff
+   git switch main
    ```
 
-   If it says your local changes would be overwritten, stop and ask Claude before going on.
-   While you are signing off, this version is yours: Claude will not change it until you
-   have sent your sign-offs.
+   ```bash
+   git pull
+   ```
+
+   If either says your local changes would be overwritten, stop and ask Claude before going
+   on.
+
+   If you already signed forms on the claude/sweet-carson-e7ur0s-wa-signoff branch and pushed
+   them, tell Claude so they are merged into main first — your form sign-offs carry over
+   unchanged.
 
 4. Install the project's tools for this version. It takes a few minutes, and you only need
    to do it again after you next switch to a newer version of the project. Close VS Code
@@ -123,6 +130,19 @@ by typing its section number (for example `26`).
 npm run clinical:review -- --write --walk --kind section --reviewed-by "Dr <your surname>"
 ```
 
+## Signing off Act deadlines
+
+The same walk-through works for the Mental Health Act deadlines shown on each form's
+Timeline. It shows the quoted Act words for each deadline. Confirm each one by typing the
+code the tool shows for it.
+
+```bash
+npm run clinical:review -- --write --walk --kind timeframe --reviewed-by "Dr <your surname>"
+```
+
+After you sign off a deadline, tell Claude: the offline page (the one the app shows with no
+internet) keeps its own copy of signed-off deadlines, and Claude must rebuild it.
+
 ## Saving and sending your sign-offs
 
 Your sign-offs are saved only on your computer until you send them. When you have finished
@@ -140,13 +160,20 @@ a session:
     git add data/mha-2014-sections.json
     ```
 
+    For Act deadlines, instead:
+
+    ```bash
+    git add data/mha-timeframes.json
+    ```
+
 12. Save them with a short note:
 
     ```bash
     git commit -m "Clinical sign-off: forms"
     ```
 
-    (For sections, use `"Clinical sign-off: Act sections"`.)
+    (For sections, use `"Clinical sign-off: Act sections"`; for deadlines,
+    `"Clinical sign-off: Act deadlines"`.)
 
 13. Send them:
 
