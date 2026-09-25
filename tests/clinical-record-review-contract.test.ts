@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { checkProblems } from "../scripts/build-mha-act-sections.mjs";
+import { removePathSync } from "../scripts/retryable-fs.mjs";
 import {
   FORM_ATTESTED_CATALOG_FIELDS,
   RECOMMENDED_FORM_ORDER,
@@ -56,7 +57,7 @@ const REVIEWER = "Dr Alex Morgan";
 const temporaryDirectories: string[] = [];
 
 afterEach(() => {
-  for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of temporaryDirectories.splice(0)) removePathSync(directory, { recursive: true });
 });
 
 const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");

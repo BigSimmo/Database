@@ -45,7 +45,8 @@ Type each command below exactly as shown, then press Enter.
    git fetch origin
    ```
 
-3. Switch to the version that has the sign-off tool:
+3. Switch to the version that has the sign-off tool (still the live working branch kept for
+   your sign-off — it will not be rewritten while you are using it):
 
    ```bash
    git switch claude/sweet-carson-e7ur0s-wa-signoff

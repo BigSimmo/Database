@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -12,6 +12,7 @@ import {
   PACK_END,
   PACK_START,
 } from "../scripts/build-offline-pack";
+import { removePathSync } from "../scripts/retryable-fs.mjs";
 import { WA_CRISIS_CONTACTS } from "../src/lib/crisis-contacts";
 
 /**
@@ -29,7 +30,7 @@ let tempDir: string | undefined;
 
 afterEach(() => {
   if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true });
+    removePathSync(tempDir, { recursive: true });
     tempDir = undefined;
   }
 });
