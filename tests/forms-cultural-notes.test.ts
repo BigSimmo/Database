@@ -53,9 +53,9 @@ describe("data/forms-cultural-notes.json shape", () => {
     }
   });
 
-  it("every note's kind is interpreter or aboriginal-liaison", () => {
+  it("every note's kind is interpreter, aboriginal-liaison or statutory", () => {
     for (const note of notes) {
-      expect(["interpreter", "aboriginal-liaison"]).toContain(note.kind);
+      expect(["interpreter", "aboriginal-liaison", "statutory"]).toContain(note.kind);
     }
   });
 
@@ -83,7 +83,7 @@ describe("data/forms-cultural-notes.json shape", () => {
     }
   });
 
-  it("covers every required form with at least one interpreter and one aboriginal-liaison note", () => {
+  it("covers every required form with at least one interpreter, aboriginal-liaison and statutory note", () => {
     for (const formCode of REQUIRED_FORM_CODES) {
       const forThisForm = notes.filter((note) => note.formCode === formCode);
       expect(
@@ -93,6 +93,10 @@ describe("data/forms-cultural-notes.json shape", () => {
       expect(
         forThisForm.some((note) => note.kind === "aboriginal-liaison"),
         `${formCode} missing an aboriginal-liaison note`,
+      ).toBe(true);
+      expect(
+        forThisForm.some((note) => note.kind === "statutory"),
+        `${formCode} missing a statutory note`,
       ).toBe(true);
     }
   });

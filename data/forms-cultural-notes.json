@@ -30,8 +30,8 @@
     },
     {
       "formCode": "1A",
-      "kind": "aboriginal-liaison",
-      "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\" (s 6(2) continues with further things that do not, by themselves, make a person mentally ill — political/economic/social status, sexual orientation, alcohol or other drug use and past treatment — none quoted here).",
+      "kind": "statutory",
+      "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
     },
@@ -58,7 +58,7 @@
     },
     {
       "formCode": "3A",
-      "kind": "aboriginal-liaison",
+      "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
@@ -79,7 +79,7 @@
     },
     {
       "formCode": "3B",
-      "kind": "aboriginal-liaison",
+      "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
@@ -107,7 +107,7 @@
     },
     {
       "formCode": "3C",
-      "kind": "aboriginal-liaison",
+      "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
@@ -128,14 +128,14 @@
     },
     {
       "formCode": "4A",
-      "kind": "aboriginal-liaison",
-      "text": "The Charter applies beyond examination and treatment. The Mental Health Act 2014 (WA) s 11 says: \"A person or body performing a function under this Act must have regard to the principles set out in the Charter of Mental Health Care Principles.\" Transporting a person under this Act is performing a function under it.",
+      "kind": "statutory",
+      "text": "The Charter applies beyond examination and treatment. The Mental Health Act 2014 (WA) s 11 says: \"A person or body performing a function under this Act must have regard to the principles set out in the Charter of Mental Health Care Principles.\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
     },
     {
       "formCode": "4A",
-      "kind": "aboriginal-liaison",
+      "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"
@@ -156,7 +156,7 @@
     },
     {
       "formCode": "6A",
-      "kind": "aboriginal-liaison",
+      "kind": "statutory",
       "text": "The Mental Health Act 2014 (WA) s 6(2) says: \"A person does not have a mental illness merely because one or more of these things apply — (a) the person holds, or refuses or fails to hold, a particular religious, cultural, political or philosophical belief or opinion; (b) the person engages in, or refuses or fails to engage in, a particular religious, cultural or political activity; (c) the person is, or is not, a member of a particular religious, cultural or racial group; ...\"",
       "sourceId": "mha-2014-communication-and-cultural-provisions",
       "status": "drafted"

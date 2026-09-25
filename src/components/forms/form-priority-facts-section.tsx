@@ -351,11 +351,13 @@ type ActSheetState = { mode: "index" } | { mode: "section"; section: string } | 
 const CULTURAL_NOTE_LABELS: Record<FormCulturalNoteKind, string> = {
   interpreter: "Interpreter",
   "aboriginal-liaison": "Aboriginal liaison",
+  statutory: "Mental Health Act",
 };
 
 const CULTURAL_NOTE_ICONS: Record<FormCulturalNoteKind, typeof Languages> = {
   interpreter: Languages,
   "aboriginal-liaison": UserRound,
+  statutory: BookOpenText,
 };
 
 /**
