@@ -286,8 +286,10 @@ export function decide(state, evidence, now) {
   if (evidence.threads.length) return stop("needs-repair: unresolved-threads");
   // The one sanctioned sync: only for the active PR, only once it has no
   // conflicts, failures, threads, or in-flight CI, and only because the branch
-  // ruleset requires an up-to-date branch to merge.
-  if (evidence.behind) return { action: "sync" };
+  // ruleset requires an up-to-date branch to merge. With a merge queue on the
+  // base branch there is no sync at all: the queue tests the PR against the
+  // latest main itself, so a behind PR goes straight to the merge request.
+  if (evidence.behind && !evidence.queue) return { action: "sync" };
   if (!evidence.requiredGreen) return { action: "wait", reason: "required-checks-missing-or-pending" };
   if (!evidence.reviewsSatisfied) return { action: "wait", reason: "approval-required" };
   if (!evidence.mergeable) return { action: "wait", reason: "mergeability-pending" };
