@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  __safetyPatternLabelForTests,
   collapseDuplicateSafetyFindings,
   extractSafetyFindings,
   groupSafetyFindingsByKind,
@@ -582,10 +583,11 @@ describe("clinical point tones", () => {
  * These cases pin what the extractor does TODAY, including the cases where it is wrong. They are
  * written this way on purpose, for two reasons:
  *
- *   1. Changing which passages carry a safety label changes what a clinician is shown first --
- *      `answerSupportPriority` in evidence-panels.tsx promotes the most severe finding ahead of
- *      everything else as the answer's headline support card. That is a clinical display decision
- *      for the owner, not a defect to fix in passing.
+ *   1. Changing which passages carry a safety label changes which chip, and which tone, a
+ *      clinician sees beside a passage in the Key points rail. That is a clinical display decision
+ *      for the owner, not a defect to fix in passing. (This point once cited a priority function
+ *      that promoted the most severe finding into a headline support card; that card left the
+ *      answer surface on 2026-08-31 and the function was deleted on 2026-09-25, #51975R.)
  *   2. The gap is otherwise invisible. Nothing in the suite demonstrated that "review the chart in
  *      six weeks" is labelled Monitoring, or that "cease clozapine immediately" is labelled Red
  *      flag by the word `immediate` rather than by `cease`, which no pattern knows at all.
@@ -595,10 +597,12 @@ describe("clinical point tones", () => {
  * evidence that they are STABLE -- that nobody has moved a label without meaning to. Those are
  * different claims, and only the second one a test can make.
  *
- * Two such decisions have been taken so far, and both are recorded in the cases below rather than
- * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`) and #9XRDF7 (`escalat` and
- * `monitor`, owner-approved 2026-09-19). Each moved labels a clinician sees, which is why each
- * needed the owner and not a reviewer.
+ * Three such decisions have been taken so far, and all are recorded in the cases below rather than
+ * in a changelog: #GHC4XZ (stop instructions, `immediate(?:ly)?`), #9XRDF7 (`escalat` and
+ * `monitor`, owner-approved 2026-09-19) and #GHC4XZ again (`urgent(?:ly)?`, `seizures?` and
+ * `transfer(?:s|red|ring)?`, signed off by Josh on 2026-09-25, with the drug-passage exclusion
+ * narrowed by owner decision 16 the same day). Each moved labels a clinician
+ * sees, which is why each needed the owner and not a reviewer.
  */
 describe("safety finding precision (characterisation)", () => {
   /**
@@ -793,18 +797,177 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Blood pressure monitors must be calibrated annually.")).toBe("Monitoring");
   });
 
-  it("still misses `urgently`: the same defect one tier up, NOT fixed here (#9XRDF7)", () => {
-    // Found while measuring #9XRDF7, outside its owner approval, and left alone on purpose.
-    // `\burgent\b` misses "urgently" for exactly the reason `\bescalat\b` missed "escalate", and
-    // it sits in `red_flag` -- the tier where a silent miss costs most. "Urgently reassess the
-    // patient." produces no chip at all today. `review`, `exclude`, `consider`, `caution` and
-    // `transfer` have the same gap on their inflected forms.
+  it("matches `urgently`, `seizures` and the inflected `transfer` forms (#GHC4XZ, owner sign-off 2026-09-25)", () => {
+    // This expectation was pinned as an explicitly-labelled unfixed gap (#9XRDF7): `\burgent\b`
+    // missed "urgently" and `\btransfer\b` missed "transferring", so both passages below produced
+    // no chip at all. Widening a red-flag token moves passages onto the danger colour, which was
+    // held for the owner. Josh (psychiatrist, product owner) signed that decision off on 2026-09-25:
+    // red_flag gains `urgent(?:ly)?` and `seizures?`, escalation gains `transfer(?:s|red|ring)?`,
+    // and nothing else. `review`, `exclude`, `consider` and `caution` keep their inflection gap
+    // because that decision did not cover them.
+    expect(labelFor("Urgently reassess the patient.")).toBe("Red flag");
+    expect(labelFor("Transferring the patient to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Recurrent seizures were reported after the dose increase.")).toBe("Red flag");
+    expect(labelFor("The patient was transferred to the high dependency unit.")).toBe("Escalation");
+    expect(labelFor("The team transfers care to the medical ward.")).toBe("Escalation");
+    // The bare forms already matched and must still.
+    expect(labelFor("Urgent reassessment is needed.")).toBe("Red flag");
+    expect(labelFor("A seizure occurred overnight.")).toBe("Red flag");
+    expect(labelFor("Arrange transfer to the medical ward.")).toBe("Escalation");
+  });
+
+  it("moves passages up from lower tiers, the measured cost of the #GHC4XZ widening", () => {
+    // Widening is not purely additive: `safetyPatterns.find` takes the FIRST match in severity
+    // order, so the widened entries also claim passages that read as a lower tier before. Every
+    // movement measured against the pre-widening patterns, pinned so none is discovered later.
     //
-    // Pinned as a gap, not fixed, because widening a red-flag token moves passages onto the danger
-    // colour and that is the owner's call. When it is made, this expectation flips and this comment
-    // moves with it.
-    expect(labelFor("Urgently reassess the patient.")).toBeUndefined();
-    expect(labelFor("Transferring the patient to the medical ward.")).toBeUndefined();
+    //   Escalation -> Red flag     "Urgently escalate to the consultant."
+    //   Dose limit -> Red flag     "Seizures occurred above 600 mg/day."
+    //   Monitoring -> Red flag     "Monitor for seizures."
+    //   Exclusion  -> Red flag     "Exclude patients with seizures."
+    //   Caveat     -> Red flag     "Consider an EEG if seizures recur."
+    //   Dose limit -> Escalation   "Transferred after exceeding 600 mg/day."
+    //   Monitoring -> Escalation   "Transferred for renal monitoring."
+    //   Exclusion  -> Escalation   "Transferred unless the patient declines."
+    //   Caveat     -> Escalation   "Consider transferring to a specialist unit."
+    //
+    // All nine move to a MORE severe tier and a stronger tone, which is the direction the owner
+    // approved (a passage about seizures or urgency should not read as a caveat).
+    expect(labelFor("Urgently escalate to the consultant.")).toBe("Red flag");
+    expect(labelFor("Seizures occurred above 600 mg/day.")).toBe("Red flag");
+    expect(labelFor("Monitor for seizures.")).toBe("Red flag");
+    expect(labelFor("Exclude patients with seizures.")).toBe("Red flag");
+    expect(labelFor("Consider an EEG if seizures recur.")).toBe("Red flag");
+    expect(labelFor("Transferred after exceeding 600 mg/day.")).toBe("Escalation");
+    expect(labelFor("Transferred for renal monitoring.")).toBe("Escalation");
+    expect(labelFor("Transferred unless the patient declines.")).toBe("Escalation");
+    expect(labelFor("Consider transferring to a specialist unit.")).toBe("Escalation");
+    // Nothing above the widened entries moves.
+    expect(labelFor("Do not use in patients with seizures.")).toBe("Contraindication");
+    expect(labelFor("Avoid if seizures occur.")).toBe("Contraindication");
+  });
+
+  it("does not read transferrin or transference as a transfer (#GHC4XZ)", () => {
+    // `transfer(?:s|red|ring)?` is an explicit suffix group, not `transfer\w*`, precisely so these
+    // two stay unlabelled: an iron-studies result and a psychotherapy term carry no instruction to
+    // move the patient, and would otherwise arrive painted with the amber `act` tone.
+    expect(labelFor("Serum transferrin saturation was within the reference range.")).toBeUndefined();
+    expect(labelFor("Transferrin saturation was low.")).toBeUndefined();
+    expect(labelFor("Transference is common in long-term psychotherapy.")).toBeUndefined();
+    expect(labelFor("Countertransference shaped the therapeutic alliance.")).toBeUndefined();
+    // Nor the enzyme or the adjective (#GHC4XZ, owner decision 16 restated the list).
+    expect(labelFor("Glutathione S-transferase activity was reduced.")).toBeUndefined();
+    expect(labelFor("The prescription is transferable to another pharmacy.")).toBeUndefined();
+    // Nor is the widened red-flag entry a prefix match on longer words.
+    expect(labelFor("Seizureless intervals lengthened over the year.")).toBeUndefined();
+    expect(labelFor("The urgentness of the tone was noted.")).toBeUndefined();
+  });
+
+  it("does not read a drug passing into milk, across the placenta or into the fetus, brain or CSF as a transfer (#GHC4XZ, owner decisions 9 and 16, 2026-09-25)", () => {
+    // Josh (psychiatrist, product owner) decided on 2026-09-25 (decision 9) that a drug moving
+    // between body compartments is pharmacokinetics, not an instruction to move the patient, and
+    // must not arrive painted with the amber `act` tone. Decision 9 first excluded every `transfer`
+    // followed by "into" or "across"; decision 16 (same day) narrowed that to the DRUG-PASSAGE
+    // phrases only: into (the) (breast) milk, across the placenta / (trans)placental transfer,
+    // into / to / across the fetus or foetus, across the blood-brain barrier, and into the CSF.
+    // Every other "transfer into" or "transfer across" is a patient transfer and keeps Escalation.
+    // Before the widening, the first two passages below carried no chip at all (bare
+    // `\btransfer\b` missed "transfers" and "transferred") and they keep that.
+    expect(labelFor("Sertraline transfers into breast milk.")).toBeUndefined();
+    expect(labelFor("Lithium is transferred across the placenta.")).toBeUndefined();
+    expect(labelFor("Placental transfer across the membrane is rapid.")).toBeUndefined();
+    expect(labelFor("Drug transferring into breast milk was minimal.")).toBeUndefined();
+    expect(labelFor("Lamotrigine transfers into the milk in small amounts.")).toBeUndefined();
+    expect(labelFor("Transplacental transfer of valproate is well documented.")).toBeUndefined();
+    expect(labelFor("Lithium transfers to the fetus.")).toBeUndefined();
+    expect(labelFor("The drug is transferred into the foetus.")).toBeUndefined();
+    expect(labelFor("Valproate transfers across the fetus's circulation.")).toBeUndefined();
+    expect(labelFor("Clozapine transfers across the blood-brain barrier.")).toBeUndefined();
+    expect(labelFor("Little of the drug is transferred into the CSF.")).toBeUndefined();
+    // A patient transfer is still an escalation, whatever preposition follows it (decision 16),
+    // and urgency still outranks it.
+    expect(labelFor("Transfer into ICU was arranged.")).toBe("Escalation");
+    expect(labelFor("The patient was transferred into the care of the inpatient team.")).toBe("Escalation");
+    expect(labelFor("Transferring the patient across to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred across to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred urgently into ICU.")).toBe("Red flag");
+    expect(labelFor("Transferring the patient to ICU.")).toBe("Escalation");
+    expect(labelFor("Transferred to the medical ward urgently.")).toBe("Red flag");
+    expect(labelFor("Transferred to the medical ward.")).toBe("Escalation");
+    // The exclusion is whole-word: "intolerance" is not "into".
+    expect(labelFor("Transferred given intolerance of the ward.")).toBe("Escalation");
+  });
+
+  it("also excludes `transfer of <drug> across the placenta`, `via` and human milk, and keeps patient transfers (#GHC4XZ, owner decision 16, 2026-09-25)", () => {
+    // A clinical reviewer's battery found three drug-passage phrasings the first cut of decision 16
+    // still painted Escalation: a named drug between "transfer of" and the preposition, the
+    // preposition "via", and "human milk". Each is pharmacokinetics, not a patient move.
+    expect(labelFor("Transfer of lithium across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Transfer of lithium carbonate across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Transfer of the drug into breast milk is low.")).toBeUndefined();
+    expect(labelFor("Transfer of sertraline into human milk is low.")).toBeUndefined();
+    expect(labelFor("Transfer of valproate to the fetus is expected.")).toBeUndefined();
+    expect(labelFor("Transfer of lithium into the foetus is expected.")).toBeUndefined();
+    expect(labelFor("Transfer of clozapine across the blood-brain barrier is rapid.")).toBeUndefined();
+    expect(labelFor("Transfer of the drug into the CSF is limited.")).toBeUndefined();
+    expect(labelFor("The drug is transferred into human milk.")).toBeUndefined();
+    expect(labelFor("Valproate is transferred via the placenta.")).toBeUndefined();
+    expect(labelFor("Sertraline transfers via breast milk to the infant.")).toBeUndefined();
+    // Patient transfers keep Escalation, including "transfer of" followed by a patient or care.
+    expect(labelFor("Transfer into ICU.")).toBe("Escalation");
+    expect(labelFor("The patient was transferred to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transfer the patient into the care of the on-call team.")).toBe("Escalation");
+    expect(labelFor("Transfer from oral to depot risperidone.")).toBe("Escalation");
+    expect(labelFor("Transfer of care to the community team.")).toBe("Escalation");
+    expect(labelFor("Arrange transfer of the patient to ED.")).toBe("Escalation");
+    // Urgency still outranks it.
+    expect(labelFor("Patients who deteriorate should be transferred urgently.")).toBe("Red flag");
+    expect(labelFor("Transfer to the ED immediately.")).toBe("Red flag");
+    // The suffix group still refuses the longer words.
+    expect(labelFor("Check serum iron, transferrin and ferritin.")).toBeUndefined();
+    expect(labelFor("Transference and countertransference should be explored in supervision.")).toBeUndefined();
+  });
+
+  it("keeps Escalation for a patient transfer to a service named after a drug-passage object (#GHC4XZ, owner decision 16)", () => {
+    // Re-review 2026-09-25: "to the placenta / CSF" also reads as the start of a named destination.
+    // A patient transfer must never lose its chip, so a service word after the object keeps it.
+    expect(labelFor("Transfer to the placenta accreta spectrum service.")).toBe("Escalation");
+    expect(labelFor("Transfer to Placenta Accreta Service.")).toBe("Escalation");
+    expect(labelFor("Transfer of women to placenta accreta centres.")).toBe("Escalation");
+    expect(labelFor("Transfer to the CSF shunt clinic.")).toBe("Escalation");
+    expect(labelFor("Transfer to the placenta praevia unit.")).toBe("Escalation");
+    // One-word "breastmilk" and "maternal milk" are drug passage too (common in Australian guidance).
+    expect(labelFor("Transfer into the breastmilk is minimal.")).toBeUndefined();
+    expect(labelFor("Transfer into maternal milk is low.")).toBeUndefined();
+    // An adverb between the verb and the preposition is still drug passage (Claude review on #3031).
+    expect(labelFor("Lithium transfers readily across the placenta and into breast milk.")).toBeUndefined();
+    expect(labelFor("Sertraline is transferred minimally into breast milk.")).toBeUndefined();
+    expect(labelFor("Valproate transfers freely to the fetus.")).toBeUndefined();
+    // ...but an adverb does not turn a patient transfer into drug passage.
+    expect(labelFor("Transfer promptly to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Transferred safely to the placenta accreta service.")).toBe("Escalation");
+    // The plain drug-passage forms are unchanged.
+    expect(labelFor("Transfer of lithium across the placenta is complete.")).toBeUndefined();
+    expect(labelFor("Little of the drug is transferred into the CSF.")).toBeUndefined();
+  });
+
+  it("keeps the transfer exclusion linear-time on hostile input (#GHC4XZ)", () => {
+    // The `transfer of <1-3 words>` lookahead is bounded and its word and space classes are
+    // disjoint, so no input can make it backtrack super-linearly. Pin that with inputs shaped
+    // to hurt it: one enormous word after "transfer of", and a long run of near-miss phrases.
+    // This calls the pattern list directly: `extractSafetyFindings` cuts a passage to 260
+    // characters before any pattern runs, so it could never hand a pattern hostile input.
+    const hostile = [
+      `transfer of ${"a".repeat(200_000)}`,
+      "transfer of a b c d ".repeat(10_000),
+      `transfer${" ".repeat(200_000)}x`,
+      "transferred of the the the into ".repeat(6_000),
+    ];
+    for (const content of hostile) {
+      const started = performance.now();
+      __safetyPatternLabelForTests(content);
+      expect(performance.now() - started).toBeLessThan(500);
+    }
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {

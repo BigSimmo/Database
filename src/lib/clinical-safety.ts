@@ -50,8 +50,15 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     //
     // `hold` is only ever matched inside a dose phrase; a bare \bhold\b matches
     // ordinary prose ("hold the view that ...").
+    //
+    // `urgent(?:ly)?` and `seizures?`: the same trailing-`\b` defect again. Bare
+    // `urgent` missed "Urgently reassess the patient." and bare `seizure` missed
+    // "seizures", both silently. Widening this tier moves passages onto the
+    // danger colour, so it waited for the owner: Josh (psychiatrist, product
+    // owner) signed it off on 2026-09-25 (#GHC4XZ). Explicit suffix groups, not
+    // `\w*`, so nothing beyond the adverb and the plural is claimed.
     pattern:
-      /\b(red flag|urgent|emergency|immediate(?:ly)?|severe|toxicity|seizure|chest pain|dyspnoea|ceas(?:e|es|ed|ing)|withhold\w*|withheld|hold (?:the next |the |further |all |any |subsequent |next )?doses?|boxed warning|black box|hypersensitivity|anaphyla\w*)\b/i,
+      /\b(red flag|urgent(?:ly)?|emergency|immediate(?:ly)?|severe|toxicity|seizures?|chest pain|dyspnoea|ceas(?:e|es|ed|ing)|withhold\w*|withheld|hold (?:the next |the |further |all |any |subsequent |next )?doses?|boxed warning|black box|hypersensitivity|anaphyla\w*)\b/i,
   },
   {
     kind: "escalation",
@@ -76,8 +83,32 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // everything below it in the array. Passages already reaching
     // Contraindication or Red flag are untouched. Every measured movement is
     // pinned in tests/clinical-safety.test.ts.
+    //
+    // `transfer(?:s|red|ring)?` (#GHC4XZ, owner sign-off 2026-09-25): bare
+    // `transfer` missed "transferring" and "transferred". An explicit suffix
+    // group, never `transfer\w*`, which would claim "transferrin" (an iron
+    // study) and "transference" (a psychotherapy term) as escalations.
+    //
+    // Drug-passage exclusion (#GHC4XZ, owner decisions 9 and 16, 2026-09-25):
+    // a drug that "transfers into breast milk" or is "transferred across the
+    // placenta" is pharmacokinetics, not an instruction to move the patient,
+    // so those passages get no Escalation chip. Decision 16 narrowed the
+    // exclusion to the drug-passage OBJECTS only: (breast / human) milk, the
+    // placenta, the fetus or foetus, the CSF and the blood-brain barrier,
+    // reached by into / across / via / to (optionally after one -ly adverb:
+    // "transfers readily across the placenta"), optionally through "transfer of
+    // <one to three words>" ("Transfer of lithium across the placenta"), plus
+    // (trans)placental transfer. Any other object -- "transfer into ICU",
+    // "transfer of care to the community team" -- is a patient transfer and
+    // keeps Escalation, and so does a named destination that starts with one
+    // of those objects ("transfer to the placenta accreta service", "the CSF
+    // shunt clinic"): a service word after the object re-arms the chip, because
+    // a patient transfer must never lose it. The trailing `\b` stops the optional suffix
+    // backtracking round the lookahead ("transfer|red into"). The lookahead
+    // stays linear: the word count is bounded and `[\w-]` and `\s` are
+    // disjoint, so each word has exactly one way to match.
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer)\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|(?<!\b(?:trans)?placental\s+)transfer(?:s|red|ring)?(?!\s+(?:[a-z]+ly\s+)?(?:of(?:\s+[\w-]+){1,3}\s+)?(?:into|across|via|to)\s+(?:the\s+)?(?:(?:breast|human|maternal)\s+)?(?:milk|breastmilk|placenta|fo?etus|csf|blood[-\s]brain\s+barrier)\b(?!\s+(?:accreta|pr(?:a)?evia|shunt|clinics?|services?|units?|teams?|cent(?:re|er)s?|wards?|departments?)\b)))\b/i,
   },
   {
     kind: "dose_limit",
@@ -291,6 +322,16 @@ function collapseSafetyFindingsOnce(findings: SafetyFinding[]): SafetyFinding[] 
   }
 
   return kept;
+}
+
+/**
+ * The label the pattern list alone gives `text`, with none of the extractor's
+ * trimming. Tests only: `extractSafetyFindings` cuts every passage to 260
+ * characters first, so it cannot hand a pattern the hostile input a
+ * linear-time guard needs.
+ */
+export function __safetyPatternLabelForTests(text: string): string | undefined {
+  return safetyPatterns.find((item) => item.pattern.test(text))?.label;
 }
 
 export function extractSafetyFindings(answer: SafetyAnswerInput | null | undefined, limit = 5): SafetyFinding[] {

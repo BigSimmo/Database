@@ -4951,7 +4951,10 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    // The mocked match carries no relevance verdict, so the first card is only the
+    // top result, not a "Best match" (owner decision 11, 2026-09-25).
+    await expect(documentResults).toContainText("Top result");
+    await expect(documentResults).not.toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
     // The three primary actions keep a symmetric 48px footer at every width.
@@ -5143,7 +5146,7 @@ test.describe("PsychSift UI smoke coverage", () => {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
-    await expect(documentResults).toContainText("Best match");
+    await expect(documentResults).toContainText("Top result");
   });
 
   test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {

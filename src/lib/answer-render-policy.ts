@@ -75,6 +75,13 @@ export type AnswerRenderDecision = {
 export type AnswerRenderModel = {
   answerText: string;
   trust: AnswerRenderTrust;
+  /**
+   * Trust level for the displayed support WORD only ("Strong support", "Supported", ...).
+   * Equal to `trust`, except a high-trust answer whose payload carries the label-only
+   * `strongSupportLabelCapped` flag reads as "medium" (#WGMB4Z, owner decision 17). Never
+   * use it for render caps, tone or which blocks show; those follow `trust`.
+   */
+  supportLabelTrust: AnswerRenderTrust;
   allowedBlocks: AnswerRenderBlock[];
   primarySources: SourceLink[];
   reviewSources: ClientSearchResult[];
@@ -160,6 +167,12 @@ function deriveTrust(answer: ClientRagAnswerPayload): AnswerRenderTrust {
   if (answer.authorityTrustCapRequired === true) return "medium";
   if (answer.confidence === "high") return "high";
   return "medium";
+}
+
+// Label-only (#WGMB4Z decision 17). A payload stored before the flag existed has no field
+// and keeps the old label; saved-answer labels are tracked as a separate issue.
+function deriveSupportLabelTrust(answer: ClientRagAnswerPayload, trust: AnswerRenderTrust): AnswerRenderTrust {
+  return trust === "high" && answer.strongSupportLabelCapped === true ? "medium" : trust;
 }
 
 function sourceStrengthFor(candidate: SourceCandidate) {
@@ -668,6 +681,8 @@ export function describeSourceStrengthForCopy(strength: SourceStrength | "none")
 export function formatAnswerRenderCopyText(args: {
   answerText: string;
   trust: AnswerRenderTrust;
+  /** The on-screen support label level (#WGMB4Z decision 17); omitted means it equals `trust`. */
+  supportLabelTrust?: AnswerRenderTrust;
   primarySources: SourceLink[];
   warnings: string[];
   tables?: CanonicalAnswerTableRecord[];
@@ -703,6 +718,11 @@ export function formatAnswerRenderCopyText(args: {
     ...tableLines,
     "Source status",
     `Render trust: ${args.trust}`,
+    // The label cap only ever lowers high to medium, whose on-screen word is "Supported". Say so in
+    // the copied text too, so notes pasted from it never read stronger than the screen did.
+    ...(args.supportLabelTrust && args.supportLabelTrust !== args.trust
+      ? ["Support label: Supported (not every claim is checked against a reviewed source)"]
+      : []),
     "",
     "Sources for review",
     ...sourceLines,
@@ -759,10 +779,12 @@ export function buildAnswerRenderModel(
   // high-yield bold markers so a pasted draft never contains literal "**".
   // (Preformatted answers carry no bold, so this is a no-op for them.)
   const copyAnswerText = answerText.replace(/\*\*/g, "");
+  const supportLabelTrust = deriveSupportLabelTrust(answer, trust);
 
   return {
     answerText,
     trust,
+    supportLabelTrust,
     allowedBlocks,
     primarySources,
     reviewSources,
@@ -776,6 +798,7 @@ export function buildAnswerRenderModel(
     copyText: formatAnswerRenderCopyText({
       answerText: copyAnswerText,
       trust,
+      supportLabelTrust,
       primarySources,
       warnings,
       tables,
