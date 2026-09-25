@@ -156,6 +156,8 @@
     "site-content:p03": "node scripts/run-tsx.mjs scripts/refresh-site-content-p03-baseline.ts",
     "check:site-content-p03": "node scripts/run-tsx.mjs scripts/refresh-site-content-p03-baseline.ts --check",
     "check:mha-act-sections": "node scripts/build-mha-act-sections.mjs --check",
+    "offline:build": "node scripts/run-tsx.mjs scripts/build-offline-pack.ts",
+    "check:offline-pack": "node scripts/run-tsx.mjs scripts/build-offline-pack.ts --check",
     "check:forms-pdf-manifest": "node scripts/build-forms-pdf-manifest.mjs --check",
     "build:specifiers-search-index": "node scripts/build-specifiers-search-index.mjs --write",
     "check:specifiers-search-index": "node scripts/build-specifiers-search-index.mjs --check",
