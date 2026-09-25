@@ -76,6 +76,13 @@ task status in its existing checkpoint and historical evidence labelled as such.
 
 <!-- END:contextual-working-defaults -->
 
+## Smart agent allocation
+
+When agents are authorised, follow
+[`docs/agents/smart-agent-allocation.md`](docs/agents/smart-agent-allocation.md)
+before dispatch. Keep the user's main-chat model; report missing hosted routing
+honestly instead of paying for API workarounds.
+
 # How these rules are organised
 
 This file is the always-loaded core. It carries the boundaries that prevent irreversible harm, and
@@ -298,25 +305,16 @@ For the rules on pasting the decisive gate line, stating verified versus assumed
   `supabase/search-health-unmonitored-indexes.json` (`required_indexes` changes travel by migration only).
   Full contract: `docs/database-drift-detection.md`.
 
-## Owner-merge rule (owner ruling 2026-09-17, narrowing the 2026-09-16 ruling)
+## Supabase merge caution
 
-Any PR touching `supabase/` is **owner-merged, not agent-merged**. The required `Owner approval`
-status stays yellow (pending) on it until Josh adds the `owner-approved` label himself after the
-latest push (#2830, #2842). Agents must never add that label, merge one of these PRs, or arm or
-re-arm auto-merge on one; an armed one is reported, not disarmed.
-
-**Clinical-content and RAG-ranking PRs are no longer held for the label** (owner ruling
-2026-09-17, narrowing 2026-09-16). `clinicalRiskPatterns` matches most of `src/lib/**`, so the
-hold came to rest on nearly every PR — pure refactors included — and a label applied that often
-stops being a review. Those PRs keep every other control: the clinical governance preflight, the
-`RAG impact:` body line, the canary-pair requirement, and exclusion from the unattended
-`Clear PRs` batch (`clinical-review-required` and `rag-evidence-required` in
-`scripts/pr-batch-core.mjs`). `supabase/` stays held because merging it is the one action here
-with no undo — it reaches the live clinical database within seconds, with no deploy step between.
-
-`PR policy` also blocks edits to applied migrations and out-of-order or future-dated
+Merging a PR that touches `supabase/` applies its migrations to the live clinical database
+within seconds — there is no separate deploy step. Treat that merge as a production deploy.
+`PR policy` still blocks edits to applied migrations and out-of-order or future-dated
 migrations: **a migration already on `main` must never be edited** — ship a new migration with the
-newest timestamp. Full rule: [Merge authority](docs/agents/pull-request-workflow.md#merge-authority).
+newest timestamp. Clinical-content and RAG-ranking PRs keep the clinical governance preflight,
+the `RAG impact:` body line, the canary-pair requirement, and exclusion from the unattended
+`Clear PRs` batch (`clinical-review-required` and `rag-evidence-required` in
+`scripts/pr-batch-core.mjs`). Full rule: [Merge authority](docs/agents/pull-request-workflow.md#merge-authority).
 
 <!-- END:supabase-project-safety -->
 
@@ -328,7 +326,9 @@ Retrieval/ranking behaviour is live-validated and safeguarded. Before touching a
 surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approaches → safeguards).
 
 - **Flag it.** Any task that will touch `src/lib/rag/**`, clinical-search, retrieval-selection,
-  released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
+  released-search-order, ranking-config, evidence/result-sort/answer-ranking,
+  evidence-relevance/semantic-rerank/eval-document-matching, the source-authority tiering
+  (`src/lib/source-authority-registry.ts`, `src/lib/australian-source-priority.ts`), the eval harness
   (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
   tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
   editing, even when the change looks incidental (refactor, rename, "just a comment"). The same
@@ -340,6 +340,15 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
   `src/lib/deep-memory.ts`), whose index units are queried directly by the candidate fan-out and
   whose `applyMemoryCardBoosts` rescores results. Added 2026-09-16; `pr-policy` classifies all
   of these as RAG-ranking surfaces, and `docs/rag-behaviour/safeguards.md` carries the reasoning.
+  The other retrieval inputs are covered too (added 2026-09-25): retrieval RPC version choice
+  and scoring helpers (`src/lib/retrieval-rpc-rollout.ts`, `clinical-evidence-haystack.ts`,
+  `cross-document-synthesis.ts`, `corpus-grounding.ts`, `keyword-query.ts`), and the producers of
+  enrichment, image-caption, embedding-field, table-fact and assertion rows
+  (`src/lib/document-enrichment.ts`, `visual-intelligence.ts`, `image-filtering.ts`,
+  `worker/embedding-fields.ts`, `worker/table-facts.ts`, `worker/assertion-tagging.ts`).
+  The authoritative list is `ragRankingPatterns` in `scripts/pr-policy.mjs`, which also protects
+  the ranking contract tests; where this sentence and that list ever differ, flag everything
+  either names (aligned 2026-09-25).
 - **PR nudge (advisory since 2026-09-17).** PRs touching those surfaces get a `pr-policy`
   **warning** — not a block — when the body has no explicit `RAG impact:` line. Still write one,
   because it is the fastest way to tell a reviewer whether ordering moved: either
@@ -369,6 +378,7 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 - The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
 - Railway CLI token auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects; Cloud runtime acceptance no longer installs or probes the CLI, so that substitution rule is documentation-enforced until an operator workflow reintroduces CLI checks. Desktop/CLI MCP uses the secret-free `railway` entry (enable in `$CODEX_HOME/config.toml` or via a never-committed local edit — never commit `enabled = true`) plus `codex mcp login railway`; neither repository MCP file activates a hosted ChatGPT/Codex app.
 - Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
+- **Safe, fast iteration.** Keep automatic Railway PR Environments disabled. Iterate locally with focused checks, use an explicitly requested isolated app preview when useful, and keep production deployment from protected `main`. Never copy production database/provider credentials or an ingestion worker into a routine PR preview. Any future automatic previews require an isolated base and Focused PR Environments, using the existing service watch paths. Follow [the preview policy and verified settings](docs/deployment-architecture.md#selective-railway-pr-previews); keep required CI and Supabase controls intact.
 
 <!-- END:railway-project-safety -->
 
@@ -444,7 +454,7 @@ Goal: fewer false merge conflicts, less cancelled CI, and faster feedback — wi
 
 - Assemble every commit for a head before the first push, or wait for the current PR CI run to settle before pushing again. Apply the same settle-first rule whenever a real conflict actually needs resolving: wait for required CI in flight, then perform the `update-branch` / `git merge origin/main` once review and fix work is assembled. Being merely behind is a reason to sync only once, when the PR is otherwise ready (see [Branch sync](docs/agents/pull-request-workflow.md#branch-sync)). Cancel-in-progress remains enabled for pull requests (pushes mid-run cancel Production UI), but is deliberately disabled for base-branch pushes (`tests/ci-cache-safety.test.ts`).
 - For Run PR sweeps and normal readiness pushes — never an explicit bare PR publication — run `npm run format` **and commit the result**, then `npm run verify:pr-local` (or the smallest gate that covers the change). Format is in `static-pr` but not in `verify:cheap`; an uncommitted format leaves CI red on the pushed blob. Whole-tree Prettier, not a single edited file.
-- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, bundled additions, and an `update-branch`/merge-main-in sync that the branch-sync rule above allows (a real conflict, or the owner asks) may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first. **Exception:** an owner-merge PR (one touching `supabase/` — see "Owner-merge rule" below) must never be armed by an agent. If you find one armed, report it rather than disarming it: the required `Owner approval` status already blocks its merge until the owner approves, and disarming is a GitHub mutation that needs explicit authorization.
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, bundled additions, and an `update-branch`/merge-main-in sync that the branch-sync rule above allows (a real conflict, or the owner asks) may proceed — GitHub re-validates required checks against the new head before merging, so an additive push cannot slip past that. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first.
 - Missing CI checks are not a green pass. The `PR mergeability` check uses trusted `pull_request_target` events and refreshes unchanged PR heads after protected-base pushes; it fails explicitly on `mergeable_state: dirty`. When a sync is actually warranted (a real conflict, or the owner asks), use `npm run sync:pr-branches` / `:apply` with human `gh` auth — never bot `update-branch`.
 - Triage and repair actionable review threads early; reply before resolving (`<!-- codex-thread-disposition:resolved -->`). Leave ambiguous or product-sensitive threads open for the owner.
 - Babysit dormant: observe fresh CI only at meaningful stage boundaries (at most once every 5 min, ≤30 min per run). If queued/running at limit, record run URL as deferred and continue sweep.

@@ -1,197 +1,513 @@
 "use client";
 
-import { Check, ChevronRight } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { useState, type FormEvent } from "react";
 
 import { CmeNavHeader } from "@/components/cme/cme-nav-header";
-import { cardInteractive, cardSurface, focusRing } from "@/components/card-recipes";
-import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { cardSurface } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { cn, primaryControl, toggleThumbSurface } from "@/components/ui-primitives";
-import type { CmeRequirementSet } from "@/lib/cme/types";
+import { Button } from "@/components/ui/button";
+import { TextField } from "@/components/ui/text-field";
+import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
+import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { CME_PRESET_SOURCES, CME_PRESET_VERSION, createAustralianRanzcpPreset } from "@/lib/cme/presets";
+import {
+  cmeCategories,
+  cmeCategoryLabels,
+  type CmeCategory,
+  type CmeRequirement,
+  type CmeRequirementSet,
+  type CmeRequirementSpec,
+} from "@/lib/cme/types";
 
-export type CmeSetupStepStatus = "done" | "in-progress" | "not-started" | "waiting";
-
-export type CmeSetupStep = {
-  readonly id: string;
-  readonly title: string;
-  readonly description: string;
-  readonly status: CmeSetupStepStatus;
-};
-
-const setupStepStatusLabel: Record<CmeSetupStepStatus, string> = {
-  done: "Done",
-  "in-progress": "In progress",
-  "not-started": "Not started",
-  waiting: "Waiting",
-};
-
-/**
- * The one step this page can actually see the state of in Phase 1: whether a
- * requirement set has been confirmed for this year. The other three steps'
- * real state lives on screens this phase does not build — the development
- * plan, renewals, and the log's own catch-up view — so they are offered as
- * open, unstarted work rather than guessed at from data this page cannot see.
- * A caller that owns one of those screens can pass its own `steps` once it
- * has something real to report.
- */
-function defaultSetupSteps(set: CmeRequirementSet | null): readonly CmeSetupStep[] {
-  return [
-    {
-      id: "targets",
-      title: "Your CPD home and targets",
-      description: "Confirm the hours you have to reach.",
-      status: set ? "done" : "not-started",
-    },
-    {
-      id: "plan",
-      title: "Write your development plan",
-      description: "Required every year, and worth hours in its own right.",
-      status: "not-started",
-    },
-    {
-      id: "renewals",
-      title: "Add your renewal dates",
-      description: "Registration, indemnity, checks, mandatory training.",
-      status: "not-started",
-    },
-    {
-      id: "catch-up",
-      title: "Catch up on this year so far",
-      description: set ? "Log anything you have already done this year." : "Available once targets are confirmed.",
-      status: "waiting",
-    },
-  ];
+function replaceRequirement(
+  set: CmeRequirementSet,
+  id: string,
+  update: (requirement: CmeRequirement) => CmeRequirement,
+): CmeRequirementSet {
+  return {
+    ...set,
+    requirements: set.requirements.map((requirement) => (requirement.id === id ? update(requirement) : requirement)),
+  };
 }
 
-/** A future task hands a real handler here; Phase 3 (automatic capture) is blocked pending an explicit privacy ruling. */
-function noop() {}
+function numericValue(raw: string, fallback: number): number {
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
 
-/**
- * The first-run screen: four things to set up once, an optional shortcut to
- * routines, and the capture switch — always drawn off, because Phase 3
- * capture does not exist yet and this screen must never claim otherwise.
- */
+function updateMinimumHours(set: CmeRequirementSet, id: string, minimumHours: number): CmeRequirementSet {
+  return {
+    ...set,
+    requirements: set.requirements.map((requirement) =>
+      requirement.id === id && "minimumHours" in requirement.spec
+        ? { ...requirement, spec: { ...requirement.spec, minimumHours } }
+        : requirement,
+    ),
+  };
+}
+
+function updateMinimumPerBucket(set: CmeRequirementSet, id: string, minimumPerBucket: number): CmeRequirementSet {
+  return {
+    ...set,
+    requirements: set.requirements.map((requirement) =>
+      requirement.id === id && requirement.spec.shape === "activity-count"
+        ? { ...requirement, spec: { ...requirement.spec, minimumPerBucket } }
+        : requirement,
+    ),
+  };
+}
+
+function updateAcross(
+  set: CmeRequirementSet,
+  id: string,
+  update: { categories?: readonly CmeCategory[]; minimumEachHours?: number },
+): CmeRequirementSet {
+  return {
+    ...set,
+    requirements: set.requirements.map((requirement) =>
+      requirement.id === id && requirement.spec.shape === "hours-across-categories"
+        ? { ...requirement, spec: { ...requirement.spec, ...update } }
+        : requirement,
+    ),
+  };
+}
+
+function specForShape(shape: CmeRequirementSpec["shape"]): CmeRequirementSpec {
+  switch (shape) {
+    case "hours-in-category":
+      return { shape, category: "educational", minimumHours: 1 };
+    case "hours-across-categories":
+      return { shape, categories: ["reviewing", "measuring"], minimumHours: 1, minimumEachHours: 0 };
+    case "credited-hours":
+      return { shape, credit: "formal-peer-review", minimumHours: 1 };
+    case "activity-count":
+      return { shape, buckets: ["Practice domain"], minimumPerBucket: 1 };
+    case "task":
+      return { shape };
+  }
+}
+
 export function CmeSetupPage({
+  year,
   set,
-  steps,
-  onToggleCapture,
+  demoMode = false,
+  onConfirm,
 }: {
-  /** Null when the owner has not yet confirmed a requirement set for this year. */
-  set: CmeRequirementSet | null;
-  /** Overrides the four default steps once a caller has real state for them. */
-  steps?: readonly CmeSetupStep[];
-  onToggleCapture?: () => void;
+  readonly year?: number;
+  readonly set: CmeRequirementSet | null;
+  readonly demoMode?: boolean;
+  readonly onConfirm?: (set: CmeRequirementSet) => Promise<void>;
 }) {
-  const resolvedSteps = steps ?? defaultSetupSteps(set);
+  const targetYear = year ?? set?.year ?? new Date().getFullYear();
+  const [draft, setDraft] = useState<CmeRequirementSet>(
+    () =>
+      set ??
+      createAustralianRanzcpPreset(targetYear, new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" })),
+  );
+  const [saving, setSaving] = useState(false);
+  const [savedFingerprint, setSavedFingerprint] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onConfirm || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onConfirm(draft);
+      setSavedFingerprint(JSON.stringify(draft));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not confirm these requirements.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function addCollegeRequirement() {
+    const id = `college-${Date.now()}`;
+    setDraft((current) => ({
+      ...current,
+      requirements: [
+        ...current.requirements,
+        {
+          id,
+          label: "College requirement",
+          source: "college",
+          completedOn: null,
+          spec: { shape: "hours-in-category", category: "educational", minimumHours: 1 },
+        },
+      ],
+    }));
+  }
 
   return (
     <>
       <CmeNavHeader title="Set up" />
       <InformationPageShell testId="cme-setup-page">
-        <h1 className="sr-only">Set up CME</h1>
+        <h1 className="text-xl font-extrabold text-[color:var(--text-heading)]">
+          Confirm your {targetYear} requirements
+        </h1>
+        <p className={cn(textMuted, "text-sm leading-relaxed")}>
+          Start from the versioned Australian baseline + psychiatry peer-review preset, then edit it to match your own
+          CPD home. This preset is a starting draft, not a claim of full RANZCP CPD-home compliance.
+        </p>
 
-        <div className="flex flex-col gap-1.5">
-          <h2 className="text-xl font-extrabold text-[color:var(--text-heading)]">Set this up once</h2>
-          <p className="text-sm leading-relaxed text-[color:var(--text-muted)]">
-            Four things, then the app runs itself. Start logging before you finish — nothing here blocks anything.
+        <section data-testid="cme-setup-preset" className={cn(cardSurface, "p-4")}>
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">Preset {CME_PRESET_VERSION}</p>
+          <ul className="mt-2 space-y-1 text-xs text-[color:var(--text-muted)]">
+            {CME_PRESET_SOURCES.map((source) => (
+              <li key={source.url}>
+                <a
+                  className="inline-flex min-h-tap items-center underline underline-offset-2"
+                  href={source.url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {source.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p className={cn(textMuted, "mt-2 text-xs")}>
+            Check your CPD-home programme structure and add any extras below before confirming.
           </p>
-        </div>
-
-        <section
-          id="cme-setup-steps"
-          data-testid="cme-setup-steps"
-          className={cn(inPageAnchor, cardSurface, "flex flex-col divide-y divide-[color:var(--border)] p-2")}
-        >
-          {resolvedSteps.map((step) => (
-            <div key={step.id} className="flex items-center gap-3 px-2 py-3">
-              <span
-                aria-hidden
-                className={cn(
-                  "grid h-6 w-6 shrink-0 place-items-center rounded-full",
-                  step.status === "done"
-                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                    : "border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface)]",
-                )}
-              >
-                {step.status === "done" ? <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{step.title}</span>
-                <span className="block text-xs leading-relaxed text-[color:var(--text-muted)]">{step.description}</span>
-              </span>
-              <span className="shrink-0 text-xs font-semibold text-[color:var(--text-muted)]">
-                {setupStepStatusLabel[step.status]}
-              </span>
-            </div>
-          ))}
         </section>
 
-        {/* Optional, and deliberately not drawn as a fifth step: it is a
-            shortcut worth taking, not a gate the four steps above wait on. */}
+        {demoMode ? (
+          <InlineNotice tone="neutral">
+            Demo mode is read-only. The complete confirmation form remains visible for inspection.
+          </InlineNotice>
+        ) : null}
+        {error ? <InlineNotice tone="neutral">{error}</InlineNotice> : null}
+        {savedFingerprint === JSON.stringify(draft) ? (
+          <InlineNotice tone="neutral">Requirements confirmed. The dashboard now uses this saved version.</InlineNotice>
+        ) : null}
+        {draft.requirements.length === 0 ? (
+          <div>
+            <InlineNotice tone="neutral">
+              This saved year has no complete requirement set yet. Existing log entries stay in place while you repair
+              the setup.
+            </InlineNotice>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  setDraft(
+                    createAustralianRanzcpPreset(
+                      targetYear,
+                      draft.confirmedOn || new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Perth" }),
+                    ),
+                  )
+                }
+              >
+                Load the starting preset
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-5" data-testid="cme-setup-form">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              label="Total hours"
+              id="cme-setup-total-hours"
+              type="number"
+              min="1"
+              step="0.5"
+              value={draft.totalHours}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  totalHours: numericValue(event.target.value, current.totalHours),
+                }))
+              }
+            />
+            <TextField
+              label="Confirmation date"
+              id="cme-setup-confirmed-on"
+              type="date"
+              value={draft.confirmedOn}
+              onChange={(event) => setDraft((current) => ({ ...current, confirmedOn: event.target.value }))}
+            />
+          </div>
+          <TextField
+            label="Source you checked"
+            id="cme-setup-source"
+            value={draft.confirmedSource}
+            onChange={(event) => setDraft((current) => ({ ...current, confirmedSource: event.target.value }))}
+            hint="Keep the guide title, version or URL that you personally checked."
+          />
+
+          <section
+            id="cme-setup-steps"
+            aria-labelledby="cme-setup-requirements-heading"
+            data-testid="cme-setup-steps"
+            className={inPageAnchor}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2
+                  id="cme-setup-requirements-heading"
+                  className="text-base font-bold text-[color:var(--text-heading)]"
+                >
+                  Requirements
+                </h2>
+                <p className={cn(textMuted, "text-xs")}>Every progress claim comes from this saved list.</p>
+              </div>
+              <Button type="button" variant="secondary" icon={Plus} onClick={addCollegeRequirement}>
+                Add college extra
+              </Button>
+            </div>
+            <div className="mt-3 space-y-3">
+              {draft.requirements.map((requirement) => (
+                <div
+                  key={requirement.id}
+                  className={cn(cardSurface, "space-y-3 p-4")}
+                  id={`cme-requirement-${requirement.id}`}
+                  data-testid={`cme-requirement-${requirement.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <TextField
+                        label="Requirement"
+                        id={`cme-requirement-${requirement.id}-label`}
+                        value={requirement.label}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            replaceRequirement(current, requirement.id, (item) => ({
+                              ...item,
+                              label: event.target.value,
+                            })),
+                          )
+                        }
+                      />
+                    </div>
+                    {requirement.source === "college" ? (
+                      <Button
+                        type="button"
+                        variant="toolbar"
+                        size="sm"
+                        icon={Trash2}
+                        aria-label={`Remove ${requirement.label}`}
+                        onClick={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            requirements: current.requirements.filter((item) => item.id !== requirement.id),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    ) : null}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-sm font-medium text-[color:var(--text)]">
+                      Source
+                      <select
+                        value={requirement.source}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            replaceRequirement(current, requirement.id, (item) => ({
+                              ...item,
+                              source: event.target.value as CmeRequirement["source"],
+                            })),
+                          )
+                        }
+                        className="mt-1 min-h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+                      >
+                        <option value="national">Australian baseline</option>
+                        <option value="college">College extra</option>
+                      </select>
+                    </label>
+                    <label className="text-sm font-medium text-[color:var(--text)]">
+                      Requirement type
+                      <select
+                        value={requirement.spec.shape}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            replaceRequirement(current, requirement.id, (item) => ({
+                              ...item,
+                              completedOn: null,
+                              spec: specForShape(event.target.value as CmeRequirementSpec["shape"]),
+                            })),
+                          )
+                        }
+                        className="mt-1 min-h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+                      >
+                        <option value="hours-in-category">Hours in one category</option>
+                        <option value="hours-across-categories">Combined category hours</option>
+                        <option value="credited-hours">Formal peer-review credit</option>
+                        <option value="activity-count">Activities across domains</option>
+                        <option value="task">Completion task</option>
+                      </select>
+                    </label>
+                  </div>
+                  {requirement.spec.shape === "hours-in-category" ? (
+                    <label className="block text-sm font-medium text-[color:var(--text)]">
+                      Category
+                      <select
+                        value={requirement.spec.category}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            replaceRequirement(current, requirement.id, (item) => ({
+                              ...item,
+                              spec: {
+                                ...requirement.spec,
+                                category: event.target.value as typeof requirement.spec.category,
+                              },
+                            })),
+                          )
+                        }
+                        className="mt-1 min-h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+                      >
+                        {cmeCategories.map((category) => (
+                          <option key={category} value={category}>
+                            {cmeCategoryLabels[category]}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                  {requirement.spec.shape === "hours-across-categories" ? (
+                    <div className="space-y-3">
+                      <fieldset>
+                        <legend className="text-sm font-medium text-[color:var(--text)]">Categories included</legend>
+                        <div className="mt-1 grid gap-2 sm:grid-cols-3">
+                          {cmeCategories.map((category) => (
+                            <label
+                              key={category}
+                              className="flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] px-3 text-sm"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={
+                                  requirement.spec.shape === "hours-across-categories" &&
+                                  requirement.spec.categories.includes(category)
+                                }
+                                onChange={(event) => {
+                                  if (requirement.spec.shape !== "hours-across-categories") return;
+                                  const categories = event.target.checked
+                                    ? [...requirement.spec.categories, category]
+                                    : requirement.spec.categories.filter((item) => item !== category);
+                                  if (categories.length > 0)
+                                    setDraft((current) => updateAcross(current, requirement.id, { categories }));
+                                }}
+                              />
+                              {cmeCategoryLabels[category]}
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+                      <TextField
+                        label="Minimum in each selected category"
+                        id={`cme-requirement-${requirement.id}-minimum-each`}
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={requirement.spec.minimumEachHours}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            updateAcross(current, requirement.id, {
+                              minimumEachHours: numericValue(event.target.value, 0),
+                            }),
+                          )
+                        }
+                      />
+                    </div>
+                  ) : null}
+                  {"minimumHours" in requirement.spec ? (
+                    <TextField
+                      label="Minimum hours"
+                      id={`cme-requirement-${requirement.id}-hours`}
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={requirement.spec.minimumHours}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          updateMinimumHours(current, requirement.id, numericValue(event.target.value, 0)),
+                        )
+                      }
+                    />
+                  ) : null}
+                  {requirement.spec.shape === "activity-count" ? (
+                    <div className="space-y-3">
+                      <TextField
+                        label="Required domains"
+                        id={`cme-requirement-${requirement.id}-domains`}
+                        value={requirement.spec.buckets.join(", ")}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            replaceRequirement(current, requirement.id, (item) => ({
+                              ...item,
+                              spec: {
+                                ...requirement.spec,
+                                buckets: event.target.value
+                                  .split(",")
+                                  .map((value) => value.trim())
+                                  .filter(Boolean),
+                              },
+                            })),
+                          )
+                        }
+                        hint="Comma-separated; each selected domain is tracked separately."
+                      />
+                      <TextField
+                        label="Activities required per domain"
+                        id={`cme-requirement-${requirement.id}-count`}
+                        type="number"
+                        min="1"
+                        value={requirement.spec.minimumPerBucket}
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            updateMinimumPerBucket(current, requirement.id, numericValue(event.target.value, 1)),
+                          )
+                        }
+                      />
+                    </div>
+                  ) : null}
+                  {requirement.spec.shape === "task" ? (
+                    <TextField
+                      label="Completion date"
+                      id={`cme-requirement-${requirement.id}-completed`}
+                      type="date"
+                      value={requirement.completedOn ?? ""}
+                      onChange={(event) =>
+                        setDraft((current) =>
+                          replaceRequirement(current, requirement.id, (item) => ({
+                            ...item,
+                            completedOn: event.target.value || null,
+                          })),
+                        )
+                      }
+                      hint={`Source: ${requirement.source}. Leave blank until you have actually completed it.`}
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <InlineNotice tone="neutral">
+            By confirming, you are recording the requirements and source you checked. PsychSift does not independently
+            certify them.
+          </InlineNotice>
+          {onConfirm ? (
+            <Button type="submit" variant="primary" busy={saving} busyLabel="Confirming…" block>
+              {set ? "Re-confirm requirements" : "Confirm requirements"}
+            </Button>
+          ) : null}
+        </form>
+
         <Link
           href="/cme/routines"
           id="cme-setup-routines"
-          // `min-h-tap` (48px) on the Link itself, because here the Link IS the
-          // whole row — unlike `EntryRow` in cme-log-page.tsx, where the card is
-          // a wrapper and the inner Link carries the floor. Production tap
-          // targets are 48px; never drop this to `min-h-11` for a generic WCAG
-          // rule, which reintroduces a known ui-smoke flake.
-          className={cn(inPageAnchor, cardInteractive, "flex min-h-tap items-center gap-3 p-4")}
+          className="inline-flex min-h-tap items-center text-sm font-semibold text-[color:var(--clinical-accent)]"
         >
-          <span className="min-w-0 flex-1">
-            <span className="block text-2xs font-black uppercase tracking-eyebrow text-[color:var(--clinical-accent)]">
-              Optional — not a fifth step
-            </span>
-            <span className="mt-1 block text-sm font-bold text-[color:var(--text-heading)]">Set up your routines</span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-[color:var(--text-muted)]">
-              Supervision, journal club, peer review group — most of your hours, every month. Set them up once and each
-              is one tap.
-            </span>
-          </span>
-          <ChevronRight className="h-5 w-5 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
-        </Link>
-
-        <section
-          id="cme-setup-capture"
-          data-testid="cme-setup-capture"
-          className={cn(inPageAnchor, cardSurface, "flex flex-col gap-3 p-4")}
-        >
-          <div>
-            <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">Nothing is being recorded yet</h2>
-            <p className="mt-1 text-xs leading-relaxed text-[color:var(--text-muted)]">
-              Automatic capture is off. If you turn it on, it would record document titles and how long they were open —
-              never what you typed in the search box.
-            </p>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-[color:var(--text-heading)]">Automatic capture</span>
-            {/* Always rendered off. Phase 3 (automatic capture) is blocked
-                pending an explicit privacy ruling — see the CME design record
-                §6 — so this switch has nothing to turn on yet and must not
-                imply otherwise by holding its own toggled state. */}
-            <button
-              type="button"
-              role="switch"
-              aria-checked={false}
-              aria-label="Turn on automatic capture"
-              onClick={onToggleCapture ?? noop}
-              className={cn("relative inline-grid size-tap shrink-0 place-items-center rounded-full", focusRing)}
-            >
-              <span className="relative inline-flex h-6 w-tap items-center rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]">
-                <span
-                  className={cn(
-                    toggleThumbSurface,
-                    "grid h-[18px] w-[18px] translate-x-0.5 place-items-center rounded-full border border-[color:var(--border)] shadow-[var(--e1)]",
-                  )}
-                />
-              </span>
-            </button>
-          </div>
-        </section>
-
-        <Link href="/cme/new" className={cn(primaryControl, "w-full")}>
-          Log your first activity
+          Set up your routines
         </Link>
       </InformationPageShell>
     </>

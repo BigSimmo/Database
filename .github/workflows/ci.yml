@@ -120,6 +120,14 @@ jobs:
             node scripts/ci-change-scope.mjs
           fi
 
+      - name: Recommend tests for this PR
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+          PR_DRAFT: ${{ github.event.pull_request.draft == true }}
+        run: node scripts/browser-test-plan.mjs --ci-summary
+
   sync-pr-policy-body:
     name: Sync PR policy body
     needs: changes
@@ -505,7 +513,7 @@ jobs:
       - name: Setup Deno
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
-          deno-version: v2.x
+          deno-version: 2.9.7
 
       # A PR can only introduce a new (possibly-vulnerable) dependency when a
       # manifest/lockfile changes, so the audit blocks the merge gate only then
@@ -545,12 +553,16 @@ jobs:
         if: needs.changes.outputs.rag_eval_changed == 'true'
         run: npm run eval:rag:adversarial:offline
 
-  coverage:
-    name: Unit coverage
+  coverage-shards:
+    name: Unit coverage partition
     needs: changes
     if: needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     env:
       FAST_CHECK_SEED: ${{ github.event_name == 'schedule' && github.run_id || '424242' }}
     steps:
@@ -570,8 +582,58 @@ jobs:
       - name: Install deterministic Python PDF test prerequisite
         run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
 
-      - name: Unit tests (with coverage gate)
-        run: npm run test:coverage
+      - name: Unit tests with partial coverage
+        run: >-
+          node scripts/run-vitest.mjs run --config=vitest.coverage-shard.config.mts
+          --coverage --shard=${{ matrix.shard }}/2 --reporter=default --reporter=blob
+          --outputFile.blob=.vitest-ci/coverage-${{ matrix.shard }}.json
+
+      - name: Preserve test and coverage results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: unit-coverage-${{ github.run_id }}-${{ matrix.shard }}
+          overwrite: true
+          path: .vitest-ci/coverage-${{ matrix.shard }}.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
+
+  coverage:
+    name: Unit coverage
+    needs: [changes, coverage-shards]
+    if: >
+      always() && needs.changes.result == 'success' &&
+      needs.changes.outputs.coverage_changed == 'true' && github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require every unit partition to pass
+        env:
+          SHARD_RESULT: ${{ needs.coverage-shards.result }}
+        run: test "$SHARD_RESULT" = success
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
+
+      - name: Download both coverage partitions from this run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: unit-coverage-${{ github.run_id }}-*
+          path: .vitest-ci
+          merge-multiple: true
+
+      - name: Require both coverage reports
+        run: |
+          test -s .vitest-ci/coverage-1.json
+          test -s .vitest-ci/coverage-2.json
+
+      - name: Merge results and enforce the original coverage thresholds
+        run: npm run test:coverage -- --merge-reports=.vitest-ci --reporter=default
 
       - name: Verify coverage inventory
         run: npm run check:coverage-inventory
@@ -693,9 +755,50 @@ jobs:
   #
   # Deliberately NOT sharded: it is already the small subset, and sharding it
   # would spend runners without shortening the critical path.
+
+  # One isolated Next production build shared by PR UI Playwright lanes.
+  # Historically each of ui-critical-fast / ui-critical shards / ward journeys
+  # cold-built (~83% of UI wall clock). Build once here; consumers set
+  # PLAYWRIGHT_REUSE_BUILD=true with the same PLAYWRIGHT_BUILD_ROOT_ID.
+  ui-playwright-build:
+    name: Playwright Next build
+    needs: changes
+    if: >
+      needs.changes.outputs.ui_changed == 'true' &&
+      github.event.pull_request.draft != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Build isolated Next app for Playwright
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_KEEP_BUILD_ROOT: "true"
+          PLAYWRIGHT_BUILD_ONLY: "true"
+        run: node scripts/run-playwright.mjs --project=chromium
+
+      - name: Upload Playwright Next build
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          overwrite: true
+          path: .next-playwright/ci-${{ github.run_id }}
+          # Dot-dir under .next-playwright is hidden; upload-artifact excludes by default
+          # (same pattern as .local/eval-canary).
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 2
+
   ui-critical-fast:
     name: Production UI critical
-    needs: changes
+    needs: [changes, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -711,7 +814,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Chromium @critical journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: npm run test:e2e:critical
 
       - name: Classify exact failed test identities
@@ -722,7 +834,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: production-ui-critical-diagnostics-${{ github.run_id }}
+          name: production-ui-critical-diagnostics-${{ github.run_id }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
@@ -743,7 +855,7 @@ jobs:
   # change and the per-shard job names are free to differ.
   ui-critical:
     name: Production UI
-    needs: changes
+    needs: [changes, ui-playwright-build]
     # Start alongside the fail-fast subset. The suites stay disjoint on PR and
     # merge-queue events, and PR required independently demands both results.
     if: >
@@ -774,7 +886,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Chromium production journeys
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ] || [ "${{ github.event_name }}" = "merge_group" ]; then
             npm run test:e2e:pr:shard -- --shard ${{ matrix.shard }} --exclude-critical
@@ -794,11 +915,20 @@ jobs:
         with:
           # Shard-scoped: upload-artifact v7 runs with `overwrite: false`, so a
           # shared name would make the second failing shard fail on upload.
-          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}
+          name: production-ui-diagnostics-${{ github.run_id }}-shard${{ matrix.shard }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+      - name: Preserve production shard timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: production-ui-timings-${{ github.run_id }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
+          path: test-results/playwright-results.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   # Quarantined production tests and mockup-only journeys share one advisory
   # install/server without weakening the required production-ui job above.
@@ -832,7 +962,7 @@ jobs:
   # edit to one is an edit to both.
   ui-ward-journeys:
     name: Ward Flow browser journeys
-    needs: changes
+    needs: [changes, ui-playwright-build]
     if: >
       needs.changes.outputs.ui_changed == 'true' &&
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
@@ -848,7 +978,16 @@ jobs:
       - name: Setup UI e2e environment
         uses: ./.github/actions/setup-ui-e2e
 
+      - name: Download shared Playwright Next build
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Ward Flow journeys (blocking)
+        env:
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          PLAYWRIGHT_REUSE_BUILD: "true"
         run: npm run test:e2e:ward-journeys
 
       - name: Classify exact failed test identities
@@ -892,7 +1031,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: advisory-ui-diagnostics-${{ github.run_id }}
+          name: advisory-ui-diagnostics-${{ github.run_id }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
@@ -978,6 +1117,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: visual-baseline-${{ github.run_id }}
+          overwrite: true
           path: |
             test-results/
             tests/__screenshots__/
@@ -1067,6 +1207,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lighthouse-budget-${{ github.run_id }}
+          overwrite: true
           path: lighthouse/
           if-no-files-found: ignore
 
@@ -1127,6 +1268,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: lighthouse-baseline-refresh-${{ github.run_id }}
+          overwrite: true
           path: |
             lighthouse-budget.json
             lighthouse/
@@ -1269,6 +1411,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: drift-manifest-${{ github.run_id }}
+          overwrite: true
           path: supabase/drift-manifest.json
           if-no-files-found: error
 
@@ -1330,6 +1473,7 @@ jobs:
         ingestion-sast,
         build,
         container-images,
+        ui-playwright-build,
         ui-critical-fast,
         ui-critical,
         ui-ward-journeys,
@@ -1358,6 +1502,8 @@ jobs:
           # that actually ran.
           LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'lighthouse-budget') }}
           SKIP_LIGHTHOUSE_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'skip-lighthouse-budget') }}
+          # Bound through env (never interpolated into run:) — untrusted dispatch input.
+          REFRESH_LIGHTHOUSE_BASELINE: ${{ github.event.inputs.refresh_lighthouse_baseline }}
           CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
           PR_DRAFT: ${{ github.event.pull_request.draft == true }}
           EVENT_NAME: ${{ github.event_name }}
@@ -1368,6 +1514,7 @@ jobs:
           INGESTION_SAST_RESULT: ${{ needs.ingestion-sast.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           CONTAINER_RESULT: ${{ needs.container-images.result }}
+          UI_BUILD_RESULT: ${{ needs.ui-playwright-build.result }}
           UI_FAST_RESULT: ${{ needs.ui-critical-fast.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           WARD_JOURNEYS_RESULT: ${{ needs.ui-ward-journeys.result }}
@@ -1472,6 +1619,12 @@ jobs:
           fi
 
           if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
+            require_success "Playwright Next build" "$UI_BUILD_RESULT"
+          else
+            require_skipped_or_success "Playwright Next build" "$UI_BUILD_RESULT"
+          fi
+
+          if [ "$UI_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; then
               require_success "production-ui-critical" "$UI_FAST_RESULT"
             else
@@ -1499,7 +1652,19 @@ jobs:
             require_skipped_or_success "ward-flow-journeys" "$WARD_JOURNEYS_RESULT"
           fi
 
-          require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          # Mirror lighthouse-budget's own `if:` for PR/merge_group: when perf is in
+          # scope (or opt-in label) and skip label is absent, require success. The skip
+          # label remains an explicit escape hatch. Drafts without the opt-in label stay
+          # skipped-ok (job itself does not run on drafts unless labeled).
+          # Baseline-refresh dispatch forces PERF_CHANGED=true while intentionally
+          # skipping lighthouse-budget (refresh job runs instead) — accept that skip.
+          if [ "$SKIP_LIGHTHOUSE_LABEL" = "true" ] || [ "$REFRESH_LIGHTHOUSE_BASELINE" = "true" ]; then
+            require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          elif [ "$LIGHTHOUSE_LABEL" = "true" ] || { [ "$PERF_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; }; then
+            require_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          else
+            require_skipped_or_success "lighthouse-budget" "$LIGHTHOUSE_RESULT"
+          fi
 
           if [ "$DB_CHANGED" = "true" ] && [ "$PR_DRAFT" != "true" ]; then
             require_success "db-reset-verify" "$DB_RESULT"
@@ -1612,8 +1777,9 @@ jobs:
       needs.changes.result == 'success' &&
       needs.static-pr.result == 'success' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.ui-playwright-build.result == 'success' || needs.ui-playwright-build.result == 'skipped') &&
       (needs.ui-critical.result == 'success' || needs.ui-critical.result == 'skipped')
-    needs: [changes, static-pr, build, ui-critical]
+    needs: [changes, static-pr, build, ui-playwright-build, ui-critical]
     runs-on: ubuntu-24.04
     # Per ENGINE, not for the whole matrix. Before 2026-09-07 one job ran
     # chromium-mockups + firefox + webkit sequentially under `workers: 1` /
@@ -1636,11 +1802,20 @@ jobs:
       # remove.
       fail-fast: false
       matrix:
-        # Groups, not bare project names, because the fail-safe path below runs
-        # the COMPLETE project set and every project must land in exactly one
-        # group. `tests/ci-browser-matrix-coverage.test.ts` proves that union
-        # against playwright.config.ts and fails closed when a project is added.
-        engine: [chromium, firefox, webkit]
+        # Shard each WebKit project independently. Passing three equal-sized
+        # projects to --shard=1/3 gives one entire project to each runner.
+        # Keep every test, one worker, zero retries, and the existing timeout.
+        include:
+          - { engine: chromium, project: chromium-mockups, shard: 1, total: 1 }
+          - { engine: firefox, project: firefox, shard: 1, total: 3 }
+          - { engine: firefox, project: firefox, shard: 2, total: 3 }
+          - { engine: firefox, project: firefox, shard: 3, total: 3 }
+          - { engine: webkit, project: webkit, shard: 1, total: 2 }
+          - { engine: webkit, project: webkit, shard: 2, total: 2 }
+          - { engine: webkit, project: mobile-webkit, shard: 1, total: 2 }
+          - { engine: webkit, project: mobile-webkit, shard: 2, total: 2 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 1, total: 2 }
+          - { engine: webkit, project: mobile-pwa-standalone, shard: 2, total: 2 }
 
     steps:
       - name: Checkout
@@ -1656,13 +1831,15 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          # Prefix fallback so a lockfile bump does not force a cold download of all
-          # four browsers; `playwright install` below still fetches any missing version.
+          key: playwright-engine-${{ matrix.engine }}-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # Each job installs one engine. A shared immutable key would let the
+          # first completed engine populate the cache for all its siblings.
           restore-keys: |
-            playwright-${{ runner.os }}-
+            playwright-engine-${{ matrix.engine }}-${{ runner.os }}-
 
       - name: Install Playwright browsers
+        env:
+          BROWSER_ENGINE: ${{ matrix.engine }}
         run: |
           if command -v sudo >/dev/null 2>&1; then
             sudo sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
@@ -1675,10 +1852,10 @@ jobs:
           fi
           install_browsers() {
             if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
-              npx playwright install-deps
-              npx playwright install
+              npx playwright install-deps "$BROWSER_ENGINE"
+              npx playwright install "$BROWSER_ENGINE"
             else
-              npx playwright install --with-deps
+              npx playwright install --with-deps "$BROWSER_ENGINE"
             fi
           }
           for attempt in 1 2 3; do
@@ -1690,10 +1867,25 @@ jobs:
           done
           exit 1
 
+      - name: Download matching production browser build
+        if: matrix.engine != 'chromium' && needs.ui-playwright-build.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: playwright-next-build-${{ github.run_id }}
+          path: .next-playwright/ci-${{ github.run_id }}
+
       - name: Full browser UI matrix
         id: e2e-matrix
         env:
           ENGINE: ${{ matrix.engine }}
+          BROWSER_PROJECT: ${{ matrix.project }}
+          SHARD: ${{ matrix.shard }}
+          SHARD_TOTAL: ${{ matrix.total }}
+          PLAYWRIGHT_BUILD_ROOT_ID: ci-${{ github.run_id }}
+          # Firefox/WebKit use the producer's mockups-disabled build. Chromium
+          # includes mockups, whose public flag is baked in, so it builds its own.
+          # If the producer was out of scope, the wrapper also builds normally.
+          PLAYWRIGHT_REUSE_BUILD: ${{ matrix.engine != 'chromium' && needs.ui-playwright-build.result == 'success' }}
         run: |
           # Both paths below are exhaustive across playwright.config.ts projects
           # for their own path, and disjoint between engines. The fail-safe union
@@ -1707,7 +1899,7 @@ jobs:
             case "$ENGINE" in
               chromium) PROJECTS="--project=chromium-mockups" ;;
               firefox)  PROJECTS="--project=firefox" ;;
-              webkit)   PROJECTS="--project=webkit" ;;
+              webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
             esac
           else
@@ -1716,7 +1908,7 @@ jobs:
             case "$ENGINE" in
               chromium) PROJECTS="--project=chromium --project=chromium-mockups --project=chromium-caring-contacts-seeded" ;;
               firefox)  PROJECTS="--project=firefox" ;;
-              webkit)   PROJECTS="--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone" ;;
+              webkit)   PROJECTS="--project=$BROWSER_PROJECT" ;;
               *) echo "::error::unknown engine '$ENGINE'" >&2; exit 1 ;;
             esac
           fi
@@ -1724,19 +1916,30 @@ jobs:
           # Word-splitting is intended: $PROJECTS is a list of --project= flags
           # built above, never user input.
           # shellcheck disable=SC2086
-          npm run test:e2e -- $PROJECTS
+          # Finish inside the job cap so Playwright can write its failure report
+          # and the following upload steps can preserve timeout diagnostics.
+          npm run test:e2e -- $PROJECTS --shard="$SHARD/$SHARD_TOTAL" --global-timeout=1800000
 
       - name: Upload UI diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          # Per engine: a shared name makes the second failing engine fail on
+          # Per project/partition: a shared name makes another failing job fail on
           # upload, the same trap already documented on the Production UI shards.
-          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.engine }}
+          name: release-ui-diagnostics-${{ github.run_id }}-${{ matrix.project }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
+
+      - name: Preserve browser partition timings
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-ui-timings-${{ github.run_id }}-${{ matrix.project }}-${{ matrix.shard }}-attempt${{ github.run_attempt }}
+          path: test-results/playwright-results.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   # WHY THIS EXISTS. Every job above answers the question "is this change broken?". Nothing
   # answered "is `main` broken right now?", and the difference is not academic: `pr-required` is a

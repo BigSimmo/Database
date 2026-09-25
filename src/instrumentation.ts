@@ -144,6 +144,12 @@ export async function register() {
   // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
   const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");
   void warmEnabledRagAliasCache();
+
+  // Warm the three catalogue kinds universal-search Promise.all's, serially, so an idle
+  // process's first federated search is not the cold connection that blows the 1200 ms
+  // budget (monitor #2919 / ledger #WFSMMT). Non-blocking; failures swallowed inside.
+  const { warmCanonicalCatalogueSearchCaches } = await import("@/lib/site-content/warm-catalogue-caches");
+  void warmCanonicalCatalogueSearchCaches();
 }
 
 export { captureRequestError as onRequestError };

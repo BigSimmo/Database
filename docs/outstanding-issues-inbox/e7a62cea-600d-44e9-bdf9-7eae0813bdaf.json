@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "e7a62cea-600d-44e9-bdf9-7eae0813bdaf",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#TWS2GD",
+    "outcome": "Resolved 2026-09-25 (ledger review). Not a runtime double render. The duplicate <main> is the known hidden Next.js streaming clone (#093/#JAEKM4 class): display:none, zero size, outside the accessibility tree. d9f6c5e68 switched the test to expectSingleSettledOwner. The pending Chromium-escalation update for this row is cancelled in the same review.",
+    "baseRowFingerprint": "942b3f897b2647c50600668f22585295b1243b0c010ed8b8f2e8baf2d5bcfe6c"
+  }
+}

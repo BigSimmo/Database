@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "16b10d90-de02-45b7-97eb-d71ecc171b09",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "80b5c9ed-71ed-42f9-9505-5b42f95b3df5",
+    "reason": "Stale on review 2026-09-25: already fixed on main. src/lib/on-call/repository.ts is in SCANNED_LIB_MODULES (scripts/lib/tenancy-scan.mjs)."
+  }
+}

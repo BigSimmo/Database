@@ -118,6 +118,8 @@
       "id": "catalogues-forms-and-info",
       "disposition": "owned",
       "routes": [
+        "src/app/(search-app)/cme/calendar/page.tsx",
+        "src/app/(search-app)/cme/check/page.tsx",
         "src/app/(search-app)/cme/customise/page.tsx",
         "src/app/(search-app)/cme/log/[id]/page.tsx",
         "src/app/(search-app)/cme/log/page.tsx",
@@ -127,6 +129,7 @@
         "src/app/(search-app)/cme/programme/page.tsx",
         "src/app/(search-app)/cme/routines/page.tsx",
         "src/app/(search-app)/cme/setup/page.tsx",
+        "src/app/(search-app)/cme/summary/page.tsx",
         "src/app/(search-app)/dictionary/[slug]/page.tsx",
         "src/app/(search-app)/dictionary/browse/page.tsx",
         "src/app/(search-app)/dictionary/compare/page.tsx",
@@ -148,15 +151,20 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/on-call/calendar/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
+        "src/app/(search-app)/on-call/check/page.tsx",
         "src/app/(search-app)/on-call/compliance/page.tsx",
         "src/app/(search-app)/on-call/contacts/page.tsx",
         "src/app/(search-app)/on-call/education/page.tsx",
+        "src/app/(search-app)/on-call/first-night/page.tsx",
         "src/app/(search-app)/on-call/logistics/page.tsx",
+        "src/app/(search-app)/on-call/now/page.tsx",
         "src/app/(search-app)/on-call/orientation/page.tsx",
         "src/app/(search-app)/on-call/page.tsx",
         "src/app/(search-app)/on-call/playbook/page.tsx",
         "src/app/(search-app)/on-call/referrals/page.tsx",
+        "src/app/(search-app)/on-call/service/page.tsx",
         "src/app/(search-app)/on-call/who-is-who/page.tsx",
         "src/app/(search-app)/services/[slug]/page.tsx",
         "src/app/(search-app)/services/page.tsx",
@@ -581,6 +589,7 @@
       "id": "privacy-safety-and-reference",
       "disposition": "owned",
       "routes": [
+        "src/app/auth/reset-password/page.tsx",
         "src/app/privacy/page.tsx",
         "src/app/reference/colour-coding/page.tsx",
         "src/app/safety-plan/page.tsx"
@@ -615,7 +624,12 @@
         "status": "not-committed",
         "files": []
       },
-      "sanctionedSpecialPatterns": ["PrivacyPage", "ColourCodingReferencePage", "PatientSafetyPlan"]
+      "sanctionedSpecialPatterns": [
+        "PasswordRecoveryForm",
+        "PrivacyPage",
+        "ColourCodingReferencePage",
+        "PatientSafetyPlan"
+      ]
     },
     {
       "id": "search-results-shared",

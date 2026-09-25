@@ -146,6 +146,7 @@ export const modeSecondaryNavigationRegistry = {
     // against the live clinical database. See src/lib/on-call/compliance.ts.
     { id: "compliance", label: "Compliance", href: "/on-call/compliance" },
     { id: "whoswho", label: "Who's who", href: "/on-call/who-is-who" },
+    { id: "service", label: "Service", href: "/on-call/service" },
     { id: "card", label: "Pocket card", href: "/on-call/card" },
   ],
   // CME's destinations. Like On Call's, they are registered here so the mode
@@ -163,6 +164,8 @@ export const modeSecondaryNavigationRegistry = {
   cme: [
     { id: "year", label: "This year", href: "/cme" },
     { id: "log", label: "Log", href: "/cme/log" },
+    { id: "check", label: "Year check", href: "/cme/check" },
+    { id: "calendar", label: "Calendar", href: "/cme/calendar" },
     { id: "routines", label: "Routines", href: "/cme/routines" },
     { id: "plan", label: "Plan", href: "/cme/plan" },
     { id: "programme", label: "Programme", href: "/cme/programme" },
@@ -307,6 +310,7 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
     if (pathname === "/on-call/logistics") return "logistics";
     if (pathname === "/on-call/compliance") return "compliance";
     if (pathname === "/on-call/who-is-who") return "whoswho";
+    if (pathname === "/on-call/service") return "service";
     if (pathname === "/on-call/card") return "card";
     // Exact match only. `/on-call` is the mode home now rather than a redirect
     // stub, and a prefix test here would mark Tonight current on every section
@@ -316,6 +320,8 @@ export function activeModeSecondaryNavigationId(modeId: AppModeId, pathname: str
   }
   if (modeId === "cme") {
     if (pathname === "/cme/log") return "log";
+    if (pathname === "/cme/check") return "check";
+    if (pathname === "/cme/calendar") return "calendar";
     if (pathname === "/cme/routines") return "routines";
     if (pathname === "/cme/plan") return "plan";
     if (pathname === "/cme/programme") return "programme";

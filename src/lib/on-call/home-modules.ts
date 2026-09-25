@@ -180,14 +180,16 @@ export function onCallAvailability(entry: OnCallEntry): string | null {
  */
 export function onCallDialableNumber(raw: string | undefined | null): string | undefined {
   if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? compact : undefined;
+  if (!/^[+\d\s().-]+$/.test(raw)) return undefined;
+  const compact = raw.replace(/[\s().-]/g, "");
+  return /^\+?\d+$/.test(compact) ? compact : undefined;
 }
 
 /** `tel:` target for a number, or undefined when there is nothing dialable. */
 export function onCallTelHref(raw: string | undefined | null): string | undefined {
   const compact = onCallDialableNumber(raw);
-  return compact ? `tel:${compact}` : undefined;
+  // Short extensions and pager IDs must not be handed to an external dialler.
+  return compact && /^(?:\+\d{8,15}|\d{8,15}|13\d{4}|000|112|106)$/.test(compact) ? `tel:${compact}` : undefined;
 }
 
 const bySortOrder = (a: OnCallEntry, b: OnCallEntry) => a.sortOrder - b.sortOrder || a.title.localeCompare(b.title);

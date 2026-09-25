@@ -3,16 +3,22 @@
 import {
   CalendarClock,
   CalendarDays,
+  CalendarRange,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardCopy,
   ListChecks,
   NotebookPen,
   Settings2,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
 import { Button } from "@/components/ui/button";
+import { CmeCategoryBar, CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
 import { Progress } from "@/components/ui/progress";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import {
@@ -26,6 +32,9 @@ import {
   perthCalendarDate,
 } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
+import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
+import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
+import { buildCmeYearCheck } from "@/lib/cme/year-check";
 import { cmeDashboardModuleLabels, useCmeModuleOrder, type CmeDashboardModuleId } from "@/lib/cme/module-order";
 import {
   cmeRoutineCadenceLabels,
@@ -37,6 +46,7 @@ import {
   type CmeRoutineLogPrefill,
 } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementStatus } from "@/lib/cme/types";
+import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
 
 /**
  * THE DASHBOARD — the screen the whole mode is judged by.
@@ -63,7 +73,7 @@ import type { CmeEntry, CmeRequirementSet, CmeRequirementSpec, CmeRequirementSta
  */
 
 /** How close to 31 December the one action turns from tracking into the year-end checklist. */
-const CLOSE_YEAR_WINDOW_DAYS = 14;
+const CLOSE_YEAR_WINDOW_DAYS = CME_CLOSE_WINDOW_DAYS;
 
 const FULL_MONTH_NAMES = [
   "January",
@@ -123,6 +133,18 @@ export type CmeDashboardProps = {
    * screen still renders sensibly wherever it is not yet wired to a route.
    */
   readonly onOpenCustomise?: () => void;
+  /**
+   * Last year's activities not yet copied to the CPD home, shown from
+   * 1 January until the college's reporting date. Null outside that window.
+   */
+  readonly reportingReminder?: CmeReportingReminder | null;
+};
+
+export type CmeReportingReminder = {
+  readonly year: number;
+  readonly notCopied: number;
+  /** Perth date the claim closes, `YYYY-MM-DD`. */
+  readonly closesOn: string;
 };
 
 /**
@@ -133,7 +155,7 @@ export type CmeDashboardProps = {
 type ShortfallTier = 0 | 1 | 2;
 
 function shortfallTier(shape: CmeRequirementSpec["shape"]): ShortfallTier {
-  if (shape === "hours-in-category" || shape === "hours-across-categories") return 0;
+  if (shape === "hours-in-category" || shape === "hours-across-categories" || shape === "credited-hours") return 0;
   if (shape === "activity-count") return 1;
   return 2; // "task"
 }
@@ -184,21 +206,36 @@ function computeNextAction(args: {
   set: CmeRequirementSet;
   unmet: readonly CmeRequirementStatus[];
   now: Date;
+  totalHours: number;
 }): string {
-  const { set, unmet, now } = args;
+  const { set, unmet, now, totalHours } = args;
   const inRequestedYear = cpdYearOf(now) === set.year;
 
-  if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
-    return "Close the year: check every entry has its evidence attached, then generate your CPD summary before 31 December.";
+  if (set.closedAt) {
+    return "This CPD year is closed. Open the annual summary for its snapshot and any amendments.";
   }
 
-  if (inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS) {
-    return "It's early in the year for a pace projection — a good place to start is your development plan.";
+  if (unmet.length === 0 && totalHours >= set.totalHours) {
+    return "Every requirement is met for this year. Keep logging activities as you go.";
+  }
+
+  if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
+    // Closing happens on the annual summary, which also shows what the year looks like
+    // before it is frozen, so the action sends the owner there rather than closing from here.
+    return "Year end: check each entry against the records you keep, then close the year from your annual summary.";
+  }
+
+  const earlyTask = set.requirements.find(
+    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
+  );
+  if (inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask) {
+    return `It's early in the year for a pace projection — a good place to start is ${earlyTask.label.toLowerCase()}.`;
   }
 
   if (unmet.length === 0) {
-    return "Every requirement is met for this year. Keep logging activities as you go.";
+    return `Next: Total CPD hours — ${formatCmeHours(set.totalHours - totalHours)} hours short`;
   }
+
   const next = furthestFromMet(set, unmet)!;
   const label =
     set.requirements.find((requirement) => requirement.id === next.requirementId)?.label ?? "Next requirement";
@@ -225,6 +262,7 @@ export function CmeDashboard({
   routines = [],
   onLogRoutine = () => {},
   onOpenCustomise = () => {},
+  reportingReminder = null,
 }: CmeDashboardProps) {
   const { moduleIds } = useCmeModuleOrder();
   const { totalHours, statuses, unmet } = evaluateYear({ set, entries });
@@ -244,8 +282,6 @@ export function CmeDashboard({
       }
     : undefined;
 
-  const nextAction = computeNextAction({ set, unmet, now });
-
   const today = perthCalendarDate(now);
   const loggedToday = entries.filter((entry) => entry.date === today);
   const loggedTodayHours = loggedToday.reduce(
@@ -253,9 +289,27 @@ export function CmeDashboard({
     0,
   );
   const dueRoutines = routinesDueOn(routines, now);
+  const nextRequirementStatus = furthestFromMet(set, unmet);
+  const nextRequirement = nextRequirementStatus
+    ? set.requirements.find((requirement) => requirement.id === nextRequirementStatus.requirementId)
+    : undefined;
+  const earlyTask = set.requirements.find(
+    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
+  );
+  // A due routine is listed, with its own Log button, in the "Routines due"
+  // module. It used to take this slot too, which hid the requirement gap and
+  // the year-end reminder whenever anything recurring was due.
+  const nextAction = computeNextAction({ set, unmet, now, totalHours });
+  const allTargetsMet = unmet.length === 0 && totalHours >= set.totalHours;
   // Stable sort: unmet first. Position is one of the three channels this mode uses for
   // shortfall instead of colour — see the file-level note above.
   const sortedStatuses = [...statuses].sort((a, b) => Number(a.met) - Number(b.met));
+
+  const yearCheck = buildCmeYearCheck(set, entries);
+  const nextDate = expandEvents(cmeCalendarEvents({ set, entries, routines }).exported, {
+    start: today,
+    end: addDays(today, 400),
+  })[0];
 
   function requirementLabel(requirementId: string): string {
     return set.requirements.find((requirement) => requirement.id === requirementId)?.label ?? requirementId;
@@ -265,15 +319,68 @@ export function CmeDashboard({
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
+  const nextActionControl = set.closedAt ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/summary?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : allTargetsMet ? (
+    <p data-testid="cme-next-action" className="text-sm font-medium text-[color:var(--text)]">
+      {nextAction}
+    </p>
+  ) : inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/summary?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(earlyTask.id)}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : nextRequirement?.spec.shape === "task" ? (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(nextRequirement.id)}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  ) : (
+    <Link
+      data-testid="cme-next-action"
+      href={`/cme/new?year=${set.year}`}
+      className="inline-flex min-h-tap w-full items-center rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)]"
+    >
+      {nextAction}
+    </Link>
+  );
+
   const moduleContent: Record<CmeDashboardModuleId, ReactNode> = {
     requirements: (
       <ul className="space-y-2">
         {sortedStatuses.map((status) => (
-          <li key={status.requirementId} className={cn(cardSurface, "p-3")}>
-            <p className={cn("text-sm text-[color:var(--text)]", !status.met && "font-semibold")}>
-              {requirementLabel(status.requirementId)}
-            </p>
-            <p className={cn(textMuted, "text-sm")}>{status.summary}</p>
+          <li
+            key={status.requirementId}
+            data-met={status.met ? "true" : "false"}
+            className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}
+          >
+            <div className="min-w-0">
+              <p className={cn("text-sm text-[color:var(--text)]", !status.met && "font-semibold")}>
+                {requirementLabel(status.requirementId)}
+              </p>
+              <p className={cn(textMuted, "text-sm")}>{status.summary}</p>
+            </div>
+            <CmeRequirementMeter progress={status.progress} met={status.met} />
           </li>
         ))}
       </ul>
@@ -300,7 +407,7 @@ export function CmeDashboard({
       loggedToday.length > 0 ? (
         <p className="text-sm text-[color:var(--text)]">
           {loggedToday.length} {loggedToday.length === 1 ? "activity" : "activities"} logged today,{" "}
-          {formatCmeHours(loggedTodayHours)} hours.
+          {formatCmeHours(loggedTodayHours)} {loggedTodayHours === 1 ? "hour" : "hours"}.
         </p>
       ) : (
         <p className={cn(textMuted, "text-sm")}>Nothing logged yet today.</p>
@@ -312,20 +419,39 @@ export function CmeDashboard({
       </p>
     ),
     provenance: (
-      <p className={cn(textMuted, "text-sm")}>
-        Confirmed by you on {formatRoutineDueDate(set.confirmedOn)}, against {set.confirmedSource}.
+      <p className={cn(textMuted, "break-words text-sm")}>
+        Source recorded by you on {formatRoutineDueDate(set.confirmedOn)}: {set.confirmedSource}. This records what you
+        checked; it is not independent certification.
       </p>
     ),
   };
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <h1 className="text-xl font-semibold text-[color:var(--text)]">CME</h1>
         <Button variant="toolbar" size="sm" icon={Settings2} onClick={onOpenCustomise}>
           Customise
         </Button>
       </div>
+
+      {reportingReminder && reportingReminder.notCopied > 0 ? (
+        <Link
+          href={`/cme/log?year=${reportingReminder.year}&copy=todo`}
+          data-testid="cme-reporting-reminder"
+          className={cn(cardSurface, "mt-4 flex min-h-tap items-center gap-3 p-4")}
+        >
+          <ClipboardCopy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+          <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">
+            <span className="font-semibold">
+              {reportingReminder.notCopied} {reportingReminder.notCopied === 1 ? "activity" : "activities"} from{" "}
+              {reportingReminder.year} not yet copied to MyCPD.
+            </span>{" "}
+            Your {reportingReminder.year} claim closes on {formatDayFullMonth(reportingReminder.closesOn)}.
+          </span>
+          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+        </Link>
+      ) : null}
 
       <section className={cn(cardSurface, "mt-4 p-4")}>
         <p data-testid="cme-total-hours" className="flex flex-wrap items-baseline gap-1">
@@ -335,15 +461,55 @@ export function CmeDashboard({
         <div className="mt-3">
           <Progress value={progressValue} label="Hours toward this year's target" mark={mark} />
         </div>
+        <div className="mt-4">
+          <CmeCategoryBar entries={entries} targetHours={set.totalHours} />
+        </div>
+        {pace && entries.length > 0 ? (
+          <div className="mt-4">
+            <CmePaceChart
+              entries={entries}
+              year={set.year}
+              targetHours={set.totalHours}
+              todayIndex={daysElapsedInCpdYear(now, set.year) - 1}
+            />
+          </div>
+        ) : null}
         {pace ? (
           <p data-testid="cme-pace-sentence" className={cn(textMuted, "mt-3 text-sm")}>
             {paceSentence(pace, set.totalHours, endLabel)}
           </p>
         ) : null}
-        <p data-testid="cme-next-action" className="mt-3 text-sm font-medium text-[color:var(--text)]">
-          {nextAction}
-        </p>
+        <div className="mt-3">{nextActionControl}</div>
       </section>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <Link
+          href={`/cme/check?year=${set.year}`}
+          data-testid="cme-year-check-link"
+          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
+        >
+          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
+            <ClipboardCheck aria-hidden="true" className="size-icon-sm" />
+            Year check
+          </span>
+          <span className="text-sm font-semibold text-[color:var(--text)]">
+            {yearCheck.readyCount} of {yearCheck.rows.length} ready
+          </span>
+        </Link>
+        <Link
+          href={`/cme/calendar?year=${set.year}`}
+          data-testid="cme-calendar-link"
+          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
+        >
+          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
+            <CalendarRange aria-hidden="true" className="size-icon-sm" />
+            Calendar
+          </span>
+          <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
+            {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
+          </span>
+        </Link>
+      </div>
 
       <div className="mt-6 space-y-6">
         {moduleIds.map((moduleId) => {

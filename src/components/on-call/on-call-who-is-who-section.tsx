@@ -1,5 +1,7 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
 import { Pencil, Users } from "lucide-react";
 
 import { OnCallStaleFlag } from "@/components/on-call/on-call-freshness-badge";
@@ -9,7 +11,12 @@ import { OnCallVerifyButton } from "@/components/on-call/on-call-entry-editor";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { cardPadding, cardSurface } from "@/components/card-recipes";
 import { cn, eyebrowText, textMuted, toolbarButton } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
 export interface OnCallWhoIsWhoSectionProps {
@@ -77,6 +84,8 @@ function RoleCard({
 
   return (
     <article
+      id={onCallEntryAnchorId(entry.id)}
+      tabIndex={-1}
       className={cn(cardSurface, cardPadding.standard, "grid grid-cols-[minmax(0,1fr)] gap-2")}
       data-testid={`on-call-role-${entry.slug}`}
     >
@@ -146,7 +155,11 @@ export function OnCallWhoIsWhoSection({
       <EmptyState
         icon={Users}
         title="No roles explained yet"
-        body="What each role does, when it is reasonable to call them, and what the local acronyms mean. Add these as contacts and mark them as a role explainer."
+        body={
+          onEditEntry
+            ? "What each role does, when it is reasonable to call them, and what the local acronyms mean. Add one from this page."
+            : "What each role does, when it is reasonable to call them, and what the local acronyms mean. Sign in to add the roles at your service."
+        }
         testId="on-call-who-is-who-empty"
       />
     );
@@ -181,7 +194,13 @@ export function OnCallWhoIsWhoSection({
           testId={`on-call-who-is-who-group-${group.slug}`}
         >
           {group.entries.map((entry) => (
-            <RoleCard key={entry.id} entry={entry} now={now} onEditEntry={onEditEntry} onVerified={onVerified} />
+            <RoleCard
+              key={entry.id}
+              entry={entry}
+              now={now}
+              onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+              onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+            />
           ))}
         </OnCallGroupSection>
       ))}

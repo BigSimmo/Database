@@ -41,7 +41,7 @@ export function OnCallCardNavHeader() {
   return (
     <InPageNavHeader
       back={{ href: "/on-call", label: "On Call" }}
-      title="Essentials card"
+      title="Pocket card"
       testIdPrefix="on-call-card"
       actionsTitle="Card actions"
       actionsDescription="Print the numbers flagged for this card."
@@ -53,6 +53,16 @@ export function OnCallCardNavHeader() {
       }
     />
   );
+}
+
+/**
+ * The header for the mode's single-purpose tools — Who to call now, Check
+ * these, First night, Calendar. Like the card, each is reached by an action
+ * from the home, so each keeps the back arrow to `/on-call`. Kept in this file
+ * for the same one-claimant reason as the two headers around it.
+ */
+export function OnCallToolNavHeader({ title, testIdPrefix }: { title: string; testIdPrefix: string }) {
+  return <InPageNavHeader back={{ href: "/on-call", label: "On Call" }} title={title} testIdPrefix={testIdPrefix} />;
 }
 
 /** The prefix `InPageNavHeader` composes this mode's header testids from. */

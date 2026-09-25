@@ -3,7 +3,7 @@
 import { CircleCheck, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { ON_CALL_SECTION_TITLES } from "@/components/on-call/on-call-section-identity";
+import { ON_CALL_VIEW_TITLES, type OnCallPageView } from "@/components/on-call/on-call-section-identity";
 import { OnCallFreshnessBadge } from "@/components/on-call/on-call-freshness-badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
@@ -14,7 +14,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { TextField } from "@/components/ui/text-field";
 import { cn, fieldControlPlain, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
-import { isComplianceEntry } from "@/lib/on-call/compliance";
+import { isComplianceEntry, ON_CALL_ADMIN_CATEGORIES, ON_CALL_COMPLIANCE_CATEGORIES } from "@/lib/on-call/compliance";
 import { mergeOnCallEditorDetails } from "@/lib/on-call/editor-details";
 import {
   ON_CALL_COMPLIANCE_CONSEQUENCES,
@@ -28,6 +28,7 @@ import {
   type OnCallEntry,
   type OnCallRecurrenceFrequency,
   type OnCallSection,
+  type OnCallStepHours,
 } from "@/lib/on-call/entry-model";
 import { isRoleExplainerEntry } from "@/lib/on-call/who-is-who";
 
@@ -171,30 +172,13 @@ function categoryOptions(categories: readonly string[]): SelectOption[] {
  * "Facilities" is here because the section used to be site logistics, and the
  * rooms-and-food rows written then still have to land somewhere.
  */
-const ADMIN_CATEGORY_OPTIONS: SelectOption[] = categoryOptions([
-  "Leave",
-  "Rosters",
-  "Pay",
-  "Forms",
-  // "Access", not "IT and access": what the owner is filing is the thing that
-  // lets them in — logins, keycards, parking passes — and the one word covers
-  // all three without naming a department.
-  "Access",
-  "Facilities",
-]);
+const ADMIN_CATEGORY_OPTIONS: SelectOption[] = categoryOptions([...ON_CALL_ADMIN_CATEGORIES]);
 
 /** The Compliance folders. Same stored section, different taxonomy — see
  *  `src/lib/on-call/compliance.ts`. One word each, per the note above; these
  *  render as a pill on the row rather than a heading, but the owner should not
  *  have to learn two naming conventions inside one editor. */
-const COMPLIANCE_CATEGORY_OPTIONS: SelectOption[] = categoryOptions([
-  "Registration",
-  "Indemnity",
-  "Training",
-  "Credentialing",
-  "CPD",
-  "Clearances",
-]);
+const COMPLIANCE_CATEGORY_OPTIONS: SelectOption[] = categoryOptions([...ON_CALL_COMPLIANCE_CATEGORIES]);
 
 /**
  * The Orientation folders. Unlike the two above, the empty value is offered:
@@ -355,7 +339,7 @@ const SECTION_DETAIL_FIELDS: Record<OnCallSection, DetailFieldSpec[]> = {
       key: "escalationSteps",
       label: "Escalation steps",
       kind: "textarea",
-      hint: "One step per line: who to call | when | phone (optional).",
+      hint: 'One step per line: who to call | when | phone (optional) | "in hours" or "after hours" (optional).',
     },
   ],
   referrals: [
@@ -458,7 +442,7 @@ function listPhrase(items: readonly string[]): string {
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
-type EscalationStep = { order: number; whoToCall: string; when: string; phone?: string };
+type EscalationStep = { order: number; whoToCall: string; when: string; phone?: string; hours?: OnCallStepHours };
 
 function detailStringValue(details: unknown, key: string): string {
   if (!details || typeof details !== "object") return "";
@@ -486,14 +470,28 @@ function escalationStepsToText(details: unknown): string {
   return steps
     .map((step) => {
       if (!step || typeof step !== "object") return "";
-      const record = step as { whoToCall?: unknown; when?: unknown; phone?: unknown };
+      const record = step as { whoToCall?: unknown; when?: unknown; phone?: unknown; hours?: unknown };
       const who = typeof record.whoToCall === "string" ? record.whoToCall : "";
       const when = typeof record.when === "string" ? record.when : "";
-      const phone = typeof record.phone === "string" && record.phone ? ` | ${record.phone}` : "";
-      return who || when ? `${who} | ${when}${phone}` : "";
+      const phoneValue = typeof record.phone === "string" ? record.phone : "";
+      const hours = record.hours === "in-hours" ? "in hours" : record.hours === "after-hours" ? "after hours" : "";
+      const tail = hours ? ` | ${phoneValue} | ${hours}` : phoneValue ? ` | ${phoneValue}` : "";
+      return who || when ? `${who} | ${when}${tail}` : "";
     })
     .filter(Boolean)
     .join("\n");
+}
+
+/** "in hours" / "after hours" / blank or "any". Anything else is a typo, and null says so. */
+function parseStepHours(raw: string | undefined): OnCallStepHours | null {
+  const value = (raw ?? "")
+    .toLowerCase()
+    .replace(/[-\s]+/g, " ")
+    .trim();
+  if (value === "" || value === "any" || value === "any time") return "any";
+  if (value === "in hours") return "in-hours";
+  if (value === "after hours" || value === "out of hours") return "after-hours";
+  return null;
 }
 
 /** Returns `null` on a malformed line so the caller can surface one FieldError
@@ -505,9 +503,17 @@ function parseEscalationSteps(raw: string): EscalationStep[] | null {
     .filter((line) => line.length > 0);
   const steps: EscalationStep[] = [];
   for (const line of lines) {
-    const [whoToCall, when, phone] = line.split("|").map((part) => part.trim());
+    const [whoToCall, when, phone, hoursText] = line.split("|").map((part) => part.trim());
     if (!whoToCall || !when) return null;
-    steps.push({ order: steps.length + 1, whoToCall, when, ...(phone ? { phone } : {}) });
+    const hours = parseStepHours(hoursText);
+    if (hours === null) return null;
+    steps.push({
+      order: steps.length + 1,
+      whoToCall,
+      when,
+      ...(phone ? { phone } : {}),
+      ...(hours !== "any" ? { hours } : {}),
+    });
   }
   return steps;
 }
@@ -708,6 +714,16 @@ export function OnCallEntryEditor({
   const [draft, setDraft] = useState<DraftState>(() =>
     buildInitialDraft(section, entry, createAsRoleExplainer, createAsCompliance),
   );
+  // The page the new entry is being added to, not the stored section it is
+  // written to: "Add requirement" on Compliance and "Add role" on Who's who
+  // both write another page's section, and titled the sheet "Add to Admin" and
+  // "Add to Contacts" until 2026-09-24 (the #NB4SHF class of bug).
+  const creatingView: OnCallPageView =
+    createAsCompliance && section === "logistics"
+      ? "compliance"
+      : createAsRoleExplainer && section === "contacts"
+        ? "who-is-who"
+        : section;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"saving" | "deleting" | null>(null);
@@ -899,8 +915,9 @@ export function OnCallEntryEditor({
       if (field.key === "escalationSteps") {
         const steps = parseEscalationSteps(raw);
         if (steps === null) {
-          nextErrors[field.key] = "Each step needs at least a who and a when, separated by |.";
-        } else if (steps.length > 0) {
+          nextErrors[field.key] =
+            'Each step needs at least a who and a when, separated by |. The optional fourth part is "in hours" or "after hours".';
+        } else {
           formDetails[field.key] = steps;
         }
         continue;
@@ -910,7 +927,7 @@ export function OnCallEntryEditor({
           .split(",")
           .map((item) => item.trim())
           .filter((item) => item.length > 0);
-        if (items.length > 0) formDetails[field.key] = items;
+        formDetails[field.key] = items;
         continue;
       }
       const trimmedValue = raw.trim();
@@ -921,7 +938,7 @@ export function OnCallEntryEditor({
           const days = Number(trimmedValue);
           if (!Number.isInteger(days) || days < 0) nextErrors[field.key] = "A whole number of days, or leave it blank.";
           else formDetails[field.key] = days;
-        } else if (field.clearWhenEmpty) {
+        } else {
           clearedKeys.push(field.key);
         }
         continue;
@@ -930,7 +947,7 @@ export function OnCallEntryEditor({
       // "None chosen" on a select that names its own empty option, and an
       // emptied optional compliance text field, both have to beat the stored
       // value — see `clearWhenEmpty` on `DetailFieldSpec`.
-      else if (field.clearWhenEmpty) clearedKeys.push(field.key);
+      else clearedKeys.push(field.key);
     }
 
     // The Admin/Compliance invariant, applied where the owner creates the need
@@ -1076,7 +1093,7 @@ export function OnCallEntryEditor({
       <Sheet
         open={open}
         onClose={onClose}
-        title={entry ? `Edit ${entry.title}` : `Add to ${ON_CALL_SECTION_TITLES[section]}`}
+        title={entry ? `Edit ${entry.title}` : `Add to ${ON_CALL_VIEW_TITLES[creatingView]}`}
         mobilePlacement="bottom"
         testId="on-call-entry-editor"
         footer={

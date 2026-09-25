@@ -7,8 +7,10 @@
 **Picker ownership.** Model and reasoning effort are user/task choices. Do not set `model` or
 `model_reasoning_effort` in the repository `.codex/config.toml`: repository defaults override the
 Desktop picker and make new tasks snap back after an update. Use the model and effort selected for
-the task; when making an explicit recommendation, prefer `gpt-5.6-sol` with `high` reasoning unless
-the risk calibration below calls for something else.
+the task. For child-agent model and effort choices, apply
+[smart agent allocation](smart-agent-allocation.md) automatically whenever agents are used.
+Its routes are starting points; the risk calibration and required effort floors below still apply.
+It does not change the running main-chat model or reasoning effort.
 
 **Cloud xhigh gate.** A running Cloud task cannot raise its own reasoning effort. Before substantive
 inspection, planning, tool use, or edits, classify the request against the table and the risk rules

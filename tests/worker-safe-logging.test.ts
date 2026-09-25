@@ -13,6 +13,14 @@ const canonicalReadFiles = [
   "../src/app/api/differentials/[slug]/route.ts",
   "../src/app/api/differentials/presentations/[slug]/route.ts",
 ].map((file) => readFileSync(new URL(file, import.meta.url), "utf8"));
+// The one route in this mode that logs a driver error directly. It cannot use
+// `jsonError`: the reader is owed a specific partial-removal sentence, so the
+// response goes through `publicErrorResponse` and the driver's message is
+// logged separately — which is exactly the shape that has to be redacted.
+const onCallDemoContentRoute = readFileSync(
+  new URL("../src/app/api/on-call/demo-content/route.ts", import.meta.url),
+  "utf8",
+);
 const registryReadFiles = [
   "../src/app/api/registry/records/route.ts",
   "../src/app/api/registry/records/[slug]/route.ts",
@@ -45,6 +53,14 @@ describe("worker safe logging", () => {
       expect(file).not.toContain("auto-seed failed for owner");
       expect(file).not.toMatch(/console\.error\([^)]*,\s*error\)/);
     }
+  });
+
+  it("sanitizes the On Call demo-content delete error before logging", () => {
+    expect(onCallDemoContentRoute).toContain("safeErrorLogDetails(error)");
+    // The raw object must not reach the log: a driver error can carry a URL, a
+    // filesystem path, a credential-like token or an HTML response body, and
+    // this writes to durable application logs.
+    expect(onCallDemoContentRoute).not.toMatch(/console\.error\([^)]*,\s*error\)/);
   });
 
   it("keeps shared registry reads free of automatic seed writes", () => {

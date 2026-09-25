@@ -1,17 +1,17 @@
 "use client";
 
-import { ChevronRight, Phone, SearchX } from "lucide-react";
+import { ChevronRight, SearchX } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
 import { OnCallPrivateFlag } from "@/components/on-call/on-call-private-flag";
 import {
-  ON_CALL_VIEW_HREFS,
   ON_CALL_VIEW_ICONS,
   ON_CALL_VIEW_TITLES,
   type OnCallPageView,
 } from "@/components/on-call/on-call-section-identity";
-import { onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
+import { focusOnCallEntryFromHash } from "@/components/on-call/on-call-page-anchors";
+import { onCallEntryHref, onCallViewForEntry } from "@/components/on-call/on-call-entry-view";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
@@ -55,33 +55,31 @@ function SearchResultRow({ result }: { result: OnCallSearchResult }) {
   // box is the MOST over-shoulder-readable surface in the mode, so this is not
   // a nicety here.
   const number = entry.isPersonal ? null : onCallPrimaryNumber(entry);
-  const telHref = onCallTelHref(number?.value);
+  const telHref = number?.label === "Ext" || number?.label === "Pager" ? undefined : onCallTelHref(number?.value);
   const summary = onCallSearchSummary(entry);
   // The page this row is RENDERED on, which is not always the section it is
   // stored in: Compliance and Who's who are views over `logistics` and
   // `contacts`. `ON_CALL_SECTION_HREFS[entry.section]` sent a compliance
   // requirement to the Admin page, where it is not in the list — a search that
   // finds the thing and then navigates away from it.
-  const view = onCallViewForEntry(entry);
 
   return (
     <OnCallEntryRow
       title={entry.title}
       subtitle={summary ?? undefined}
-      href={telHref ?? ON_CALL_VIEW_HREFS[view]}
+      href={onCallEntryHref(entry)}
+      onActivate={() => requestAnimationFrame(focusOnCallEntryFromHash)}
       testId={`on-call-search-row-${entry.slug}`}
       trailing={
         telHref && number ? (
           <span className="flex items-center gap-2">
             <span className="nums text-sm font-bold text-[color:var(--text-heading)]">{number.value}</span>
-            {/* Decoration inside the link, never a control: the whole row
-                already dials, and a button here would be a second target for
-                one action. */}
+            {/* The row opens this exact record; the chevron is decoration. */}
             <span
               aria-hidden="true"
               className="grid size-8 shrink-0 place-items-center rounded-full bg-[color:var(--command)] text-[color:var(--command-contrast)]"
             >
-              <Phone aria-hidden="true" className="size-icon-sm" />
+              <ChevronRight aria-hidden="true" className="size-icon-sm" />
             </span>
           </span>
         ) : (

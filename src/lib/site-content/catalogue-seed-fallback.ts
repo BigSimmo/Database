@@ -29,9 +29,18 @@
  * anything published since the last release. That is acceptable for a search index whose entries all
  * link to a detail page that reads canonically, and it is bounded by the cooldown, but a caller must
  * be able to tell the reader that the list may be stale. Never drop `degraded` on the floor.
+ *
+ * WHY COLD READS ARE SERIALISED ACROSS KINDS. The one-shot retry above is per scope+kind. That is
+ * not enough when `universal-search` `Promise.all`s forms, services and medications on an idle
+ * process: each kind independently looks cold, three connection setups race, and all three blow the
+ * 1200 ms budget (live monitor #2919; control experiment in #WFSMMT showed the penalty tracks
+ * POSITION, not kind). Until this process has completed one successful canonical read, concurrent
+ * callers share a single flight so only the first pays setup and the rest see a warm connection.
+ * Once any kind has succeeded, the gate opens and steady-state parallelism is unchanged.
  */
 
 import { logger } from "@/lib/logger";
+import { siteContentRecordCacheStaleMs } from "@/lib/site-content/site-content-record-cache";
 
 /** How long one canonical read may take before the reader is served seeds instead. */
 export const catalogueSeedFallbackBudgetMs = 1_200;
@@ -92,9 +101,114 @@ const cooldownUntil = new Map<string, number>();
  */
 const warmed = new Set<string>();
 
+/**
+ * Process-level connection warm flag. Distinct from per-kind `warmed`: the measured cold penalty is
+ * connection setup on the FIRST catalogue read of a process, shared across kinds. Boot pre-warm
+ * and the serialisation gate below both set this.
+ */
+let processHasWarmedCanonicalRead = false;
+
+/**
+ * When the process was marked warm. The site-content record cache discards entries after
+ * `siteContentRecordCacheStaleMs`; past that the next catalogue read is cold again, so the
+ * serialisation gate must re-arm even though `processHasWarmedCanonicalRead` was set earlier.
+ */
+let processWarmedAtMs: number | null = null;
+
+/**
+ * Single owner of the cold path. Concurrent cold callers await the current owner rather than each
+ * starting their own connection setup; once `processHasWarmedCanonicalRead` is true they all run
+ * in parallel again.
+ */
+let processColdOwner: Promise<void> | null = null;
+
+/**
+ * After the first cold owner finishes WITHOUT warming the process, queued callers skip the gate.
+ * Otherwise they await the full attempt+retry (~2200 ms) and the 2500 ms domain timeout aborts
+ * them before seed fallback. Cleared on a successful warm, on stale re-arm, and on test reset.
+ */
+let processColdBypassSerialisation = false;
+
 /** Cooldowns are per (scope, kind): see the scope constants for why kind alone was wrong. */
 function cooldownKey(scope: string, kind: string) {
   return `${scope}::${kind}`;
+}
+
+function markProcessConnectionWarmedAt(nowMs: number) {
+  processHasWarmedCanonicalRead = true;
+  processWarmedAtMs = nowMs;
+  processColdBypassSerialisation = false;
+}
+
+/**
+ * Boot pre-warm (and tests) may populate the catalogue cache without going through this helper.
+ * Marking the process warm there still opens the serialisation gate for the first real search.
+ */
+export function markCatalogueProcessConnectionWarmed(nowMs: number = Date.now()) {
+  markProcessConnectionWarmedAt(nowMs);
+}
+
+/**
+ * The record cache's idle ceiling has elapsed since we last warmed — the next read pays cold
+ * connection setup again, so concurrent kinds must serialise once more.
+ */
+function rearmColdSerialisationIfStale(nowMs: number) {
+  if (!processHasWarmedCanonicalRead || processWarmedAtMs === null) return;
+  if (nowMs - processWarmedAtMs < siteContentRecordCacheStaleMs) return;
+  processHasWarmedCanonicalRead = false;
+  processWarmedAtMs = null;
+  processColdBypassSerialisation = false;
+}
+
+function abortIsDomainTimeout(signal: AbortSignal | undefined): boolean {
+  if (!signal?.aborted) return false;
+  const reason = signal.reason;
+  return reason instanceof DOMException
+    ? reason.name === "TimeoutError"
+    : reason instanceof Error && reason.name === "TimeoutError";
+}
+
+/**
+ * Until one canonical read has succeeded in this process, run `work` under a single-flight gate so
+ * `Promise.all` of forms/services/medications cannot triple the cold-connection penalty. After the
+ * process is warm this is a no-op and callers proceed in parallel.
+ *
+ * A failed cold owner sets `processColdBypassSerialisation` so waiters do not serialise behind
+ * another miss and can still reach seed fallback inside the domain timeout.
+ */
+async function runSerializedWhileProcessCold<T>(
+  work: () => Promise<T>,
+  signal: AbortSignal | undefined,
+  now: () => number,
+): Promise<T> {
+  rearmColdSerialisationIfStale(now());
+  if (processHasWarmedCanonicalRead || processColdBypassSerialisation) return work();
+
+  while (!processHasWarmedCanonicalRead) {
+    if (signal?.aborted) throw abortReason(signal);
+    if (processColdBypassSerialisation) return work();
+    if (processColdOwner) {
+      await processColdOwner;
+      continue;
+    }
+
+    let release!: () => void;
+    processColdOwner = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      // A predecessor may have warmed us between the check above and claiming ownership.
+      if (processHasWarmedCanonicalRead || processColdBypassSerialisation) return work();
+      return await work();
+    } finally {
+      // Owner finished without warming: open the gate so queued domains keep their fallback window.
+      if (!processHasWarmedCanonicalRead) processColdBypassSerialisation = true;
+      processColdOwner = null;
+      release();
+    }
+  }
+
+  return work();
 }
 
 /**
@@ -222,51 +336,93 @@ export async function readCatalogueWithSeedFallback<T>(input: {
   const succeed = (records: T[]): Outcome<T> => {
     cooldownUntil.delete(key);
     warmed.add(key);
+    markProcessConnectionWarmedAt(now());
     if (probing) reportRecovery(input.kind);
     return { records, degraded: false };
   };
 
-  try {
-    return succeed(await attempt(budgetMs));
-  } catch (error) {
-    // The caller gave up on the whole search; nothing here is a catalogue-health signal.
-    if (input.signal?.aborted) throw abortReason(input.signal);
-
-    // THE COLD FIRST READ, and the only case that gets a second go.
-    //
-    // Measured 2026-09-21 against the live project: the first catalogue read in a fresh process
-    // cost 1781 ms (1599 ms of it before the first byte) and blew this budget on connection setup
-    // alone, while every warm read of every kind finished inside 604 ms. The control was reversing
-    // the order the kinds are read in — the penalty moved with the POSITION, not the kind
-    // (medication first 1268 ms; form, read last, 213 ms). So this is not a slow catalogue, it is
-    // an unwarmed connection, and the very next call is fast.
-    //
-    // That is why the retry is offered ONCE per scope+kind per process rather than on every
-    // failure. A retry-always would add its budget to every request of a genuine outage, which is
-    // the opposite of what this helper is for; gating on `warmed` makes the steady state
-    // byte-for-byte what it was before.
-    const cold = !warmed.has(key) && !(input.signal?.aborted ?? false);
-    if (cold) {
-      // Consume the one-shot retry before attempting it. If both attempts fail, cooldown
-      // still opens below; without this, expiry would make `cold` true again and re-offer
-      // the retry budget on a genuine outage (and concurrent cold callers could each claim one).
-      warmed.add(key);
-      const retryBudgetMs = Math.min(budgetMs, input.retryBudgetMs ?? catalogueSeedFallbackRetryBudgetMs);
-      try {
-        const records = await attempt(retryBudgetMs);
-        reportColdRetry(input.kind, error, retryBudgetMs);
-        return succeed(records);
-      } catch (retryError) {
-        if (input.signal?.aborted) throw abortReason(input.signal);
-        cooldownUntil.set(key, now() + cooldownMs);
-        reportFallback(input.kind, retryError, retryBudgetMs, cooldownMs);
-        return { records: [...input.seeds], degraded: true };
-      }
-    }
-
+  const serveSeedsAfterFailedColdGate = (error: unknown, usedBudgetMs: number): Outcome<T> => {
     cooldownUntil.set(key, now() + cooldownMs);
-    reportFallback(input.kind, error, budgetMs, cooldownMs);
+    reportFallback(input.kind, error, usedBudgetMs, cooldownMs);
     return { records: [...input.seeds], degraded: true };
+  };
+
+  // Serialise until the process has one successful canonical read. Without this,
+  // universal-search's Promise.all of forms/services/medications triples the cold
+  // connection setup and every domain falls to seeds (monitor #2919).
+  try {
+    return await runSerializedWhileProcessCold(
+      async () => {
+        try {
+          return succeed(await attempt(budgetMs));
+        } catch (error) {
+          // Domain timeout after a failed cold owner: serve seeds rather than an empty errored group.
+          // A non-timeout caller abort (navigation / parent cancel) still propagates untouched.
+          if (input.signal?.aborted) {
+            if (
+              abortIsDomainTimeout(input.signal) &&
+              processColdBypassSerialisation &&
+              !processHasWarmedCanonicalRead
+            ) {
+              return serveSeedsAfterFailedColdGate(abortReason(input.signal), budgetMs);
+            }
+            throw abortReason(input.signal);
+          }
+
+          // THE COLD FIRST READ, and the only case that gets a second go.
+          //
+          // Measured 2026-09-21 against the live project: the first catalogue read in a fresh process
+          // cost 1781 ms (1599 ms of it before the first byte) and blew this budget on connection setup
+          // alone, while every warm read of every kind finished inside 604 ms. The control was reversing
+          // the order the kinds are read in — the penalty moved with the POSITION, not the kind
+          // (medication first 1268 ms; form, read last, 213 ms). So this is not a slow catalogue, it is
+          // an unwarmed connection, and the very next call is fast.
+          //
+          // That is why the retry is offered ONCE per scope+kind per process rather than on every
+          // failure. A retry-always would add its budget to every request of a genuine outage, which is
+          // the opposite of what this helper is for; gating on `warmed` makes the steady state
+          // byte-for-byte what it was before.
+          //
+          // The process-level serialisation above is the other half: per-kind retry alone still lets
+          // three cold kinds race under Promise.all and all miss the budget.
+          const cold = !warmed.has(key) && !(input.signal?.aborted ?? false);
+          if (cold) {
+            // Consume the one-shot retry before attempting it. If both attempts fail, cooldown
+            // still opens below; without this, expiry would make `cold` true again and re-offer
+            // the retry budget on a genuine outage (and concurrent cold callers could each claim one).
+            warmed.add(key);
+            const retryBudgetMs = Math.min(budgetMs, input.retryBudgetMs ?? catalogueSeedFallbackRetryBudgetMs);
+            try {
+              const records = await attempt(retryBudgetMs);
+              reportColdRetry(input.kind, error, retryBudgetMs);
+              return succeed(records);
+            } catch (retryError) {
+              if (input.signal?.aborted) {
+                if (
+                  abortIsDomainTimeout(input.signal) &&
+                  processColdBypassSerialisation &&
+                  !processHasWarmedCanonicalRead
+                ) {
+                  return serveSeedsAfterFailedColdGate(abortReason(input.signal), retryBudgetMs);
+                }
+                throw abortReason(input.signal);
+              }
+              return serveSeedsAfterFailedColdGate(retryError, retryBudgetMs);
+            }
+          }
+
+          return serveSeedsAfterFailedColdGate(error, budgetMs);
+        }
+      },
+      input.signal,
+      now,
+    );
+  } catch (error) {
+    // Aborted while blocked on the cold gate after a failed warm attempt — same seed path.
+    if (abortIsDomainTimeout(input.signal) && processColdBypassSerialisation && !processHasWarmedCanonicalRead) {
+      return serveSeedsAfterFailedColdGate(error instanceof Error ? error : abortReason(input.signal!), budgetMs);
+    }
+    throw error;
   }
 }
 
@@ -291,4 +447,8 @@ export function withCatalogueDegradedNotice(heading: string, degraded: boolean |
 export function clearCatalogueSeedFallbackCooldown() {
   cooldownUntil.clear();
   warmed.clear();
+  processHasWarmedCanonicalRead = false;
+  processWarmedAtMs = null;
+  processColdBypassSerialisation = false;
+  processColdOwner = null;
 }

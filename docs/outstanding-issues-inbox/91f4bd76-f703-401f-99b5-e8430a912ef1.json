@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "91f4bd76-f703-401f-99b5-e8430a912ef1",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "762020ed-89df-4a99-9c03-0319fa95265e",
+    "reason": "Superseded on review 2026-09-25: 5349e03a6 moved continue-on-error to the step (no red X) and 07734b7ea now surfaces the redacted provider error, which was this request's stated next action."
+  }
+}

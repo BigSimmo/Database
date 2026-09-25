@@ -1,5 +1,9 @@
 "use client";
 
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+
 import { BriefcaseBusiness, FileText, Lock, MapPinned, Pencil, Phone, type LucideIcon } from "lucide-react";
 
 import { OnCallEntryRow } from "@/components/on-call/on-call-entry-row";
@@ -13,7 +17,12 @@ import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { ExternalTextLink } from "@/components/ui/link";
 import { cn, eyebrowText, metadataPillDensity, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { partitionLogisticsEntries } from "@/lib/on-call/compliance";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 
 export interface OnCallLogisticsSectionProps {
@@ -38,12 +47,6 @@ interface OnCallLogisticsDetails {
 function parseLogisticsDetails(details: unknown): OnCallLogisticsDetails | null {
   const result = onCallDetailsSchemaFor("logistics").safeParse(details);
   return result.success ? (result.data as OnCallLogisticsDetails) : null;
-}
-
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
 }
 
 /**
@@ -76,11 +79,11 @@ function LogisticsRow({
 }) {
   const details = parseLogisticsDetails(entry.details);
   const freshness = onCallEntryFreshness(entry, now);
-  const href = telHref(details?.phone);
+  const href = onCallTelHref(details?.phone);
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
-    <div className="grid gap-1.5">
+    <div className="grid gap-1.5" id={onCallEntryAnchorId(entry.id)} tabIndex={-1}>
       <div className="flex items-stretch gap-2">
         <div className="min-w-0 flex-1">
           <OnCallEntryRow
@@ -94,8 +97,11 @@ function LogisticsRow({
             {details?.hours ? (
               <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.hours}</span>
             ) : null}
-            {details?.phone && !href ? (
-              <span className={cn(metadataPillDensity.standard, "rounded-full")}>{details.phone}</span>
+            {/* Printed whether or not the row dials it. Until 2026-09-24 a
+                dialable number turned the row into a call link and was never
+                shown, so a tap rang a number the reader had not seen. */}
+            {details?.phone ? (
+              <span className={cn(metadataPillDensity.standard, "rounded-full tabular-nums")}>{details.phone}</span>
             ) : null}
             {entry.isPersonal ? <OnCallPrivateFlag compact /> : null}
             <OnCallStaleFlag freshness={freshness} />
@@ -126,7 +132,7 @@ function LogisticsRow({
         // row itself is a `tel:` anchor, an interactive link inside it would
         // be invalid markup (an anchor inside an anchor) and unreachable by
         // keyboard in a predictable order.
-        <ExternalTextLink href={details.url} className="ml-1 text-xs">
+        <ExternalTextLink href={details.url} className="ml-1 inline-flex min-h-tap items-center text-xs">
           More info
         </ExternalTextLink>
       ) : null}
@@ -251,8 +257,8 @@ export function OnCallLogisticsSection({
                   key={entry.id}
                   entry={entry}
                   now={now}
-                  onEditEntry={onEditEntry}
-                  onVerified={onVerified}
+                  onEditEntry={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                  onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
                 />
               ))}
             </div>

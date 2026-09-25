@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "da983560-9123-4c1a-9cf2-a1cbbae26b88",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "8a6fc665-d994-4fff-88b7-9f04f75f979d",
+    "reason": "Superseded on review 2026-09-25: #TWS2GD is closed in the same review as the known hidden streaming clone; d9f6c5e68 switched the test to expectSingleSettledOwner."
+  }
+}

@@ -227,6 +227,7 @@ Every remaining tracked document in this category (process, plus the `agents/` r
 - [agents/pull-request-workflow.md](agents/pull-request-workflow.md) — Pull Request Workflow — The one canonical pull-request rulebook for every AI tool: open, follow CI, review threads, records, merge authority, landed, branch sync, Run PR, Clear PRs, bundling.
 - [agents/repository-skills-and-issues.md](agents/repository-skills-and-issues.md) — Repository Skills and Outstanding-Work Memory — Select repo-local skills under `.agents/skills/` when their descriptions match the actual task and their use materially helps; read an explicitly named skill before acting.
 - [agents/test-deletion-guard.md](agents/test-deletion-guard.md) — Deleting tests, or letting a tool delete them for you — On 2026-08-31 a commit on PR #2481 titled "test(ui):
+- [agents/smart-agent-allocation.md](agents/smart-agent-allocation.md) — Default model/effort selection, independent ownership and review, evidence reuse, and portable Codex Cloud delivery.
 - [agents/upload-shortcut.md](agents/upload-shortcut.md) — Upload Shortcut — When the user types exactly:
 - [agents/verification-gates.md](agents/verification-gates.md) — Verification Gates — the verification pyramid, gate receipts, and the browser-gate planner
 - [agents/wiring-and-bundle-budget.md](agents/wiring-and-bundle-budget.md) — Page Wiring and Bundle Budget — Interactive controls and routes follow conventions the codebase already holds to.

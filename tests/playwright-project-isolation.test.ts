@@ -159,10 +159,18 @@ describe("Playwright production-project isolation", () => {
       "node scripts/run-playwright.mjs --project=chromium-caring-contacts-seeded tests/ui-caring-contacts-activation.spec.ts",
     );
     expect(packageJson.scripts?.["test:e2e:pr"]).toContain("--project=chromium-caring-contacts-seeded");
-    for (const spec of seededSpecs) expect(prUiShardGroups[1]).toContain(spec);
-    expect(playwrightArgsForPrUiShard(1)).toContain("--project=chromium-caring-contacts-seeded");
-    // ...and only the shard that holds it pays for the second server.
-    expect(playwrightArgsForPrUiShard(2)).not.toContain("--project=chromium-caring-contacts-seeded");
+    // Timing-based rebalancing may move the group. Both seeded journeys must
+    // still run exactly once, together, with their dedicated project selected.
+    const shards = Object.entries(prUiShardGroups);
+    const owners = seededSpecs.map((spec) => shards.filter(([, files]) => files.includes(spec)));
+    for (const owner of owners) expect(owner).toHaveLength(1);
+    const seededShard = owners[0][0][0];
+    expect(owners[1][0][0]).toBe(seededShard);
+    for (const [shard] of shards) {
+      expect(playwrightArgsForPrUiShard(Number(shard)).includes("--project=chromium-caring-contacts-seeded")).toBe(
+        shard === seededShard,
+      );
+    }
   });
 
   /**

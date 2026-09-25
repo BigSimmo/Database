@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "d1972972-337e-4b8a-a204-d1be9392ac9f",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#3E42FH",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The records are no longer on a branch: they merged in PR #2814 (c68c6ff41) as part of 17 new WA service records and are in src/lib/services-canonical-data part-03.ts and part-04.ts. Their seven sources are candidate/unverified. SVC-YTH-004 still carries the WISH referral contradiction. Still unsigned. PRIOR DETAIL: Branch claude/relaxed-lamport-nkowqs adds twelve canonical service records in src/lib/services-canonical-data/part-03.ts and part-04.ts: SARC, 1800RESPECT, the Aftercare Services Program, Culture Care Connect, Thirrili, StandBy, ARBOR, CYPRESS, WISH, SOAR, SOAR Plus and the CAHS Child Development Service. Each was written from the publisher's own page read on 2026-09-16 and carries a dated source. Their seven acquisition-ledger sources sit as candidates at D band with validationStatus unverified, which is the correct state: capture and scoring were done on the owner's behalf, sign-off was not. NEXT: review each record against its linked source and, where it says what the record claims, promote the source to locally_reviewed and adopt it. Two records need a specific look. SVC-YTH-004 (WISH) records a contradiction rather than resolving it: the WACHS South West ICAMHS page of 1 September 2026 says referrals are through the local ICAMHS team only and require a current ICAMHS client, while the WACHS news item of 10 August 2026 says referral may be through the local hospital or ICAMHS; the stricter wording was used. ARBOR and CYPRESS share 1300 114 446 and Anglicare WA but are separate records because CYPRESS is the children and young people stream.",
+    "baseRowFingerprint": "4f5c67e835fb9abf438061dd54f006b83385bb2868cac5009e67f3b394a23f3e"
+  }
+}

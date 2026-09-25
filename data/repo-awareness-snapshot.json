@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-21"
+    "committed_at": "2026-09-25"
   },
   "routes": {
     "modes": [
@@ -166,6 +166,11 @@
         "area": "product"
       },
       {
+        "path": "/auth/reset-password",
+        "file": "src/app/auth/reset-password/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/documents/[id]",
         "file": "src/app/(search-app)/documents/[id]/page.tsx",
         "area": "product"
@@ -241,6 +246,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/service",
+        "file": "src/app/(search-app)/on-call/service/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/medications/[slug]",
         "file": "src/app/(search-app)/medications/[slug]/page.tsx",
         "area": "product"
@@ -253,6 +263,11 @@
       {
         "path": "/caring-contacts/intake",
         "file": "src/app/caring-contacts/intake/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/cme/summary",
+        "file": "src/app/(search-app)/cme/summary/page.tsx",
         "area": "product"
       },
       {
@@ -333,6 +348,11 @@
       {
         "path": "/on-call/who-is-who",
         "file": "src/app/(search-app)/on-call/who-is-who/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/on-call/now",
+        "file": "src/app/(search-app)/on-call/now/page.tsx",
         "area": "product"
       },
       {
@@ -474,6 +494,11 @@
         "path": "/mockups/development/clinical-answer-failures",
         "file": "src/app/mockups/development/clinical-answer-failures/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/check",
+        "file": "src/app/(search-app)/on-call/check/page.tsx",
+        "area": "product"
       },
       {
         "path": "/differentials/presentations",
@@ -666,6 +691,11 @@
         "area": "mockup"
       },
       {
+        "path": "/cme/check",
+        "file": "src/app/(search-app)/cme/check/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/ward-flow/statistics",
         "file": "src/app/mockups/ward-flow/statistics/page.tsx",
         "area": "mockup"
@@ -744,6 +774,11 @@
         "path": "/mockups/document-search-evidence-lens",
         "file": "src/app/mockups/document-search-evidence-lens/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/cme/calendar",
+        "file": "src/app/(search-app)/cme/calendar/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/privacy-live-signal-perfected",
@@ -1076,6 +1111,11 @@
         "area": "mockup"
       },
       {
+        "path": "/on-call/first-night",
+        "file": "src/app/(search-app)/on-call/first-night/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/specifiers/[slug]",
         "file": "src/app/(search-app)/specifiers/[slug]/page.tsx",
         "area": "product"
@@ -1169,6 +1209,11 @@
         "path": "/mockups/calculators-bedside-sheet",
         "file": "src/app/mockups/calculators-bedside-sheet/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/on-call/calendar",
+        "file": "src/app/(search-app)/on-call/calendar/page.tsx",
+        "area": "product"
       },
       {
         "path": "/mockups/caring-contacts/plans/[planId]",
@@ -1490,6 +1535,10 @@
         "file": "src/app/api/caring-contacts/intake/route.ts"
       },
       {
+        "path": "/api/on-call/demo-content",
+        "file": "src/app/api/on-call/demo-content/route.ts"
+      },
+      {
         "path": "/api/health",
         "file": "src/app/api/health/route.ts"
       },
@@ -1558,6 +1607,10 @@
         "file": "src/app/api/upload/route.ts"
       },
       {
+        "path": "/api/cme/year/close",
+        "file": "src/app/api/cme/year/close/route.ts"
+      },
+      {
         "path": "/api/search/universal",
         "file": "src/app/api/search/universal/route.ts"
       },
@@ -1610,6 +1663,10 @@
         "file": "src/app/api/registry/records/[slug]/route.ts"
       },
       {
+        "path": "/api/cme/export",
+        "file": "src/app/api/cme/export/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/plans/[planId]/contacts/[contactId]",
         "file": "src/app/api/caring-contacts/plans/[planId]/contacts/[contactId]/route.ts"
       },
@@ -1646,6 +1703,10 @@
         "file": "src/app/api/caring-contacts/team/route.ts"
       },
       {
+        "path": "/api/cme/entries/[id]/evidence",
+        "file": "src/app/api/cme/entries/[id]/evidence/route.ts"
+      },
+      {
         "path": "/api/webhooks/supabase/document-change",
         "file": "src/app/api/webhooks/supabase/document-change/route.ts"
       },
@@ -1658,6 +1719,10 @@
         "file": "src/app/api/setup-status/route.ts"
       },
       {
+        "path": "/api/cme/routines/[id]",
+        "file": "src/app/api/cme/routines/[id]/route.ts"
+      },
+      {
         "path": "/api/documents/bulk",
         "file": "src/app/api/documents/bulk/route.ts"
       },
@@ -1666,12 +1731,24 @@
         "file": "src/app/api/documents/[id]/search/route.ts"
       },
       {
+        "path": "/api/cme/routines",
+        "file": "src/app/api/cme/routines/route.ts"
+      },
+      {
+        "path": "/api/on-call/services/join",
+        "file": "src/app/api/on-call/services/join/route.ts"
+      },
+      {
         "path": "/api/account/favourites",
         "file": "src/app/api/account/favourites/route.ts"
       },
       {
         "path": "/api/ingestion/jobs",
         "file": "src/app/api/ingestion/jobs/route.ts"
+      },
+      {
+        "path": "/api/cme/entries/[id]/evidence/[evidenceId]",
+        "file": "src/app/api/cme/entries/[id]/evidence/[evidenceId]/route.ts"
       },
       {
         "path": "/api/caring-contacts/assignments/[planId]",
@@ -1714,6 +1791,10 @@
         "file": "src/app/api/on-call/entries/[id]/route.ts"
       },
       {
+        "path": "/api/on-call/services/[serviceId]",
+        "file": "src/app/api/on-call/services/[serviceId]/route.ts"
+      },
+      {
         "path": "/api/caring-contacts/plans",
         "file": "src/app/api/caring-contacts/plans/route.ts"
       },
@@ -1724,6 +1805,10 @@
       {
         "path": "/api/local-project-id",
         "file": "src/app/api/local-project-id/route.ts"
+      },
+      {
+        "path": "/api/on-call/services",
+        "file": "src/app/api/on-call/services/route.ts"
       },
       {
         "path": "/api/documents/images/batch",
@@ -2662,6 +2747,11 @@
       {
         "path": "docs/ward-flow/reports/ward-verifier-engine-verdict-2026-09-02.md",
         "section": "ward-flow",
+        "catalogued": false
+      },
+      {
+        "path": "docs/DOCS-SYSTEM.md",
+        "section": "root",
         "catalogued": false
       },
       {
@@ -5595,6 +5685,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/supabase-remediation-closeout-notes.md",
+        "section": "root",
+        "catalogued": false
+      },
+      {
         "path": "docs/clinical-governance.md",
         "section": "root",
         "catalogued": true
@@ -6108,6 +6203,11 @@
         "path": "docs/ward-flow/design/referral-intake-implementation-plan.md",
         "section": "ward-flow",
         "catalogued": false
+      },
+      {
+        "path": "docs/agents/smart-agent-allocation.md",
+        "section": "agents",
+        "catalogued": true
       },
       {
         "path": "docs/caring-contacts/phase-2b-sdd-archive/task-9-report.md",
@@ -20194,6 +20294,14 @@
         "checks": "check:migration-role; npx vitest run tests/supabase-schema.test.ts (74 passed); check:outstanding-issues"
       },
       {
+        "date": "2026-09-21",
+        "ref": "claude/on-call-review-redesign-1yyqh0",
+        "head": "a25c454370c5f218d5e92f5852dfd05f37a78da5",
+        "scope": "prlanded",
+        "outcome": "PR #2900 merged 2026-09-20 18:06 UTC as merge commit a25c45437 (2 parents; PR head 9f0de7971 is an ancestor of main). Verified by content, not by trusting the merge: git show --remerge-diff is EMPTY, so nothing was dropped in the resolution, and all four post-review commits are ancestors of main (bd642d46f compliance-marker read predicate, 94a37401b clearWhenEmpty on five compliance fields, b57c0eab3 schema fail-closed read + deliberately narrower write stamp, 276d3ef5e On Call domain model out of the shared search header). Remote branch auto-deleted by GitHub on merge. NOT CLEANED UP LOCALLY and no deletion performed - none was requested.",
+        "checks": "Main CI run 35528014766 on a25c45437 is the FIRST completed run of this change: on the PR itself the suite was cancelled ten consecutive times by GitHub web-flow 'Update branch' commits every 10-15 min, so every red 'PR required' on #2900 was 'CANCELLED with no failing job' and verified nothing. On main: PR required SUCCESS; Production UI (1)(2)(3) SUCCESS; release-browser-matrix chromium SUCCESS; Unit coverage SUCCESS; Build + enforced bundle budget SUCCESS; Lighthouse budget SUCCESS (it had failed twice pre-merge); Static PR checks, Safety and config, Visual baselines, Caring Contacts DB all SUCCESS. FAILING, both pre-existing and NEITHER touching On Call: release-browser-matrix firefox 715 passed / 1 failed (ui-smoke.spec.ts:5636 document source-text accordion, a details element not opening on summary click), and webkit 707 passed / ~7 failed (ui-phone-scroll-page-owned:98, ui-phone-scroll:236, ui-route-coverage:554, ui-smoke:1693, ui-smoke:6025, ui-specifiers:181, ui-tools:2946). No ui-on-call-boards.spec.ts failure in any engine - the ~10 new Compliance and truncation cases passed on first real execution. Local before merge: verify:cheap green (1444 files, 21895 tests), tsc 0, eslint 0."
+      },
+      {
         "date": "2026-08-22",
         "ref": "work",
         "head": "a26747b1e8c7ac5a705b1beee94b61aaeddef74e",
@@ -20824,6 +20932,22 @@
         "scope": "review-followup",
         "outcome": "One P2 SLO-classification defect was confirmed: the broad source-only `degraded` flag also included healthy extractive answers. Fixed by persisting and counting a separate `provider_generation_degraded` flag derived only from `generation_fallback`.",
         "checks": "GitHub connector plus UTF-8 thread-aware review inspection; focused ESLint; 45/45 targeted Vitest tests; TypeScript; offline RAG 36 fixtures and 277/277 contract tests; `git diff --check`."
+      },
+      {
+        "date": "2026-09-22",
+        "ref": "codex/chat-selective-railway-previews-b95c",
+        "head": "aa2cd55447786f490a88a46cb4b02a48cccd8aba",
+        "scope": "Railway selective previews and safe iteration policy",
+        "outcome": "P1: production-connected PR previews; contained by disabling automatic previews, stopping four deployments and disconnecting their branch sources. Revised policy requires opt-in isolated app previews.",
+        "checks": "Live Railway project settings, service configurations, redacted target inspection and deployment status; PR diff and empty review threads. No database-content or provider-usage audit."
+      },
+      {
+        "date": "2026-09-22",
+        "ref": "codex/chat-selective-railway-previews-b95c",
+        "head": "aa2cd55447786f490a88a46cb4b02a48cccd8aba",
+        "scope": "Railway selective previews and safe iteration policy (supersedes 2026-09-22)",
+        "outcome": "Correction: automatic PR environments disabled and four preview deployments stopped. CLI source disconnect affected shared production sources; restored both to main. Reconnect attempts skipped by watch paths; original production deployments remain SUCCESS. Retained preview auto-deploy is disabled, not verified source removal.",
+        "checks": "Railway dashboard, exact deployment IDs and source restoration. PR 2985 independently merged and its preview was automatically cleaned up. No secrets logged or database-content audit performed."
       },
       {
         "date": "2026-07-31",

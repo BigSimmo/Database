@@ -31,6 +31,7 @@ vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
 
 vi.mock("@/lib/on-call/linked-documents", () => ({
   useOnCallLinkedDocuments: () => ({}),
+  useOnCallLinkedDocumentsState: () => ({ documents: {}, loading: false }),
 }));
 
 const storeState = vi.hoisted(() => ({

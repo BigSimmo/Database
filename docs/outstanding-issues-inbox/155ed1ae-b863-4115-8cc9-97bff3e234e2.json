@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "id": "155ed1ae-b863-4115-8cc9-97bff3e234e2",
+  "createdOn": "2026-09-25",
+  "action": "cancel",
+  "payload": {
+    "requestId": "120e34e7-3a87-46f2-a70a-0a51bdc65418",
+    "reason": "Stale on review 2026-09-25: already fixed on main. e9dedb0de added an evidence DELETE route with a reason and tombstone, and migration 20260924130000_cme_evidence_removal.sql."
+  }
+}

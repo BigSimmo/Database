@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "7ac30677-d46a-4af9-9cfe-99b481facad6",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#ASVM8H",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The proposed fix already exists: globals.css gives focusable elements in .phone-scroll-surface a bottom scroll margin equal to the composer reserve, and ClinicalDashboard sets a bottom scroll padding. The question is why that rule does not take effect on the global-search-shell /documents/search page when the document itself is the scroller. PRIOR DETAIL: /documents/search?q=lithium&run=1 at 390x844: tabbing to the third result's action row puts focus on a button at box [13, 790, 121, 48] in an 844px viewport with scrollY 0, entirely behind the fixed composer; elementsFromPoint at its centre returns the composer input. The page does not scroll to clear it. Three occluded tab stops. This is SPEC 9.4's 'sticky elements not covering focused content', previously never checked against a rendered page. Fix candidate: scroll-padding-bottom equal to the composer reserve.",
+    "baseRowFingerprint": "4112f42250c21122def4829751ec214cf6fa536a9b7236263f7b69428763a2d6"
+  }
+}

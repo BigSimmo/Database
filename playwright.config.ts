@@ -23,7 +23,7 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // `tests/playwright-project-isolation.test.ts` asserts every such file on disk is
 // matched here.
 const productionSpecPattern =
-  /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/;
+  /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(smoke|stress|accessibility|caring-contacts-workspace|clinical-ask|cme-phone|dictionary|document-canvas|tools|tools-show-all|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/;
 const mockupSpecPattern =
   /.*ui-(accessible-table-mockup|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-search-mode-mockup|tools-task-directory|ward-management|ward-coordinator|ward-roles|ward-discharges|ward-morning|ward-referrals|ward-forced-colors|ward-search|ward-statistics-compare|ward-table-thresholds)\.spec\.ts/;
 const mockupTag = /@mockup/;
@@ -48,10 +48,28 @@ const seededSpecPattern = /.*ui-caring-contacts-(activation|populated)\.spec\.ts
 // to run without this value rather than trusting a fallback (see its own head comment).
 const seededBaseURL = process.env.PLAYWRIGHT_SEEDED_BASE_URL;
 
+// iOS never fires `beforeinstallprompt`, so `pwa-lifecycle.tsx` shows a one-time "Add to Home
+// Screen" sheet to any iPhone user agent until it is dismissed. On a fresh test context that
+// sheet is always up, and on a phone it sits over the home composer's send button, so every
+// iPhone-project journey that typed a question and pressed Send timed out on
+// "pwa-notice-stack subtree intercepts pointer events" (release-browser-matrix, 2026-09-22 on).
+// A returning user who has dismissed it once is the state these journeys are about, so the two
+// iPhone projects start from that state. `ui-pwa.spec.ts` resets it to prove the sheet itself.
+const IOS_INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-ios-install-dismissed-at";
+const iosInstallHintDismissed = {
+  cookies: [],
+  origins: [
+    {
+      origin: new URL(baseURL).origin,
+      localStorage: [{ name: IOS_INSTALL_DISMISSAL_KEY, value: String(Date.now()) }],
+    },
+  ],
+};
+
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(accessible-table-mockup|smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-populated|caring-contacts-workspace|clinical-ask|cme-phone|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-show-all|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges|morning|referrals|forced-colors|search|statistics-compare|table-thresholds)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-boards|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/,
+    /.*(?:adaptive-answer-ui|api-csrf-proxy|answer-progress-ui-smoke|dsm-ui-smoke|ui-(accessible-table-mockup|smoke|stress|accessibility|answer-chat-perfected-mockup|care-plan-mockup|caring-contact-mockup|caring-contacts-activation|caring-contacts-populated|caring-contacts-workspace|clinical-ask|cme-phone|dictionary|document-canvas|document-image-status-mockup|document-top-navigation-mockup|sidebar-live-mockup|therapy-navigation-mockup|tools|tools-collapse|tools-show-all|tools-search-mode-mockup|tools-task-directory|ward-(?:management|coordinator|roles|discharges|morning|referrals|forced-colors|search|statistics-compare|table-thresholds)|overlap|universal-search|specifiers|sources|formulation(?:-result-cards)?|forms-section-nav|chrome-scroll|therapy-nav-scroll|therapy-pathways|mode-nav-density|on-call-(?:boards|service)|patient-number-field|phone-motion|phone-scroll(?:-[a-z0-9-]+)?|pwa|route-coverage|style-contract|token-layer-resolution|visual-artifacts|hydration))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -147,7 +165,7 @@ export default defineConfig({
       name: "mobile-webkit",
       testMatch: productionSpecPattern,
       grepInvert: mockupTag,
-      use: { ...devices["iPhone 14"] },
+      use: { ...devices["iPhone 14"], storageState: iosInstallHintDismissed },
     },
     {
       name: "mobile-pwa-standalone",
@@ -155,6 +173,7 @@ export default defineConfig({
       grepInvert: mockupTag,
       use: {
         ...devices["iPhone 14"],
+        storageState: iosInstallHintDismissed,
         viewport: { width: 390, height: 844 },
         deviceScaleFactor: 3,
         isMobile: true,

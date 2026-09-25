@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "b76445c1-a2ab-4531-bc72-a28e02b91eb4",
+  "createdOn": "2026-09-25",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "On Call Playbook shows a guideline's updated_at date, not its review date",
+    "detail": "Narrowed on review 2026-09-25: PR #2997 fixed the repeated 'No local guideline linked' panels and the loading flash (playbook-section.tsx, linked-documents.ts loading flag). Still open: the date shown is updated_at, not the guideline's review date (linked-documents.ts:65, playbook-section.tsx:140).",
+    "source": "On Call + CME audit 2026-09-24; narrowed by ledger review 2026-09-25",
+    "issueUlid": "01M3CB4CF01TKG71JF3PT1A1X2"
+  }
+}

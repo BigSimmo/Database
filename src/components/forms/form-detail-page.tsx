@@ -825,7 +825,14 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               </div>
             </section>
 
-            <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
+            {/* On a phone the attachment row stacks: the status badges take their own
+                line under the title instead of squeezing the title column down to a
+                few characters ("Ext...", #47Y8XH). The badges decide whether the
+                form can be filled now or must be printed, so neither may truncate. */}
+            <section
+              data-testid="form-attachment-row"
+              className="grid grid-cols-1 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3"
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
                   <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
@@ -841,10 +848,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                       </span>
                     ) : null}
                   </div>
-                  <h2 className="mt-1 truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                  <h2 className="mt-1 break-words text-sm font-semibold text-[color:var(--text-heading)] sm:truncate">
                     {displayText(form.title, `Form ${formCode(form)}`)}
                   </h2>
-                  <p className={cn("mt-0.5 truncate text-xs", textMuted)}>
+                  <p className={cn("mt-0.5 break-words text-xs sm:truncate", textMuted)}>
                     {displayText(form.source?.label, "Official form")}
                   </p>
                   {details?.officialPdfEditingRestricted !== undefined ? (
@@ -879,7 +886,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </span>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1.5 sm:hidden">
+              <div data-testid="form-attachment-phone-badges" className="flex flex-wrap items-center gap-1.5 sm:hidden">
                 <span
                   className={cn(
                     "inline-flex min-h-6 items-center rounded-full border px-2 text-2xs font-semibold shadow-[var(--shadow-inset)]",
@@ -898,7 +905,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     {details.officialPdfEditingRestricted ? "Editing restricted" : "Editing permitted"}
                   </span>
                 ) : null}
-                <ChevronRight className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
               </div>
               {form.source?.url || details?.localPdfPath ? (
                 <div className="hidden items-center gap-3 sm:flex">

@@ -1,7 +1,7 @@
 import { onCallEntrySchema } from "@/lib/on-call/entry-model";
 
 /** Create bodies carry no `id` — the server generates it. */
-export const createOnCallEntrySchema = onCallEntrySchema.omit({ id: true });
+export const createOnCallEntrySchema = onCallEntrySchema.omit({ id: true, isOwn: true });
 
 /**
  * Update bodies must be COMPLETE.

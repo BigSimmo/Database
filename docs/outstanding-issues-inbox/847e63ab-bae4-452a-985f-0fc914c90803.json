@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "847e63ab-bae4-452a-985f-0fc914c90803",
+  "createdOn": "2026-09-24",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "CME/On Call visual polish still open after the 2026-09-24 audit",
+    "detail": "(1) CME annual summary is an unstyled 10,000px text wall on a phone (cme-annual-summary.tsx) - give it cards/table styling on screen, keep print CSS. (2) Routine edit form renders above the page title off-screen with a second h1 (cme-routines-route.tsx:126-201). (3) A due routine takes the dashboard's only next-action slot, hiding unmet requirements; no 'skip this one'. (4) Contact rows have ragged right columns and ~150px stale rows. (5) Small tap targets: card numbers (17px), 'Watch recording' (19px), 'Your evidence' (16px). (6) /on-call/service signed-out view has no h1 and no page menu. (7) Pocket card repeats its title in header and hero. (8) Recent rows on the On Call home use a raw <a> for internal routes (full reload).",
+    "source": "On Call + CME audit 2026-09-24 (code read + demo-mode screenshots, branch claude/on-call-cme-audit-gltczi)",
+    "issueUlid": "01M392PPE4BC6V6X53B2JQC07E"
+  }
+}

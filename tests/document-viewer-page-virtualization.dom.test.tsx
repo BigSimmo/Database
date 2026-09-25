@@ -28,7 +28,7 @@ const cleanupCalls: number[] = [];
 let getPageCalls: number[] = [];
 let getDocumentOptions: Record<string, unknown> | null = null;
 
-vi.mock("pdfjs-dist", () => {
+vi.mock("pdfjs-dist/legacy/build/pdf.mjs", () => {
   const makePage = (pageNumber: number) => ({
     getViewport: ({ scale = 1 }: { scale?: number; rotation?: number }) => ({
       width: PAGE_WIDTH * scale,

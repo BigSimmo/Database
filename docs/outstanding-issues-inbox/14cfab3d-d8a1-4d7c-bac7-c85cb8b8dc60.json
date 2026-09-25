@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "14cfab3d-d8a1-4d7c-bac7-c85cb8b8dc60",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#DF1DFT",
+    "outcome": "Resolved 2026-09-25 (ledger review). Merged into #N9XFVN. scopeDifferentialRecord now runs on every canonical read path (all three /api/differentials routes, registry-corpus.ts, differential-page-records.ts), so no published page shows group text as a diagnosis's own. What remains is unscoped data at rest, which the re-import tracked by #N9XFVN fixes.",
+    "baseRowFingerprint": "8cf43ec277df481efc2656325f30db8814169d91016efaf80f2d58e063f55fe3"
+  }
+}

@@ -11,12 +11,21 @@ import { Button } from "@/components/ui/button";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { OnCallCallDisc } from "@/components/on-call/on-call-call-disc";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
-import { allocateOnCallGroupSlug, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
+import {
+  allocateOnCallGroupSlug,
+  onCallGroupAnchorId,
+  onCallEntryAnchorId,
+} from "@/components/on-call/on-call-page-anchors";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { eyebrowText, metadataPillDensity, toolbarButton } from "@/components/ui-primitives";
 import { cn } from "@/components/ui-primitives";
-import { onCallDetailsSchemaFor, onCallEntryFreshness, type OnCallEntry } from "@/lib/on-call/entry-model";
-import { ON_CALL_HOME_TAGS, onCallPrimaryNumber } from "@/lib/on-call/home-modules";
+import {
+  onCallDetailsSchemaFor,
+  onCallEntryFreshness,
+  type OnCallEntry,
+  onCallEntryIsEditable,
+} from "@/lib/on-call/entry-model";
+import { ON_CALL_HOME_TAGS, onCallPrimaryNumber, onCallTelHref } from "@/lib/on-call/home-modules";
 import { recordOnCallRecent } from "@/lib/on-call/recent-storage";
 import { partitionContactsEntries } from "@/lib/on-call/who-is-who";
 
@@ -109,12 +118,6 @@ function parseContactDetails(details: unknown): OnCallContactDetails | null {
   return result.success ? (result.data as OnCallContactDetails) : null;
 }
 
-function telHref(raw: string | undefined): string | undefined {
-  if (!raw) return undefined;
-  const compact = raw.replace(/[^\d+]/g, "");
-  return compact.length > 0 ? `tel:${compact}` : undefined;
-}
-
 function ContactRow({
   entry,
   now,
@@ -144,7 +147,7 @@ function ContactRow({
   // depends on whether it is in or out of hours, and this page already injects a
   // clock so its rendering is deterministic under test.
   const primary = entry.isPersonal ? null : onCallPrimaryNumber(entry, now);
-  const href = telHref(primary?.value);
+  const href = primary?.label === "Ext" || primary?.label === "Pager" ? undefined : onCallTelHref(primary?.value);
 
   const otherNumbers =
     details && !entry.isPersonal
@@ -161,14 +164,15 @@ function ContactRow({
   const showVerify = freshness.state === "stale" && Boolean(onVerified);
 
   return (
-    <div className="flex items-stretch gap-2">
+    <div className="flex items-stretch gap-2" id={onCallEntryAnchorId(entry.id)} tabIndex={-1}>
       <div className="min-w-0 flex-1">
         <OnCallEntryRow
           title={entry.title}
+          stackOnPhone={Boolean(href)}
           // Board 06 puts the availability under the role — "Always on",
           // "From 17:00" — because that is what decides whether to ring now.
           subtitle={entry.isPersonal ? undefined : (details?.availability ?? details?.contactName)}
-          icon={Phone}
+          icon={href ? Phone : undefined}
           href={href}
           onActivate={() => recordOnCallRecent({ id: entry.id, title: entry.title })}
           trailing={
@@ -177,7 +181,12 @@ function ContactRow({
                 {/* The number itself, right-aligned as drawn, rather than a
                     pill under the title. A pill per datum turned a contact
                     list into five rows a screen; the board shows twelve. */}
-                {primary ? <span className="nums text-sm font-bold">{primary.value}</span> : null}
+                {primary ? (
+                  <span className="nums text-sm font-bold">
+                    {primary.label === "Ext" ? "Ext " : primary.label === "Pager" ? "Pager " : ""}
+                    {primary.value}
+                  </span>
+                ) : null}
                 {href ? <OnCallCallDisc /> : null}
               </span>
             ) : undefined
@@ -216,7 +225,7 @@ function ContactRow({
               value={primary.value}
               // Names the number AND the contact, because the glyph alone tells
               // a screen-reader user neither.
-              label={`Copy ${primary.label} number for ${entry.title}`}
+              label={`Copy ${primary.label === "Ext" ? "extension" : primary.label + " number"} for ${entry.title}`}
               testId={`on-call-contact-copy-${entry.slug}`}
             />
           ) : null}
@@ -275,7 +284,7 @@ export function OnCallContactsSection({
       className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]"
     >
       <Printer className="h-4 w-4 shrink-0" aria-hidden />
-      Printable card
+      Pocket card
     </Link>
   );
 
@@ -382,7 +391,13 @@ export function OnCallContactsSection({
           </div>
           <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid="on-call-contacts-group-needs-checking">
             {sortEntries(needsChecking).map((entry) => (
-              <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+              <ContactRow
+                key={entry.id}
+                entry={entry}
+                now={now}
+                onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+              />
             ))}
           </div>
         </section>
@@ -423,7 +438,13 @@ export function OnCallContactsSection({
                 </div>
                 <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${slug}`}>
                   {group.entries.map((entry) => (
-                    <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+                    <ContactRow
+                      key={entry.id}
+                      entry={entry}
+                      now={now}
+                      onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+                      onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+                    />
                   ))}
                 </div>
               </section>
@@ -437,7 +458,13 @@ export function OnCallContactsSection({
     return (
       <div className="grid grid-cols-[minmax(0,1fr)] gap-2" data-testid={`on-call-contacts-group-${variant}`}>
         {list.map((entry) => (
-          <ContactRow key={entry.id} entry={entry} now={now} onEdit={onEditEntry} onVerified={onVerified} />
+          <ContactRow
+            key={entry.id}
+            entry={entry}
+            now={now}
+            onEdit={onCallEntryIsEditable(entry) ? onEditEntry : undefined}
+            onVerified={onCallEntryIsEditable(entry) ? onVerified : undefined}
+          />
         ))}
       </div>
     );

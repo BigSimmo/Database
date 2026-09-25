@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f67543e3-5466-4996-a3a2-f9161b05387d",
+  "createdOn": "2026-09-25",
+  "action": "done",
+  "payload": {
+    "id": "#KJF5J7",
+    "outcome": "Resolved 2026-09-25 (ledger review). Fixed by 13a1f2eee (PR #2994): entry-store.ts no longer writes personal rows or anything mayContainOnCallCompliance flags to localStorage, keeps them in session memory only, and applies a 7-day expiry. The privacy impact assessment line that still says compliance rows are cached in localStorage is carried into #5Z3CDC.",
+    "baseRowFingerprint": "c55545cec1f6e8ddea0b60346b2edb68e3195430cf7ec692fb573ca85dbb1710"
+  }
+}

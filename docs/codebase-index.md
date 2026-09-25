@@ -2,6 +2,8 @@
 
 Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run docs:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
+_Updated 2026-09-25 — brought routes, API routes, RAG modules, Supabase, worker, scripts and config sections back in line with the tree._
+
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
 **Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
 
@@ -57,16 +59,18 @@ prescribing, tools, calculators, therapy-compass, factsheets, dictionary, source
 
 ### The two flows that matter
 
-**Answer (read path).** `/api/answer` → `src/lib/rag/rag.ts` orchestrates: hybrid retrieval
-via Postgres RPCs (pgvector HNSW + tsvector/trigram) → `retrieval-selection` →
+**Answer (read path).** `/api/answer/stream` (the route the UI calls; `/api/answer` is the
+non-streaming twin) → `src/lib/rag/rag.ts` orchestrates: hybrid retrieval
+via Postgres RPCs (called from `src/lib/rag/rag-candidate-sources.ts`) (pgvector HNSW + tsvector/trigram) → `retrieval-selection` →
 `answer-ranking` → routed OpenAI generation (fast vs strong) → `answer-verification` and
 render policy → cited answer. If generation fails the quality gates it degrades to a
 deterministic **source-only** answer that still cites real documents — that is expected
 behaviour, not a bug. Responses cache in `rag_response_cache`.
 
-**Ingestion (write path).** `/api/upload` → private `clinical-documents` bucket + a row in
-`ingestion_jobs` → `worker/main.ts` (or the `indexing-v3-agent` Edge Function) claims the
-job → extract (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI
+**Ingestion (write path).** `/api/upload` → private `clinical-documents` bucket, then one RPC
+(`create_uploaded_document_with_ingestion_job`) creates the `documents` and `ingestion_jobs`
+rows → `worker/main.ts` claims the job (`claim_ingestion_jobs`; the `indexing-v3-agent` Edge
+Function works a separate strict-enrichment queue) → extract (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI
 embeddings → chunks, pages, images, embedding fields, index units, table facts → quality
 gates in `document_index_quality`. Reindex commits atomically per generation
 (`reindex-pipeline.ts`). Lifecycle detail: `docs/ingestion-state-machine.md`.
@@ -115,14 +119,16 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 
 ### Shell and routing
 
-- **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
+- **Root layout:** `src/app/layout.tsx` — fonts, theme cookie (`ckb-v2` + `dark` classes), CSP nonce, `AuthProvider` → `AccountDataProvider` → `MobileKeyboardProvider`, PWA lifecycle, web-vitals reporter, `OverlayRoot`; global CSS is `src/app/globals.css` plus `src/app/ckb-v2-tokens.css`
+- **Proxy:** `src/proxy.ts` (Next 16's replacement for middleware) — CSP nonce, API mutation CSRF check, upload size cap, developer-area header/devkey handling, production 404 for `/mockups/**`, Supabase session refresh, and redirects
 - **Shared search-app layout:** `src/app/(search-app)/layout.tsx` + `src/components/clinical-dashboard/shared-search-app-shell.tsx` — keeps `GlobalSearchShell` mounted across mode homes
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
-- **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
+- **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell; the shared home for every mode as `/?mode=<id>`
+- **Consolidated mode homes:** bare mode paths (`/documents`, `/dsm`, `/dictionary`, `/factsheets`, `/services`, `/forms`, `/calculators`, `/specifiers`, `/formulation`, `/differentials`, `/therapy-compass`, `/sources`) 307 to `/?mode=<id>`, and submitted queries (`?q=…&run=1`) to `/<mode>/search` — `src/lib/consolidated-mode-home-redirect.ts`, applied in `src/proxy.ts`, with each page's own `redirect()` as a backstop. `/medications` goes to `/?mode=prescribing`. Only `/tools`, `/favourites`, `/on-call` and `/cme` render their own home.
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (18):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, calculators, Therapy, Factsheets, Dictionary, Sources, On Call, CME
-  - **Sources catalogue:** `/sources` provides a read-only, quality-banded catalogue with Topics, Publishers, Method and source-detail traceability; `/dictionary/sources` redirects into its Dictionary-filtered view. Method (`/sources/method`) and the Guide Centre's Source rating topic both render `src/components/reference/source-method-reference-content.tsx` — one component, `variant: "page" | "guide"`, the same arrangement `colour-coding-reference-content.tsx` uses for `/reference/colour-coding`.
+  - **Sources catalogue:** `/sources/search` (bare `/sources` redirects to the shared home) provides a read-only, quality-banded catalogue with Topics, Publishers, Method and source-detail traceability; `/dictionary/sources` redirects into its Dictionary-filtered view. Method (`/sources/method`) and the Guide Centre's Source rating topic both render `src/components/reference/source-method-reference-content.tsx` — one component, `variant: "page" | "guide"`, the same arrangement `colour-coding-reference-content.tsx` uses for `/reference/colour-coding`.
   - **Therapy review disclosure.** Therapy was `devOnly` while its 205-record catalogue awaited qualified-clinician sign-off. That hid the mode from production navigation, 404'd `/therapy-compass` in the route layout, and made `therapyRecordsForEnvironment` filter every record out — so all 205 detail/brief/sheet routes and every universal-search therapy hit 404'd for real users while working locally. The owner's decision (2026-08-19) replaced the gate with disclosure: reachability is no longer conditioned on review status anywhere, and the caveat is stated per record instead, by the `reviewStatus` badge on every card, detail page, brief, sheet, comparison, pathway, and universal-search result. A catalogue-wide banner (`TherapyReviewNotice`, counts from the generated `THERAPY_CATALOGUE_SUMMARY.needsReviewCount`) sat above the search band until 2026-09-06, when the owner removed it: a caveat repeated above every search is read past, while the per-record badge sits where the decision is actually made. `therapyNeedsReview` survives as the label source only. Pinned by `tests/app-modes.test.ts` (reachability), `tests/therapy-review-regressions.test.ts` (the per-record badges, and the banner's absence), and `tests/therapy-pr-unblocking-contract.test.ts` (the retired `PLAYWRIGHT_OFFLINE_MODE` bypass that existed only to reach the gated route).
 
 ### Product pages (`src/app/`)
@@ -131,7 +137,7 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                                                                                                                                                                                                                                                                             | `src/app/(search-app)/page.tsx`                                                                                                                                                    |
 | Shared mode-home route group (`/(search-app)`)                                                                                                                                                                                                                                  | `src/app/(search-app)/`                                                                                                                                                            |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                                                                                                                                                                                             | `src/app/(search-app)/` shared shell group                                                                                                                                         |
+| Mode homes (`/?mode=<id>`; bare `/services`, `/dsm`, `/documents`, … redirect there)                                                                                                                                                                                            | `src/app/(search-app)/page.tsx` + `home-page-client.tsx`                                                                                                                           |
 | `/caring-contacts` (standalone workspace; own nav, entered from Tools)                                                                                                                                                                                                          | `src/app/caring-contacts/`                                                                                                                                                         |
 | `/caring-contacts/patients` (permission-scoped caseload: one row per plan plus an authorised names-only projection; URL state filter and local name/identifier search)                                                                                                          | `src/app/caring-contacts/patients/page.tsx`                                                                                                                                        |
 | `/caring-contacts/patients/[patientId]` (one patient's episode: identity, the plan, and its twelve-month schedule; the ONE screen that may call `getEpisode`)                                                                                                                   | `src/app/caring-contacts/patients/[patientId]/page.tsx`                                                                                                                            |
@@ -143,52 +149,56 @@ Local task coordination lives in `.superpowers/`: ignored task briefs, review pa
 | `/caring-contacts/reports` (aggregate operational measures, and the §2.5 programme-reach section — which states that the field it would report on is not collected rather than showing an empty breakdown)                                                                      | `src/app/caring-contacts/reports/page.tsx`                                                                                                                                         |
 | `/caring-contacts/team` (where the team's work is sitting: plans sending, plans their own state is holding, coverage, exception backlog and unclaimed work against the 60-minute escalation — operational only, and it ranks nobody)                                            | `src/app/caring-contacts/team/page.tsx`                                                                                                                                            |
 | `/caring-contacts/intake` (manual hospital referral intake fallback; coordinator data entry when automated EMR feeds are unavailable or delayed — Hazard H-44)                                                                                                                  | `src/app/caring-contacts/intake/page.tsx`                                                                                                                                          |
-| `/applications`                                                                                                                                                                                                                                                                 | `src/app/applications/route.ts`                                                                                                                                                    |
-| `/differentials`, `/diagnoses`, `/presentations`, `/compare`                                                                                                                                                                                                                    | `src/app/(search-app)/differentials/`                                                                                                                                              |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                                                                                                                                                                                                  | `src/app/(search-app)/dsm/`                                                                                                                                                        |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                                                                                                                                                                                            | `src/app/(search-app)/documents/`                                                                                                                                                  |
+| `/applications` (307 to `/tools`)                                                                                                                                                                                                                                               | `src/app/applications/route.ts`                                                                                                                                                    |
+| `/differentials/search`, `/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, `/differentials/presentations`, `/differentials/presentations/[slug]`, `/differentials/compare`                                                                                         | `src/app/(search-app)/differentials/`                                                                                                                                              |
+| `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`, `/dsm/diagnoses/[slug]/differentials`                                                                                                                                                                                   | `src/app/(search-app)/dsm/`                                                                                                                                                        |
+| `/documents/search`, `/documents/[id]` (`/documents/source` and `/documents/source/evidence` redirect to `/documents/[id]`)                                                                                                                                                     | `src/app/(search-app)/documents/`                                                                                                                                                  |
 | `/factsheets`, `/factsheets/search`, `/factsheets/topics`, `/factsheets/[slug]`                                                                                                                                                                                                 | `src/app/(search-app)/factsheets/`                                                                                                                                                 |
-| `/dictionary`, Terms (`/search`, one catalogue — `/browse` redirects to it), Topics, Definition, Compare                                                                                                                                                                        | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
-| `/sources`, `/sources/topics`, `/sources/publishers`, `/sources/method`, `/sources/[sourceId]`                                                                                                                                                                                  | `src/app/(search-app)/sources/`                                                                                                                                                    |
+| `/dictionary/search` (Terms, one catalogue — `/browse` redirects to it), `/dictionary/topics`, `/dictionary/topics/[slug]`, `/dictionary/[slug]`, `/dictionary/compare`                                                                                                         | `src/app/(search-app)/dictionary/`                                                                                                                                                 |
+| `/sources/search`, `/sources/topics`, `/sources/publishers`, `/sources/method`, `/sources/[sourceId]`                                                                                                                                                                           | `src/app/(search-app)/sources/`                                                                                                                                                    |
 | `/favourites`                                                                                                                                                                                                                                                                   | `src/app/(search-app)/favourites/page.tsx`                                                                                                                                         |
-| `/forms`, `/forms/[slug]`                                                                                                                                                                                                                                                       | `src/app/(search-app)/forms/`                                                                                                                                                      |
-| `/medications`, `/medications/[slug]`                                                                                                                                                                                                                                           | `src/app/(search-app)/medications/`                                                                                                                                                |
+| `/forms/search`, `/forms/[slug]`                                                                                                                                                                                                                                                | `src/app/(search-app)/forms/`                                                                                                                                                      |
+| `/medications/[slug]` (bare `/medications` redirects to `/?mode=prescribing`)                                                                                                                                                                                                   | `src/app/(search-app)/medications/`                                                                                                                                                |
 | `/privacy`                                                                                                                                                                                                                                                                      | `src/app/privacy/page.tsx` → `privacy-quiet-signal-page.tsx` + `privacy-page-content.tsx`                                                                                          |
 | `/reference/colour-coding`                                                                                                                                                                                                                                                      | `src/app/reference/`                                                                                                                                                               |
 | `/safety-plan`                                                                                                                                                                                                                                                                  | `src/app/safety-plan/page.tsx`                                                                                                                                                     |
 | `/calculators`, `/calculators/search`                                                                                                                                                                                                                                           | `src/app/(search-app)/calculators/`                                                                                                                                                |
-| `/services`, `/services/[slug]`                                                                                                                                                                                                                                                 | `src/app/(search-app)/services/`                                                                                                                                                   |
-| `/therapy-compass`                                                                                                                                                                                                                                                              | `src/app/(search-app)/therapy-compass/`                                                                                                                                            |
+| `/services/search`, `/services/[slug]`                                                                                                                                                                                                                                          | `src/app/(search-app)/services/`                                                                                                                                                   |
+| `/therapy-compass/search`, `/recommend`, `/compare`, `/pathways`, `/review`, `/[slug]`, `/[slug]/brief`, `/[slug]/sheet`                                                                                                                                                        | `src/app/(search-app)/therapy-compass/`                                                                                                                                            |
+| `/on-call` (dashboard), `/on-call/card`, `/compliance`, `/contacts`, `/education`, `/logistics`, `/orientation`, `/playbook`, `/referrals`, `/service`, `/who-is-who`                                                                                                           | `src/app/(search-app)/on-call/` (see On Call mode below)                                                                                                                           |
+| `/cme` (dashboard), `/cme/log`, `/cme/log/[id]`, `/cme/new`, `/cme/plan`, `/cme/programme`, `/cme/routines`, `/cme/setup`, `/cme/summary`, `/cme/customise`                                                                                                                     | `src/app/(search-app)/cme/` (see Continuing education below)                                                                                                                       |
 | `/tools`                                                                                                                                                                                                                                                                        | `src/app/(search-app)/tools/`                                                                                                                                                      |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                                                                                                                            | `src/app/(search-app)/specifiers/`                                                                                                                                                 |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                                                                                                                                       | `src/app/(search-app)/formulation/`                                                                                                                                                |
+| `/specifiers/search`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`                                                                                                                                                                     | `src/app/(search-app)/specifiers/`                                                                                                                                                 |
+| `/formulation/search`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map`                                                                                                                                                                | `src/app/(search-app)/formulation/`                                                                                                                                                |
 | `/mockups/*`                                                                                                                                                                                                                                                                    | `src/app/mockups/` (404 in production; `/mockups/development`, `/mockups/caring-contacts`, `/mockups/care-plan`, and `/mockups/ward-flow` are developer-gated instead — see below) |
 | `/auth/callback`                                                                                                                                                                                                                                                                | `src/app/auth/callback/route.ts`                                                                                                                                                   |
+| `/auth/reset-password`                                                                                                                                                                                                                                                          | `src/app/auth/reset-password/page.tsx`                                                                                                                                             |
+| PWA and SEO (`/manifest.webmanifest`, `/robots.txt`, `/sitemap.xml`, OG image, icons)                                                                                                                                                                                           | `src/app/manifest.ts`, `robots.ts`, `sitemap.ts`, `opengraph-image.tsx`, `apple-icon.tsx`, `icons/[variant]/route.tsx`                                                             |
 
 ### API routes (`src/app/api/`)
 
-| Area             | Routes                                                                                                                                                    | Entry files                                                     |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                                     | `account/`                                                      |
-| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                               | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                                | `clinical-ask/stream/route.ts`                                  |
-| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                                          | `clinical-quality/route.ts`                                     |
-| Speech           | `/api/speech/transcribe`                                                                                                                                  | `speech/transcribe/route.ts`                                    |
-| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                                         | `search/`                                                       |
-| Upload           | `/api/upload`                                                                                                                                             | `upload/route.ts`                                               |
-| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                                       | `documents/`                                                    |
-| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                              | `differentials/`                                                |
-| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                                             | `medications/`                                                  |
-| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                           | `ingestion/`                                                    |
-| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                   | `registry/records/`                                             |
-| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries)               | `on-call/entries/`                                              |
-| CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository) | `cme/entries/`, `cme/year/`                                     |
-| Images           | `/api/images/[id]/signed-url`                                                                                                                             | `images/[id]/signed-url/route.ts`                               |
-| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                                          | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                                    | `eval-cases/`, `jobs/`                                          |
-| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                                          | `webhooks/`                                                     |
-| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                               | `caring-contacts/`                                              |
-| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                                | `site-content/publications/`                                    |
+| Area             | Routes                                                                                                                                                                                                                                                                                                                            | Entry files                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account          | `/api/account/favourites`, `/api/account/preferences`                                                                                                                                                                                                                                                                             | `account/`                                                      |
+| Answers          | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                                                                                                                                                                                                                                       | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Clinical Ask     | `/api/clinical-ask/stream`                                                                                                                                                                                                                                                                                                        | `clinical-ask/stream/route.ts`                                  |
+| Clinical quality | `/api/clinical-quality` (administrator governance aggregates and triage updates)                                                                                                                                                                                                                                                  | `clinical-quality/route.ts`                                     |
+| Speech           | `/api/speech/transcribe`                                                                                                                                                                                                                                                                                                          | `speech/transcribe/route.ts`                                    |
+| Search           | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                                                                                                                                                                                                                                 | `search/`                                                       |
+| Upload           | `/api/upload`                                                                                                                                                                                                                                                                                                                     | `upload/route.ts`                                               |
+| Documents        | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts                                                                                                                                                                                                               | `documents/`                                                    |
+| Differentials    | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                                                                                                                                                                                                                                      | `differentials/`                                                |
+| Medications      | `/api/medications`, `/api/medications/[slug]`                                                                                                                                                                                                                                                                                     | `medications/`                                                  |
+| Ingestion        | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                                                                                                                                                                                                                                   | `ingestion/`                                                    |
+| Registry         | `/api/registry/records`, `/api/registry/records/[slug]`                                                                                                                                                                                                                                                                           | `registry/records/`                                             |
+| On Call          | `/api/on-call/entries`, `/api/on-call/entries/[id]`, `/api/on-call/entries/[id]/verify` (owner-scoped hospital contact/orientation entries); `/api/on-call/services`, `/api/on-call/services/[serviceId]`, `/api/on-call/services/join` (shared service handbooks, via `service-api.withServiceApi`); `/api/on-call/demo-content` | `on-call/`                                                      |
+| CME              | `/api/cme/entries`, `/api/cme/entries/[id]`, `/api/cme/entries/[id]/evidence`, `/api/cme/entries/[id]/evidence/[evidenceId]`, `/api/cme/routines`, `/api/cme/routines/[id]`, `/api/cme/export`, `/api/cme/year` (owner-scoped continuing-education record; demo mode branches here, never in the repository)                      | `cme/`                                                          |
+| Images           | `/api/images/[id]/signed-url`, `/api/images/signed-urls` (batch); `/api/documents/images/batch` re-exports the batch handler                                                                                                                                                                                                      | `images/`, `documents/images/batch/route.ts`                    |
+| Ops              | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                                                                                                                                                                                                                                  | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs      | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`)                                                                                                                                                                                                            | `eval-cases/`, `jobs/`                                          |
+| Webhooks         | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)                                                                                                                                                                                                                  | `webhooks/`                                                     |
+| Caring Contacts  | `/api/caring-contacts/*` (synthetic demo session, team-scoped workspace, access trail and workflow actions)                                                                                                                                                                                                                       | `caring-contacts/`                                              |
+| Site content     | `/api/site-content/publications` (administrator POST only)                                                                                                                                                                                                                                                                        | `site-content/publications/`                                    |
 
 ---
 
@@ -200,20 +210,25 @@ The `rag.ts` orchestrator and its `rag-*` cluster live in **`src/lib/rag/`** (th
 domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below remain flat in
 `src/lib/`.
 
-| Module                                                                                                                  | Role                                                                                          |
-| ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `rag.ts`                                                                                                                | Main answer pipeline orchestrator                                                             |
-| `rag-routing.ts`, `rag-provider.ts`, `rag-answer-text.ts`, `smart-rag-api.ts`                                           | Model routing, provider modes, API surface                                                    |
-| `rag-contracts.ts`, `rag-answer-support.ts`, `rag-query-guard.ts`                                                       | Shared RAG contracts and pure answer/query policy                                             |
-| `rag-evidence-gates.ts`, `rag-coverage-gate.ts`, `rag-second-stage.ts`                                                  | Evidence predicates, fast-path coverage gating, and second-stage ranking                      |
-| `rag-hydration.ts`                                                                                                      | Per-request hydration: document ranking metadata, cached index quality, page visual evidence  |
-| `rag-cache.ts`, `rag-retrieval-variants.ts`                                                                             | Bounded caches and retrieval variants                                                         |
-| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`                                                | Query modes and retrieval selection                                                           |
-| `answer-ranking.ts`, `answer-verification.ts`, `answer-formatting.ts`, `answer-follow-up.ts`, `answer-render-policy.ts` | Answer quality and rendering                                                                  |
-| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                  | Evidence and synthesis                                                                        |
-| `ranking-config.ts`, `search-scope.ts`, `rag-eval-cases.ts`                                                             | Ranking tuning and eval fixtures                                                              |
-| `clinical-ask/`                                                                                                         | Mode-aware Clinical Ask contracts, profiles, evidence, and orchestration                      |
-| `security-headers.ts`, `privacy-page-content.tsx`                                                                       | Clinical Ask microphone policy, ephemeral-data disclosure, and provider-boundary privacy copy |
+| Module                                                                                                                                                 | Role                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rag/rag.ts`                                                                                                                                           | Main answer pipeline orchestrator (`answerQuestionWithScope`, `searchChunksWithTelemetry`, `summarizeDocument`)                                                 |
+| `rag/rag-candidate-sources.ts`                                                                                                                         | Candidate fan-out: every retrieval RPC call (versions chosen by the flat `retrieval-rpc-rollout.ts`)                                                            |
+| `rag/rag-query-plan.ts`, `rag/rag-governed-search.ts`, `rag/rag-embedding-prefetch.ts`                                                                 | Query planning, governed-search routing, embedding prefetch                                                                                                     |
+| `rag/rag-context-selection.ts`, `rag/rag-context-pack.ts`, `rag/rag-source-block.ts`, `rag/rag-answer-instructions.ts`, `rag/rag-answer-schema.ts`     | Model context selection and packing, prompt and output schema                                                                                                   |
+| `rag/rag-quote-verification.ts`, `rag/rag-claim-support.ts`, `rag/rag-coverage.ts`                                                                     | Post-generation quote, claim and coverage verification                                                                                                          |
+| `rag/rag-extractive-answer.ts`, `rag/rag-extractive-first.ts`, `rag/rag-generation-degradation.ts`, `rag/rag-fallback-reason.ts`                       | Source-only / extractive degradation when generation fails its gates                                                                                            |
+| `rag/rag-routing.ts`, `rag/rag-route-budget.ts`, `rag/rag-provider.ts`, `rag/rag-answer-text.ts`, flat `smart-rag-api.ts`                              | Model routing, provider modes, API surface                                                                                                                      |
+| `rag/rag-contracts.ts`, `rag/rag-answer-support.ts`, `rag/rag-query-guard.ts`                                                                          | Shared RAG contracts and pure answer/query policy                                                                                                               |
+| `rag/rag-evidence-gates.ts`, `rag/rag-coverage-gate.ts`, `rag/rag-second-stage.ts`                                                                     | Evidence predicates, fast-path coverage gating, and second-stage ranking                                                                                        |
+| `rag/rag-hydration.ts`                                                                                                                                 | Per-request hydration: document ranking metadata, cached index quality, page visual evidence; `selectRankedRetrievalResults` hands off to `retrieval-selection` |
+| `rag/rag-cache.ts`, `rag/rag-retrieval-variants.ts`                                                                                                    | Bounded caches and retrieval variants                                                                                                                           |
+| `clinical-search.ts`, `clinical-query-mode.ts`, `retrieval-selection.ts`, `released-search-order.ts`, `semantic-rerank.ts`, `retrieval-rpc-rollout.ts` | Query modes, retrieval selection, released ordering, optional semantic rerank, retrieval RPC version choice                                                     |
+| `answer-ranking.ts`, `answer-verification.ts`, `answer-follow-up.ts`, `answer-render-policy.ts`, `answer-response.ts`, `answer-stream-contract.ts`     | Answer quality, rendering and the client/stream contract (`answer-formatting.ts` is used only by the Ward Flow note output, `ward-output.ts`)                   |
+| `citations.ts`, `cross-document-synthesis.ts`, `evidence-relevance.ts`                                                                                 | Evidence and synthesis                                                                                                                                          |
+| `ranking-config.ts`, `search-scope.ts`, `rag/rag-eval-cases.ts`                                                                                        | Ranking tuning and eval fixtures                                                                                                                                |
+| `clinical-ask/`                                                                                                                                        | Mode-aware Clinical Ask contracts, profiles, evidence, and orchestration                                                                                        |
+| `security-headers.ts`, `privacy-page-content.tsx`                                                                                                      | Clinical Ask microphone policy, ephemeral-data disclosure, and provider-boundary privacy copy                                                                   |
 
 ### Ingestion and indexing
 
@@ -240,14 +255,14 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Supabase, auth, env
 
-| Module                                                                                            | Role                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth                                                                                                                                                                                      |
-| `src/lib/supabase/database.types.ts`                                                              | Generated DB types                                                                                                                                                                                    |
-| `env.ts`                                                                                          | Zod-validated environment                                                                                                                                                                             |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy                                                                                                                                                                          |
-| `authorization.ts`                                                                                | `site_role === "administrator"` claim check                                                                                                                                                           |
-| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                             | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
+| Module                                                                                                                                                                                                    | Role                                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts` (`requireAuthenticatedUser`), `health.ts`, `project.ts`, `errors.ts`, `password-recovery-authorization.ts`, `proxy-auth-crypto.ts` | Clients and auth                                                                                                                                                                                      |
+| `src/lib/supabase/database.types.ts`                                                                                                                                                                      | Generated DB types                                                                                                                                                                                    |
+| `env.ts`                                                                                                                                                                                                  | Zod-validated environment                                                                                                                                                                             |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                                                                                                                            | Multi-user scope and privacy                                                                                                                                                                          |
+| `authorization.ts`                                                                                                                                                                                        | `site_role === "administrator"` claim check                                                                                                                                                           |
+| `src/lib/developer-area/` — `access.ts`, `headers.ts`                                                                                                                                                     | Signed-in-administrator gate for the Settings "Development" hub (`/mockups/development`, `/mockups/caring-contacts/**`, `/mockups/care-plan/**`); the production block itself lives in `src/proxy.ts` |
 
 ### Clinical product data
 
@@ -267,13 +282,13 @@ domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below r
 
 ### Infra helpers
 
-| Module                                                                                                                 | Role                                                                                                                                                                     |
-| ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                                            | External APIs and rate limits                                                                                                                                            |
-| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `error-tracking.ts`, `agent-monitoring.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; privacy-safe Sentry error + DB-span scrubbers and metadata-only OpenAI agent monitoring (`docs/error-tracking.md`) |
-| `validation/`                                                                                                          | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`                                                                                                            |
-| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                       | Routing and project identity                                                                                                                                             |
-| `tailwind-merge.ts`                                                                                                    | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
+| Module                                                                                                                                                                                                                  | Role                                                                                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                                                                                                                                             | External APIs and rate limits                                                                                                                                            |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`, `answer-coalescing-metrics.ts`, `error-tracking.ts`, `agent-monitoring.ts`, `sentry-logging.ts`, `sentry-release.ts`, `supabase-tracing.ts` | Deep-health SLO / cache-hit / answer-spend snapshots; privacy-safe Sentry error + DB-span scrubbers and metadata-only OpenAI agent monitoring (`docs/error-tracking.md`) |
+| `validation/`                                                                                                                                                                                                           | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts`, `answer-request.ts`, `clinical-ask-request.ts`, `speech-transcription-request.ts`, `row-contracts.ts`     |
+| `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs`                                                                                                                        | Routing and project identity                                                                                                                                             |
+| `tailwind-merge.ts`                                                                                                                                                                                                     | The `extendTailwindMerge` config behind `cn()` — declares this repo's custom `@theme` scales so twMerge does not misclassify them (`docs/design-system/TOKENS.md`)       |
 
 ### Caring Contacts
 
@@ -405,7 +420,7 @@ the printable card excludes stale entries outright.
 | `repository`     | Owner-scoped reads of `on_call_entries`; throws rather than query without an owner id         |
 | `api-schemas`    | Create/update request shapes (kept out of the route files, which may export only route names) |
 | `entry-store`    | Browser cache over `createBrowserStore`, cleared on sign-out and session expiry               |
-| `search`         | Offline search across all six sections, over the cached entries                               |
+| `entry-search`   | Offline search across all six sections, over the cached entries (`entry-search.ts`)           |
 | `card-selection` | Which entries reach the printable card: on-card, not personal, not stale                      |
 
 Routes live at `/on-call/<section>` (`contacts`, `playbook`, `referrals`, `orientation`,
@@ -416,6 +431,14 @@ being the one-tap "still correct today" action that resets the freshness clock.
 **Storage.** `on_call_entries` is owner-scoped with RLS enabled and revoked from `anon` and
 `authenticated`; reads and writes go through the service-role client at the API layer, the same
 application-layer ownership model as `clinical_registry_records`.
+
+**Invited service workspace.** `/on-call/service`, linked from the mode home, uses
+`service-model`, `service-repository` and `service-api` with the
+`/api/on-call/services` collection, service command route and invitation join route.
+The separate `on_call_service_*` tables enforce service/site membership, editor
+publishing, independent clinical/legal review, revision conflicts, correction reports
+and owner-private orientation completion. They never pool legacy entries or personal
+CME/compliance. `handbook-resources` holds linked official WA starting points.
 
 ---
 
@@ -429,6 +452,14 @@ carrying the date he confirmed it and the document it came from; the mode comput
 against those numbers and never supplies one of its own. Nothing here may reduce a target for a
 working pattern — part-time work does not lower the requirement, and a tracker that quietly
 lowered it would be the most dangerous thing in the design.
+
+The setup route offers a versioned Australian/RANZCP starting preset for explicit owner
+confirmation. Private activity and routine routes save atomically. Activity archive and
+restore preserve history while excluding archived entries from active totals. The log
+links `/cme/summary?year=…` and `/api/cme/export?year=…` for print and CSV output.
+`evidence-model`, `evidence-upload` and `evidence-repository` serve private attachments
+through `/api/cme/entries/[id]/evidence`; learning sources remain separate. Handbook
+learning links prefill title/source in `/cme/new` and never save attendance automatically.
 
 | Module     | Role                                                                                                             |
 | ---------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -462,9 +493,29 @@ delete, and `src/app/api/cme/year/route.ts` holds the year write, each following
 scanner walks every file under `src/app/api`, so a scoped query there is more proven than one in a
 lib module, which is reached only by being named in that list.
 
+**Year close.** `cme_year_snapshots` holds the frozen record of a closed year (built by
+`cme_close_year` from the rows themselves, plus the shortfall note) and `cme_year_amendments` the
+dated, reasoned changes made afterwards through `cme_amend_closed_entry`. Both are append-only.
+Once `cme_years.closed_at` is set it cannot be cleared, and ordinary writes to that year's entries,
+allocations and requirements are refused; only an update recorded as an amendment in the same
+transaction gets through. See `docs/cme/design/cme-design-decisions.md` §9.
+
 Routes live at `/cme` and its sub-paths; components are in `src/components/cme/`. The API is
 `/api/cme/entries`, `[id]` and `/api/cme/year`. Demo-mode branching lives in those routes and
 never in the repository, so production cannot silently fall back to synthetic data.
+
+---
+
+### Calendar (shared)
+
+`src/lib/calendar/` is the provider-neutral calendar model used by CME and On Call. `CalendarEvent`
+holds a Perth date (plus an optional Perth wall-clock start) and an optional repeat rule;
+`expandEvents` lays repeats out over a range. Adapters turn events into an iCalendar file (`ics.ts`,
+built on the device and downloaded), or into Google Calendar and Outlook "add event" links
+(`provider-links.ts`), which send the event to that provider only when the owner taps them.
+`month-grid.ts` lays a month out Monday-first. `CalendarSource` is the seam for a later two-way
+Google or Outlook sync; no account is connected today. The phone calendar view is in
+`src/components/calendar/`.
 
 ---
 
@@ -472,79 +523,104 @@ never in the repository, so production cannot silently fall back to synthetic da
 
 ### Config and schema
 
-- **CLI:** `supabase/config.toml` — `indexing-v3-agent` function, `verify_jwt = false`
+- **CLI:** `supabase/config.toml` — three Edge Functions: `indexing-v3-agent` (`verify_jwt = false`), `ingestion-worker` and `site-content-sync` (`verify_jwt = true`)
+- **Roles:** `supabase/roles.sql` — default-privilege bootstrap for objects `postgres` creates
 - **Schema mirror:** `supabase/schema.sql` (reference; migrations are source of truth)
 - **Migrations:** `supabase/migrations/*.sql` (chronological source of truth; do not hardcode a count)
-- **Drift policy:** `docs/supabase-migration-reconciliation.md`
+- **Drift policy:** `docs/supabase-migration-reconciliation.md`, `docs/database-drift-detection.md`
+- **Guard files:** `drift-allowlist.json` (`check:drift`, `live-drift.yml`), `chain-mirror-allowlist.json` (CI migration replay; never merged with the drift allowlist), `drift-manifest.json` (`drift:manifest`), `applied-migration-hashes.json` (`check:migration-immutability`, `migrations:seal`), `search-health-unmonitored-indexes.json` (index-monitoring ratchet for `search_schema_health()`)
+- **Seeds:** no `seed.sql`; seeding is by `registry:seed`, `medications:seed`, `differentials:seed`, with in-app fallbacks in `src/lib/*-seed.ts`
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `document_corpus_access_state`, `document_corpus_access_snapshots`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `clinical_quality_feedback_triage`, `clinical_quality_feedback_triage_events`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_favourite_sets`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`, `on_call_entries`, `cme_years`, `cme_requirements`, `cme_routines`, `cme_entries`, `cme_allocations`, `cme_evidence`, `cme_year_snapshots`, `cme_year_amendments`, `on_call_services`, `on_call_service_sites`, `on_call_service_members`, `on_call_service_invitations`, `on_call_service_entries`, `on_call_service_reports`, `on_call_service_orientation`, `site_content_publications`, `site_content_reconciliation_plans`, `site_content_public_records`, `site_content_sync_state`, `site_content_sync_events`, `site_content_sync_event_plans`, `site_content_sync_worker_invocations`, `site_content_releases`, `site_content_release_records`, `site_content_release_receipts`
 
 Public-source control-plane tables: `public_source_policy_entries`, `public_source_activation_events`, `public_source_versions`, `public_source_upload_attempts`, `public_source_activation_guards`, `public_source_cleanup_mutation_guards`.
 
-**Storage buckets:** `clinical-documents`, `clinical-images` (private)
+**Storage buckets:** `clinical-documents`, `clinical-images`, `cme-private-evidence` (all private)
 
 ### Migration themes
 
-| Theme                             | Examples                                                                                                        |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Bulk ingestion and job queue      | `20260527000000_bulk_ingestion.sql`, `20260616001000_ingestion_job_state_rpcs.sql`                              |
-| Hybrid retrieval RPCs             | `20260607183245_search_trigram_indexes_and_response_cache.sql`, `20260701140631_codify_live_retrieval_rpcs.sql` |
-| Embeddings / HNSW                 | `20260623014639_finalize_embedding_fields_hnsw_health.sql`                                                      |
-| Deep memory / visual intelligence | `20260528009000_deep_memory_indexing.sql`, `20260623150000_visual_intelligence_v1.sql`                          |
-| Indexing v3 agent                 | `20260625000000_indexing_v3_agent_worker_hardening.sql`, `20260702190000_indexing_v3_agent_jobs_table.sql`      |
-| Atomic reindex                    | `20260628000000_atomic_reindex_generation_commit.sql`                                                           |
-| Clinical registry                 | `20260703020000_clinical_registry_records.sql`                                                                  |
-| On Call mode entries              | `20260904120000_on_call_entries.sql`                                                                            |
+| Theme                                      | Examples                                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| Bulk ingestion and job queue               | `20260527000000_bulk_ingestion.sql`, `20260616001000_ingestion_job_state_rpcs.sql`                              |
+| Hybrid retrieval RPCs                      | `20260607183245_search_trigram_indexes_and_response_cache.sql`, `20260701140631_codify_live_retrieval_rpcs.sql` |
+| Embeddings / HNSW                          | `20260623014639_finalize_embedding_fields_hnsw_health.sql`                                                      |
+| Deep memory / visual intelligence          | `20260528009000_deep_memory_indexing.sql`, `20260623150000_visual_intelligence_v1.sql`                          |
+| Indexing v3 agent                          | `20260625000000_indexing_v3_agent_worker_hardening.sql`, `20260702190000_indexing_v3_agent_jobs_table.sql`      |
+| Atomic reindex                             | `20260628000000_atomic_reindex_generation_commit.sql`                                                           |
+| Clinical registry                          | `20260703020000_clinical_registry_records.sql`                                                                  |
+| On Call mode entries                       | `20260904120000_on_call_entries.sql`, `20260922174716_on_call_service_handbooks.sql`                            |
+| Owner scope / retrieval tenancy            | `20260708160001_retrieval_owner_matches_fail_closed.sql`                                                        |
+| Privilege and security-definer hardening   | `20260828000000_harden_security_definer_search_path.sql`                                                        |
+| Public-source control plane                | `20260824121000_create_public_source_control_plane.sql`                                                         |
+| Site-content release and outbox            | `20260824122000_add_site_content_release_and_outbox.sql`                                                        |
+| Corpus access mode / v3 governed retrieval | `20260830122000_add_corpus_scoped_retrieval_v3.sql`                                                             |
+| Audit and retention                        | `20260921065653_audit_logs_append_only.sql`                                                                     |
+| CME / CPD                                  | `20260920145148_cme_tables.sql`, `20260922175023_cme_private_evidence.sql`                                      |
 
 ### Key RPCs
 
-- **Jobs:** `claim_ingestion_jobs`, `claim_indexing_v3_agent_jobs`
-- **Index lifecycle:** `commit_document_index_generation`, `cleanup_abandoned_document_index_generations`
-- **Retrieval:** `match_document_chunks_hybrid`, `match_document_chunks_text`, `match_documents_for_query`, `match_document_table_facts_text`, `match_document_embedding_fields_hybrid`, `match_document_memory_cards_hybrid_v2`
-- **Health:** `search_schema_health`, `explain_retrieval_rpc`
+- **Jobs:** `create_uploaded_document_with_ingestion_job`, `claim_ingestion_jobs`, `complete_ingestion_job`, `fail_or_retry_ingestion_job`, `complete_strict_enrichment_job`, `claim_indexing_v3_agent_jobs`
+- **Index lifecycle:** `reset_document_index`, `commit_document_index_generation`, `commit_document_deep_memory_generation`, `cleanup_abandoned_document_index_generations`
+- **Retrieval:** versioned families — v2 is owner-scoped, v3 corpus/governed. The app calls `match_document_chunks_hybrid_v3`, `match_document_chunks_text_v3`, `match_documents_for_query_v2`, `match_document_table_facts_text_v2`, `match_document_embedding_fields_hybrid_v2`, `match_document_index_units_hybrid_v2`, `match_document_memory_cards_hybrid_v2`/`_v3`, `search_document_chunks`; `match_governed_candidate_chunks_v3` backs governed retrieval. Rows are gated by `retrieval_owner_matches_v2` (fail-closed; `owner_id IS NULL` is public)
+- **Health:** `search_schema_health`, `explain_retrieval_rpc`, `schema_drift_snapshot`, `migration_history_versions`
 
 ### Edge Functions
 
-| Function          | Path                                            |
-| ----------------- | ----------------------------------------------- |
-| indexing-v3-agent | `supabase/functions/indexing-v3-agent/index.ts` |
+| Function                   | Path                                            |
+| -------------------------- | ----------------------------------------------- |
+| indexing-v3-agent          | `supabase/functions/indexing-v3-agent/index.ts` |
+| site-content-sync          | `supabase/functions/site-content-sync/index.ts` |
+| ingestion-worker (retired) | `supabase/functions/ingestion-worker/index.ts`  |
 
-Cron-triggered agent for indexing v3 completion gates. Auth via `INDEXING_V3_AGENT_SECRET`. Type-checked by `npm run check:edge:functions`.
+`indexing-v3-agent` is the cron-triggered agent for indexing v3 completion gates (its own `indexing_v3_agent_jobs` queue). Auth via `INDEXING_V3_AGENT_SECRET`. `site-content-sync` is the service-role outbox worker for `site_content_sync_events`. `ingestion-worker` is retired: `retirement.ts` returns 410 before touching the queue. All are type-checked by `npm run check:edge:functions`.
 
 ---
 
 ## Worker (`worker/`)
 
-| File                           | Role                                                                                    |
-| ------------------------------ | --------------------------------------------------------------------------------------- |
-| `index.ts`                     | Bootstrap → `main.ts`                                                                   |
-| `main.ts`                      | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts                |
-| `observability.ts`             | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/error-tracking.md`) |
-| `embedding-fields.ts`          | Additional embedding field inputs                                                       |
-| `table-facts.ts`               | Table fact extraction                                                                   |
-| `prerequisites.ts`             | Python/PDF OCR checks                                                                   |
-| `python/extract_pdf_assets.py` | PDF asset extraction (PyMuPDF/Tesseract)                                                |
+| File                                                                | Role                                                                                                       |
+| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `index.ts`                                                          | Bootstrap → `main.ts`                                                                                      |
+| `run-loop.ts`, `runtime-control.ts`                                 | Claim loop with backoff; abort and stop handling                                                           |
+| `job-transitions.ts`, `row-contracts.ts`, `types.ts`, `behavior.ts` | RPC result decoding, row shapes and worker policy                                                          |
+| `validate-runtime.ts`                                               | Runtime validation, also run at image build                                                                |
+| `assertion-tagging.ts`                                              | medspaCy assertion tagging via `python/analyze_assertions.py` (`WORKER_MEDSPACY_ASSERTION`)                |
+| `shadow-extraction.ts`                                              | Docling shadow extraction via `python/shadow_docling_extract.py` (`WORKER_DOCUMENT_EXTRACTOR_MODE=shadow`) |
+| `main.ts`                                                           | Polls `ingestion_jobs`, extracts, chunks, embeds, writes index artifacts                                   |
+| `observability.ts`                                                  | Worker-side Sentry init/capture/flush, app privacy scrubbers (`docs/error-tracking.md`)                    |
+| `embedding-fields.ts`                                               | Additional embedding field inputs                                                                          |
+| `table-facts.ts`                                                    | Table fact extraction                                                                                      |
+| `prerequisites.ts`                                                  | Python/PDF OCR checks                                                                                      |
+| `python/extract_pdf_assets.py`                                      | PDF asset extraction (PyMuPDF/Tesseract)                                                                   |
 
 **Flow:** Administrator backend upload → Storage + job queue → worker parses (PDF/DOCX/XLSX/TXT) → OCR fallback → image captioning → chunking → OpenAI embeddings → pgvector. The site does not expose a user document-upload workflow.
 
-**Run:** `npm run worker` or `npm run worker:once`
+**Run:** `npm run worker` or `npm run worker:once`. Production builds with `scripts/build-worker.mjs` to `dist/worker/index.mjs` inside `Dockerfile.worker` (OCR venv at `/opt/ocr-venv`, Docling venv at `/opt/docling-venv`).
 
 ---
 
 ## Scripts (grouped)
 
-| Group                 | Key scripts                                                                                                                                                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Dev/server            | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts`                                                                                                                                                       |
-| Ingestion/indexing    | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts`                                                                                   |
-| Document intelligence | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                                                                                                       |
-| Governance            | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                                                                                                     |
-| RAG eval              | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                                                                                                             |
-| Maintenance           | `cleanup-storage.ts`, `generate-site-map.ts`, `optimize-public-images.mjs`, `update-docs-inventory.mjs`, `seed-registry-records.ts`, `generate-outstanding-issues-snapshot.mjs`, `check-outstanding-issues-snapshot.mjs` |
+| Group                           | Key scripts                                                                                                                                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dev/server                      | `ensure-local-server.mjs`, `dev-free-port.mjs`, `check-runtime.ts`                                                                                                                                              |
+| Ingestion/indexing              | `import-documents.ts`, `reindex.ts`, `reindex-health.ts`, `check-indexing.ts`, `backfill-smart-index.ts`, `recover-ingestion-queue.ts`                                                                          |
+| Document intelligence           | `enrich-documents.ts`, `classify-documents.ts`, `backfill-gold-document-labels.ts`                                                                                                                              |
+| Governance                      | `audit-source-governance.ts`, `production-readiness.ts`, `check-supabase-project.ts`                                                                                                                            |
+| RAG eval                        | `eval-rag.ts`, `eval-retrieval.ts`, `eval-quality.ts`, `retrieval-health.ts`                                                                                                                                    |
+| Maintenance                     | `cleanup-storage.ts`, `generate-site-map.ts`, `update-docs-inventory.mjs`, `seed-registry-records.ts`, `generate-outstanding-issues-snapshot.mjs`, `check-outstanding-issues-snapshot.mjs`                      |
+| Drift and migration gates       | `check-drift.ts`, `check-chain-mirror-parity.ts`, `check-migration-immutability.mjs`, `check-hosted-migration-role.mjs`, `check-function-grants.mjs`, `check-owner-scope-api.mjs`, `generate-drift-manifest.ts` |
+| Ledgers                         | `ledger-inbox.mjs` (`issues:*`), `branch-review-ledger.mjs` (`ledger:*`), `generate-branch-review-index.mjs`                                                                                                    |
+| PR tooling                      | `pr-policy.mjs`, `pr-mergeability.mjs`, `pr-batch-runner.mjs` (Clear PRs), `sync-pr-branches.mjs`, `ci-change-scope.mjs`, `guard-push.mjs`, `verify-pr-local.mjs`                                               |
+| Offline eval                    | `eval-rag-offline.mjs`, `eval-rag-adversarial-offline.mjs`, `eval-assertions.ts`, `tune-search-weights.ts`, `build-ranking-snapshot.ts`                                                                         |
+| Site content and public sources | `sync-site-content-corpus.ts`, `refresh-site-content-bootstrap.ts`, `plan-public-source-acquisition.ts`, `fetch-approved-public-source-versions.ts`                                                             |
+| Ingestion ops                   | `ingestion-autopilot.ts`, `repair-strict-enrichment-gate.ts`, `cleanup-abandoned-reindex-generations.ts`                                                                                                        |
 
-Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
+Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json` (other RAG, adversarial and ranking-snapshot fixtures sit beside it).
+
+Subfolders: `scripts/lib/` (shared helpers, including the protected `clinical-aliases.ts`), `scripts/deploy/` (`await-migrations.mjs` Railway pre-deploy, `write-migration-manifest.mjs`), `scripts/sql/` (verify and parity SQL), `scripts/ward-flow/` (Ward Flow coordination and mutation tooling), `scripts/archive/` (historical, still referenced by two checks). `docs/scripts-index.md` is the full catalogue.
 
 ---
 
@@ -920,21 +996,30 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Key config files
 
-| File                                       | Role                                                      |
-| ------------------------------------------ | --------------------------------------------------------- |
-| `package.json`                             | Scripts, deps, Node 24 / npm 11                           |
-| `.env.example`                             | Full env template                                         |
-| `next.config.ts`                           | CSP, security headers, build config                       |
-| `tsconfig.json`                            | Strict TS; excludes `supabase/functions/**`               |
-| `eslint.config.mjs`                        | Lint scope                                                |
-| `AGENTS.md`                                | Agent rules, verification gates, shortcuts                |
-| `.github/workflows/ci.yml`                 | CI pipeline                                               |
-| `scripts/sync-open-pr-branches.mjs`        | Operator-only dry-run/apply helper for PR branch sync     |
-| `docs/process-hardening.md`                | Verification pyramid                                      |
-| `docs/phone-chrome-physical-acceptance.md` | Physical Safari / cold-launch PWA phone-chrome acceptance |
-| `docs/clinical-governance.md`              | Clinical safety governance                                |
-| `docs/reindex-runbook.md`                  | Reindex operations                                        |
-| `docs/retrieval-quality-runbook.md`        | Retrieval tuning                                          |
+| File                                                                               | Role                                                                 |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `package.json`                                                                     | Scripts, deps, Node 24 / npm 11                                      |
+| `.env.example`                                                                     | Full env template                                                    |
+| `next.config.ts`                                                                   | CSP, security headers, build config                                  |
+| `tsconfig.json`                                                                    | Strict TS; excludes `supabase/functions/**`                          |
+| `eslint.config.mjs`                                                                | Lint scope                                                           |
+| `AGENTS.md`                                                                        | Agent rules, verification gates, shortcuts                           |
+| `.github/workflows/ci.yml`                                                         | CI pipeline; `pr-required` is the single required aggregate          |
+| `.github/workflows/pr-policy.yml`, `pr-mergeability.yml`                           | PR body/label policy and mergeability                                |
+| `.github/workflows/live-drift.yml`                                                 | Post-merge live schema drift gate                                    |
+| `Dockerfile`, `Dockerfile.worker`                                                  | App and worker images                                                |
+| `railway.app.json`, `railway.worker.json`                                          | Railway build, healthcheck and pre-deploy migration wait             |
+| `supabase/config.toml`                                                             | Edge Function config                                                 |
+| `deploy/australia/`                                                                | Sovereign-hosting kit for Caring Contacts                            |
+| `vitest.config.mts`, `playwright.config.ts`, `playwright.visual.config.ts`         | Test runners                                                         |
+| `tsconfig.typecheck.json`                                                          | Typecheck scope                                                      |
+| `bundle-budget.json`, `lighthouse-budget.json`, `diff-integrity.json`, `knip.json` | Bundle and Lighthouse budgets, test-deletion guard, dead-code config |
+| `scripts/sync-open-pr-branches.mjs`                                                | Operator-only dry-run/apply helper for PR branch sync                |
+| `docs/process-hardening.md`                                                        | Verification pyramid                                                 |
+| `docs/phone-chrome-physical-acceptance.md`                                         | Physical Safari / cold-launch PWA phone-chrome acceptance            |
+| `docs/clinical-governance.md`                                                      | Clinical safety governance                                           |
+| `docs/reindex-runbook.md`                                                          | Reindex operations                                                   |
+| `docs/retrieval-quality-runbook.md`                                                | Retrieval tuning                                                     |
 
 ---
 

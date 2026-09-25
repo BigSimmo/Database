@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "44847814-3b5b-4bc4-b932-bdf070e7164f",
+  "createdOn": "2026-09-21",
+  "action": "add",
+  "payload": {
+    "pri": "P2",
+    "type": "issue",
+    "summary": "Clinical KB: indexing-v3-agent JWT/secret dual-gate after PR2/PR3",
+    "detail": "Cron invokes every minute with Vault indexing_v3_agent_secret. Harden so JWT and secret are dual-gated after Codex PR2/PR3 land. Operational context: docs/supabase-remediation-closeout-notes.md §1.2 (PR #2959).",
+    "source": "PR #2959 docs closeout review 2026-09-21 — queue deferred security/DB work into canonical ledger",
+    "issueUlid": "01M31F4Y1FP6BSQ3CHMSHM2K0Q"
+  }
+}

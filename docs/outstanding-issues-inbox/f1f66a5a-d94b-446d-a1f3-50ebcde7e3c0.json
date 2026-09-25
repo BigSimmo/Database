@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "id": "f1f66a5a-d94b-446d-a1f3-50ebcde7e3c0",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#W4E78P",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): npm audit needs the network, so not re-verified. Lockfiles changed since 2026-09-20 (sharp added c8e21b074; Python cloud lock regenerated dde0a3df4), so the 22 / 2 critical / 11 high counts may have moved; re-read the Dependabot list before triage. PRIOR DETAIL: Triage the Dependabot list and record, per advisory, whether it is reachable from the live site or confined to build/dev tooling. Why: 2 critical and 11 high are reported on the default branch and nobody has looked; npm audit alone does NOT see them — it found only one dev-only js-yaml advisory, so the earlier 'one low-priority issue' read was wrong. Dependabot also covers the Python worker, container images and Actions. Context: reported on every git push during the 2026-09-19 review. Owner: assistant to triage, user to approve any bump. Confidence: high — the counts come from GitHub's own push message. Depends on: nothing.",
+    "baseRowFingerprint": "9c265021ef1e5f85fa7fff531d52b45dc2e98d2f6f6ed5eb760bf0dcf06294f8"
+  }
+}

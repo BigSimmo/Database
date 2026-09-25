@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 
-import { CmeDashboard } from "@/components/cme/cme-dashboard";
+import { CmeDashboard, type CmeReportingReminder } from "@/components/cme/cme-dashboard";
+import { CmeQuickLog } from "@/components/cme/cme-quick-log";
 import { cmeRoutineLogHref } from "@/components/cme/cme-route-navigation";
+import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
 export type CmeDashboardRouteProps = {
@@ -11,6 +13,9 @@ export type CmeDashboardRouteProps = {
   readonly entries: readonly CmeEntry[];
   /** ISO instant from the server load — Dates cannot cross the RSC boundary intact. */
   readonly nowIso: string;
+  readonly routines: readonly CmeRoutine[];
+  readonly demoMode?: boolean;
+  readonly reportingReminder?: CmeReportingReminder | null;
 };
 
 /**
@@ -25,16 +30,28 @@ export type CmeDashboardRouteProps = {
  * hydrates into agree on which season of the year the screen is in. Demo mode
  * freezes that instant against the corpus; live mode uses the request time.
  */
-export function CmeDashboardRoute({ set, entries, nowIso }: CmeDashboardRouteProps) {
+export function CmeDashboardRoute({
+  set,
+  entries,
+  nowIso,
+  routines,
+  demoMode = false,
+  reportingReminder = null,
+}: CmeDashboardRouteProps) {
   const router = useRouter();
 
   return (
-    <CmeDashboard
-      set={set}
-      entries={entries}
-      now={new Date(nowIso)}
-      onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
-      onOpenCustomise={() => router.push("/cme/customise")}
-    />
+    <>
+      <CmeDashboard
+        set={set}
+        entries={entries}
+        now={new Date(nowIso)}
+        routines={routines}
+        onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
+        onOpenCustomise={() => router.push("/cme/customise")}
+        reportingReminder={reportingReminder}
+      />
+      <CmeQuickLog set={set} demoMode={demoMode} />
+    </>
   );
 }

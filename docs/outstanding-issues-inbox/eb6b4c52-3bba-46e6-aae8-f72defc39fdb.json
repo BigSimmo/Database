@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "id": "eb6b4c52-3bba-46e6-aae8-f72defc39fdb",
+  "createdOn": "2026-09-25",
+  "action": "update",
+  "payload": {
+    "id": "#018",
+    "summary": "ADHD monitoring corpus debt: the expected CAMHS ADHD guideline is absent from the corpus",
+    "detail": "REVIEW 2026-09-25 (offline audit of current main; no provider access): The split by mechanism is finished: lithium resolved on main, metabolic monitoring lives in #J8SJQ9. What remains is ADHD only: quality-adhd-medication-monitoring (rag-eval-cases.ts) expects CG.MHSP.ADHD.pdf, which is absent. No ADHD commits since 2026-09-13. PRIOR DETAIL: PROGRESS 2026-09-13: Mechanism split documented (Lithium residuals resolved on main; metabolic monitoring isolated to #J8SJQ9; ADHD monitoring identified as independent evaluation debt). Do NOT close #018 until the ADHD corpus debt has its own tracked successor issue (no separate ADHD/CAMHS issue found yet). Keep #018 open as the durable ADHD debt tracker.",
+    "baseRowFingerprint": "2684724640da3ca48086c84177569398274cc5b82e08b6729f82ed39f7753a9e"
+  }
+}
