@@ -104,6 +104,23 @@ jobs:
               "if a stuck queue or aged queued-without-job document is confirmed. Do not assume corruption —",
               "a transient outage looks the same.",
             ].join("\n");
+            // Route the alert to a person, not only a label (#TN512M): GitHub notifies an issue's
+            // assignee on their phone, for the opening and for every later comment. Best-effort, so
+            // a refused assignment can never cost the alert itself.
+            const alertAssignee = context.repo.owner;
+            async function assignAlert(issueNumber) {
+              try {
+                await github.rest.issues.addAssignees({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueNumber,
+                  assignees: [alertAssignee],
+                });
+              } catch (error) {
+                core.warning(`Could not assign @${alertAssignee} to #${issueNumber}: ${error.message}`);
+              }
+            }
+
             const { data: existing } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -117,12 +134,14 @@ jobs:
                 issue_number: existing[0].number,
                 body,
               });
+              await assignAlert(existing[0].number);
             } else {
-              await github.rest.issues.create({
+              const created = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 title: "Ingestion autopilot alert",
                 labels: [label],
                 body,
               });
+              await assignAlert(created.data.number);
             }
