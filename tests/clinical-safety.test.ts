@@ -793,18 +793,67 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("Blood pressure monitors must be calibrated annually.")).toBe("Monitoring");
   });
 
-  it("still misses `urgently`: the same defect one tier up, NOT fixed here (#9XRDF7)", () => {
-    // Found while measuring #9XRDF7, outside its owner approval, and left alone on purpose.
-    // `\burgent\b` misses "urgently" for exactly the reason `\bescalat\b` missed "escalate", and
-    // it sits in `red_flag` -- the tier where a silent miss costs most. "Urgently reassess the
-    // patient." produces no chip at all today. `review`, `exclude`, `consider`, `caution` and
-    // `transfer` have the same gap on their inflected forms.
+  it("matches `urgently`, `seizures` and the inflected `transfer` forms (#GHC4XZ, owner sign-off 2026-09-25)", () => {
+    // This expectation was pinned as an explicitly-labelled unfixed gap (#9XRDF7): `\burgent\b`
+    // missed "urgently" and `\btransfer\b` missed "transferring", so both passages below produced
+    // no chip at all. Widening a red-flag token moves passages onto the danger colour, which was
+    // held for the owner. Josh (psychiatrist, product owner) signed that decision off on 2026-09-25:
+    // red_flag gains `urgent(?:ly)?` and `seizures?`, escalation gains `transfer(?:s|red|ring)?`,
+    // and nothing else. `review`, `exclude`, `consider` and `caution` keep their inflection gap
+    // because that decision did not cover them.
+    expect(labelFor("Urgently reassess the patient.")).toBe("Red flag");
+    expect(labelFor("Transferring the patient to the medical ward.")).toBe("Escalation");
+    expect(labelFor("Recurrent seizures were reported after the dose increase.")).toBe("Red flag");
+    expect(labelFor("The patient was transferred to the high dependency unit.")).toBe("Escalation");
+    expect(labelFor("The team transfers care to the medical ward.")).toBe("Escalation");
+    // The bare forms already matched and must still.
+    expect(labelFor("Urgent reassessment is needed.")).toBe("Red flag");
+    expect(labelFor("A seizure occurred overnight.")).toBe("Red flag");
+    expect(labelFor("Arrange transfer to the medical ward.")).toBe("Escalation");
+  });
+
+  it("moves passages up from lower tiers, the measured cost of the #GHC4XZ widening", () => {
+    // Widening is not purely additive: `safetyPatterns.find` takes the FIRST match in severity
+    // order, so the widened entries also claim passages that read as a lower tier before. Every
+    // movement measured against the pre-widening patterns, pinned so none is discovered later.
     //
-    // Pinned as a gap, not fixed, because widening a red-flag token moves passages onto the danger
-    // colour and that is the owner's call. When it is made, this expectation flips and this comment
-    // moves with it.
-    expect(labelFor("Urgently reassess the patient.")).toBeUndefined();
-    expect(labelFor("Transferring the patient to the medical ward.")).toBeUndefined();
+    //   Escalation -> Red flag     "Urgently escalate to the consultant."
+    //   Dose limit -> Red flag     "Seizures occurred above 600 mg/day."
+    //   Monitoring -> Red flag     "Monitor for seizures."
+    //   Exclusion  -> Red flag     "Exclude patients with seizures."
+    //   Caveat     -> Red flag     "Consider an EEG if seizures recur."
+    //   Dose limit -> Escalation   "Transferred after exceeding 600 mg/day."
+    //   Monitoring -> Escalation   "Transferred for renal monitoring."
+    //   Exclusion  -> Escalation   "Transferred unless the patient declines."
+    //   Caveat     -> Escalation   "Consider transferring to a specialist unit."
+    //
+    // All nine move to a MORE severe tier and a stronger tone, which is the direction the owner
+    // approved (a passage about seizures or urgency should not read as a caveat).
+    expect(labelFor("Urgently escalate to the consultant.")).toBe("Red flag");
+    expect(labelFor("Seizures occurred above 600 mg/day.")).toBe("Red flag");
+    expect(labelFor("Monitor for seizures.")).toBe("Red flag");
+    expect(labelFor("Exclude patients with seizures.")).toBe("Red flag");
+    expect(labelFor("Consider an EEG if seizures recur.")).toBe("Red flag");
+    expect(labelFor("Transferred after exceeding 600 mg/day.")).toBe("Escalation");
+    expect(labelFor("Transferred for renal monitoring.")).toBe("Escalation");
+    expect(labelFor("Transferred unless the patient declines.")).toBe("Escalation");
+    expect(labelFor("Consider transferring to a specialist unit.")).toBe("Escalation");
+    // Nothing above the widened entries moves.
+    expect(labelFor("Do not use in patients with seizures.")).toBe("Contraindication");
+    expect(labelFor("Avoid if seizures occur.")).toBe("Contraindication");
+  });
+
+  it("does not read transferrin or transference as a transfer (#GHC4XZ)", () => {
+    // `transfer(?:s|red|ring)?` is an explicit suffix group, not `transfer\w*`, precisely so these
+    // two stay unlabelled: an iron-studies result and a psychotherapy term carry no instruction to
+    // move the patient, and would otherwise arrive painted with the amber `act` tone.
+    expect(labelFor("Serum transferrin saturation was within the reference range.")).toBeUndefined();
+    expect(labelFor("Transferrin saturation was low.")).toBeUndefined();
+    expect(labelFor("Transference is common in long-term psychotherapy.")).toBeUndefined();
+    expect(labelFor("Countertransference shaped the therapeutic alliance.")).toBeUndefined();
+    // Nor is the widened red-flag entry a prefix match on longer words.
+    expect(labelFor("Seizureless intervals lengthened over the year.")).toBeUndefined();
+    expect(labelFor("The urgentness of the tone was noted.")).toBeUndefined();
   });
 
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {

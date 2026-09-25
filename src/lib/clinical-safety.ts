@@ -50,8 +50,15 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     //
     // `hold` is only ever matched inside a dose phrase; a bare \bhold\b matches
     // ordinary prose ("hold the view that ...").
+    //
+    // `urgent(?:ly)?` and `seizures?`: the same trailing-`\b` defect again. Bare
+    // `urgent` missed "Urgently reassess the patient." and bare `seizure` missed
+    // "seizures", both silently. Widening this tier moves passages onto the
+    // danger colour, so it waited for the owner: Josh (psychiatrist, product
+    // owner) signed it off on 2026-09-25 (#GHC4XZ). Explicit suffix groups, not
+    // `\w*`, so nothing beyond the adverb and the plural is claimed.
     pattern:
-      /\b(red flag|urgent|emergency|immediate(?:ly)?|severe|toxicity|seizure|chest pain|dyspnoea|ceas(?:e|es|ed|ing)|withhold\w*|withheld|hold (?:the next |the |further |all |any |subsequent |next )?doses?|boxed warning|black box|hypersensitivity|anaphyla\w*)\b/i,
+      /\b(red flag|urgent(?:ly)?|emergency|immediate(?:ly)?|severe|toxicity|seizures?|chest pain|dyspnoea|ceas(?:e|es|ed|ing)|withhold\w*|withheld|hold (?:the next |the |further |all |any |subsequent |next )?doses?|boxed warning|black box|hypersensitivity|anaphyla\w*)\b/i,
   },
   {
     kind: "escalation",
@@ -76,8 +83,13 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // everything below it in the array. Passages already reaching
     // Contraindication or Red flag are untouched. Every measured movement is
     // pinned in tests/clinical-safety.test.ts.
+    //
+    // `transfer(?:s|red|ring)?` (#GHC4XZ, owner sign-off 2026-09-25): bare
+    // `transfer` missed "transferring" and "transferred". An explicit suffix
+    // group, never `transfer\w*`, which would claim "transferrin" (an iron
+    // study) and "transference" (a psychotherapy term) as escalations.
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer)\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer(?:s|red|ring)?)\b/i,
   },
   {
     kind: "dose_limit",
