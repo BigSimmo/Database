@@ -460,7 +460,10 @@ export const sourceAuthorityRegistry = [
     codes: ["APA"],
     publisher: "American Psychiatric Association",
     publisherAliases: ["APA Publishing", "American Psychiatric Association Publishing"],
-    jurisdictions: ["United States", "USA", "International", "Global"],
+    // One entry per publisher: a second entry under this key used to override
+    // this one silently by position (#T9MZ7V). The order below is the one that
+    // was winning every lookup, so the first-listed jurisdiction is unchanged.
+    jurisdictions: ["International", "Global", "United States", "USA"],
     scope: "international",
     tier: "supplementary",
     catalogueIdentityOnly: true,
@@ -650,15 +653,6 @@ export const sourceAuthorityRegistry = [
     jurisdictions: nationalJurisdictions,
     scope: "australian_national",
     tier: "australian_national",
-    catalogueIdentityOnly: true,
-  }),
-  authority({
-    key: "american-psychiatric-association",
-    codes: ["APA"],
-    publisher: "American Psychiatric Association",
-    jurisdictions: ["International", "Global", "United States"],
-    scope: "international",
-    tier: "supplementary",
     catalogueIdentityOnly: true,
   }),
   authority({
