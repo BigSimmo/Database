@@ -738,6 +738,10 @@ test.describe("universal search smart affordances", () => {
 
     await expect(page.getByText("Best match")).toBeHidden();
     await expect(page.getByRole("option").first()).toContainText("Acamprosate renal screen");
-    await expect(page.getByRole("option").first()).toContainText("Saved");
+    // This row is a demo fixture, not the clinician's own favourite, so it reads "Example"
+    // and never "Saved" (#358YM0). The own-favourite "Saved" label is pinned in
+    // tests/favourites-demo-examples.dom.test.tsx.
+    await expect(page.getByRole("option").first()).toContainText("Example");
+    await expect(page.getByRole("option").first()).not.toContainText("Saved");
   });
 });

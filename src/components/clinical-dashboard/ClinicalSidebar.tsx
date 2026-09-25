@@ -1053,8 +1053,20 @@ function ClinicalCollapsedRail({
   const pinnedModeItems = pinnedModeIds
     .map(sidebarModeItem)
     .filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const moreModesActive =
-    (pinnableSidebarModeIds as readonly AppModeId[]).includes(activeMode) && !pinnedModeIds.includes(activeMode);
+  // The rail is the one element that survives every route change, so it must answer
+  // "where am I" with the mode itself, not with the generic More modes opener. When the
+  // active mode is not already a pinned shortcut (or the library's Favourites link), it
+  // gets its own slot — including Calculators and Favourites, which cannot be pinned.
+  // Exactly one rail item is ever marked current.
+  const activeModeInLibrary = showAccountLibrary && sidebarAccountLibraryItems.some((item) => item.id === activeMode);
+  // The "favourites" branch is reachable only when the library nav is hidden
+  // (showAccountLibrary false); otherwise Favourites is already lit there.
+  const currentModeItem =
+    pinnedModeIds.includes(activeMode) || activeModeInLibrary
+      ? undefined
+      : activeMode === "favourites"
+        ? sidebarAccountLibraryItems[0]
+        : sidebarModeItem(activeMode);
 
   function openModeEditor() {
     modeEditorReturnFocusRef.current = moreModesTriggerRef.current;
@@ -1151,9 +1163,24 @@ function ClinicalCollapsedRail({
           })}
         </nav>
         <span className={collapsedSidebarDivider} aria-hidden="true" />
+        {currentModeItem ? (
+          <nav aria-label="Current mode" className="grid justify-items-center gap-1.5">
+            <Link
+              href={currentModeItem.href}
+              onClick={(event) => selectModeFromLinkClick(event, currentModeItem, onSelectMode)}
+              className={cn(collapsedSidebarButton, collapsedSidebarActiveButton)}
+              aria-label={currentModeItem.label}
+              title={currentModeItem.label}
+              aria-current="page"
+              data-testid="collapsed-sidebar-current-mode"
+            >
+              <currentModeItem.icon aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          </nav>
+        ) : null}
         <SidebarModesTrigger
           variant="collapsed"
-          active={moreModesActive}
+          active={false}
           open={modeEditorOpen}
           onOpen={openModeEditor}
           triggerRef={moreModesTriggerRef}

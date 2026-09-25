@@ -60,6 +60,8 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
+import { RouteNotFoundPanel } from "@/components/route-not-found-panel";
+import { appModeHomeHref } from "@/lib/app-modes";
 import { Sheet } from "@/components/ui/sheet";
 
 const sectionIcons: Record<string, LucideIcon> = {
@@ -424,7 +426,7 @@ export function MedicationRecordPage({
   fallbackRecord?: MedicationRecord;
   fallbackGovernance?: MedicationGovernance;
 }) {
-  const { data, loading, error } = useMedicationDetail(slug);
+  const { data, loading, error, notFound } = useMedicationDetail(slug);
   // Content-first: render the SSR fallback immediately, then swap in the live
   // (owner-aware) record once the hook resolves. Only fall back to the skeleton
   // when there is no server record to show (owner-only slugs) and the fetch is
@@ -447,7 +449,7 @@ export function MedicationRecordPage({
   return (
     <>
       <MedicationNavHeader
-        title={record?.name ?? slug}
+        title={record?.name ?? (notFound ? "Not found" : slug)}
         record={record}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
@@ -485,6 +487,16 @@ export function MedicationRecordPage({
             <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
           ) : loading ? (
             <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
+          ) : notFound ? (
+            // The API said this slug is not in the catalogue (after sign-in resolved),
+            // so name it and route back, as every other catalogue does, rather than
+            // showing a bare request failure that reads as the system being broken.
+            <RouteNotFoundPanel
+              title="Medication Not Found"
+              description="The requested medication could not be found in the catalogue."
+              returnHref={appModeHomeHref("prescribing")}
+              returnLabel="Return to medications"
+            />
           ) : (
             <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
               <div className="flex items-start gap-2">
