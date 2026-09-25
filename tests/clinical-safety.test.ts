@@ -858,6 +858,25 @@ describe("safety finding precision (characterisation)", () => {
     expect(labelFor("The urgentness of the tone was noted.")).toBeUndefined();
   });
 
+  it("does not read a drug crossing into milk or across the placenta as a transfer (#GHC4XZ, owner decision 2026-09-25)", () => {
+    // Josh (psychiatrist, product owner) decided on 2026-09-25 that `transfer` must not match when
+    // followed by "into" or "across". Those are pharmacokinetic passages (a drug moving between
+    // body compartments), not an instruction to move the patient, and would otherwise arrive
+    // painted with the amber `act` tone. Before the widening, the first two passages below carried
+    // no chip at all (bare `\btransfer\b` missed "transfers" and "transferred") and they keep that.
+    // The bare noun "transfer across" WAS labelled Escalation before; the exclusion now clears it.
+    expect(labelFor("Sertraline transfers into breast milk.")).toBeUndefined();
+    expect(labelFor("Lithium is transferred across the placenta.")).toBeUndefined();
+    expect(labelFor("Placental transfer across the membrane is rapid.")).toBeUndefined();
+    expect(labelFor("Drug transferring into breast milk was minimal.")).toBeUndefined();
+    // A patient transfer is still an escalation, and urgency still outranks it.
+    expect(labelFor("Transferring the patient to ICU.")).toBe("Escalation");
+    expect(labelFor("Transferred to the medical ward urgently.")).toBe("Red flag");
+    expect(labelFor("Transferred to the medical ward.")).toBe("Escalation");
+    // The exclusion is a whole-word lookahead: "intolerance" is not "into".
+    expect(labelFor("Transferred given intolerance of the ward.")).toBe("Escalation");
+  });
+
   it("over-calls an intransitive `ceased`, which is the accepted cost of the fix (#GHC4XZ)", () => {
     // NOT a passing behaviour -- a known false positive, pinned so it is deliberate rather than
     // discovered later. "The tremor ceased overnight." is an observation, not an instruction, and

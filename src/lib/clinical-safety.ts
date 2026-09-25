@@ -88,8 +88,14 @@ const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: R
     // `transfer` missed "transferring" and "transferred". An explicit suffix
     // group, never `transfer\w*`, which would claim "transferrin" (an iron
     // study) and "transference" (a psychotherapy term) as escalations.
+    //
+    // `(?!\s+(?:into|across)\b)` (#GHC4XZ, owner decision 2026-09-25): a drug
+    // that "transfers into breast milk" or is "transferred across the placenta"
+    // is pharmacokinetics, not an instruction to move the patient, so those
+    // passages get no Escalation chip. The trailing `\b` stops the optional
+    // suffix backtracking round the lookahead ("transfer|red into").
     pattern:
-      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer(?:s|red|ring)?)\b/i,
+      /\b(escalat(?:e|es|ed|ing|ion|ions)|senior review|specialist review|urgent review|higher level|transfer(?:s|red|ring)?(?!\s+(?:into|across)\b))\b/i,
   },
   {
     kind: "dose_limit",
